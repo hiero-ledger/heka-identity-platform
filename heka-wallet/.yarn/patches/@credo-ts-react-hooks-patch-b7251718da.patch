@@ -1,0 +1,35 @@
+diff --git a/build/AgentProvider.d.ts b/build/AgentProvider.d.ts
+index 693493c83019cf2bf0cc846f6a5e179330766f21..141bdbe19f804901c3aaeaba8c4c0ab440de9a0c 100644
+--- a/build/AgentProvider.d.ts
++++ b/build/AgentProvider.d.ts
+@@ -5,7 +5,7 @@ interface AgentContextInterface<AppAgent extends Agent = Agent> {
+     loading: boolean;
+     agent?: AppAgent;
+     publicDid?: string;
+-    setAgent(agent: AppAgent): void;
++    setAgent(agent: AppAgent | null): void;
+     setPublicDid(did: string): void;
+     agentIteration: number;
+ }
+diff --git a/build/AgentProvider.js b/build/AgentProvider.js
+index de91c16e9b7bcf375115fe76d7d752bde9290b25..367039e6d56ba1dcf3afc0c7bb5ee2b94227f6a4 100644
+--- a/build/AgentProvider.js
++++ b/build/AgentProvider.js
+@@ -56,16 +56,11 @@ const AgentProvider = ({ agent, children }) => {
+     });
+     const isQaRegistered = (0, recordUtils_1.useIsModuleRegistered)(agentState.agent, question_answer_1.QuestionAnswerModule);
+     const setInitialState = async (newAgent) => {
+-        if (!newAgent)
+-            return;
+-        setAgentState(prev => ({ agent: newAgent, loading: false, agentIteration: prev.agentIteration + 1 }));
++        setAgentState(prev => ({ agent: newAgent, loading: !newAgent, agentIteration: newAgent ? prev.agentIteration + 1 : prev.agentIteration }));
+     };
+     const setPublicDid = (publicDid) => {
+         setAgentState((state) => ({ ...state, publicDid }))
+     }
+-    React.useEffect(() => {
+-        setInitialState();
+-    }, [agentState.agent]);
+     return (React.createElement(AgentContext.Provider, { value: { agent: agentState.agent, publicDid: agentState.publicDid, agentIteration: agentState.agentIteration, loading: agentState.agent ? false : true, setAgent: setInitialState, setPublicDid } },
+         React.createElement(ConnectionProvider_1.default, { agent: agentState.agent, agentIteration: agentState.agentIteration },
+             React.createElement(CredentialProvider_1.default, { agent: agentState.agent, agentIteration: agentState.agentIteration },

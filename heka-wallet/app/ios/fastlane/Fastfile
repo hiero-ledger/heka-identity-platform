@@ -1,0 +1,50 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Build store IPA"
+  lane :build do |options|
+    cocoapods()
+    increment_version_number(
+      version_number: options[:bundleVersion],
+      xcodeproj: "./HekaWallet.xcodeproj"
+    )
+    config_signing
+    gym
+  end
+
+  private_lane :config_signing do |options|
+
+    identifier = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+    team_id = CredentialsManager::AppfileConfig.try_fetch_value(:team_id)
+
+    code_sign_identity = ENV["IOS_CODE_SIGN_IDENTITY"]
+    profile_name = ENV["PROFILE_NAME_HEKA_WALLET"]
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "./HekaWallet.xcodeproj",
+      team_id: team_id,
+      bundle_identifier: identifier,
+      profile_name: profile_name,
+      code_sign_identity: code_sign_identity,
+      bundle_identifier: identifier,
+      targets: ["HekaWallet"],
+      build_configurations: ["Release"]
+    )
+  end
+end

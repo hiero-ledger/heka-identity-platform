@@ -1,0 +1,453 @@
+name: anoncreds, nameSpecified: 
+body: 
+                   …
+version: 0.1.0
+
+name: anoncreds, nameSpecified: 
+body: 
+                   …
+version: 0.1.0
+
+name: AppAuth, nameSpecified: 
+body: 
+                   …
+version: 1.4.0
+
+name: AppAuth, nameSpecified: 
+body: 
+                   …
+version: 1.4.0
+
+name: boost, nameSpecified: 
+body: Boost Software Licen…
+version: 1.76.0
+
+name: boost, nameSpecified: 
+body: Boost Software Licen…
+version: 1.76.0
+
+name: CatCrypto, nameSpecified: 
+body: Copyright (c) 2017 K…
+version: 0.3.2
+
+name: CatCrypto, nameSpecified: 
+body: Copyright (c) 2017 K…
+version: 0.3.2
+
+name: CocoaAsyncSocket, nameSpecified: 
+body: Public Domain Licens…
+version: 7.6.5
+
+name: CocoaAsyncSocket, nameSpecified: 
+body: Public Domain Licens…
+version: 7.6.5
+
+name: DoubleConversion, nameSpecified: 
+body: Copyright 2006-2011,…
+version: 1.1.6
+
+name: DoubleConversion, nameSpecified: 
+body: Copyright 2006-2011,…
+version: 1.1.6
+
+name: fmt, nameSpecified: 
+body: Copyright (c) 2012 -…
+version: 6.2.1
+
+name: fmt, nameSpecified: 
+body: Copyright (c) 2012 -…
+version: 6.2.1
+
+name: glog, nameSpecified: 
+body: Copyright (c) 2008, …
+version: 0.3.5
+
+name: glog, nameSpecified: 
+body: Copyright (c) 2008, …
+version: 0.3.5
+
+name: hermes-engine, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 0.9.0
+
+name: hermes-engine, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 0.9.0
+
+name: libevent, nameSpecified: 
+body: Libevent is availabl…
+version: 2.1.12
+
+name: libevent, nameSpecified: 
+body: Libevent is availabl…
+version: 2.1.12
+
+name: libwebp, nameSpecified: 
+body: Copyright (c) 2010, …
+version: 1.2.4
+
+name: libwebp, nameSpecified: 
+body: Copyright (c) 2010, …
+version: 1.2.4
+
+name: LicensePlist, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 3.24.10
+
+name: LicensePlist, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 3.24.10
+
+name: OpenSSL-Universal, nameSpecified: 
+body: 
+  LICENSE ISSUES
+  …
+version: 1.1.180
+
+name: OpenSSL-Universal, nameSpecified: 
+body: 
+  LICENSE ISSUES
+  …
+version: 1.1.180
+
+name: RCT-Folly, nameSpecified: 
+body: 
+                   …
+version: 
+
+name: RCT-Folly, nameSpecified: 
+body: 
+                   …
+version: 
+
+name: React, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 0.66.5
+
+name: React, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 0.66.5
+
+name: React-Core, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 0.66.5
+
+name: React-Core, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 0.66.5
+
+name: react-native-app-auth, nameSpecified: 
+body: The MIT License (MIT…
+version: 6.4.3
+
+name: react-native-app-auth, nameSpecified: 
+body: The MIT License (MIT…
+version: 6.4.3
+
+name: react-native-camera, nameSpecified: 
+body: The MIT License (MIT…
+version: 3.44.3
+
+name: react-native-camera, nameSpecified: 
+body: The MIT License (MIT…
+version: 3.44.3
+
+name: react-native-config, nameSpecified: 
+body: The MIT License (MIT…
+version: 1.4.4
+
+name: react-native-config, nameSpecified: 
+body: The MIT License (MIT…
+version: 1.4.4
+
+name: react-native-encrypted-storage, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 4.0.2
+
+name: react-native-encrypted-storage, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 4.0.2
+
+name: react-native-get-random-values, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 1.7.0
+
+name: react-native-get-random-values, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 1.7.0
+
+name: react-native-netinfo, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 9.3.7
+
+name: react-native-netinfo, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 9.3.7
+
+name: react-native-quick-crypto, nameSpecified: 
+body: **react-native-quick…
+version: 0.5.0
+
+name: react-native-quick-crypto, nameSpecified: 
+body: **react-native-quick…
+version: 0.5.0
+
+name: react-native-safe-area-context, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 3.3.2
+
+name: react-native-safe-area-context, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 3.3.2
+
+name: react-native-splash-screen, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 3.3.0
+
+name: react-native-splash-screen, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 3.3.0
+
+name: react-native-tcp-socket, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 6.0.6
+
+name: react-native-tcp-socket, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 6.0.6
+
+name: react-native-webview, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 11.26.1
+
+name: react-native-webview, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 11.26.1
+
+name: RNArgon2, nameSpecified: 
+body: The MIT License (MIT…
+version: 2.0.1
+
+name: RNArgon2, nameSpecified: 
+body: The MIT License (MIT…
+version: 2.0.1
+
+name: RNCAsyncStorage, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 1.15.11
+
+name: RNCAsyncStorage, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 1.15.11
+
+name: RNCClipboard, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 1.11.2
+
+name: RNCClipboard, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 1.11.2
+
+name: RNDeviceInfo, nameSpecified: 
+body: The MIT License (MIT…
+version: 8.4.9
+
+name: RNDeviceInfo, nameSpecified: 
+body: The MIT License (MIT…
+version: 8.4.9
+
+name: RNFastImage, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 8.6.3
+
+name: RNFastImage, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 8.6.3
+
+name: RNFS, nameSpecified: 
+body: The MIT License (MIT…
+version: 2.20.0
+
+name: RNFS, nameSpecified: 
+body: The MIT License (MIT…
+version: 2.20.0
+
+name: RNGestureHandler, nameSpecified: 
+body: The MIT License (MIT…
+version: 1.10.3
+
+name: RNGestureHandler, nameSpecified: 
+body: The MIT License (MIT…
+version: 1.10.3
+
+name: RNKeychain, nameSpecified: 
+body: The MIT License (MIT…
+version: 7.0.0
+
+name: RNKeychain, nameSpecified: 
+body: The MIT License (MIT…
+version: 7.0.0
+
+name: RNLocalize, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 2.1.5
+
+name: RNLocalize, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 2.1.5
+
+name: RNPermissions, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 3.6.1
+
+name: RNPermissions, nameSpecified: 
+body: MIT License
+
+Copyrig…
+version: 3.6.1
+
+name: RNReanimated, nameSpecified: 
+body: The MIT License (MIT…
+version: 2.14.4
+
+name: RNReanimated, nameSpecified: 
+body: The MIT License (MIT…
+version: 2.14.4
+
+name: RNScreens, nameSpecified: 
+body: The MIT License (MIT…
+version: 3.20.0
+
+name: RNScreens, nameSpecified: 
+body: The MIT License (MIT…
+version: 3.20.0
+
+name: RNScrypt, nameSpecified: 
+body: Copyright 2015 Cryph…
+version: 1.2.1
+
+name: RNScrypt, nameSpecified: 
+body: Copyright 2015 Cryph…
+version: 1.2.1
+
+name: RNShare, nameSpecified: 
+body: The MIT License (MIT…
+version: 8.2.2
+
+name: RNShare, nameSpecified: 
+body: The MIT License (MIT…
+version: 8.2.2
+
+name: RNSVG, nameSpecified: 
+body: The MIT License (MIT…
+version: 12.5.1
+
+name: RNSVG, nameSpecified: 
+body: The MIT License (MIT…
+version: 12.5.1
+
+name: RNVectorIcons, nameSpecified: 
+body: The MIT License (MIT…
+version: 9.2.0
+
+name: RNVectorIcons, nameSpecified: 
+body: The MIT License (MIT…
+version: 9.2.0
+
+name: RNZipArchive, nameSpecified: 
+body: The MIT License (MIT…
+version: 6.0.9
+
+name: RNZipArchive, nameSpecified: 
+body: The MIT License (MIT…
+version: 6.0.9
+
+name: SDWebImage, nameSpecified: 
+body: Copyright (c) 2009-2…
+version: 5.11.1
+
+name: SDWebImage, nameSpecified: 
+body: Copyright (c) 2009-2…
+version: 5.11.1
+
+name: SDWebImageWebPCoder, nameSpecified: 
+body: Copyright (c) 2018 B…
+version: 0.8.5
+
+name: SDWebImageWebPCoder, nameSpecified: 
+body: Copyright (c) 2018 B…
+version: 0.8.5
+
+name: SSZipArchive, nameSpecified: 
+body: Copyright (c) 2013-2…
+version: 2.5.4
+
+name: SSZipArchive, nameSpecified: 
+body: Copyright (c) 2013-2…
+version: 2.5.4
+
+add-version-numbers: false
+
+LicensePlist Version: 3.23.4

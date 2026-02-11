@@ -1,0 +1,8 @@
+**/node_modules
+**/__tests__
+**/__mocks__
+
+# JS scripts
+app/shim.js
+app/metro.config.js
+app/versionUtils.js

@@ -1,0 +1,23 @@
+diff --git a/App/contexts/auth.tsx b/App/contexts/auth.tsx
+index 2179738e96d8dfb723582582661fdde626c9dcb3..011a7dfa21eb26202ce78f4180e985c0a14b3248 100644
+--- a/App/contexts/auth.tsx
++++ b/App/contexts/auth.tsx
+@@ -10,6 +10,8 @@ import { agentDependencies } from '@credo-ts/react-native'
+ import React, { createContext, useContext, useState } from 'react'
+ import { useTranslation } from 'react-i18next'
+ import { DeviceEventEmitter } from 'react-native'
++import { ariesAskar } from '@hyperledger/aries-askar-react-native'
++import { AskarModuleConfig } from '@credo-ts/askar/build/AskarModuleConfig'
+ 
+ import { EventTypes } from '../constants'
+ import { DispatchAction } from '../contexts/reducers/store'
+@@ -112,7 +114,8 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
+       const askarWallet = new AskarWallet(
+         new ConsoleLogger(LogLevel.off),
+         new agentDependencies.FileSystem(),
+-        new SigningProviderRegistry([])
++        new SigningProviderRegistry([]),
++        new AskarModuleConfig({ ariesAskar })
+       )
+       await askarWallet.open({
+         id: secret.id,

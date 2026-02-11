@@ -1,0 +1,13 @@
+diff --git a/dist/AccessTokenClient.js b/dist/AccessTokenClient.js
+index 3d3c60588bacb6dcfa5b6d190ab0f7645e153094..c6ab598b45433a0b620e82caf0eeb7d6dc71e283 100644
+--- a/dist/AccessTokenClient.js
++++ b/dist/AccessTokenClient.js
+@@ -133,7 +133,7 @@ class AccessTokenClient {
+         }
+         const issuer = (0, oid4vci_common_1.getIssuerFromCredentialOfferPayload)(requestPayload);
+         const grantDetails = (_a = requestPayload.grants) === null || _a === void 0 ? void 0 : _a[oid4vci_common_1.PRE_AUTH_GRANT_LITERAL];
+-        const isPinRequired = (_b = !!(grantDetails === null || grantDetails === void 0 ? void 0 : grantDetails.tx_code)) !== null && _b !== void 0 ? _b : false;
++        const isPinRequired = !!(grantDetails === null || grantDetails === void 0 ? void 0 : grantDetails.tx_code) || !!(grantDetails === null || grantDetails === void 0 ? void 0 : grantDetails.user_pin_required);
+         types_1.LOG.warning(`Pin required for issuer ${issuer}: ${isPinRequired}`);
+         return {
+             txCode: grantDetails === null || grantDetails === void 0 ? void 0 : grantDetails.tx_code,

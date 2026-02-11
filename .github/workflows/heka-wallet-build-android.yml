@@ -1,0 +1,68 @@
+name: Build and release Android APK & AAB for Heka Wallet
+
+on:
+  workflow_dispatch:
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    defaults:
+      run:
+        working-directory: ./heka-wallet
+    name: Build Android APK & AAB
+    runs-on: hl-idcol-lin-md
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Prepare Github Runner
+        uses: pandaswhocode/initialize-github-job@ffb7446339e8e6007b942312ac95457d1a20b6cf # v1.0.4
+        with:
+          checkout: 'true'
+          checkout-ref: '${{ github.ref }}'
+          checkout-token: '${{ secrets.GITHUB_TOKEN }}'
+          checkout-fetch-depth: '0'
+          setup-java: 'true'
+          java-version: '15'
+          java-distribution: 'zulu'
+          java-cache: 'gradle'
+          setup-node: 'true'
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+        shell: bash
+
+      - name: Install dependencies
+        run: yarn install --immutable
+        shell: bash
+
+      - name: Get app version
+        id: version
+        working-directory: ./app
+        run: echo "version=$(nbgv get-version -v NpmPackageVersion)" >> $GITHUB_OUTPUT
+
+      - name: Bundle Heka Wallet debug
+        run: yarn bundle-app:android:debug
+
+      - name: Prepare artifacts
+        id: prepare_artifacts
+        run: |
+          mkdir "output"
+
+          cp "app/android/app/build/outputs/apk/debug/app-debug.apk" "output/heka-wallet.apk"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: Build artifacts
+          path: output/
+
+
