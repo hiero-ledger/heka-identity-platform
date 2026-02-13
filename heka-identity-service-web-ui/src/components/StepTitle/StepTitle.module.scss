@@ -1,0 +1,19 @@
+.stepHeader {
+  width: 100%;
+  padding-top: var(--space-xxxs);
+  padding-bottom: var(--space-xxxs);
+  gap: var(--space-xl);
+}
+
+.stepTitle {
+  align-self: flex-start;
+  color: var(--color-primary);
+  font: var(--font-headline-l);
+}
+
+.stepDetails {
+  font: var(--font-body-m);
+  color: var(--color-dark-medium-emphasis);
+  overflow-wrap: anywhere;
+  margin-bottom: var(--space-sm);
+}

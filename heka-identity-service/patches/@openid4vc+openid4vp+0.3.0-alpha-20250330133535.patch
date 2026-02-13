@@ -1,0 +1,22 @@
+diff --git a/node_modules/@openid4vc/openid4vp/dist/index.js b/node_modules/@openid4vc/openid4vp/dist/index.js
+index 8305e4e..164cabf 100644
+--- a/node_modules/@openid4vc/openid4vp/dist/index.js
++++ b/node_modules/@openid4vc/openid4vp/dist/index.js
+@@ -1692,7 +1692,7 @@ var zOpenid4vpAuthorizationResponse = import_zod18.z.object({
+ function parseOpenid4VpAuthorizationResponsePayload(payload) {
+   return (0, import_utils22.parseWithErrorHandling)(
+     zOpenid4vpAuthorizationResponse,
+-    payload,
++    {...payload, expires_in: payload.expires_in ? Number.parseInt(payload.expires_in) : payload.expires_in},
+     "Failed to parse openid4vp authorization response."
+   );
+ }
+@@ -1762,7 +1762,7 @@ async function parseOpenid4vpAuthorizationResponse(options) {
+     authorizationRequestPayload,
+     authorizationResponsePayload
+   });
+-  if (authorizationRequestPayload.response_mode && isJarmResponseMode(authorizationRequestPayload.response_mode)) {
++  if (authorizationRequestPayload.response_mode && !isJarmResponseMode(authorizationRequestPayload.response_mode)) {
+     throw new import_oauth227.Oauth2ServerErrorResponseError(
+       {
+         error: "invalid_request",

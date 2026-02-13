@@ -1,0 +1,9 @@
+@import '@/shared/styles/mixins';
+
+.textFieldLabel {
+  font-weight: 600;
+  font-size: var(--font-size-subtitle-m);
+  line-height: var(--font-line-subtitle-m);
+
+  @include long-text;
+}

@@ -1,0 +1,28 @@
+@import '@/shared/styles/mixins';
+
+.colorSwatch {
+  width: var(--space-xxxxl);
+  height: var(--space-xxxxl);
+  border-radius: var(--space-xs);
+
+  @include border('all', var(--color-dark-opacity-10));
+}
+
+.colorInput {
+  appearance: none;
+  width: 100%;
+  height: var(--space-xxxxl);
+  cursor: pointer;
+
+  @include border('all', var(--color-dark-opacity-10));
+  border-radius: var(--space-xs);
+
+  &::-webkit-color-swatch {
+    border: none;
+    border-radius: var(--space-xs);
+  }
+
+  &::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+}

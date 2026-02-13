@@ -1,0 +1,50 @@
+name: Verify Heka Identity Service Web UI changes
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'heka-identity-service-web-ui/**'
+      - '.github/workflows/heka-identity-service-web-ui-verify.yml'
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    defaults:
+      run:
+        working-directory: ./heka-identity-service-web-ui
+    name: Build and check
+    runs-on: hl-idcol-lin-md
+
+    steps:
+      - name: Prepare Github Runner
+        uses: pandaswhocode/initialize-github-job@ffb7446339e8e6007b942312ac95457d1a20b6cf # v1.0.4
+        with:
+          checkout: 'true'
+          checkout-ref: '${{ github.ref }}'
+          checkout-token: '${{ secrets.GITHUB_TOKEN }}'
+          setup-node: 'true'
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Run build (App)
+        run: yarn build:prod
+
+      - name: Run build (Storybook)
+        run: yarn build:storybook
+
+      - name: Run ESLint
+        run: yarn lint:ts
+
+      - name: Run Stylelint
+        run: yarn lint:scss
+
+      - name: Run tests
+        run: yarn test:unit

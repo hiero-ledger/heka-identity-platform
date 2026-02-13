@@ -1,0 +1,35 @@
+@import '@/shared/styles/mixins';
+
+$property-name-column-width: 136px;
+$property-value-column-width: 136px;
+
+.property {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 16px;
+  gap: 16px;
+
+  @include border('bottom');
+
+  &:first-child {
+    padding-top: var(--space-xxs);
+  }
+
+  &:last-child {
+    padding-bottom: var(--space-xxs);
+    border: none;
+  }
+
+  .name {
+    width: $property-name-column-width;
+    align-self: baseline;
+  }
+
+  .value {
+    width: $property-value-column-width;
+    align-self: baseline;
+    overflow-wrap: anywhere;
+    font: var(--font-subtitle-m);
+  }
+}

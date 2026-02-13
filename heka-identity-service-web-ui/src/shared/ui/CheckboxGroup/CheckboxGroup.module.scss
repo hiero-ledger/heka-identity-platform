@@ -1,0 +1,53 @@
+@import '@/shared/styles/mixins';
+
+.CheckboxGroup {
+  width: 100%;
+}
+
+.optionsController {
+  margin-bottom: var(--space-sm);
+}
+
+.optionsControllerLabel {
+  color: var(--color-dark-medium-emphasis);
+  font: var(--font-label-m);
+}
+
+.option {
+  padding: var(--space-xs);
+  width: 100%;
+  color: var(--color-primary);
+  font: var(--font-body-m);
+  gap: var(--space-md);
+}
+
+.optionLabel {
+  @include long-text-full;
+}
+
+input[type='checkbox'] {
+  appearance: none;
+  cursor: pointer;
+  background-color: var(--color-light-high-emphasis);
+  width: calc(3 * var(--space-xxs));
+  height: calc(3 * var(--space-xxs));
+  border-radius: var(--space-xxxs);
+  border: var(--space-xxxxs) solid var(--color-dark-high-emphasis);
+}
+
+input[type='checkbox']:checked {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--color-primary);
+}
+
+input[type='checkbox']:disabled {
+  background-color: var(--color-dark-disabled);
+  border-color: var(--color-dark-disabled);
+}
+
+input[type='checkbox']:checked::after {
+  content: url('@/shared/assets/icons/checked.svg');
+  color: var(--color-light-high-emphasis);
+}

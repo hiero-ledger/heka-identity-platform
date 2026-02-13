@@ -1,0 +1,35 @@
+@import '@/shared/styles/mixins';
+
+.rightSide {
+  gap: var(--space-md);
+}
+
+.colorSwatch {
+  width: var(--space-xxxxl);
+  height: var(--space-xxxxl);
+  border-radius: var(--space-xs);
+}
+
+.iconWrapper {
+  width: var(--space-xl);
+  height: auto;
+}
+
+.colorInput {
+  appearance: none;
+  width: var(--space-xxxxl);
+  height: var(--space-xxxxl);
+  cursor: pointer;
+
+  @include border('all', var(--color-dark-opacity-10));
+  border-radius: var(--space-xs);
+
+  &::-webkit-color-swatch {
+    border: none;
+    border-radius: var(--space-xs);
+  }
+
+  &::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+}

@@ -1,0 +1,31 @@
+@import '@/shared/styles/mixins';
+
+.textArea {
+  display: flex;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 30vh;
+
+  border: 1px solid var(--color-dark-outline-medium);
+  border-radius: var(--space-sm);
+  padding: var(--space-md) var(--space-sm) var(--space-md) var(--space-md);
+  outline: none;
+
+  &__invalid {
+    color: var(--color-notification);
+    border-color: var(--color-notification);
+  }
+}
+
+textarea:disabled {
+  background-color: var(--color-dark-opacity-05);
+}
+
+.error {
+  margin-top: var(--space-xxxxs);
+  font: var(--font-label-m);
+  color: var(--color-notification);
+}

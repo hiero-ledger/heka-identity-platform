@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:15
+    ports:
+      - '5432:5432'
+    environment:
+      - POSTGRES_USER=heka
+      - POSTGRES_PASSWORD=heka1
+      - POSTGRES_DB=heka-identity-service
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -d heka-identity-service -U heka']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  heka-identity-service:
+    image: heka-identity-service:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      MIKRO_ORM_HOST: postgres
+      WALLET_POSTGRES_HOST: postgres
+      EXPRESS_PORT: ${EXPRESS_PORT:-3000}
+      AGENT_HTTP_ENDPOINT: ${AGENT_HTTP_EP:-http://${HOST_IP:-172.17.0.1}:3001}
+      AGENT_WS_ENDPOINT: ${AGENT_WS_EP:-ws://${HOST_IP:-172.17.0.1}:3002}
+    ports:
+      - '3000:3000'
+      - '3001:3001'
+      - '3002:3002'
+      - '3003:3003'
+    healthcheck:
+      test: curl --fail http://localhost:${EXPRESS_PORT:-3000}/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy

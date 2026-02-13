@@ -1,0 +1,16 @@
+@import '@/shared/styles/mixins';
+
+.EditForm {
+  width: var(--space-form);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+
+  @include mobile {
+    width: 100%;
+  }
+}
+
+.submitBtn {
+  margin-top: var(--space-md);
+}

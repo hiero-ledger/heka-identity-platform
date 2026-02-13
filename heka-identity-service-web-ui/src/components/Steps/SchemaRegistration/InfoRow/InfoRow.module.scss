@@ -1,0 +1,25 @@
+@import '@/shared/styles/mixins';
+
+.registration {
+  width: 100%;
+  gap: var(--space-md);
+  padding: var(--space-md);
+
+  @include long-text-full;
+
+  &:not(:last-child) {
+    @include border('bottom');
+  }
+}
+
+.registrationKey {
+  color: var(--color-dark-high-emphasis);
+  width: calc(7 * var(--space-xl));
+}
+
+.registrationValue {
+  color: var(--color-text-on-surface);
+  flex-grow: 1;
+  width: 0;
+  overflow-wrap: anywhere;
+}

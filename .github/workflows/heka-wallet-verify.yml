@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'heka-wallet/**'
+      - '.github/workflows/heka-wallet-verify.yml'
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
@@ -35,11 +36,9 @@ jobs:
 
       - name: Enable Corepack
         run: corepack enable
-        shell: bash
 
       - name: Install dependencies
         run: yarn install --immutable
-        shell: bash
 
       - name: Run typecheck
         run: yarn typecheck
