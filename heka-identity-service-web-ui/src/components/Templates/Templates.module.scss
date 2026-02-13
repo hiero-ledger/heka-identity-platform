@@ -1,0 +1,46 @@
+.TemplatesWrapper {
+  width: 100%;
+  padding: var(--space-xxxl);
+  position: relative;
+  overflow-y: auto;
+}
+
+.templatesHeaderWrapper {
+  justify-content: space-between;
+}
+
+.templatesHeaderLeft {
+  gap: var(--space-md);
+  margin-bottom: var(--space-xxxxl);
+}
+
+.schemaTitle {
+  font-size: var(--font-size-headline-l);
+  font-weight: 800;
+}
+
+.addButtonContainer {
+  width: calc(4 * var(--space-sm));
+  height: calc(4 * var(--space-sm));
+  border-radius: var(--space-sm);
+  padding: var(--space-sm);
+  background-color: var(--color-primary-opacity-6);
+
+  &:hover {
+    cursor: pointer;
+  }
+}
+
+.addSchemaIcon {
+  width: var(--space-xl);
+  height: var(--space-xl);
+}
+
+.templateItemsContainer {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--space-template-card-width), 1fr)
+  );
+  grid-gap: var(--space-md);
+}

@@ -1,0 +1,62 @@
+@import '@/shared/styles/mixins';
+
+.AuthenticatedLayout {
+  height: 100vh;
+  width: 100%;
+  background: var(--color-surface-2);
+  overflow: auto;
+  overscroll-behavior-y: none;
+}
+
+.sidebar {
+  padding: var(--space-md) var(--space-xl);
+  width: 22.5%;
+  gap: var(--space-md);
+}
+
+.contentWrapper {
+  flex: 1;
+  padding-top: var(--space-xs);
+  padding-bottom: var(--space-xs);
+  padding-right: var(--space-xs);
+}
+
+.content {
+  flex: 1;
+  padding: var(--space-xs);
+  background: var(--color-surface-deep);
+  border-radius: var(--space-xxl);
+  height: 100%;
+
+  @include tablet {
+    height: auto;
+  }
+
+  @include mobile {
+    height: auto;
+  }
+}
+
+.mobileMenuSeparator {
+  height: var(--space-xxxxxxxl);
+  width: 100%;
+}
+
+.mobileHeader {
+  width: 100%;
+  gap: var(--space-sm);
+}
+
+.icon {
+  cursor: pointer;
+}
+
+.profileButton {
+  max-width: 40vw;
+
+  @include long-text;
+
+  @include desktop {
+    max-width: 100%;
+  }
+}

@@ -3,7 +3,7 @@
 This folder contains Heka Identity Wallet based on [OWF Bifold](https://github.com/openwallet-foundation/bifold-wallet) and [DSR SSI Toolkit](https://en.dsr-corporation.com/news/decentralized-digital-wallet-and-toolkit/).
 
 This wallet serves as a reference implementation of identity mobile wallet that supports Hiero/Hedera DID and AnonCreds Method, leveraging [Hedera module for OWF Credo](https://github.com/openwallet-foundation/credo-ts/tree/main/packages/hedera).
-To explore and test Heka Wallet features, please use [public DSR Agency Demo](https://ssi-agency.dsr-corporation.com).
+To explore and test Heka Wallet features, you can use [public DSR Agency Demo](https://ssi-agency.dsr-corporation.com) or deploy Heka Identity Service locally.
 
 The project is a monorepo that contains [main app](./app) and separate [feature packages](./packages) that enable modular architecture.
 

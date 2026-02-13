@@ -1,0 +1,23 @@
+@import 'reset';
+@import 'variables/global';
+@import 'variables/pixel-system';
+@import 'variables/colors';
+@import 'variables/typography';
+
+html,
+body {
+  font-family: var(--inter-font-family), serif;
+}
+
+.app {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+*:focus {
+  outline: none;
+}

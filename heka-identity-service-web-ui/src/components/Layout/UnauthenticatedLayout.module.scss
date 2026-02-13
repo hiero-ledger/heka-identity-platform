@@ -1,0 +1,36 @@
+@import '@/shared/styles/mixins';
+
+.UnauthenticatedLayout {
+  width: 100%;
+  height: 100%;
+  background: var(--color-surface-2);
+  padding: var(--space-xs);
+}
+
+.body {
+  width: 100%;
+  height: 100%;
+  background: var(--color-surface-deep);
+  border-radius: var(--space-xxl);
+  padding: var(--space-xs);
+}
+
+.content {
+  width: 100%;
+  height: 100%;
+  padding: var(--space-none);
+
+  @include desktop {
+    padding: var(--space-xxxxl);
+  }
+}
+
+.contentWrapper {
+  width: 100%;
+  height: 100%;
+  padding: var(--space-none);
+
+  @include desktop {
+    padding: var(--space-xxxxl);
+  }
+}

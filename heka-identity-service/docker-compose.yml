@@ -1,0 +1,26 @@
+version: '3.4'
+
+services:
+  postgres:
+    image: 'postgres:15'
+    ports:
+      - '5432:5432'
+    environment:
+      - POSTGRES_USER=heka
+      - POSTGRES_PASSWORD=heka1
+      - POSTGRES_DB=heka-identity-service
+  heka-identity-service:
+    image: $IMAGE
+    environment:
+      MIKRO_ORM_HOST: ${HOST_IP:-postgres}
+      WALLET_POSTGRES_HOST: ${HOST_IP:-postgres}
+      EXPRESS_PREFIX: $EXPRESS_PREFIX
+      AGENT_HTTP_ENDPOINT: ${AGENT_HTTP_EP:-http://localhost:3001}
+      AGENT_WS_ENDPOINT: ${AGENT_WS_EP:-ws://localhost:3002}
+    ports:
+      - '3000:3000'
+      - '3001:3001'
+      - '3002:3002'
+      - '3003:3003'
+    depends_on:
+      - postgres

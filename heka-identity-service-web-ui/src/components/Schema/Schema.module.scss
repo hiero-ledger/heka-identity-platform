@@ -1,0 +1,133 @@
+@import '@/shared/styles/mixins';
+
+.SchemaWrapper {
+  display: flex;
+  flex-direction: column;
+  width: var(--space-template-card-width);
+  height: var(--space-template-card-height);
+  padding: var(--space-sm);
+  border-radius: var(--space-md);
+  box-sizing: border-box;
+
+  @include border('all', var(--color-dark-opacity-10));
+
+  @include mobile {
+    width: 100%;
+    box-shadow: 0 4px 6px rgb(0 0 0 / 10%);
+    padding: var(--space-xl);
+  }
+}
+
+.border {
+  @include border('all', var(--color-dark-opacity-10));
+}
+
+.schemaHeaderWrapper {
+  padding: var(--space-sm);
+  border-bottom: 1px solid rgb(0 0 0 / 10%);
+  margin-bottom: var(--space-sm);
+}
+
+.schemaVisibleOrOffIcon {
+  width: var(--space-xl);
+  height: var(--space-xl);
+
+  &:hover {
+    cursor: pointer;
+  }
+}
+
+.schemaEqualIcon {
+  width: var(--space-xl);
+  height: var(--space-xl);
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.schemaLogoContainer {
+  margin-bottom: var(--space-lg);
+
+  &:hover {
+    cursor: pointer;
+  }
+
+  img {
+    width: var(--space-card-logo);
+    height: var(--space-card-logo);
+    object-fit: cover;
+    border-radius: var(--space-xs);
+    border: 1px solid;
+  }
+
+  @include mobile {
+    padding-left: 0;
+  }
+}
+
+.schemaBottomContainer {
+  width: 100%;
+  height: 100%;
+  justify-content: flex-end;
+  padding-bottom: var(--space-xxs);
+
+  &:hover {
+    cursor: pointer;
+  }
+
+  @include mobile {
+    justify-content: space-around;
+  }
+}
+
+.schemaBottomTitle {
+  max-height: var(--space-xxxxxl);
+  font-size: var(--space-md);
+  line-height: var(--space-xl);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: var(--space-sm);
+
+  &:hover {
+    cursor: pointer;
+  }
+}
+
+.schemaBodyWrapper {
+  height: 100%;
+  padding: var(--space-sm);
+}
+
+.schemaBottomRegister {
+  font-size: var(--space-sm);
+  font-weight: 400;
+  text-decoration: underline;
+}
+
+.menuIconWrapper {
+  cursor: pointer;
+}
+
+.dragIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.menuButton {
+  padding: var(--space-xxs);
+  font: var(--font-body-m);
+
+  &[data-hovered] {
+    background-color: transparent;
+  }
+}

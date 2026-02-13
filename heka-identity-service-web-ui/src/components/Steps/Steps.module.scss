@@ -1,0 +1,33 @@
+@import '@/shared/styles/mixins';
+
+.stepContent {
+  width: 100%;
+  height: 100%;
+  padding: var(--space-xxxl) var(--space-xxxxl) var(--space-xxxxl);
+  gap: var(--space-xxxxl);
+  overflow: auto;
+}
+
+.stepSubTitle {
+  align-self: flex-start;
+  color: var(--color-primary);
+  font: var(--font-headline-m);
+}
+
+.stepForm {
+  display: grid;
+  width: 50%;
+  gap: var(--space-lg);
+
+  @include mobile {
+    width: 100%;
+  }
+}
+
+.stepNavigation {
+  height: 100%;
+  width: 100%;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  align-items: flex-end;
+}

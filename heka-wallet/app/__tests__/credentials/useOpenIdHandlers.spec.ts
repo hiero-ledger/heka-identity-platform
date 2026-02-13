@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react-native'
 import { mockFunction } from '../../../jest-helpers/helpers'
 import { useOpenIdHandlers } from '../../src/credentials/useOpenIdHandlers'
-import { dsrAgencySdJwtVc } from './fixtures'
+import { hekaIdentityServiceSdJwtVc } from './fixtures'
 import { JwaSignatureAlgorithm, SdJwtVcRecord } from '@credo-ts/core'
 import { getHostNameFromUrl } from '@heka-wallet/shared'
 
@@ -37,7 +37,7 @@ function renderOpenIdHandlersHookValue() {
 }
 
 describe('useOpenIdHandlers', () => {
-  const fixture = dsrAgencySdJwtVc
+  const fixture = hekaIdentityServiceSdJwtVc
 
   describe('resolveOpenId4VciOffer', () => {
     it('should resolve OID4VCI offer (pre-auth)', async () => {

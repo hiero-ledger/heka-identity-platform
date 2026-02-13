@@ -1,0 +1,15 @@
+.Toast {
+  padding: var(--space-xs) var(--space-xxxl);
+  border-radius: var(--space-xs);
+  color: var(--color-surface-2);
+  font: var(--font-subtitle-m);
+  max-width: calc(3 * var(--space-xxxxxxxl));
+}
+
+.success {
+  background-color: var(--color-primary);
+}
+
+.error {
+  background-color: var(--color-notification);
+}

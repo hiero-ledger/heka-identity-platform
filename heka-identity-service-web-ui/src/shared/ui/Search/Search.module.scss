@@ -1,0 +1,14 @@
+.SearchWrapper {
+  position: relative;
+  height: var(--space-xxxxl);
+}
+
+.searchInput {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--space-sm);
+  border: 1px solid #00000061;
+}
+
+// .searchIcon {
+//     transform: scale(2);
+// }

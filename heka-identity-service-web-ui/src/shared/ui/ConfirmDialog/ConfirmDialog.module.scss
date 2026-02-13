@@ -1,0 +1,14 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.cancelBtn {
+  margin-top: var(--space-xl);
+}
+
+.acceptBtn {
+  margin-top: var(--space-xl);
+  background-color: var(--color-notification) !important;
+}

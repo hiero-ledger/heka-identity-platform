@@ -1,0 +1,62 @@
+@import '@/shared/styles/mixins';
+
+.PreparationStepLayout {
+  flex: 1;
+  height: 100%;
+  background: var(--color-light-high-emphasis);
+
+  @include tablet {
+    padding: var(--space-md);
+    padding-top: var(--space-xxxl);
+  }
+
+  @include mobile {
+    padding: var(--space-md);
+    padding-top: var(--space-xxxl);
+  }
+}
+
+.contentWrapper {
+  height: 100%;
+  width: 100%;
+  padding: var(--space-none);
+
+  @include tablet {
+    padding-bottom: var(--space-xxxxxxl);
+  }
+
+  @include desktop {
+    overflow: auto;
+    padding: var(--space-xxxxl);
+    max-width: var(--space-content-with-restriction);
+  }
+}
+
+.stepWrapper {
+  width: 100%;
+  gap: var(--space-xxxxl);
+  margin-bottom: var(--space-xs);
+}
+
+.stepNumberTitle {
+  color: var(--color-dark-medium-emphasis);
+  font: var(--font-body-s);
+}
+
+.stepContentWrapper {
+  width: 100%;
+  flex-grow: 1;
+  gap: var(--space-xxxxl);
+}
+
+.stepNavigation {
+  height: 100%;
+  width: 100%;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  align-items: flex-end;
+}
+
+.stepper {
+  max-width: 100%;
+}

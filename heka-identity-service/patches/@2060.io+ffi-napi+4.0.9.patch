@@ -1,0 +1,14 @@
+diff --git a/node_modules/@2060.io/ffi-napi/deps/libffi/libffi.gyp b/node_modules/@2060.io/ffi-napi/deps/libffi/libffi.gyp
+index d02bef7..09c3da0 100644
+--- a/node_modules/@2060.io/ffi-napi/deps/libffi/libffi.gyp
++++ b/node_modules/@2060.io/ffi-napi/deps/libffi/libffi.gyp
+@@ -74,8 +74,7 @@
+               '<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).asm',
+             ],
+             'action': [
+-              'call',
+-              'preprocess_asm.cmd',
++                '../../../deps/libffi/preprocess_asm.cmd',
+                 'include',
+                 'config/<(OS)/<(target_arch)',
+                 '<(RULE_INPUT_PATH)',

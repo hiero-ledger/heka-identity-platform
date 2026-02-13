@@ -1,0 +1,43 @@
+@import '@/shared/styles/mixins';
+
+.schemasWrapper {
+  width: 100%;
+  padding: var(--space-xxxxl);
+  padding-top: var(--space-xxxl);
+  position: relative;
+  overflow-y: auto;
+
+  @include mobile {
+    padding: var(--space-md);
+    padding-top: var(--space-xxxl);
+  }
+}
+
+.schemasHeaderWrapper {
+  gap: var(--space-md);
+  margin-bottom: var(--space-xxxxl);
+
+  @include mobile {
+    justify-content: space-between;
+    gap: 0;
+  }
+}
+
+.schemaTitle {
+  font-size: var(--font-size-headline-l);
+  font-weight: 800;
+}
+
+.schemaButtonsContainer {
+  width: calc(var(--space-xxxxxxxl) + var(--space-xxxxl));
+  height: var(--space-xxxxl);
+  background-color: var(--color-primary-opacity-6);
+  border-radius: var(--space-md);
+  padding: var(--space-xxxs);
+  margin-bottom: var(--space-xxxxl);
+}
+
+.schemaItemsContainer {
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}

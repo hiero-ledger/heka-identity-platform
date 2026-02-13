@@ -46,7 +46,7 @@ export const oauthStoreConfig: OAuthStoreConfig = Config.OAUTH_STORE_CONFIG
   : {
       oauthConfig: {
         clientId: '40508842-eb3f-4b64-9f77-90e45f18a4e5',
-        redirectUrl: 'com.hiero.wallet.auth:/oauthredirect',
+        redirectUrl: 'com.heka.wallet.auth:/oauthredirect',
         scopes: ['basic_info'],
         clientAuthMethod: 'post',
         serviceConfiguration: {
