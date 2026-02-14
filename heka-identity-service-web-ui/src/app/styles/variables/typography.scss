@@ -1,0 +1,120 @@
+@import 'https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap';
+
+:root {
+  --inter-font-family: inter, sans-serif;
+
+  --font-size-label-s: 11px;
+  --font-size-label-m: 12px;
+  --font-size-label-l: 15px;
+  --font-size-body-s: 14px;
+  --font-size-body-m: 16px;
+  --font-size-subtitle-s: 14px;
+  --font-size-subtitle-m: 16px;
+  --font-size-headline-s: 20px;
+  --font-size-headline-m: 24px;
+  --font-size-headline-l: 34px;
+  --font-size-display: 56px;
+
+  --font-line-label-s: 16px;
+  --font-line-label-m: 16px;
+  --font-line-label-l: 24px;
+  --font-line-body-s: 20px;
+  --font-line-body-m: 24px;
+  --font-line-subtitle-s: 20px;
+  --font-line-subtitle-m: 24px;
+  --font-line-headline-s: 28px;
+  --font-line-headline-m: 32px;
+  --font-line-headline-l: 40px;
+  --font-line-display: 64px;
+
+  --font-label-s: 400 var(--font-size-label-s) / var(--font-line-label-s)
+    var(--inter-font-family);
+  --font-label-m: 400 var(--font-size-label-m) / var(--font-line-label-m)
+    var(--inter-font-family);
+  --font-label-l: 500 var(--font-size-label-l) / var(--font-line-label-l)
+    var(--inter-font-family);
+  --font-body-s: 400 var(--font-size-body-s) / var(--font-line-body-s)
+    var(--inter-font-family);
+  --font-body-m: 400 var(--font-size-body-m) / var(--font-line-body-m)
+    var(--inter-font-family);
+  --font-subtitle-s: 500 var(--font-size-subtitle-s) / var(--font-line-subtitle-s) var(--inter-font-family);
+  --font-subtitle-m: 600 var(--font-size-subtitle-m) / var(--font-line-subtitle-m) var(--inter-font-family);
+  --font-headline-s: 600 var(--font-size-headline-s) / var(--font-line-headline-s) var(--inter-font-family);
+  --font-headline-m: 600 var(--font-size-headline-m) / var(--font-line-headline-m) var(--inter-font-family);
+  --font-headline-l: 800 var(--font-size-headline-l) / var(--font-line-headline-l) var(--inter-font-family);
+  --font-display: 300 var(--font-size-display) / var(--font-line-display)
+    var(--inter-font-family);
+}
+
+// label
+.text-label-s {
+  font-weight: 400;
+  font-size: var(--font-size-label-s);
+  line-height: var(--font-line-label-s);
+}
+
+.text-label-m {
+  font-weight: 400;
+  font-size: var(--font-size-label-m);
+  line-height: var(--font-line-label-m);
+}
+
+.text-label-l {
+  font-weight: 500;
+  font-size: var(--font-size-label-l);
+  line-height: var(--font-line-label-l);
+}
+
+// body
+
+.text-body-s {
+  font-weight: 400;
+  font-size: var(--font-size-body-s);
+  line-height: var(--font-line-body-s);
+}
+
+.text-body-m {
+  font-weight: 400;
+  font-size: var(--font-size-body-m);
+  line-height: var(--font-line-body-m);
+}
+
+// subtitle
+
+.text-subtitle-s {
+  font-weight: 500;
+  font-size: var(--font-size-subtitle-s);
+  line-height: var(--font-line-subtitle-s);
+}
+
+.text-subtitle-m {
+  font-weight: 600;
+  font-size: var(--font-size-subtitle-m);
+  line-height: var(--font-line-subtitle-m);
+}
+
+// headline
+.text-headline-s {
+  font-weight: 600;
+  font-size: var(--font-size-headline-s);
+  line-height: var(--font-line-headline-s);
+}
+
+.text-headline-m {
+  font-weight: 600;
+  font-size: var(--font-size-headline-m);
+  line-height: var(--font-line-headline-m);
+}
+
+.text-headline-l {
+  font-weight: 800;
+  font-size: var(--font-size-headline-l);
+  line-height: var(--font-line-headline-l);
+}
+
+.text-display {
+  font-weight: 300;
+  font-size: var(--font-size-display);
+  line-height: var(--font-line-display);
+  letter-spacing: -1%;
+}

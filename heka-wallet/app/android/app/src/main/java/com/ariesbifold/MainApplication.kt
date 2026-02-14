@@ -1,4 +1,4 @@
-package com.hiero.wallet
+package com.heka.wallet
 
 import android.app.Application
 import com.facebook.react.PackageList

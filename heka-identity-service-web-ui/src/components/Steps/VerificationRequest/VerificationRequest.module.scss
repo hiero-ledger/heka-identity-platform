@@ -1,0 +1,126 @@
+@import '@/shared/styles/mixins';
+
+.VerificationRequest {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.requestContent {
+  height: 100%;
+  width: 100%;
+
+  padding: var(--space-xxxxl);
+  background-color: var(--color-primary-hiero-branded-2);
+  border-radius: var(--space-xl);
+  gap: var(--space-xxxxl);
+}
+
+.mainContent {
+  height: 100%;
+  gap: var(--space-xl);
+}
+
+.presentationReceivedContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+
+  @include desktop {
+    flex-direction: row;
+  }
+}
+
+.presentationReceivedWrapper {
+  height: 100%;
+  width: 100%;
+
+  padding: var(--space-xxxxl);
+  background-color: var(--color-primary-hiero-branded-2);
+  border-radius: var(--space-xl);
+  gap: var(--space-xl);
+}
+
+.presentationImageWrapper {
+  position: relative;
+}
+
+.presentationDetailsWrapper {
+  height: 100%;
+  width: 100%;
+  padding: var(--space-xl);
+  gap: var(--space-md);
+
+  @include tablet {
+    padding: var(--space-xxxxxl);
+  }
+}
+
+.detailsRowWrapper {
+  width: 100%;
+
+  @include border('bottom');
+  padding: var(--space-md);
+}
+
+.attributeName {
+  width: 100%;
+  color: var(--color-primary);
+  font: var(--font-body-m);
+  text-wrap: auto;
+  overflow-wrap: anywhere;
+  padding-right: var(--space-xl);
+}
+
+.attributeValue {
+  width: 100%;
+  color: var(--color-primary);
+  font: var(--font-subtitle-m);
+  text-wrap: auto;
+  overflow-wrap: anywhere;
+}
+
+.header {
+  gap: var(--space-xs);
+}
+
+.title {
+  color: var(--color-light-high-emphasis);
+  font: var(--font-headline-m);
+
+  @include desktop {
+    font: var(--font-headline-l);
+  }
+}
+
+.description {
+  color: var(--color-light-high-emphasis);
+  font: var(--font-body-m);
+}
+
+.backGroundImage {
+  position: absolute;
+
+  height: calc(2 * var(--space-xxxxxxl));
+  width: calc(2 * var(--space-xxxxxxl));
+  bottom: var(--space-none);
+  right: var(--space-none);
+
+  @include desktop {
+    height: calc(4 * var(--space-xxxxxxl));
+    width: calc(4 * var(--space-xxxxxxl));
+    bottom: var(--space-xxxxxxxl);
+    right: calc(3 * var(--space-xxxxxxl));
+  }
+}
+
+.successIcon {
+  position: absolute;
+  bottom: calc(-1 * var(--space-sm));
+  right: calc(-1 * var(--space-lg));
+}
+
+.buttonGroup {
+  gap: var(--space-sm);
+}

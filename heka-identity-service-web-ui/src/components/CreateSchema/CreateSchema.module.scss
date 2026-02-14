@@ -1,0 +1,31 @@
+@import '@/shared/styles/mixins';
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.topFieldsWrapper {
+  padding: var(--space-xs);
+  border-radius: var(--space-md);
+  border: 1px solid var(--color-dark-opacity-10);
+}
+
+.bgColorPicker {
+  padding: var(--space-xxxs) var(--space-md);
+}
+
+.avatarWrapper {
+  padding: var(--space-xxxs) var(--space-md);
+  border-bottom: 1px solid var(--color-dark-opacity-10);
+}
+
+.submitBtn {
+  margin-top: var(--space-md);
+}
+
+.error {
+  font: var(--font-label-m);
+  color: var(--color-notification);
+}

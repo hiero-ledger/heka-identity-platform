@@ -1,0 +1,19 @@
+@import '@/shared/styles/mixins';
+
+.rightSide {
+  width: 100%;
+  gap: var(--space-md);
+}
+
+.leftSide {
+  width: 100%;
+}
+
+.logo {
+  width: var(--space-xxxxl);
+  height: var(--space-xxxxl);
+  border-radius: var(--space-xs);
+  object-fit: cover;
+
+  @include border('all', var(--color-dark-opacity-10));
+}

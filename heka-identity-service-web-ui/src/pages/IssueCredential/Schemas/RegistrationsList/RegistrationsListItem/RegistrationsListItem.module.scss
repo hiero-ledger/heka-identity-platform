@@ -1,0 +1,13 @@
+@import '@/shared/styles/mixins';
+
+.registrationWrapper {
+  margin-bottom: var(--space-md);
+}
+
+.list {
+  width: 100%;
+  padding: var(--space-xs);
+  border-radius: var(--space-md);
+
+  @include border;
+}

@@ -1,4 +1,4 @@
-package com.hiero.wallet
+package com.heka.wallet
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

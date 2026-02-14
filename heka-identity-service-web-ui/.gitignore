@@ -1,0 +1,14 @@
+.DS_*
+*.log
+logs
+**/*.backup.*
+**/*.back.*
+
+.idea
+
+node_modules
+/build
+/reports
+
+*storybook.log
+/storybook-static

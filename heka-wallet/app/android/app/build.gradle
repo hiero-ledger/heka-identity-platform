@@ -80,7 +80,7 @@ def jscFlavor = 'org.webkit:android-jsc:+'
 def nativeArchitectures = project.getProperties().get("reactNativeDebugArchitectures")
 
 android {
-    namespace "com.hiero.wallet"
+    namespace "com.heka.wallet"
     ndkVersion rootProject.ext.ndkVersion
     compileSdkVersion rootProject.ext.compileSdkVersion
     compileSdk rootProject.ext.compileSdkVersion
@@ -98,7 +98,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.hiero.wallet"
+        applicationId "com.heka.wallet"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -141,7 +141,7 @@ android {
 
     defaultConfig {
         manifestPlaceholders = [
-            appAuthRedirectScheme: 'com.hiero.wallet.auth'
+            appAuthRedirectScheme: 'com.heka.wallet.auth'
         ]
     }
 

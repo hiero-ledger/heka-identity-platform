@@ -1,0 +1,19 @@
+.rightSide {
+  width: 100%;
+  min-height: var(--space-md);
+  gap: var(--space-md);
+}
+
+.leftSide {
+  width: 100%;
+  height: 100%;
+}
+
+.container {
+  width: 100%;
+}
+
+.iconWrapper {
+  width: var(--space-xl);
+  height: auto;
+}

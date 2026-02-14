@@ -1,0 +1,139 @@
+@import '@/shared/styles/mixins';
+
+.Profile {
+  flex: 1;
+  height: 100%;
+  background: var(--color-light-high-emphasis);
+
+  @include tablet {
+    padding: var(--space-md);
+    padding-top: var(--space-xxxl);
+  }
+
+  @include mobile {
+    padding: var(--space-md);
+    padding-top: var(--space-xxxl);
+  }
+}
+
+.ProfileWrapper {
+  width: 100%;
+  height: 100%;
+
+  @include tablet {
+    flex-direction: column;
+  }
+
+  @include mobile {
+    flex-direction: column;
+  }
+}
+
+.contentWrapper {
+  width: 100%;
+  height: 100%;
+  padding: var(--space-none);
+  gap: var(--space-xxxxl);
+  max-width: 95vw;
+
+  @include tablet {
+    padding-bottom: var(--space-xxxxxxl);
+  }
+
+  @include desktop {
+    overflow: auto;
+    padding: var(--space-xxxxl);
+    max-width: var(--space-content-with-restriction);
+  }
+}
+
+.stepWrapper {
+  width: 100%;
+  gap: var(--space-xxxxl);
+  margin-bottom: var(--space-xs);
+}
+
+.topSpace {
+  width: 100%;
+  padding-top: var(--space-xxxxl);
+}
+
+.content {
+  width: 100%;
+  height: 100%;
+  padding: var(--space-none);
+
+  @include desktop {
+    padding: var(--space-xxxxl);
+  }
+}
+
+.group {
+  width: 100%;
+  gap: var(--space-xl);
+
+  @include mobile {
+    width: 100%;
+  }
+}
+
+.topFieldsWrapper {
+  padding: var(--space-xs);
+  border-radius: var(--space-md);
+  border: 1px solid var(--color-dark-opacity-10);
+}
+
+.lastField {
+  padding: var(--space-xxxs) var(--space-md);
+  min-height: var(--space-xxxxl);
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-primary-opacity-6);
+    border-bottom-left-radius: var(--space-xs);
+    border-bottom-right-radius: var(--space-xs);
+  }
+}
+
+.intermediateField {
+  padding: var(--space-xxxs) var(--space-md);
+  min-height: var(--space-xxxxl);
+  border-bottom: 1px solid var(--color-dark-opacity-10);
+
+  &:not(:disabled):hover {
+    background-color: var(--color-primary-opacity-6);
+
+    &:first-child {
+      border-top-left-radius: var(--space-xs);
+      border-top-right-radius: var(--space-xs);
+    }
+  }
+}
+
+.inputWrapper {
+  position: relative;
+}
+
+.deleteBtn {
+  padding: var(--space-xxs);
+  position: absolute;
+  transform: translateY();
+  transform: translate(100%, -50%);
+  top: 50%;
+  right: calc(-1 * var(--space-sm));
+
+  @include mobile {
+    display: none;
+  }
+}
+
+.submitBtn {
+  margin-top: var(--space-md);
+}
+
+.actionButton {
+  width: 100%;
+
+  &:hover {
+    background: var(--color-primary-opacity-6);
+  }
+}

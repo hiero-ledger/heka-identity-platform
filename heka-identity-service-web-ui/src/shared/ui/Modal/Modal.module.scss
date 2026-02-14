@@ -1,0 +1,60 @@
+@import '@/shared/styles/mixins';
+
+.header {
+  padding-bottom: var(--space-xl);
+  margin-bottom: var(--space-xl);
+}
+
+.closeBtnWrapper {
+  position: absolute;
+  top: 0;
+  right: calc(-1 * var(--space-xl));
+  transform: translateX(100%);
+
+  @include mobile {
+    display: none;
+  }
+}
+
+.dialog {
+  &[data-focus-visible] {
+    outline: none;
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+.closeButton {
+  padding: 0;
+  width: var(--space-xxxxl);
+  height: var(--space-xxxxl);
+}
+
+.dialog .closeButton {
+  display: none;
+  margin-left: auto;
+  margin-bottom: var(--space-xs);
+  transform: translateX(var(--space-lg));
+
+  @include mobile {
+    display: block;
+  }
+}
+
+.escText {
+  display: block;
+  color: var(--color-surface-deep);
+  text-align: center;
+  margin-top: var(--space-xxxs);
+}
+
+.modal-title {
+  white-space: break-spaces;
+  overflow-wrap: anywhere;
+}

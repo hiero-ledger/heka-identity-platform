@@ -1,0 +1,28 @@
+@import '@/shared/styles/mixins';
+
+$empty-list-height: 240px;
+
+.header {
+  width: 100%;
+  padding-bottom: var(--space-lg);
+
+  .title {
+    font: var(--font-headline-m);
+    line-height: var(--space-xxl);
+  }
+}
+
+.list {
+  width: 100%;
+  padding: var(--space-xs);
+  border-radius: var(--space-md);
+
+  @include border;
+}
+
+.empty {
+  height: $empty-list-height;
+  padding: var(--space-xxxl);
+  font: var(--font-subtitle-m);
+  text-align: center;
+}

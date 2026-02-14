@@ -1,0 +1,84 @@
+.TemplateWrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background-color: #fff;
+  box-shadow:
+    0 4px 6px rgb(0 0 0 / 10%),
+    0 1px 3px rgb(0 0 0 / 6%);
+  border-radius: var(--space-md);
+  z-index: auto;
+  padding: var(--space-sm);
+}
+
+.TemplateWrapperDragging {
+  box-shadow:
+    0 8px 20px rgb(0 0 0 / 20%),
+    0 1px 3px rgb(0 0 0 / 6%);
+  opacity: 0.9;
+  z-index: 1000;
+}
+
+.headerIcons {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.templateEditIcon,
+.templateEqualIcon {
+  transform: scale(1.7);
+  display: inline-block;
+}
+
+.cardBody {
+  padding: var(--space-xl) var(--space-sm) var(--space-sm) var(--space-sm);
+  cursor: pointer;
+  height: 100%;
+  align-items: end;
+}
+
+.templateTitle {
+  font: var(--font-body-m);
+  line-height: var(--space-xl);
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iconWrapper {
+  height: var(--space-xxxxl);
+  width: var(--space-xxxxl);
+}
+
+.menuIconWrapper {
+  cursor: pointer;
+}
+
+.dragIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.menuButton {
+  padding: var(--space-xxs);
+
+  &[data-hovered] {
+    background-color: transparent;
+  }
+}
+
+.editButton {
+  font: var(--font-body-m);
+}
+
+.deleteButton {
+  font: var(--font-body-m);
+  color: var(--color-notification);
+}

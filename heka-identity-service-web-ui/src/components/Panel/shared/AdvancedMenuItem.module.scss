@@ -1,0 +1,75 @@
+@import '@/shared/styles/mixins';
+
+.AdvancedMenuItem {
+  width: 100%;
+  height: calc(5 * var(--space-xxxxl) + var(--space-xl));
+  background-color: var(--color-dark-high-emphasis);
+  padding: var(--space-xxxl);
+  border-radius: var(--space-md);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+
+  @include tablet {
+    width: 100%;
+    height: calc(3 * var(--space-xxxxl) + var(--space-lg));
+    background-color: var(--color-primary-opacity-6);
+  }
+
+  @include mobile {
+    width: 100%;
+    height: calc(3 * var(--space-xxxxl) + var(--space-lg));
+    background-color: var(--color-primary-opacity-6);
+  }
+}
+
+.title {
+  color: var(--color-light-high-emphasis);
+  font-size: var(--space-md);
+  width: calc(2 * var(--space-xxxl));
+  line-height: var(--space-xl);
+
+  @include tablet {
+    margin-bottom: var(--space-md);
+  }
+
+  @include mobile {
+    margin-bottom: var(--space-md);
+  }
+}
+
+.headerWrapper {
+  width: 100%;
+  height: 100%;
+  justify-content: space-between;
+
+  @include tablet {
+    justify-content: space-between;
+  }
+
+  @include mobile {
+    justify-content: space-between;
+  }
+}
+
+.rightIcon {
+  padding-top: 0;
+}
+
+.icon {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: calc(3 * var(--space-xxxxl) + var(--space-xxl));
+  height: calc(3 * var(--space-xxxxl));
+  border-radius: var(--space-md);
+}
+
+.iconMobile {
+  position: absolute;
+  right: calc(-1 * var(--space-md));
+  bottom: 0;
+  width: calc(2 * var(--space-xxxxxl));
+  height: calc(3 * var(--space-xxxl));
+  border-radius: var(--space-md);
+}

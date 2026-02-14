@@ -33,7 +33,7 @@ import { useIOSKeychainResetOnFirstLaunch } from './src/utils/keychain'
 initLanguages(localization)
 
 const bifoldContainer = new MainContainer(container.createChildContainer()).init()
-const dsrWalletContainer = new AppContainer(bifoldContainer).init()
+const hekaWalletContainer = new AppContainer(bifoldContainer).init()
 
 const App = () => {
   useEffect(() => {
@@ -56,7 +56,7 @@ const App = () => {
   // Do not render anything before keychain reset is completed
   if (keychainResetInProgress) return null
   return (
-    <ContainerProvider value={dsrWalletContainer}>
+    <ContainerProvider value={hekaWalletContainer}>
       <BifoldStoreProvider>
         <RootStoreProvider>
           <KeplrStoreProvider config={keplrConfig}>

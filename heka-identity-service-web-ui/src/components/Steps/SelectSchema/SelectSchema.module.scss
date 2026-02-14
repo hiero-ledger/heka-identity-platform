@@ -1,0 +1,72 @@
+@import '@/shared/styles/mixins';
+
+.column {
+  width: 100%;
+  padding: var(--space-xs);
+
+  @include border;
+  border-radius: var(--space-md);
+}
+
+.attribute {
+  width: 100%;
+  padding: var(--space-md);
+  color: var(--color-primary);
+  font: var(--font-body-m);
+  gap: var(--space-md);
+  text-wrap: auto;
+  overflow-wrap: anywhere;
+
+  &:not(:last-child) {
+    @include border('bottom');
+  }
+}
+
+.warningText {
+  padding: var(--space-md);
+  color: var(--color-notification);
+  font: var(--font-body-m);
+  text-wrap: auto;
+  width: inherit;
+  border-radius: var(--space-md);
+  border: 1px solid var(--color-dark-opacity-10);
+}
+
+.schemaDetail {
+  width: 100%;
+  gap: var(--space-xl);
+}
+
+.credentialCard {
+  padding: var(--space-xl);
+  border-radius: var(--space-md);
+  border: 1px solid var(--color-dark-opacity-10);
+
+  img {
+    width: var(--space-card-logo);
+    height: var(--space-card-logo);
+    object-fit: cover;
+    border-radius: var(--space-xs);
+    border: 1px solid;
+  }
+}
+
+.schemaLabel {
+  @include long-text;
+}
+
+.schemaName {
+  display: block;
+  margin-top: var(--space-xxl);
+  margin-bottom: var(--space-xxs);
+  font-weight: 600;
+  font-size: var(--font-size-headline-s);
+  line-height: var(--font-line-headline-s);
+
+  @include long-text;
+}
+
+.header {
+  width: 100%;
+  gap: var(--space-xl);
+}

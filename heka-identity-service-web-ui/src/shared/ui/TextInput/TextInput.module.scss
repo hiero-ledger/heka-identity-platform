@@ -1,0 +1,112 @@
+@import '@/shared/styles/mixins';
+
+.inputWrapper {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.input {
+  display: flex;
+  width: 100%;
+  height: 56px;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--color-dark-outline-medium);
+  border-radius: var(--space-sm);
+  outline: none;
+  overflow: clip;
+  padding: var(--space-md);
+
+  &::placeholder {
+    opacity: 0;
+  }
+
+  &[data-invalid] {
+    color: var(--color-notification);
+    border-color: var(--color-notification);
+  }
+}
+
+.labelInputWrapper {
+  position: relative;
+
+  input:focus,
+  input:not(:placeholder-shown),
+  input:-webkit-autofill {
+    & + label {
+      transform: translateY(calc(-30%)) scale(0.8);
+      font-size: var(--font-label-m);
+      width: 120%;
+    }
+  }
+
+  input:focus {
+    padding-bottom: var(--space-xs);
+  }
+
+  input:not([value=''], :focus) {
+    padding-bottom: var(--space-xs);
+  }
+}
+
+.label {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: var(--space-md);
+  display: flex;
+  align-items: center;
+  color: var(--color-dark-outline-medium);
+  pointer-events: none;
+  transition: transform 200ms;
+  transform-origin: left;
+}
+
+.label_content {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  text-wrap: nowrap;
+  padding-right: var(--space-lg);
+}
+
+.visibilityIcon {
+  height: var(--font-size-headline-m);
+  width: var(--font-size-headline-m);
+  color: var(--color-dark-outline-medium);
+  position: absolute;
+  right: var(--space-md);
+  top: var(--space-md);
+  cursor: pointer;
+}
+
+.error {
+  margin-top: var(--space-xxxxs);
+  font: var(--font-label-m);
+  color: var(--color-notification);
+}
+
+.valueBox {
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-md);
+
+  &__selected {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    overflow: hidden;
+
+    margin-top: var(--space-xs);
+    margin-bottom: var(--space-xs);
+  }
+
+  &__oneLine {
+    margin-top: var(--space-md);
+    margin-bottom: var(--space-md);
+  }
+
+  &__disabled {
+    color: var(--color-dark-disabled);
+  }
+}

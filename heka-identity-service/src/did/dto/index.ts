@@ -1,0 +1,6 @@
+export { CreateDidRequestDto } from './create-did.dto'
+export { FindDidRequestDto } from './find-did.dto'
+export { DidDocumentServiceDto } from './did-document-service.dto'
+export { DidDocumentDto } from './did-document.dto'
+export { VerificationMethodDto } from './verification-method.dto'
+export { GetDidMethodsResponseDto } from './get-did-method.dto'
