@@ -1,0 +1,39 @@
+@import '@/shared/styles/mixins';
+
+.attributesWrapper {
+  margin-bottom: var(--space-xxxxl);
+}
+
+.list {
+  width: 100%;
+  padding: var(--space-xs);
+  border-radius: var(--space-md);
+
+  @include border;
+}
+
+.item {
+  width: 100%;
+  padding: var(--space-md);
+  color: var(--color-primary);
+  font: var(--font-body-m);
+
+  @include long-text-full;
+
+  &:not(:last-child) {
+    @include border('bottom');
+  }
+}
+
+.formField {
+  padding: var(--space-xxxs) var(--space-md);
+
+  &:not(:last-child) {
+    @include border('bottom');
+  }
+}
+
+.submitBtn {
+  width: 100%;
+  margin-top: var(--space-md);
+}

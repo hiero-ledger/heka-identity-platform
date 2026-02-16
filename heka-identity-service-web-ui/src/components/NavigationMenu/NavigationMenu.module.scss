@@ -1,0 +1,68 @@
+@import '@/shared/styles/mixins';
+
+.DesktopNavigationMenu {
+  width: 100%;
+  height: 100%;
+  gap: var(--space-xs);
+}
+
+.desktopMainMenuWrapper {
+  gap: var(--space-xxxs);
+}
+
+.desktopMenuItem {
+  cursor: pointer;
+  border-radius: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  gap: var(--space-sm);
+  color: var(--color-primary);
+  font: var(--font-body-s);
+
+  &:hover {
+    background-color: var(--color-primary-opacity-6);
+  }
+}
+
+.MobileNavigationMenu {
+  padding: var(--space-xs) var(--space-lg);
+  position: fixed;
+  width: 100%;
+  bottom: 0;
+  left: 0;
+  z-index: 1000;
+}
+
+.mobileMenuWrapper {
+  width: 100%;
+  cursor: pointer;
+  background: white;
+  border-radius: var(--space-sm);
+  padding: var(--space-xxxs);
+  box-shadow:
+    0 -3px 10px rgb(0 0 0 / 10%),
+    3px 10px 20px rgb(0 0 0 / 10%),
+    -3px 0 10px rgb(0 0 0 / 10%);
+}
+
+.mobileMenuItem {
+  padding: var(--space-xs) var(--space-xl);
+  gap: var(--space-xxs);
+  border-radius: var(--space-sm);
+  color: var(--color-primary);
+
+  &:hover {
+    background-color: var(--color-primary-opacity-6);
+  }
+}
+
+.activeItem {
+  background-color: var(--color-primary-opacity-6);
+}
+
+.disabled {
+  pointer-events: none;
+}
+
+.username {
+  @include long-text;
+}

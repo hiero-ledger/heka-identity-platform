@@ -1,0 +1,103 @@
+@import '@/shared/styles/mixins';
+
+.ButtonGroup {
+  display: grid;
+  width: 100%;
+  gap: var(--space-sm);
+}
+
+.ButtonGroupColumn {
+  flex-direction: column;
+  grid-template-columns: 1fr;
+}
+
+.ButtonGroupRow {
+  flex-direction: row;
+  align-items: stretch;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(var(--space-template-card-width), 1fr)
+  );
+}
+
+.Button {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-width: 20%;
+  padding: var(--space-lg);
+  gap: var(--space-xxxl);
+  border-radius: var(--space-md);
+  background-color: var(--color-surface-deep);
+  color: var(--color-dark-high-emphasis);
+  box-shadow: var(--shadow-large);
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--color-primary-opacity-6);
+    color: var(--color-primary);
+  }
+}
+
+.ButtonCreate {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  border-radius: var(--space-sm);
+  cursor: pointer;
+  outline: none;
+  border: none;
+  background-color: var(--color-primary-opacity-6);
+  color: var(--color-text-on-surface);
+
+  padding: var(--space-sm);
+  width: 100%;
+
+  @include tablet {
+    flex: none;
+    width: auto;
+  }
+
+  &:hover {
+    background-color: var(--color-primary-opacity-9);
+  }
+}
+
+.ButtonSelected {
+  background-color: var(--color-dark-high-emphasis);
+  color: var(--color-surface-deep);
+
+  &:hover {
+    background-color: var(--color-dark-high-emphasis);
+    color: var(--color-surface-deep);
+  }
+}
+
+.ButtonText {
+  outline: none;
+
+  @include long-text;
+}
+
+.limitWidth {
+  max-width: 100%;
+}
+
+.circle {
+  height: var(--space-xl);
+  width: var(--space-xl);
+  min-height: var(--space-xl);
+  min-width: var(--space-xl);
+  border: 2px solid var(--color-primary);
+  border-radius: 50%;
+  background-color: var(--color-surface-deep);
+}
+
+.circleInner {
+  height: var(--space-unit);
+  width: var(--space-unit);
+  border: 2px solid var(--color-primary);
+  border-radius: 50%;
+  background-color: var(--color-surface-deep);
+}

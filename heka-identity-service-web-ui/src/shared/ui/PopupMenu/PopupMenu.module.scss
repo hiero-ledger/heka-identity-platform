@@ -1,0 +1,9 @@
+.popover {
+  overflow: hidden;
+  background-color: var(--color-surface-deep);
+  min-width: var(--trigger-width);
+  border-radius: var(--space-md);
+  padding: var(--space-xs);
+  box-shadow: var(--shadow-large);
+  outline: none;
+}

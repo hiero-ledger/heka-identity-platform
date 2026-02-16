@@ -1,0 +1,76 @@
+name: Verify Heka Identity Service changes
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'heka-identity-service/**'
+      - '.github/workflows/heka-identity-service-verify.yml'
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    defaults:
+      run:
+        working-directory: ./heka-identity-service
+    name: Build and check
+    runs-on: hl-idcol-lin-md
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: heka-identity-service
+          POSTGRES_USER: heka
+          POSTGRES_PASSWORD: heka1
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Prepare Github Runner
+        uses: pandaswhocode/initialize-github-job@ffb7446339e8e6007b942312ac95457d1a20b6cf # v1.0.4
+        with:
+          checkout: 'true'
+          checkout-ref: '${{ github.ref }}'
+          checkout-token: '${{ secrets.GITHUB_TOKEN }}'
+          setup-node: 'true'
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+        shell: bash
+
+      - name: Install dependencies
+        run: yarn install --immutable
+        shell: bash
+
+      - name: Run typecheck
+        run: yarn check-types
+
+      - name: Run ESLint
+        run: yarn lint
+
+      - name: Run unit tests
+        run: env FORCE_COLOR=1 yarn test ./src --config=./src/jest.config.ts --ci --reporters=default
+
+      - name: Run integration tests
+        env:
+          MIKRO_ORM_HOST: postgres
+          MIKRO_ORM_PORT: 5432
+          MIKRO_ORM_USER: heka
+          MIKRO_ORM_PASSWORD: heka1
+          WALLET_POSTGRES_HOST: postgres
+          EXPRESS_HOST: localhost
+          FILE_STORAGE_FS_URL: http://localhost:3000
+          APP_ENDPOINT: http://localhost:3000
+        run: yarn test --ci --reporters=default

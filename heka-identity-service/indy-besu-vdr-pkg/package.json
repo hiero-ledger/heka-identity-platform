@@ -1,0 +1,16 @@
+{
+  "name": "indy-besu-vdr-wasm",
+  "collaborators": [
+    "Artem Ivanov <artem.ivanov@dsr-corporation.com>"
+  ],
+  "description": "JavaScript bindings for Indy Besu VDR",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "files": [
+    "indy_besu_vdr_wasm_bg.wasm",
+    "indy_besu_vdr_wasm.js",
+    "indy_besu_vdr_wasm.d.ts"
+  ],
+  "main": "indy_besu_vdr_wasm.js",
+  "types": "indy_besu_vdr_wasm.d.ts"
+}

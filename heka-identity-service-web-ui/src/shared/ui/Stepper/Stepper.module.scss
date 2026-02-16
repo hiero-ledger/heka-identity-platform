@@ -1,0 +1,27 @@
+.Stepper {
+  width: 100%;
+}
+
+.step {
+  height: 24px;
+  width: 24px;
+  background-color: var(--color-surface-4);
+  border-radius: 50%;
+}
+
+.stepInner {
+  height: 8px;
+  width: 8px;
+  background-color: var(--color-light-high-emphasis);
+  border-radius: 50%;
+}
+
+.connector {
+  width: 48px;
+  height: 8px;
+  background-color: var(--color-surface-4);
+}
+
+.active {
+  background-color: var(--color-primary);
+}

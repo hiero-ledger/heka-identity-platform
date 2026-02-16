@@ -1,0 +1,76 @@
+@import '@/shared/styles/mixins';
+
+.react-aria-ModalOverlay {
+  padding: var(--space-xxxxl);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: var(--visual-viewport-height);
+  background: var(--color-dark-opacity-30);
+  margin: auto;
+  display: flex;
+  justify-content: center;
+  z-index: 100;
+  overflow-y: auto;
+
+  @include tablet {
+    padding-bottom: var(--space-xxxxxxxl);
+  }
+
+  @include mobile {
+    padding: 0;
+  }
+
+  &[data-entering] {
+    animation: modal-fade 200ms;
+  }
+
+  &[data-exiting] {
+    animation: modal-fade 150ms reverse ease-in;
+  }
+}
+
+.react-aria-Modal {
+  background-color: #fff;
+  padding: var(--space-xxxxl);
+  border-radius: var(--space-xxl);
+  align-self: safe center;
+  position: relative;
+  width: calc(27 * var(--space-md));
+
+  @include mobile {
+    padding: var(--space-xl) var(--space-xl) var(--space-xxxxxxxl);
+    min-height: 100%;
+    width: 100%;
+    border-radius: 0;
+  }
+
+  &[data-entering] {
+    animation: modal-zoom 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .react-aria-TextField {
+    margin-bottom: var(--space-xs);
+  }
+}
+
+@keyframes modal-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-zoom {
+  from {
+    transform: scale(0.8);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}

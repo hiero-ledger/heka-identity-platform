@@ -1,0 +1,10 @@
+@import '@/shared/styles/mixins';
+
+.Column {
+  display: flex;
+  flex-direction: column;
+}
+
+.border {
+  @include border('all', var(--color-dark-opacity-10));
+}

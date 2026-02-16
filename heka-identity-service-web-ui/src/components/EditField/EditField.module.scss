@@ -1,0 +1,33 @@
+.EditField {
+  &:hover:disabled {
+    cursor: default;
+  }
+}
+
+.rightSide {
+  width: 50%;
+  gap: var(--space-md);
+}
+
+.fieldValue {
+  display: flex;
+  align-items: flex-end;
+  max-width: 95%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leftSide {
+  width: 50%;
+  text-align: start;
+}
+
+.container {
+  min-height: var(--space-xxxxl);
+}
+
+.iconWrapper {
+  width: var(--space-xl);
+  height: auto;
+}

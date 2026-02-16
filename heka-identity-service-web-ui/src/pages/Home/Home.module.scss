@@ -1,0 +1,44 @@
+@import '@/shared/styles/mixins';
+
+.Home {
+  width: 100%;
+  height: 100%;
+  padding: var(--space-xxxxl);
+  padding-top: var(--space-xl);
+  background-color: var(--color-primary-hiero-branded-2);
+  border-radius: var(--space-xl);
+  gap: var(--space-xl);
+  position: relative;
+}
+
+.textWrapper {
+  color: var(--color-light-high-emphasis);
+  gap: var(--space-sm);
+}
+
+.title {
+  font: var(--font-headline-l);
+}
+
+.description {
+  font: var(text-body-m);
+}
+
+.storeLinks {
+  position: absolute;
+  top: var(--space-xxxxxl);
+  right: var(--space-xxxxxl);
+  display: inline-grid;
+  gap: var(--space-xl);
+
+  @include tablet {
+    top: var(--space-xxxxxxxl);
+  }
+
+  @include mobile {
+    position: absolute;
+    display: inline-grid;
+    top: var(--space-xxl);
+    right: var(--space-xxl);
+  }
+}

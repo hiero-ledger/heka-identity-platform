@@ -1,0 +1,11 @@
+@import '@/shared/styles/mixins';
+
+.Form {
+  display: grid;
+  width: 40%;
+  gap: var(--space-lg);
+
+  @include mobile {
+    width: 100%;
+  }
+}

@@ -1,0 +1,19 @@
+@import '@/shared/styles/mixins';
+
+.wrapper {
+  width: 100%;
+  gap: var(--space-xl);
+}
+
+.description {
+  color: var(--color-dark-medium-emphasis);
+}
+
+.registrations {
+  width: 100%;
+  padding: var(--space-lg);
+  border-radius: var(--space-xxl);
+  gap: var(--space-lg);
+
+  @include border;
+}

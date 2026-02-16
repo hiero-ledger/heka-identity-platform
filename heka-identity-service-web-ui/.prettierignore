@@ -1,0 +1,11 @@
+# Ignore artifacts:
+/build
+coverage
+node_modules
+*.html
+
+# Ignore files managed by yarn:
+.yarn
+
+# Ignore scss files (we use stylelint for them):
+*.scss

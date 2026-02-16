@@ -1,7 +1,7 @@
 import { DifPexCredentialsForRequest } from '@credo-ts/core'
 import { OpenId4VciResolvedCredentialOffer, OpenId4VcSiopVerifiedAuthorizationRequest } from '@credo-ts/openid4vc'
 
-export const dsrAgencySdJwtVc = {
+export const hekaIdentityServiceSdJwtVc = {
   credentialOfferUrl:
     'openid-credential-offer://?credential_offer_uri=https%3A%2F%2F70ff-195-98-90-134.ngrok-free.app%2FopenId%2Foid4vci%2Fdid%3Akey%3Az6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae%2Foffers%2F48cacb0f-1c9a-4340-91d7-85649db26766',
   resolvedCredentialOfferPreAuth: {

@@ -1,0 +1,19 @@
+@import '@/shared/styles/mixins';
+
+.header {
+  width: 100%;
+  padding-bottom: var(--space-lg);
+
+  .title {
+    font: var(--font-headline-m);
+    line-height: var(--space-xxl);
+  }
+}
+
+.formElement {
+  padding-bottom: var(--space-xl);
+}
+
+.submitBtn {
+  padding-top: var(--space-lg);
+}

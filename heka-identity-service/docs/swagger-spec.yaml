@@ -1,0 +1,3977 @@
+openapi: 3.0.0
+paths:
+  /user:
+    get:
+      operationId: UserController_getMe
+      parameters: []
+      responses:
+        "200":
+          description: Logged user data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDto"
+        "400": &a1
+          description: Bad Request.
+        "401": &a2
+          description: Unauthorized.
+      security: &a3
+        - bearer: []
+      summary: Get logged user data
+      tags: &a4
+        - User
+    patch:
+      operationId: UserController_patchMe
+      parameters: []
+      requestBody:
+        required: true
+        description: User data
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PatchUserDto"
+      responses:
+        "200":
+          description: User data modified.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDto"
+        "400": *a1
+        "401": *a2
+      security: *a3
+      summary: Patch logged user data
+      tags: *a4
+  /dids/methods:
+    get:
+      operationId: DidController_getMethods
+      parameters: []
+      responses:
+        "200":
+          description: DID methods
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetDidMethodsResponseDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+      security: &a5
+        - bearer: []
+      summary: Get supported DIDs methods
+      tags: &a6
+        - Dids
+  /dids:
+    get:
+      operationId: DidController_find
+      parameters:
+        - name: own
+          required: true
+          in: query
+          schema:
+            type: boolean
+        - name: method
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: DID documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DidDocumentDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+      security: *a5
+      summary: Get DIDs
+      tags: *a6
+    post:
+      operationId: DidController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDidRequestDto"
+      responses:
+        "201":
+          description: Created DID document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DidDocumentDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "409":
+          description: Conflict
+        "422":
+          description: Unprocessable Entity
+      security: *a5
+      summary: Create a new public DID
+      tags: *a6
+  /dids/{did}:
+    get:
+      operationId: DidController_get
+      parameters:
+        - name: did
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: DID document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DidDocumentDto"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+      security: *a5
+      summary: Resolve a DID
+      tags: *a6
+  /schemas:
+    get:
+      operationId: SchemaController_find
+      parameters:
+        - name: method
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Schema Records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SchemaDto"
+        "400": &a7
+          description: Bad Request
+        "401": &a8
+          description: Unauthorized
+      security: &a9
+        - bearer: []
+      summary: Get created schemas
+      tags: &a10
+        - Schema
+    post:
+      operationId: SchemaController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSchemaDto"
+      responses:
+        "201":
+          description: Created schema
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaDto"
+        "400": *a7
+        "401": *a8
+        "422":
+          description: Unprocessable Entity
+      security: *a9
+      summary: Create a schema
+      tags: *a10
+  /schemas/{id}:
+    get:
+      operationId: SchemaController_get
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Schema Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaDto"
+        "400": *a7
+        "401": *a8
+        "404":
+          description: Not Found
+      security: *a9
+      summary: Get a schema from the ledger
+      tags: *a10
+  /v2/schemas:
+    get:
+      operationId: SchemaV2Controller_getSchemasList_v2
+      parameters:
+        - name: offset
+          required: false
+          in: query
+          description: Page offset
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          description: Page size
+          schema:
+            type: number
+        - name: text
+          required: false
+          in: query
+          description: Search text
+          schema:
+            type: string
+        - name: isHidden
+          required: false
+          in: query
+          description: Is hidden
+          schema:
+            nullable: true
+            type: boolean
+      responses:
+        "200":
+          description: List of schemas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ListResponse"
+                  - properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/GetSchemasListItem"
+        "400": &a11
+          description: Bad Request
+        "401": &a12
+          description: Unauthorized
+      security:
+        - bearer: []
+      summary: Get schemas list
+      tags: &a13
+        - SchemaV2
+    post:
+      operationId: SchemaV2Controller_createSchema_v2
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CreateSchemaRequest"
+      responses:
+        "400": *a11
+        "401": *a12
+        default:
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateSchemaResponse"
+      security:
+        - bearer: []
+      summary: Create schema
+      tags: *a13
+  /v2/schemas/{id}:
+    get:
+      operationId: SchemaV2Controller_getSchemaById_v2
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Schema id
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "400": *a11
+        "401": *a12
+        default:
+          description: Schema details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetSchemaResponse"
+      security:
+        - bearer: []
+      summary: Get schema details
+      tags: *a13
+    patch:
+      operationId: SchemaV2Controller_patchSchema_v2
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Schema id
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PatchSchemaRequest"
+      responses:
+        "200":
+          description: Schema was patched
+        "400": *a11
+        "401": *a12
+        default:
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatchSchemaResponse"
+      security:
+        - bearer: []
+      summary: Patch schema
+      tags: *a13
+  /v2/schemas/{id}/registration:
+    post:
+      operationId: SchemaV2Controller_registrationSchema_v2
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterSchemaRequest"
+      responses:
+        "200":
+          description: Schema was registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterSchemaResponse"
+        "400": *a11
+        "401": *a12
+      security:
+        - bearer: []
+      summary: Registration schema
+      tags: *a13
+    get:
+      operationId: SchemaV2Controller_getSchemaRegistration_v2
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Schema id
+          schema:
+            format: uuid
+            type: string
+        - name: protocol
+          required: true
+          in: query
+          description: Protocol
+          schema:
+            type: string
+            enum:
+              - Aries
+              - OpenId4VC
+        - name: credentialFormat
+          required: true
+          in: query
+          description: Credential format
+          schema:
+            type: string
+            enum:
+              - anoncreds
+              - jwt_vc_json
+              - jwt_vc_json-ld
+              - ldp_vc
+              - vc+sd-jwt
+        - name: network
+          required: true
+          in: query
+          description: Network
+          schema:
+            type: string
+            enum:
+              - key
+              - indy
+              - indybesu
+              - hedera
+        - name: did
+          required: true
+          in: query
+          description: DID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Schema registration details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetSchemaRegistrationResponse"
+        "400": *a11
+        "401": *a12
+      security:
+        - bearer: []
+      summary: Get schema registration detail
+      tags: *a13
+  /issuance-templates:
+    get:
+      operationId: IssuanceTemplateController_getTemplatesList
+      parameters:
+        - name: offset
+          required: false
+          in: query
+          description: Page offset
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          description: Page size
+          schema:
+            type: number
+        - name: text
+          required: false
+          in: query
+          description: Search text
+          schema:
+            type: string
+        - name: isPinned
+          required: false
+          in: query
+          description: Is pinned
+          schema:
+            nullable: true
+            type: boolean
+      responses:
+        "200":
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ListResponse"
+                  - properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/GetIssuanceTemplatesListItem"
+        "400": &a14
+          description: Bad Request
+        "401": &a15
+          description: Unauthorized
+      security: &a16
+        - bearer: []
+      summary: Get templates list
+      tags: &a17
+        - Issuance Templates
+    post:
+      operationId: IssuanceTemplateController_createTemplate
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIssuanceTemplateRequest"
+      responses:
+        "400": *a14
+        "401": *a15
+        default:
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateIssuanceTemplateResponse"
+      security: *a16
+      summary: Create template
+      tags: *a17
+  /issuance-templates/{id}:
+    get:
+      operationId: IssuanceTemplateController_getTemplateById
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Template id
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "400": *a14
+        "401": *a15
+        default:
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetIssuanceTemplateResponse"
+      security: *a16
+      summary: Get template details
+      tags: *a17
+    patch:
+      operationId: IssuanceTemplateController_patchTemplate
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Template id
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchIssuanceTemplateRequest"
+      responses:
+        "200":
+          description: ""
+        "400": *a14
+        "401": *a15
+        default:
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatchIssuanceTemplateResponse"
+      security: *a16
+      summary: Patch template
+      tags: *a17
+    delete:
+      operationId: IssuanceTemplateController_deleteTemplate
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Template id
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          description: ""
+        "400": *a14
+        "401": *a15
+      security: *a16
+      summary: Delete template
+      tags: *a17
+  /verification-templates:
+    get:
+      operationId: VerificationTemplateController_getTemplatesList
+      parameters:
+        - name: offset
+          required: false
+          in: query
+          description: Page offset
+          schema:
+            type: number
+        - name: limit
+          required: false
+          in: query
+          description: Page size
+          schema:
+            type: number
+        - name: text
+          required: false
+          in: query
+          description: Search text
+          schema:
+            type: string
+        - name: isPinned
+          required: false
+          in: query
+          description: Is pinned
+          schema:
+            nullable: true
+            type: boolean
+      responses:
+        "200":
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ListResponse"
+                  - properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/GetVerificationTemplatesListItem"
+        "400": &a18
+          description: Bad Request
+        "401": &a19
+          description: Unauthorized
+      security: &a20
+        - bearer: []
+      summary: Get templates list
+      tags: &a21
+        - Verification Templates
+    post:
+      operationId: VerificationTemplateController_createTemplate
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVerificationTemplateRequest"
+      responses:
+        "400": *a18
+        "401": *a19
+        default:
+          description: Created template id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateVerificationTemplateResponse"
+      security: *a20
+      summary: Create template
+      tags: *a21
+  /verification-templates/{id}:
+    get:
+      operationId: VerificationTemplateController_getTemplateById
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Template id
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "400": *a18
+        "401": *a19
+        default:
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetVerificationTemplateResponse"
+      security: *a20
+      summary: Get template details
+      tags: *a21
+    patch:
+      operationId: VerificationTemplateController_patchTemplate
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Template id
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchVerificationTemplateRequest"
+      responses:
+        "200":
+          description: ""
+        "400": *a18
+        "401": *a19
+      security: *a20
+      summary: Patch template
+      tags: *a21
+    delete:
+      operationId: VerificationTemplateController_deleteTemplate
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Template id
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          description: ""
+        "400": *a18
+        "401": *a19
+      security: *a20
+      summary: Delete template
+      tags: *a21
+  /credential-definitions:
+    get:
+      operationId: CredentialDefinitionController_find
+      parameters:
+        - name: issuerId
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: schemaId
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Credential Definition Records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CredentialDefinitionDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+      security: &a22
+        - bearer: []
+      summary: Get created credential definitions
+      tags: &a23
+        - Credential Definitions
+    post:
+      operationId: CredentialDefinitionController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCredentialDefinitionDto"
+      responses:
+        "201":
+          description: Credential Definition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialDefinitionDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "422":
+          description: Unprocessable Entity
+      security: *a22
+      summary: Create a credential definition
+      tags: *a23
+  /credential-definitions/{id}:
+    get:
+      operationId: CredentialDefinitionController_get
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Credential Definition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialDefinitionDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+      security: *a22
+      summary: Get a credential definition
+      tags: *a23
+  /connections:
+    get:
+      operationId: ConnectionController_find
+      parameters: []
+      responses:
+        "200":
+          description: Connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConnectionRecordDto"
+        "401":
+          description: Unauthorized
+      security: &a24
+        - bearer: []
+      summary: Get all connections
+      tags: &a25
+        - Connections
+  /connections/create-invitation:
+    post:
+      operationId: ConnectionController_createInvitation
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvitationRequestDto"
+      responses:
+        "200":
+          description: Invitation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateInvitationResponseDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+      security: *a24
+      summary: Create an invitation
+      tags: *a25
+  /connections/accept-invitation:
+    post:
+      operationId: ConnectionController_acceptInvitation
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptInvitationDto"
+      responses:
+        "200":
+          description: Connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionRecordDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+      security: *a24
+      summary: Accept an invitation
+      tags: *a25
+  /connections/{id}:
+    get:
+      operationId: ConnectionController_get
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionRecordDto"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+      security: *a24
+      summary: Get a connection
+      tags: *a25
+  /credentials:
+    get:
+      operationId: CredentialController_find
+      parameters:
+        - name: threadId
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Credential Records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CredentialRecordDto"
+        "401": &a26
+          description: Unauthorized
+      security: &a27
+        - bearer: []
+      summary: Get all credential records
+      tags: &a28
+        - Credentials
+  /credentials/offer:
+    post:
+      operationId: CredentialController_offer
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CredentialOfferDto"
+      responses:
+        "200":
+          description: Credential Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialRecordDto"
+        "400":
+          description: Bad Request
+        "401": *a26
+        "422":
+          description: Unprocessable Entity
+      security: *a27
+      summary: Offer a credential
+      tags: *a28
+  /credentials/config:
+    get:
+      operationId: CredentialController_types
+      parameters: []
+      responses:
+        "200":
+          description: Credential config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialConfigDto"
+        "401": *a26
+      security: *a27
+      summary: Get available protocols and their cred types and networks
+      tags: *a28
+  /credentials/{id}:
+    get:
+      operationId: CredentialController_get
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Credential Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialRecordDto"
+        "401": *a26
+        "404":
+          description: Not Found
+      security: *a27
+      summary: Get a credential record
+      tags: *a28
+  /credentials/{id}/accept:
+    post:
+      operationId: CredentialController_accept
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Credential Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialRecordDto"
+        "401": *a26
+        "404":
+          description: Not Found
+        "409":
+          description: Conflict
+      security: *a27
+      summary: Accept a credential offer
+      tags: *a28
+  /credentials/{id}/revoke:
+    post:
+      operationId: CredentialController_revoke
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "401":
+          description: Unauthorized
+      security: *a27
+      summary: Revoke a credential
+      tags: *a28
+  /proofs:
+    get:
+      operationId: ProofController_find
+      parameters:
+        - name: threadId
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Proof Records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProofRecordDto"
+        "401":
+          description: Unauthorized
+      security: &a29
+        - bearer: []
+      summary: Get all proof records
+      tags: &a30
+        - Proofs
+  /proofs/request:
+    post:
+      operationId: ProofController_request
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProofRequestDto"
+      responses:
+        "200":
+          description: Proof Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProofRecordDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "422":
+          description: Unprocessable Entity
+      security: *a29
+      summary: Request a proof
+      tags: *a30
+  /proofs/{id}:
+    get:
+      operationId: ProofController_get
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Proof Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProofRecordDto"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+      security: *a29
+      summary: Get a proof record
+      tags: *a30
+  /proofs/{id}/present:
+    post:
+      operationId: ProofController_present
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Proof Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProofRecordDto"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+        "409":
+          description: Conflict
+        "422":
+          description: Unprocessable Entity
+      security: *a29
+      summary: Present a proof
+      tags: *a30
+  /openid4vc/issuer:
+    get:
+      operationId: OpenId4VcIssuerController_find
+      parameters:
+        - name: publicIssuerId
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Issuer records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OpenId4VcIssuerRecordDto"
+        "401":
+          description: Unauthorized
+      security: &a31
+        - bearer: []
+      summary: Get issuer records
+      tags: &a32
+        - OpenID4VC Issuer
+    post:
+      operationId: OpenId4VcIssuerController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenId4VcIssuersCreateDto"
+      responses:
+        "200":
+          description: Issuer Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenId4VcIssuerRecordDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "422":
+          description: Unprocessable Entity
+      security: *a31
+      summary: Create an Issuer
+      tags: *a32
+  /openid4vc/issuer/{issuerId}:
+    put:
+      operationId: OpenId4VcIssuerController_update
+      parameters:
+        - name: issuerId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenId4VcIssuersUpdateMetadataDto"
+      responses:
+        "200":
+          description: Issuer Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenId4VcIssuerRecordDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "422":
+          description: Unprocessable Entity
+      security: *a31
+      summary: Update an Issuer Metadata
+      tags: *a32
+  /openid4vc/issuer/supported-credentials:
+    get:
+      operationId: OpenId4VcIssuerController_supportedCredentials
+      parameters:
+        - name: publicIssuerId
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: credentialType
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Supported credential
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OpenId4VciCredentialConfigurationSupportedWithId"
+        "401":
+          description: Unauthorized
+      security: *a31
+      summary: Get supported issuer credentials
+      tags: *a32
+  /openid4vc/issuance-session/offer:
+    post:
+      operationId: OpenId4VcIssuanceSessionController_offer
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenId4VcIssuanceSessionsCreateOfferDto"
+      responses:
+        "200":
+          description: Credential Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenId4VcIssuanceSessionsCreateOfferResponse"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "422":
+          description: Unprocessable Entity
+      security: &a33
+        - bearer: []
+      summary: Offer a credential
+      tags: &a34
+        - OpenID4VC Issuance Session
+  /openid4vc/issuance-session:
+    get:
+      operationId: OpenId4VcIssuanceSessionController_getIssuanceSessionsByQuery
+      parameters:
+        - name: cNonce
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: publicIssuerId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: preAuthorizedCode
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: credentialOfferUri
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: state
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - OfferCreated
+              - OfferUriRetrieved
+              - AuthorizationInitiated
+              - AuthorizationGranted
+              - AccessTokenRequested
+              - AccessTokenCreated
+              - CredentialRequestReceived
+              - CredentialsPartiallyIssued
+              - Completed
+              - Error
+      responses:
+        "200":
+          description: Credential Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenId4VcIssuanceSessionRecordDto"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+      security: *a33
+      summary: "Get a Issuance Sessions By Query "
+      tags: *a34
+  /openid4vc/issuance-session/{issuanceSessionId}:
+    get:
+      operationId: OpenId4VcIssuanceSessionController_getIssuanceSession
+      parameters:
+        - name: issuanceSessionId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Credential Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenId4VcIssuanceSessionRecordDto"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+      security: *a33
+      summary: "Get a Issuance Sessions By Id "
+      tags: *a34
+    delete:
+      operationId: OpenId4VcIssuanceSessionController_deleteIssuanceSession
+      parameters:
+        - name: issuanceSessionId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "422":
+          description: Unprocessable Entity
+      security: *a33
+      summary: Delete Issuance Session
+      tags: *a34
+  /openid4vc/issuance-session/{id}/revoke:
+    post:
+      operationId: OpenId4VcIssuanceSessionController_revoke
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "401":
+          description: Unauthorized
+      security: *a33
+      summary: Revoke a credential
+      tags: *a34
+  /openid4vc/verifier:
+    post:
+      operationId: OpenId4VcVerifierController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenId4VcVerifierCreateDto"
+      responses:
+        "200":
+          description: Verifier Record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenId4VcVerifierRecordDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "422":
+          description: Unprocessable Entity
+      security: &a35
+        - bearer: []
+      summary: Create a Verifier
+      tags: &a36
+        - OpenID4VC Verifier
+    get:
+      operationId: OpenId4VcVerifierController_find
+      parameters:
+        - name: publicVerifierId
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Verifier records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OpenId4VcVerifierRecordDto"
+        "401":
+          description: Unauthorized
+      security: *a35
+      summary: Get verifier records
+      tags: *a36
+  /openid4vc/verification-session/request:
+    post:
+      operationId: OpenId4VcVerificationSessionController_createRequest
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenId4VcVerificationSessionCreateRequestDto"
+      responses:
+        "200":
+          description: Verification session record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenId4VcVerificationSessionCreateRequestResponse"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "422":
+          description: Unprocessable Entity
+      security: &a37
+        - bearer: []
+      summary: Create an presentation request
+      tags: &a38
+        - OpenID4VC Verification Sessions
+  /openid4vc/verification-session:
+    get:
+      operationId: OpenId4VcVerificationSessionController_getVerificationSessionsByQuery
+      parameters:
+        - name: nonce
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: publicVerifierId
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: payloadState
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: authorizationRequestUri
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: state
+          required: false
+          in: query
+          schema:
+            type: string
+            enum:
+              - RequestCreated
+              - RequestUriRetrieved
+              - ResponseVerified
+              - Error
+      responses:
+        "200":
+          description: Verification session records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OpenId4VcVerificationSessionRecordDto"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+      security: *a37
+      summary: "Get Verification Sessions By Query "
+      tags: *a38
+  /openid4vc/verification-session/{verificationSessionId}:
+    get:
+      operationId: OpenId4VcVerificationSessionController_getVerificationSession
+      parameters:
+        - name: verificationSessionId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Verification session record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenId4VcVerificationSessionRecordDto"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+      security: *a37
+      summary: "Get a Verification Session By Id "
+      tags: *a38
+  /openid4vc/verification-session/verificationSessionId:
+    delete:
+      operationId: OpenId4VcVerificationSessionController_deleteVerificationSession
+      parameters:
+        - name: verificationSessionId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "422":
+          description: Unprocessable Entity
+      security: *a37
+      summary: Delete Verification Session
+      tags: *a38
+  /health:
+    get:
+      operationId: HealthController_check
+      parameters: []
+      responses:
+        "200":
+          description: The Health Check is successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  info:
+                    type: object
+                    example: &a39
+                      database: &a40
+                        status: up
+                    additionalProperties:
+                      type: object
+                      required:
+                        - status
+                      properties:
+                        status:
+                          type: string
+                      additionalProperties: true
+                    nullable: true
+                  error:
+                    type: object
+                    example: {}
+                    additionalProperties:
+                      type: object
+                      required:
+                        - status
+                      properties:
+                        status:
+                          type: string
+                      additionalProperties: true
+                    nullable: true
+                  details:
+                    type: object
+                    example: *a39
+                    additionalProperties:
+                      type: object
+                      required:
+                        - status
+                      properties:
+                        status:
+                          type: string
+                      additionalProperties: true
+        "503":
+          description: The Health Check is not successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  info:
+                    type: object
+                    example: *a39
+                    additionalProperties:
+                      type: object
+                      required:
+                        - status
+                      properties:
+                        status:
+                          type: string
+                      additionalProperties: true
+                    nullable: true
+                  error:
+                    type: object
+                    example:
+                      redis: &a41
+                        status: down
+                        message: Could not connect
+                    additionalProperties:
+                      type: object
+                      required:
+                        - status
+                      properties:
+                        status:
+                          type: string
+                      additionalProperties: true
+                    nullable: true
+                  details:
+                    type: object
+                    example:
+                      database: *a40
+                      redis: *a41
+                    additionalProperties:
+                      type: object
+                      required:
+                        - status
+                      properties:
+                        status:
+                          type: string
+                      additionalProperties: true
+      summary: Check app health
+      tags:
+        - Health
+  /revocation-registries:
+    post:
+      operationId: RevocationRegistryController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRevocationRegistryRequest"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateRevocationRegistryResponse"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+      security: &a42
+        - bearer: []
+      summary: Create revocation registry
+      tags: &a43
+        - Anoncreds Revocation Registries
+    get:
+      operationId: RevocationRegistryController_find
+      parameters:
+        - name: credDefId
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RevocationRegistry"
+        "401":
+          description: Unauthorized
+      security: *a42
+      summary: Get created revocation registries
+      tags: *a43
+  /revocation-registries/{id}:
+    get:
+      operationId: RevocationRegistryController_get
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: timestamp
+          required: false
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetRevocationRegistryResponse"
+        "401":
+          description: Unauthorized
+      security: *a42
+      summary: Get revocation registry
+      tags: *a43
+  /revocation/tails/{hash}:
+    get:
+      operationId: TailsController_download
+      parameters:
+        - name: hash
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetRevocationRegistryResponse"
+      summary: Get revocation tails file
+      tags:
+        - Tails
+  /status-lists:
+    post:
+      operationId: StatusListController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStatusListRequest"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateStatusListRequest"
+        "400": &a44
+          description: Bad Request
+        "401": &a45
+          description: Unauthorized
+      security: &a46
+        - bearer: []
+      summary: Create status list
+      tags: &a47
+        - "Bitstring Status List "
+    get:
+      operationId: StatusListController_find
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StatusList"
+        "400": *a44
+        "401": *a45
+      security: *a46
+      summary: Get all created status lists
+      tags: *a47
+  /status-lists/{id}:
+    put:
+      operationId: StatusListController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStatusListRequest"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateStatusListRequest"
+        "400": *a44
+        "401": *a45
+      security: *a46
+      summary: Update status list
+      tags: *a47
+    get:
+      operationId: StatusListController_get
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusList"
+        "400": *a44
+        "401": *a45
+      security: *a46
+      summary: Get status list
+      tags: *a47
+  /credentials/status/{id}:
+    get:
+      operationId: StatusListPublicController_get
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetCredentialStatusListResponse"
+      summary: Download status list
+      tags:
+        - Status List (public)
+  /prepare-wallet:
+    post:
+      operationId: PrepareWalletController_prepareWallet
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PrepareWalletRequestDto"
+      responses:
+        "201":
+          description: ""
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+      security:
+        - bearer: []
+      summary: Prepare User's Wallet
+      tags:
+        - Prepare Wallet
+  /v2/credentials/offer-by-template:
+    post:
+      operationId: CredentialV2Controller_offerByTemplate_v2
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfferByIssuanceTemplateRequest"
+      responses:
+        "400": &a48
+          description: Bad Request
+        "401": &a49
+          description: Unauthorized
+        default:
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferByIssuanceTemplateResponse"
+      security: &a50
+        - bearer: []
+      summary: Make VC offer by template
+      tags: &a51
+        - Credentials V2
+  /v2/credentials/proof-by-template:
+    post:
+      operationId: CredentialV2Controller_proofByTemplate_v2
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProofByVerificationTemplateRequest"
+      responses:
+        "400": *a48
+        "401": *a49
+        default:
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProofByVerificationTemplateResponse"
+      security: *a50
+      summary: Proof VC by template
+      tags: *a51
+info:
+  title: Heka Identity Service
+  description: Heka Identity Service API
+  version: 2.3.0
+  contact: {}
+tags: []
+servers: []
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+  schemas:
+    UserDto:
+      type: object
+      properties:
+        messageDeliveryType:
+          type: string
+        webHook:
+          type: string
+        name:
+          type: string
+        backgroundColor:
+          type: string
+        logo:
+          type: string
+        registeredAt:
+          format: date-time
+          type: string
+    PatchUserDto:
+      type: object
+      properties:
+        messageDeliveryType:
+          type: string
+        webHook:
+          type: string
+        name:
+          type: string
+        backgroundColor:
+          type: string
+        logo:
+          type: string
+          format: binary
+    GetDidMethodsResponseDto:
+      type: object
+      properties: {}
+    VerificationMethodDto:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        controller:
+          type: string
+        publicKeyBase58:
+          type: string
+        publicKeyBase64:
+          type: string
+        publicKeyJwk:
+          type: object
+        publicKeyHex:
+          type: string
+        publicKeyMultibase:
+          type: string
+        publicKeyPem:
+          type: string
+        blockchainAccountId:
+          type: string
+        ethereumAddress:
+          type: string
+      required:
+        - id
+        - type
+        - controller
+    DidDocumentServiceDto:
+      type: object
+      properties:
+        id:
+          type: string
+        serviceEndpoint:
+          type: object
+        type:
+          type: string
+      required:
+        - id
+        - serviceEndpoint
+        - type
+    DidDocumentDto:
+      type: object
+      properties:
+        context:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        id:
+          type: string
+        alsoKnownAs:
+          type: array
+          items:
+            type: string
+        controller:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        verificationMethod:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationMethodDto"
+        service:
+          type: array
+          items:
+            $ref: "#/components/schemas/DidDocumentServiceDto"
+        authentication:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - $ref: "#/components/schemas/VerificationMethodDto"
+        assertionMethod:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - $ref: "#/components/schemas/VerificationMethodDto"
+        keyAgreement:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - $ref: "#/components/schemas/VerificationMethodDto"
+        capabilityInvocation:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - $ref: "#/components/schemas/VerificationMethodDto"
+        capabilityDelegation:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - $ref: "#/components/schemas/VerificationMethodDto"
+      required:
+        - context
+        - id
+    CreateDidRequestDto:
+      type: object
+      properties:
+        method:
+          type: string
+    SchemaDto:
+      type: object
+      properties:
+        id:
+          type: string
+        issuerId:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        attrNames:
+          type: array
+          items:
+            type: string
+        json:
+          type: object
+      required:
+        - id
+        - issuerId
+        - name
+        - version
+    CreateSchemaDto:
+      type: object
+      properties:
+        issuerId:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        attrNames:
+          type: array
+          items:
+            type: string
+        json:
+          type: object
+      required:
+        - issuerId
+        - name
+        - version
+    ListResponse:
+      type: object
+      properties:
+        offset:
+          type: number
+          description: Data offset
+        limit:
+          type: number
+          description: Data page size
+        total:
+          type: number
+          description: Total items count
+        items:
+          description: Data items
+          type: array
+          items:
+            type: array
+      required:
+        - offset
+        - limit
+        - total
+        - items
+    SchemaField:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Schema field id
+        name:
+          type: string
+          description: Schema field name
+      required:
+        - id
+        - name
+    AriesCredentials:
+      type: object
+      properties:
+        credentialDefinitionId:
+          type: string
+          description: Aries credential definition id
+      required:
+        - credentialDefinitionId
+    Oid4vcCredentials:
+      type: object
+      properties:
+        supportedCredentialId:
+          type: string
+          description: OpenId4vc supported credential id
+      required:
+        - supportedCredentialId
+    SchemaRegistration:
+      type: object
+      properties:
+        protocol:
+          type: string
+          description: Protocol
+        credentialFormat:
+          type: string
+          description: Credential format
+        network:
+          type: string
+          description: Network
+        did:
+          type: string
+          description: DID
+        credentials:
+          description: Schema registration details
+          oneOf:
+            - $ref: "#/components/schemas/AriesCredentials"
+            - $ref: "#/components/schemas/Oid4vcCredentials"
+      required:
+        - protocol
+        - credentialFormat
+        - network
+        - did
+    GetSchemasListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Schema id
+        issuerId:
+          type: string
+          description: Schema Issuer Id
+        issuerName:
+          type: string
+          description: Schema Issuer Name
+        name:
+          type: string
+          description: Schema name
+        logo:
+          type: string
+          description: Logo
+        bgColor:
+          type: string
+          description: Background color (HEX RGB)
+        isHidden:
+          type: boolean
+          description: Hidden flag
+        orderIndex:
+          type: number
+          description: Order index
+        fields:
+          description: Schema fields
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaField"
+        registrationsCount:
+          type: object
+          description: Registration count
+        registrations:
+          description: Registrations
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaRegistration"
+      required:
+        - id
+        - issuerId
+        - issuerName
+        - name
+        - logo
+        - bgColor
+        - isHidden
+        - orderIndex
+        - fields
+        - registrationsCount
+        - registrations
+    GetSchemaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Schema id
+        issuerId:
+          type: string
+          description: Schema Issuer Id
+        issuerName:
+          type: string
+          description: Schema Issuer Name
+        name:
+          type: string
+          description: Schema name
+        logo:
+          type: string
+          description: Logo
+        bgColor:
+          type: string
+          description: Background color (HEX RGB)
+        isHidden:
+          type: boolean
+          description: Hidden flag
+        orderIndex:
+          type: number
+          description: Order index
+        fields:
+          description: Schema fields
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaField"
+        registrationsCount:
+          type: object
+          description: Registration count
+        registrations:
+          description: Registrations
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaRegistration"
+      required:
+        - id
+        - issuerId
+        - issuerName
+        - name
+        - logo
+        - bgColor
+        - isHidden
+        - orderIndex
+        - fields
+        - registrationsCount
+        - registrations
+    CreateSchemaRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Schema name
+        logo:
+          type: string
+          description: Logo
+          format: binary
+          nullable: true
+        bgColor:
+          type: string
+          description: Background color (HEX RGB)
+          example: ffffff
+        fields:
+          description: Schema fieldset
+          type: array
+          items:
+            type: string
+      required:
+        - name
+        - fields
+    CreateSchemaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Schema id
+        issuerId:
+          type: string
+          description: Schema Issuer Id
+        issuerName:
+          type: string
+          description: Schema Issuer Name
+        name:
+          type: string
+          description: Schema name
+        logo:
+          type: string
+          description: Logo
+        bgColor:
+          type: string
+          description: Background color (HEX RGB)
+        isHidden:
+          type: boolean
+          description: Hidden flag
+        orderIndex:
+          type: number
+          description: Order index
+        fields:
+          description: Schema fields
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaField"
+        registrationsCount:
+          type: object
+          description: Registration count
+        registrations:
+          description: Registrations
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaRegistration"
+      required:
+        - id
+        - issuerId
+        - issuerName
+        - name
+        - logo
+        - bgColor
+        - isHidden
+        - orderIndex
+        - fields
+        - registrationsCount
+        - registrations
+    PatchSchemaRequest:
+      type: object
+      properties:
+        logo:
+          type: string
+          description: Logo
+          format: binary
+        bgColor:
+          type: string
+          description: Background color (HEX RGB)
+          example: ffffff
+        previousSchemaId:
+          type: object
+          description: Previous scheme id (null for first)
+        isHidden:
+          type: boolean
+          description: Hidden
+    PatchSchemaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Schema id
+        issuerId:
+          type: string
+          description: Schema Issuer Id
+        issuerName:
+          type: string
+          description: Schema Issuer Name
+        name:
+          type: string
+          description: Schema name
+        logo:
+          type: string
+          description: Logo
+        bgColor:
+          type: string
+          description: Background color (HEX RGB)
+        isHidden:
+          type: boolean
+          description: Hidden flag
+        orderIndex:
+          type: number
+          description: Order index
+        fields:
+          description: Schema fields
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaField"
+        registrationsCount:
+          type: object
+          description: Registration count
+        registrations:
+          description: Registrations
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaRegistration"
+      required:
+        - id
+        - issuerId
+        - issuerName
+        - name
+        - logo
+        - bgColor
+        - isHidden
+        - orderIndex
+        - fields
+        - registrationsCount
+        - registrations
+    RegisterSchemaRequest:
+      type: object
+      properties:
+        protocol:
+          type: string
+          description: Protocol
+          enum:
+            - Aries
+            - OpenId4VC
+        credentialFormat:
+          type: string
+          description: Credential format
+          enum:
+            - anoncreds
+            - jwt_vc_json
+            - jwt_vc_json-ld
+            - ldp_vc
+            - vc+sd-jwt
+        network:
+          type: string
+          description: Network
+          enum:
+            - key
+            - indy
+            - indybesu
+            - hedera
+        did:
+          type: string
+          description: DID
+      required:
+        - protocol
+        - did
+    RegisterSchemaResponse:
+      type: object
+      properties:
+        credentials:
+          description: Schema registration details
+          oneOf:
+            - $ref: "#/components/schemas/AriesCredentials"
+            - $ref: "#/components/schemas/Oid4vcCredentials"
+    GetSchemaRegistrationResponse:
+      type: object
+      properties:
+        registered:
+          type: boolean
+          description: Schema is registered
+        credentials:
+          description: Schema registration details
+          oneOf:
+            - $ref: "#/components/schemas/AriesCredentials"
+            - $ref: "#/components/schemas/Oid4vcCredentials"
+      required:
+        - registered
+    IssuanceTemplateSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Schema id
+        name:
+          type: string
+          description: Schema name
+        logo:
+          type: string
+          description: Logo
+        bgColor:
+          type: string
+          description: Background color (HEX RGB)
+        fields:
+          description: Schema fields
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaField"
+        registrations:
+          description: Registrations
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaRegistration"
+      required:
+        - id
+        - name
+        - logo
+        - bgColor
+        - fields
+        - registrations
+    IssuanceTemplateField:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Issuance template field id
+        schemaFieldId:
+          type: string
+          description: Schema field id
+        schemaFieldName:
+          type: string
+          description: Schema field name
+        value:
+          type: string
+          description: Value
+      required:
+        - schemaFieldId
+        - schemaFieldName
+    GetIssuanceTemplatesListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Template id
+        orderIndex:
+          type: number
+          description: Order index
+        isPinned:
+          type: boolean
+          description: Pinned flag
+        name:
+          type: string
+          description: Template name
+        protocol:
+          type: string
+          description: Protocol
+        credentialFormat:
+          type: string
+          description: Credential format
+        network:
+          type: string
+          description: Network
+        did:
+          type: string
+          description: DID
+        schema:
+          description: Schema
+          allOf:
+            - $ref: "#/components/schemas/IssuanceTemplateSchema"
+        fields:
+          description: Credential values
+          type: array
+          items:
+            $ref: "#/components/schemas/IssuanceTemplateField"
+      required:
+        - id
+        - orderIndex
+        - isPinned
+        - name
+        - protocol
+        - credentialFormat
+        - network
+        - did
+        - schema
+        - fields
+    GetIssuanceTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Template id
+        orderIndex:
+          type: number
+          description: Order index
+        isPinned:
+          type: boolean
+          description: Pinned flag
+        name:
+          type: string
+          description: Template name
+        protocol:
+          type: string
+          description: Protocol
+        credentialFormat:
+          type: string
+          description: Credential format
+        network:
+          type: string
+          description: Network
+        did:
+          type: string
+          description: DID
+        schema:
+          description: Schema
+          allOf:
+            - $ref: "#/components/schemas/IssuanceTemplateSchema"
+        fields:
+          description: Credential values
+          type: array
+          items:
+            $ref: "#/components/schemas/IssuanceTemplateField"
+      required:
+        - id
+        - orderIndex
+        - isPinned
+        - name
+        - protocol
+        - credentialFormat
+        - network
+        - did
+        - schema
+        - fields
+    CreateIssuanceTemplateFieldRequest:
+      type: object
+      properties:
+        schemaFieldId:
+          type: string
+          description: The generic schema field id
+        value:
+          type: string
+          description: Value
+      required:
+        - schemaFieldId
+    CreateIssuanceTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Template name
+        protocol:
+          type: string
+          description: Protocol
+          enum:
+            - Aries
+            - OpenId4VC
+        credentialFormat:
+          type: string
+          description: Credential format
+          enum:
+            - anoncreds-indy
+            - anoncreds-w3c
+            - jwt_vc_json
+            - jwt_vc_json-ld
+            - ldp_vc
+            - vc+sd-jwt
+        network:
+          type: string
+          description: Network
+          enum:
+            - key
+            - indy
+            - indybesu
+            - hedera
+        did:
+          type: string
+          description: DID
+        schemaId:
+          type: string
+          description: Schema ID
+        fields:
+          description: Credential values
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateIssuanceTemplateFieldRequest"
+      required:
+        - name
+        - protocol
+        - credentialFormat
+        - network
+        - did
+        - schemaId
+    CreateIssuanceTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Template id
+        orderIndex:
+          type: number
+          description: Order index
+        isPinned:
+          type: boolean
+          description: Pinned flag
+        name:
+          type: string
+          description: Template name
+        protocol:
+          type: string
+          description: Protocol
+        credentialFormat:
+          type: string
+          description: Credential format
+        network:
+          type: string
+          description: Network
+        did:
+          type: string
+          description: DID
+        schema:
+          description: Schema
+          allOf:
+            - $ref: "#/components/schemas/IssuanceTemplateSchema"
+        fields:
+          description: Credential values
+          type: array
+          items:
+            $ref: "#/components/schemas/IssuanceTemplateField"
+      required:
+        - id
+        - orderIndex
+        - isPinned
+        - name
+        - protocol
+        - credentialFormat
+        - network
+        - did
+        - schema
+        - fields
+    PatchIssuanceTemplateFieldRequest:
+      type: object
+      properties:
+        schemaFieldId:
+          type: string
+          description: The generic schema field Id
+        value:
+          type: string
+          description: Value
+      required:
+        - schemaFieldId
+        - value
+    PatchIssuanceTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Template name
+        protocol:
+          type: string
+          description: Protocol
+          enum:
+            - Aries
+            - OpenId4VC
+        credentialFormat:
+          type: string
+          description: Credential format
+          enum:
+            - anoncreds-indy
+            - anoncreds-w3c
+            - jwt_vc_json
+            - jwt_vc_json-ld
+            - ldp_vc
+            - vc+sd-jwt
+            - dc+sd-jwt
+            - mso_mdoc
+        network:
+          type: string
+          description: Network
+          enum:
+            - key
+            - indy
+            - indybesu
+            - hedera
+        did:
+          type: string
+          description: DID
+        schemaId:
+          type: string
+          description: Schema ID
+        fields:
+          description: Credential values
+          type: array
+          items:
+            $ref: "#/components/schemas/PatchIssuanceTemplateFieldRequest"
+        previousTemplateId:
+          type: object
+          description: Previous template id (null for first)
+        isPinned:
+          type: boolean
+          description: Pinned
+      required:
+        - protocol
+        - credentialFormat
+        - network
+        - did
+        - schemaId
+    PatchIssuanceTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Template id
+        orderIndex:
+          type: number
+          description: Order index
+        isPinned:
+          type: boolean
+          description: Pinned flag
+        name:
+          type: string
+          description: Template name
+        protocol:
+          type: string
+          description: Protocol
+        credentialFormat:
+          type: string
+          description: Credential format
+        network:
+          type: string
+          description: Network
+        did:
+          type: string
+          description: DID
+        schema:
+          description: Schema
+          allOf:
+            - $ref: "#/components/schemas/IssuanceTemplateSchema"
+        fields:
+          description: Credential values
+          type: array
+          items:
+            $ref: "#/components/schemas/IssuanceTemplateField"
+      required:
+        - id
+        - orderIndex
+        - isPinned
+        - name
+        - protocol
+        - credentialFormat
+        - network
+        - did
+        - schema
+        - fields
+    VerificationTemplateSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Schema id
+        name:
+          type: string
+          description: Schema name
+        logo:
+          type: string
+          description: Logo
+        bgColor:
+          type: string
+          description: Background color (HEX RGB)
+        fields:
+          description: Schema fields
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaField"
+        registrations:
+          description: Registrations
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaRegistration"
+      required:
+        - id
+        - name
+        - logo
+        - bgColor
+        - fields
+        - registrations
+    VerificationTemplateField:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Verification template field id
+        schemaFieldId:
+          type: string
+          description: Schema field id
+        schemaFieldName:
+          type: string
+          description: Schema field name
+      required:
+        - schemaFieldId
+        - schemaFieldName
+    GetVerificationTemplatesListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Template id
+        orderIndex:
+          type: number
+          description: Order index
+        isPinned:
+          type: boolean
+          description: Pinned flag
+        name:
+          type: string
+          description: Template name
+        protocol:
+          type: string
+          description: Protocol
+        credentialFormat:
+          type: string
+          description: Credential format
+        network:
+          type: string
+          description: Network
+        did:
+          type: string
+          description: DID
+        schema:
+          description: Schema
+          allOf:
+            - $ref: "#/components/schemas/VerificationTemplateSchema"
+        fields:
+          description: Credential values
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationTemplateField"
+      required:
+        - id
+        - orderIndex
+        - isPinned
+        - name
+        - protocol
+        - credentialFormat
+        - network
+        - did
+        - schema
+        - fields
+    GetVerificationTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Template id
+        orderIndex:
+          type: number
+          description: Order index
+        isPinned:
+          type: boolean
+          description: Pinned flag
+        name:
+          type: string
+          description: Template name
+        protocol:
+          type: string
+          description: Protocol
+        credentialFormat:
+          type: string
+          description: Credential format
+        network:
+          type: string
+          description: Network
+        did:
+          type: string
+          description: DID
+        schema:
+          description: Schema
+          allOf:
+            - $ref: "#/components/schemas/VerificationTemplateSchema"
+        fields:
+          description: Credential values
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationTemplateField"
+      required:
+        - id
+        - orderIndex
+        - isPinned
+        - name
+        - protocol
+        - credentialFormat
+        - network
+        - did
+        - schema
+        - fields
+    CreateVerificationTemplateFieldRequest:
+      type: object
+      properties:
+        schemaFieldId:
+          type: string
+          description: The generic schema field id
+      required:
+        - schemaFieldId
+    CreateVerificationTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Template name
+        protocol:
+          type: string
+          description: Protocol
+          enum:
+            - Aries
+            - OpenId4VC
+        credentialFormat:
+          type: string
+          description: Credential format
+          enum:
+            - anoncreds-indy
+            - anoncreds-w3c
+            - jwt_vc_json
+            - jwt_vc_json-ld
+            - ldp_vc
+            - vc+sd-jwt
+            - dc+sd-jwt
+            - mso_mdoc
+        network:
+          type: string
+          description: Network
+          enum:
+            - key
+            - indy
+            - indybesu
+            - hedera
+        did:
+          type: string
+          description: DID
+        schemaId:
+          type: string
+          description: Schema ID
+        fields:
+          description: Credential values
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateVerificationTemplateFieldRequest"
+      required:
+        - name
+        - protocol
+        - credentialFormat
+        - schemaId
+        - fields
+    CreateVerificationTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Template id
+        orderIndex:
+          type: number
+          description: Order index
+        isPinned:
+          type: boolean
+          description: Pinned flag
+        name:
+          type: string
+          description: Template name
+        protocol:
+          type: string
+          description: Protocol
+        credentialFormat:
+          type: string
+          description: Credential format
+        network:
+          type: string
+          description: Network
+        did:
+          type: string
+          description: DID
+        schema:
+          description: Schema
+          allOf:
+            - $ref: "#/components/schemas/VerificationTemplateSchema"
+        fields:
+          description: Credential values
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationTemplateField"
+      required:
+        - id
+        - orderIndex
+        - isPinned
+        - name
+        - protocol
+        - credentialFormat
+        - network
+        - did
+        - schema
+        - fields
+    PatchVerificationTemplateFieldRequest:
+      type: object
+      properties:
+        schemaFieldId:
+          type: string
+          description: The generic schema field id
+      required:
+        - schemaFieldId
+    PatchVerificationTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Template name
+        protocol:
+          type: string
+          description: Protocol
+          enum:
+            - Aries
+            - OpenId4VC
+        credentialFormat:
+          type: string
+          description: Credential format
+          enum:
+            - anoncreds-indy
+            - anoncreds-w3c
+            - jwt_vc_json
+            - jwt_vc_json-ld
+            - ldp_vc
+            - vc+sd-jwt
+            - dc+sd-jwt
+            - mso_mdoc
+        network:
+          type: string
+          description: Network
+          enum:
+            - key
+            - indy
+            - indybesu
+            - hedera
+        did:
+          type: string
+          description: DID
+        schemaId:
+          type: string
+          description: Schema ID
+        fields:
+          description: Credential values
+          type: array
+          items:
+            $ref: "#/components/schemas/PatchVerificationTemplateFieldRequest"
+        previousTemplateId:
+          type: object
+          description: Previous template id
+        isPinned:
+          type: boolean
+          description: Pinned
+      required:
+        - protocol
+        - credentialFormat
+        - schemaId
+    CredentialDefinitionDto:
+      type: object
+      properties:
+        id:
+          type: string
+        issuerId:
+          type: string
+        schemaId:
+          type: string
+        tag:
+          type: string
+      required:
+        - id
+        - issuerId
+        - schemaId
+        - tag
+    CreateCredentialDefinitionDto:
+      type: object
+      properties:
+        issuerId:
+          type: string
+        schemaId:
+          type: string
+        tag:
+          type: string
+      required:
+        - issuerId
+        - schemaId
+        - tag
+    ConnectionRecordDto:
+      type: object
+      properties:
+        id:
+          type: string
+        threadId:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+        state:
+          type: string
+          enum:
+            - start
+            - invitation-sent
+            - invitation-received
+            - request-sent
+            - request-received
+            - response-sent
+            - response-received
+            - abandoned
+            - completed
+        errorMessage:
+          type: string
+        role:
+          type: string
+          enum:
+            - requester
+            - responder
+        did:
+          type: string
+        theirDid:
+          type: string
+        theirLabel:
+          type: string
+        alias:
+          type: string
+        invitationDid:
+          type: string
+      required:
+        - id
+        - createdAt
+        - state
+        - role
+    CreateInvitationRequestDto:
+      type: object
+      properties:
+        label:
+          type: string
+        alias:
+          type: string
+        imageUrl:
+          type: string
+        multiUseInvitation:
+          type: boolean
+    CreateInvitationResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+        invitationUrl:
+          type: string
+      required:
+        - id
+        - invitationUrl
+    AcceptInvitationDto:
+      type: object
+      properties:
+        invitationUrl:
+          type: string
+        label:
+          type: string
+        alias:
+          type: string
+      required:
+        - invitationUrl
+    CredentialPreviewAttributeDto:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+      required:
+        - name
+        - value
+    CredentialRecordDto:
+      type: object
+      properties:
+        id:
+          type: string
+        connectionId:
+          type: string
+        threadId:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+        state:
+          type: string
+          enum:
+            - proposal-sent
+            - proposal-received
+            - offer-sent
+            - offer-received
+            - declined
+            - request-sent
+            - request-received
+            - credential-issued
+            - credential-received
+            - done
+            - abandoned
+        errorMessage:
+          type: string
+        credentialAttributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CredentialPreviewAttributeDto"
+      required:
+        - id
+        - threadId
+        - createdAt
+        - state
+    CredentialOfferDto:
+      type: object
+      properties:
+        connectionId:
+          type: string
+        credentialDefinitionId:
+          type: string
+        comment:
+          type: string
+        format:
+          type: string
+          enum:
+            - anoncreds-indy
+            - anoncreds-w3c
+        attributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CredentialPreviewAttributeDto"
+      required:
+        - connectionId
+        - credentialDefinitionId
+        - attributes
+    CredentialConfigDto:
+      type: object
+      properties: {}
+    ProofRevealedAttributeDto:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+      required:
+        - name
+        - value
+    ProofRecordDto:
+      type: object
+      properties:
+        id:
+          type: string
+        connectionId:
+          type: string
+        threadId:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+        state:
+          type: string
+          enum:
+            - proposal-sent
+            - proposal-received
+            - request-sent
+            - request-received
+            - presentation-sent
+            - presentation-received
+            - declined
+            - abandoned
+            - done
+        isVerified:
+          type: boolean
+        revealedAttributes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProofRevealedAttributeDto"
+      required:
+        - id
+        - threadId
+        - createdAt
+        - state
+    ProofRequestDto:
+      type: object
+      properties:
+        connectionId:
+          type: string
+        comment:
+          type: string
+        requestNonRevokedProof:
+          type: boolean
+        request:
+          oneOf:
+            - $ref: "#/components/schemas/AnoncredsProofRequestDto"
+            - $ref: "#/components/schemas/DifPresentationExchangeDto"
+      required:
+        - connectionId
+        - request
+    OpenId4VcIssuerRecordDto:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+        type:
+          type: string
+        publicIssuerId:
+          type: string
+        accessTokenPublicKeyFingerprint:
+          type: string
+        credentialsSupported:
+          type: array
+          items:
+            type: string
+        display:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - createdAt
+        - type
+        - publicIssuerId
+        - accessTokenPublicKeyFingerprint
+        - credentialsSupported
+    OpenId4VciCredentialConfigurationSupportedWithId:
+      type: object
+      properties:
+        id:
+          type: string
+        format:
+          type: string
+          enum:
+            - vc+sd-jwt
+            - jwt_vc_json
+            - jwt_vc_json-ld
+            - ldp_vc
+        display:
+          type: array
+          items:
+            type: string
+        proof_types_supported:
+          type: object
+      required:
+        - id
+        - format
+    OpenId4VcIssuersCreateDto:
+      type: object
+      properties:
+        publicIssuerId:
+          type: string
+        credentialsSupported:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpenId4VciCredentialConfigurationSupportedWithId"
+        display:
+          type: array
+          items:
+            type: string
+      required:
+        - publicIssuerId
+        - credentialsSupported
+    OpenId4VcIssuersUpdateMetadataDto:
+      type: object
+      properties:
+        credentialsSupported:
+          items:
+            type: array
+          type: array
+        action:
+          type: string
+          enum:
+            - add
+            - replace
+        display:
+          type: array
+          items:
+            type: string
+      required:
+        - credentialsSupported
+    OpenId4VciTxCode:
+      type: object
+      properties:
+        input_mode:
+          type: string
+        length:
+          type: number
+        description:
+          type: string
+      required:
+        - input_mode
+        - length
+    OpenId4VciPreAuthorizedCodeFlowConfig:
+      type: object
+      properties:
+        preAuthorizedCode:
+          type: string
+        txCode:
+          $ref: "#/components/schemas/OpenId4VciTxCode"
+        authorizationServerUrl:
+          type: string
+    CredentialIssuer:
+      type: object
+      properties:
+        method:
+          type: string
+        did:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+        image:
+          type: string
+      required:
+        - method
+    OpenId4VcIssuanceSessionCreateOfferCredentialOptions:
+      type: object
+      properties:
+        credentialSupportedId:
+          type: string
+        format:
+          type: string
+        issuer:
+          $ref: "#/components/schemas/CredentialIssuer"
+      required:
+        - credentialSupportedId
+        - format
+        - issuer
+    OpenId4VcIssuanceSessionsCreateOfferDto:
+      type: object
+      properties:
+        publicIssuerId:
+          type: string
+        baseUri:
+          type: string
+        preAuthorizedCodeFlowConfig:
+          $ref: "#/components/schemas/OpenId4VciPreAuthorizedCodeFlowConfig"
+        issuanceMetadata:
+          type: object
+        version:
+          type: string
+          enum:
+            - v1.draft11-15
+            - v1.draft15
+        credentials:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpenId4VcIssuanceSessionCreateOfferCredentialOption\
+              s"
+      required:
+        - publicIssuerId
+    OpenId4VcIssuanceSessionRecordDto:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+        type:
+          type: string
+        publicIssuerId:
+          type: string
+        state:
+          type: string
+        cNonce:
+          type: string
+        cNonceExpiresAt:
+          format: date-time
+          type: string
+        preAuthorizedCode:
+          type: string
+        userPin:
+          type: string
+        issuanceMetadata:
+          type: object
+        credentialOfferPayload:
+          type: object
+        credentialOfferUri:
+          type: string
+        errorMessage:
+          type: string
+      required:
+        - id
+        - createdAt
+        - type
+        - publicIssuerId
+        - state
+        - credentialOfferPayload
+    OpenId4VcIssuanceSessionsCreateOfferResponse:
+      type: object
+      properties:
+        issuanceSession:
+          $ref: "#/components/schemas/OpenId4VcIssuanceSessionRecordDto"
+        credentialOffer:
+          type: string
+      required:
+        - issuanceSession
+        - credentialOffer
+    OpenId4VcVerifierCreateDto:
+      type: object
+      properties:
+        publicVerifierId:
+          type: string
+      required:
+        - publicVerifierId
+    OpenId4VcVerifierRecordDto:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+        type:
+          type: string
+        publicVerifierId:
+          type: string
+      required:
+        - id
+        - createdAt
+        - type
+        - publicVerifierId
+    OpenId4VcVerificationSessionCreateRequestDto:
+      type: object
+      properties:
+        publicVerifierId:
+          type: string
+        requestSigner:
+          $ref: "#/components/schemas/CredentialIssuer"
+        idToken:
+          type: boolean
+        presentationExchange:
+          type: object
+      required:
+        - publicVerifierId
+        - requestSigner
+    OpenId4VcVerificationSessionRecordDto:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+        type:
+          type: string
+        publicVerifierId:
+          type: string
+        state:
+          type: string
+        errorMessage:
+          type: string
+        authorizationRequestJwt:
+          type: string
+        authorizationRequestUri:
+          type: string
+        authorizationResponsePayload:
+          type: object
+        sharedAttributes:
+          type: object
+      required:
+        - id
+        - createdAt
+        - type
+        - publicVerifierId
+        - state
+        - authorizationRequestJwt
+        - authorizationRequestUri
+    OpenId4VcVerificationSessionCreateRequestResponse:
+      type: object
+      properties:
+        verificationSession:
+          $ref: "#/components/schemas/OpenId4VcVerificationSessionRecordDto"
+        authorizationRequest:
+          type: string
+      required:
+        - verificationSession
+        - authorizationRequest
+    CreateRevocationRegistryRequest:
+      type: object
+      properties:
+        credentialDefinitionId:
+          type: string
+        issuerId:
+          type: string
+        maximumCredentialNumber:
+          type: number
+      required:
+        - credentialDefinitionId
+        - issuerId
+        - maximumCredentialNumber
+    CreateRevocationRegistryResponse:
+      type: object
+      properties:
+        revocationRegistryDefinitionId:
+          type: string
+        index:
+          type: number
+        maximumCredentialNumber:
+          type: number
+      required:
+        - revocationRegistryDefinitionId
+        - index
+        - maximumCredentialNumber
+    GetRevocationRegistryResponse:
+      type: object
+      properties:
+        timestamp:
+          type: number
+        revocationStatusList:
+          type: array
+          items:
+            type: string
+      required:
+        - timestamp
+        - revocationStatusList
+    RevocationRegistry:
+      type: object
+      properties:
+        revocationRegistryDefinitionId:
+          type: string
+        index:
+          type: number
+        maximumCredentialNumber:
+          type: number
+      required:
+        - revocationRegistryDefinitionId
+        - index
+        - maximumCredentialNumber
+    CreateStatusListRequest:
+      type: object
+      properties:
+        issuer:
+          type: string
+        size:
+          type: number
+        purpose:
+          type: string
+          enum:
+            - revocation
+            - suspension
+      required:
+        - issuer
+        - size
+        - purpose
+    UpdateStatusListRequest:
+      type: object
+      properties:
+        indexes:
+          type: array
+          items:
+            type: number
+        revoked:
+          type: boolean
+      required:
+        - indexes
+        - revoked
+    StatusList:
+      type: object
+      properties:
+        size:
+          type: number
+        purpose:
+          type: string
+          enum:
+            - revocation
+            - suspension
+        encodedList:
+          type: string
+        lastIndex:
+          type: number
+      required:
+        - size
+        - purpose
+        - encodedList
+        - lastIndex
+    CredentialStatusListSubject:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        statusPurpose:
+          type: string
+        encodedList:
+          type: string
+      required:
+        - id
+        - type
+        - statusPurpose
+        - encodedList
+    GetCredentialStatusListResponse:
+      type: object
+      properties:
+        "@context":
+          type: array
+          items:
+            type: string
+        id:
+          type: string
+        type:
+          type: array
+          items:
+            type: string
+        issuer:
+          type: string
+        validFrom:
+          type: string
+        credentialSubject:
+          $ref: "#/components/schemas/CredentialStatusListSubject"
+      required:
+        - "@context"
+        - id
+        - type
+        - issuer
+        - validFrom
+        - credentialSubject
+    PrepareWalletRequestDto:
+      type: object
+      properties:
+        schemas:
+          type: array
+          items:
+            type: string
+        schemaLogo:
+          type: string
+          format: binary
+        userLogo:
+          type: string
+          format: binary
+    CredentialValue:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+      required:
+        - name
+        - value
+    OfferByIssuanceTemplateRequest:
+      type: object
+      properties:
+        templateId:
+          type: string
+          description: ID of issuance template
+        connectionId:
+          type: string
+          description: Wallet connection id. Only for Aries protocol type credentials.
+        credentials:
+          description: Set of credentials
+          type: array
+          items:
+            $ref: "#/components/schemas/CredentialValue"
+        comment:
+          type: string
+          description: Comments for credentials
+      required:
+        - templateId
+        - credentials
+        - comment
+    OfferByIssuanceTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identifier of issuance session
+        offer:
+          type: string
+          description: Link to credential offer. For OpenId4VC protocol
+        state:
+          description: State of issued credential
+          oneOf:
+            - type: string
+              enum:
+                - OfferCreated
+                - OfferUriRetrieved
+                - AuthorizationInitiated
+                - AuthorizationGranted
+                - AccessTokenRequested
+                - AccessTokenCreated
+                - CredentialRequestReceived
+                - CredentialsPartiallyIssued
+                - Completed
+                - Error
+            - type: string
+              enum:
+                - proposal-sent
+                - proposal-received
+                - offer-sent
+                - offer-received
+                - declined
+                - request-sent
+                - request-received
+                - credential-issued
+                - credential-received
+                - done
+                - abandoned
+      required:
+        - id
+    ProofByVerificationTemplateRequest:
+      type: object
+      properties:
+        templateId:
+          type: string
+          description: ID of issuance template
+        connectionId:
+          type: string
+          description: Wallet connection id. Only for Aries protocol type credentials.
+        fields:
+          description: Set of requested fields
+          type: array
+          items:
+            $ref: "#/components/schemas/CredentialValue"
+        comment:
+          type: string
+          description: Comments for credentials
+      required:
+        - templateId
+        - fields
+        - comment
+    ProofByVerificationTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Identifier of issuance session
+        request:
+          type: string
+          description: Authorization request link. For OpenId4VC protocol
+        state:
+          description: State of verification of credential
+          oneOf:
+            - type: string
+              enum:
+                - RequestCreated
+                - RequestUriRetrieved
+                - ResponseVerified
+                - Error
+            - type: string
+              enum:
+                - proposal-sent
+                - proposal-received
+                - offer-sent
+                - offer-received
+                - declined
+                - request-sent
+                - request-received
+                - credential-issued
+                - credential-received
+                - done
+                - abandoned
+      required:
+        - id
+security:
+  - bearer: []

@@ -1,0 +1,158 @@
+@import '@/shared/styles/mixins';
+
+%panel {
+  width: 30%;
+  height: 100%;
+  border-radius: var(--space-xl);
+  font: var(--font-headline-m);
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+
+  @include tablet {
+    height: auto;
+    width: 100%;
+    padding: var(--space-xl);
+    gap: var(--space-sm);
+  }
+
+  @include mobile {
+    height: auto;
+    width: 100%;
+    justify-content: space-between;
+    padding: var(--space-xl);
+    gap: var(--space-sm);
+  }
+}
+
+.LeftPanel {
+  @extend %panel;
+
+  justify-content: space-between;
+  background: var(--color-primary-hiero-branded-2);
+  padding: var(--space-xxxxl) var(--space-xs) var(--space-xs);
+  gap: var(--space-xxxl);
+
+  @include tablet {
+    padding: var(--space-xl);
+    justify-content: space-around;
+    gap: var(--space-md);
+  }
+
+  @include mobile {
+    padding: var(--space-xl);
+    gap: var(--space-md);
+  }
+}
+
+.TopPanel {
+  width: 100%;
+  border-radius: var(--space-xl);
+  background: var(--color-primary-hiero-branded-2);
+  font: var(--font-headline-m);
+  padding: var(--space-xl) 0 0 var(--space-xl);
+}
+
+.titleWrapper {
+  color: var(--color-light-high-emphasis);
+
+  @include desktop {
+    padding-left: var(--space-xxxl);
+    padding-right: var(--space-xxxl);
+  }
+}
+
+.desktopPanelMenuWrapper {
+  justify-content: flex-start;
+  height: 100%;
+}
+
+.dropDown {
+  width: calc(7 * var(--space-lg));
+  height: var(--space-xxxxl);
+  gap: var(--space-xs);
+  border-radius: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-primary-opacity-6);
+  font-size: var(--space-md);
+  font-weight: 400;
+
+  &:hover {
+    cursor: pointer;
+  }
+}
+
+.iconWallet,
+.iconCar,
+.iconVault,
+.iconDocuments {
+  position: absolute;
+  right: 0;
+  bottom: calc(2 * var(--space-xxl));
+
+  @include tablet {
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  @include mobile {
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
+
+.CustomPanel {
+  @extend %panel;
+
+  padding-right: var(--space-xxxxl);
+  padding-left: var(--space-xxxxl);
+  padding-top: var(--space-xxxl);
+  gap: var(--space-xl);
+}
+
+.PanelLogoWrapper {
+  height: var(--space-xxxxxxl);
+  width: var(--space-xxxxxxl);
+  border-radius: var(--space-xs);
+}
+
+.PanelLogo {
+  border-radius: var(--space-xs);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dialogWrapper {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100vh;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shadowBackground {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgb(0 0 0 / 50%);
+  z-index: 999;
+}
+
+.modalContent {
+  width: calc(2 * var(--space-xxxxxxxl));
+  background: rgb(255 255 255 / 100%);
+  padding: var(--space-xs);
+  border-radius: var(--space-md);
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgb(0 0 0 / 10%);
+}
