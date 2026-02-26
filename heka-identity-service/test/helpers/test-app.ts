@@ -2,7 +2,7 @@ import { AnonCredsModule } from '@credo-ts/anoncreds'
 import { AskarModule } from '@credo-ts/askar'
 import { DidsModule, KeyDidRegistrar, KeyDidResolver } from '@credo-ts/core'
 import { MessagePickupModule } from '@credo-ts/didcomm'
-import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera/build'
+import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import {
   IndyVdrAnonCredsRegistry,
   IndyVdrIndyDidRegistrar,
