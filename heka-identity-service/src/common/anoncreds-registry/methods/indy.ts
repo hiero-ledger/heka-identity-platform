@@ -1,12 +1,11 @@
-import type { RegisterRevocationRegistryDefinitionReturn } from '@credo-ts/anoncreds/build/services'
-
 import {
   GetSchemaReturn,
   RegisterSchemaReturn,
   GetCredentialDefinitionReturn,
   RegisterCredentialDefinitionReturn,
+  RegisterRevocationRegistryDefinitionReturn,
 } from '@credo-ts/anoncreds'
-import { uuid } from '@credo-ts/core/build/utils/uuid'
+import { uuid } from 'utils/misc'
 import { ConfigType } from '@nestjs/config'
 
 import AgentConfig from '../../../config/agent'

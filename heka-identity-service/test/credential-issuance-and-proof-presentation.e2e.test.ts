@@ -1,6 +1,6 @@
 import { Server } from 'net'
 
-import { CredentialEventTypes, CredentialState, ProofEventTypes, ProofState } from '@credo-ts/didcomm'
+import { DidCommCredentialEventTypes, DidCommCredentialState, DidCommProofEventTypes, DidCommProofState } from '@credo-ts/didcomm'
 import { SchemaGenerator } from '@mikro-orm/sqlite'
 import { INestApplication } from '@nestjs/common'
 import request, { WSChain } from 'superwstest'
@@ -346,7 +346,7 @@ describe('E2E credential issuance and proof presentation', () => {
       threadId: expect.stringMatching(`^${UUID_PATTERN}$`),
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
-      state: CredentialState.OfferSent,
+      state: DidCommCredentialState.OfferSent,
       credentialAttributes: [
         {
           name: 'name',
@@ -369,8 +369,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await issuerWebSocket.expectJson((message) => {
       expect(message).toEqual({
         id: issuerCredentialRecordId,
-        type: CredentialEventTypes.CredentialStateChanged,
-        state: CredentialState.OfferSent,
+        type: DidCommCredentialEventTypes.DidCommCredentialStateChanged,
+        state: DidCommCredentialState.OfferSent,
         details: {
           connectionId: issuerConnectionRecordId,
           threadId: issueCredentialThreadId,
@@ -397,8 +397,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await holderWebSocket.expectJson((message) => {
       expect(message).toEqual({
         id: expect.stringMatching(`^${UUID_PATTERN}$`),
-        type: CredentialEventTypes.CredentialStateChanged,
-        state: CredentialState.OfferReceived,
+        type: DidCommCredentialEventTypes.DidCommCredentialStateChanged,
+        state: DidCommCredentialState.OfferReceived,
         details: {
           connectionId: holderConnectionRecordId,
           threadId: issueCredentialThreadId,
@@ -419,7 +419,7 @@ describe('E2E credential issuance and proof presentation', () => {
       threadId: issueCredentialThreadId,
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
-      state: CredentialState.RequestSent,
+      state: DidCommCredentialState.RequestSent,
       credentialAttributes: [
         {
           name: 'name',
@@ -439,8 +439,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await holderWebSocket.expectJson((message) => {
       expect(message).toEqual(
         expect.objectContaining({
-          type: CredentialEventTypes.CredentialStateChanged,
-          state: CredentialState.RequestSent,
+          type: DidCommCredentialEventTypes.DidCommCredentialStateChanged,
+          state: DidCommCredentialState.RequestSent,
           details: expect.objectContaining({
             threadId: issueCredentialThreadId,
           }),
@@ -451,8 +451,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await issuerWebSocket.expectJson((message) => {
       expect(message).toEqual(
         expect.objectContaining({
-          type: CredentialEventTypes.CredentialStateChanged,
-          state: CredentialState.RequestReceived,
+          type: DidCommCredentialEventTypes.DidCommCredentialStateChanged,
+          state: DidCommCredentialState.RequestReceived,
           details: expect.objectContaining({
             threadId: issueCredentialThreadId,
           }),
@@ -463,8 +463,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await issuerWebSocket.expectJson((message) => {
       expect(message).toEqual(
         expect.objectContaining({
-          type: CredentialEventTypes.CredentialStateChanged,
-          state: CredentialState.CredentialIssued,
+          type: DidCommCredentialEventTypes.DidCommCredentialStateChanged,
+          state: DidCommCredentialState.CredentialIssued,
           details: expect.objectContaining({
             threadId: issueCredentialThreadId,
           }),
@@ -475,8 +475,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await holderWebSocket.expectJson((message) => {
       expect(message).toEqual(
         expect.objectContaining({
-          type: CredentialEventTypes.CredentialStateChanged,
-          state: CredentialState.CredentialReceived,
+          type: DidCommCredentialEventTypes.DidCommCredentialStateChanged,
+          state: DidCommCredentialState.CredentialReceived,
           details: expect.objectContaining({
             threadId: issueCredentialThreadId,
           }),
@@ -487,8 +487,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await holderWebSocket.expectJson((message) => {
       expect(message).toEqual({
         id: holderCredentialRecordId,
-        type: CredentialEventTypes.CredentialStateChanged,
-        state: CredentialState.Done,
+        type: DidCommCredentialEventTypes.DidCommCredentialStateChanged,
+        state: DidCommCredentialState.Done,
         details: {
           connectionId: holderConnectionRecordId,
           threadId: issueCredentialThreadId,
@@ -513,8 +513,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await issuerWebSocket.expectJson((message) => {
       expect(message).toEqual({
         id: issuerCredentialRecordId,
-        type: CredentialEventTypes.CredentialStateChanged,
-        state: CredentialState.Done,
+        type: DidCommCredentialEventTypes.DidCommCredentialStateChanged,
+        state: DidCommCredentialState.Done,
         details: {
           connectionId: issuerConnectionRecordId,
           threadId: issueCredentialThreadId,
@@ -547,7 +547,7 @@ describe('E2E credential issuance and proof presentation', () => {
       threadId: issueCredentialThreadId,
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
-      state: CredentialState.Done,
+      state: DidCommCredentialState.Done,
       credentialAttributes: [
         {
           name: 'name',
@@ -575,7 +575,7 @@ describe('E2E credential issuance and proof presentation', () => {
       threadId: issueCredentialThreadId,
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
-      state: CredentialState.Done,
+      state: DidCommCredentialState.Done,
       credentialAttributes: [
         {
           name: 'name',
@@ -652,7 +652,7 @@ describe('E2E credential issuance and proof presentation', () => {
       threadId: expect.stringMatching(`^${UUID_PATTERN}$`),
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
-      state: ProofState.RequestSent,
+      state: DidCommProofState.RequestSent,
     } satisfies ProofRecordDto)
 
     const verifierProofRecordId = verifierRequestProofResponse.body.id as string
@@ -661,8 +661,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await verifierWebSocket.expectJson((message) => {
       expect(message).toEqual({
         id: verifierProofRecordId,
-        type: ProofEventTypes.ProofStateChanged,
-        state: ProofState.RequestSent,
+        type: DidCommProofEventTypes.ProofStateChanged,
+        state: DidCommProofState.RequestSent,
         details: {
           connectionId: verifierConnectionRecordId,
           threadId: presentProofThreadId,
@@ -675,8 +675,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await proverWebSocket.expectJson((message) => {
       expect(message).toEqual({
         id: expect.stringMatching(`^${UUID_PATTERN}$`),
-        type: ProofEventTypes.ProofStateChanged,
-        state: ProofState.RequestReceived,
+        type: DidCommProofEventTypes.ProofStateChanged,
+        state: DidCommProofState.RequestReceived,
         details: {
           connectionId: proverConnectionRecordId,
           threadId: presentProofThreadId,
@@ -697,14 +697,14 @@ describe('E2E credential issuance and proof presentation', () => {
       threadId: presentProofThreadId,
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
-      state: ProofState.PresentationSent,
+      state: DidCommProofState.PresentationSent,
     } satisfies ProofRecordDto)
 
     await proverWebSocket.expectJson((message) => {
       expect(message).toEqual(
         expect.objectContaining({
-          type: ProofEventTypes.ProofStateChanged,
-          state: ProofState.PresentationSent,
+          type: DidCommProofEventTypes.ProofStateChanged,
+          state: DidCommProofState.PresentationSent,
           details: expect.objectContaining({
             threadId: presentProofThreadId,
           }),
@@ -715,8 +715,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await verifierWebSocket.expectJson((message) => {
       expect(message).toEqual(
         expect.objectContaining({
-          type: ProofEventTypes.ProofStateChanged,
-          state: ProofState.PresentationReceived,
+          type: DidCommProofEventTypes.ProofStateChanged,
+          state: DidCommProofState.PresentationReceived,
           details: expect.objectContaining({
             threadId: presentProofThreadId,
           }),
@@ -727,8 +727,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await verifierWebSocket.expectJson((message) => {
       expect(message).toEqual({
         id: verifierProofRecordId,
-        type: ProofEventTypes.ProofStateChanged,
-        state: ProofState.Done,
+        type: DidCommProofEventTypes.ProofStateChanged,
+        state: DidCommProofState.Done,
         details: {
           connectionId: verifierConnectionRecordId,
           threadId: presentProofThreadId,
@@ -740,8 +740,8 @@ describe('E2E credential issuance and proof presentation', () => {
     await proverWebSocket.expectJson((message) => {
       expect(message).toEqual({
         id: proverProofRecordId,
-        type: ProofEventTypes.ProofStateChanged,
-        state: ProofState.Done,
+        type: DidCommProofEventTypes.ProofStateChanged,
+        state: DidCommProofState.Done,
         details: {
           connectionId: proverConnectionRecordId,
           threadId: presentProofThreadId,
@@ -760,7 +760,7 @@ describe('E2E credential issuance and proof presentation', () => {
       threadId: presentProofThreadId,
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
-      state: ProofState.Done,
+      state: DidCommProofState.Done,
       isVerified: true,
       revealedAttributes: expect.arrayContaining([
         {
@@ -785,7 +785,7 @@ describe('E2E credential issuance and proof presentation', () => {
       threadId: presentProofThreadId,
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
-      state: ProofState.Done,
+      state: DidCommProofState.Done,
       revealedAttributes: expect.arrayContaining([
         {
           name: 'name',

@@ -1,4 +1,4 @@
-import { AnonCredsSchema } from '@credo-ts/anoncreds/build/models/registry'
+import { AnonCredsSchema } from '@credo-ts/anoncreds'
 import { W3cCredential, W3cCredentialSubject } from '@credo-ts/core'
 import { UnprocessableEntityException } from '@nestjs/common'
 

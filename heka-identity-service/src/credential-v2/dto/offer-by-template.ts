@@ -1,10 +1,10 @@
-import { CredentialState } from '@credo-ts/didcomm'
-import { OpenId4VcIssuanceSessionState } from '@credo-ts/openid4vc/build/openid4vc-issuer/OpenId4VcIssuanceSessionState'
+import { DidCommCredentialState } from '@credo-ts/didcomm'
+import { OpenId4VcIssuanceSessionState } from '@credo-ts/openid4vc'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import { IsNotEmpty, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator'
 
-export type CredentialIssuanceState = OpenId4VcIssuanceSessionState | CredentialState
+export type CredentialIssuanceState = OpenId4VcIssuanceSessionState | DidCommCredentialState
 
 export class CredentialValue {
   @ApiProperty()
@@ -55,7 +55,7 @@ export class OfferByIssuanceTemplateResponse {
     description: 'State of issued credential',
     oneOf: [
       { type: 'string', enum: Object.values(OpenId4VcIssuanceSessionState) },
-      { type: 'string', enum: Object.values(CredentialState) },
+      { type: 'string', enum: Object.values(DidCommCredentialState) },
     ],
   })
   public state!: CredentialIssuanceState

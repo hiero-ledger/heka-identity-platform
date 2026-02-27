@@ -1,6 +1,5 @@
-import { ConnectionEventTypes, CredentialEventTypes, ProofEventTypes } from '@credo-ts/didcomm'
-import { OpenId4VcVerifierEvents } from '@credo-ts/openid4vc'
-import { OpenId4VcIssuerEvents } from '@credo-ts/openid4vc/build/openid4vc-issuer/OpenId4VcIssuerEvents'
+import { DidCommConnectionEventTypes, DidCommCredentialEventTypes, DidCommProofEventTypes } from '@credo-ts/didcomm'
+import { OpenId4VcVerifierEvents, OpenId4VcIssuerEvents } from '@credo-ts/openid4vc'
 import { EntityManager, MikroORM, UseRequestContext } from '@mikro-orm/core'
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
 
@@ -20,9 +19,9 @@ import { NotificationService } from './notification.service'
 import { NotificationEvent, NotificationEventType } from './notification.types'
 
 const NOTIFICATION_EVENT_TYPES: NotificationEventType[] = [
-  ...Object.values(ConnectionEventTypes),
-  ...Object.values(CredentialEventTypes),
-  ...Object.values(ProofEventTypes),
+  ...Object.values(DidCommConnectionEventTypes),
+  ...Object.values(DidCommCredentialEventTypes),
+  ...Object.values(DidCommProofEventTypes),
 ]
 
 @Injectable()
@@ -77,15 +76,15 @@ export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy
 
   private getEventNotificationDto(event: NotificationEvent): NotificationDto {
     switch (event.type) {
-      case ConnectionEventTypes.ConnectionDidRotated:
-      case ConnectionEventTypes.ConnectionStateChanged: {
+      case DidCommConnectionEventTypes.DidCommConnectionDidRotated:
+      case DidCommConnectionEventTypes.DidCommConnectionStateChanged: {
         return new ConnectionStateChangeDto(event)
       }
-      case CredentialEventTypes.CredentialStateChanged:
-      case CredentialEventTypes.RevocationNotificationReceived: {
+      case DidCommCredentialEventTypes.DidCommCredentialStateChanged:
+      case DidCommCredentialEventTypes.DidCommRevocationNotificationReceived: {
         return new CredentialStateChangeDto(event)
       }
-      case ProofEventTypes.ProofStateChanged: {
+      case DidCommProofEventTypes.ProofStateChanged: {
         return new ProofStateChangeDto(event)
       }
       case OpenId4VcIssuerEvents.IssuanceSessionStateChanged: {
@@ -93,6 +92,9 @@ export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy
       }
       case OpenId4VcVerifierEvents.VerificationSessionStateChanged: {
         return new OpenidVerifierStateChangeDto(event)
+      }
+      default: {
+        throw new Error(`Unknown event type: ${(event as { type: string }).type}`)
       }
     }
   }

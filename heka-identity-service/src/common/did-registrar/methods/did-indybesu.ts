@@ -1,6 +1,5 @@
-import type { DidCreateResult } from '@credo-ts/core/build/modules/dids/types'
+import type { DidCreateResult } from '@credo-ts/core'
 
-import { PublicJwk } from '@credo-ts/core/build/modules/kms'
 import { ConfigType } from '@nestjs/config'
 
 import AgentConfig from '../../../config/agent'
@@ -42,8 +41,7 @@ export class DidIndyBesuRegistrar implements DidRegistrar {
         crv: 'Ed25519',
       },
     })
-    const publickJwk = PublicJwk.fromPublicJwk(key.publicJwk)
-    return publickJwk.publicKey.publicKey
+    return key.keyId
     // } catch (error) {
     //   if (error instanceof WalletKeyExistsError) {
     //     return new Key(TypedArrayEncoder.fromHex(this.endorserPublicKey), KeyType.K256)

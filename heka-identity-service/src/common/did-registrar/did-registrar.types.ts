@@ -1,4 +1,4 @@
-import type { DidCreateResult } from '@credo-ts/core/build/modules/dids/types'
+import type { DidCreateResult } from '@credo-ts/core'
 
 import { TenantAgent } from '../agent'
 

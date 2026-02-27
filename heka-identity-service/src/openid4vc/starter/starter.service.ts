@@ -2,7 +2,6 @@ import { Server } from 'http'
 
 import { Inject, Injectable, OnApplicationShutdown } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
-import express from 'express'
 
 import { InjectLogger, Logger } from 'common/logger'
 import AgentConfig from 'config/agent'
@@ -15,10 +14,7 @@ export class OpenId4VcStarterService implements OnApplicationShutdown {
     @Inject(AgentConfig.KEY) agenctConfig: ConfigType<typeof AgentConfig>,
   ) {
     this.logger.child('constructor').trace('<>')
-    const expressApp = express()
-    this.server = expressApp.listen(agenctConfig.oidConfig.port)
-    expressApp.use('/oid4vci', agenctConfig.oidConfig.issuanceRouter)
-    expressApp.use('/oid4vp', agenctConfig.oidConfig.verificationRouter)
+    this.server = agenctConfig.oidConfig.app.listen(agenctConfig.oidConfig.port)
   }
   public onApplicationShutdown(signal?: string) {
     this.server.close()

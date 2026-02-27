@@ -1,7 +1,7 @@
-import type { W3cJwtVerifiablePresentation } from '@credo-ts/core/build/modules/vc/jwt-vc'
+import type { W3cJwtVerifiablePresentation } from '@credo-ts/core'
 
 import { SdJwtVc, VerifiablePresentation, W3cCredentialSubject } from '@credo-ts/core'
-import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
+import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionState, OpenId4VcVerifierApi } from '@credo-ts/openid4vc'
 import { Injectable, InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
@@ -28,7 +28,7 @@ export class OpenId4VcVerificationSessionService {
     }
 
     const { authorizationRequest, verificationSession } =
-      await tenantAgent.modules.openId4VcVerifier.createAuthorizationRequest({
+      await tenantAgent.dependencyManager.resolve(OpenId4VcVerifierApi).createAuthorizationRequest({
         requestSigner: {
           method: 'did',
           didUrl: didDocument.verificationMethod[0].id,
@@ -82,7 +82,7 @@ export class OpenId4VcVerificationSessionService {
 
     if (verificationSessionRecord.state === OpenId4VcVerificationSessionState.ResponseVerified) {
       const verifiedAuthorizationResponse =
-        await tenantAgent.modules.openId4VcVerifier.getVerifiedAuthorizationResponse(verificationSessionId)
+        await tenantAgent.dependencyManager.resolve(OpenId4VcVerifierApi).getVerifiedAuthorizationResponse(verificationSessionId)
 
       if (!verifiedAuthorizationResponse.presentationExchange?.presentations.length) {
         throw new InternalServerErrorException('Presentation is missing')

@@ -1,7 +1,7 @@
 import { AnonCredsModule } from '@credo-ts/anoncreds'
 import { AskarModule } from '@credo-ts/askar'
 import { Agent, ConsoleLogger, DidsModule, KeyDidRegistrar, KeyDidResolver, LogLevel } from '@credo-ts/core'
-import { ConnectionsModule, DidCommModule, MessagePickupModule, OutOfBandModule } from '@credo-ts/didcomm'
+import { DidCommConnectionsModule, DidCommModule, DidCommMessagePickupModule, DidCommOutOfBandModule } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import { IndyVdrAnonCredsRegistry, IndyVdrIndyDidRegistrar, IndyVdrIndyDidResolver } from '@credo-ts/indy-vdr'
 import { agentDependencies } from '@credo-ts/node'
@@ -39,11 +39,11 @@ function getTestModulesMap() {
         },
       },
     }),
-    connections: new ConnectionsModule({
+    connections: new DidCommConnectionsModule({
       autoAcceptConnections: true,
     }),
     didcomm: new DidCommModule({ endpoints: ['http://localhost:3000', 'ws://localhost:3002'] }),
-    oob: new OutOfBandModule(),
+    oob: new DidCommOutOfBandModule(),
     openId4VcHolder: new OpenId4VcHolderModule(),
     indyBesu: new IndyBesuModule({ chainId: 1337, nodeAddress: 'http://localhost:8545' }),
     hedera: new HederaModule({
@@ -70,7 +70,7 @@ function getTestModulesMap() {
         new HederaDidRegistrar(),
       ],
     }),
-    messagePickup: new MessagePickupModule(),
+    messagePickup: new DidCommMessagePickupModule(),
     anoncreds: new AnonCredsModule({
       registries: [new IndyVdrAnonCredsRegistry(), new IndyBesuAnonCredsRegistry(), new HederaAnonCredsRegistry()],
       anoncreds,
@@ -91,7 +91,6 @@ export type TestAgentModulesMap = ReturnType<typeof getTestModulesMap>
 export function createAgent(): Agent<TestAgentModulesMap> {
   return new Agent({
     config: {
-      label: 'Test Agent',
       autoUpdateStorageOnStartup: true,
       allowInsecureHttpUrls: true,
       logger: new ConsoleLogger(LogLevel.error),

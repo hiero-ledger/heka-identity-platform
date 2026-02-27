@@ -1,7 +1,7 @@
 import { AnonCredsModule } from '@credo-ts/anoncreds'
 import { AskarModule } from '@credo-ts/askar'
 import { DidsModule, KeyDidRegistrar, KeyDidResolver } from '@credo-ts/core'
-import { MessagePickupModule } from '@credo-ts/didcomm'
+import { DidCommMessagePickupModule } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import {
   IndyVdrAnonCredsRegistry,
@@ -83,7 +83,7 @@ export async function startTestApp(): Promise<INestApplication> {
               new HederaDidRegistrar(),
             ],
           }),
-          messagePickup: new MessagePickupModule(),
+          messagePickup: new DidCommMessagePickupModule(),
           anoncreds: new AnonCredsModule({
             //registries: [new TestDsrAnonCredsRegistry()],
             registries: [
@@ -100,12 +100,14 @@ export async function startTestApp(): Promise<INestApplication> {
           }),
           openId4VcIssuer: new OpenId4VcIssuerModule({
             baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
-            router: agencyConfig.oidConfig.issuanceRouter,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            app: agencyConfig.oidConfig.app as any,
             credentialRequestToCredentialMapper,
           }),
           openId4VcVerifier: new OpenId4VcVerifierModule({
             baseUrl: agencyConfig.oidConfig.verificationEndpoint,
-            router: agencyConfig.oidConfig.verificationRouter,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            app: agencyConfig.oidConfig.app as any,
           }),
           hedera: new HederaModule({
             networks: [

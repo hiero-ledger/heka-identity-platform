@@ -1,5 +1,4 @@
-import { DidDocument } from '@credo-ts/core'
-import { PublicJwk } from '@credo-ts/core/build/modules/kms'
+import { DidDocument, Kms, TypedArrayEncoder } from '@credo-ts/core'
 import { EntityManager } from '@mikro-orm/core'
 import {
   BadRequestException,
@@ -114,7 +113,9 @@ export class DidService {
 
       logger.info('Key was created by DID subject')
 
-      const publicKey = PublicJwk.fromPublicJwk(key.publicJwk).publicKey.publicKey
+      const publicKey = TypedArrayEncoder.toBase58(
+        Kms.PublicJwk.fromPublicJwk(key.publicJwk).publicKey.publicKey as Uint8Array,
+      )
       didDocument = await this.didRegistrarService.createDid(didControllerWallet.tenantId, req.method, {
         namespace: this.agent.agencyConfig.networks[0].indyNamespace,
         controller,
