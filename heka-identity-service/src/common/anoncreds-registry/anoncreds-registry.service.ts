@@ -2,7 +2,7 @@ import type {
   AnonCredsCredentialDefinition,
   AnonCredsRevocationRegistryDefinition,
   AnonCredsSchema,
-} from '@credo-ts/anoncreds/build/models/registry'
+} from '@credo-ts/anoncreds'
 
 import {
   BadRequestException,

@@ -3,6 +3,7 @@ import { Identified } from './identified.entity'
 import { IssuanceTemplateField } from './issuance-template-field.entity'
 import { IssuanceTemplate } from './issuance-template.entity'
 import { SchemaField } from './schema-field.entity'
+import { SchemaRegistration } from './schema-registration.entity'
 import { Schema } from './schema.entity'
 import { User } from './user.entity'
 import { VerificationTemplateField } from './verification-template-field.entity'
@@ -29,6 +30,7 @@ export default [
   Wallet,
   Schema,
   SchemaField,
+  SchemaRegistration,
   IssuanceTemplate,
   IssuanceTemplateField,
   VerificationTemplate,

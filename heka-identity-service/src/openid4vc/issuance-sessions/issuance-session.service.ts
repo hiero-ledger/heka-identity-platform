@@ -1,5 +1,5 @@
-import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
-import { OpenId4VcIssuanceSessionRepository } from '@credo-ts/openid4vc/build/openid4vc-issuer/repository'
+import { SdJwtVcPayload } from '@credo-ts/core'
+import { OpenId4VciCredentialFormatProfile, OpenId4VcIssuerApi, OpenId4VcIssuanceSessionRepository } from '@credo-ts/openid4vc'
 import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
@@ -29,7 +29,7 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     req: OpenId4VcIssuanceSessionsCreateOfferDto,
   ): Promise<OpenId4VcIssuanceSessionsCreateOfferResponse> {
-    const issuer = await tenantAgent.modules.openId4VcIssuer.getIssuerByIssuerId(req.publicIssuerId)
+    const issuer = await tenantAgent.dependencyManager.resolve(OpenId4VcIssuerApi).getIssuerByIssuerId(req.publicIssuerId)
 
     // TODO: It is better to we move setting credential status to `credentialRequestToCredentialMapper`
     //  to change status list when credential really requested but how??
@@ -40,9 +40,7 @@ export class OpenId4VcIssuanceSessionService {
     // Maps credentials, adds properties, and throws errors if needed
     const mappedCredentials: Array<CredentialIssuanceMetadata> = []
     for (const credential of req.credentials) {
-      const credentialSupported = Object.values(issuer.credentialConfigurationsSupported).find(
-        (configuration) => configuration.id === credential.credentialSupportedId,
-      )
+      const credentialSupported = issuer.credentialConfigurationsSupported[credential.credentialSupportedId]
 
       const isAllowedCredential = (
         this.agencyConfig.credentialsConfiguration.OpenId4VC.credentials as OpenId4VciCredentialFormatProfile[]
@@ -54,9 +52,9 @@ export class OpenId4VcIssuanceSessionService {
         )
       }
 
-      if (credentialSupported.format !== credential.format) {
+      if ((credentialSupported as any).format !== credential.format) {
         throw new UnprocessableEntityException(
-          `Format of offered credential (credentialSupportedId: ${credential.credentialSupportedId}) is ${credential.format} but expected to be ${credentialSupported.format}`,
+          `Format of offered credential (credentialSupportedId: ${credential.credentialSupportedId}) is ${credential.format} but expected to be ${(credentialSupported as any).format}`,
         )
       }
 
@@ -83,9 +81,8 @@ export class OpenId4VcIssuanceSessionService {
 
       const type =
         credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc
-          ? (credentialSupported.vct as string)
-          : // @ts-ignore TODO: Fix typechecks
-            (credentialSupported.credential_definition.type as string[])
+          ? ((credentialSupported as any).vct as string)
+          : ((credentialSupported as any).credential_definition?.type as string[])
 
       const credentialIssuanceMeta: CredentialIssuanceMetadata = {
         ...credential,
@@ -95,12 +92,13 @@ export class OpenId4VcIssuanceSessionService {
           didUrl: didDocument.verificationMethod[0].id,
         },
         credentialStatus,
+        payload: (credential as any).payload as SdJwtVcPayload,
       }
 
       mappedCredentials.push(credentialIssuanceMeta)
     }
 
-    const { credentialOffer, issuanceSession } = await tenantAgent.modules.openId4VcIssuer.createCredentialOffer({
+    const { credentialOffer, issuanceSession } = await tenantAgent.dependencyManager.resolve(OpenId4VcIssuerApi).createCredentialOffer({
       baseUri: req.baseUri,
       credentialConfigurationIds: req.credentials.map((c) => c.credentialSupportedId),
       issuerId: req.publicIssuerId,

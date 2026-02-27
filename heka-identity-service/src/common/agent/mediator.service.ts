@@ -1,4 +1,4 @@
-import { DidCommModuleConfig, OutOfBandInvitation, OutOfBandRecord, OutOfBandRole } from '@credo-ts/didcomm'
+import { DidCommModuleConfig, DidCommOutOfBandInvitation, DidCommOutOfBandRecord, DidCommOutOfBandRole } from '@credo-ts/didcomm'
 import { EntityManager, MikroORM, UseRequestContext } from '@mikro-orm/core'
 import { Inject, Injectable, OnApplicationBootstrap } from '@nestjs/common'
 
@@ -81,11 +81,11 @@ export class MediatorService implements OnApplicationBootstrap {
       },
       async (mediatorTenantAgent) => {
         const existingOutOfBandRecords = await mediatorTenantAgent.modules.oob.findAllByQuery({
-          role: OutOfBandRole.Sender,
+          role: DidCommOutOfBandRole.Sender,
         })
 
         let mediatorOutOfBandRecord = existingOutOfBandRecords.find(
-          (record: OutOfBandRecord) => record.reusable && record.outOfBandInvitation.goal === MEDIATOR_PROVISION_GOAL,
+          (record: DidCommOutOfBandRecord) => record.reusable && record.outOfBandInvitation.goal === MEDIATOR_PROVISION_GOAL,
         )
 
         if (mediatorOutOfBandRecord) {
@@ -106,7 +106,7 @@ export class MediatorService implements OnApplicationBootstrap {
     logger.trace('<')
   }
 
-  private convertOutOfBandInvitationToUrl(invitation: OutOfBandInvitation) {
+  private convertOutOfBandInvitationToUrl(invitation: DidCommOutOfBandInvitation) {
     const didcommConfig = this.agent.dependencyManager.resolve(DidCommModuleConfig)
     return invitation.toUrl({
       domain: didcommConfig.endpoints[0],

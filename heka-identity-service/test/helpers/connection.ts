@@ -1,6 +1,6 @@
 import { Server } from 'net'
 
-import { ConnectionEventTypes, DidExchangeState } from '@credo-ts/didcomm'
+import { DidCommConnectionEventTypes, DidCommDidExchangeState } from '@credo-ts/didcomm'
 import request, { WSChain } from 'superwstest'
 
 import { AcceptInvitationDto, CreateInvitationRequestDto, CreateInvitationResponseDto } from 'src/connection/dto'
@@ -51,8 +51,8 @@ export async function connectUsers(app: Server, inviter: UserControl, invitee: U
   await invitee.webSocket.expectJson((message) => {
     expect(message).toEqual(
       expect.objectContaining({
-        type: ConnectionEventTypes.ConnectionStateChanged,
-        state: DidExchangeState.RequestSent,
+        type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+        state: DidCommDidExchangeState.RequestSent,
         details: expect.objectContaining({
           threadId: didExchangeThreadId,
         }),
@@ -65,8 +65,8 @@ export async function connectUsers(app: Server, inviter: UserControl, invitee: U
   await inviter.webSocket.expectJson((message) => {
     expect(message).toEqual({
       id: expect.anything(),
-      type: ConnectionEventTypes.ConnectionStateChanged,
-      state: DidExchangeState.RequestReceived,
+      type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+      state: DidCommDidExchangeState.RequestReceived,
       details: expect.objectContaining({
         threadId: didExchangeThreadId,
       }),
@@ -78,8 +78,8 @@ export async function connectUsers(app: Server, inviter: UserControl, invitee: U
   await inviter.webSocket.expectJson((message) => {
     expect(message).toEqual(
       expect.objectContaining({
-        type: ConnectionEventTypes.ConnectionStateChanged,
-        state: DidExchangeState.ResponseSent,
+        type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+        state: DidCommDidExchangeState.ResponseSent,
         details: expect.objectContaining({
           threadId: didExchangeThreadId,
         }),
@@ -90,8 +90,8 @@ export async function connectUsers(app: Server, inviter: UserControl, invitee: U
   await invitee.webSocket.expectJson((message) => {
     expect(message).toEqual(
       expect.objectContaining({
-        type: ConnectionEventTypes.ConnectionStateChanged,
-        state: DidExchangeState.ResponseReceived,
+        type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+        state: DidCommDidExchangeState.ResponseReceived,
         details: expect.objectContaining({
           threadId: didExchangeThreadId,
         }),
@@ -102,8 +102,8 @@ export async function connectUsers(app: Server, inviter: UserControl, invitee: U
   await invitee.webSocket.expectJson((message) => {
     expect(message).toEqual(
       expect.objectContaining({
-        type: ConnectionEventTypes.ConnectionStateChanged,
-        state: DidExchangeState.Completed,
+        type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+        state: DidCommDidExchangeState.Completed,
         details: expect.objectContaining({
           threadId: didExchangeThreadId,
         }),
@@ -114,8 +114,8 @@ export async function connectUsers(app: Server, inviter: UserControl, invitee: U
   await inviter.webSocket.expectJson((message) => {
     expect(message).toEqual(
       expect.objectContaining({
-        type: ConnectionEventTypes.ConnectionStateChanged,
-        state: DidExchangeState.Completed,
+        type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+        state: DidCommDidExchangeState.Completed,
         details: expect.objectContaining({
           threadId: didExchangeThreadId,
         }),

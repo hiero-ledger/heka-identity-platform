@@ -10,7 +10,7 @@
     "start": "ts-node -r tsconfig-paths/register src/main.ts",
     "watch": "nodemon --config nodemon.json",
     "debug": "nodemon --config nodemon-debug.json",
-    "test": "jest --runInBand --forceExit",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest --runInBand --forceExit",
     "check-types": "yarn check-types:src && yarn check-types:test",
     "check-types:src": "tsc -p tsconfig.src.json --noEmit",
     "check-types:test": "tsc -p tsconfig.test.json --noEmit",
@@ -28,15 +28,15 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
-    "@credo-ts/anoncreds": "v0.6.0-alpha-20250704130724",
-    "@credo-ts/askar": "v0.6.0-alpha-20250704130724",
-    "@credo-ts/core": "v0.6.0-alpha-20250704130724",
-    "@credo-ts/didcomm": "v0.6.0-alpha-20250704130724",
+    "@credo-ts/anoncreds": "v0.6.2",
+    "@credo-ts/askar": "v0.6.2",
+    "@credo-ts/core": "v0.6.2",
+    "@credo-ts/didcomm": "v0.6.2",
     "@credo-ts/hedera": "0.6.0",
-    "@credo-ts/indy-vdr": "v0.6.0-alpha-20250704130724",
-    "@credo-ts/node": "v0.6.0-alpha-20250704130724",
-    "@credo-ts/openid4vc": "v0.6.0-alpha-20250704130724",
-    "@credo-ts/tenants": "v0.6.0-alpha-20250704130724",
+    "@credo-ts/indy-vdr": "v0.6.2",
+    "@credo-ts/node": "v0.6.2",
+    "@credo-ts/openid4vc": "v0.6.2",
+    "@credo-ts/tenants": "v0.6.2",
     "@digitalcredentials/bitstring": "^3.1.2",
     "@hyperledger/anoncreds-nodejs": "^0.3.1",
     "@hyperledger/indy-vdr-nodejs": "^0.2.2",
@@ -90,7 +90,7 @@
     "@mikro-orm/cli": "^5.7.12",
     "@mikro-orm/sqlite": "^5.7.12",
     "@nestjs/testing": "^11.1.5",
-    "@types/express": "^4.17.11",
+    "@types/express": "^5.0.0",
     "@types/fs-extra": "^11.0.2",
     "@types/jest": "^29.5.1",
     "@types/jest-when": "^3.5.2",
@@ -129,8 +129,8 @@
   "resolutions": {
     "@types/jsonwebtoken": "^9.0.10",
     "reflect-metadata": "0.2.2",
-    "@credo-ts/core": "v0.6.0-alpha-20250704130724",
-    "@credo-ts/anoncreds": "v0.6.0-alpha-20250704130724"
+    "@credo-ts/core": "v0.6.2",
+    "@credo-ts/anoncreds": "v0.6.2"
   },
   "packageManager": "yarn@4.9.4"
 }

@@ -1,8 +1,7 @@
-import type { JsonObject } from '@credo-ts/core/build/types'
+import type { JsonObject } from '@credo-ts/core'
 
 import { ClaimFormat, SdJwtVcPayload, W3cCredential, W3cCredentialSubject, w3cDate } from '@credo-ts/core'
-import { OpenId4VciCredentialFormatProfile, OpenId4VciCredentialRequestToCredentialMapper } from '@credo-ts/openid4vc'
-import { OpenId4VciSignCredentials } from '@credo-ts/openid4vc/build/openid4vc-issuer/OpenId4VcIssuerServiceOptions'
+import { OpenId4VciCredentialFormatProfile, OpenId4VciCredentialRequestToCredentialMapper, OpenId4VciSignCredentials } from '@credo-ts/openid4vc'
 import { v4 } from 'uuid'
 
 export interface CredentialIssuanceMetadata {
@@ -45,23 +44,14 @@ export const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToC
   // const credentialSupportedId = issuanceMetadata.credentialSupportedId
   const verificationMethod = issuanceMetadata.issuer.didUrl
 
-  // let credentialStatus
-  // if (issuanceMetadata.credentialStatus) {
-  //   credentialStatus = new BitstringCredentialStatus({
-  //     id: `${issuanceMetadata.credentialStatus.location}#${issuanceMetadata.credentialStatus.index}`,
-  //     type: 'BitstringStatusListEntry',
-  //     // @ts-ignore
-  //     statusPurpose: 'revocation',
-  //     statusListIndex: issuanceMetadata.credentialStatus.index.toString(),
-  //     statusListCredential: issuanceMetadata.credentialStatus.location,
-  //   })
-  // }
-
   if (issuanceMetadata.format === OpenId4VciCredentialFormatProfile.SdJwtVc) {
     if (!issuanceMetadata.payload) throw new Error(`Invalid credential issuance metadata: 'payload' is missing`)
 
+    const vct = Array.isArray(issuanceMetadata.type) ? issuanceMetadata.type[0] : issuanceMetadata.type
+
     return {
-      format: ClaimFormat.SdJwtVc,
+      type: 'credentials',
+      format: ClaimFormat.SdJwtDc,
       credentials: holderBinding.keys.map((binding) => ({
         holder: binding,
         issuer: {
@@ -69,7 +59,7 @@ export const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToC
           didUrl: verificationMethod,
         },
         payload: {
-          vct: issuanceMetadata.type,
+          vct,
           ...issuanceMetadata.payload,
         },
         disclosureFrame: issuanceMetadata.disclosureFrame,
@@ -100,6 +90,7 @@ export const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToC
   if (issuanceMetadata.format === OpenId4VciCredentialFormatProfile.JwtVcJson) {
     const credential = new W3cCredential(baseCredential)
     return {
+      type: 'credentials',
       format: ClaimFormat.JwtVc,
       credentials: [{ credential, verificationMethod }],
     }
@@ -111,6 +102,7 @@ export const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToC
       ...baseCredential,
     })
     return {
+      type: 'credentials',
       format: ClaimFormat.JwtVc,
       credentials: [{ credential, verificationMethod }],
     }
@@ -124,6 +116,7 @@ export const credentialRequestToCredentialMapper: OpenId4VciCredentialRequestToC
       ...baseCredential,
     })
     return {
+      type: 'credentials',
       format: ClaimFormat.LdpVc,
       credentials: [{ credential, verificationMethod }],
     }

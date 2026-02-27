@@ -14,8 +14,7 @@ import type {
   RegisterSchemaReturn,
 } from '@credo-ts/anoncreds'
 
-import { type AgentContext, CredoError, DidRepository, DidsApi } from '@credo-ts/core'
-import { KeyManagementApi } from '@credo-ts/core/build/modules/kms'
+import { type AgentContext, CredoError, DidRepository, DidsApi, Kms } from '@credo-ts/core'
 
 import { CredentialDefinitionRegistry, IndyBesuSigner, SchemaRegistry } from '../ledger'
 import { indyBesuAnonCredsRegistryIdentifierRegex } from '../utils/identifier'
@@ -193,7 +192,7 @@ export class IndyBesuAnonCredsRegistry implements AnonCredsRegistry {
       throw new Error('Unable to resolve the signer key')
     }
 
-    const kms = agentContext.dependencyManager.resolve(KeyManagementApi)
+    const kms = agentContext.dependencyManager.resolve(Kms.KeyManagementApi)
     const didRepository = agentContext.dependencyManager.resolve(DidRepository)
     const didRecords = await didRepository.findAllByDid(agentContext, did)
     const keys =
@@ -207,7 +206,7 @@ export class IndyBesuAnonCredsRegistry implements AnonCredsRegistry {
   }
 
   private async getEndorserSigner(agentContext: AgentContext, endorserKeyId: string) {
-    const kms = agentContext.dependencyManager.resolve(KeyManagementApi)
+    const kms = agentContext.dependencyManager.resolve(Kms.KeyManagementApi)
     return await IndyBesuSigner.create(endorserKeyId, kms)
   }
 }

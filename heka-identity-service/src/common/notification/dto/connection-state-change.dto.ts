@@ -1,9 +1,9 @@
 import {
-  ConnectionEventTypes,
-  ConnectionRecord,
-  ConnectionStateChangedEvent,
-  DidExchangeState,
-  ConnectionDidRotatedEvent,
+  DidCommConnectionEventTypes,
+  DidCommConnectionRecord,
+  DidCommConnectionStateChangedEvent,
+  DidCommDidExchangeState,
+  DidCommConnectionDidRotatedEvent,
 } from '@credo-ts/didcomm'
 
 export class ConnectionStateChangeDetailsDto {
@@ -16,7 +16,7 @@ export class ConnectionStateChangeDetailsDto {
   public errorMessage?: string
   public invitationDid?: string
 
-  public constructor(record: ConnectionRecord) {
+  public constructor(record: DidCommConnectionRecord) {
     this.threadId = record.threadId
     this.did = record.did
     this.theirDid = record.theirDid
@@ -30,11 +30,11 @@ export class ConnectionStateChangeDetailsDto {
 
 export class ConnectionStateChangeDto {
   public id: string
-  public type: ConnectionEventTypes
-  public state: DidExchangeState
+  public type: DidCommConnectionEventTypes
+  public state: DidCommDidExchangeState
   public details: ConnectionStateChangeDetailsDto
 
-  public constructor(event: ConnectionStateChangedEvent | ConnectionDidRotatedEvent) {
+  public constructor(event: DidCommConnectionStateChangedEvent | DidCommConnectionDidRotatedEvent) {
     const { connectionRecord } = event.payload
     this.id = connectionRecord.id
     this.type = event.type

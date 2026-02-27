@@ -1,24 +1,23 @@
-import { Buffer, TypedArrayEncoder } from '@credo-ts/core'
-import { assertJwkAsymmetric, KeyManagementApi, PublicJwk } from '@credo-ts/core/build/modules/kms'
-import { BytesLike, computeAddress } from 'ethers'
+import { Buffer, TypedArrayEncoder, Kms } from '@credo-ts/core'
+import { BytesLike, computeAddress, getBytes } from 'ethers'
 import { Transaction, TransactionEndorsingData } from 'indybesu-vdr'
 
 export class IndyBesuSigner {
   public readonly keyId!: string
   public readonly address!: string
-  private readonly kms!: KeyManagementApi
+  private readonly kms!: Kms.KeyManagementApi
 
-  private constructor(keyId: string, publicKey: string, kms: KeyManagementApi) {
+  private constructor(keyId: string, publicKey: string, kms: Kms.KeyManagementApi) {
     this.keyId = keyId
     this.address = computeAddress(`0x${TypedArrayEncoder.toHex(Buffer.from(publicKey))}`)
     this.kms = kms
   }
 
-  public static async create(keyId: string, kms: KeyManagementApi) {
+  public static async create(keyId: string, kms: Kms.KeyManagementApi) {
     const publicKey = await kms.getPublicKey({ keyId })
-    assertJwkAsymmetric(publicKey)
+    Kms.assertJwkAsymmetric(publicKey)
 
-    const publicJwk = PublicJwk.fromPublicJwk(publicKey)
+    const publicJwk = Kms.PublicJwk.fromPublicJwk(publicKey)
     return new IndyBesuSigner(keyId, publicJwk.fingerprint, kms)
   }
 
@@ -43,7 +42,7 @@ export class IndyBesuSigner {
     const signResult = await this.kms.sign({
       algorithm: 'EdDSA',
       keyId: this.keyId,
-      data: data,
+      data: getBytes(data),
     })
 
     return signResult.signature

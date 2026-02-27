@@ -3,7 +3,7 @@ import type {
   OpenId4VciCredentialIssuerMetadataDisplay,
 } from '@credo-ts/openid4vc'
 
-import { PublicJwk } from '@credo-ts/core/build/modules/kms'
+import { Kms } from '@credo-ts/core'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 import { OpenId4VciCredentialConfigurationSupportedWithId } from './common'
@@ -58,7 +58,7 @@ export class OpenId4VcIssuerRecordDto {
       ),
       publicIssuerId: record.issuerId,
       accessTokenPublicKeyFingerprint: record.accessTokenPublicJwk
-        ? PublicJwk.fromPublicJwk(record.accessTokenPublicJwk).fingerprint
+        ? Kms.PublicJwk.fromPublicJwk(record.accessTokenPublicJwk).fingerprint
         : '',
     })
   }

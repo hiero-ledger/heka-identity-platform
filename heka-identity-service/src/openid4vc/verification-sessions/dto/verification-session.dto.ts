@@ -1,4 +1,4 @@
-import type { OpenId4VcVerificationSessionRecord } from '@credo-ts/openid4vc/build/openid4vc-verifier/repository/OpenId4VcVerificationSessionRecord'
+import type { OpenId4VcVerificationSessionRecord } from '@credo-ts/openid4vc'
 
 import { OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'

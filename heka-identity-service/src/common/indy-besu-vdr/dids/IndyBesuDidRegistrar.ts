@@ -12,8 +12,8 @@ import {
   getEcdsaSecp256k1VerificationKey2019,
   DidsApi,
   Buffer,
+  Kms,
 } from '@credo-ts/core'
-import { KeyManagementApi, PublicJwk, Secp256k1PublicJwk } from '@credo-ts/core/build/modules/kms'
 
 import { DidRegistry, IndyBesuSigner } from '../ledger'
 
@@ -26,7 +26,7 @@ export class IndyBesuDidRegistrar implements DidRegistrar {
   public async create(agentContext: AgentContext, options: IndyBesuDidCreateOptions): Promise<DidCreateResult> {
     const didRegistry = agentContext.dependencyManager.resolve(DidRegistry)
     const didsApi = agentContext.dependencyManager.resolve(DidsApi)
-    const kms = agentContext.dependencyManager.resolve(KeyManagementApi)
+    const kms = agentContext.dependencyManager.resolve(Kms.KeyManagementApi)
 
     const key = await kms.createKey({
       type: {
@@ -35,7 +35,7 @@ export class IndyBesuDidRegistrar implements DidRegistrar {
       },
     })
 
-    const publicJwk = PublicJwk.fromPublicJwk(key.publicJwk)
+    const publicJwk = Kms.PublicJwk.fromPublicJwk(key.publicJwk)
     const didDocument = this.buildDidDocument(publicJwk, {
       method: options.method,
       network: options.options.network,
@@ -95,7 +95,7 @@ export class IndyBesuDidRegistrar implements DidRegistrar {
     )
   }
 
-  private buildDidDocument(publicJwk: PublicJwk<Secp256k1PublicJwk>, options: BuildDidDocumentOptions) {
+  private buildDidDocument(publicJwk: Kms.PublicJwk<Kms.Secp256k1PublicJwk>, options: BuildDidDocumentOptions) {
     const did = buildDid(options.method, options.network, Buffer.from(publicJwk.publicKey.publicKey))
 
     const verificationMethod = getEcdsaSecp256k1VerificationKey2019({

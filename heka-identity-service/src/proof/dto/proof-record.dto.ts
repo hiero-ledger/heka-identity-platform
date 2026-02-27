@@ -1,4 +1,4 @@
-import { ProofState } from '@credo-ts/didcomm'
+import { DidCommProofState } from '@credo-ts/didcomm'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export interface ProofRevealedAttributeDtoOptions {
@@ -25,7 +25,7 @@ export interface ProofRecordDtoOptions {
   threadId: string
   createdAt: Date
   updatedAt?: Date
-  state: ProofState
+  state: DidCommProofState
   isVerified?: boolean
   revealedAttributes?: Array<ProofRevealedAttributeDtoOptions>
 }
@@ -57,8 +57,8 @@ export class ProofRecordDto {
   @ApiPropertyOptional()
   public updatedAt?: Date
 
-  @ApiProperty({ enum: ProofState })
-  public state: ProofState
+  @ApiProperty({ enum: DidCommProofState })
+  public state: DidCommProofState
 
   @ApiPropertyOptional()
   public isVerified?: boolean

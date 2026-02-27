@@ -1,7 +1,7 @@
 import { Server } from 'net'
 
-import { Agent, DidKey, KeyDidCreateOptions } from '@credo-ts/core'
-import { KnownJwaSignatureAlgorithms } from '@credo-ts/core/build/modules/kms'
+import { Agent, DidKey, KeyDidCreateOptions, Kms, SdJwtVcRecord } from '@credo-ts/core'
+import { OpenId4VcHolderApi } from '@credo-ts/openid4vc'
 import { SchemaGenerator } from '@mikro-orm/sqlite'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
@@ -71,8 +71,8 @@ describe('E2E issuance session', () => {
             proof_types_supported: {
               jwt: {
                 proof_signing_alg_values_supported: [
-                  KnownJwaSignatureAlgorithms.EdDSA,
-                  KnownJwaSignatureAlgorithms.ES256,
+                  Kms.KnownJwaSignatureAlgorithms.EdDSA,
+                  Kms.KnownJwaSignatureAlgorithms.ES256,
                 ],
               },
             },
@@ -200,9 +200,9 @@ describe('E2E issuance session', () => {
     const holderDidDocument = holderDidDocumentResult.didState.didDocument
     const holderVerifiedDid = holderDidDocument.verificationMethod![0].id
 
-    const resolvedOffer = await agent.modules.openId4VcHolder.resolveCredentialOffer(response.body.credentialOffer)
-    const tokenResponse = await agent.modules.openId4VcHolder.requestToken({ resolvedCredentialOffer: resolvedOffer })
-    const requestCredentialsResult = await agent.modules.openId4VcHolder.requestCredentials({
+    const resolvedOffer = await agent.dependencyManager.resolve(OpenId4VcHolderApi).resolveCredentialOffer(response.body.credentialOffer)
+    const tokenResponse = await agent.dependencyManager.resolve(OpenId4VcHolderApi).requestToken({ resolvedCredentialOffer: resolvedOffer })
+    const requestCredentialsResult = await agent.dependencyManager.resolve(OpenId4VcHolderApi).requestCredentials({
       resolvedCredentialOffer: resolvedOffer,
       credentialBindingResolver: () => ({
         method: 'did',
@@ -214,47 +214,44 @@ describe('E2E issuance session', () => {
 
     expect(requestCredentialsResult.credentials).toHaveLength(1)
 
-    const { credentials } = requestCredentialsResult.credentials[0]
+    const credential = (requestCredentialsResult.credentials[0].record as SdJwtVcRecord).firstCredential
 
-    expect(credentials).toHaveLength(1)
-    expect(credentials).toEqual([
-      {
-        claimFormat: 'vc+sd-jwt',
-        encoded: expect.any(String),
-        compact: expect.any(String),
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        header: { alg: expectedAlg, kid: `#${issuerDidKey.publicJwk.fingerprint}`, typ: 'vc+sd-jwt' },
-        payload: {
-          _sd_alg: 'sha-256',
-          age: {
-            over_18: true,
-            over_21: true,
-            over_65: false,
-          },
-          cnf: {
-            kid: `${holderVerifiedDid}`,
-          },
-          first_name: 'John',
-          iat: expect.any(Number),
-          iss: issuerId,
-          vct: 'https://example.com/vct',
+    expect(credential).toMatchObject({
+      claimFormat: 'vc+sd-jwt',
+      encoded: expect.any(String),
+      compact: expect.any(String),
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      header: { alg: expectedAlg, kid: `#${issuerDidKey.publicJwk.fingerprint}`, typ: 'vc+sd-jwt' },
+      payload: {
+        _sd_alg: 'sha-256',
+        age: {
+          over_18: true,
+          over_21: true,
+          over_65: false,
         },
-        prettyClaims: {
-          age: {
-            over_18: true,
-            over_21: true,
-            over_65: false,
-          },
-          cnf: {
-            kid: `${holderVerifiedDid}`,
-          },
-          first_name: 'John',
-          iat: expect.any(Number),
-          iss: issuerId,
-          vct: 'https://example.com/vct',
+        cnf: {
+          kid: `${holderVerifiedDid}`,
         },
+        first_name: 'John',
+        iat: expect.any(Number),
+        iss: issuerId,
+        vct: 'https://example.com/vct',
       },
-    ])
+      prettyClaims: {
+        age: {
+          over_18: true,
+          over_21: true,
+          over_65: false,
+        },
+        cnf: {
+          kid: `${holderVerifiedDid}`,
+        },
+        first_name: 'John',
+        iat: expect.any(Number),
+        iss: issuerId,
+        vct: 'https://example.com/vct',
+      },
+    })
   }
 
   test('create offer with `key` DID method', async () => {

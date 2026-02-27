@@ -2,9 +2,9 @@ import type {
   GetCredentialDefinitionReturn,
   GetSchemaReturn,
   RegisterCredentialDefinitionReturn,
+  RegisterRevocationRegistryDefinitionReturn,
   RegisterSchemaReturn,
 } from '@credo-ts/anoncreds'
-import type { RegisterRevocationRegistryDefinitionReturn } from '@credo-ts/anoncreds/build/services'
 
 import { TenantAgent } from '../agent'
 

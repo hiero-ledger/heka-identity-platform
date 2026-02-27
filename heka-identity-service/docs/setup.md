@@ -50,7 +50,7 @@ To start `postgres` compatible with default settings in docker use the following
 
 ```bash
 # Starting container
-$ docker run --name heka-identity-service-postgres -e POSTGRES_DB=heka-identity-service -e POSTGRES_USER=heka -e POSTGRES_PASSWORD=heka1 -p 5432:5432 -d postgres
+ docker run --name heka-identity-service-postgres -e POSTGRES_DB=heka-identity-service -e POSTGRES_USER=heka -e POSTGRES_PASSWORD=heka1 -p 5432:5432 -d postgres
 ```
 
 You can also reconfigure how the Heka Identity Service connects to PostgreSQL by setting the following environment variables:
