@@ -1,6 +1,6 @@
 import { Server } from 'net'
 
-import { ConnectionEventTypes, DidExchangeRole, DidExchangeState } from '@credo-ts/didcomm'
+import { DidCommConnectionEventTypes, DidCommDidExchangeRole, DidCommDidExchangeState } from '@credo-ts/didcomm'
 import { SchemaGenerator } from '@mikro-orm/sqlite'
 import { INestApplication } from '@nestjs/common'
 import request, { WSChain } from 'superwstest'
@@ -143,8 +143,8 @@ describe('E2E connection', () => {
       threadId: expect.stringMatching(`^${UUID_PATTERN}$`),
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
-      state: DidExchangeState.RequestSent,
-      role: DidExchangeRole.Requester,
+      state: DidCommDidExchangeState.RequestSent,
+      role: DidCommDidExchangeRole.Requester,
       did: expect.stringMatching('^did:peer:.+$'),
       theirLabel: 'Issuer',
       alias: 'Connection with Issuer',
@@ -159,8 +159,8 @@ describe('E2E connection', () => {
     await holderWebSocket.expectJson((message) => {
       expect(message).toEqual(
         expect.objectContaining({
-          type: ConnectionEventTypes.ConnectionStateChanged,
-          state: DidExchangeState.RequestSent,
+          type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+          state: DidCommDidExchangeState.RequestSent,
           details: expect.objectContaining({
             threadId: didExchangeThreadId,
           }),
@@ -173,8 +173,8 @@ describe('E2E connection', () => {
     await issuerWebSocket.expectJson((message) => {
       expect(message).toEqual({
         id: expect.stringMatching(`^${UUID_PATTERN}$`),
-        type: ConnectionEventTypes.ConnectionStateChanged,
-        state: DidExchangeState.RequestReceived,
+        type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+        state: DidCommDidExchangeState.RequestReceived,
         details: expect.objectContaining({
           threadId: didExchangeThreadId,
         }),
@@ -188,8 +188,8 @@ describe('E2E connection', () => {
     await issuerWebSocket.expectJson((message) => {
       expect(message).toEqual(
         expect.objectContaining({
-          type: ConnectionEventTypes.ConnectionStateChanged,
-          state: DidExchangeState.ResponseSent,
+          type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+          state: DidCommDidExchangeState.ResponseSent,
           details: expect.objectContaining({
             threadId: didExchangeThreadId,
             did: expect.stringMatching('^did:peer:.+$'),
@@ -203,8 +203,8 @@ describe('E2E connection', () => {
     await holderWebSocket.expectJson((message) => {
       expect(message).toEqual(
         expect.objectContaining({
-          type: ConnectionEventTypes.ConnectionStateChanged,
-          state: DidExchangeState.ResponseReceived,
+          type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+          state: DidCommDidExchangeState.ResponseReceived,
           details: expect.objectContaining({
             threadId: didExchangeThreadId,
           }),
@@ -215,8 +215,8 @@ describe('E2E connection', () => {
     await holderWebSocket.expectJson((message) => {
       expect(message).toEqual({
         id: holderConnectionRecordId,
-        type: ConnectionEventTypes.ConnectionStateChanged,
-        state: DidExchangeState.Completed,
+        type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+        state: DidCommDidExchangeState.Completed,
         details: {
           threadId: didExchangeThreadId,
           did: holderPairwiseDid,
@@ -231,8 +231,8 @@ describe('E2E connection', () => {
     await issuerWebSocket.expectJson((message) => {
       expect(message).toEqual({
         id: issuerConnectionRecordId,
-        type: ConnectionEventTypes.ConnectionStateChanged,
-        state: DidExchangeState.Completed,
+        type: DidCommConnectionEventTypes.DidCommConnectionStateChanged,
+        state: DidCommDidExchangeState.Completed,
         details: {
           threadId: didExchangeThreadId,
           did: issuerPairwiseDid,
@@ -253,8 +253,8 @@ describe('E2E connection', () => {
       threadId: didExchangeThreadId,
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
-      state: DidExchangeState.Completed,
-      role: DidExchangeRole.Requester,
+      state: DidCommDidExchangeState.Completed,
+      role: DidCommDidExchangeRole.Requester,
       did: holderPairwiseDid,
       theirDid: issuerPairwiseDid!,
       theirLabel: 'Issuer',
@@ -272,8 +272,8 @@ describe('E2E connection', () => {
       threadId: didExchangeThreadId,
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
-      state: DidExchangeState.Completed,
-      role: DidExchangeRole.Responder,
+      state: DidCommDidExchangeState.Completed,
+      role: DidCommDidExchangeRole.Responder,
       did: issuerPairwiseDid!,
       theirDid: holderPairwiseDid,
       theirLabel: 'Holder',
