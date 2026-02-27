@@ -1,6 +1,6 @@
 import { Server } from 'net'
 
-import { CredentialState, ProofState } from '@credo-ts/didcomm'
+import { DidCommCredentialState, DidCommProofState } from '@credo-ts/didcomm'
 import { OpenId4VcIssuanceSessionState, OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
 import { MikroORM } from '@mikro-orm/core'
 import { PostgreSqlDriver } from '@mikro-orm/postgresql'
@@ -245,7 +245,7 @@ describe('Credential V2 tests', () => {
       })
       expect(offer).toBeDefined()
       expect(offer!.offer).toBeUndefined()
-      expect(offer!.state).toEqual(CredentialState.OfferSent)
+      expect(offer!.state).toEqual(DidCommCredentialState.OfferSent)
       expect(offer?.id).toBeDefined()
 
       await verifier.close().expectClosed()
@@ -393,7 +393,7 @@ describe('Credential V2 tests', () => {
       expect(proof).toBeDefined()
       expect(proof?.id).toBeDefined()
       expect(proof?.request).toBeUndefined()
-      expect(proof?.state).toEqual(ProofState.RequestSent)
+      expect(proof?.state).toEqual(DidCommProofState.RequestSent)
 
       await verifier.close().expectClosed()
       await holderWebSocket.close().expectClosed()
