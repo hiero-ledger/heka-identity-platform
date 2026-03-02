@@ -1,5 +1,8 @@
 import * as fs from 'fs'
 import { Server } from 'net'
+import * as path from 'path'
+
+const _testDir = typeof __dirname !== 'undefined' ? __dirname : path.resolve(process.cwd(), 'test')
 
 import { SchemaGenerator } from '@mikro-orm/sqlite'
 import { INestApplication } from '@nestjs/common'
@@ -417,7 +420,7 @@ describe('E2E schemas management', () => {
           .post('/v2/schemas')
           .auth(userAuthToken!, { type: 'bearer' })
           .set('Content-Type', 'multipart/form-data')
-          .attach('logo', fs.readFileSync(`${__dirname}/assets/image_big.jpg`), 'image_big.jpg')
+          .attach('logo', fs.readFileSync(`${_testDir}/assets/image_big.jpg`), 'image_big.jpg')
           .field('name', uuid())
           .field('fields', [uuid()])
 
@@ -433,7 +436,7 @@ describe('E2E schemas management', () => {
           .post('/v2/schemas')
           .auth(userAuthToken!, { type: 'bearer' })
           .set('Content-Type', 'multipart/form-data')
-          .attach('logo', fs.readFileSync(`${__dirname}/assets/image.bmp`), 'image.bmp')
+          .attach('logo', fs.readFileSync(`${_testDir}/assets/image.bmp`), 'image.bmp')
           .field('name', uuid())
           .field('fields', [uuid()])
 
@@ -451,7 +454,7 @@ describe('E2E schemas management', () => {
           .post('/v2/schemas')
           .auth(userAuthToken!, { type: 'bearer' })
           .set('Content-Type', 'multipart/form-data')
-          .attach('logo', fs.readFileSync(`${__dirname}/assets/image.jpg`), 'image.jpg')
+          .attach('logo', fs.readFileSync(`${_testDir}/assets/image.jpg`), 'image.jpg')
           .field('name', uuid())
           .field('fields', [uuid()])
 
@@ -468,7 +471,7 @@ describe('E2E schemas management', () => {
             .post('/v2/schemas')
             .auth(userAuthToken!, { type: 'bearer' })
             .set('Content-Type', 'multipart/form-data')
-            .attach('logo', fs.readFileSync(`${__dirname}/assets/${f}`), f)
+            .attach('logo', fs.readFileSync(`${_testDir}/assets/${f}`), f)
             .field('name', uuid())
             .field('fields', [uuid()])
           expect(response.status).toBe(201)
@@ -547,7 +550,7 @@ describe('E2E schemas management', () => {
         .post('/v2/schemas')
         .auth(userAuthToken!, { type: 'bearer' })
         .set('Content-Type', 'multipart/form-data')
-        .attach('logo', fs.readFileSync(`${__dirname}/assets/image.jpg`), 'image.jpg')
+        .attach('logo', fs.readFileSync(`${_testDir}/assets/image.jpg`), 'image.jpg')
         .field('name', uuid())
         .field('bgColor', 'ffffff')
         .field('fields', [uuid(), uuid(), uuid()])
@@ -609,7 +612,7 @@ describe('E2E schemas management', () => {
           .patch(`/v2/schemas/${schema1}`)
           .auth(userAuthToken!, { type: 'bearer' })
           .set('Content-Type', 'multipart/form-data')
-          .attach('logo', fs.readFileSync(`${__dirname}/assets/image_big.jpg`), 'image_big.jpg')
+          .attach('logo', fs.readFileSync(`${_testDir}/assets/image_big.jpg`), 'image_big.jpg')
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('Maximum file size is 1 mb')
@@ -626,7 +629,7 @@ describe('E2E schemas management', () => {
           .patch(`/v2/schemas/${schema1}`)
           .auth(userAuthToken!, { type: 'bearer' })
           .set('Content-Type', 'multipart/form-data')
-          .attach('logo', fs.readFileSync(`${__dirname}/assets/image.bmp`), 'image.bmp')
+          .attach('logo', fs.readFileSync(`${_testDir}/assets/image.bmp`), 'image.bmp')
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('Unsupported file type: image.bmp')
@@ -645,7 +648,7 @@ describe('E2E schemas management', () => {
           .patch(`/v2/schemas/${schema?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
           .set('Content-Type', 'multipart/form-data')
-          .attach('logo', fs.readFileSync(`${__dirname}/assets/image.jpg`), 'image.jpg')
+          .attach('logo', fs.readFileSync(`${_testDir}/assets/image.jpg`), 'image.jpg')
 
         expect(response.status).toBe(200)
       })
@@ -663,7 +666,7 @@ describe('E2E schemas management', () => {
             .patch(`/v2/schemas/${schema?.id}`)
             .auth(userAuthToken!, { type: 'bearer' })
             .set('Content-Type', 'multipart/form-data')
-            .attach('logo', fs.readFileSync(`${__dirname}/assets/${f}`), f)
+            .attach('logo', fs.readFileSync(`${_testDir}/assets/${f}`), f)
 
           expect(response.status).toBe(200)
         }
@@ -1049,7 +1052,7 @@ describe('E2E schemas management', () => {
       .patch(`/v2/schemas/${schema?.id}`)
       .auth(userAuthToken!, { type: 'bearer' })
       .set('Content-Type', 'multipart/form-data')
-      .attach('logo', fs.readFileSync(`${__dirname}/assets/image.jpg`), 'image.jpg')
+      .attach('logo', fs.readFileSync(`${_testDir}/assets/image.jpg`), 'image.jpg')
       .field('bgColor', '012345')
     expect(response.status).toBe(200)
 
