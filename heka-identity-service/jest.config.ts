@@ -7,7 +7,17 @@ const config: Config = {
   testTimeout: 1200000,
   extensionsToTreatAsEsm: ['.ts'],
   transform: {
-    '^.+\\.ts$': [
+    '^.+\\.[jt]s$': [
+      'ts-jest',
+      {
+        useESM: true,
+        tsconfig: {
+          module: 'ESNext',
+          moduleResolution: 'Bundler',
+        },
+      },
+    ],
+    '^.+\\.mjs$': [
       'ts-jest',
       {
         useESM: true,
