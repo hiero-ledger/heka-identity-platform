@@ -1,12 +1,12 @@
 import type { InitConfig } from '@credo-ts/core'
 
-import { AskarModuleConfigStoreOptions } from '@credo-ts/askar/build/AskarModuleConfig'
+import { AskarModuleConfigStoreOptions } from '@credo-ts/askar'
 import { DidCommModuleConfigOptions } from '@credo-ts/didcomm'
 import { IndyVdrPoolConfig } from '@credo-ts/indy-vdr'
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { HederaNetwork } from '@hiero-did-sdk/client'
 import { registerAs } from '@nestjs/config'
-import Router from 'express-promise-router'
+import express from 'express'
 
 import { AriesCredentialFormat, ProtocolType } from 'common/types'
 
@@ -91,12 +91,10 @@ export default registerAs('agent', () => {
     path: '/oid4vci',
     issuanceEndpoint: oid4VciEndpoint + '/oid4vci',
     verificationEndpoint: oid4VciEndpoint + '/oid4vp',
-    issuanceRouter: Router(),
-    verificationRouter: Router(),
+    app: express(),
   }
 
   const initConfig: InitConfig = {
-    label,
     autoUpdateStorageOnStartup: true,
     allowInsecureHttpUrls: true,
   }

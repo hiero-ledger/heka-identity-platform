@@ -1,4 +1,4 @@
-import { join } from 'path'
+import { join, resolve } from 'path'
 
 import { Module } from '@nestjs/common'
 import { EventEmitterModule } from '@nestjs/event-emitter'
@@ -15,6 +15,9 @@ import { VerificationTemplateModule } from 'verification-template/verification-t
 import { LoggerModule } from './common/logger'
 import { OCAModule } from './common/oca/oca.module'
 import { fileStorageConfigDefaults } from './config/file-storage'
+
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+const _appRoot = typeof __dirname !== 'undefined' ? resolve(__dirname, '..') : process.cwd()
 import { ConnectionModule } from './connection'
 import { CoreModule } from './core'
 import { CredentialModule } from './credential'
@@ -32,7 +35,7 @@ import { UserModule } from './user'
 @Module({
   imports: [
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', fileStorageConfigDefaults.fileSystem.path),
+      rootPath: join(_appRoot, fileStorageConfigDefaults.fileSystem.path),
     }),
     CoreModule,
     UserModule,

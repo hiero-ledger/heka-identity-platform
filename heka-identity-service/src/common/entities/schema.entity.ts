@@ -1,8 +1,10 @@
 import { Collection, Entity, ManyToOne, OneToMany, Property } from '@mikro-orm/core'
 
 import { Identified } from './identified.entity'
-import { SchemaField } from './schema-field.entity'
-import { SchemaRegistration } from './schema-registration.entity'
+// Use type-only imports to break ESM circular dependency TDZ with schema-field and schema-registration.
+// The @OneToMany decorators use string entity names so there is no runtime reference to these modules.
+import type { SchemaField } from './schema-field.entity'
+import type { SchemaRegistration } from './schema-registration.entity'
 import { User } from './user.entity'
 
 @Entity()
@@ -27,10 +29,10 @@ export class Schema extends Identified {
   @Property({ nullable: false, type: 'boolean' })
   public isHidden = false
 
-  @OneToMany(() => SchemaField, 'schema', { orphanRemoval: true })
+  @OneToMany('SchemaField', 'schema', { orphanRemoval: true })
   public fields = new Collection<SchemaField>(this)
 
-  @OneToMany(() => SchemaRegistration, 'schema', { orphanRemoval: true })
+  @OneToMany('SchemaRegistration', 'schema', { orphanRemoval: true })
   public registrations = new Collection<SchemaRegistration>(this)
 
   public constructor(props: Partial<Schema>) {

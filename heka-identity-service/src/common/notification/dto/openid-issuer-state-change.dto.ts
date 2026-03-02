@@ -1,5 +1,4 @@
-import type { OpenId4VcIssuanceSessionState } from '@credo-ts/openid4vc'
-import type { OpenId4VcIssuanceSessionRecord } from '@credo-ts/openid4vc/build/openid4vc-issuer/repository'
+import type { OpenId4VcIssuanceSessionState, OpenId4VcIssuanceSessionRecord } from '@credo-ts/openid4vc'
 
 import { OpenId4VcIssuanceSessionStateChangedEvent, OpenId4VcIssuerEvents } from '@credo-ts/openid4vc'
 

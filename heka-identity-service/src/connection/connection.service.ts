@@ -43,7 +43,7 @@ export class ConnectionService {
 
   public async acceptInvitation(tenantAgent: TenantAgent, req: AcceptInvitationDto): Promise<ConnectionRecordDto> {
     const config = {
-      label: req.label,
+      label: req.label ?? '',
       alias: req.alias,
     }
 

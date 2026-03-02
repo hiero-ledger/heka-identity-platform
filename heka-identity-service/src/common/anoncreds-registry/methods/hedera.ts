@@ -5,7 +5,7 @@ import {
   RegisterRevocationRegistryDefinitionReturn,
   RegisterSchemaReturn,
 } from '@credo-ts/anoncreds'
-import { uuid } from '@credo-ts/core/build/utils/uuid'
+import { uuid } from 'utils/misc'
 
 import { defaultMaximumCredentialNumber } from '../../../revocation/revocation-registry/dto/create-revocation-registry.dto'
 import { TenantAgent } from '../../agent'
