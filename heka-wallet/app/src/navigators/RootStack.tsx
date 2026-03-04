@@ -6,6 +6,7 @@ import React from 'react'
 import { LoadingModal } from '../components/modals'
 import { isExternalAuthEnabled, isWalletBackupEnabled } from '../config'
 import { useRootStore } from '../contexts'
+import { useBasicMessageInvitations } from '../utils/useBasicMessageInvitations'
 import { useDeeplinks } from '../utils/useDeeplinks'
 
 import { AuthStack } from './AuthStack'
@@ -21,6 +22,8 @@ export const RootStack: React.FC = observer(() => {
   const { oauthStore } = rootStore
 
   useDeeplinks()
+
+  useBasicMessageInvitations()
 
   if (rootStore.isLoading) return <LoadingModal />
   return (

@@ -5,13 +5,13 @@ import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@n
 import { Sender } from '../oauth'
 import { UserAuthGuard } from '../oauth/guards'
 import {
+  ChangePasswordRequest,
+  ChangePasswordResponse,
   GetProfileResponse,
   RegisterUserRequest,
   RegisterUserResponse,
   RequestChangePasswordRequest,
   RequestChangePasswordResponse,
-  ChangePasswordRequest,
-  ChangePasswordResponse,
 } from './dto'
 import { UserService } from './user.service'
 

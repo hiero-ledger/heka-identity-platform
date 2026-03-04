@@ -30,7 +30,7 @@ jobs:
     defaults:
       run:
         working-directory: ./heka-auth-service
-    runs-on: hl-idcol-lin-md
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -51,13 +51,13 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          APP-VERSION=$(cat package.json | grep -o '"version": "[^"]*"' | grep -o '[0-9][^"]*')
+          APP_VERSION=$(cat package.json | grep -o '"version": "[^"]*"' | grep -o '[0-9][^"]*')
           COMMIT_SHA=$(git rev-parse --short HEAD)
           echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
-          echo "unique_version=${APP-VERSION}-${COMMIT_SHA}" >> $GITHUB_OUTPUT
-          echo "Extracted version: ${APP-VERSION}"
+          echo "unique_version=${APP_VERSION}-${COMMIT_SHA}" >> $GITHUB_OUTPUT
+          echo "Extracted version: ${APP_VERSION}"
           echo "Commit SHA: ${COMMIT_SHA}"
-          echo "Unique version: ${APP-VERSION}-${COMMIT_SHA}"
+          echo "Unique version: ${APP_VERSION}-${COMMIT_SHA}"
 
       # Install the cosign tool except on PR
       # https://github.com/sigstore/cosign-installer

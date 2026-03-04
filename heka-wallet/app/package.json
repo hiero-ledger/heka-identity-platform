@@ -18,7 +18,7 @@
   "dependencies": {
     "@credo-ts/anoncreds": "0.5.19",
     "@credo-ts/askar": "0.5.19",
-    "@credo-ts/core": "0.5.19",
+    "@credo-ts/core": "patch:@credo-ts/core@npm%3A0.5.19#~/.yarn/patches/@credo-ts-core-npm-0.5.19-0177059ca8.patch",
     "@credo-ts/drpc": "0.5.19",
     "@credo-ts/hedera": "0.5.19",
     "@credo-ts/indy-vdr": "0.5.19",

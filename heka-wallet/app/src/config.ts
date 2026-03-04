@@ -1,17 +1,19 @@
-import { KeyType } from '@credo-ts/core'
 import { KeplrConfig } from '@heka-wallet/keplr'
 import { Config } from 'react-native-config'
 import { Passkey } from 'react-native-passkey'
 
 import { IndyBesuConfig } from './indy-besu'
 import { OAuthStoreConfig } from './stores/OAuthStore'
-import { PublicDidKeyOptions } from './utils/agent'
 
 export const isKeplrIntegrationEnabled = Config.ENABLE_KEPLR_INTEGRATION === 'true'
 
 export const isExternalAuthEnabled = Config.ENABLE_EXTERNAL_AUTH === 'true'
 
 export const isWalletBackupEnabled = Config.ENABLE_WALLET_BACKUP === 'true' && Passkey.isSupported()
+
+export const isExampleCredentialEnabled = Config.ENABLE_EXAMPLE_CREDENTIAL === 'true'
+
+export const isPublicInvitationEnabled = Config.ENABLE_PUBLIC_INVITATION === 'true'
 
 // TODO: Consider adding explicit warning for user
 if (!Passkey.isSupported()) {
@@ -21,13 +23,6 @@ if (!Passkey.isSupported()) {
 export const walletProviderURL = Config.WALLET_PROVIDER_URL ?? 'https://backup.ssi-agency.dsr-corporation.com/api/v1'
 
 export const agencyProviderURL = Config.AGENCY_PROVIDER_URL ?? 'https://api.ssi-agency.dsr-corporation.com'
-
-export const publicDidKeyOptions: PublicDidKeyOptions = Config.PUBLIC_DID_KEY_OPTIONS
-  ? JSON.parse(Config.PUBLIC_DID_KEY_OPTIONS)
-  : {
-      keyType: KeyType.P256,
-      useJwkJcsPub: true,
-    }
 
 export const indyBesuConfig: IndyBesuConfig = {
   didRegistryContractAddress:

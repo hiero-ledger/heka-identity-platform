@@ -1,4 +1,15 @@
-import { DidCommModuleConfig, OutOfBandInvitation, OutOfBandRecord, OutOfBandRole } from '@credo-ts/didcomm'
+import { Kms } from '@credo-ts/core'
+import {
+  DidCommModuleConfig,
+  KeylistUpdateAction,
+  MediatorService as CredoMediatorService,
+  OutOfBandInvitation,
+  OutOfBandRecord,
+  OutOfBandRole,
+  RoutingEventTypes,
+} from '@credo-ts/didcomm'
+import { KeylistUpdatedEvent } from '@credo-ts/didcomm/build/modules/routing/RoutingEvents'
+import { TenantRoutingRecord, TenantRoutingRepository } from '@credo-ts/tenants/build/repository'
 import { EntityManager, MikroORM, UseRequestContext } from '@mikro-orm/core'
 import { Inject, Injectable, OnApplicationBootstrap } from '@nestjs/common'
 
@@ -12,6 +23,8 @@ const MEDIATOR_LABEL = 'Mediator'
 const MEDIATOR_PROVISION_GOAL = 'mediator-provision'
 const MEDIATOR_WALLET_ID = 'CredoMediator'
 
+// TODO: Remove mediator functionality and rely on DidComm Mediator Credo
+// See https://github.com/openwallet-foundation/didcomm-mediator-credo
 @Injectable()
 export class MediatorService implements OnApplicationBootstrap {
   public constructor(
@@ -80,6 +93,17 @@ export class MediatorService implements OnApplicationBootstrap {
         tenantId: mediatorTenantId,
       },
       async (mediatorTenantAgent) => {
+        const mediatorService = mediatorTenantAgent.dependencyManager.resolve(CredoMediatorService)
+
+        // This is needed since Credo stopped to implicitly initialize mediator module for tenant agents
+        const routingRecord = await mediatorService.findMediatorRoutingRecord(mediatorTenantAgent.context)
+
+        // Create a routing record for the tenant agent, if not found
+        if (!routingRecord) {
+          logger.debug('Mediator routing record does not exist yet, creating routing keys and record...')
+          await mediatorService.createMediatorRoutingRecord(mediatorTenantAgent.context)
+        }
+
         const existingOutOfBandRecords = await mediatorTenantAgent.modules.oob.findAllByQuery({
           role: OutOfBandRole.Sender,
         })
@@ -103,7 +127,39 @@ export class MediatorService implements OnApplicationBootstrap {
       },
     )
 
+    this.agent.events.on(RoutingEventTypes.RecipientKeylistUpdated, (event: KeylistUpdatedEvent) =>
+      this.updateMediatorTenantRouting(event, mediatorTenantId),
+    )
+
     logger.trace('<')
+  }
+
+  private async updateMediatorTenantRouting(event: KeylistUpdatedEvent, mediatorTenantId: string) {
+    const tenantRoutingRepository = this.agent.dependencyManager.resolve(TenantRoutingRepository)
+
+    const { keylist } = event.payload
+
+    for (const update of keylist) {
+      let routingRecord: TenantRoutingRecord | null
+      switch (update.action) {
+        case KeylistUpdateAction.add:
+          routingRecord = new TenantRoutingRecord({
+            tenantId: mediatorTenantId,
+            recipientKeyFingerprint: update.recipientKey,
+          })
+          await tenantRoutingRepository.save(this.agent.context, routingRecord)
+          return
+        case KeylistUpdateAction.remove:
+          routingRecord = await tenantRoutingRepository.findByRecipientKey(
+            this.agent.context,
+            Kms.PublicJwk.fromFingerprint(update.recipientKey),
+          )
+          if (routingRecord) {
+            await tenantRoutingRepository.delete(this.agent.context, routingRecord)
+          }
+          return
+      }
+    }
   }
 
   private convertOutOfBandInvitationToUrl(invitation: OutOfBandInvitation) {

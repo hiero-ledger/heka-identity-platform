@@ -8044,8 +8044,8 @@ __metadata:
 
 "indybesu-vdr@file:indy-besu-vdr-pkg::locator=heka-identity-service%40workspace%3A.":
   version: 0.1.0
-  resolution: "indybesu-vdr@file:indy-besu-vdr-pkg#indy-besu-vdr-pkg::hash=8b17cc&locator=heka-identity-service%40workspace%3A."
-  checksum: 10c0/3c4f3cf8ffc32a9a22689366ca6845cac2891a999d136c97f82d444fc8c5d5e4cb47f22bf3743ece5fc7c0211f178d81f89585c1963495b63f3b3eb31abe9eae
+  resolution: "indybesu-vdr@file:indy-besu-vdr-pkg#indy-besu-vdr-pkg::hash=75babc&locator=heka-identity-service%40workspace%3A."
+  checksum: 10c0/aaf8f681f782f910b99c5d1eddbb7ec6d9d0e46f6e02f37058514bbc543f017775542bbfcac27e648012726414b77beecd5e6bbab160262d812b64e29f87adb2
   languageName: node
   linkType: hard
 

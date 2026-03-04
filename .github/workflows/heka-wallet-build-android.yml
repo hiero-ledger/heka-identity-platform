@@ -17,7 +17,7 @@ jobs:
       run:
         working-directory: ./heka-wallet
     name: Build Android APK & AAB
-    runs-on: hl-idcol-lin-md
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
 

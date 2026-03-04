@@ -19,7 +19,7 @@ jobs:
       run:
         working-directory: ./heka-auth-service
     name: Build and check
-    runs-on: hl-idcol-lin-md
+    runs-on: ubuntu-latest
 
     services:
       postgres:

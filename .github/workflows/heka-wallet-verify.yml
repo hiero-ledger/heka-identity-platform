@@ -22,7 +22,7 @@ jobs:
       run:
         working-directory: ./heka-wallet
     name: Build and check
-    runs-on: hl-idcol-lin-md
+    runs-on: ubuntu-latest
 
     steps:
       - name: Harden the runner (Audit all outbound calls)

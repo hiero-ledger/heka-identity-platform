@@ -19,7 +19,7 @@ jobs:
       run:
         working-directory: ./heka-identity-service-web-ui
     name: Build and check
-    runs-on: hl-idcol-lin-md
+    runs-on: ubuntu-latest
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
@@ -39,11 +39,15 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
+      - name: Install dependencies
+        run: yarn install --immutable
+        shell: bash
+
       - name: Run build (App)
         run: yarn build:prod
 
       - name: Run build (Storybook)
-        run: yarn build:storybook
+        run: yarn storybook:build
 
       - name: Run ESLint
         run: yarn lint:ts

@@ -35,6 +35,7 @@ export class OpenId4VcVerificationSessionService {
         },
         verifierId: req.publicVerifierId,
         presentationExchange: req.presentationExchange,
+        version: 'v1.draft21',
       })
 
     return {
