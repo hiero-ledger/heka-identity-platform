@@ -180,6 +180,8 @@ mechanics of leveraging Heka Identity Platform for Agent-to-Agent (A2A) protocol
 it is critical to treat any agent operating outside of your direct control as a
 potentially untrusted entity.
 
+The demonstrated flow involves usage of OID4VP Response Mode `direct_post` that is vulnerable to Session Fixation attacks ([Ref](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-session-fixation)). Production deployments must provide additonal security mechanism to prevent such attacks.
+
 All data received from an external agent—including but not limited to its AgentCard,
 messages, artifacts, and task statuses—should be handled as untrusted input. For
 example, a malicious agent could provide an AgentCard containing crafted data in its
