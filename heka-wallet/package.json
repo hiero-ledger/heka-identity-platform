@@ -81,7 +81,10 @@
     "@hyperledger/indy-vdr-react-native": "patch:@hyperledger/indy-vdr-react-native@npm:0.2.2#~/.yarn/patches/@hyperledger-indy-vdr-react-native-npm-0.2.2-627d424b96.patch",
     "@sphereon/oid4vci-client@npm:0.16.1-next.3": "patch:@sphereon/oid4vci-client@npm%3A0.16.1-next.3#~/.yarn/patches/@sphereon-oid4vci-client-npm-0.16.1-next.3-d072e8ebc7.patch",
     "@sphereon/did-auth-siop@npm:0.16.1-next.3": "patch:@sphereon/did-auth-siop@npm%3A0.16.1-next.3#~/.yarn/patches/@sphereon-did-auth-siop-npm-0.16.1-next.3-9b260c4e52.patch",
-    "@hyperledger/aries-bifold-core": "patch:@DSRCorporation/aries-bifold-core@github:dsrcorporation/aries-mobile-agent-react-native%23tag=1.0.0-alpha-dsrw.16&workspace=@DSRCorporation/aries-bifold-core#~/.yarn/patches/@dsrcorporation-aries-bifold-core-npm-1.0.0-alpha-dsrw.14-c26c846948.patch"
+    "@hyperledger/aries-bifold-core": "patch:@DSRCorporation/aries-bifold-core@github:dsrcorporation/aries-mobile-agent-react-native%23tag=1.0.0-alpha-dsrw.16&workspace=@DSRCorporation/aries-bifold-core#~/.yarn/patches/@dsrcorporation-aries-bifold-core-npm-1.0.0-alpha-dsrw.14-c26c846948.patch",
+    "@credo-ts/core": "patch:@credo-ts/core@npm%3A0.5.19#~/.yarn/patches/@credo-ts-core-npm-0.5.19-0177059ca8.patch",
+    "@credo-ts/anoncreds": "0.5.19",
+    "@sphereon/jarm@npm:0.16.1-fix.173+086f910": "patch:@sphereon/jarm@npm%3A0.16.1-fix.173#~/.yarn/patches/@sphereon-jarm-npm-0.16.1-fix.173-188369b6b3.patch"
   },
   "packageManager": "yarn@4.9.4"
 }

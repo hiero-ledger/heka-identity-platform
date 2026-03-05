@@ -10,9 +10,9 @@ import bodyParser from 'body-parser'
 import chalk from 'chalk'
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino'
 
+import { HealthModule } from './health'
 import { OAuthModule } from './oauth'
 import { UserModule } from './user'
-import { HealthModule } from './health'
 
 @Module({
   imports: [ConfigModule, LoggerModule, DatabaseModule, ScheduledTaskModule, OAuthModule, UserModule, HealthModule],

@@ -18,10 +18,18 @@ import { CommonActions } from '@react-navigation/native'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
+import { Config } from 'react-native-config'
 
 import LoadingView from '../components/views/LoadingView'
-import { indyBesuConfig, publicDidKeyOptions } from '../config'
-import { createAgent, createPublicDidOrGetExisting, tryRestartExistingAgent } from '../utils/agent'
+import { indyBesuConfig, isExampleCredentialEnabled, isPublicInvitationEnabled } from '../config'
+import {
+  createAgent,
+  createPublicDidOrGetExisting,
+  createPublicInvitationOrGetExisting,
+  ensureExampleCredentialCreated,
+  setupMediatorWithPublicDidIfNeeded,
+  tryRestartExistingAgent,
+} from '../utils/agent'
 
 const OnboardingVersion = 1
 
@@ -271,8 +279,21 @@ export const Splash: React.FC = () => {
           })
         }
 
-        const publicDid = await createPublicDidOrGetExisting(newAgent, publicDidKeyOptions)
-        logger.info(`Public did:key: ${publicDid}`)
+        if (Config.MEDIATOR_PUBLIC_DID) {
+          await setupMediatorWithPublicDidIfNeeded(newAgent, Config.MEDIATOR_PUBLIC_DID)
+        }
+
+        const publicDid = await createPublicDidOrGetExisting(newAgent)
+        logger.info(`Public DID: ${publicDid}`)
+
+        if (isPublicInvitationEnabled) {
+          const invitationUrl = await createPublicInvitationOrGetExisting(newAgent, publicDid)
+          logger.info(`Public invitation URL: ${invitationUrl}`)
+        }
+
+        if (isExampleCredentialEnabled) {
+          await ensureExampleCredentialCreated(newAgent)
+        }
 
         setAgent(newAgent)
         setPublicDid(publicDid)

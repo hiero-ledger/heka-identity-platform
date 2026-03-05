@@ -1,0 +1,23 @@
+diff --git a/build/modules/basic-messages/handlers/BasicMessageHandler.js b/build/modules/basic-messages/handlers/BasicMessageHandler.js
+index d94b6d6bcedccee6d96bb361ddb096fce0adff07..1f47a155e71616970660ba188247ab6669a3c674 100644
+--- a/build/modules/basic-messages/handlers/BasicMessageHandler.js
++++ b/build/modules/basic-messages/handlers/BasicMessageHandler.js
+@@ -8,7 +8,17 @@ class BasicMessageHandler {
+         this.basicMessageService = basicMessageService;
+     }
+     async handle(messageContext) {
+-        const connection = messageContext.assertReadyConnection();
++        let connection;
++
++        try {
++            connection = messageContext.assertReadyConnection();
++        }
++        catch (error) {
++            // Ignore connection readiness and allow receiving connection-less messages
++            console.warn('Error on asserting connection readiness for inbound Basic Message, handling as connection-less...')
++            connection = { id: 'unknown-connection' };
++        }
++
+         await this.basicMessageService.save(messageContext, connection);
+     }
+ }

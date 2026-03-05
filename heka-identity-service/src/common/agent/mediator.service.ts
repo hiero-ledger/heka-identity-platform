@@ -1,4 +1,12 @@
-import { DidCommModuleConfig, DidCommOutOfBandInvitation, DidCommOutOfBandRecord, DidCommOutOfBandRole } from '@credo-ts/didcomm'
+import {
+  DidCommModuleConfig,
+  DidCommMediatorService,
+  DidCommOutOfBandInvitation,
+  DidCommOutOfBandRecord,
+  DidCommOutOfBandRole,
+  DidCommRoutingEventTypes,
+  DidCommKeylistUpdatedEvent, DidCommKeylistUpdateAction,
+} from '@credo-ts/didcomm'
 import { EntityManager, MikroORM, UseRequestContext } from '@mikro-orm/core'
 import { Inject, Injectable, OnApplicationBootstrap } from '@nestjs/common'
 
@@ -7,11 +15,16 @@ import { InjectLogger, Logger } from 'common/logger'
 import { withTenantAgent } from 'utils/multi-tenancy'
 
 import { Agent, AGENT_TOKEN } from './agent.provider'
+import { TenantRoutingRecord } from '@credo-ts/tenants'
+import { TenantRoutingRepository } from '@credo-ts/tenants/build/repository'
+import { Kms } from '@credo-ts/core'
 
 const MEDIATOR_LABEL = 'Mediator'
 const MEDIATOR_PROVISION_GOAL = 'mediator-provision'
 const MEDIATOR_WALLET_ID = 'CredoMediator'
 
+// TODO: Remove mediator functionality and rely on DidComm Mediator Credo
+// See https://github.com/openwallet-foundation/didcomm-mediator-credo
 @Injectable()
 export class MediatorService implements OnApplicationBootstrap {
   public constructor(
@@ -80,12 +93,24 @@ export class MediatorService implements OnApplicationBootstrap {
         tenantId: mediatorTenantId,
       },
       async (mediatorTenantAgent) => {
+        const mediatorService = mediatorTenantAgent.dependencyManager.resolve(DidCommMediatorService)
+
+        // This is needed since Credo stopped to implicitly initialize mediator module for tenant agents
+        const routingRecord = await mediatorService.findMediatorRoutingRecord(mediatorTenantAgent.context)
+
+        // Create a routing record for the tenant agent, if not found
+        if (!routingRecord) {
+          logger.debug('Mediator routing record does not exist yet, creating routing keys and record...')
+          await mediatorService.createMediatorRoutingRecord(mediatorTenantAgent.context)
+        }
+
         const existingOutOfBandRecords = await mediatorTenantAgent.modules.oob.findAllByQuery({
           role: DidCommOutOfBandRole.Sender,
         })
 
         let mediatorOutOfBandRecord = existingOutOfBandRecords.find(
-          (record: DidCommOutOfBandRecord) => record.reusable && record.outOfBandInvitation.goal === MEDIATOR_PROVISION_GOAL,
+          (record: DidCommOutOfBandRecord) =>
+            record.reusable && record.outOfBandInvitation.goal === MEDIATOR_PROVISION_GOAL,
         )
 
         if (mediatorOutOfBandRecord) {
@@ -103,7 +128,39 @@ export class MediatorService implements OnApplicationBootstrap {
       },
     )
 
+    this.agent.events.on(DidCommRoutingEventTypes.RecipientKeylistUpdated, (event: DidCommKeylistUpdatedEvent) =>
+      this.updateMediatorTenantRouting(event, mediatorTenantId),
+    )
+
     logger.trace('<')
+  }
+
+  private async updateMediatorTenantRouting(event: DidCommKeylistUpdatedEvent, mediatorTenantId: string) {
+    const tenantRoutingRepository = this.agent.dependencyManager.resolve(TenantRoutingRepository)
+
+    const { keylist } = event.payload
+
+    for (const update of keylist) {
+      let routingRecord: TenantRoutingRecord | null
+      switch (update.action) {
+        case DidCommKeylistUpdateAction.add:
+          routingRecord = new TenantRoutingRecord({
+            tenantId: mediatorTenantId,
+            recipientKeyFingerprint: update.recipientKey,
+          })
+          await tenantRoutingRepository.save(this.agent.context, routingRecord)
+          return
+        case DidCommKeylistUpdateAction.remove:
+          routingRecord = await tenantRoutingRepository.findByRecipientKey(
+            this.agent.context,
+            Kms.PublicJwk.fromFingerprint(update.recipientKey),
+          )
+          if (routingRecord) {
+            await tenantRoutingRepository.delete(this.agent.context, routingRecord)
+          }
+          return
+      }
+    }
   }
 
   private convertOutOfBandInvitationToUrl(invitation: DidCommOutOfBandInvitation) {

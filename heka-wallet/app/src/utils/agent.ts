@@ -9,26 +9,41 @@ import {
   KeyType,
   MediationRecipientModule,
   MediatorPickupStrategy,
+  OutOfBandRecord,
+  PeerDidNumAlgo,
   PeerDidRegistrar,
   PeerDidResolver,
-  TypedArrayEncoder,
   WebDidResolver,
 } from '@credo-ts/core'
-import { HederaDidResolver, HederaDidRegistrar, HederaAnonCredsRegistry, HederaModule } from '@credo-ts/hedera'
+import { createPeerDidFromServices, routingToServices } from '@credo-ts/core/build/modules/connections/services/helpers'
+import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import { IndyVdrAnonCredsRegistry, IndyVdrPoolConfig } from '@credo-ts/indy-vdr'
 import { agentDependencies } from '@credo-ts/react-native'
 import { anoncreds } from '@hyperledger/anoncreds-react-native'
-import { WalletSecret, getAgentModules } from '@hyperledger/aries-bifold-core'
+import { getAgentModules, WalletSecret } from '@hyperledger/aries-bifold-core'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Config } from 'react-native-config'
 
+import { OpenId4VcCredentialMetadata, setOpenId4VcCredentialMetadata } from '../credentials/metadata'
 import { IndyBesuConfig, IndyBesuDidResolver } from '../indy-besu'
 import { IndyBesuAnoncredsRegistry } from '../indy-besu/anoncreds'
 import { CredoLogger } from '../logger'
 
+import { getDidKeyVerificationMethodId } from './did'
 import { TailsService } from './revocation/TailsService'
 
 const PUBLIC_DID_KEY = 'PUBLIC_DID'
+
+const PUBLIC_INVITATION_ID_KEY = 'PUBLIC_INVITATION_ID'
+
+const EXAMPLE_CREDENTIAL_VCT = 'ExampleCredential'
+const EXAMPLE_CREDENTIAL_METADATA: OpenId4VcCredentialMetadata = {
+  issuer: {
+    id: 'example-issuer-id',
+    display: [{ name: 'DSR' }],
+  },
+  credential: {},
+}
 
 interface CreateAgentOptions {
   credentials: WalletSecret
@@ -97,21 +112,12 @@ export async function createAgent({ credentials, indyLedgers, indyBesuConfig, wa
   })
 }
 
-export interface PublicDidKeyOptions {
-  privateKey?: string
-  keyType: KeyType
-  useJwkJcsPub: boolean
-}
-
-export async function createPublicDidOrGetExisting(
-  agent: Agent,
-  publicDidKeyOptions: PublicDidKeyOptions
-): Promise<string> {
+export async function createPublicDidOrGetExisting(agent: Agent): Promise<string> {
   let publicDid = await AsyncStorage.getItem(PUBLIC_DID_KEY)
 
   if (publicDid) {
     const didRecordSearchResult = await agent.dids.getCreatedDids({
-      method: 'key',
+      method: 'peer',
       did: publicDid,
     })
 
@@ -120,19 +126,15 @@ export async function createPublicDidOrGetExisting(
       throw new Error('Public DID is already created, but corresponding DID record is not found')
     }
   } else {
-    const { privateKey, ...didCreationOptions } = publicDidKeyOptions
+    const routing = await agent.mediationRecipient.getRouting({})
 
-    const didCreateResult = await agent.dids.create({
-      method: 'key',
-      options: didCreationOptions,
-      secret: privateKey ? { privateKey: TypedArrayEncoder.fromString(privateKey) } : undefined,
-    })
+    const didPeerDocument = await createPeerDidFromServices(
+      agent.context,
+      routingToServices(routing),
+      PeerDidNumAlgo.MultipleInceptionKeyWithoutDoc
+    )
 
-    if (!didCreateResult.didState.didDocument) {
-      throw new Error(`Failed to create public DID: ${JSON.stringify(didCreateResult, null, 2)}`)
-    }
-
-    publicDid = didCreateResult.didState.didDocument.id
+    publicDid = didPeerDocument.id
     await AsyncStorage.setItem(PUBLIC_DID_KEY, publicDid)
   }
 
@@ -159,4 +161,108 @@ export async function tryRestartExistingAgent(agent: Agent, credentials: WalletS
   }
 
   return true
+}
+
+export async function createPublicInvitationOrGetExisting(agent: Agent, invitationDid: string): Promise<string> {
+  const publicInvitationId = await AsyncStorage.getItem(PUBLIC_INVITATION_ID_KEY)
+
+  let publicInvitationRecord: OutOfBandRecord | null
+
+  if (publicInvitationId) {
+    publicInvitationRecord = await agent.oob.findById(publicInvitationId)
+
+    // Should not be possible from UI/UX perspective or other reasons, just sanity check
+    if (!publicInvitationRecord) {
+      throw new Error('Public invitation is already created, but corresponding invitation record is not found')
+    }
+  } else {
+    publicInvitationRecord = await agent.oob.createInvitation({
+      invitationDid,
+      multiUseInvitation: true,
+    })
+
+    await AsyncStorage.setItem(PUBLIC_INVITATION_ID_KEY, publicInvitationRecord.id)
+  }
+
+  return publicInvitationRecord.outOfBandInvitation.toUrl({ domain: 'didcomm://invite' })
+}
+
+export async function ensureExampleCredentialCreated(agent: Agent): Promise<void> {
+  const exampleCredentialRecords = await agent.sdJwtVc.findAllByQuery({
+    vct: EXAMPLE_CREDENTIAL_VCT,
+  })
+
+  if (exampleCredentialRecords.length > 0) return
+
+  const issuerDidCreateResult = await agent.dids.create({
+    method: 'key',
+    options: { keyType: KeyType.P256, useJwkJcsPub: true },
+  })
+
+  if (!issuerDidCreateResult.didState.didDocument) {
+    throw new Error(
+      `Failed to create issuer DID for example credential: ${JSON.stringify(issuerDidCreateResult, null, 2)}`
+    )
+  }
+
+  const holderDidCreateResult = await agent.dids.create({
+    method: 'key',
+    options: { keyType: KeyType.P256, useJwkJcsPub: true },
+  })
+
+  if (!holderDidCreateResult.didState.didDocument) {
+    throw new Error(
+      `Failed to create holder DID for example credential: ${JSON.stringify(issuerDidCreateResult, null, 2)}`
+    )
+  }
+
+  const holderKid = getDidKeyVerificationMethodId(holderDidCreateResult.didState.didDocument.id)
+
+  const signedSdJwtVc = await agent.sdJwtVc.sign({
+    holder: { method: 'did', didUrl: holderKid },
+    issuer: {
+      method: 'did',
+      didUrl: getDidKeyVerificationMethodId(issuerDidCreateResult.didState.didDocument.id),
+    },
+    payload: {
+      vct: EXAMPLE_CREDENTIAL_VCT,
+      university: 'innsbruck',
+      degree: 'bachelor',
+      name: 'John Doe',
+      cnf: {
+        kid: holderKid,
+      },
+    },
+    disclosureFrame: {
+      _sd: ['university', 'name'],
+    },
+  })
+
+  const record = await agent.sdJwtVc.store(signedSdJwtVc.compact)
+
+  setOpenId4VcCredentialMetadata(record, EXAMPLE_CREDENTIAL_METADATA)
+
+  await agent.sdJwtVc.update(record)
+}
+
+export async function setupMediatorWithPublicDidIfNeeded(agent: Agent, mediatorPublicDid: string): Promise<void> {
+  const existingMediationRecord = await agent.mediationRecipient.findDefaultMediator()
+  if (existingMediationRecord) return
+
+  let { connectionRecord: mediatorConnectionRecord } = await agent.oob.receiveImplicitInvitation({
+    label: 'Cloud Mediator',
+    did: mediatorPublicDid,
+    alias: 'Cloud Mediator',
+    autoAcceptConnection: true,
+  })
+
+  if (!mediatorConnectionRecord) {
+    throw new Error(`Failed to connect with mediator via public DID: ${mediatorPublicDid}`)
+  }
+
+  mediatorConnectionRecord = await agent.connections.returnWhenIsConnected(mediatorConnectionRecord.id, {
+    timeoutMs: 5000,
+  })
+
+  await agent.mediationRecipient.provision(mediatorConnectionRecord)
 }

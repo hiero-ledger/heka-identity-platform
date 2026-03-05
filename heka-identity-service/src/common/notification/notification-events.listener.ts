@@ -22,6 +22,8 @@ const NOTIFICATION_EVENT_TYPES: NotificationEventType[] = [
   ...Object.values(DidCommConnectionEventTypes),
   ...Object.values(DidCommCredentialEventTypes),
   ...Object.values(DidCommProofEventTypes),
+  ...Object.values(OpenId4VcIssuerEvents),
+  ...Object.values(OpenId4VcVerifierEvents),
 ]
 
 @Injectable()

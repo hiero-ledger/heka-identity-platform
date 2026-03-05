@@ -1,7 +1,11 @@
 import type { W3cJwtVerifiablePresentation } from '@credo-ts/core'
 
 import { SdJwtVc, VerifiablePresentation, W3cCredentialSubject } from '@credo-ts/core'
-import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionState, OpenId4VcVerifierApi } from '@credo-ts/openid4vc'
+import {
+  OpenId4VcVerificationSessionRepository,
+  OpenId4VcVerificationSessionState,
+  OpenId4VcVerifierApi,
+} from '@credo-ts/openid4vc'
 import { Injectable, InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
@@ -35,7 +39,7 @@ export class OpenId4VcVerificationSessionService {
         },
         verifierId: req.publicVerifierId,
         presentationExchange: req.presentationExchange,
-        version: req.presentationExchange ? 'v1.draft24' : undefined,
+        version: 'v1.draft21',
       })
 
     return {
