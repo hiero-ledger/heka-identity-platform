@@ -27,7 +27,6 @@ export class Contract {
 
   protected static readContractSpec(file: string) {
     const dir =
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       typeof __dirname !== 'undefined'
         ? __dirname
         : path.resolve(process.cwd(), 'src/common/indy-besu-vdr/ledger/contracts')

@@ -1,6 +1,11 @@
 import { Server } from 'net'
 
-import { DidCommCredentialEventTypes, DidCommCredentialState, DidCommProofEventTypes, DidCommProofState } from '@credo-ts/didcomm'
+import {
+  DidCommCredentialEventTypes,
+  DidCommCredentialState,
+  DidCommProofEventTypes,
+  DidCommProofState,
+} from '@credo-ts/didcomm'
 import { SchemaGenerator } from '@mikro-orm/sqlite'
 import { INestApplication } from '@nestjs/common'
 import request, { WSChain } from 'superwstest'

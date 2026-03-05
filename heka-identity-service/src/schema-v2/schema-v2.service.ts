@@ -2,7 +2,6 @@ import {
   OpenId4VciCredentialConfigurationsSupportedWithFormats,
   OpenId4VciCredentialConfigurationSupported,
   OpenId4VciCredentialFormatProfile,
-  OpenId4VcIssuerApi,
 } from '@credo-ts/openid4vc'
 import { EntityManager } from '@mikro-orm/core'
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common'
@@ -277,10 +276,7 @@ export class SchemaV2Service {
   }): Promise<SchemaRegistration> {
     const { tenantAgent, schema, credentialFormat, network, did } = prop
 
-    const issuerApi = tenantAgent.dependencyManager.resolve(OpenId4VcIssuerApi)
-
-    const issuer = await issuerApi.getIssuerByIssuerId(did)
-    const issuerId = issuer.issuerId
+    const issuer = await tenantAgent.openid4vc.issuer.getIssuerByIssuerId(did)
 
     const supportedCredentialId = `${schema.name}:${network}:${credentialFormat}`
 
@@ -311,8 +307,8 @@ export class SchemaV2Service {
     }
 
     // update metadata
-    await issuerApi.updateIssuerMetadata({
-      issuerId,
+    await tenantAgent.openid4vc.issuer.updateIssuerMetadata({
+      issuerId: issuer.issuerId,
       credentialConfigurationsSupported: {
         ...issuer.credentialConfigurationsSupported,
         // TODO: Fix typechecks
@@ -346,8 +342,7 @@ export class SchemaV2Service {
   private async oid4vcUpdateSchemaDisplay(prop: { tenantAgent: TenantAgent; schema: Schema; did: string }) {
     const { tenantAgent, schema, did } = prop
 
-    const issuerApi = tenantAgent.dependencyManager.resolve(OpenId4VcIssuerApi)
-    const issuer = await issuerApi.getIssuerByIssuerId(did)
+    const issuer = await tenantAgent.openid4vc.issuer.getIssuerByIssuerId(did)
 
     const display = {
       name: schema.name,
@@ -367,7 +362,7 @@ export class SchemaV2Service {
       {},
     )
 
-    await issuerApi.updateIssuerMetadata({
+    await tenantAgent.openid4vc.issuer.updateIssuerMetadata({
       issuerId: issuer.issuerId,
       credentialConfigurationsSupported,
       display: issuer.display,

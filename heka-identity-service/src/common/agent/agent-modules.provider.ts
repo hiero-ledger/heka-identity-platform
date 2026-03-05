@@ -21,14 +21,8 @@ import {
 import {
   DidCommAutoAcceptCredential,
   DidCommAutoAcceptProof,
-  DidCommConnectionsModule,
-  DidCommCredentialsModule,
   DidCommModule,
   DidCommDifPresentationExchangeProofFormatService,
-  DidCommMediatorModule,
-  DidCommMessagePickupModule,
-  DidCommOutOfBandModule,
-  DidCommProofsModule,
   DidCommCredentialV2Protocol,
   DidCommProofV2Protocol,
 } from '@credo-ts/didcomm'
@@ -39,7 +33,7 @@ import {
   IndyVdrIndyDidResolver,
   IndyVdrModule,
 } from '@credo-ts/indy-vdr'
-import { OpenId4VcIssuerModule, OpenId4VcVerifierModule } from '@credo-ts/openid4vc'
+import { OpenId4VcModule } from '@credo-ts/openid4vc'
 import { TenantsModule } from '@credo-ts/tenants'
 import { anoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
@@ -62,66 +56,64 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
   const presentationExchangeProofFormatService = new DidCommDifPresentationExchangeProofFormatService()
 
   const didResolvers: DidResolver[] = [new KeyDidResolver()]
-  const didRegisters: DidRegistrar[] = [new KeyDidRegistrar()]
-  const anoncredsRegstries: AnonCredsRegistry[] = []
+  const didRegistrars: DidRegistrar[] = [new KeyDidRegistrar()]
+  const anoncredsRegistries: AnonCredsRegistry[] = []
 
   if (agencyConfig.didMethods.includes('indy')) {
     didResolvers.push(new IndyVdrIndyDidResolver())
-    didRegisters.push(new IndyVdrIndyDidRegistrar())
-    anoncredsRegstries.push(new IndyVdrAnonCredsRegistry())
+    didRegistrars.push(new IndyVdrIndyDidRegistrar())
+    anoncredsRegistries.push(new IndyVdrAnonCredsRegistry())
   }
   if (agencyConfig.didMethods.includes('indybesu')) {
     didResolvers.push(new IndyBesuDidResolver())
-    didRegisters.push(new IndyBesuDidRegistrar())
-    anoncredsRegstries.push(new IndyBesuAnonCredsRegistry())
+    didRegistrars.push(new IndyBesuDidRegistrar())
+    anoncredsRegistries.push(new IndyBesuAnonCredsRegistry())
   }
   if (agencyConfig.didMethods.includes('hedera')) {
     didResolvers.push(new HederaDidResolver())
-    didRegisters.push(new HederaDidRegistrar())
-    anoncredsRegstries.push(new HederaAnonCredsRegistry())
+    didRegistrars.push(new HederaDidRegistrar())
+    anoncredsRegistries.push(new HederaAnonCredsRegistry())
   }
 
   return {
-    connections: new DidCommConnectionsModule({
-      autoAcceptConnections: true,
-    }),
-    credentials: new DidCommCredentialsModule({
-      autoAcceptCredentials: DidCommAutoAcceptCredential.ContentApproved,
-      credentialProtocols: [
-        new DidCommCredentialV2Protocol({
-          credentialFormats: [
-            credentialFormatService,
-            legacyIndyCredentialFormatService,
-            dataIntegrityCredentialFormatService,
-            // new JsonLdCredentialFormatService()
-          ],
-        }),
-      ],
-    }),
-    proofs: new DidCommProofsModule({
-      autoAcceptProofs: DidCommAutoAcceptProof.ContentApproved,
-      proofProtocols: [
-        new DidCommProofV2Protocol({
-          proofFormats: [legacyIndyProofFormatService, proofFormatService, presentationExchangeProofFormatService],
-        }),
-      ],
-    }),
-    didcomm: new DidCommModule(agencyConfig.didCommConfig),
-    oob: new DidCommOutOfBandModule(),
-    messagePickup: new DidCommMessagePickupModule(),
-    mediator: new DidCommMediatorModule({
-      autoAcceptMediationRequests: agencyConfig.autoAcceptMediationRequests,
+    didcomm: new DidCommModule({
+      ...agencyConfig.didCommConfig,
+      messagePickup: true,
+      connections: {
+        autoAcceptConnections: true,
+      },
+      credentials: {
+        autoAcceptCredentials: DidCommAutoAcceptCredential.ContentApproved,
+        credentialProtocols: [
+          new DidCommCredentialV2Protocol({
+            credentialFormats: [
+              credentialFormatService,
+              legacyIndyCredentialFormatService,
+              dataIntegrityCredentialFormatService,
+              // new JsonLdCredentialFormatService()
+            ],
+          }),
+        ],
+      },
+      proofs: {
+        autoAcceptProofs: DidCommAutoAcceptProof.ContentApproved,
+        proofProtocols: [
+          new DidCommProofV2Protocol({
+            proofFormats: [legacyIndyProofFormatService, proofFormatService, presentationExchangeProofFormatService],
+          }),
+        ],
+      },
     }),
     dids: new DidsModule({
       resolvers: didResolvers,
-      registrars: didRegisters,
+      registrars: didRegistrars,
     }),
     cache: new CacheModule({
       cache: new InMemoryLruCache({ limit: 100 }),
     }),
     anoncreds: new AnonCredsModule({
       // @ts-ignore
-      registries: anoncredsRegstries,
+      registries: anoncredsRegistries,
       anoncreds,
       tailsFileService: new TailsService(appConfig),
     }),
@@ -129,13 +121,14 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       askar,
       store: agencyConfig.askarStoreConfig,
     }),
-    openId4VcIssuer: new OpenId4VcIssuerModule({
-      baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
-      app: agencyConfig.oidConfig.app,
-      credentialRequestToCredentialMapper,
-    }),
-    openId4VcVerifier: new OpenId4VcVerifierModule({
-      baseUrl: agencyConfig.oidConfig.verificationEndpoint,
+    openid4vc: new OpenId4VcModule({
+      issuer: {
+        baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
+        credentialRequestToCredentialMapper,
+      },
+      verifier: {
+        baseUrl: agencyConfig.oidConfig.verificationEndpoint,
+      },
       app: agencyConfig.oidConfig.app,
     }),
     ledgerSdk: new IndyVdrModule({

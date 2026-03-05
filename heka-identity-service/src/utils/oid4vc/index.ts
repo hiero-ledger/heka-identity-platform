@@ -1,7 +1,11 @@
 import type { JsonObject } from '@credo-ts/core'
 
 import { ClaimFormat, SdJwtVcPayload, W3cCredential, W3cCredentialSubject, w3cDate } from '@credo-ts/core'
-import { OpenId4VciCredentialFormatProfile, OpenId4VciCredentialRequestToCredentialMapper, OpenId4VciSignCredentials } from '@credo-ts/openid4vc'
+import {
+  OpenId4VciCredentialFormatProfile,
+  OpenId4VciCredentialRequestToCredentialMapper,
+  OpenId4VciSignCredentials,
+} from '@credo-ts/openid4vc'
 import { v4 } from 'uuid'
 
 export interface CredentialIssuanceMetadata {

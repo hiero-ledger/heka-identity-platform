@@ -513,7 +513,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@credo-ts/anoncreds@npm:v0.6.2":
+"@credo-ts/anoncreds@npm:0.6.2":
   version: 0.6.2
   resolution: "@credo-ts/anoncreds@npm:0.6.2"
   dependencies:
@@ -530,7 +530,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@credo-ts/askar@npm:v0.6.2":
+"@credo-ts/askar@npm:0.6.2":
   version: 0.6.2
   resolution: "@credo-ts/askar@npm:0.6.2"
   dependencies:
@@ -545,7 +545,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@credo-ts/core@npm:v0.6.2":
+"@credo-ts/core@npm:0.6.2":
   version: 0.6.2
   resolution: "@credo-ts/core@npm:0.6.2"
   dependencies:
@@ -595,7 +595,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@credo-ts/didcomm@npm:0.6.2, @credo-ts/didcomm@npm:v0.6.2":
+"@credo-ts/didcomm@npm:0.6.2":
   version: 0.6.2
   resolution: "@credo-ts/didcomm@npm:0.6.2"
   dependencies:
@@ -609,26 +609,26 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@credo-ts/hedera@npm:0.6.0":
-  version: 0.6.0
-  resolution: "@credo-ts/hedera@npm:0.6.0"
+"@credo-ts/hedera@npm:0.6.2":
+  version: 0.6.2
+  resolution: "@credo-ts/hedera@npm:0.6.2"
   dependencies:
-    "@credo-ts/anoncreds": "npm:0.6.0"
-    "@credo-ts/core": "npm:0.6.0"
-    "@hashgraph/sdk": "npm:^2.77.0"
-    "@hiero-did-sdk/anoncreds": "npm:^0.1.7"
-    "@hiero-did-sdk/cache": "npm:^0.1.7"
-    "@hiero-did-sdk/client": "npm:^0.1.7"
-    "@hiero-did-sdk/core": "npm:^0.1.7"
-    "@hiero-did-sdk/hcs": "npm:^0.1.7"
-    "@hiero-did-sdk/publisher-internal": "npm:^0.1.7"
-    "@hiero-did-sdk/registrar": "npm:^0.1.7"
-    "@hiero-did-sdk/resolver": "npm:^0.1.7"
-  checksum: 10c0/4748b02c707ca7fb0d63c302185c6effcf34c7cf546e0f544afa1e3ae4fa00d33e7d5adc70dd4be0f10fdb25aff7c565bf64642aed844b8f9c6fea6591f3e777
+    "@credo-ts/anoncreds": "npm:0.6.2"
+    "@credo-ts/core": "npm:0.6.2"
+    "@hashgraph/sdk": "npm:^2.80.0"
+    "@hiero-did-sdk/anoncreds": "npm:^0.1.8"
+    "@hiero-did-sdk/cache": "npm:^0.1.8"
+    "@hiero-did-sdk/client": "npm:^0.1.8"
+    "@hiero-did-sdk/core": "npm:^0.1.8"
+    "@hiero-did-sdk/hcs": "npm:^0.1.8"
+    "@hiero-did-sdk/publisher-internal": "npm:^0.1.8"
+    "@hiero-did-sdk/registrar": "npm:^0.1.8"
+    "@hiero-did-sdk/resolver": "npm:^0.1.8"
+  checksum: 10c0/dfd1c2259875d6068be57bc05ad4d730b7fb403a8b879f0f2144550aa6c185da0a9cf05934fb6038081f370982ebf9671c21adce129b22a410e9abed841cb03e
   languageName: node
   linkType: hard
 
-"@credo-ts/indy-vdr@npm:v0.6.2":
+"@credo-ts/indy-vdr@npm:0.6.2":
   version: 0.6.2
   resolution: "@credo-ts/indy-vdr@npm:0.6.2"
   dependencies:
@@ -640,7 +640,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@credo-ts/node@npm:v0.6.2":
+"@credo-ts/node@npm:0.6.2":
   version: 0.6.2
   resolution: "@credo-ts/node@npm:0.6.2"
   dependencies:
@@ -654,7 +654,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@credo-ts/openid4vc@npm:v0.6.2":
+"@credo-ts/openid4vc@npm:0.6.2":
   version: 0.6.2
   resolution: "@credo-ts/openid4vc@npm:0.6.2"
   dependencies:
@@ -672,7 +672,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@credo-ts/tenants@npm:v0.6.2":
+"@credo-ts/tenants@npm:0.6.2":
   version: 0.6.2
   resolution: "@credo-ts/tenants@npm:0.6.2"
   dependencies:
@@ -1101,7 +1101,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hashgraph/sdk@npm:^2.77.0, @hashgraph/sdk@npm:^2.78.0":
+"@hashgraph/sdk@npm:^2.78.0, @hashgraph/sdk@npm:^2.80.0":
   version: 2.80.0
   resolution: "@hashgraph/sdk@npm:2.80.0"
   dependencies:
@@ -1132,7 +1132,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hiero-did-sdk/anoncreds@npm:^0.1.7":
+"@hiero-did-sdk/anoncreds@npm:^0.1.8":
   version: 0.1.8
   resolution: "@hiero-did-sdk/anoncreds@npm:0.1.8"
   dependencies:
@@ -1144,7 +1144,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hiero-did-sdk/cache@npm:0.1.8, @hiero-did-sdk/cache@npm:^0.1.7":
+"@hiero-did-sdk/cache@npm:0.1.8, @hiero-did-sdk/cache@npm:^0.1.8":
   version: 0.1.8
   resolution: "@hiero-did-sdk/cache@npm:0.1.8"
   dependencies:
@@ -1153,7 +1153,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hiero-did-sdk/client@npm:0.1.8, @hiero-did-sdk/client@npm:^0.1.7":
+"@hiero-did-sdk/client@npm:0.1.8, @hiero-did-sdk/client@npm:^0.1.8":
   version: 0.1.8
   resolution: "@hiero-did-sdk/client@npm:0.1.8"
   dependencies:
@@ -1162,7 +1162,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hiero-did-sdk/core@npm:0.1.8, @hiero-did-sdk/core@npm:^0.1.7":
+"@hiero-did-sdk/core@npm:0.1.8, @hiero-did-sdk/core@npm:^0.1.8":
   version: 0.1.8
   resolution: "@hiero-did-sdk/core@npm:0.1.8"
   dependencies:
@@ -1184,7 +1184,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hiero-did-sdk/hcs@npm:0.1.8, @hiero-did-sdk/hcs@npm:^0.1.7":
+"@hiero-did-sdk/hcs@npm:0.1.8, @hiero-did-sdk/hcs@npm:^0.1.8":
   version: 0.1.8
   resolution: "@hiero-did-sdk/hcs@npm:0.1.8"
   dependencies:
@@ -1222,7 +1222,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hiero-did-sdk/publisher-internal@npm:0.1.8, @hiero-did-sdk/publisher-internal@npm:^0.1.7":
+"@hiero-did-sdk/publisher-internal@npm:0.1.8, @hiero-did-sdk/publisher-internal@npm:^0.1.8":
   version: 0.1.8
   resolution: "@hiero-did-sdk/publisher-internal@npm:0.1.8"
   dependencies:
@@ -1233,7 +1233,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hiero-did-sdk/registrar@npm:^0.1.7":
+"@hiero-did-sdk/registrar@npm:^0.1.8":
   version: 0.1.8
   resolution: "@hiero-did-sdk/registrar@npm:0.1.8"
   dependencies:
@@ -1250,7 +1250,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hiero-did-sdk/resolver@npm:0.1.8, @hiero-did-sdk/resolver@npm:^0.1.7":
+"@hiero-did-sdk/resolver@npm:0.1.8, @hiero-did-sdk/resolver@npm:^0.1.8":
   version: 0.1.8
   resolution: "@hiero-did-sdk/resolver@npm:0.1.8"
   dependencies:
@@ -7312,15 +7312,15 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "heka-identity-service@workspace:."
   dependencies:
-    "@credo-ts/anoncreds": "npm:v0.6.2"
-    "@credo-ts/askar": "npm:v0.6.2"
-    "@credo-ts/core": "npm:v0.6.2"
-    "@credo-ts/didcomm": "npm:v0.6.2"
-    "@credo-ts/hedera": "npm:0.6.0"
-    "@credo-ts/indy-vdr": "npm:v0.6.2"
-    "@credo-ts/node": "npm:v0.6.2"
-    "@credo-ts/openid4vc": "npm:v0.6.2"
-    "@credo-ts/tenants": "npm:v0.6.2"
+    "@credo-ts/anoncreds": "npm:0.6.2"
+    "@credo-ts/askar": "npm:0.6.2"
+    "@credo-ts/core": "npm:0.6.2"
+    "@credo-ts/didcomm": "npm:0.6.2"
+    "@credo-ts/hedera": "npm:0.6.2"
+    "@credo-ts/indy-vdr": "npm:0.6.2"
+    "@credo-ts/node": "npm:0.6.2"
+    "@credo-ts/openid4vc": "npm:0.6.2"
+    "@credo-ts/tenants": "npm:0.6.2"
     "@digitalcredentials/bitstring": "npm:^3.1.2"
     "@golevelup/ts-jest": "npm:^0.3.7"
     "@hyperledger/anoncreds-nodejs": "npm:^0.3.1"

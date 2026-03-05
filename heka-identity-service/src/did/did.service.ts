@@ -113,9 +113,7 @@ export class DidService {
 
       logger.info('Key was created by DID subject')
 
-      const publicKey = TypedArrayEncoder.toBase58(
-        Kms.PublicJwk.fromPublicJwk(key.publicJwk).publicKey.publicKey as Uint8Array,
-      )
+      const publicKey = TypedArrayEncoder.toBase58(Kms.PublicJwk.fromPublicJwk(key.publicJwk).publicKey.publicKey)
       didDocument = await this.didRegistrarService.createDid(didControllerWallet.tenantId, req.method, {
         namespace: this.agent.agencyConfig.networks[0].indyNamespace,
         controller,

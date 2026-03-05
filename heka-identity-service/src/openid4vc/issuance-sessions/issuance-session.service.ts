@@ -1,5 +1,5 @@
 import { SdJwtVcPayload } from '@credo-ts/core'
-import { OpenId4VciCredentialFormatProfile, OpenId4VcIssuerApi, OpenId4VcIssuanceSessionRepository } from '@credo-ts/openid4vc'
+import { OpenId4VciCredentialFormatProfile, OpenId4VcIssuanceSessionRepository } from '@credo-ts/openid4vc'
 import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
@@ -29,7 +29,7 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     req: OpenId4VcIssuanceSessionsCreateOfferDto,
   ): Promise<OpenId4VcIssuanceSessionsCreateOfferResponse> {
-    const issuer = await tenantAgent.dependencyManager.resolve(OpenId4VcIssuerApi).getIssuerByIssuerId(req.publicIssuerId)
+    const issuer = await tenantAgent.openid4vc.issuer.getIssuerByIssuerId(req.publicIssuerId)
 
     // TODO: It is better to we move setting credential status to `credentialRequestToCredentialMapper`
     //  to change status list when credential really requested but how??
@@ -98,7 +98,7 @@ export class OpenId4VcIssuanceSessionService {
       mappedCredentials.push(credentialIssuanceMeta)
     }
 
-    const { credentialOffer, issuanceSession } = await tenantAgent.dependencyManager.resolve(OpenId4VcIssuerApi).createCredentialOffer({
+    const { credentialOffer, issuanceSession } = await tenantAgent.openid4vc.issuer.createCredentialOffer({
       baseUri: req.baseUri,
       credentialConfigurationIds: req.credentials.map((c) => c.credentialSupportedId),
       issuerId: req.publicIssuerId,

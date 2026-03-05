@@ -15,9 +15,6 @@ import { VerificationTemplateModule } from 'verification-template/verification-t
 import { LoggerModule } from './common/logger'
 import { OCAModule } from './common/oca/oca.module'
 import { fileStorageConfigDefaults } from './config/file-storage'
-
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-const _appRoot = typeof __dirname !== 'undefined' ? resolve(__dirname, '..') : process.cwd()
 import { ConnectionModule } from './connection'
 import { CoreModule } from './core'
 import { CredentialModule } from './credential'
@@ -31,6 +28,8 @@ import { RevocationModule } from './revocation'
 import { SchemaModule } from './schema'
 import { SchemaV2Module } from './schema-v2'
 import { UserModule } from './user'
+
+const _appRoot = typeof __dirname !== 'undefined' ? resolve(__dirname, '..') : process.cwd()
 
 @Module({
   imports: [

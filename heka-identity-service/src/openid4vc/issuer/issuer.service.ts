@@ -1,8 +1,7 @@
-import { injectable } from '@credo-ts/core'
+import { AgentContext, injectable, Kms } from '@credo-ts/core'
 import {
   OpenId4VciCredentialConfigurationsSupportedWithFormats,
   OpenId4VciCredentialIssuerMetadataDisplay,
-  OpenId4VcIssuerApi,
 } from '@credo-ts/openid4vc'
 import { BadRequestException, ConflictException } from '@nestjs/common'
 
@@ -29,14 +28,13 @@ export class OpenId4VcIssuerService {
     tenantAgent: TenantAgent,
     options: OpenId4VcIssuersCreateDto,
   ): Promise<OpenId4VcIssuerRecordDto> {
-    const issuerApi = tenantAgent.dependencyManager.resolve(OpenId4VcIssuerApi)
-    const allIssuers = await issuerApi.getAllIssuers()
+    const allIssuers = await tenantAgent.openid4vc.issuer.getAllIssuers()
     const existingIssuers = allIssuers.filter((i) => i.issuerId === options.publicIssuerId)
     if (existingIssuers.length) {
       throw new ConflictException(`Issuer with DID ${options.publicIssuerId} has been already created`)
     }
 
-    const issuer = await issuerApi.createIssuer({
+    const issuer = await tenantAgent.openid4vc.issuer.createIssuer({
       issuerId: options.publicIssuerId,
       credentialConfigurationsSupported: this.parseCredentialsSupported(tenantAgent, options.credentialsSupported),
       display: options.display,
@@ -45,8 +43,7 @@ export class OpenId4VcIssuerService {
   }
 
   public async find(tenantAgent: TenantAgent, publicIssuerId: string): Promise<OpenId4VcIssuerRecordDto[]> {
-    const issuerApi = tenantAgent.dependencyManager.resolve(OpenId4VcIssuerApi)
-    const allIssuers = await issuerApi.getAllIssuers()
+    const allIssuers = await tenantAgent.openid4vc.issuer.getAllIssuers()
     const issuers = allIssuers.filter((i) => i.issuerId === publicIssuerId)
     return issuers.map((issuer) => OpenId4VcIssuerRecordDto.fromOpenIdVcIssuerRecord(issuer))
   }
@@ -56,8 +53,7 @@ export class OpenId4VcIssuerService {
     issuerId: string,
     req: OpenId4VcIssuersUpdateMetadataDto,
   ): Promise<OpenId4VcIssuerRecordDto> {
-    const issuerApi = tenantAgent.dependencyManager.resolve(OpenId4VcIssuerApi)
-    const issuer = await issuerApi.getIssuerByIssuerId(issuerId)
+    const issuer = await tenantAgent.openid4vc.issuer.getIssuerByIssuerId(issuerId)
 
     let credentialConfigurationsSupported = {}
     let display: OpenId4VciCredentialIssuerMetadataDisplay[] = []
@@ -93,13 +89,13 @@ export class OpenId4VcIssuerService {
     }
 
     // FIXME: should return the updated record, now we fetch (AGAIN!!)
-    await issuerApi.updateIssuerMetadata({
+    await tenantAgent.openid4vc.issuer.updateIssuerMetadata({
       issuerId,
       credentialConfigurationsSupported,
       display,
     })
 
-    const updatedIssuer = await issuerApi.getIssuerByIssuerId(issuerId)
+    const updatedIssuer = await tenantAgent.openid4vc.issuer.getIssuerByIssuerId(issuerId)
     return OpenId4VcIssuerRecordDto.fromOpenIdVcIssuerRecord(updatedIssuer)
   }
 
@@ -107,8 +103,7 @@ export class OpenId4VcIssuerService {
     tenantAgent: TenantAgent,
     query: FindSupportedCredentialsDto,
   ): Promise<OpenId4VciCredentialConfigurationSupportedWithId[]> {
-    const issuerApi = tenantAgent.dependencyManager.resolve(OpenId4VcIssuerApi)
-    const issuer = await issuerApi.getIssuerByIssuerId(query.publicIssuerId)
+    const issuer = await tenantAgent.openid4vc.issuer.getIssuerByIssuerId(query.publicIssuerId)
 
     return Object.entries(issuer.credentialConfigurationsSupported)
       .reduce<CredoCredentialConfigurationSupportedWithId[]>(
@@ -139,9 +134,35 @@ export class OpenId4VcIssuerService {
   }
 
   private parseCredentialsSupported(
-    _tenantAgent: TenantAgent,
+    tenantAgent: TenantAgent,
     credentialsSupported: OpenId4VciCredentialConfigurationSupportedWithId[],
   ): OpenId4VciCredentialConfigurationsSupportedWithFormats {
-    return toRecord(credentialsSupported, 'id') as OpenId4VciCredentialConfigurationsSupportedWithFormats
+    let credentialConfigurationsSupported = credentialsSupported
+
+    // Add default proof_types_supported property, if needed
+    if (credentialsSupported.some((configuration) => !configuration.proof_types_supported)) {
+      const supportedSignatureAlgorithms = this.getSupportedJwaSignatureAlgorithms(tenantAgent.context)
+      credentialConfigurationsSupported = credentialConfigurationsSupported.map((configuration) => {
+        if (!configuration.proof_types_supported) {
+          configuration.proof_types_supported = {
+            jwt: { proof_signing_alg_values_supported: supportedSignatureAlgorithms },
+          }
+        }
+        return configuration
+      })
+    }
+
+    return toRecord(credentialConfigurationsSupported, 'id') as OpenId4VciCredentialConfigurationsSupportedWithFormats
+  }
+
+  private getSupportedJwaSignatureAlgorithms(agentContext: AgentContext) {
+    const kms = agentContext.resolve(Kms.KeyManagementApi)
+    return Object.values(Kms.KnownJwaSignatureAlgorithms).filter(
+      (algorithm) =>
+        kms.supportedBackendsForOperation({
+          operation: 'sign',
+          algorithm,
+        }).length > 0,
+    )
   }
 }

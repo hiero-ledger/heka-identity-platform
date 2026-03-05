@@ -1,6 +1,6 @@
+import type { AskarModuleConfigStoreOptions } from '@credo-ts/askar'
 import type { InitConfig } from '@credo-ts/core'
 
-import type { AskarModuleConfigStoreOptions } from '@credo-ts/askar'
 import { DidCommModuleConfigOptions } from '@credo-ts/didcomm'
 import { IndyVdrPoolConfig } from '@credo-ts/indy-vdr'
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'

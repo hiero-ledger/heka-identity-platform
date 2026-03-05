@@ -102,7 +102,7 @@ export class CredentialV2Service {
     if (!request.connectionId) {
       throw new UnprocessableEntityException(`Connection ID must me specified for Aries protocol`)
     }
-    const connectionRecord = await tenantAgent.modules.connections.findById(request.connectionId)
+    const connectionRecord = await tenantAgent.didcomm.connections.findById(request.connectionId)
     if (!connectionRecord) {
       throw new UnprocessableEntityException(`Referenced connection with ID=${request.connectionId} not found`)
     }
@@ -241,7 +241,7 @@ export class CredentialV2Service {
     if (!request.connectionId) {
       throw new UnprocessableEntityException(`Connection ID must me specified for Aries protocol`)
     }
-    const connectionRecord = await tenantAgent.modules.connections.findById(request.connectionId)
+    const connectionRecord = await tenantAgent.didcomm.connections.findById(request.connectionId)
     if (!connectionRecord) {
       throw new UnprocessableEntityException(`Referenced connection with ID=${request.connectionId} not found`)
     }

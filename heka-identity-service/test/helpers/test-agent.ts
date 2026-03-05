@@ -1,11 +1,11 @@
 import { AnonCredsModule } from '@credo-ts/anoncreds'
 import { AskarModule } from '@credo-ts/askar'
 import { Agent, ConsoleLogger, DidsModule, KeyDidRegistrar, KeyDidResolver, LogLevel } from '@credo-ts/core'
-import { DidCommConnectionsModule, DidCommModule, DidCommMessagePickupModule, DidCommOutOfBandModule } from '@credo-ts/didcomm'
+import { DidCommModule } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import { IndyVdrAnonCredsRegistry, IndyVdrIndyDidRegistrar, IndyVdrIndyDidResolver } from '@credo-ts/indy-vdr'
 import { agentDependencies } from '@credo-ts/node'
-import { OpenId4VcHolderModule } from '@credo-ts/openid4vc'
+import { OpenId4VcModule } from '@credo-ts/openid4vc'
 import { anoncreds } from '@hyperledger/anoncreds-nodejs'
 import { askar } from '@openwallet-foundation/askar-nodejs'
 
@@ -39,12 +39,14 @@ function getTestModulesMap() {
         },
       },
     }),
-    connections: new DidCommConnectionsModule({
-      autoAcceptConnections: true,
+    didcomm: new DidCommModule({
+      messagePickup: true,
+      connections: {
+        autoAcceptConnections: true,
+      },
+      endpoints: ['http://localhost:3000', 'ws://localhost:3002'],
     }),
-    didcomm: new DidCommModule({ endpoints: ['http://localhost:3000', 'ws://localhost:3002'] }),
-    oob: new DidCommOutOfBandModule(),
-    openId4VcHolder: new OpenId4VcHolderModule(),
+    openid4vc: new OpenId4VcModule(),
     indyBesu: new IndyBesuModule({ chainId: 1337, nodeAddress: 'http://localhost:8545' }),
     hedera: new HederaModule({
       networks: [
@@ -70,7 +72,6 @@ function getTestModulesMap() {
         new HederaDidRegistrar(),
       ],
     }),
-    messagePickup: new DidCommMessagePickupModule(),
     anoncreds: new AnonCredsModule({
       registries: [new IndyVdrAnonCredsRegistry(), new IndyBesuAnonCredsRegistry(), new HederaAnonCredsRegistry()],
       anoncreds,

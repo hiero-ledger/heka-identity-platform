@@ -1,7 +1,6 @@
 import { Server } from 'net'
 
 import { Agent, DidKey, KeyDidCreateOptions, Kms, SdJwtVcRecord } from '@credo-ts/core'
-import { OpenId4VcHolderApi } from '@credo-ts/openid4vc'
 import { SchemaGenerator } from '@mikro-orm/sqlite'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
@@ -200,9 +199,9 @@ describe('E2E issuance session', () => {
     const holderDidDocument = holderDidDocumentResult.didState.didDocument
     const holderVerifiedDid = holderDidDocument.verificationMethod![0].id
 
-    const resolvedOffer = await agent.dependencyManager.resolve(OpenId4VcHolderApi).resolveCredentialOffer(response.body.credentialOffer)
-    const tokenResponse = await agent.dependencyManager.resolve(OpenId4VcHolderApi).requestToken({ resolvedCredentialOffer: resolvedOffer })
-    const requestCredentialsResult = await agent.dependencyManager.resolve(OpenId4VcHolderApi).requestCredentials({
+    const resolvedOffer = await agent.openid4vc.holder.resolveCredentialOffer(response.body.credentialOffer)
+    const tokenResponse = await agent.openid4vc.holder.requestToken({ resolvedCredentialOffer: resolvedOffer })
+    const requestCredentialsResult = await agent.openid4vc.holder.requestCredentials({
       resolvedCredentialOffer: resolvedOffer,
       credentialBindingResolver: () => ({
         method: 'did',

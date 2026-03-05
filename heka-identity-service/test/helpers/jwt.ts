@@ -1,5 +1,6 @@
-import jwt from 'jsonwebtoken'
 import type { Secret, SignOptions } from 'jsonwebtoken'
+
+import { sign } from 'jsonwebtoken'
 
 import { Role } from 'src/common/auth'
 
@@ -9,7 +10,7 @@ export function signJwt(
   options: SignOptions,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    jwt.sign(payload, secretOrPrivateKey, options, (error: Error | null, encoded: string | undefined) => {
+    sign(payload, secretOrPrivateKey, options, (error: Error | null, encoded: string | undefined) => {
       if (error) {
         reject(error)
       } else if (encoded !== undefined) {

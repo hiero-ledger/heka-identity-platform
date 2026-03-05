@@ -1,5 +1,5 @@
 import { injectable } from '@credo-ts/core'
-import { OpenId4VcVerifierApi, OpenId4VcVerifierRepository } from '@credo-ts/openid4vc'
+import { OpenId4VcVerifierRepository } from '@credo-ts/openid4vc'
 import { ConflictException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
@@ -19,7 +19,7 @@ export class OpenId4VcVerifierService {
       throw new ConflictException(`Verifier with DID ${options.publicVerifierId} has been already created`)
     }
 
-    const verifier = await tenantAgent.dependencyManager.resolve(OpenId4VcVerifierApi).createVerifier({
+    const verifier = await tenantAgent.openid4vc.verifier.createVerifier({
       verifierId: options.publicVerifierId,
     })
     return OpenId4VcVerifierRecordDto.fromOpenId4VcVerifierRecord(verifier)

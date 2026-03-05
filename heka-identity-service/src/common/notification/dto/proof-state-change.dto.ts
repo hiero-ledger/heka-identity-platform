@@ -1,4 +1,9 @@
-import { DidCommProofEventTypes, DidCommProofExchangeRecord, DidCommProofState, DidCommProofStateChangedEvent } from '@credo-ts/didcomm'
+import {
+  DidCommProofEventTypes,
+  DidCommProofExchangeRecord,
+  DidCommProofState,
+  DidCommProofStateChangedEvent,
+} from '@credo-ts/didcomm'
 
 export class ProofStateChangeDetailsDto {
   public connectionId?: string

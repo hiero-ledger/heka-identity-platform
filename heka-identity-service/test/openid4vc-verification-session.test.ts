@@ -1,7 +1,6 @@
 import { Server } from 'net'
 
 import { Agent, DidKey, KeyDidCreateOptions, SdJwtVcRecord } from '@credo-ts/core'
-import { OpenId4VcHolderApi } from '@credo-ts/openid4vc'
 import { SchemaGenerator } from '@mikro-orm/sqlite'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
@@ -169,15 +168,15 @@ describe('E2E verification session', () => {
       ),
     })
 
-    const resolvedRequest = await agent.dependencyManager.resolve(OpenId4VcHolderApi).resolveOpenId4VpAuthorizationRequest(
+    const resolvedRequest = await agent.openid4vc.holder.resolveOpenId4VpAuthorizationRequest(
       response.body.authorizationRequest,
     )
 
-    const selectedCredentials = agent.dependencyManager.resolve(OpenId4VcHolderApi).selectCredentialsForPresentationExchangeRequest(
+    const selectedCredentials = agent.openid4vc.holder.selectCredentialsForPresentationExchangeRequest(
       resolvedRequest.presentationExchange!.credentialsForRequest,
     )
 
-    const res = await agent.dependencyManager.resolve(OpenId4VcHolderApi).acceptOpenId4VpAuthorizationRequest({
+    const res = await agent.openid4vc.holder.acceptOpenId4VpAuthorizationRequest({
       authorizationRequestPayload: resolvedRequest.authorizationRequestPayload,
       presentationExchange: {
         credentials: selectedCredentials,

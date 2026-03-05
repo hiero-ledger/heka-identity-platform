@@ -28,15 +28,15 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
-    "@credo-ts/anoncreds": "v0.6.2",
-    "@credo-ts/askar": "v0.6.2",
-    "@credo-ts/core": "v0.6.2",
-    "@credo-ts/didcomm": "v0.6.2",
-    "@credo-ts/hedera": "0.6.0",
-    "@credo-ts/indy-vdr": "v0.6.2",
-    "@credo-ts/node": "v0.6.2",
-    "@credo-ts/openid4vc": "v0.6.2",
-    "@credo-ts/tenants": "v0.6.2",
+    "@credo-ts/anoncreds": "0.6.2",
+    "@credo-ts/askar": "0.6.2",
+    "@credo-ts/core": "0.6.2",
+    "@credo-ts/didcomm": "0.6.2",
+    "@credo-ts/hedera": "0.6.2",
+    "@credo-ts/indy-vdr": "0.6.2",
+    "@credo-ts/node": "0.6.2",
+    "@credo-ts/openid4vc": "0.6.2",
+    "@credo-ts/tenants": "0.6.2",
     "@digitalcredentials/bitstring": "^3.1.2",
     "@hyperledger/anoncreds-nodejs": "^0.3.1",
     "@hyperledger/indy-vdr-nodejs": "^0.2.2",
@@ -128,9 +128,7 @@
   },
   "resolutions": {
     "@types/jsonwebtoken": "^9.0.10",
-    "reflect-metadata": "0.2.2",
-    "@credo-ts/core": "v0.6.2",
-    "@credo-ts/anoncreds": "v0.6.2"
+    "reflect-metadata": "0.2.2"
   },
   "packageManager": "yarn@4.9.4"
 }

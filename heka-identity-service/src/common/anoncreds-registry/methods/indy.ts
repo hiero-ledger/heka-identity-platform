@@ -5,8 +5,9 @@ import {
   RegisterCredentialDefinitionReturn,
   RegisterRevocationRegistryDefinitionReturn,
 } from '@credo-ts/anoncreds'
-import { uuid } from 'utils/misc'
 import { ConfigType } from '@nestjs/config'
+
+import { uuid } from 'utils/misc'
 
 import AgentConfig from '../../../config/agent'
 import { defaultMaximumCredentialNumber } from '../../../revocation/revocation-registry/dto/create-revocation-registry.dto'

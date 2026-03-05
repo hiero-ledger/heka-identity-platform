@@ -35,7 +35,9 @@ const config: Config = {
     // Force CJS builds for other @hiero-did-sdk packages which expose ESM via .js extension without "type":"module"
     '^@hiero-did-sdk/(.+)$': '<rootDir>/node_modules/@hiero-did-sdk/$1/dist/index.cjs.js',
   },
-  transformIgnorePatterns: ['/node_modules/(?!(@credo-ts|@openid4vc|dcql|@noble|@sphereon|@sd-jwt|@stablelib|@digitalcredentials|uuid)/)'],
+  transformIgnorePatterns: [
+    '/node_modules/(?!(@credo-ts|@openid4vc|dcql|@noble|@sphereon|@sd-jwt|@stablelib|@digitalcredentials|uuid)/)',
+  ],
   verbose: true,
 }
 
