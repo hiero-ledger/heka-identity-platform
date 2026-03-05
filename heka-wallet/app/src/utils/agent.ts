@@ -112,12 +112,6 @@ export async function createAgent({ credentials, indyLedgers, indyBesuConfig, wa
   })
 }
 
-export interface PublicDidKeyOptions {
-  privateKey?: string
-  keyType: KeyType
-  useJwkJcsPub: boolean
-}
-
 export async function createPublicDidOrGetExisting(agent: Agent): Promise<string> {
   let publicDid = await AsyncStorage.getItem(PUBLIC_DID_KEY)
 

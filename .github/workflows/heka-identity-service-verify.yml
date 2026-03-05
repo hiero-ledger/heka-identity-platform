@@ -65,7 +65,7 @@ jobs:
       - name: Run ESLint
         run: yarn lint
 
-# TODO - re-enable tests after proper support for ESM packages in tests configuration
+# TODO - re-enable tests after we add proper support for ESM packages in tests configuration
 #      - name: Run unit tests
 #        run: env FORCE_COLOR=1 yarn test ./src --config=./src/jest.config.ts --ci --reporters=default
 
