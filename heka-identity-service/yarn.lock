@@ -1360,46 +1360,48 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hyperledger/anoncreds-nodejs@npm:^0.3.1":
-  version: 0.3.1
-  resolution: "@hyperledger/anoncreds-nodejs@npm:0.3.1"
+"@hyperledger/anoncreds-nodejs@npm:^0.3.4":
+  version: 0.3.4
+  resolution: "@hyperledger/anoncreds-nodejs@npm:0.3.4"
   dependencies:
     "@2060.io/ffi-napi": "npm:^4.0.9"
     "@2060.io/ref-napi": "npm:^3.0.6"
-    "@hyperledger/anoncreds-shared": "npm:0.3.1"
+    "@hyperledger/anoncreds-shared": "npm:0.3.4"
     ref-array-di: "npm:1.2.2"
     ref-struct-di: "npm:1.1.1"
-  checksum: 10c0/770a6fb38a3ca386ad4893972e5c8a9c1010df8be2989ec86a68cf5be8daa951c656723e0ac7254a64315f50d1c936da2bb84906622013f57fed726d6abed6e8
+  checksum: 10c0/76ccdb0bd0e464af2782f794e75f95298f2c5934542b76650025b3e34afeddcc7c4841106a8424a5f8f270e76d82f6a460bcdafc1f6f53713177db053d6c0423
   languageName: node
   linkType: hard
 
-"@hyperledger/anoncreds-shared@npm:0.3.1":
-  version: 0.3.1
-  resolution: "@hyperledger/anoncreds-shared@npm:0.3.1"
+"@hyperledger/anoncreds-shared@npm:0.3.4, @hyperledger/anoncreds-shared@npm:^0.3.4":
+  version: 0.3.4
+  resolution: "@hyperledger/anoncreds-shared@npm:0.3.4"
   dependencies:
     tar: "npm:^7.4.3"
-  checksum: 10c0/3ff8d4cddfeb99f041cda128c68f4ff75950f84e0ea801adcb0b9776aa320260ee5d9a57db53f87101e12b1eb6cfee13c25abfba6a19cc8fa27d4f6050119c47
+  checksum: 10c0/9c13ad6080cbef64821406fa414b6a9596c3131fb1677ba46123b1fa70d0216aae5f2658d09a4cd25550efbc1a109e462cdfca55f9639a0c618a65cb6cab0810
   languageName: node
   linkType: hard
 
-"@hyperledger/indy-vdr-nodejs@npm:^0.2.2":
-  version: 0.2.2
-  resolution: "@hyperledger/indy-vdr-nodejs@npm:0.2.2"
+"@hyperledger/indy-vdr-nodejs@npm:^0.2.3":
+  version: 0.2.4
+  resolution: "@hyperledger/indy-vdr-nodejs@npm:0.2.4"
   dependencies:
     "@2060.io/ffi-napi": "npm:^4.0.9"
     "@2060.io/ref-napi": "npm:^3.0.6"
-    "@hyperledger/indy-vdr-shared": "npm:0.2.2"
-    "@mapbox/node-pre-gyp": "npm:^1.0.10"
+    "@hyperledger/indy-vdr-shared": "npm:0.2.4"
+    "@types/ref-array-di": "npm:^1.2.8"
     ref-array-di: "npm:^1.2.2"
     ref-struct-di: "npm:^1.1.1"
-  checksum: 10c0/563cf4fec85831e2b486c08929d55a035ac92cd9d2e416fb104e5b6e54112069e32c274f7d31597469a3d5cfb39de34fc9db70284d60af31f3214a8849134825
+  checksum: 10c0/d439dad9e732c58168fb50db98d5d5402b37768fc12d9a697523c3272c0ea3c5599b3fc77727145cfe1290e318dc768a0783ad64c490ddb28534dac459809bab
   languageName: node
   linkType: hard
 
-"@hyperledger/indy-vdr-shared@npm:0.2.2":
-  version: 0.2.2
-  resolution: "@hyperledger/indy-vdr-shared@npm:0.2.2"
-  checksum: 10c0/7e3b98966ba704939c432f7f71ed9f25c9370f2b73037553781ac1570bf17a2e044b0e53495e61940a2c9765a09d3f6de49b989ab66019f45d4c3e5fb10c5836
+"@hyperledger/indy-vdr-shared@npm:0.2.4, @hyperledger/indy-vdr-shared@npm:^0.2.3":
+  version: 0.2.4
+  resolution: "@hyperledger/indy-vdr-shared@npm:0.2.4"
+  dependencies:
+    tar: "npm:^7.4.3"
+  checksum: 10c0/a6d0f8b73088b75983812e69d21e0c046c9e152e627ccf7f6e50f8da091c3112d317c51e6329de1da6ed7891eeae8aa7a005694570b119eeca4bae4f6c2257f7
   languageName: node
   linkType: hard
 
@@ -1818,7 +1820,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mapbox/node-pre-gyp@npm:^1.0.0, @mapbox/node-pre-gyp@npm:^1.0.10":
+"@mapbox/node-pre-gyp@npm:^1.0.0":
   version: 1.0.11
   resolution: "@mapbox/node-pre-gyp@npm:1.0.11"
   dependencies:
@@ -2582,26 +2584,26 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@openwallet-foundation/askar-nodejs@npm:^0.3.1":
-  version: 0.3.2
-  resolution: "@openwallet-foundation/askar-nodejs@npm:0.3.2"
+"@openwallet-foundation/askar-nodejs@npm:^0.4.3":
+  version: 0.4.3
+  resolution: "@openwallet-foundation/askar-nodejs@npm:0.4.3"
   dependencies:
     "@2060.io/ffi-napi": "npm:^4.0.9"
     "@2060.io/ref-napi": "npm:^3.0.6"
-    "@openwallet-foundation/askar-shared": "npm:0.3.2"
+    "@openwallet-foundation/askar-shared": "npm:0.4.3"
     ref-array-di: "npm:^1.2.2"
     ref-struct-di: "npm:^1.1.1"
-  checksum: 10c0/c28d99f33708a49d383bc8043eac27e8c58c97ffe1e3db88180c25cffdec45309fae3cb9f5ca49bdcff76a492b291187b952d93377967652495a1aa2e4435c01
+  checksum: 10c0/9bf9a17f773419459c2cfa187fe98def9ec810ca25b76efca92b1e6a29126b3bf5e4eb322886bab83d837d591c509ba74ac844ba142b0035ea9ddd23fcb51e14
   languageName: node
   linkType: hard
 
-"@openwallet-foundation/askar-shared@npm:0.3.2":
-  version: 0.3.2
-  resolution: "@openwallet-foundation/askar-shared@npm:0.3.2"
+"@openwallet-foundation/askar-shared@npm:0.4.3, @openwallet-foundation/askar-shared@npm:^0.4.3":
+  version: 0.4.3
+  resolution: "@openwallet-foundation/askar-shared@npm:0.4.3"
   dependencies:
     buffer: "npm:^6.0.3"
     tar: "npm:^7.4.3"
-  checksum: 10c0/1aaaba094f6892586ecf169fb5ec7b6f52889012b57a07f7d6590a85e4a880a5f59c6a6a4fcc7d16174dbdc20a508c2e132ff744aab6467ea674f10d0b12c2db
+  checksum: 10c0/318c9050424a96ca354d5308751d672b212b4400d1c7a1c0b3ad1682969398424e766b8ca45172d5ae23e8a149088583b8f65a7af3c78b1841110ff4eddd1aaa
   languageName: node
   linkType: hard
 
@@ -3588,6 +3590,24 @@ __metadata:
   version: 1.2.7
   resolution: "@types/range-parser@npm:1.2.7"
   checksum: 10c0/361bb3e964ec5133fa40644a0b942279ed5df1949f21321d77de79f48b728d39253e5ce0408c9c17e4e0fd95ca7899da36841686393b9f7a1e209916e9381a3c
+  languageName: node
+  linkType: hard
+
+"@types/ref-array-di@npm:^1.2.8":
+  version: 1.2.8
+  resolution: "@types/ref-array-di@npm:1.2.8"
+  dependencies:
+    "@types/ref-napi": "npm:*"
+  checksum: 10c0/87e892deb997fdf21e35627ab2c0aad4b03ebcea629a204efa573249186ca8f0756047ef297cf2b8913002f8fbc1182559586836071987a2cf9cd3a5d06cc9e5
+  languageName: node
+  linkType: hard
+
+"@types/ref-napi@npm:*":
+  version: 3.0.12
+  resolution: "@types/ref-napi@npm:3.0.12"
+  dependencies:
+    "@types/node": "npm:*"
+  checksum: 10c0/d60c3e07aa908c97fdf3ea958264ca0f88d080467c045f423d7dda43d475b35e7a5798b108ddfbce7ced04a70d9787acf99991e251c6f8c0556be6e71c0e02b8
   languageName: node
   linkType: hard
 
@@ -7323,8 +7343,10 @@ __metadata:
     "@credo-ts/tenants": "npm:0.6.2"
     "@digitalcredentials/bitstring": "npm:^3.1.2"
     "@golevelup/ts-jest": "npm:^0.3.7"
-    "@hyperledger/anoncreds-nodejs": "npm:^0.3.1"
-    "@hyperledger/indy-vdr-nodejs": "npm:^0.2.2"
+    "@hyperledger/anoncreds-nodejs": "npm:^0.3.4"
+    "@hyperledger/anoncreds-shared": "npm:^0.3.4"
+    "@hyperledger/indy-vdr-nodejs": "npm:^0.2.3"
+    "@hyperledger/indy-vdr-shared": "npm:^0.2.3"
     "@mikro-orm/cli": "npm:^5.7.12"
     "@mikro-orm/core": "npm:^5.7.12"
     "@mikro-orm/migrations": "npm:^5.7.12"
@@ -7345,7 +7367,8 @@ __metadata:
     "@nestjs/terminus": "npm:^11.0.0"
     "@nestjs/testing": "npm:^11.1.5"
     "@nestjs/websockets": "npm:^11.1.5"
-    "@openwallet-foundation/askar-nodejs": "npm:^0.3.1"
+    "@openwallet-foundation/askar-nodejs": "npm:^0.4.3"
+    "@openwallet-foundation/askar-shared": "npm:^0.4.3"
     "@types/express": "npm:^5.0.0"
     "@types/fs-extra": "npm:^11.0.2"
     "@types/jest": "npm:^29.5.1"

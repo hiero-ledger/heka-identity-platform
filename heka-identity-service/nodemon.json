@@ -2,5 +2,5 @@
   "watch": ["src"],
   "ext": "ts",
   "ignore": ["src/**/*.spec.ts"],
-  "exec": "ts-node --transpile-only -r tsconfig-paths/register src/main.ts"
+  "exec": "ts-node --transpile-only -r tsconfig-paths/register -r @openwallet-foundation/askar-nodejs src/main.ts"
 }

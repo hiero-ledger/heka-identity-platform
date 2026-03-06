@@ -8,19 +8,20 @@ Heka Identity Platform is used as a decentralized identity wallet / agent provid
 
 This is a demo code not intended for production-quality usage.
 
-## Scenario
+## Scenario and Demo Flow
 
 This demo showcases how an AI agent can request additional authentication from a user using the **OID4VP** protocol and how Heka Identity Platform enables such capabilities.
 
 The **Demo Agent** acts as an AI-powered assistant capable of processing user queries and generating responses using Genkit and the OpenAI API.
 The agent is configured to require the user to present a verifiable credential via OID4VP before fulfilling any requests.
 
-The following mapping applies for roles/parties described in extension spec:
+The following mapping applies for roles/parties described in [OID4VP In-Task Authentication extension spec](https://github.com/DSRCorporation/a2a-oid4vp-in-task-auth-extension/blob/main/v1/spec.md):
 - A2A Client → [CLI client](src/cli.ts)
 - A2A Server → [Demo Agent Server](src/agent/index.ts)
 - OID4VP Wallet → [Heka Mobile Wallet](../../heka-wallet)
 - OID4VP Verifier → [Heka Identity Service](../../heka-identity-service)
 
+**High-level demo flow:**
 ```mermaid
 sequenceDiagram
     participant User
@@ -30,25 +31,27 @@ sequenceDiagram
     participant HIS as Heka Identity Service
     participant LLM as OpenAI
 
-    User->>CLI: Sends message (Task Initiation)
-    CLI->>Agent: Send Message Request (A2A)
-    Agent->>HIS: Create Verification Session (OID4VP)
-    HIS-->>Agent: Authorization Request Metadata
-    Agent->>CLI: Status Update (state: auth-required + metadata)
-    CLI->>Wallet: Invoke Wallet (Out-of-band / DidComm)
-    Wallet->>User: Display Authorization Request
-    User->>Wallet: Confirm Presentation
-    Wallet->>HIS: Submit Verifiable Presentation (OID4VP direct_post)
-    HIS->>Agent: Notify Verification Status (Webhook/WebSocket)
-    Agent->>LLM: Process Task (with verified context)
-    LLM-->>Agent: AI Response
-    Agent->>CLI: Status Update (state: completed + response)
-    CLI->>User: Display Agent's Response
+    User->>CLI: (1.1) Sends message (Task Initiation)
+    CLI->>Agent: (1.2) Send Message Request (A2A)
+    Agent->>HIS: (2.1) Create Verification Session (OID4VP)
+    HIS-->>Agent: (2.2) Authorization Request Metadata
+    Agent->>CLI: (2.3) Status Update (state: auth-required + metadata)
+    CLI->>Wallet: (3) Invoke Wallet (Out-of-band / DidComm)
+    Wallet->>User: (4.1) Display Authorization Request
+    User->>Wallet: (4.2) Confirm Presentation
+    Wallet->>HIS: (4.3) Submit Verifiable Presentation (OID4VP direct_post)
+    HIS->>HIS: (5.1) Verify Presentation
+    HIS->>Agent: (5.2) Notify on verification status (Webhook/WebSocket)
+    Agent->>Agent: (6) Check verification status
+    Agent->>LLM: (7.1) Proceed with the Task (with verified context)
+    LLM-->>Agent: (7.2) LLM Response
+    Agent->>CLI: (7.3) Status Update (state: completed + result)
+    CLI->>User: (7.4) Display Task Result
 ```
 
 1.  **Task Initiation**: A user sends a message to the Demo Agent via the A2A CLI.
 2.  **In-Task Authentication Request**: The Demo Agent determines that the context/task requires authentication. It invokes Heka Identity Service API to generate OID4VP authorization request, then sends CLI Client a `status-update` with the `auth-required` state that also includes OID4VP authorization request metadata.
-3.  **OID4VP Flow Initiation**: The CLI client detects the OID4VP request and invokes Heka Wallet to present the requested credentials.
+3.  **OID4VP Flow Initiation**: The CLI client receives a status update, detects the OID4VP request, and invokes Heka Wallet to present the requested credentials.
 4.  **Sharing Verifiable Presentation**: Heka Wallet receives OID4VP authorization request, displays requested credentials / claims to a user. After receiving a confirmation, the wallet sends authorization response (containing Verifiable Presentation) to Heka Identity Service verifier endpoint (OID4VP `direct_post.jwt` response mode).
 5.  **Verification**: Heka Identity Service receives and validates the presentation, then sends an out-of-band notification with verification status to the Demo Agent.
 6.  **In-Task Authentication Completion**: The Demo Agent receives notification and makes a decision on proceeding with a task based on verification status.
@@ -81,7 +84,7 @@ However, there are values that need to be manually set up:
 Other supported values:
 - `DEMO_AGENT_PORT` - Port to be used by the Demo Agent server, defaults to `10003`
 - `CLI_CLIENT_PORT` - Port to be used by CLI Client inbound transport (DidComm inbound transport, used for Mobile Wallet invocation), defaults to `3010`
-- `IDENTITY_SERVICE_URL` - URL of local instance of Heka Identity Service, defaults to `http://localhost:3000`. Must be changed if host, port or API prefix configuration of the instance differs from default values
+- `IDENTITY_SERVICE_URL` - URL of local instance of Heka Identity Service, defaults to `http://localhost:3000`. Must be changed if host, port, or API prefix configuration of the instance differs from default values
 - `IDENTITY_SERVICE_ACCESS_TOKEN` - Heka Identity Service API token, default value is a demo token with extremely long validity period. Must be changed if JWT configuration for Heka Identity Service instance was changed
 
 ### 3. Setup Heka Identity Platform
@@ -95,7 +98,7 @@ This can be done using the following command:
 docker run --name heka-identity-service-postgres -e POSTGRES_DB=heka-identity-service -e POSTGRES_USER=heka -e POSTGRES_PASSWORD=heka1 -p 5432:5432 -d postgres
 ```
 
-To run the service instance itself, go to [Heka Identity Service folder](../../heka-identity-service), install dependencies, set up the DB migrations and run the app:
+To run the service instance itself, go to [Heka Identity Service folder](../../heka-identity-service), install dependencies, set up the DB migrations, and run the app:
 
 ```bash
 yarn install && yarn migration:up
@@ -135,7 +138,7 @@ yarn run:android
 yarn run:ios
 ```
 
-Keep Heka Wallet logs open, complete wallet onboarding process and find a log in the following format: `Public DID: did:peer:...`.
+Keep Heka Wallet logs open, complete wallet onboarding process, and find a log in the following format: `Public DID: did:peer:...`.
 Copy `<public-did-peer>` value and put it into the demo `.env` file as `HOLDER_PUBLIC_DID` value.
 The public DID value is persistent and will be relevant until you fully reset your Heka Wallet app (by removing application data or reinstalling it completely).
 
