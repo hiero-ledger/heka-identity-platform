@@ -1,11 +1,11 @@
-import { DidCommProofState, DidCommCredentialState } from '@credo-ts/didcomm'
+import { ProofState, CredentialState } from '@credo-ts/didcomm'
 import { OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator'
 
 import { CredentialValue } from 'credential-v2/dto/offer-by-template'
 
-export type CredentialProofState = OpenId4VcVerificationSessionState | DidCommProofState
+export type CredentialProofState = OpenId4VcVerificationSessionState | ProofState
 
 export class ProofByVerificationTemplateRequest {
   @ApiProperty({ description: 'ID of issuance template' })
@@ -43,7 +43,7 @@ export class ProofByVerificationTemplateResponse {
     description: 'State of verification of credential',
     oneOf: [
       { type: 'string', enum: Object.values(OpenId4VcVerificationSessionState) },
-      { type: 'string', enum: Object.values(DidCommCredentialState) },
+      { type: 'string', enum: Object.values(CredentialState) },
     ],
   })
   public state!: CredentialProofState

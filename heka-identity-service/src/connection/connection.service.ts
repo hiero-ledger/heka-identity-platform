@@ -17,7 +17,7 @@ import {
 export class ConnectionService {
   public constructor(private readonly userService: UserService) {}
   public async find(tenantAgent: TenantAgent): Promise<ConnectionRecordDto[]> {
-    const connectionRecords = await tenantAgent.didcomm.connections.getAll()
+    const connectionRecords = await tenantAgent.modules.connections.getAll()
     return connectionRecords.map((record) => new ConnectionRecordDto(record))
   }
 
@@ -35,7 +35,7 @@ export class ConnectionService {
     }
     const didcommConfig = tenantAgent.dependencyManager.resolve(DidCommModuleConfig)
 
-    const outOfBandRecord = await tenantAgent.didcomm.oob.createInvitation(config)
+    const outOfBandRecord = await tenantAgent.modules.oob.createInvitation(config)
 
     const invitationUrl = outOfBandRecord.outOfBandInvitation.toUrl({ domain: didcommConfig.endpoints[0] })
     return new CreateInvitationResponseDto(outOfBandRecord.id, invitationUrl)
@@ -47,7 +47,7 @@ export class ConnectionService {
       alias: req.alias,
     }
 
-    const { connectionRecord } = await tenantAgent.didcomm.oob.receiveInvitationFromUrl(req.invitationUrl, config)
+    const { connectionRecord } = await tenantAgent.modules.oob.receiveInvitationFromUrl(req.invitationUrl, config)
 
     // It is expected that connectionRecord is created
     // because ConnectionsModule is configured with autoAcceptConnections=true
@@ -59,12 +59,12 @@ export class ConnectionService {
   }
 
   public async get(tenantAgent: TenantAgent, id: string): Promise<ConnectionRecordDto | null> {
-    const connectionRecord = await tenantAgent.didcomm.connections.findById(id)
+    const connectionRecord = await tenantAgent.modules.connections.findById(id)
     if (connectionRecord) {
       return new ConnectionRecordDto(connectionRecord)
     }
 
-    const connectionRecordsByOobId = await tenantAgent.didcomm.connections.findAllByOutOfBandId(id)
+    const connectionRecordsByOobId = await tenantAgent.modules.connections.findAllByOutOfBandId(id)
     if (connectionRecordsByOobId.length) {
       return new ConnectionRecordDto(connectionRecordsByOobId[0])
     }

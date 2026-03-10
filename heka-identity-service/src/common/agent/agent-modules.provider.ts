@@ -1,12 +1,12 @@
 import type { AnonCredsRegistry } from '@credo-ts/anoncreds'
 
 import {
-  AnonCredsDidCommCredentialFormatService,
+  AnonCredsCredentialFormatService,
   AnonCredsModule,
-  AnonCredsDidCommProofFormatService,
-  DataIntegrityDidCommCredentialFormatService,
-  LegacyIndyDidCommCredentialFormatService,
-  LegacyIndyDidCommProofFormatService,
+  AnonCredsProofFormatService,
+  DataIntegrityCredentialFormatService,
+  LegacyIndyCredentialFormatService,
+  LegacyIndyProofFormatService,
 } from '@credo-ts/anoncreds'
 import { AskarModule } from '@credo-ts/askar'
 import {
@@ -19,12 +19,16 @@ import {
   KeyDidResolver,
 } from '@credo-ts/core'
 import {
-  DidCommAutoAcceptCredential,
-  DidCommAutoAcceptProof,
+  AutoAcceptCredential,
+  AutoAcceptProof,
   DidCommModule,
-  DidCommDifPresentationExchangeProofFormatService,
-  DidCommCredentialV2Protocol,
-  DidCommProofV2Protocol,
+  DifPresentationExchangeProofFormatService,
+  V2CredentialProtocol,
+  V2ProofProtocol,
+  ConnectionsModule,
+  CredentialsModule,
+  ProofsModule,
+  OutOfBandModule,
 } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import {
@@ -33,7 +37,7 @@ import {
   IndyVdrIndyDidResolver,
   IndyVdrModule,
 } from '@credo-ts/indy-vdr'
-import { OpenId4VcModule } from '@credo-ts/openid4vc'
+import { OpenId4VcIssuerModule, OpenId4VcVerifierModule } from '@credo-ts/openid4vc'
 import { TenantsModule } from '@credo-ts/tenants'
 import { anoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
@@ -42,18 +46,18 @@ import { askar } from '@openwallet-foundation/askar-nodejs'
 
 import AgentConfig from 'config/agent'
 import AppConfig from 'config/express'
-import { credentialRequestToCredentialMapper } from 'utils/oid4vc'
+import { createCredentialRequestToCredentialMapper } from 'utils/oid4vc'
 
 import { TailsService } from '../../revocation/revocation-registry/tails.service'
 import { IndyBesuAnonCredsRegistry, IndyBesuDidRegistrar, IndyBesuDidResolver, IndyBesuModule } from '../indy-besu-vdr'
 
 function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConfig: ConfigType<typeof AgentConfig>) {
-  const credentialFormatService = new AnonCredsDidCommCredentialFormatService()
-  const proofFormatService = new AnonCredsDidCommProofFormatService()
-  const legacyIndyCredentialFormatService = new LegacyIndyDidCommCredentialFormatService()
-  const legacyIndyProofFormatService = new LegacyIndyDidCommProofFormatService()
-  const dataIntegrityCredentialFormatService = new DataIntegrityDidCommCredentialFormatService()
-  const presentationExchangeProofFormatService = new DidCommDifPresentationExchangeProofFormatService()
+  const credentialFormatService = new AnonCredsCredentialFormatService()
+  const proofFormatService = new AnonCredsProofFormatService()
+  const legacyIndyCredentialFormatService = new LegacyIndyCredentialFormatService()
+  const legacyIndyProofFormatService = new LegacyIndyProofFormatService()
+  const dataIntegrityCredentialFormatService = new DataIntegrityCredentialFormatService()
+  const presentationExchangeProofFormatService = new DifPresentationExchangeProofFormatService()
 
   const didResolvers: DidResolver[] = [new KeyDidResolver()]
   const didRegistrars: DidRegistrar[] = [new KeyDidRegistrar()]
@@ -78,32 +82,32 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
   return {
     didcomm: new DidCommModule({
       ...agencyConfig.didCommConfig,
-      messagePickup: true,
-      connections: {
-        autoAcceptConnections: true,
-      },
-      credentials: {
-        autoAcceptCredentials: DidCommAutoAcceptCredential.ContentApproved,
-        credentialProtocols: [
-          new DidCommCredentialV2Protocol({
-            credentialFormats: [
-              credentialFormatService,
-              legacyIndyCredentialFormatService,
-              dataIntegrityCredentialFormatService,
-              // new JsonLdCredentialFormatService()
-            ],
-          }),
-        ],
-      },
-      proofs: {
-        autoAcceptProofs: DidCommAutoAcceptProof.ContentApproved,
-        proofProtocols: [
-          new DidCommProofV2Protocol({
-            proofFormats: [legacyIndyProofFormatService, proofFormatService, presentationExchangeProofFormatService],
-          }),
-        ],
-      },
     }),
+    connections: new ConnectionsModule({
+      autoAcceptConnections: true,
+    }),
+    credentials: new CredentialsModule({
+      autoAcceptCredentials: AutoAcceptCredential.ContentApproved,
+      credentialProtocols: [
+        new V2CredentialProtocol({
+          credentialFormats: [
+            credentialFormatService,
+            legacyIndyCredentialFormatService,
+            dataIntegrityCredentialFormatService,
+            // new JsonLdCredentialFormatService()
+          ],
+        }),
+      ],
+    }),
+    proofs: new ProofsModule({
+      autoAcceptProofs: AutoAcceptProof.ContentApproved,
+      proofProtocols: [
+        new V2ProofProtocol({
+          proofFormats: [legacyIndyProofFormatService, proofFormatService, presentationExchangeProofFormatService],
+        }),
+      ],
+    }),
+    oob: new OutOfBandModule(),
     dids: new DidsModule({
       resolvers: didResolvers,
       registrars: didRegistrars,
@@ -121,15 +125,16 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       askar,
       store: agencyConfig.askarStoreConfig,
     }),
-    openid4vc: new OpenId4VcModule({
-      issuer: {
-        baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
-        credentialRequestToCredentialMapper,
-      },
-      verifier: {
-        baseUrl: agencyConfig.oidConfig.verificationEndpoint,
-      },
-      app: agencyConfig.oidConfig.app,
+    openId4VcIssuer: new OpenId4VcIssuerModule({
+      baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
+      credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(agencyConfig.mdlIssuerCertificate),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      router: agencyConfig.oidConfig.app as any,
+    }),
+    openId4VcVerifier: new OpenId4VcVerifierModule({
+      baseUrl: agencyConfig.oidConfig.verificationEndpoint,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      router: agencyConfig.oidConfig.app as any,
     }),
     ledgerSdk: new IndyVdrModule({
       indyVdr,

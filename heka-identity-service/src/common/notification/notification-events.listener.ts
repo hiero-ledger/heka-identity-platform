@@ -1,4 +1,4 @@
-import { DidCommConnectionEventTypes, DidCommCredentialEventTypes, DidCommProofEventTypes } from '@credo-ts/didcomm'
+import { ConnectionEventTypes, CredentialEventTypes, ProofEventTypes } from '@credo-ts/didcomm'
 import { OpenId4VcVerifierEvents, OpenId4VcIssuerEvents } from '@credo-ts/openid4vc'
 import { EntityManager, MikroORM, UseRequestContext } from '@mikro-orm/core'
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
@@ -19,12 +19,12 @@ import { NotificationService } from './notification.service'
 import { NotificationEvent, NotificationEventType } from './notification.types'
 
 const NOTIFICATION_EVENT_TYPES: NotificationEventType[] = [
-  ...Object.values(DidCommConnectionEventTypes),
-  ...Object.values(DidCommCredentialEventTypes),
-  ...Object.values(DidCommProofEventTypes),
+  ...Object.values(ConnectionEventTypes),
+  ...Object.values(CredentialEventTypes),
+  ...Object.values(ProofEventTypes),
   ...Object.values(OpenId4VcIssuerEvents),
   ...Object.values(OpenId4VcVerifierEvents),
-]
+] as NotificationEventType[]
 
 @Injectable()
 export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy {
@@ -78,16 +78,16 @@ export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy
 
   private getEventNotificationDto(event: NotificationEvent): NotificationDto {
     switch (event.type) {
-      case DidCommConnectionEventTypes.DidCommConnectionDidRotated:
-      case DidCommConnectionEventTypes.DidCommConnectionStateChanged: {
-        return new ConnectionStateChangeDto(event)
+      case ConnectionEventTypes.ConnectionDidRotated:
+      case ConnectionEventTypes.ConnectionStateChanged: {
+        return new ConnectionStateChangeDto(event as any)
       }
-      case DidCommCredentialEventTypes.DidCommCredentialStateChanged:
-      case DidCommCredentialEventTypes.DidCommRevocationNotificationReceived: {
-        return new CredentialStateChangeDto(event)
+      case CredentialEventTypes.CredentialStateChanged:
+      case CredentialEventTypes.RevocationNotificationReceived: {
+        return new CredentialStateChangeDto(event as any)
       }
-      case DidCommProofEventTypes.ProofStateChanged: {
-        return new ProofStateChangeDto(event)
+      case ProofEventTypes.ProofStateChanged: {
+        return new ProofStateChangeDto(event as any)
       }
       case OpenId4VcIssuerEvents.IssuanceSessionStateChanged: {
         return new OpenidIssueStateChangeDto(event)

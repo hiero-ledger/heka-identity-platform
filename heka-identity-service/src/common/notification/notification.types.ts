@@ -1,9 +1,9 @@
 import {
-  DidCommConnectionDidRotatedEvent,
-  DidCommConnectionStateChangedEvent,
-  DidCommCredentialStateChangedEvent,
-  DidCommProofStateChangedEvent,
-  DidCommRevocationNotificationReceivedEvent,
+  ConnectionDidRotatedEvent,
+  ConnectionStateChangedEvent,
+  CredentialStateChangedEvent,
+  ProofStateChangedEvent,
+  RevocationNotificationReceivedEvent,
 } from '@credo-ts/didcomm'
 import {
   OpenId4VcVerificationSessionStateChangedEvent,
@@ -11,11 +11,11 @@ import {
 } from '@credo-ts/openid4vc'
 
 export type NotificationEvent =
-  | DidCommConnectionDidRotatedEvent
-  | DidCommConnectionStateChangedEvent
-  | DidCommCredentialStateChangedEvent
-  | DidCommRevocationNotificationReceivedEvent
-  | DidCommProofStateChangedEvent
+  | ConnectionDidRotatedEvent
+  | ConnectionStateChangedEvent
+  | CredentialStateChangedEvent
+  | RevocationNotificationReceivedEvent
+  | ProofStateChangedEvent
   | OpenId4VcIssuanceSessionStateChangedEvent
   | OpenId4VcVerificationSessionStateChangedEvent
 

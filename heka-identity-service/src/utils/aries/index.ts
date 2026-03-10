@@ -79,4 +79,5 @@ export const buildAriesCredential = ({
       }
     }
   }
+  throw new Error(`Unsupported Aries credential format: ${format}`)
 }

@@ -10,6 +10,7 @@ export enum OpenId4VcCredentialFormat {
   JwtVcJsonLd = 'jwt_vc_json-ld',
   LdpVc = 'ldp_vc',
   SdJwtVc = 'vc+sd-jwt',
+  MsoMdoc = 'mso_mdoc',
 }
 
 export type CredentialFormat = AriesCredentialFormat | OpenId4VcCredentialFormat
@@ -21,5 +22,6 @@ export const credentialTypes: Record<ProtocolType, Array<CredentialFormat>> = {
     OpenId4VcCredentialFormat.JwtVcJson,
     OpenId4VcCredentialFormat.JwtVcJsonLd,
     OpenId4VcCredentialFormat.LdpVc,
+    OpenId4VcCredentialFormat.MsoMdoc,
   ],
 }

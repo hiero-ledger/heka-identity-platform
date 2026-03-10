@@ -1,6 +1,6 @@
 import type { W3cJwtVerifiablePresentation } from '@credo-ts/core'
 
-import { SdJwtVc, VerifiablePresentation, W3cCredentialSubject } from '@credo-ts/core'
+import { MdocDeviceResponse, SdJwtVc, VerifiablePresentation, W3cCredentialSubject } from '@credo-ts/core'
 import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
 import { Injectable, InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
 
@@ -28,13 +28,15 @@ export class OpenId4VcVerificationSessionService {
     }
 
     const { authorizationRequest, verificationSession } =
-      await tenantAgent.openid4vc.verifier.createAuthorizationRequest({
+      await tenantAgent.modules.openId4VcVerifier.createAuthorizationRequest({
         requestSigner: {
           method: 'did',
           didUrl: didDocument.verificationMethod[0].id,
         },
         verifierId: req.publicVerifierId,
         presentationExchange: req.presentationExchange,
+        // @ts-ignore — DcqlQuery is passed as-is from the API
+        dcql: req.dcql,
         version: 'v1.draft21',
       })
 
@@ -83,22 +85,34 @@ export class OpenId4VcVerificationSessionService {
 
     if (verificationSessionRecord.state === OpenId4VcVerificationSessionState.ResponseVerified) {
       const verifiedAuthorizationResponse =
-        await tenantAgent.openid4vc.verifier.getVerifiedAuthorizationResponse(verificationSessionId)
+        await tenantAgent.modules.openId4VcVerifier.getVerifiedAuthorizationResponse(verificationSessionId)
 
-      if (!verifiedAuthorizationResponse.presentationExchange?.presentations.length) {
+      if (verifiedAuthorizationResponse.presentationExchange?.presentations.length) {
+        const presentation = verifiedAuthorizationResponse.presentationExchange?.presentations[0]
+        if (OpenId4VcVerificationSessionService.isSdJwtPresentation(presentation)) {
+          const { vct, cnf, iss, iat, ...attributes } = presentation.prettyClaims
+          sharedAttributes = attributes
+        } else if (OpenId4VcVerificationSessionService.isJwtVcJsonPresentation(presentation)) {
+          const credentialSubject =
+            presentation.presentation.verifiableCredential instanceof Array
+              ? presentation.presentation.verifiableCredential?.[0].credentialSubject
+              : presentation.presentation.verifiableCredential.credentialSubject
+          sharedAttributes = (credentialSubject as W3cCredentialSubject).claims
+        }
+      } else if ((verifiedAuthorizationResponse as any).dcql?.presentations) {
+        const presentations = Object.values((verifiedAuthorizationResponse as any).dcql.presentations)
+        const firstPresentation = presentations[0]
+        if (firstPresentation && OpenId4VcVerificationSessionService.isMdocPresentation(firstPresentation as VerifiablePresentation)) {
+          const doc = (firstPresentation as MdocDeviceResponse).documents[0]
+          if (doc) {
+            sharedAttributes = Object.values(doc.issuerSignedNamespaces).reduce<Record<string, unknown>>(
+              (acc, ns) => ({ ...acc, ...ns }),
+              {},
+            )
+          }
+        }
+      } else {
         throw new InternalServerErrorException('Presentation is missing')
-      }
-
-      const presentation = verifiedAuthorizationResponse.presentationExchange?.presentations[0]
-      if (OpenId4VcVerificationSessionService.isSdJwtPresentation(presentation)) {
-        const { vct, cnf, iss, iat, ...attributes } = presentation.prettyClaims
-        sharedAttributes = attributes
-      } else if (OpenId4VcVerificationSessionService.isJwtVcJsonPresentation(presentation)) {
-        const credentialSubject =
-          presentation.presentation.verifiableCredential instanceof Array
-            ? presentation.presentation.verifiableCredential?.[0].credentialSubject
-            : presentation.presentation.verifiableCredential.credentialSubject
-        sharedAttributes = (credentialSubject as W3cCredentialSubject).claims
       }
     }
 
@@ -124,5 +138,9 @@ export class OpenId4VcVerificationSessionService {
     presentation: VerifiablePresentation,
   ): presentation is W3cJwtVerifiablePresentation {
     return (presentation as W3cJwtVerifiablePresentation).jwt.header?.typ === 'JWT'
+  }
+
+  private static isMdocPresentation(presentation: VerifiablePresentation): presentation is MdocDeviceResponse {
+    return 'documents' in presentation
   }
 }

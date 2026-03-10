@@ -14,6 +14,7 @@ export enum CredentialFormat {
   JwtJson = 'jwt_vc_json',
   JwtVcJsonLd = 'jwt_vc_json-ld',
   LdpVc = 'ldp_vc',
+  MsoMdoc = 'mso_mdoc',
 }
 
 export class DisplayMetadata {
@@ -117,6 +118,8 @@ export class OpenId4VciCredentialConfigurationSupportedWithId {
       return OpenId4VciJwtVcJsonLdCredentialSupportedWithId.fromOpenIdVcCredentialSupportedWithId(record)
     } else if (record.format === CredentialFormat.LdpVc) {
       return OpenId4VciLdpVcCredentialSupportedWithId.fromOpenIdVcCredentialSupportedWithId(record)
+    } else if (record.format === CredentialFormat.MsoMdoc) {
+      return OpenId4VciMsoMdocCredentialSupportedWithId.fromOpenIdVcCredentialSupportedWithId(record)
     } else {
       throw new Error(`Unsupported credential format ${record.format}`)
     }
@@ -246,6 +249,36 @@ export class OpenId4VciLdpVcCredentialSupportedWithId extends OpenId4VciCredenti
       id: record.id,
       format: CredentialFormat.LdpVc,
       credential_definition: record.credential_definition,
+      display: record.display,
+    })
+  }
+}
+
+export class OpenId4VciMsoMdocCredentialSupportedWithId extends OpenId4VciCredentialConfigurationSupportedWithId {
+  @ApiProperty({ enum: CredentialFormat })
+  @IsEnum(CredentialFormat)
+  public format!: CredentialFormat.MsoMdoc
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  public doctype!: string
+
+  public constructor(params?: OpenId4VciMsoMdocCredentialSupportedWithId) {
+    super(params)
+    if (params) {
+      this.doctype = params.doctype
+    }
+  }
+
+  public static fromOpenIdVcCredentialSupportedWithId(
+    record: CredoCredentialConfigurationSupportedWithId,
+  ): OpenId4VciMsoMdocCredentialSupportedWithId {
+    return new OpenId4VciMsoMdocCredentialSupportedWithId({
+      id: record.id,
+      format: CredentialFormat.MsoMdoc,
+      // @ts-ignore — doctype is present on mso_mdoc credential configurations
+      doctype: record.doctype,
       display: record.display,
     })
   }

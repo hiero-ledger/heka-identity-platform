@@ -64,6 +64,28 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
   public presentationExchange?: {
     definition: DifPresentationExchangeDefinitionV2
   }
+
+  /**
+   * A Digital Credentials Query Language (DCQL) query to request credentials.
+   * Used for mDL (mso_mdoc) and other DCQL-compatible credential formats.
+   *
+   * @example
+   * {
+   *   "query": {
+   *     "credentials": [{
+   *       "format": "mso_mdoc",
+   *       "id": "mdl-credential",
+   *       "meta": { "doctype_value": "org.iso.18013.5.1.mDL" },
+   *       "claims": [{ "namespace": "org.iso.18013.5.1", "claim_name": "family_name" }]
+   *     }]
+   *   }
+   * }
+   */
+  @ApiPropertyOptional()
+  @IsOptional()
+  public dcql?: {
+    query: Record<string, unknown>
+  }
 }
 
 export class OpenId4VcVerificationSessionCreateRequestResponse {

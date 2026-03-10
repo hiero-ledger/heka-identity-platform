@@ -9,6 +9,7 @@ import {
   OpenId4VciJwtVcJsonCredentialSupportedWithId,
   OpenId4VciJwtVcJsonLdCredentialSupportedWithId,
   OpenId4VciLdpVcCredentialSupportedWithId,
+  OpenId4VciMsoMdocCredentialSupportedWithId,
   OpenId4VciSdJwtCredentialSupportedWithId,
 } from './common/credential'
 
@@ -125,6 +126,10 @@ export class OpenId4VcIssuersUpdateMetadataDto {
           value: OpenId4VciLdpVcCredentialSupportedWithId,
           name: CredentialFormat.LdpVc,
         },
+        {
+          value: OpenId4VciMsoMdocCredentialSupportedWithId,
+          name: CredentialFormat.MsoMdoc,
+        },
       ],
     },
   })
@@ -133,6 +138,7 @@ export class OpenId4VcIssuersUpdateMetadataDto {
     | OpenId4VciJwtVcJsonCredentialSupportedWithId
     | OpenId4VciJwtVcJsonLdCredentialSupportedWithId
     | OpenId4VciLdpVcCredentialSupportedWithId
+    | OpenId4VciMsoMdocCredentialSupportedWithId
   >
 
   @ApiPropertyOptional({ enum: UpdateIssuerSupportedCredentialsAction })

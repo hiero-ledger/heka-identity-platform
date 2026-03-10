@@ -1,4 +1,4 @@
-import { DidCommDidExchangeRole, DidCommDidExchangeState } from '@credo-ts/didcomm'
+import { DidExchangeRole, DidExchangeState } from '@credo-ts/didcomm'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export interface ConnectionDtoOptions {
@@ -6,9 +6,9 @@ export interface ConnectionDtoOptions {
   threadId?: string
   createdAt: Date
   updatedAt?: Date
-  state: DidCommDidExchangeState
+  state: DidExchangeState
   errorMessage?: string
-  role: DidCommDidExchangeRole
+  role: DidExchangeRole
   did?: string
   theirDid?: string
   theirLabel?: string
@@ -44,14 +44,14 @@ export class ConnectionRecordDto {
   @ApiPropertyOptional()
   public updatedAt?: Date
 
-  @ApiProperty({ enum: DidCommDidExchangeState })
-  public state: DidCommDidExchangeState
+  @ApiProperty({ enum: DidExchangeState })
+  public state: DidExchangeState
 
   @ApiPropertyOptional()
   public errorMessage?: string
 
-  @ApiProperty({ enum: DidCommDidExchangeRole })
-  public role: DidCommDidExchangeRole
+  @ApiProperty({ enum: DidExchangeRole })
+  public role: DidExchangeRole
 
   @ApiPropertyOptional()
   public did?: string

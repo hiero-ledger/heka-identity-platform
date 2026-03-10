@@ -1,4 +1,4 @@
-import { DidCommCredentialState } from '@credo-ts/didcomm'
+import { CredentialState } from '@credo-ts/didcomm'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 import { CredentialPreviewAttributeDto, CredentialPreviewAttributeDtoOptions } from './credential-preview-attribute.dto'
@@ -9,7 +9,7 @@ export interface CredentialRecordDtoOptions {
   threadId: string
   createdAt: Date
   updatedAt?: Date
-  state: DidCommCredentialState
+  state: CredentialState
   errorMessage?: string
   credentialAttributes?: CredentialPreviewAttributeDtoOptions[]
 }
@@ -43,8 +43,8 @@ export class CredentialRecordDto {
   @ApiPropertyOptional()
   public updatedAt?: Date
 
-  @ApiProperty({ enum: DidCommCredentialState })
-  public state: DidCommCredentialState
+  @ApiProperty({ enum: CredentialState })
+  public state: CredentialState
 
   @ApiPropertyOptional()
   public errorMessage?: string

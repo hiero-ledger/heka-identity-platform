@@ -1,4 +1,4 @@
-import { DidCommCredentialState } from '@credo-ts/didcomm'
+import { CredentialState } from '@credo-ts/didcomm'
 import {
   BadRequestException,
   ConflictException,
@@ -35,7 +35,7 @@ export class CredentialService {
   }
 
   public async find(tenantAgent: TenantAgent, threadId?: string): Promise<CredentialRecordDto[]> {
-    const credentialRecords = await tenantAgent.didcomm.credentials.findAllByQuery({ threadId })
+    const credentialRecords = await tenantAgent.modules.credentials.findAllByQuery({ threadId })
     return credentialRecords.map((record) => new CredentialRecordDto(record))
   }
 
@@ -44,7 +44,7 @@ export class CredentialService {
   }
 
   public async offer(tenantAgent: TenantAgent, req: CredentialOfferDto): Promise<CredentialRecordDto> {
-    const connectionRecord = await tenantAgent.didcomm.connections.findById(req.connectionId)
+    const connectionRecord = await tenantAgent.modules.connections.findById(req.connectionId)
     if (!connectionRecord) {
       throw new UnprocessableEntityException(`Referenced connection with ID=${req.connectionId} not found`)
     }
@@ -80,7 +80,7 @@ export class CredentialService {
       revocationRegistryDefinitionId,
       revocationRegistryIndex,
     })
-    const credentialRecord = await tenantAgent.didcomm.credentials.offerCredential({
+    const credentialRecord = await tenantAgent.modules.credentials.offerCredential({
       connectionId: req.connectionId,
       comment: req.comment,
       protocolVersion: 'v2',
@@ -97,7 +97,7 @@ export class CredentialService {
   }
 
   public async get(tenantAgent: TenantAgent, id: string): Promise<CredentialRecordDto> {
-    const credentialRecord = await tenantAgent.didcomm.credentials.findById(id)
+    const credentialRecord = await tenantAgent.modules.credentials.findById(id)
     if (!credentialRecord) {
       throw new NotFoundException('Credential record not found')
     }
@@ -105,20 +105,20 @@ export class CredentialService {
   }
 
   public async accept(tenantAgent: TenantAgent, id: string): Promise<CredentialRecordDto> {
-    let credentialRecord = await tenantAgent.didcomm.credentials.findById(id)
+    let credentialRecord = await tenantAgent.modules.credentials.findById(id)
     if (!credentialRecord) {
       throw new NotFoundException('Credential record not found')
     }
-    if (credentialRecord.state === DidCommCredentialState.Done) {
+    if (credentialRecord.state === CredentialState.Done) {
       throw new ConflictException('Credential is already accepted')
     }
 
-    credentialRecord = await tenantAgent.didcomm.credentials.acceptOffer({ credentialExchangeRecordId: id })
+    credentialRecord = await tenantAgent.modules.credentials.acceptOffer({ credentialRecordId: id })
     return new CredentialRecordDto(credentialRecord)
   }
 
   public async revoke(tenantAgent: TenantAgent, id: string): Promise<void> {
-    const credential = await tenantAgent.didcomm.credentials.getById(id)
+    const credential = await tenantAgent.modules.credentials.getById(id)
 
     const revocationRegistryId = credential.getTag('anonCredsRevocationRegistryId') as string
     const revocationIndexStr = credential.getTag('anonCredsCredentialRevocationId') as string

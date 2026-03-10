@@ -1,6 +1,6 @@
 import { Agent as CredoAgent, BaseAgent, LogLevel } from '@credo-ts/core'
-import { DidCommHttpOutboundTransport, DidCommWsOutboundTransport } from '@credo-ts/didcomm'
-import { agentDependencies, DidCommHttpInboundTransport, DidCommWsInboundTransport } from '@credo-ts/node'
+import { HttpOutboundTransport, WsOutboundTransport } from '@credo-ts/didcomm'
+import { agentDependencies, HttpInboundTransport, WsInboundTransport } from '@credo-ts/node'
 import { OnApplicationShutdown } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
@@ -36,16 +36,16 @@ export class Agent extends CredoAgent<AgencyModulesMap> implements OnApplication
 
     logger.info(`Agent config:\n${JSON.stringify(this.agencyConfig, undefined, 2)}`)
 
-    this.modules.didcomm.registerOutboundTransport(new DidCommHttpOutboundTransport())
+    this.modules.didcomm.registerOutboundTransport(new HttpOutboundTransport())
     if (this.agencyConfig.httpPort) {
       this.modules.didcomm.registerInboundTransport(
-        new DidCommHttpInboundTransport({ port: this.agencyConfig.httpPort }),
+        new HttpInboundTransport({ port: this.agencyConfig.httpPort }),
       )
     }
 
-    this.modules.didcomm.registerOutboundTransport(new DidCommWsOutboundTransport())
+    this.modules.didcomm.registerOutboundTransport(new WsOutboundTransport())
     if (this.agencyConfig.wsPort) {
-      this.modules.didcomm.registerInboundTransport(new DidCommWsInboundTransport({ port: this.agencyConfig.wsPort }))
+      this.modules.didcomm.registerInboundTransport(new WsInboundTransport({ port: this.agencyConfig.wsPort }))
     }
 
     await super.initialize()
