@@ -266,6 +266,20 @@ export class SchemaV2Service {
     display: this.makeCredentialDisplay(schema),
   })
 
+  private makeMsoMdocCredentialDefinition = (
+    supportedCredentialId: string,
+    schema: Schema,
+  ): OpenId4VciCredentialConfigurationSupportedWithId => ({
+    format: OpenId4VciCredentialFormatProfile.MsoMdoc,
+    id: supportedCredentialId,
+    doctype: schema.name,
+    claims: schema.fields
+      .toArray()
+      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+      .map((field) => ({ path: [schema.name, field.name] as [string, string] })),
+    display: this.makeCredentialDisplay(schema),
+  })
+
   private async oid4vcRegister(prop: {
     tenantAgent: TenantAgent
     authInfo: AuthInfo
@@ -276,7 +290,7 @@ export class SchemaV2Service {
   }): Promise<SchemaRegistration> {
     const { tenantAgent, schema, credentialFormat, network, did } = prop
 
-    const issuer = await tenantAgent.openid4vc.issuer.getIssuerByIssuerId(did)
+    const issuer = await tenantAgent.modules.openId4VcIssuer.getIssuerByIssuerId(did)
 
     const supportedCredentialId = `${schema.name}:${network}:${credentialFormat}`
 
@@ -299,6 +313,9 @@ export class SchemaV2Service {
       case OpenId4VCCredentialRegistrationFormat.LdpVc:
         credential = this.makeLdpVcCredentialDefinition(supportedCredentialId, schema)
         break
+      case OpenId4VCCredentialRegistrationFormat.MsoMdoc:
+        credential = this.makeMsoMdocCredentialDefinition(supportedCredentialId, schema)
+        break
       default:
         credential = undefined
     }
@@ -307,7 +324,7 @@ export class SchemaV2Service {
     }
 
     // update metadata
-    await tenantAgent.openid4vc.issuer.updateIssuerMetadata({
+    await tenantAgent.modules.openId4VcIssuer.updateIssuerMetadata({
       issuerId: issuer.issuerId,
       credentialConfigurationsSupported: {
         ...issuer.credentialConfigurationsSupported,
@@ -342,7 +359,7 @@ export class SchemaV2Service {
   private async oid4vcUpdateSchemaDisplay(prop: { tenantAgent: TenantAgent; schema: Schema; did: string }) {
     const { tenantAgent, schema, did } = prop
 
-    const issuer = await tenantAgent.openid4vc.issuer.getIssuerByIssuerId(did)
+    const issuer = await tenantAgent.modules.openId4VcIssuer.getIssuerByIssuerId(did)
 
     const display = {
       name: schema.name,
@@ -356,13 +373,13 @@ export class SchemaV2Service {
       issuer.credentialConfigurationsSupported,
     ).reduce<OpenId4VciCredentialConfigurationsSupportedWithFormats>(
       (result, [configurationId, credentialConfiguration]) => {
-        result[configurationId] = { ...credentialConfiguration, display: [display] }
+        result[configurationId] = { ...(credentialConfiguration as Record<string, unknown>), display: [display] } as any
         return result
       },
       {},
     )
 
-    await tenantAgent.openid4vc.issuer.updateIssuerMetadata({
+    await tenantAgent.modules.openId4VcIssuer.updateIssuerMetadata({
       issuerId: issuer.issuerId,
       credentialConfigurationsSupported,
       display: issuer.display,

@@ -1,6 +1,6 @@
 import type { W3cJwtVerifiablePresentation } from '@credo-ts/core'
 
-import { MdocDeviceResponse, SdJwtVc, VerifiablePresentation, W3cCredentialSubject } from '@credo-ts/core'
+import { DcqlQuery, MdocDeviceResponse, SdJwtVc, VerifiablePresentation, W3cCredentialSubject } from '@credo-ts/core'
 import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
 import { Injectable, InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
 
@@ -35,9 +35,8 @@ export class OpenId4VcVerificationSessionService {
         },
         verifierId: req.publicVerifierId,
         presentationExchange: req.presentationExchange,
-        // @ts-ignore — DcqlQuery is passed as-is from the API
-        dcql: req.dcql,
-        version: 'v1.draft21',
+        dcql: req.dcql as { query: DcqlQuery } | undefined,
+        version: req.dcql ? 'v1.draft24' : 'v1.draft21',
       })
 
     return {
@@ -99,8 +98,8 @@ export class OpenId4VcVerificationSessionService {
               : presentation.presentation.verifiableCredential.credentialSubject
           sharedAttributes = (credentialSubject as W3cCredentialSubject).claims
         }
-      } else if ((verifiedAuthorizationResponse as any).dcql?.presentations) {
-        const presentations = Object.values((verifiedAuthorizationResponse as any).dcql.presentations)
+      } else if (verifiedAuthorizationResponse.dcql?.presentations) {
+        const presentations = Object.values(verifiedAuthorizationResponse.dcql.presentations)
         const firstPresentation = presentations[0]
         if (firstPresentation && OpenId4VcVerificationSessionService.isMdocPresentation(firstPresentation as VerifiablePresentation)) {
           const doc = (firstPresentation as MdocDeviceResponse).documents[0]
