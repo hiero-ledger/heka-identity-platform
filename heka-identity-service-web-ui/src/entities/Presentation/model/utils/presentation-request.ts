@@ -93,6 +93,35 @@ export const buildJwtJsonPresentationRequest = ({
   };
 };
 
+export const buildMsoMdocPresentationRequest = ({
+  id,
+  did,
+  attributes,
+}: BuildOpenIdPresentationRequestParams) => {
+  return {
+    publicVerifierId: id,
+    requestSigner: {
+      method: 'did',
+      did: did,
+    },
+    dcql: {
+      query: {
+        credentials: [
+          {
+            format: 'mso_mdoc',
+            id: 'mdl-credential',
+            meta: { doctype_value: 'org.iso.18013.5.1.mDL' },
+            claims: attributes.map((attribute) => ({
+              namespace: 'org.iso.18013.5.1',
+              claim_name: attribute,
+            })),
+          },
+        ],
+      },
+    },
+  };
+};
+
 export const buildOpenIdPresentationRequest = (
   params: BuildOpenIdPresentationRequestParams,
 ) => {
@@ -103,6 +132,8 @@ export const buildOpenIdPresentationRequest = (
     case Openid4CredentialFormat.JwtJsonLd:
     case Openid4CredentialFormat.LdpVc:
       return buildJwtJsonPresentationRequest(params);
+    case Openid4CredentialFormat.MsoMdoc:
+      return buildMsoMdocPresentationRequest(params);
   }
 };
 

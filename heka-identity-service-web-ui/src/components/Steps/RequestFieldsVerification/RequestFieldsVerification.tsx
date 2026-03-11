@@ -53,7 +53,8 @@ export const RequestFieldsVerification = ({
   const supportSelectiveDisclosure = useMemo(
     () =>
       protocolType === ProtocolType.Aries ||
-      credentialType === Openid4CredentialFormat.SdJwt,
+      credentialType === Openid4CredentialFormat.SdJwt ||
+      credentialType === Openid4CredentialFormat.MsoMdoc,
     [protocolType, credentialType],
   );
 

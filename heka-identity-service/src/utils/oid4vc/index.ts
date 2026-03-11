@@ -40,7 +40,7 @@ export const createCredentialRequestToCredentialMapper = (
     if (!credentials) throw new Error('Not implemented')
 
     const issuanceMetadata = credentials.find(
-      (credential) => credential.credentialSupportedId == credentialConfigurationId,
+      (credential) => credential.credentialSupportedId === credentialConfigurationId,
     )
 
     if (!issuanceMetadata) throw new Error(`Credential not found for id: ${credentialConfigurationId}`)
