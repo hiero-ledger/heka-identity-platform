@@ -254,6 +254,11 @@ export const useOpenIdHandlers = () => {
         display: resolvedCredentialOffer.metadata.credentialIssuerMetadata.display,
       })
 
+      agent.config.logger.info('Resolved openid issuer metadata', {
+        display: resolvedCredentialOffer.metadata.credentialIssuerMetadata?.display,
+        issuerId: openId4VcMetadata.issuer.id,
+      })
+
       setOpenId4VcCredentialMetadata(record, openId4VcMetadata)
 
       return record
