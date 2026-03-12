@@ -11,6 +11,7 @@ import {
   CredentialOverlay,
   RemoteOCABundleResolver,
 } from '@hyperledger/aries-oca/build/legacy'
+import { ImageInfo } from '@sphereon/oid4vci-common'
 
 import { agencyProviderURL, fallbackDisplay } from '../../config'
 import { OpenId4VcCredentialMetadata } from '../metadata'
@@ -46,7 +47,7 @@ export function getSdJwtCredentialDisplay(
 
       if (openidCredentialDisplay.logo) {
         credentialDisplay.logo = {
-          url: openidCredentialDisplay.logo.url,
+          url: getImageInfoLogoUrl(openidCredentialDisplay.logo),
           altText: openidCredentialDisplay.logo.alt_text,
         }
       }
@@ -108,7 +109,7 @@ export function getW3cCredentialDisplay(
 
       if (openidCredentialDisplay.logo) {
         credentialDisplay.logo = {
-          url: openidCredentialDisplay.logo.url,
+          url: getImageInfoLogoUrl(openidCredentialDisplay.logo),
           altText: openidCredentialDisplay.logo.alt_text,
         }
       }
@@ -196,7 +197,7 @@ export function getMdocCredentialDisplay(
 
       if (openidCredentialDisplay.background_image) {
         credentialDisplay.backgroundImage = {
-          url: openidCredentialDisplay.background_image.url,
+          url: getImageInfoLogoUrl(openidCredentialDisplay.background_image),
           altText: openidCredentialDisplay.background_image.alt_text,
         }
       }
@@ -344,6 +345,10 @@ function findDisplay<Display extends { locale?: string }>(display?: Display[]): 
   return item
 }
 
+function getImageInfoLogoUrl(logo: ImageInfo): string | undefined {
+  return logo.url ?? (logo.uri as string | undefined)
+}
+
 function getW3cIssuerDisplay(
   credential: W3cCredentialJson,
   openId4VcMetadata?: OpenId4VcCredentialMetadata | null
@@ -398,7 +403,7 @@ export function getOpenId4VcIssuerDisplay(
 
       if (openidIssuerDisplay.logo) {
         issuerDisplay.logo = {
-          url: openidIssuerDisplay.logo?.url,
+          url: getImageInfoLogoUrl(openidIssuerDisplay.logo),
           altText: openidIssuerDisplay.logo?.alt_text,
         }
       }
@@ -408,7 +413,7 @@ export function getOpenId4VcIssuerDisplay(
     const openidCredentialDisplay = findDisplay(openId4VcMetadata.credential.display)
     if (openidCredentialDisplay && !issuerDisplay.logo && openidCredentialDisplay.logo) {
       issuerDisplay.logo = {
-        url: openidCredentialDisplay.logo?.url,
+        url: getImageInfoLogoUrl(openidCredentialDisplay.logo),
         altText: openidCredentialDisplay.logo?.alt_text,
       }
     }
