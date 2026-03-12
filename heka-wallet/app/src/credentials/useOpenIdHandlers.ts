@@ -154,8 +154,6 @@ export const useOpenIdHandlers = () => {
         )
       }
 
-      const allowedSignatureAlgorithms = [JwaSignatureAlgorithm.ES256]
-
       // FIXME: Return credential_supported entry for credential so it's easy to store metadata
       const credentials = await agent.modules.openId4VcHolder.requestCredentials({
         resolvedCredentialOffer,
@@ -163,7 +161,7 @@ export const useOpenIdHandlers = () => {
         clientId,
         credentialsToRequest: [offeredCredentialToRequest.id],
         verifyCredentialStatus: false,
-        allowedProofOfPossessionSignatureAlgorithms: allowedSignatureAlgorithms,
+        allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.EdDSA, JwaSignatureAlgorithm.ES256],
         credentialBindingResolver: async ({
           supportedDidMethods,
           keyType,
@@ -252,6 +250,11 @@ export const useOpenIdHandlers = () => {
       const openId4VcMetadata = extractOpenId4VcCredentialMetadata(offeredCredentialToRequest, {
         id: resolvedCredentialOffer.metadata.issuer,
         display: resolvedCredentialOffer.metadata.credentialIssuerMetadata.display,
+      })
+
+      agent.config.logger.info('Resolved openid issuer metadata', {
+        display: resolvedCredentialOffer.metadata.credentialIssuerMetadata?.display,
+        issuerId: openId4VcMetadata.issuer.id,
       })
 
       setOpenId4VcCredentialMetadata(record, openId4VcMetadata)

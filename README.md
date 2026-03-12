@@ -7,7 +7,7 @@
 
 The **Heka Identity Platform** is a ready-to-use decentralized identity (aka Self-Sovereign Identity or SSI) solution for the Hiero ecosystem. The project delivers a complete set of applications and tools that enable issuance, management, and verification of verifiable credentials using global identity standards, while serving as a baseline reference implementation for Hiero / Hedera-based identity solutions.
 
-The Heka Identity Platform is intended to accelerate adoption of decentralized identity within the Hiero ecosystem and provide a practical, standards-aligned example for developers, integrators, and community members.
+The Heka Identity Platform is intended to speed up adoption of decentralized identity within the Hiero ecosystem and provide a practical, standards-aligned example for developers, integrators, and community members.
 
 ## Core Components
 
@@ -25,6 +25,12 @@ The platform supports a wide range of global decentralized identity standards, i
 - **Protocols**: OpenID4VC, DIDComm
 - **Credential Formats**: W3C Verifiable Credentials, SD-JWT VC, ISO mDL, Hyperledger AnonCreds
 - **DID Methods**: Multiple DID methods, including Hiero / Hedera-based DIDs
+
+## Demos
+
+Please see the [demo folder](./demo) to explore demos showcasing various decentralized identity use cases implemented with Heka Identity Platform.
+
+- [Agent-to-Agent (A2A) + OID4VP integration](./demo/a2a-oid4vp): A demo showcasing OID4VP-based authentication for AI agents leveraging Agent2Agent (A2A) protocol
 
 ## Governance
 
