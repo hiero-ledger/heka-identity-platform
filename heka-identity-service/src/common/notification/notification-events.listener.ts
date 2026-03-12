@@ -24,7 +24,7 @@ const NOTIFICATION_EVENT_TYPES: NotificationEventType[] = [
   ...Object.values(ProofEventTypes),
   ...Object.values(OpenId4VcIssuerEvents),
   ...Object.values(OpenId4VcVerifierEvents),
-] as NotificationEventType[]
+]
 
 @Injectable()
 export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy {
