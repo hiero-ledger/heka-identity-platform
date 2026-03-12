@@ -160,14 +160,14 @@ export class OpenId4VciSdJwtCredentialSupportedWithId extends OpenId4VciCredenti
   public static fromOpenIdVcCredentialSupportedWithId(
     record: CredoCredentialConfigurationSupportedWithId,
   ): OpenId4VciSdJwtCredentialSupportedWithId {
-    const r = record as SdJwtConfigRecord
+    const sdJwtRecord = record as SdJwtConfigRecord
     return new OpenId4VciSdJwtCredentialSupportedWithId({
-      id: r.id,
+      id: sdJwtRecord.id,
       format: CredentialFormat.SdJwt,
-      vct: r.vct,
-      claims: r.claims,
-      order: r.order,
-      display: r.display,
+      vct: sdJwtRecord.vct,
+      claims: sdJwtRecord.claims,
+      order: sdJwtRecord.order,
+      display: sdJwtRecord.display,
     })
   }
 }
@@ -191,12 +191,12 @@ export class OpenId4VciJwtVcJsonCredentialSupportedWithId extends OpenId4VciCred
   public static fromOpenIdVcCredentialSupportedWithId(
     record: CredoCredentialConfigurationSupportedWithId,
   ): OpenId4VciJwtVcJsonCredentialSupportedWithId {
-    const r = record as JwtVcJsonConfigRecord
+    const jwtVcJsonRecord = record as JwtVcJsonConfigRecord
     return new OpenId4VciJwtVcJsonCredentialSupportedWithId({
-      id: r.id,
+      id: jwtVcJsonRecord.id,
       format: CredentialFormat.JwtJson,
-      credential_definition: r.credential_definition,
-      display: r.display,
+      credential_definition: jwtVcJsonRecord.credential_definition,
+      display: jwtVcJsonRecord.display,
     })
   }
 }
@@ -220,12 +220,12 @@ export class OpenId4VciJwtVcJsonLdCredentialSupportedWithId extends OpenId4VciCr
   public static fromOpenIdVcCredentialSupportedWithId(
     record: CredoCredentialConfigurationSupportedWithId,
   ): OpenId4VciJwtVcJsonLdCredentialSupportedWithId {
-    const r = record as JwtVcJsonLdConfigRecord
+    const jwtVcJsonLdRecord = record as JwtVcJsonLdConfigRecord
     return new OpenId4VciJwtVcJsonLdCredentialSupportedWithId({
-      id: r.id,
+      id: jwtVcJsonLdRecord.id,
       format: CredentialFormat.JwtVcJsonLd,
-      credential_definition: r.credential_definition,
-      display: r.display,
+      credential_definition: jwtVcJsonLdRecord.credential_definition,
+      display: jwtVcJsonLdRecord.display,
     })
   }
 }
@@ -249,12 +249,12 @@ export class OpenId4VciLdpVcCredentialSupportedWithId extends OpenId4VciCredenti
   public static fromOpenIdVcCredentialSupportedWithId(
     record: CredoCredentialConfigurationSupportedWithId,
   ): OpenId4VciLdpVcCredentialSupportedWithId {
-    const r = record as LdpVcConfigRecord
+    const ldpVcRecord = record as LdpVcConfigRecord
     return new OpenId4VciLdpVcCredentialSupportedWithId({
-      id: r.id,
+      id: ldpVcRecord.id,
       format: CredentialFormat.LdpVc,
-      credential_definition: r.credential_definition,
-      display: r.display,
+      credential_definition: ldpVcRecord.credential_definition,
+      display: ldpVcRecord.display,
     })
   }
 }
@@ -279,12 +279,12 @@ export class OpenId4VciMsoMdocCredentialSupportedWithId extends OpenId4VciCreden
   public static fromOpenIdVcCredentialSupportedWithId(
     record: CredoCredentialConfigurationSupportedWithId,
   ): OpenId4VciMsoMdocCredentialSupportedWithId {
-    const r = record as MsoMdocConfigRecord
+    const msoMdocRecord = record as MsoMdocConfigRecord
     return new OpenId4VciMsoMdocCredentialSupportedWithId({
-      id: r.id,
+      id: msoMdocRecord.id,
       format: CredentialFormat.MsoMdoc,
-      doctype: r.doctype,
-      display: r.display,
+      doctype: msoMdocRecord.doctype,
+      display: msoMdocRecord.display,
     })
   }
 }

@@ -80,14 +80,14 @@ export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy
     switch (event.type) {
       case ConnectionEventTypes.ConnectionDidRotated:
       case ConnectionEventTypes.ConnectionStateChanged: {
-        return new ConnectionStateChangeDto(event as any)
+        return new ConnectionStateChangeDto(event)
       }
       case CredentialEventTypes.CredentialStateChanged:
       case CredentialEventTypes.RevocationNotificationReceived: {
-        return new CredentialStateChangeDto(event as any)
+        return new CredentialStateChangeDto(event)
       }
       case ProofEventTypes.ProofStateChanged: {
-        return new ProofStateChangeDto(event as any)
+        return new ProofStateChangeDto(event)
       }
       case OpenId4VcIssuerEvents.IssuanceSessionStateChanged: {
         return new OpenidIssueStateChangeDto(event)

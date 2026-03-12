@@ -39,6 +39,7 @@ interface OpenId4VcMsoMdocCredentialSchema {
   format: Openid4CredentialFormat.MsoMdoc;
   id: string;
   doctype: string;
+  claims?: Record<string, unknown>;
 }
 
 export type OpenId4CredentialSchema =
@@ -81,7 +82,7 @@ export const convertOpenIdSchema = (schema: OpenId4CredentialSchema) => {
         id: schema.id,
         format: schema.format,
         doctype: schema.doctype,
-        attributes: [],
+        attributes: Object.keys(schema.claims ?? {}),
       };
   }
 };

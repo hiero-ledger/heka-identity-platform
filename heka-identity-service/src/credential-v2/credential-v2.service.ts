@@ -235,7 +235,7 @@ export class CredentialV2Service {
         return {
           format: OpenId4VciCredentialFormatProfile.MsoMdoc,
           credentialSupportedId: (registration.credentials as Oid4vcCredentials).supportedCredentialId,
-          namespaces: { 'org.iso.18013.5.1': payload },
+          namespaces: { [template.schema.name ?? 'org.iso.18013.5.1']: payload },
         } as OpenId4VcIssuanceSessionCreateOfferMsoMdocCredentialOptions
     }
     throw new Error(`Unsupported OID4VC credential format: ${template.credentialFormat}`)
@@ -280,21 +280,37 @@ export class CredentialV2Service {
     template: GetVerificationTemplateResponse,
     registration: SchemaRegistration,
   ): OpenId4VcVerificationSessionCreateRequestDto {
+    const MDL_ALG = ['ES256', 'ES384', 'ES512', 'EdDSA', 'ESB256', 'ESB320', 'ESB384', 'ESB512']
+
     if (template.credentialFormat === OpenId4VcCredentialFormat.MsoMdoc) {
+      const doctype = template.schema.name ?? 'org.iso.18013.5.1.mDL'
+      const namespace = template.schema.name ?? 'org.iso.18013.5.1'
       return {
         publicVerifierId: registration.did,
         requestSigner: {
           method: 'did',
           did: registration.did,
         },
-        dcql: {
-          query: {
-            credentials: [
+        presentationExchange: {
+          definition: {
+            id: v4(),
+            name: template.name,
+            input_descriptors: [
               {
-                format: 'mso_mdoc',
-                id: 'mdl-credential',
-                meta: { doctype_value: 'org.iso.18013.5.1.mDL' },
-                claims: fields.map((field) => ({ namespace: 'org.iso.18013.5.1', claim_name: field })),
+                id: doctype,
+                format: {
+                  mso_mdoc: {
+                    alg: MDL_ALG,
+                  },
+                },
+                constraints: {
+                  limit_disclosure: 'required',
+                  fields: fields.map((field) => ({
+                    path: [`$['${namespace}']['${field}']`],
+                    intent_to_retain: false,
+                  })),
+                },
+                name: template.name,
               },
             ],
           },
