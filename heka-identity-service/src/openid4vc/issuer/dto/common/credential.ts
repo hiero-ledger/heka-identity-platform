@@ -66,18 +66,23 @@ type SdJwtConfigRecord = CredoCredentialConfigurationSupportedWithId & {
   vct: string
   claims?: IssuerCredentialSubject
   order?: string[]
+  display?: DisplayMetadata[]
 }
 type JwtVcJsonConfigRecord = CredoCredentialConfigurationSupportedWithId & {
   credential_definition: CredentialDefinition
+  display?: DisplayMetadata[]
 }
 type JwtVcJsonLdConfigRecord = CredoCredentialConfigurationSupportedWithId & {
   credential_definition: CredentialDefinitionWithContext
+  display?: DisplayMetadata[]
 }
 type LdpVcConfigRecord = CredoCredentialConfigurationSupportedWithId & {
   credential_definition: CredentialDefinitionWithContext
+  display?: DisplayMetadata[]
 }
 type MsoMdocConfigRecord = CredoCredentialConfigurationSupportedWithId & {
   doctype: string
+  display?: DisplayMetadata[]
 }
 
 export class OpenId4VciCredentialConfigurationSupportedWithId {
