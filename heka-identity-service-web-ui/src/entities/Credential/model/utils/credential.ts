@@ -120,6 +120,7 @@ export interface BuildCredentialParams {
   credentialSupportedId: string;
   credentialValues: Record<string, string>;
   context?: Array<string>;
+  namespace?: string;
 }
 
 export const buildCredential = (params: BuildCredentialParams): OpenIdCredential => {
