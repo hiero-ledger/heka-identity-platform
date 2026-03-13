@@ -1,9 +1,9 @@
 import {
-  CredentialEventTypes,
-  CredentialExchangeRecord,
-  CredentialState,
-  CredentialStateChangedEvent,
-  RevocationNotificationReceivedEvent,
+  DidCommCredentialEventTypes,
+  DidCommCredentialExchangeRecord,
+  DidCommCredentialState,
+  DidCommCredentialStateChangedEvent,
+  DidCommRevocationNotificationReceivedEvent,
 } from '@credo-ts/didcomm'
 
 import { CredentialPreviewAttributeDto } from 'credential/dto'
@@ -14,7 +14,7 @@ export class CredentialStateChangeDetailsDto {
   public errorMessage?: string
   public credentialAttributes?: CredentialPreviewAttributeDto[]
 
-  public constructor(record: CredentialExchangeRecord) {
+  public constructor(record: DidCommCredentialExchangeRecord) {
     this.connectionId = record.connectionId
     this.threadId = record.threadId
     this.errorMessage = record.errorMessage
@@ -26,15 +26,15 @@ export class CredentialStateChangeDetailsDto {
 
 export class CredentialStateChangeDto {
   public id: string
-  public type: CredentialEventTypes
-  public state: CredentialState
+  public type: DidCommCredentialEventTypes
+  public state: DidCommCredentialState
   public details: CredentialStateChangeDetailsDto
 
-  public constructor(event: CredentialStateChangedEvent | RevocationNotificationReceivedEvent) {
-    const { credentialRecord } = event.payload
-    this.id = credentialRecord.id
+  public constructor(event: DidCommCredentialStateChangedEvent | DidCommRevocationNotificationReceivedEvent) {
+    const { credentialExchangeRecord } = event.payload
+    this.id = credentialExchangeRecord.id
     this.type = event.type
-    this.state = credentialRecord.state
-    this.details = new CredentialStateChangeDetailsDto(credentialRecord)
+    this.state = credentialExchangeRecord.state
+    this.details = new CredentialStateChangeDetailsDto(credentialExchangeRecord)
   }
 }

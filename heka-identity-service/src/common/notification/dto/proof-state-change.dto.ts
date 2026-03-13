@@ -1,8 +1,8 @@
 import {
-  ProofEventTypes,
-  ProofExchangeRecord,
-  ProofState,
-  ProofStateChangedEvent,
+  DidCommProofEventTypes,
+  DidCommProofExchangeRecord,
+  DidCommProofState,
+  DidCommProofStateChangedEvent,
 } from '@credo-ts/didcomm'
 
 export class ProofStateChangeDetailsDto {
@@ -11,7 +11,7 @@ export class ProofStateChangeDetailsDto {
   public isVerified?: boolean
   public errorMessage?: string
 
-  public constructor(record: ProofExchangeRecord) {
+  public constructor(record: DidCommProofExchangeRecord) {
     this.connectionId = record.connectionId
     this.threadId = record.threadId
     this.isVerified = record.isVerified
@@ -21,11 +21,11 @@ export class ProofStateChangeDetailsDto {
 
 export class ProofStateChangeDto {
   public id: string
-  public type: ProofEventTypes
-  public state: ProofState
+  public type: DidCommProofEventTypes
+  public state: DidCommProofState
   public details: ProofStateChangeDetailsDto
 
-  public constructor(event: ProofStateChangedEvent) {
+  public constructor(event: DidCommProofStateChangedEvent) {
     const { proofRecord } = event.payload
     this.id = proofRecord.id
     this.type = event.type

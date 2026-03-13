@@ -56,6 +56,7 @@ export const createCredentialRequestToCredentialMapper = (
       if (!holderKey) throw new Error('No holder key found for mdoc binding')
 
       return {
+        type: 'credentials' as const,
         format: ClaimFormat.MsoMdoc,
         credentials: [
           {
@@ -75,7 +76,8 @@ export const createCredentialRequestToCredentialMapper = (
       const vct = Array.isArray(issuanceMetadata.type) ? issuanceMetadata.type[0] : issuanceMetadata.type
 
       return {
-        format: ClaimFormat.SdJwtVc,
+        type: 'credentials' as const,
+        format: ClaimFormat.SdJwtDc,
         credentials: holderBinding.keys.map((binding) => ({
           holder: binding,
           issuer: {
@@ -116,6 +118,7 @@ export const createCredentialRequestToCredentialMapper = (
     if (issuanceMetadata.format === OpenId4VciCredentialFormatProfile.JwtVcJson) {
       const credential = new W3cCredential(baseCredential)
       return {
+        type: 'credentials' as const,
         format: ClaimFormat.JwtVc,
         credentials: [{ credential, verificationMethod }],
       }
@@ -127,6 +130,7 @@ export const createCredentialRequestToCredentialMapper = (
         ...baseCredential,
       })
       return {
+        type: 'credentials' as const,
         format: ClaimFormat.JwtVc,
         credentials: [{ credential, verificationMethod }],
       }
@@ -140,6 +144,7 @@ export const createCredentialRequestToCredentialMapper = (
         ...baseCredential,
       })
       return {
+        type: 'credentials' as const,
         format: ClaimFormat.LdpVc,
         credentials: [{ credential, verificationMethod }],
       }

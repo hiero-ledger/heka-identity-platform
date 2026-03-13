@@ -95,7 +95,6 @@ export default registerAs('agent', () => {
   }
 
   const initConfig: InitConfig = {
-    label,
     autoUpdateStorageOnStartup: true,
     allowInsecureHttpUrls: true,
   }

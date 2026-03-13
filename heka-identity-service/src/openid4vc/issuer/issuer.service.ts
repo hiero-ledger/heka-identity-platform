@@ -28,13 +28,13 @@ export class OpenId4VcIssuerService {
     tenantAgent: TenantAgent,
     options: OpenId4VcIssuersCreateDto,
   ): Promise<OpenId4VcIssuerRecordDto> {
-    const allIssuers = await tenantAgent.modules.openId4VcIssuer.getAllIssuers()
+    const allIssuers = await tenantAgent.modules.openId4Vc.issuer.getAllIssuers()
     const existingIssuers = allIssuers.filter((i) => i.issuerId === options.publicIssuerId)
     if (existingIssuers.length) {
       throw new ConflictException(`Issuer with DID ${options.publicIssuerId} has been already created`)
     }
 
-    const issuer = await tenantAgent.modules.openId4VcIssuer.createIssuer({
+    const issuer = await tenantAgent.modules.openId4Vc.issuer.createIssuer({
       issuerId: options.publicIssuerId,
       credentialConfigurationsSupported: this.parseCredentialsSupported(tenantAgent, options.credentialsSupported),
       display: options.display,
@@ -43,7 +43,7 @@ export class OpenId4VcIssuerService {
   }
 
   public async find(tenantAgent: TenantAgent, publicIssuerId: string): Promise<OpenId4VcIssuerRecordDto[]> {
-    const allIssuers = await tenantAgent.modules.openId4VcIssuer.getAllIssuers()
+    const allIssuers = await tenantAgent.modules.openId4Vc.issuer.getAllIssuers()
     const issuers = allIssuers.filter((i) => i.issuerId === publicIssuerId)
     return issuers.map((issuer) => OpenId4VcIssuerRecordDto.fromOpenIdVcIssuerRecord(issuer))
   }
@@ -53,7 +53,7 @@ export class OpenId4VcIssuerService {
     issuerId: string,
     req: OpenId4VcIssuersUpdateMetadataDto,
   ): Promise<OpenId4VcIssuerRecordDto> {
-    const issuer = await tenantAgent.modules.openId4VcIssuer.getIssuerByIssuerId(issuerId)
+    const issuer = await tenantAgent.modules.openId4Vc.issuer.getIssuerByIssuerId(issuerId)
 
     let credentialConfigurationsSupported = {}
     let display: OpenId4VciCredentialIssuerMetadataDisplay[] = []
@@ -89,13 +89,13 @@ export class OpenId4VcIssuerService {
     }
 
     // FIXME: should return the updated record, now we fetch (AGAIN!!)
-    await tenantAgent.modules.openId4VcIssuer.updateIssuerMetadata({
+    await tenantAgent.modules.openId4Vc.issuer.updateIssuerMetadata({
       issuerId,
       credentialConfigurationsSupported,
       display,
     })
 
-    const updatedIssuer = await tenantAgent.modules.openId4VcIssuer.getIssuerByIssuerId(issuerId)
+    const updatedIssuer = await tenantAgent.modules.openId4Vc.issuer.getIssuerByIssuerId(issuerId)
     return OpenId4VcIssuerRecordDto.fromOpenIdVcIssuerRecord(updatedIssuer)
   }
 
@@ -103,7 +103,7 @@ export class OpenId4VcIssuerService {
     tenantAgent: TenantAgent,
     query: FindSupportedCredentialsDto,
   ): Promise<OpenId4VciCredentialConfigurationSupportedWithId[]> {
-    const issuer = await tenantAgent.modules.openId4VcIssuer.getIssuerByIssuerId(query.publicIssuerId)
+    const issuer = await tenantAgent.modules.openId4Vc.issuer.getIssuerByIssuerId(query.publicIssuerId)
 
     return Object.entries(issuer.credentialConfigurationsSupported)
       .reduce<CredoCredentialConfigurationSupportedWithId[]>(

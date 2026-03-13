@@ -1,6 +1,5 @@
 import { SdJwtVcPayload } from '@credo-ts/core'
-import { OpenId4VciCredentialFormatProfile, OpenId4VcIssuerService } from '@credo-ts/openid4vc'
-import { OpenId4VcIssuanceSessionRepository } from '@credo-ts/openid4vc/build/openid4vc-issuer/repository'
+import { OpenId4VciCredentialFormatProfile, OpenId4VcIssuerService, OpenId4VcIssuanceSessionRepository } from '@credo-ts/openid4vc'
 import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
@@ -31,7 +30,7 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     req: OpenId4VcIssuanceSessionsCreateOfferDto,
   ): Promise<OpenId4VcIssuanceSessionsCreateOfferResponse> {
-    const issuer = await tenantAgent.modules.openId4VcIssuer.getIssuerByIssuerId(req.publicIssuerId)
+    const issuer = await tenantAgent.modules.openId4Vc.issuer.getIssuerByIssuerId(req.publicIssuerId)
 
     // TODO: It is better to we move setting credential status to `credentialRequestToCredentialMapper`
     //  to change status list when credential really requested but how??
@@ -125,7 +124,7 @@ export class OpenId4VcIssuanceSessionService {
       mappedCredentials.push(credentialIssuanceMeta)
     }
 
-    const { credentialOffer, issuanceSession } = await tenantAgent.modules.openId4VcIssuer.createCredentialOffer({
+    const { credentialOffer, issuanceSession } = await tenantAgent.modules.openId4Vc.issuer.createCredentialOffer({
       baseUri: req.baseUri,
       credentialConfigurationIds: req.credentials.map((c) => c.credentialSupportedId),
       issuerId: req.publicIssuerId,
@@ -173,7 +172,7 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     issuanceSessionId: string,
   ): Promise<OpenId4VcIssuanceSessionRecordDto> {
-    const issuanceSession = await tenantAgent.modules.openId4VcIssuer.getIssuanceSessionById(issuanceSessionId)
+    const issuanceSession = await tenantAgent.modules.openId4Vc.issuer.getIssuanceSessionById(issuanceSessionId)
 
     return OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(issuanceSession)
   }
@@ -194,7 +193,7 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     issuanceSessionId: string,
   ): Promise<void> {
-    const issuanceSession = await tenantAgent.modules.openId4VcIssuer.getIssuanceSessionById(issuanceSessionId)
+    const issuanceSession = await tenantAgent.modules.openId4Vc.issuer.getIssuanceSessionById(issuanceSessionId)
 
     const credentials = issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[]
     if (!credentials) throw new Error('Credential not found')

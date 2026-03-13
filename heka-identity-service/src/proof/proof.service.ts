@@ -6,7 +6,7 @@ import {
   AnonCredsRequestedPredicate,
 } from '@credo-ts/anoncreds'
 import { CredoError } from '@credo-ts/core'
-import { ProofState } from '@credo-ts/didcomm'
+import { DidCommProofState } from '@credo-ts/didcomm'
 import {
   BadRequestException,
   ConflictException,
@@ -105,12 +105,12 @@ export class ProofService {
     if (!proofRecord) {
       throw new NotFoundException('Proof record not found')
     }
-    if (proofRecord.state === ProofState.Done) {
+    if (proofRecord.state === DidCommProofState.Done) {
       throw new ConflictException('Proof is already presented')
     }
 
     try {
-      proofRecord = await tenantAgent.modules.proofs.acceptRequest({ proofRecordId: id })
+      proofRecord = await tenantAgent.modules.proofs.acceptRequest({ proofExchangeRecordId: id })
     } catch (err) {
       if (err instanceof CredoError && err.message === 'Unable to automatically select requested attributes') {
         throw new UnprocessableEntityException(err.message)

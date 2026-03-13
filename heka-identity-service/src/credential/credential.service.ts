@@ -1,4 +1,4 @@
-import { CredentialState } from '@credo-ts/didcomm'
+import { DidCommCredentialState } from '@credo-ts/didcomm'
 import {
   BadRequestException,
   ConflictException,
@@ -109,11 +109,11 @@ export class CredentialService {
     if (!credentialRecord) {
       throw new NotFoundException('Credential record not found')
     }
-    if (credentialRecord.state === CredentialState.Done) {
+    if (credentialRecord.state === DidCommCredentialState.Done) {
       throw new ConflictException('Credential is already accepted')
     }
 
-    credentialRecord = await tenantAgent.modules.credentials.acceptOffer({ credentialRecordId: id })
+    credentialRecord = await tenantAgent.modules.credentials.acceptOffer({ credentialExchangeRecordId: id })
     return new CredentialRecordDto(credentialRecord)
   }
 
