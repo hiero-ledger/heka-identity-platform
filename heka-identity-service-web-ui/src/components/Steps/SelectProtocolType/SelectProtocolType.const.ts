@@ -42,5 +42,9 @@ export const credentialTypes: Record<string, Array<Option>> = {
       value: Openid4CredentialFormat.LdpVc,
       content: Openid4CredentialFormat.LdpVc,
     },
+    {
+      value: Openid4CredentialFormat.MsoMdoc,
+      content: Openid4CredentialFormat.MsoMdoc,
+    },
   ],
 };

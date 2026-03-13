@@ -13,6 +13,7 @@ export enum Openid4CredentialFormat {
   JwtJson = 'jwt_vc_json',
   JwtJsonLd = 'jwt_vc_json-ld',
   LdpVc = 'ldp_vc',
+  MsoMdoc = 'mso_mdoc',
 }
 
 export type CredentialFormat = AriesCredentialFormat | Openid4CredentialFormat;
@@ -26,6 +27,7 @@ export enum Openid4CredentialRegistrationFormat {
   JwtJson = 'jwt_vc_json',
   JwtJsonLd = 'jwt_vc_json-ld',
   LdpVc = 'ldp_vc',
+  MsoMdoc = 'mso_mdoc',
 }
 
 export type CredentialRegistrationFormat =
@@ -46,6 +48,7 @@ export const credentialFormatToCredentialRegistrationFormat = (
     [Openid4CredentialFormat.JwtJsonLd]:
       Openid4CredentialRegistrationFormat.JwtJsonLd,
     [Openid4CredentialFormat.LdpVc]: Openid4CredentialRegistrationFormat.LdpVc,
+    [Openid4CredentialFormat.MsoMdoc]: Openid4CredentialRegistrationFormat.MsoMdoc,
   };
   return map[format];
 };

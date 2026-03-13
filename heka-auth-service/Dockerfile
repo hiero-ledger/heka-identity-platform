@@ -11,7 +11,7 @@ COPY . .
 RUN yarn test
 RUN yarn build
 
-FROM node:18-bullseye-slim
+FROM node:18-bookworm-slim
 
 RUN apt-get update && apt-get install curl -y
 

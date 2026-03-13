@@ -32,4 +32,9 @@ export const RegistrationTargets = [
     credentialFormat: Openid4CredentialRegistrationFormat.JwtJsonLd,
     network: DidMethods.Key,
   },
+  {
+    protocol: ProtocolType.Oid4vc,
+    credentialFormat: Openid4CredentialRegistrationFormat.MsoMdoc,
+    network: DidMethods.Key,
+  },
 ] as RegisterSchemaFormData[];

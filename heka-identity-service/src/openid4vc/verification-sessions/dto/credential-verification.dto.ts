@@ -64,6 +64,7 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
   public presentationExchange?: {
     definition: DifPresentationExchangeDefinitionV2
   }
+
 }
 
 export class OpenId4VcVerificationSessionCreateRequestResponse {

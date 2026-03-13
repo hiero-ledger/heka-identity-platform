@@ -402,6 +402,7 @@ paths:
               - jwt_vc_json-ld
               - ldp_vc
               - vc+sd-jwt
+              - mso_mdoc
         - name: network
           required: true
           in: query
@@ -2448,6 +2449,7 @@ components:
             - jwt_vc_json-ld
             - ldp_vc
             - vc+sd-jwt
+            - mso_mdoc
         network:
           type: string
           description: Network
@@ -2660,6 +2662,7 @@ components:
             - jwt_vc_json-ld
             - ldp_vc
             - vc+sd-jwt
+            - mso_mdoc
         network:
           type: string
           description: Network
@@ -3444,6 +3447,7 @@ components:
             - jwt_vc_json
             - jwt_vc_json-ld
             - ldp_vc
+            - mso_mdoc
         display:
           type: array
           items:
@@ -3647,6 +3651,8 @@ components:
         idToken:
           type: boolean
         presentationExchange:
+          type: object
+        dcql:
           type: object
       required:
         - publicVerifierId

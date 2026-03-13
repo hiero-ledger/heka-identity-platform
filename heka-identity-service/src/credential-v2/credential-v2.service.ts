@@ -24,6 +24,7 @@ import {
   OpenId4VcIssuanceSessionCreateOfferJwtVcJsonCredentialOptions,
   OpenId4VcIssuanceSessionCreateOfferJwtVcJsonLdCredentialOptions,
   OpenId4VcIssuanceSessionCreateOfferLdpVcCredentialOptions,
+  OpenId4VcIssuanceSessionCreateOfferMsoMdocCredentialOptions,
   OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions,
   OpenId4VcIssuanceSessionsCreateOfferResponse,
 } from 'openid4vc/issuance-sessions/dto/credential-offer.dto'
@@ -102,7 +103,7 @@ export class CredentialV2Service {
     if (!request.connectionId) {
       throw new UnprocessableEntityException(`Connection ID must me specified for Aries protocol`)
     }
-    const connectionRecord = await tenantAgent.didcomm.connections.findById(request.connectionId)
+    const connectionRecord = await tenantAgent.modules.connections.findById(request.connectionId)
     if (!connectionRecord) {
       throw new UnprocessableEntityException(`Referenced connection with ID=${request.connectionId} not found`)
     }
@@ -230,7 +231,14 @@ export class CredentialV2Service {
           credentialSubject: payload,
           '@context': ['https://www.w3.org/2018/credentials/v1'],
         } as OpenId4VcIssuanceSessionCreateOfferLdpVcCredentialOptions
+      case OpenId4VcCredentialFormat.MsoMdoc:
+        return {
+          format: OpenId4VciCredentialFormatProfile.MsoMdoc,
+          credentialSupportedId: (registration.credentials as Oid4vcCredentials).supportedCredentialId,
+          namespaces: { [template.schema.name ?? 'org.iso.18013.5.1']: payload },
+        } as OpenId4VcIssuanceSessionCreateOfferMsoMdocCredentialOptions
     }
+    throw new Error(`Unsupported OID4VC credential format: ${template.credentialFormat}`)
   }
 
   private async proofForAries(
@@ -241,7 +249,7 @@ export class CredentialV2Service {
     if (!request.connectionId) {
       throw new UnprocessableEntityException(`Connection ID must me specified for Aries protocol`)
     }
-    const connectionRecord = await tenantAgent.didcomm.connections.findById(request.connectionId)
+    const connectionRecord = await tenantAgent.modules.connections.findById(request.connectionId)
     if (!connectionRecord) {
       throw new UnprocessableEntityException(`Referenced connection with ID=${request.connectionId} not found`)
     }
@@ -272,6 +280,44 @@ export class CredentialV2Service {
     template: GetVerificationTemplateResponse,
     registration: SchemaRegistration,
   ): OpenId4VcVerificationSessionCreateRequestDto {
+    const MDL_ALG = ['ES256', 'ES384', 'ES512', 'EdDSA', 'ESB256', 'ESB320', 'ESB384', 'ESB512']
+
+    if (template.credentialFormat === OpenId4VcCredentialFormat.MsoMdoc) {
+      const doctype = template.schema.name ?? 'org.iso.18013.5.1.mDL'
+      const namespace = template.schema.name ?? 'org.iso.18013.5.1'
+      return {
+        publicVerifierId: registration.did,
+        requestSigner: {
+          method: 'did',
+          did: registration.did,
+        },
+        presentationExchange: {
+          definition: {
+            id: v4(),
+            name: template.name,
+            input_descriptors: [
+              {
+                id: doctype,
+                format: {
+                  mso_mdoc: {
+                    alg: MDL_ALG,
+                  },
+                },
+                constraints: {
+                  limit_disclosure: 'required',
+                  fields: fields.map((field) => ({
+                    path: [`$['${namespace}']['${field}']`],
+                    intent_to_retain: false,
+                  })),
+                },
+                name: template.name,
+              },
+            ],
+          },
+        },
+      }
+    }
+
     let inputDescriptors: DifPresentationExchangeInputDescriptor[]
     if (template.credentialFormat === OpenId4VcCredentialFormat.SdJwtVc) {
       inputDescriptors = [
@@ -373,5 +419,6 @@ export class CredentialV2Service {
           },
         }
     }
+    throw new Error(`Unsupported Aries proof format: ${template.credentialFormat}`)
   }
 }

@@ -19,7 +19,7 @@ export class CredentialStateChangeDetailsDto {
     this.threadId = record.threadId
     this.errorMessage = record.errorMessage
     this.credentialAttributes = record.credentialAttributes?.map(
-      (attribute) => new CredentialPreviewAttributeDto(attribute),
+      (attribute: { name: string; value: string; mimeType?: string }) => new CredentialPreviewAttributeDto(attribute),
     )
   }
 }

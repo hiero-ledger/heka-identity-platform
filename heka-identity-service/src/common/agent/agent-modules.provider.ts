@@ -21,10 +21,14 @@ import {
 import {
   DidCommAutoAcceptCredential,
   DidCommAutoAcceptProof,
-  DidCommModule,
-  DidCommDifPresentationExchangeProofFormatService,
+  DidCommConnectionsModule,
   DidCommCredentialV2Protocol,
+  DidCommCredentialsModule,
+  DidCommDifPresentationExchangeProofFormatService,
+  DidCommModule,
+  DidCommOutOfBandModule,
   DidCommProofV2Protocol,
+  DidCommProofsModule,
 } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import {
@@ -42,7 +46,7 @@ import { askar } from '@openwallet-foundation/askar-nodejs'
 
 import AgentConfig from 'config/agent'
 import AppConfig from 'config/express'
-import { credentialRequestToCredentialMapper } from 'utils/oid4vc'
+import { createCredentialRequestToCredentialMapper } from 'utils/oid4vc'
 
 import { TailsService } from '../../revocation/revocation-registry/tails.service'
 import { IndyBesuAnonCredsRegistry, IndyBesuDidRegistrar, IndyBesuDidResolver, IndyBesuModule } from '../indy-besu-vdr'
@@ -78,32 +82,32 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
   return {
     didcomm: new DidCommModule({
       ...agencyConfig.didCommConfig,
-      messagePickup: true,
-      connections: {
-        autoAcceptConnections: true,
-      },
-      credentials: {
-        autoAcceptCredentials: DidCommAutoAcceptCredential.ContentApproved,
-        credentialProtocols: [
-          new DidCommCredentialV2Protocol({
-            credentialFormats: [
-              credentialFormatService,
-              legacyIndyCredentialFormatService,
-              dataIntegrityCredentialFormatService,
-              // new JsonLdCredentialFormatService()
-            ],
-          }),
-        ],
-      },
-      proofs: {
-        autoAcceptProofs: DidCommAutoAcceptProof.ContentApproved,
-        proofProtocols: [
-          new DidCommProofV2Protocol({
-            proofFormats: [legacyIndyProofFormatService, proofFormatService, presentationExchangeProofFormatService],
-          }),
-        ],
-      },
     }),
+    connections: new DidCommConnectionsModule({
+      autoAcceptConnections: true,
+    }),
+    credentials: new DidCommCredentialsModule({
+      autoAcceptCredentials: DidCommAutoAcceptCredential.ContentApproved,
+      credentialProtocols: [
+        new DidCommCredentialV2Protocol({
+          credentialFormats: [
+            credentialFormatService,
+            legacyIndyCredentialFormatService,
+            dataIntegrityCredentialFormatService,
+            // new JsonLdCredentialFormatService()
+          ],
+        }),
+      ],
+    }),
+    proofs: new DidCommProofsModule({
+      autoAcceptProofs: DidCommAutoAcceptProof.ContentApproved,
+      proofProtocols: [
+        new DidCommProofV2Protocol({
+          proofFormats: [legacyIndyProofFormatService, proofFormatService, presentationExchangeProofFormatService],
+        }),
+      ],
+    }),
+    oob: new DidCommOutOfBandModule(),
     dids: new DidsModule({
       resolvers: didResolvers,
       registrars: didRegistrars,
@@ -121,15 +125,16 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       askar,
       store: agencyConfig.askarStoreConfig,
     }),
-    openid4vc: new OpenId4VcModule({
+    openId4Vc: new OpenId4VcModule({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      app: agencyConfig.oidConfig.app as any,
       issuer: {
         baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
-        credentialRequestToCredentialMapper,
+        credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(agencyConfig.mdlIssuerCertificate),
       },
       verifier: {
         baseUrl: agencyConfig.oidConfig.verificationEndpoint,
       },
-      app: agencyConfig.oidConfig.app,
     }),
     ledgerSdk: new IndyVdrModule({
       indyVdr,

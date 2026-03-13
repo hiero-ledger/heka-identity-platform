@@ -5,7 +5,7 @@ import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator'
 
 import { CredentialValue } from 'credential-v2/dto/offer-by-template'
 
-export type CredentialProofState = OpenId4VcVerificationSessionState | DidCommProofState
+export type CredentialDidCommProofState = OpenId4VcVerificationSessionState | DidCommProofState
 
 export class ProofByVerificationTemplateRequest {
   @ApiProperty({ description: 'ID of issuance template' })
@@ -46,7 +46,7 @@ export class ProofByVerificationTemplateResponse {
       { type: 'string', enum: Object.values(DidCommCredentialState) },
     ],
   })
-  public state!: CredentialProofState
+  public state!: CredentialDidCommProofState
 
   public constructor(partial?: Partial<ProofByVerificationTemplateRequest>) {
     Object.assign(this, partial)
