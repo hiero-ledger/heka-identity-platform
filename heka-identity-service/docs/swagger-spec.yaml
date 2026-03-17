@@ -3652,8 +3652,6 @@ components:
           type: boolean
         presentationExchange:
           type: object
-        dcql:
-          type: object
       required:
         - publicVerifierId
         - requestSigner

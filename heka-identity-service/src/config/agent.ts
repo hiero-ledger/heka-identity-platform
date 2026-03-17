@@ -119,6 +119,9 @@ export default registerAs('agent', () => {
   }
 
   const mdlIssuerCertificate = process.env.MDL_ISSUER_CERTIFICATE
+  const mdlIssuerPrivateKeyJwk = process.env.MDL_ISSUER_PRIVATE_KEY
+    ? (JSON.parse(process.env.MDL_ISSUER_PRIVATE_KEY) as Record<string, string>)
+    : undefined
 
   const credentialsConfiguration: CredentialsConfiguration = {
     [ProtocolType.Oid4vc]: {
@@ -160,5 +163,6 @@ export default registerAs('agent', () => {
     hederaOperatorKey,
     credentialsConfiguration,
     mdlIssuerCertificate,
+    mdlIssuerPrivateKeyJwk,
   }
 })

@@ -7,6 +7,12 @@ const workspaceDir = path.join(projectDir, '../')
 
 const nodeModulesDir = path.join(workspaceDir, 'node_modules')
 
+// Resolve the single canonical copy of @peculiar/asn1-schema at config load time.
+// Multiple nested copies (2.3.8) exist under @credo-ts/core, @peculiar/x509,
+// webcrypto-core, and @peculiar/webcrypto. They each get a separate AsnSchemaStorage
+// instance causing "Cannot get schema for 'Certificate' target" during mDL validation.
+const asn1SchemaEntry = require.resolve('@peculiar/asn1-schema', { paths: [workspaceDir] })
+
 const packageDirs = [
   fs.realpathSync(path.join(nodeModulesDir, '@hyperledger/aries-oca')),
   fs.realpathSync(path.join(nodeModulesDir, '@hyperledger/aries-bifold-core')),
@@ -55,7 +61,23 @@ const config = {
   resolver: {
     unstable_enablePackageExports: true,
     unstable_conditionNames: ['react-native', 'browser', 'import', 'require'],
-    blacklistRE: exclusionList(extraExclusionlist.map((m) => new RegExp(`^${escape(m)}\\/.*$`))),
+    blacklistRE: exclusionList([
+      ...extraExclusionlist.map((m) => new RegExp(`^${escape(m)}\\/.*$`)),
+      // Block all nested copies of @peculiar/asn1-schema so only the workspace-root
+      // version (2.3.13) is bundled — prevents split AsnSchemaStorage instances.
+      new RegExp(`^${escape(path.join(nodeModulesDir, '@credo-ts/core/node_modules/@peculiar/asn1-schema'))}\\/.*$`),
+      new RegExp(`^${escape(path.join(nodeModulesDir, '@peculiar/x509/node_modules/@peculiar/asn1-schema'))}\\/.*$`),
+      new RegExp(`^${escape(path.join(nodeModulesDir, 'webcrypto-core/node_modules/@peculiar/asn1-schema'))}\\/.*$`),
+      new RegExp(`^${escape(path.join(nodeModulesDir, '@peculiar/webcrypto/node_modules/@peculiar/asn1-schema'))}\\/.*$`),
+    ]),
+    resolveRequest: (context, moduleName, platform) => {
+      if (moduleName === '@peculiar/asn1-schema') {
+        // Directly return the workspace-root version — bypasses Metro's default
+        // hierarchical node_modules lookup which would find nested copies first.
+        return { filePath: asn1SchemaEntry, type: 'sourceFile' }
+      }
+      return context.resolveRequest(context, moduleName, platform)
+    },
     assetExts: assetExts.filter((ext) => ext !== 'svg'),
     sourceExts: [...sourceExts, 'svg', 'cjs'],
     extraNodeModules: {

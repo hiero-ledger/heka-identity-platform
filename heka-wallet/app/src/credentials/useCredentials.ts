@@ -6,7 +6,7 @@ import { TOKENS, useServices, useStore } from '@hyperledger/aries-bifold-core'
 import { isEqual } from 'lodash'
 import { useCallback, useEffect, useState } from 'react'
 
-import { useSdJwtVcRecords, useW3cCredentialRecords } from '../contexts'
+import { useMdocRecords, useSdJwtVcRecords, useW3cCredentialRecords } from '../contexts'
 
 import { mapCredentialRecord } from './mappers'
 import { Credential, CredentialRecord } from './types'
@@ -33,6 +33,7 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
 
   const { w3cCredentialRecords, isLoading: isW3cCredentialsLoading } = useW3cCredentialRecords()
   const { sdJwtVcRecords, isLoading: isSdJwtCredentialsLoading } = useSdJwtVcRecords()
+  const { mdocCredentialRecords, isLoading: isMdocCredentialsLoading } = useMdocRecords()
 
   const credentialExchangeRecords = useCredentialByState([CredentialState.CredentialReceived, CredentialState.Done])
   const previousCredentialExchangeRecords = usePrevious(credentialExchangeRecords)
@@ -53,7 +54,7 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
   const [isLoading, setIsLoading] = useState(true)
 
   const loadCredentials = useCallback(async () => {
-    if (!agent?.wallet.isInitialized || isW3cCredentialsLoading || isSdJwtCredentialsLoading) return
+    if (!agent?.wallet.isInitialized || isW3cCredentialsLoading || isSdJwtCredentialsLoading || isMdocCredentialsLoading) return
 
     setIsLoading(true)
     try {
@@ -79,6 +80,7 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
         // Filter W3C records that already presented by Anocreds (Credential exchange) records
         ...w3cCredentialRecords.filter((record) => !w3cAnoncredsRecordIds.includes(record.id)),
         ...sdJwtVcRecords,
+        ...mdocCredentialRecords,
       ]
 
       credentialRecords.sort(compareCredentialRecordsByMostRecent)
@@ -98,9 +100,11 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
     agent,
     isSdJwtCredentialsLoading,
     isW3cCredentialsLoading,
+    isMdocCredentialsLoading,
     anoncredsCredentials,
     w3cCredentialRecords,
     sdJwtVcRecords,
+    mdocCredentialRecords,
     store.preferences.developerModeEnabled,
     credentialHideList,
     maxCount,

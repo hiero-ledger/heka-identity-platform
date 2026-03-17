@@ -1,6 +1,6 @@
 import type { JsonObject } from '@credo-ts/core'
 
-import { ClaimFormat, SdJwtVcPayload, W3cCredential, W3cCredentialSubject, X509Certificate, w3cDate } from '@credo-ts/core'
+import { ClaimFormat, Kms, SdJwtVcPayload, W3cCredential, W3cCredentialSubject, X509Certificate, w3cDate } from '@credo-ts/core'
 import {
   OpenId4VciCredentialFormatProfile,
   OpenId4VciCredentialRequestToCredentialMapper,
@@ -34,8 +34,9 @@ export interface CredentialIssuanceMetadata {
 
 export const createCredentialRequestToCredentialMapper = (
   mdlIssuerCertificate?: string,
+  mdlIssuerPrivateKeyJwk?: Record<string, string>,
 ): OpenId4VciCredentialRequestToCredentialMapper =>
-  ({ issuanceSession, holderBinding, credentialConfigurationId }): OpenId4VciSignCredentials => {
+  async ({ agentContext, issuanceSession, holderBinding, credentialConfigurationId }): Promise<OpenId4VciSignCredentials> => {
     const credentials = issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[]
     if (!credentials) throw new Error('Not implemented')
 
@@ -52,6 +53,16 @@ export const createCredentialRequestToCredentialMapper = (
       if (!issuanceMetadata.namespaces) throw new Error(`Invalid credential issuance metadata: 'namespaces' is missing`)
 
       const issuerCertificate = X509Certificate.fromEncodedCertificate(mdlIssuerCertificate)
+      if (mdlIssuerPrivateKeyJwk) {
+        issuerCertificate.publicJwk.keyId = mdlIssuerPrivateKeyJwk.kid
+        const kms = agentContext.resolve(Kms.KeyManagementApi)
+        try {
+          await kms.importKey({ privateJwk: mdlIssuerPrivateKeyJwk as unknown as Kms.KmsJwkPrivate })
+        } catch (e) {
+          const isDuplicateEntry = e instanceof Error && e.message === 'Duplicate entry'
+          if (!(e instanceof Kms.KeyManagementKeyExistsError) && !isDuplicateEntry) throw e
+        }
+      }
       const holderKey = holderBinding.keys[0]?.jwk
       if (!holderKey) throw new Error('No holder key found for mdoc binding')
 

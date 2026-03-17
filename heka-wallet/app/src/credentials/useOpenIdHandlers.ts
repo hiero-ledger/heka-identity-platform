@@ -6,6 +6,8 @@ import {
   JwaSignatureAlgorithm,
   JwkDidCreateOptions,
   KeyDidCreateOptions,
+  Mdoc,
+  MdocRecord,
   SdJwtVcRecord,
   W3cCredentialRecord,
 } from '@credo-ts/core'
@@ -234,13 +236,15 @@ export const useOpenIdHandlers = () => {
       const [firstCredential] = credentials
       if (!firstCredential) throw new Error('Error retrieving credential.')
 
-      let record: SdJwtVcRecord | W3cCredentialRecord
+      let record: SdJwtVcRecord | W3cCredentialRecord | MdocRecord
 
       // TODO: Add claimFormat to SdJwtVc
       if ('compact' in firstCredential.credential) {
         record = new SdJwtVcRecord({
           compactSdJwtVc: firstCredential.credential.compact,
         })
+      } else if (firstCredential.credential instanceof Mdoc) {
+        record = new MdocRecord({ mdoc: firstCredential.credential })
       } else {
         record = new W3cCredentialRecord({
           credential: firstCredential.credential,

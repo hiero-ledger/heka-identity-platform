@@ -132,7 +132,7 @@ export class OpenId4VcVerificationSessionService {
   private static isJwtVcJsonPresentation(
     presentation: VerifiablePresentation,
   ): presentation is W3cJwtVerifiablePresentation {
-    return (presentation as W3cJwtVerifiablePresentation).jwt.header?.typ === 'JWT'
+    return (presentation as W3cJwtVerifiablePresentation).jwt?.header?.typ === 'JWT'
   }
 
   private static isMdocPresentation(presentation: VerifiablePresentation): presentation is MdocDeviceResponse {
