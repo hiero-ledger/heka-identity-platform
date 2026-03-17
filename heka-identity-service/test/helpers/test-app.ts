@@ -104,6 +104,7 @@ export async function startTestApp(): Promise<INestApplication> {
             app: agencyConfig.oidConfig.app as any,
             credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(
               agencyConfig.mdlIssuerCertificate,
+              agencyConfig.mdlIssuerPrivateKeyJwk,
             ),
           }),
           openId4VcVerifier: new OpenId4VcVerifierModule({

@@ -28,7 +28,7 @@ export class OpenId4VcVerificationSessionService {
     }
 
     const { authorizationRequest, verificationSession } =
-      await tenantAgent.modules.openId4Vc.verifier.createAuthorizationRequest({
+      await tenantAgent.openid4vc.verifier.createAuthorizationRequest({
         requestSigner: {
           method: 'did',
           didUrl: didDocument.verificationMethod[0].id,
@@ -83,7 +83,7 @@ export class OpenId4VcVerificationSessionService {
 
     if (verificationSessionRecord.state === OpenId4VcVerificationSessionState.ResponseVerified) {
       const verifiedAuthorizationResponse =
-        await tenantAgent.modules.openId4Vc.verifier.getVerifiedAuthorizationResponse(verificationSessionId)
+        await tenantAgent.openid4vc.verifier.getVerifiedAuthorizationResponse(verificationSessionId)
 
       const presentations = verifiedAuthorizationResponse.presentationExchange?.presentations
       if (!presentations?.length) {

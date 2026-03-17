@@ -177,6 +177,3 @@ export const createCredentialRequestToCredentialMapper =
 
     throw new Error('Not implemented')
   }
-
-// Keep backward-compatible export for any direct usages
-export const credentialRequestToCredentialMapper = createCredentialRequestToCredentialMapper()

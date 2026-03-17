@@ -21,14 +21,10 @@ import {
 import {
   DidCommAutoAcceptCredential,
   DidCommAutoAcceptProof,
-  DidCommConnectionsModule,
   DidCommCredentialV2Protocol,
-  DidCommCredentialsModule,
   DidCommDifPresentationExchangeProofFormatService,
   DidCommModule,
-  DidCommOutOfBandModule,
   DidCommProofV2Protocol,
-  DidCommProofsModule,
 } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import {
@@ -82,32 +78,32 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
   return {
     didcomm: new DidCommModule({
       ...agencyConfig.didCommConfig,
+      messagePickup: true,
+      connections: {
+        autoAcceptConnections: true,
+      },
+      credentials: {
+        autoAcceptCredentials: DidCommAutoAcceptCredential.ContentApproved,
+        credentialProtocols: [
+          new DidCommCredentialV2Protocol({
+            credentialFormats: [
+              credentialFormatService,
+              legacyIndyCredentialFormatService,
+              dataIntegrityCredentialFormatService,
+              // new JsonLdCredentialFormatService()
+            ],
+          }),
+        ],
+      },
+      proofs: {
+        autoAcceptProofs: DidCommAutoAcceptProof.ContentApproved,
+        proofProtocols: [
+          new DidCommProofV2Protocol({
+            proofFormats: [legacyIndyProofFormatService, proofFormatService, presentationExchangeProofFormatService],
+          }),
+        ],
+      },
     }),
-    connections: new DidCommConnectionsModule({
-      autoAcceptConnections: true,
-    }),
-    credentials: new DidCommCredentialsModule({
-      autoAcceptCredentials: DidCommAutoAcceptCredential.ContentApproved,
-      credentialProtocols: [
-        new DidCommCredentialV2Protocol({
-          credentialFormats: [
-            credentialFormatService,
-            legacyIndyCredentialFormatService,
-            dataIntegrityCredentialFormatService,
-            // new JsonLdCredentialFormatService()
-          ],
-        }),
-      ],
-    }),
-    proofs: new DidCommProofsModule({
-      autoAcceptProofs: DidCommAutoAcceptProof.ContentApproved,
-      proofProtocols: [
-        new DidCommProofV2Protocol({
-          proofFormats: [legacyIndyProofFormatService, proofFormatService, presentationExchangeProofFormatService],
-        }),
-      ],
-    }),
-    oob: new DidCommOutOfBandModule(),
     dids: new DidsModule({
       resolvers: didResolvers,
       registrars: didRegistrars,
@@ -125,9 +121,8 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       askar,
       store: agencyConfig.askarStoreConfig,
     }),
-    openId4Vc: new OpenId4VcModule({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      app: agencyConfig.oidConfig.app as any,
+    openid4vc: new OpenId4VcModule({
+      app: agencyConfig.oidConfig.app,
       issuer: {
         baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
         credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(

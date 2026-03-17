@@ -19,7 +19,7 @@ export class OpenId4VcVerifierService {
       throw new ConflictException(`Verifier with DID ${options.publicVerifierId} has been already created`)
     }
 
-    const verifier = await tenantAgent.modules.openId4Vc.verifier.createVerifier({
+    const verifier = await tenantAgent.openid4vc.verifier.createVerifier({
       verifierId: options.publicVerifierId,
     })
     return OpenId4VcVerifierRecordDto.fromOpenId4VcVerifierRecord(verifier)

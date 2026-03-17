@@ -33,7 +33,7 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     req: OpenId4VcIssuanceSessionsCreateOfferDto,
   ): Promise<OpenId4VcIssuanceSessionsCreateOfferResponse> {
-    const issuer = await tenantAgent.modules.openId4Vc.issuer.getIssuerByIssuerId(req.publicIssuerId)
+    const issuer = await tenantAgent.openid4vc.issuer.getIssuerByIssuerId(req.publicIssuerId)
 
     // TODO: It is better to we move setting credential status to `credentialRequestToCredentialMapper`
     //  to change status list when credential really requested but how??
@@ -129,7 +129,7 @@ export class OpenId4VcIssuanceSessionService {
       mappedCredentials.push(credentialIssuanceMeta)
     }
 
-    const { credentialOffer, issuanceSession } = await tenantAgent.modules.openId4Vc.issuer.createCredentialOffer({
+    const { credentialOffer, issuanceSession } = await tenantAgent.openid4vc.issuer.createCredentialOffer({
       baseUri: req.baseUri,
       credentialConfigurationIds: req.credentials.map((c) => c.credentialSupportedId),
       issuerId: req.publicIssuerId,
@@ -177,7 +177,7 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     issuanceSessionId: string,
   ): Promise<OpenId4VcIssuanceSessionRecordDto> {
-    const issuanceSession = await tenantAgent.modules.openId4Vc.issuer.getIssuanceSessionById(issuanceSessionId)
+    const issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
 
     return OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(issuanceSession)
   }
@@ -198,7 +198,7 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     issuanceSessionId: string,
   ): Promise<void> {
-    const issuanceSession = await tenantAgent.modules.openId4Vc.issuer.getIssuanceSessionById(issuanceSessionId)
+    const issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
 
     const credentials = issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[]
     if (!credentials) throw new Error('Credential not found')
