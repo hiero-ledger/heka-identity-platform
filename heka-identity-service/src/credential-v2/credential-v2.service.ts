@@ -282,44 +282,30 @@ export class CredentialV2Service {
   ): OpenId4VcVerificationSessionCreateRequestDto {
     const MDL_ALG = ['ES256', 'ES384', 'ES512', 'EdDSA', 'ESB256', 'ESB320', 'ESB384', 'ESB512']
 
+    let inputDescriptors: DifPresentationExchangeInputDescriptor[]
     if (template.credentialFormat === OpenId4VcCredentialFormat.MsoMdoc) {
       const doctype = template.schema.name ?? 'org.iso.18013.5.1.mDL'
       const namespace = template.schema.name ?? 'org.iso.18013.5.1'
-      return {
-        publicVerifierId: registration.did,
-        requestSigner: {
-          method: 'did',
-          did: registration.did,
-        },
-        presentationExchange: {
-          definition: {
-            id: v4(),
-            name: template.name,
-            input_descriptors: [
-              {
-                id: doctype,
-                format: {
-                  mso_mdoc: {
-                    alg: MDL_ALG,
-                  },
-                },
-                constraints: {
-                  limit_disclosure: 'required',
-                  fields: fields.map((field) => ({
-                    path: [`$['${namespace}']['${field}']`],
-                    intent_to_retain: false,
-                  })),
-                },
-                name: template.name,
-              },
-            ],
+      inputDescriptors = [
+        {
+          id: doctype,
+          format: {
+            mso_mdoc: {
+              alg: MDL_ALG,
+            },
           },
+          constraints: {
+            limit_disclosure: 'required',
+            fields: fields.map((field) => ({
+              path: [`$['${namespace}']['${field}']`],
+              intent_to_retain: false,
+            })),
+          },
+          name: template.name,
+          purpose: 'To obtain credential data',
         },
-      }
-    }
-
-    let inputDescriptors: DifPresentationExchangeInputDescriptor[]
-    if (template.credentialFormat === OpenId4VcCredentialFormat.SdJwtVc) {
+      ]
+    } else if (template.credentialFormat === OpenId4VcCredentialFormat.SdJwtVc) {
       inputDescriptors = [
         {
           id: v4(),
@@ -353,6 +339,7 @@ export class CredentialV2Service {
         },
       ]
     }
+
     return {
       publicVerifierId: registration.did,
       requestSigner: {
@@ -362,7 +349,7 @@ export class CredentialV2Service {
       presentationExchange: {
         definition: {
           id: v4(),
-          name: template.schema.name,
+          name: template.name,
           input_descriptors: inputDescriptors,
         },
       },
