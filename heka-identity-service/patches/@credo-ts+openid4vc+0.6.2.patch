@@ -1,0 +1,20 @@
+diff --git a/node_modules/@credo-ts/openid4vc/build/openid4vc-verifier/OpenId4VpVerifierService.mjs b/node_modules/@credo-ts/openid4vc/build/openid4vc-verifier/OpenId4VpVerifierService.mjs
+index 12461a5..a02eb22 100644
+--- a/node_modules/@credo-ts/openid4vc/build/openid4vc-verifier/OpenId4VpVerifierService.mjs
++++ b/node_modules/@credo-ts/openid4vc/build/openid4vc-verifier/OpenId4VpVerifierService.mjs
+@@ -617,6 +617,15 @@ let OpenId4VpVerifierService = class OpenId4VpVerifierService {
+ 							verifierGeneratedNonce: options.nonce,
+ 							encryptionJwk: options.encryptionJwk
+ 						};
++					} else if (options.version === "v1.draft21") {
++						if (!options.mdocGeneratedNonce || !options.responseUri) throw new CredoError("mdocGeneratedNonce and responseUri are required for mdoc openid4vp session transcript calculation");
++						sessionTranscriptOptions = {
++							type: "openId4VpDraft21",
++							clientId: options.clientId,
++							mdocGeneratedNonce: options.mdocGeneratedNonce,
++							responseUri: options.responseUri,
++							verifierGeneratedNonce: options.nonce
++						};
+ 					} else {
+ 						if (!options.mdocGeneratedNonce || !options.responseUri) throw new CredoError("mdocGeneratedNonce and responseUri are required for mdoc openid4vp session transcript calculation");
+ 						sessionTranscriptOptions = {

@@ -1,0 +1,16 @@
+diff --git a/node_modules/@credo-ts/core/build/modules/mdoc/MdocDeviceResponse.mjs b/node_modules/@credo-ts/core/build/modules/mdoc/MdocDeviceResponse.mjs
+index 5be85d4..f6431f5 100644
+--- a/node_modules/@credo-ts/core/build/modules/mdoc/MdocDeviceResponse.mjs
++++ b/node_modules/@credo-ts/core/build/modules/mdoc/MdocDeviceResponse.mjs
+@@ -201,6 +201,11 @@ var MdocDeviceResponse = class MdocDeviceResponse {
+ 				])
+ 			})]
+ 		]));
++		if (options.type === "openId4VpDraft21") return cborEncode(DataItem.fromData([
++			null,
++			null,
++			[options.mdocGeneratedNonce, options.clientId, options.responseUri, options.verifierGeneratedNonce]
++		]));
+ 		if (options.type === "openId4VpDraft18") return await DeviceResponse.calculateSessionTranscriptBytesForOID4VP({
+ 			...options,
+ 			context
