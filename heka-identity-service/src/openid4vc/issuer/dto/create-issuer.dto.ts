@@ -9,6 +9,7 @@ import {
   OpenId4VciJwtVcJsonCredentialSupportedWithId,
   OpenId4VciJwtVcJsonLdCredentialSupportedWithId,
   OpenId4VciLdpVcCredentialSupportedWithId,
+  OpenId4VciMsoMdocCredentialSupportedWithId,
   OpenId4VciSdJwtCredentialSupportedWithId,
 } from './common/credential'
 
@@ -125,6 +126,10 @@ export class OpenId4VcIssuersCreateDto {
           value: OpenId4VciLdpVcCredentialSupportedWithId,
           name: CredentialFormat.LdpVc,
         },
+        {
+          value: OpenId4VciMsoMdocCredentialSupportedWithId,
+          name: CredentialFormat.MsoMdoc,
+        },
       ],
     },
   })
@@ -133,6 +138,7 @@ export class OpenId4VcIssuersCreateDto {
     | OpenId4VciJwtVcJsonCredentialSupportedWithId
     | OpenId4VciJwtVcJsonLdCredentialSupportedWithId
     | OpenId4VciLdpVcCredentialSupportedWithId
+    | OpenId4VciMsoMdocCredentialSupportedWithId
   >
 
   @ApiPropertyOptional()

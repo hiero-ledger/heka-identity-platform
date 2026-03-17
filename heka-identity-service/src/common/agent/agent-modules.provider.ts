@@ -21,9 +21,9 @@ import {
 import {
   DidCommAutoAcceptCredential,
   DidCommAutoAcceptProof,
-  DidCommModule,
-  DidCommDifPresentationExchangeProofFormatService,
   DidCommCredentialV2Protocol,
+  DidCommDifPresentationExchangeProofFormatService,
+  DidCommModule,
   DidCommProofV2Protocol,
 } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
@@ -42,7 +42,7 @@ import { askar } from '@openwallet-foundation/askar-nodejs'
 
 import AgentConfig from 'config/agent'
 import AppConfig from 'config/express'
-import { credentialRequestToCredentialMapper } from 'utils/oid4vc'
+import { createCredentialRequestToCredentialMapper } from 'utils/oid4vc'
 
 import { TailsService } from '../../revocation/revocation-registry/tails.service'
 import { IndyBesuAnonCredsRegistry, IndyBesuDidRegistrar, IndyBesuDidResolver, IndyBesuModule } from '../indy-besu-vdr'
@@ -122,14 +122,17 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       store: agencyConfig.askarStoreConfig,
     }),
     openid4vc: new OpenId4VcModule({
+      app: agencyConfig.oidConfig.app,
       issuer: {
         baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
-        credentialRequestToCredentialMapper,
+        credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(
+          agencyConfig.mdlIssuerCertificate,
+          agencyConfig.mdlIssuerPrivateKeyJwk,
+        ),
       },
       verifier: {
         baseUrl: agencyConfig.oidConfig.verificationEndpoint,
       },
-      app: agencyConfig.oidConfig.app,
     }),
     ledgerSdk: new IndyVdrModule({
       indyVdr,

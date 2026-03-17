@@ -26,7 +26,7 @@ import { startApp } from 'src/app.starter'
 import { AGENT_MODULES_TOKEN, getAgencyModulesMap } from 'src/common/agent/agent-modules.provider'
 import AgentConfig from 'src/config/agent'
 import MikroOrmConfig from 'src/config/mikro-orm'
-import { credentialRequestToCredentialMapper } from 'src/utils/oid4vc'
+import { createCredentialRequestToCredentialMapper } from 'src/utils/oid4vc'
 import TestAgentConfig from 'test/config/agent'
 import TestMikroOrmConfig from 'test/config/mikro-orm'
 import { uuid } from 'utils/misc'
@@ -102,7 +102,10 @@ export async function startTestApp(): Promise<INestApplication> {
             baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             app: agencyConfig.oidConfig.app as any,
-            credentialRequestToCredentialMapper,
+            credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(
+              agencyConfig.mdlIssuerCertificate,
+              agencyConfig.mdlIssuerPrivateKeyJwk,
+            ),
           }),
           openId4VcVerifier: new OpenId4VcVerifierModule({
             baseUrl: agencyConfig.oidConfig.verificationEndpoint,

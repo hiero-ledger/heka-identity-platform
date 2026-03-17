@@ -90,6 +90,8 @@ const requestOpenId4VcPresentation = async (
       params.requestedAttributes ??
       params.schema.fields?.map((schema) => schema.name) ??
       [],
+    doctype: params.schema.name,
+    namespace: params.schema.name,
   });
   const response = await api.post<RequestOpenIdPresentationResponse>(
     agencyEndpoints.requestOpenIdPresentation,

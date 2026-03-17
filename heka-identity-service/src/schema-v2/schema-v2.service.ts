@@ -266,6 +266,20 @@ export class SchemaV2Service {
     display: this.makeCredentialDisplay(schema),
   })
 
+  private makeMsoMdocCredentialDefinition = (
+    supportedCredentialId: string,
+    schema: Schema,
+  ): OpenId4VciCredentialConfigurationSupportedWithId => ({
+    format: OpenId4VciCredentialFormatProfile.MsoMdoc,
+    id: supportedCredentialId,
+    doctype: schema.name,
+    claims: schema.fields
+      .toArray()
+      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+      .map((field) => ({ path: [schema.name, field.name] as [string, string] })),
+    display: this.makeCredentialDisplay(schema),
+  })
+
   private async oid4vcRegister(prop: {
     tenantAgent: TenantAgent
     authInfo: AuthInfo
@@ -298,6 +312,9 @@ export class SchemaV2Service {
         break
       case OpenId4VCCredentialRegistrationFormat.LdpVc:
         credential = this.makeLdpVcCredentialDefinition(supportedCredentialId, schema)
+        break
+      case OpenId4VCCredentialRegistrationFormat.MsoMdoc:
+        credential = this.makeMsoMdocCredentialDefinition(supportedCredentialId, schema)
         break
       default:
         credential = undefined
@@ -356,7 +373,7 @@ export class SchemaV2Service {
       issuer.credentialConfigurationsSupported,
     ).reduce<OpenId4VciCredentialConfigurationsSupportedWithFormats>(
       (result, [configurationId, credentialConfiguration]) => {
-        result[configurationId] = { ...credentialConfiguration, display: [display] }
+        result[configurationId] = { ...(credentialConfiguration as Record<string, unknown>), display: [display] } as any
         return result
       },
       {},

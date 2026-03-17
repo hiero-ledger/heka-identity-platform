@@ -35,11 +35,19 @@ interface OpenId4VcLdpVcCredentialSchema {
   credentialSubject: Record<string, unknown>;
 }
 
+interface OpenId4VcMsoMdocCredentialSchema {
+  format: Openid4CredentialFormat.MsoMdoc;
+  id: string;
+  doctype: string;
+  claims?: Record<string, unknown>;
+}
+
 export type OpenId4CredentialSchema =
   | OpenId4VcSdJwtCredentialSchema
   | OpenId4VcJwtJsonCredentialSchema
   | OpenId4VcJwtJsonLdCredentialSchema
-  | OpenId4VcLdpVcCredentialSchema;
+  | OpenId4VcLdpVcCredentialSchema
+  | OpenId4VcMsoMdocCredentialSchema;
 
 export const convertOpenIdSchema = (schema: OpenId4CredentialSchema) => {
   switch (schema.format) {
@@ -67,6 +75,14 @@ export const convertOpenIdSchema = (schema: OpenId4CredentialSchema) => {
         types: schema.types,
         context: schema['@context'],
         attributes: Object.keys(schema.credentialSubject ?? {}),
+      };
+    case Openid4CredentialFormat.MsoMdoc:
+      return {
+        protocolType: ProtocolType.Oid4vc,
+        id: schema.id,
+        format: schema.format,
+        doctype: schema.doctype,
+        attributes: Object.keys(schema.claims ?? {}),
       };
   }
 };

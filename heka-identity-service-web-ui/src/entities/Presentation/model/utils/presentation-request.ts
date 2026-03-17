@@ -17,6 +17,10 @@ export interface BuildOpenIdPresentationRequestParams {
   name: string;
   attributes: Array<string>;
   purpose?: string;
+  /** doctype for mso_mdoc credentials (e.g. 'org.iso.18013.5.1.mDL') */
+  doctype?: string;
+  /** namespace for mso_mdoc claim paths (e.g. 'org.iso.18013.5.1') */
+  namespace?: string;
 }
 
 export const buildSdJwtPresentationRequest = ({
@@ -93,6 +97,53 @@ export const buildJwtJsonPresentationRequest = ({
   };
 };
 
+const MDL_DOCTYPE = 'org.iso.18013.5.1.mDL'
+const MDL_NAMESPACE = 'org.iso.18013.5.1'
+const MDL_ALG = ['ES256', 'ES384', 'ES512', 'EdDSA', 'ESB256', 'ESB320', 'ESB384', 'ESB512']
+
+export const buildMsoMdocPresentationRequest = ({
+  id,
+  did,
+  name,
+  attributes,
+  purpose,
+  doctype = MDL_DOCTYPE,
+  namespace = MDL_NAMESPACE,
+}: BuildOpenIdPresentationRequestParams) => {
+  return {
+    publicVerifierId: id,
+    requestSigner: {
+      method: 'did',
+      did: did,
+    },
+    presentationExchange: {
+      definition: {
+        id: v4(),
+        name,
+        input_descriptors: [
+          {
+            id: doctype,
+            format: {
+              mso_mdoc: {
+                alg: MDL_ALG,
+              },
+            },
+            constraints: {
+              limit_disclosure: 'required',
+              fields: attributes.map((attribute) => ({
+                path: [`$['${namespace}']['${attribute}']`],
+                intent_to_retain: false,
+              })),
+            },
+            name,
+            purpose: purpose ?? 'To obtain credential data',
+          },
+        ],
+      },
+    },
+  };
+};
+
 export const buildOpenIdPresentationRequest = (
   params: BuildOpenIdPresentationRequestParams,
 ) => {
@@ -103,6 +154,8 @@ export const buildOpenIdPresentationRequest = (
     case Openid4CredentialFormat.JwtJsonLd:
     case Openid4CredentialFormat.LdpVc:
       return buildJwtJsonPresentationRequest(params);
+    case Openid4CredentialFormat.MsoMdoc:
+      return buildMsoMdocPresentationRequest(params);
   }
 };
 

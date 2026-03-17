@@ -68,8 +68,15 @@ export interface LdpVcCredential extends OpenIdCredentialCommon {
   credentialSubject: Record<string, unknown>;
 }
 
+export interface MsoMdocCredential {
+  credentialSupportedId: string;
+  format: Openid4CredentialFormat;
+  namespaces: Record<string, Record<string, unknown>>;
+}
+
 export type OpenIdCredential =
   | SdJwtCredential
   | JwtJsonCredential
   | JwtJsonLdCredential
-  | LdpVcCredential;
+  | LdpVcCredential
+  | MsoMdocCredential;

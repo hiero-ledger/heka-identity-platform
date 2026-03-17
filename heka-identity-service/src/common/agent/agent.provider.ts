@@ -1,4 +1,4 @@
-import { Agent as CredoAgent, BaseAgent, LogLevel } from '@credo-ts/core'
+import { Agent as CredoAgent, BaseAgent, Kms, LogLevel, X509ModuleConfig } from '@credo-ts/core'
 import { DidCommHttpOutboundTransport, DidCommWsOutboundTransport } from '@credo-ts/didcomm'
 import { agentDependencies, DidCommHttpInboundTransport, DidCommWsInboundTransport } from '@credo-ts/node'
 import { OnApplicationShutdown } from '@nestjs/common'
@@ -49,6 +49,27 @@ export class Agent extends CredoAgent<AgencyModulesMap> implements OnApplication
     }
 
     await super.initialize()
+
+    if (this.agencyConfig.mdlIssuerCertificate) {
+      const x509Config = this.context.resolve(X509ModuleConfig)
+      x509Config.addTrustedCertificate(this.agencyConfig.mdlIssuerCertificate)
+      logger.info('MDL issuer certificate added to trusted certificates')
+    }
+
+    if (this.agencyConfig.mdlIssuerPrivateKeyJwk) {
+      const kms = this.context.resolve(Kms.KeyManagementApi)
+      try {
+        await kms.importKey({ privateJwk: this.agencyConfig.mdlIssuerPrivateKeyJwk as unknown as Kms.KmsJwkPrivate })
+        logger.info('MDL issuer private key imported into KMS')
+      } catch (e) {
+        const isDuplicateEntry = e instanceof Error && e.message === 'Duplicate entry'
+        if (e instanceof Kms.KeyManagementKeyExistsError || isDuplicateEntry) {
+          logger.debug('MDL issuer private key already present in KMS')
+        } else {
+          throw e
+        }
+      }
+    }
 
     logger.trace('<')
   }

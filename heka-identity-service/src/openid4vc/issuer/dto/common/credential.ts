@@ -1,12 +1,10 @@
-// @ts-nocheck
-
 import { OpenId4VciCredentialConfigurationSupportedWithFormats as CredoCredentialConfigurationSupported } from '@credo-ts/openid4vc'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator'
 
 export class IssuerCredentialSubject {
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export enum CredentialFormat {
@@ -14,6 +12,7 @@ export enum CredentialFormat {
   JwtJson = 'jwt_vc_json',
   JwtVcJsonLd = 'jwt_vc_json-ld',
   LdpVc = 'ldp_vc',
+  MsoMdoc = 'mso_mdoc',
 }
 
 export class DisplayMetadata {
@@ -61,21 +60,30 @@ export class CredentialDefinitionWithContext extends CredentialDefinition {
 
 export type CredoCredentialConfigurationSupportedWithId = CredoCredentialConfigurationSupported & { id: string }
 
-// const formatSpecificConfigurationSchema = allCredentialIssuerMetadataFormats.reduce((result, formatSpecificSchema) => {
-//   result.merge(formatSpecificSchema)
-//   return result
-// }, z.object({}))
-//
-// // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-// const credentialsConfigurationSupportedWithIdSchema = zCredentialConfigurationSupportedCommon
-//   .merge(formatSpecificConfigurationSchema)
-//   .extend({
-//     id: z.string(),
-//   })
-//
-// export class OpenId4VciCredentialConfigurationSupportedWithId extends createZodDto(
-//   credentialsConfigurationSupportedWithIdSchema,
-// ) {}
+// Narrow record types used only inside the static factory methods below.
+// Each type reflects the actual shape Credo provides for that specific format.
+type SdJwtConfigRecord = CredoCredentialConfigurationSupportedWithId & {
+  vct: string
+  claims?: IssuerCredentialSubject
+  order?: string[]
+  display?: DisplayMetadata[]
+}
+type JwtVcJsonConfigRecord = CredoCredentialConfigurationSupportedWithId & {
+  credential_definition: CredentialDefinition
+  display?: DisplayMetadata[]
+}
+type JwtVcJsonLdConfigRecord = CredoCredentialConfigurationSupportedWithId & {
+  credential_definition: CredentialDefinitionWithContext
+  display?: DisplayMetadata[]
+}
+type LdpVcConfigRecord = CredoCredentialConfigurationSupportedWithId & {
+  credential_definition: CredentialDefinitionWithContext
+  display?: DisplayMetadata[]
+}
+type MsoMdocConfigRecord = CredoCredentialConfigurationSupportedWithId & {
+  doctype: string
+  display?: DisplayMetadata[]
+}
 
 export class OpenId4VciCredentialConfigurationSupportedWithId {
   @ApiProperty()
@@ -95,7 +103,7 @@ export class OpenId4VciCredentialConfigurationSupportedWithId {
 
   @ApiPropertyOptional()
   @IsOptional()
-  public proof_types_supported?: any
+  public proof_types_supported?: Record<string, unknown>
 
   public constructor(params?: OpenId4VciCredentialConfigurationSupportedWithId) {
     if (params) {
@@ -117,6 +125,8 @@ export class OpenId4VciCredentialConfigurationSupportedWithId {
       return OpenId4VciJwtVcJsonLdCredentialSupportedWithId.fromOpenIdVcCredentialSupportedWithId(record)
     } else if (record.format === CredentialFormat.LdpVc) {
       return OpenId4VciLdpVcCredentialSupportedWithId.fromOpenIdVcCredentialSupportedWithId(record)
+    } else if (record.format === CredentialFormat.MsoMdoc) {
+      return OpenId4VciMsoMdocCredentialSupportedWithId.fromOpenIdVcCredentialSupportedWithId(record)
     } else {
       throw new Error(`Unsupported credential format ${record.format}`)
     }
@@ -155,13 +165,14 @@ export class OpenId4VciSdJwtCredentialSupportedWithId extends OpenId4VciCredenti
   public static fromOpenIdVcCredentialSupportedWithId(
     record: CredoCredentialConfigurationSupportedWithId,
   ): OpenId4VciSdJwtCredentialSupportedWithId {
+    const sdJwtRecord = record as SdJwtConfigRecord
     return new OpenId4VciSdJwtCredentialSupportedWithId({
-      id: record.id,
+      id: sdJwtRecord.id,
       format: CredentialFormat.SdJwt,
-      vct: record.vct,
-      claims: record.claims,
-      order: record.order,
-      display: record.display,
+      vct: sdJwtRecord.vct,
+      claims: sdJwtRecord.claims,
+      order: sdJwtRecord.order,
+      display: sdJwtRecord.display,
     })
   }
 }
@@ -185,11 +196,12 @@ export class OpenId4VciJwtVcJsonCredentialSupportedWithId extends OpenId4VciCred
   public static fromOpenIdVcCredentialSupportedWithId(
     record: CredoCredentialConfigurationSupportedWithId,
   ): OpenId4VciJwtVcJsonCredentialSupportedWithId {
+    const jwtVcJsonRecord = record as JwtVcJsonConfigRecord
     return new OpenId4VciJwtVcJsonCredentialSupportedWithId({
-      id: record.id,
+      id: jwtVcJsonRecord.id,
       format: CredentialFormat.JwtJson,
-      credential_definition: record.credential_definition,
-      display: record.display,
+      credential_definition: jwtVcJsonRecord.credential_definition,
+      display: jwtVcJsonRecord.display,
     })
   }
 }
@@ -206,7 +218,6 @@ export class OpenId4VciJwtVcJsonLdCredentialSupportedWithId extends OpenId4VciCr
   public constructor(params?: OpenId4VciJwtVcJsonLdCredentialSupportedWithId) {
     super(params)
     if (params) {
-      this.credentialSubject = params.credentialSubject
       this.credential_definition = params.credential_definition
     }
   }
@@ -214,11 +225,12 @@ export class OpenId4VciJwtVcJsonLdCredentialSupportedWithId extends OpenId4VciCr
   public static fromOpenIdVcCredentialSupportedWithId(
     record: CredoCredentialConfigurationSupportedWithId,
   ): OpenId4VciJwtVcJsonLdCredentialSupportedWithId {
+    const jwtVcJsonLdRecord = record as JwtVcJsonLdConfigRecord
     return new OpenId4VciJwtVcJsonLdCredentialSupportedWithId({
-      id: record.id,
+      id: jwtVcJsonLdRecord.id,
       format: CredentialFormat.JwtVcJsonLd,
-      credential_definition: record.credential_definition,
-      display: record.display,
+      credential_definition: jwtVcJsonLdRecord.credential_definition,
+      display: jwtVcJsonLdRecord.display,
     })
   }
 }
@@ -242,11 +254,42 @@ export class OpenId4VciLdpVcCredentialSupportedWithId extends OpenId4VciCredenti
   public static fromOpenIdVcCredentialSupportedWithId(
     record: CredoCredentialConfigurationSupportedWithId,
   ): OpenId4VciLdpVcCredentialSupportedWithId {
+    const ldpVcRecord = record as LdpVcConfigRecord
     return new OpenId4VciLdpVcCredentialSupportedWithId({
-      id: record.id,
+      id: ldpVcRecord.id,
       format: CredentialFormat.LdpVc,
-      credential_definition: record.credential_definition,
-      display: record.display,
+      credential_definition: ldpVcRecord.credential_definition,
+      display: ldpVcRecord.display,
+    })
+  }
+}
+
+export class OpenId4VciMsoMdocCredentialSupportedWithId extends OpenId4VciCredentialConfigurationSupportedWithId {
+  @ApiProperty({ enum: CredentialFormat })
+  @IsEnum(CredentialFormat)
+  public format!: CredentialFormat.MsoMdoc
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  public doctype!: string
+
+  public constructor(params?: OpenId4VciMsoMdocCredentialSupportedWithId) {
+    super(params)
+    if (params) {
+      this.doctype = params.doctype
+    }
+  }
+
+  public static fromOpenIdVcCredentialSupportedWithId(
+    record: CredoCredentialConfigurationSupportedWithId,
+  ): OpenId4VciMsoMdocCredentialSupportedWithId {
+    const msoMdocRecord = record as MsoMdocConfigRecord
+    return new OpenId4VciMsoMdocCredentialSupportedWithId({
+      id: msoMdocRecord.id,
+      format: CredentialFormat.MsoMdoc,
+      doctype: msoMdocRecord.doctype,
+      display: msoMdocRecord.display,
     })
   }
 }

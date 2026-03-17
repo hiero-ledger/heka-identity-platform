@@ -118,12 +118,18 @@ export default registerAs('agent', () => {
     },
   }
 
+  const mdlIssuerCertificate = process.env.MDL_ISSUER_CERTIFICATE
+  const mdlIssuerPrivateKeyJwk = process.env.MDL_ISSUER_PRIVATE_KEY
+    ? (JSON.parse(process.env.MDL_ISSUER_PRIVATE_KEY) as Record<string, string>)
+    : undefined
+
   const credentialsConfiguration: CredentialsConfiguration = {
     [ProtocolType.Oid4vc]: {
       credentials: [
         OpenId4VciCredentialFormatProfile.SdJwtVc,
         OpenId4VciCredentialFormatProfile.JwtVcJson,
         OpenId4VciCredentialFormatProfile.JwtVcJsonLd,
+        OpenId4VciCredentialFormatProfile.MsoMdoc,
       ],
       networks: ['key', 'hedera'],
     },
@@ -156,5 +162,7 @@ export default registerAs('agent', () => {
     hederaOperatorId,
     hederaOperatorKey,
     credentialsConfiguration,
+    mdlIssuerCertificate,
+    mdlIssuerPrivateKeyJwk,
   }
 })

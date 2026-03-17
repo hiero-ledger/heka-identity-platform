@@ -120,7 +120,8 @@ export const VerificationFromTemplate = () => {
   const supportSelectiveDisclosure = useMemo(
     () =>
       verificationTemplate?.protocol === ProtocolType.Aries ||
-      verificationTemplate?.credentialFormat === Openid4CredentialFormat.SdJwt,
+      verificationTemplate?.credentialFormat === Openid4CredentialFormat.SdJwt ||
+      verificationTemplate?.credentialFormat === Openid4CredentialFormat.MsoMdoc,
     [verificationTemplate],
   );
 

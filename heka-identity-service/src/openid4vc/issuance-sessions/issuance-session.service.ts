@@ -1,5 +1,9 @@
 import { SdJwtVcPayload } from '@credo-ts/core'
-import { OpenId4VciCredentialFormatProfile, OpenId4VcIssuanceSessionRepository } from '@credo-ts/openid4vc'
+import {
+  OpenId4VciCredentialFormatProfile,
+  OpenId4VcIssuerService,
+  OpenId4VcIssuanceSessionRepository,
+} from '@credo-ts/openid4vc'
 import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
@@ -52,20 +56,29 @@ export class OpenId4VcIssuanceSessionService {
         )
       }
 
-      if ((credentialSupported as any).format !== credential.format) {
+      const supportedFormat = (credentialSupported as { format: string }).format
+      if (supportedFormat !== credential.format) {
         throw new UnprocessableEntityException(
-          `Format of offered credential (credentialSupportedId: ${credential.credentialSupportedId}) is ${credential.format} but expected to be ${(credentialSupported as any).format}`,
+          `Format of offered credential (credentialSupportedId: ${credential.credentialSupportedId}) is ${credential.format} but expected to be ${supportedFormat}`,
         )
       }
 
-      const { didDocument } = await tenantAgent.dids.resolve(credential.issuer.did)
-      if (!didDocument || !didDocument.verificationMethod?.length) {
-        throw new UnprocessableEntityException(`Unable to resolve signing key for DID: ${credential.issuer.did}`)
+      // MsoMdoc uses X.509 certificates, not DIDs — skip DID resolution
+      let issuerDidUrl: string | undefined
+      if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
+        const issuerCredential = credential as { issuer: { did: string } }
+        const { didDocument } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
+        if (!didDocument || !didDocument.verificationMethod?.length) {
+          throw new UnprocessableEntityException(
+            `Unable to resolve signing key for DID: ${issuerCredential.issuer.did}`,
+          )
+        }
+        issuerDidUrl = didDocument.verificationMethod[0].id
       }
 
       let credentialStatus
 
-      // sd+jwt does not support revocation?
+      // sd+jwt and mso_mdoc do not support revocation
       if (
         credential.format === OpenId4VciCredentialFormatProfile.JwtVcJson ||
         credential.format === OpenId4VciCredentialFormatProfile.JwtVcJsonLd ||
@@ -79,20 +92,38 @@ export class OpenId4VcIssuanceSessionService {
         }
       }
 
-      const type =
-        credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc
-          ? ((credentialSupported as any).vct as string)
-          : ((credentialSupported as any).credential_definition?.type as string[])
+      let type: string | string[]
+      if (credential.format === OpenId4VciCredentialFormatProfile.MsoMdoc) {
+        type = (credentialSupported as { doctype: string }).doctype
+      } else if (credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc) {
+        type = (credentialSupported as { vct: string }).vct
+      } else {
+        type = (credentialSupported as { credential_definition?: { type: string[] } }).credential_definition?.type ?? []
+      }
 
-      const credentialIssuanceMeta: CredentialIssuanceMetadata = {
-        ...credential,
-        type,
-        issuer: {
-          ...credential.issuer,
-          didUrl: didDocument.verificationMethod[0].id,
-        },
-        credentialStatus,
-        payload: (credential as any).payload as SdJwtVcPayload,
+      let credentialIssuanceMeta: CredentialIssuanceMetadata
+
+      if (credential.format === OpenId4VciCredentialFormatProfile.MsoMdoc) {
+        const mdocCredential = credential
+        credentialIssuanceMeta = {
+          format: credential.format,
+          credentialSupportedId: credential.credentialSupportedId,
+          type,
+          issuer: {},
+          namespaces: mdocCredential.namespaces,
+        }
+      } else {
+        const didCredential = credential as { issuer: { did: string; name?: string; image?: string; url?: string } }
+        credentialIssuanceMeta = {
+          ...credential,
+          type,
+          issuer: {
+            ...didCredential.issuer,
+            didUrl: issuerDidUrl,
+          },
+          credentialStatus,
+          payload: (credential as { payload?: SdJwtVcPayload }).payload,
+        }
       }
 
       mappedCredentials.push(credentialIssuanceMeta)
@@ -125,8 +156,8 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     query: GetIssuanceSessionByQueryDto,
   ): Promise<OpenId4VcIssuanceSessionRecordDto[]> {
-    const issuanceSessionRepository = tenantAgent.dependencyManager.resolve(OpenId4VcIssuanceSessionRepository)
-    const issuanceSessions = await issuanceSessionRepository.findByQuery(tenantAgent.context, {
+    const issuanceSessionService = tenantAgent.dependencyManager.resolve(OpenId4VcIssuerService)
+    const issuanceSessions = await issuanceSessionService.findIssuanceSessionsByQuery(tenantAgent.context, {
       cNonce: query.cNonce,
       issuerId: query.publicIssuerId,
       preAuthorizedCode: query.preAuthorizedCode,
@@ -146,8 +177,7 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     issuanceSessionId: string,
   ): Promise<OpenId4VcIssuanceSessionRecordDto> {
-    const issuanceSessionRepository = tenantAgent.dependencyManager.resolve(OpenId4VcIssuanceSessionRepository)
-    const issuanceSession = await issuanceSessionRepository.getById(tenantAgent.context, issuanceSessionId)
+    const issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
 
     return OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(issuanceSession)
   }
@@ -168,8 +198,7 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     issuanceSessionId: string,
   ): Promise<void> {
-    const issuanceSessionRepository = tenantAgent.dependencyManager.resolve(OpenId4VcIssuanceSessionRepository)
-    const issuanceSession = await issuanceSessionRepository.getById(tenantAgent.context, issuanceSessionId)
+    const issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
 
     const credentials = issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[]
     if (!credentials) throw new Error('Credential not found')

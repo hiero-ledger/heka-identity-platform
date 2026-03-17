@@ -98,6 +98,7 @@ const offerOpenId4VcCredential = async (
       schemaRegistration.credentials as OpenIdVciSchemaRegistration
     )?.supportedCredentialId,
     context: params.schema.context,
+    namespace: params.schema.name,
   } as BuildCredentialParams);
   const body = buildOpenIdCredentialOffer({
     id: userId,

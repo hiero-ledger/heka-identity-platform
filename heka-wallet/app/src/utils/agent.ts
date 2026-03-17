@@ -14,6 +14,7 @@ import {
   PeerDidRegistrar,
   PeerDidResolver,
   WebDidResolver,
+  X509Module,
 } from '@credo-ts/core'
 import { createPeerDidFromServices, routingToServices } from '@credo-ts/core/build/modules/connections/services/helpers'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
@@ -106,6 +107,11 @@ export async function createAgent({ credentials, indyLedgers, indyBesuConfig, wa
               Config.HEDERA_OPERATOR_KEY ??
               '302e020100300506032b657004220420e4f76aa303bfbf350ad080b879173b31977e5661d51ff5932f6597e2bb6680ff',
           },
+        ],
+      }),
+      x509: new X509Module({
+        trustedCertificates: [
+          'MIIBmTCCAT+gAwIBAgIUJeybJ59oAtHqC1RAo1ySrqCUdyEwCgYIKoZIzj0EAwIwIjELMAkGA1UEBhMCVVMxEzARBgNVBAMMCk1ETCBJc3N1ZXIwHhcNMjYwMzE2MTIxOTQxWhcNMjcwMzE2MTIxOTQxWjAiMQswCQYDVQQGEwJVUzETMBEGA1UEAwwKTURMIElzc3VlcjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABBl3oLjMhrHR3uZxNUdyxEboo7OGsvqLdn5j3HGHFg+lL77U3yvUFZcYFtPr8Bc49tc8eRkbIBQaf3ebikmEIAKjUzBRMB0GA1UdDgQWBBRgERzGBBlp2rVChhxwubMS3rSP9jAfBgNVHSMEGDAWgBRgERzGBBlp2rVChhxwubMS3rSP9jAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0gAMEUCIQDXrhjDDTiR3yMVD1q0yjadoqC3p/5Zc8RswG20M0IBDwIgPblEkraphygeYXDEzEnuIour1SeKHsf4JJuyn2mPkYo=',
         ],
       }),
     },

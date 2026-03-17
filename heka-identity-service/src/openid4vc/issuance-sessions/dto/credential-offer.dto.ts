@@ -195,6 +195,33 @@ export class OpenId4VcIssuanceSessionCreateOfferLdpVcCredentialOptions extends O
   public expirationDate?: string
 }
 
+export class OpenId4VcIssuanceSessionCreateOfferMsoMdocCredentialOptions {
+  @ApiProperty()
+  @IsEnum(OpenId4VciCredentialFormatProfile)
+  public format!: OpenId4VciCredentialFormatProfile.MsoMdoc
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  public credentialSupportedId!: string
+
+  /**
+   * The namespace-keyed claims for the mDL credential.
+   *
+   * @example
+   * {
+   *   "org.iso.18013.5.1": {
+   *     "family_name": "Doe",
+   *     "given_name": "John",
+   *     "birth_date": "1990-01-01"
+   *   }
+   * }
+   */
+  @ApiProperty()
+  @IsValidDynamicObject()
+  public namespaces!: Record<string, Record<string, unknown>>
+}
+
 export class OpenId4VciTxCode {
   @ApiProperty()
   @IsString()
@@ -211,7 +238,7 @@ export class OpenId4VciTxCode {
   @Length(1, 300)
   public description?: string;
 
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export class OpenId4VciPreAuthorizedCodeFlowConfig {
@@ -282,6 +309,10 @@ export class OpenId4VcIssuanceSessionsCreateOfferDto {
           value: OpenId4VcIssuanceSessionCreateOfferLdpVcCredentialOptions,
           name: OpenId4VciCredentialFormatProfile.LdpVc,
         },
+        {
+          value: OpenId4VcIssuanceSessionCreateOfferMsoMdocCredentialOptions,
+          name: OpenId4VciCredentialFormatProfile.MsoMdoc,
+        },
       ],
     },
   })
@@ -290,6 +321,7 @@ export class OpenId4VcIssuanceSessionsCreateOfferDto {
     | OpenId4VcIssuanceSessionCreateOfferJwtVcJsonCredentialOptions
     | OpenId4VcIssuanceSessionCreateOfferJwtVcJsonLdCredentialOptions
     | OpenId4VcIssuanceSessionCreateOfferLdpVcCredentialOptions
+    | OpenId4VcIssuanceSessionCreateOfferMsoMdocCredentialOptions
   >
 }
 

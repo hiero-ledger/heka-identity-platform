@@ -98,15 +98,32 @@ export const buildLdpVcCredential = ({
   credentialSubject: credentialValues,
 });
 
+export interface BuildMsoMdocCredentialParams {
+  credentialSupportedId: string;
+  credentialValues: Record<string, unknown>;
+  namespace?: string;
+}
+
+export const buildMsoMdocCredential = ({
+  credentialSupportedId,
+  credentialValues,
+  namespace = 'org.iso.18013.5.1',
+}: BuildMsoMdocCredentialParams) => ({
+  credentialSupportedId,
+  format: Openid4CredentialFormat.MsoMdoc,
+  namespaces: { [namespace]: credentialValues },
+});
+
 export interface BuildCredentialParams {
   format: Openid4CredentialFormat;
   did: string;
   credentialSupportedId: string;
   credentialValues: Record<string, string>;
   context?: Array<string>;
+  namespace?: string;
 }
 
-export const buildCredential = (params: BuildCredentialParams) => {
+export const buildCredential = (params: BuildCredentialParams): OpenIdCredential => {
   switch (params.format) {
     case Openid4CredentialFormat.SdJwt:
       return buildSdJwtCredential(params);
@@ -116,5 +133,7 @@ export const buildCredential = (params: BuildCredentialParams) => {
       return buildJwtJsonLdCredential(params);
     case Openid4CredentialFormat.LdpVc:
       return buildLdpVcCredential(params);
+    case Openid4CredentialFormat.MsoMdoc:
+      return buildMsoMdocCredential(params);
   }
 };
