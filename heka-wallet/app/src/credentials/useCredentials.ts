@@ -54,7 +54,13 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
   const [isLoading, setIsLoading] = useState(true)
 
   const loadCredentials = useCallback(async () => {
-    if (!agent?.wallet.isInitialized || isW3cCredentialsLoading || isSdJwtCredentialsLoading || isMdocCredentialsLoading) return
+    if (
+      !agent?.wallet.isInitialized ||
+      isW3cCredentialsLoading ||
+      isSdJwtCredentialsLoading ||
+      isMdocCredentialsLoading
+    )
+      return
 
     setIsLoading(true)
     try {

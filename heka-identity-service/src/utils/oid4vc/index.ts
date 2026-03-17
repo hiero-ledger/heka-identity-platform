@@ -1,6 +1,14 @@
 import type { JsonObject } from '@credo-ts/core'
 
-import { ClaimFormat, Kms, SdJwtVcPayload, W3cCredential, W3cCredentialSubject, X509Certificate, w3cDate } from '@credo-ts/core'
+import {
+  ClaimFormat,
+  Kms,
+  SdJwtVcPayload,
+  W3cCredential,
+  W3cCredentialSubject,
+  X509Certificate,
+  w3cDate,
+} from '@credo-ts/core'
 import {
   OpenId4VciCredentialFormatProfile,
   OpenId4VciCredentialRequestToCredentialMapper,
@@ -32,11 +40,17 @@ export interface CredentialIssuanceMetadata {
   namespaces?: Record<string, Record<string, unknown>>
 }
 
-export const createCredentialRequestToCredentialMapper = (
-  mdlIssuerCertificate?: string,
-  mdlIssuerPrivateKeyJwk?: Record<string, string>,
-): OpenId4VciCredentialRequestToCredentialMapper =>
-  async ({ agentContext, issuanceSession, holderBinding, credentialConfigurationId }): Promise<OpenId4VciSignCredentials> => {
+export const createCredentialRequestToCredentialMapper =
+  (
+    mdlIssuerCertificate?: string,
+    mdlIssuerPrivateKeyJwk?: Record<string, string>,
+  ): OpenId4VciCredentialRequestToCredentialMapper =>
+  async ({
+    agentContext,
+    issuanceSession,
+    holderBinding,
+    credentialConfigurationId,
+  }): Promise<OpenId4VciSignCredentials> => {
     const credentials = issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[]
     if (!credentials) throw new Error('Not implemented')
 

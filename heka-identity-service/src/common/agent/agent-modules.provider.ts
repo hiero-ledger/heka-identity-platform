@@ -130,7 +130,10 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       app: agencyConfig.oidConfig.app as any,
       issuer: {
         baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
-        credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(agencyConfig.mdlIssuerCertificate, agencyConfig.mdlIssuerPrivateKeyJwk),
+        credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(
+          agencyConfig.mdlIssuerCertificate,
+          agencyConfig.mdlIssuerPrivateKeyJwk,
+        ),
       },
       verifier: {
         baseUrl: agencyConfig.oidConfig.verificationEndpoint,

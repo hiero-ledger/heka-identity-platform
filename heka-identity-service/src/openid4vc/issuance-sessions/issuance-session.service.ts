@@ -1,5 +1,9 @@
 import { SdJwtVcPayload } from '@credo-ts/core'
-import { OpenId4VciCredentialFormatProfile, OpenId4VcIssuerService, OpenId4VcIssuanceSessionRepository } from '@credo-ts/openid4vc'
+import {
+  OpenId4VciCredentialFormatProfile,
+  OpenId4VcIssuerService,
+  OpenId4VcIssuanceSessionRepository,
+} from '@credo-ts/openid4vc'
 import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
@@ -16,7 +20,6 @@ import {
   OpenId4VcIssuanceSessionsCreateOfferDto,
   OpenId4VcIssuanceSessionsCreateOfferResponse,
 } from './dto'
-import { OpenId4VcIssuanceSessionCreateOfferMsoMdocCredentialOptions } from './dto/credential-offer.dto'
 
 @Injectable()
 export class OpenId4VcIssuanceSessionService {
@@ -66,7 +69,9 @@ export class OpenId4VcIssuanceSessionService {
         const issuerCredential = credential as { issuer: { did: string } }
         const { didDocument } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
         if (!didDocument || !didDocument.verificationMethod?.length) {
-          throw new UnprocessableEntityException(`Unable to resolve signing key for DID: ${issuerCredential.issuer.did}`)
+          throw new UnprocessableEntityException(
+            `Unable to resolve signing key for DID: ${issuerCredential.issuer.did}`,
+          )
         }
         issuerDidUrl = didDocument.verificationMethod[0].id
       }
@@ -99,7 +104,7 @@ export class OpenId4VcIssuanceSessionService {
       let credentialIssuanceMeta: CredentialIssuanceMetadata
 
       if (credential.format === OpenId4VciCredentialFormatProfile.MsoMdoc) {
-        const mdocCredential = credential as OpenId4VcIssuanceSessionCreateOfferMsoMdocCredentialOptions
+        const mdocCredential = credential
         credentialIssuanceMeta = {
           format: credential.format,
           credentialSupportedId: credential.credentialSupportedId,

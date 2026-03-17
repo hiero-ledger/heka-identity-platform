@@ -102,7 +102,9 @@ export async function startTestApp(): Promise<INestApplication> {
             baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             app: agencyConfig.oidConfig.app as any,
-            credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(agencyConfig.mdlIssuerCertificate),
+            credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(
+              agencyConfig.mdlIssuerCertificate,
+            ),
           }),
           openId4VcVerifier: new OpenId4VcVerifierModule({
             baseUrl: agencyConfig.oidConfig.verificationEndpoint,

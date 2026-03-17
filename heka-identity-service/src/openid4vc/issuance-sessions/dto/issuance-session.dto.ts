@@ -1,4 +1,7 @@
-import type { OpenId4VcIssuanceSessionState, OpenId4VcIssuanceSessionRecord as CredoOpenId4VcIssuanceSessionRecord } from '@credo-ts/openid4vc'
+import type {
+  OpenId4VcIssuanceSessionState,
+  OpenId4VcIssuanceSessionRecord as CredoOpenId4VcIssuanceSessionRecord,
+} from '@credo-ts/openid4vc'
 
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
