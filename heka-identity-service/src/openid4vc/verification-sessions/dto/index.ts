@@ -8,4 +8,5 @@ export {
   DifPresentationExchangeDefinitionV2,
   DifPresentationExchangeInputDescriptor,
 } from './presentation-exchange-definition.dto'
+export { DcqlQueryDto } from './dcql-query.dto'
 export { OpenId4VcSiopAuthorizationResponsePayload } from './authorization-response-payload.dto'
