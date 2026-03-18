@@ -195,7 +195,7 @@ describe('useOpenIdHandlers', () => {
         clientId: undefined,
         credentialsToRequest: [credentialIdToRequest],
         verifyCredentialStatus: false,
-        allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.ES256],
+        allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.EdDSA, JwaSignatureAlgorithm.ES256],
         credentialBindingResolver: expect.any(Function),
       })
       expect(mockAgent.modules.openId4VcHolder.requestCredentials).toHaveBeenCalledTimes(1)
@@ -221,7 +221,7 @@ describe('useOpenIdHandlers', () => {
         clientId: undefined,
         credentialsToRequest: [fixture.resolvedCredentialOfferPreAuth.offeredCredentials[0].id],
         verifyCredentialStatus: false,
-        allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.ES256],
+        allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.EdDSA, JwaSignatureAlgorithm.ES256],
         credentialBindingResolver: expect.any(Function),
       })
       expect(mockAgent.modules.openId4VcHolder.requestCredentials).toHaveBeenCalledTimes(1)
