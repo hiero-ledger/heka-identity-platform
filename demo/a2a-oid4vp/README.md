@@ -1,12 +1,10 @@
-# Agent-to-Agent (A2A) + OID4V integration demo
+# Agent-to-Agent (A2A) + OID4VP integration demo
 
 This demo is built around one of the relevant use cases for Agentic AI identity – VC-based authentication for interaction with Agents.
 It leverages [Agent-to-Agent (A2A)](https://a2a-protocol.org/latest/specification/) and [OpenID for Verifiable Presentations](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html) protocols, specifically demonstrating how to use OID4VP for A2A Task Authentication by implementing [OID4VP In-Task Authentication extension for A2A](https://github.com/DSRCorporation/a2a-oid4vp-in-task-auth-extension/blob/main/v1/spec.md).
 
 The demo is built using [Genkit](https://genkit.dev/) with the OpenAI API.
 Heka Identity Platform is used as a decentralized identity wallet / agent providing support for OID4VP (for both Holder and Verifier parties).
-
-This is a demo code not intended for production-quality usage.
 
 ## Scenario and Demo Flow
 
