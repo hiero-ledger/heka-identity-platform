@@ -1,6 +1,7 @@
 import type { Secret, SignOptions } from 'jsonwebtoken'
 
-import { sign } from 'jsonwebtoken'
+import jsonwebtoken from 'jsonwebtoken'
+const { sign } = jsonwebtoken
 
 import { Role } from 'src/common/auth'
 

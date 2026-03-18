@@ -90,7 +90,7 @@ describe('E2E verification session', () => {
     await ormSchemaGenerator.clearDatabase()
   })
 
-  test('create request', async () => {
+  test('create request with PEX', async () => {
     const firstAdminId = uuid()
     const firstAdminAuthToken = await createAuthToken(firstAdminId, Role.Admin)
 
@@ -184,5 +184,90 @@ describe('E2E verification session', () => {
     })
 
     expect(res.serverResponse?.status).toEqual(200)
+  })
+
+  test('create request with DCQL', async () => {
+    const firstAdminId = uuid()
+    const firstAdminAuthToken = await createAuthToken(firstAdminId, Role.Admin)
+
+    const postDidResponse = await request(app).post('/dids').auth(firstAdminAuthToken, { type: 'bearer' }).send({})
+    expect(postDidResponse.statusCode).toBe(201)
+    const verifierId = postDidResponse.body.id
+
+    const verifierResponse = await request(app)
+      .post(`/openid4vc/verifier`)
+      .auth(firstAdminAuthToken, { type: 'bearer' })
+      .send({
+        publicVerifierId: verifierId,
+      })
+
+    expect(verifierResponse.statusCode).toBe(200)
+
+    const response = await request(app)
+      .post(`/openid4vc/verification-session/request`)
+      .auth(firstAdminAuthToken, { type: 'bearer' })
+      .send({
+        publicVerifierId: verifierId,
+        requestSigner: {
+          method: 'did',
+          did: postDidResponse.body.authentication[0],
+        },
+        dcql: {
+          query: {
+            credentials: [
+              {
+                id: 'credential_1',
+                format: 'vc+sd-jwt',
+                meta: {
+                  vct_values: ['https://example.com/vct'],
+                },
+                claims: [
+                  {
+                    path: ['first_name'],
+                    id: 'first_name_claim',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      })
+
+    if (response.statusCode !== 200) {
+      console.error(JSON.stringify(response.body, null, 2))
+    }
+    expect(response.statusCode).toBe(200)
+    expect(response.body.verificationSession.state).toBe('RequestCreated')
+
+    const resolvedRequest = await agent.openid4vc.holder.resolveOpenId4VpAuthorizationRequest(
+      response.body.authorizationRequest,
+    )
+
+    expect(resolvedRequest.dcql).toBeDefined()
+
+    const selectedCredentials = agent.openid4vc.holder.selectCredentialsForDcqlRequest(
+      resolvedRequest.dcql!.queryResult,
+    )
+
+    const res = await agent.openid4vc.holder.acceptOpenId4VpAuthorizationRequest({
+      authorizationRequestPayload: resolvedRequest.authorizationRequestPayload,
+      dcql: {
+        credentials: selectedCredentials,
+      },
+    })
+
+    expect(res.serverResponse?.status).toEqual(200)
+    // Wait for event processing and verify the session contains shared attributes
+    await sleep(1000)
+    const sessionId = response.body.verificationSession.id
+
+    const getSessionResponse = await request(app)
+      .get(`/openid4vc/verification-session/${sessionId}`)
+      .auth(firstAdminAuthToken, { type: 'bearer' })
+
+    expect(getSessionResponse.statusCode).toBe(200)
+    expect(getSessionResponse.body.state).toBe('ResponseVerified')
+    expect(getSessionResponse.body.sharedAttributes).toBeDefined()
+    expect(getSessionResponse.body.sharedAttributes.first_name).toBe('John')
   })
 })

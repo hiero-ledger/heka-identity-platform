@@ -4,6 +4,7 @@ import { IsBoolean, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'cla
 
 import { CredentialIssuer } from '../../issuance-sessions/dto/credential-offer.dto'
 
+import { DcqlQueryDto } from './dcql-query.dto'
 import { DifPresentationExchangeDefinitionV2 } from './presentation-exchange-definition.dto'
 import { OpenId4VcVerificationSessionRecordDto } from './verification-session.dto'
 
@@ -64,6 +65,17 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
   public presentationExchange?: {
     definition: DifPresentationExchangeDefinitionV2
   }
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  public dcql?: {
+    query: DcqlQueryDto
+  }
+
+  @ApiPropertyOptional({ enum: ['v1', 'v1.draft21', 'v1.draft24'], default: 'v1.draft21' })
+  @IsOptional()
+  @IsString()
+  public version?: 'v1' | 'v1.draft21' | 'v1.draft24'
 }
 
 export class OpenId4VcVerificationSessionCreateRequestResponse {
