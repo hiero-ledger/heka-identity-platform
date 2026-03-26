@@ -72,7 +72,7 @@ async function main() {
     fields: ['name', 'surname', 'age'],
     registrations: [
       {
-        network: 'hedera',
+        network: 'key',
         credentialFormat: 'vc+sd-jwt',
         protocol: 'OpenId4VC',
       },
