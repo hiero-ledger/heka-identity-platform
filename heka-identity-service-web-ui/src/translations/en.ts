@@ -44,6 +44,7 @@ export default {
     },
     buttons: {
       start: 'Get started',
+      ageVerification: 'Age verification via mDL',
     },
   },
   Flow: {

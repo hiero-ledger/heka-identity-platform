@@ -36,8 +36,8 @@ const desktopMenuItems: Array<DesktopMenuItem> = [
   {
     icon: <WalletIcon {...desktopIconProps} />,
     title: i18next.t('Demo.titles.main'),
-    route: ROUTES.DEMO,
-    active: [ROUTES.DEMO],
+    route: ROUTES.MAIN,
+    active: [ROUTES.MAIN, ROUTES.DEMO, ROUTES.AGE_DEMO],
   },
   {
     icon: <IssueIcon {...desktopIconProps} />,
@@ -83,7 +83,7 @@ export const DesktopNavigationMenu = () => {
 
   const onNavigate = useCallback(
     (route: string) => {
-      if (!isSignedIn && route !== ROUTES.DEMO) {
+      if (!isSignedIn && route !== ROUTES.MAIN) {
         navigate(ROUTES.SIGN_IN);
         return;
       }
@@ -148,8 +148,8 @@ const mobileMenuItems: Array<DesktopMenuItem> = [
   {
     icon: <WalletIcon {...mobileIconProps} />,
     title: i18next.t('Demo.titles.main'),
-    route: ROUTES.DEMO,
-    active: [ROUTES.DEMO],
+    route: ROUTES.MAIN,
+    active: [ROUTES.MAIN, ROUTES.DEMO, ROUTES.AGE_DEMO],
   },
   {
     icon: <IssueIcon {...mobileIconProps} />,
@@ -189,7 +189,7 @@ export const MobileNavigationMenu = () => {
 
   const onNavigate = useCallback(
     (route: string) => {
-      if (!isSignedIn && route !== ROUTES.DEMO) {
+      if (!isSignedIn && route !== ROUTES.MAIN) {
         navigate(ROUTES.SIGN_IN);
         return;
       }

@@ -40,35 +40,47 @@ export class PrepareWalletService {
       method: PrepareWalletService.mainDidMethod as string,
       own: true,
     })
+
+    let mainDid: string | undefined
+
     if (didDocuments.length > 0) {
       logger.info(`Wallet for user ${authInfo.userName} already prepared`)
-      return new PrepareWalletResponseDto({ did: didDocuments[0].id })
-    }
+      mainDid = didDocuments[0].id
+    } else {
+      for (const method of this.didService.getMethods().methods) {
+        let did
 
-    let mainDid
-    for (const method of this.didService.getMethods().methods) {
-      let did
-
-      try {
-        const didDoc = await this.didService.create(authInfo, { method })
-        did = didDoc.id
-        if (method === PrepareWalletService.mainDidMethod) {
-          mainDid = did
+        try {
+          const didDoc = await this.didService.create(authInfo, { method })
+          did = didDoc.id
+          if (method === PrepareWalletService.mainDidMethod) {
+            mainDid = did
+          }
+        } catch (error) {
+          this.logger.error(`Failed to create DID for method ${method}`)
+          continue
         }
-      } catch (error) {
-        this.logger.error(`Failed to create DID for method ${method}`)
-        continue
+
+        try {
+          await this.openId4VcIssuerService.createIssuer(tenantAgent, {
+            publicIssuerId: did,
+            credentialsSupported: [],
+          })
+          await this.openId4VcVerifierService.createVerifier(tenantAgent, { publicVerifierId: did })
+        } catch (error) {
+          this.logger.error(`Failed to initialize OID4VC records for DID ${did}`)
+        }
       }
 
-      try {
-        await this.openId4VcIssuerService.createIssuer(tenantAgent, {
-          publicIssuerId: did,
-          credentialsSupported: [],
-        })
-        await this.openId4VcVerifierService.createVerifier(tenantAgent, { publicVerifierId: did })
-      } catch (error) {
-        this.logger.error(`Failed to initialize OID4VC records for DID ${did}`)
-      }
+      await this.userService.patchMe(
+        authInfo,
+        tenantAgent,
+        {
+          name: authInfo.userName,
+          backgroundColor: PrepareWalletService.defaultColor,
+        },
+        userLogo,
+      )
     }
 
     if (!mainDid) {
@@ -79,29 +91,31 @@ export class PrepareWalletService {
       logger.info(`Create ${req.schemas.length} schemas`)
 
       for (const schema of req.schemas) {
-        const { id: schemaId } = await this.schemaV2Service.create(authInfo, schema, schemaLogo)
+        let schemaId: string
+        try {
+          const created = await this.schemaV2Service.create(authInfo, schema, schemaLogo)
+          schemaId = created.id
+        } catch (error) {
+          logger.info(`Schema "${schema.name}" already exists, skipping creation`)
+          continue
+        }
         if (schema.registrations) {
           logger.info(`Register ${schema.registrations.length} types for schema ${schema.name}`)
           for (const reg of schema.registrations) {
-            await this.schemaV2Service.registration(authInfo, tenantAgent, schemaId, {
-              ...reg,
-              credentialFormat: credentialFormatToCredentialRegistrationFormat(reg.credentialFormat),
-              did: mainDid,
-            })
+            try {
+              await this.schemaV2Service.registration(authInfo, tenantAgent, schemaId, {
+                ...reg,
+                credentialFormat: credentialFormatToCredentialRegistrationFormat(reg.credentialFormat),
+                did: mainDid,
+              })
+            } catch (error) {
+              logger.info(`Registration for schema "${schema.name}" already exists, skipping`)
+            }
           }
         }
       }
     }
 
-    await this.userService.patchMe(
-      authInfo,
-      tenantAgent,
-      {
-        name: authInfo.userName,
-        backgroundColor: PrepareWalletService.defaultColor,
-      },
-      userLogo,
-    )
     logger.info(`Prepared wallet with main method DID: ${mainDid}`)
     logger.trace('<')
     return new PrepareWalletResponseDto({ did: mainDid })
