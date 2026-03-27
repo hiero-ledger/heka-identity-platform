@@ -1,4 +1,4 @@
-name: Build and release Android APK & AAB for Heka Wallet
+name: Build Android APK & AAB for Heka Wallet
 
 on:
   workflow_dispatch:
@@ -51,7 +51,7 @@ jobs:
 
       - name: Get app version
         id: version
-        working-directory: ./app
+        working-directory: ./heka-wallet/app
         run: echo "version=$(nbgv get-version -v NpmPackageVersion)" >> $GITHUB_OUTPUT
 
       - name: Bundle Heka Wallet debug
