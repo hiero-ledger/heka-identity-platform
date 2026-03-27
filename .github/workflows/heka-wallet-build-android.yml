@@ -35,7 +35,7 @@ jobs:
           checkout-token: '${{ secrets.GITHUB_TOKEN }}'
           checkout-fetch-depth: '0'
           setup-java: 'true'
-          java-version: '15'
+          java-version: '17'
           java-distribution: 'zulu'
           java-cache: 'gradle'
           setup-node: 'true'
