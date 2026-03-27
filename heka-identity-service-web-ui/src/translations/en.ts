@@ -14,6 +14,7 @@ export default {
     buttons: {
       back: 'Back',
       next: 'Next',
+      skip: 'Skip',
       logo: 'Logo',
       background: 'Background color',
       esc: 'Esc',
@@ -91,6 +92,11 @@ export default {
   Demo: {
     titles: {
       main: 'Demo',
+    },
+  },
+  AgeVerificationDemo: {
+    ageCheck: {
+      label: 'Verify age (18+)',
     },
   },
   IssueCredential: {
