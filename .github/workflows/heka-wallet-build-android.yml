@@ -51,7 +51,7 @@ jobs:
 
       - name: Get app version
         id: version
-        working-directory: ./app
+        working-directory: ./heka-wallet/app
         run: echo "version=$(nbgv get-version -v NpmPackageVersion)" >> $GITHUB_OUTPUT
 
       - name: Bundle Heka Wallet debug

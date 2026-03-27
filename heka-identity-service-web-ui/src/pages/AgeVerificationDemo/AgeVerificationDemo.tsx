@@ -1,19 +1,21 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 
 import { BasicPanel } from '@/components/Panel';
 import { FillCredentialData, PreparationStepLayout } from '@/components/Steps';
+import { StepHeader } from '@/components/StepTitle';
 import { CredentialOffer } from '@/components/Steps/CredentialOffer/CredentialOffer';
-import { RequestFieldsVerification } from '@/components/Steps/RequestFieldsVerification/RequestFieldsVerification';
 import { VerificationRequest } from '@/components/Steps/VerificationRequest/VerificationRequest';
 import { demoUser, mainDidMethod } from '@/const/user';
+import { Schema } from '@/entities/Schema';
 import { getSchemas } from '@/entities/Schema/model/selectors/schemasSelector';
 import { getDemoSchemaList } from '@/entities/Schema/model/services/getDemoSchemaList';
 import {
   Openid4CredentialFormat,
   ProtocolType,
 } from '@/entities/Schema/model/types/schema';
-import { VerifyCredentialContext } from '@/pages/VerifyCredential/VerifyCredential.config';
+import { CheckboxGroup } from '@/shared/ui/CheckboxGroup/CheckboxGroup';
 import {
   DemoContext,
   DemoSteps,
@@ -22,14 +24,102 @@ import {
 } from '@/pages/AgeVerificationDemo/AgeVerificationDemo.config';
 import { useFlow } from '@/shared/hooks/flow';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
+import { Button } from '@/shared/ui/Button';
 import { Row } from '@/shared/ui/Grid';
 import { Loader } from '@/shared/ui/Loader/Loader';
 
 import * as cls from './AgeVerificationDemo.module.scss';
 
 const MDL_SCHEMA_NAME = 'mDL';
+const AGE_FIELD = 'age_over_18';
+
+const AGE_EXCLUDED_FIELDS = new Set([AGE_FIELD]);
+
+interface AgeVerificationFieldsProps {
+  schema?: Schema;
+  onPrev: () => void;
+  onNext: (attributes: Array<string>) => void;
+}
+
+const AgeVerificationFields = ({
+  schema,
+  onPrev,
+  onNext,
+}: AgeVerificationFieldsProps) => {
+  const { t } = useTranslation();
+
+  const regularFields = useMemo(
+    () =>
+      schema?.fields
+        ?.filter((f) => !AGE_EXCLUDED_FIELDS.has(f.name))
+        .map((f) => f.name) ?? [],
+    [schema?.fields],
+  );
+
+  const hasAgeField = useMemo(
+    () => schema?.fields?.some((f) => f.name === AGE_FIELD) ?? false,
+    [schema?.fields],
+  );
+
+  const [selectedFields, setSelectedFields] = useState<Array<string>>([]);
+  const [ageCheckEnabled, setAgeCheckEnabled] = useState(true);
+
+  const onRequest = useCallback(() => {
+    const attrs = [...selectedFields];
+    if (hasAgeField && ageCheckEnabled) {
+      attrs.push(AGE_FIELD);
+    }
+    onNext(attrs);
+  }, [selectedFields, hasAgeField, ageCheckEnabled, onNext]);
+
+  return (
+    <>
+      <StepHeader
+        title={t('Flow.titles.requestFieldsVerification')}
+        details={[]}
+      />
+      <CheckboxGroup
+        options={regularFields}
+        initial={[]}
+        setSelected={setSelectedFields}
+      />
+      {hasAgeField && (
+        <Row
+          justifyContent="flex-start"
+          alignItems="center"
+          className={cls.ageCheck}
+        >
+          <input
+            type="checkbox"
+            checked={ageCheckEnabled}
+            onChange={() => setAgeCheckEnabled((v) => !v)}
+          />
+          <p className={cls.ageCheckLabel}>
+            {t('AgeVerificationDemo.ageCheck.label')}
+          </p>
+        </Row>
+      )}
+      <Row className={cls.stepNavigation}>
+        <Button
+          buttonType="outlined"
+          leftIcon="arrow-back"
+          onPress={onPrev}
+        >
+          {t('Common.buttons.back')}
+        </Button>
+        <Button
+          onPress={onRequest}
+          isDisabled={selectedFields.length === 0 && !ageCheckEnabled}
+        >
+          {t('Flow.buttons.request')}
+        </Button>
+      </Row>
+    </>
+  );
+};
 
 const AgeVerificationDemo = () => {
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const schemas = useSelector(getSchemas);
 
@@ -39,6 +129,7 @@ const AgeVerificationDemo = () => {
     did: demoUser.did,
     protocolType: ProtocolType.Oid4vc,
     credentialType: Openid4CredentialFormat.MsoMdoc,
+    //credentialType: Openid4CredentialFormat.SdJwt,
   } as DemoContext;
 
   const {
@@ -82,15 +173,16 @@ const AgeVerificationDemo = () => {
           title="Age Verification Demo"
           icon="car"
         />
-        <RequestFieldsVerification
-          title={step.title}
-          context={flowContext as unknown as VerifyCredentialContext}
-          onPrev={() => onChangeStep(DemoSteps.CredentialOffer)}
-          onNext={(attributes) => {
-            onChangeContextProperty('attributes')(attributes);
-            onChangeStep(DemoSteps.PresentationRequest);
-          }}
-        />
+        <div className={cls.contentPanel}>
+          <AgeVerificationFields
+            schema={flowContext.schema}
+            onPrev={() => onChangeStep(DemoSteps.IssueNewCredential)}
+            onNext={(attributes) => {
+              onChangeContextProperty('attributes')(attributes);
+              onChangeStep(DemoSteps.PresentationRequest);
+            }}
+          />
+        </div>
       </Row>
     );
   }
@@ -125,15 +217,17 @@ const AgeVerificationDemo = () => {
           onChangeStep={onChangeStep}
         >
           {step.name === DemoSteps.IssueNewCredential && (
-            <FillCredentialData
-              title={step.title}
-              context={flowContext}
-              onPrev={() => {}}
-              onNext={(credentialValues) => {
-                onChangeContextProperty('credentialValues')(credentialValues);
-                onChangeStep(DemoSteps.CredentialOffer);
-              }}
-            />
+            <>
+              <FillCredentialData
+                title={step.title}
+                context={flowContext}
+                onSkip={() => onChangeStep(DemoSteps.RequestFieldsVerification)}
+                onNext={(credentialValues) => {
+                  onChangeContextProperty('credentialValues')(credentialValues);
+                  onChangeStep(DemoSteps.CredentialOffer);
+                }}
+              />
+            </>
           )}
         </PreparationStepLayout>
       )}
