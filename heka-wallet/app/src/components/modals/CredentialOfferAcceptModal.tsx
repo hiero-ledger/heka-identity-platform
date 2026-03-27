@@ -1,8 +1,7 @@
-import { CredentialState } from '@credo-ts/core'
-import { useCredentialById } from '@credo-ts/react-hooks'
-import { ColorPallet, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Button, ButtonType, TabStacks as BifoldTabStacks } from '@hyperledger/aries-bifold-core'
-import { Stacks as BifoldStacks } from '@hyperledger/aries-bifold-core/App/types/navigators'
+import { Button, ButtonType, TabStacks as BifoldTabStacks, Stacks as BifoldStacks } from '@bifold/core'
+import { useCredentialById } from '@bifold/react-hooks'
+import { DidCommCredentialState } from '@credo-ts/didcomm'
+import { ColorPalette, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useCallback, useEffect, useState } from 'react'
@@ -22,10 +21,10 @@ const useStyles = ({ TextTheme, Spacing }: HekaTheme) =>
       paddingTop: 100,
     },
     pendingOfferBackground: {
-      backgroundColor: ColorPallet.brand.modalPrimaryBackground,
+      backgroundColor: ColorPalette.brand.modalPrimaryBackground,
     },
     completedOfferBackground: {
-      backgroundColor: ColorPallet.brand.brandedSecondary,
+      backgroundColor: ColorPalette.brand.brandedSecondary,
     },
     image: {
       minHeight: 240,
@@ -80,8 +79,8 @@ export const CredentialOfferAcceptModal: React.FC<Props> = ({
     if (!credentialRecord) return
 
     if (
-      credentialRecord.state === CredentialState.CredentialReceived ||
-      credentialRecord.state === CredentialState.Done
+      credentialRecord.state === DidCommCredentialState.CredentialReceived ||
+      credentialRecord.state === DidCommCredentialState.Done
     ) {
       setIsCompleted(true)
     }
@@ -98,7 +97,7 @@ export const CredentialOfferAcceptModal: React.FC<Props> = ({
     <Modal visible={visible} transparent={true} animationType={'none'}>
       {isCompleted ? (
         <SafeAreaView style={styles.completedOfferBackground}>
-          <StatusBar backgroundColor={theme.ColorPallet.brand.brandedSecondary} />
+          <StatusBar backgroundColor={theme.ColorPalette.brand.brandedSecondary} />
           <ScrollView style={styles.container}>
             <View style={styles.image}>
               <CarImage />

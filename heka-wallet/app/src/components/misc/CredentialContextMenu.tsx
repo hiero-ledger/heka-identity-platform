@@ -1,14 +1,8 @@
-import { useAgent } from '@credo-ts/react-hooks'
-import {
-  BifoldError,
-  ButtonLocation,
-  EventTypes,
-  HeaderButton,
-  ToastType,
-  useTheme,
-} from '@hyperledger/aries-bifold-core'
-import { ContactStackParams, RootStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
-import { ModalUsage } from '@hyperledger/aries-bifold-core/App/types/remove'
+import { BifoldError, ButtonLocation, ContactStackParams, EventTypes, IconButton, ToastType } from '@bifold/core'
+import { RootStackParams } from '@bifold/core/src/types/navigators'
+import { ModalUsage } from '@bifold/core/src/types/remove'
+import { useAgent } from '@bifold/react-hooks'
+import { useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useCallback, useState } from 'react'
@@ -32,7 +26,7 @@ const CredentialContextMenu: React.FC<CredentialContextMenuProps> = ({ credentia
   const { t } = useTranslation()
   const navigation = useNavigation<StackNavigationProp<ContactStackParams & RootStackParams>>()
 
-  const theme = useTheme()
+  const theme = useHekaTheme()
 
   const [showContextMenu, setShowContextMenu] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -83,7 +77,7 @@ const CredentialContextMenu: React.FC<CredentialContextMenuProps> = ({ credentia
 
   return (
     <View>
-      <HeaderButton
+      <IconButton
         buttonLocation={ButtonLocation.Right}
         testID={'CredentialMenu'}
         accessibilityLabel={'CredentialMenu'}
@@ -98,7 +92,7 @@ const CredentialContextMenu: React.FC<CredentialContextMenuProps> = ({ credentia
             title: t('CredentialDetails.Remove'),
             icon: () => <DeleteIcon height={24} width={24} />,
             callback: showRemoveModal,
-            color: theme.ColorPallet.semantic.error,
+            color: theme.ColorPalette.semantic.error,
           },
         ]}
       />

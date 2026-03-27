@@ -1,5 +1,5 @@
-import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import {
+  attemptLockoutConfig,
   BifoldError,
   Button,
   ButtonType,
@@ -10,13 +10,10 @@ import {
   useAuth,
   useServices,
   useStore,
-} from '@hyperledger/aries-bifold-core'
-import {
-  attemptLockoutBaseRules,
-  attemptLockoutThresholdRules,
-  minPINLength,
-} from '@hyperledger/aries-bifold-core/App/constants'
-import { hashPIN } from '@hyperledger/aries-bifold-core/App/utils/crypto'
+} from '@bifold/core'
+import { minPINLength } from '@bifold/core/src/constants'
+import { hashPIN } from '@bifold/core/src/utils/crypto'
+import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation, CommonActions } from '@react-navigation/native'
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -27,11 +24,11 @@ import PinKeyPad from '../components/misc/PinKeyPad'
 import { AlertModal } from '../components/modals'
 import { Loader } from '../components/views/LoadingView'
 
-const useStyles = ({ TextTheme, ColorPallet, Spacing }: HekaTheme) => {
+const useStyles = ({ TextTheme, ColorPalette, Spacing }: HekaTheme) => {
   return StyleSheet.create({
     screenContainer: {
       height: '100%',
-      backgroundColor: ColorPallet.brand.primaryBackground,
+      backgroundColor: ColorPalette.brand.primaryBackground,
       padding: Spacing.lg,
     },
     textContainer: {
@@ -71,7 +68,7 @@ export enum PINEntryUsage {
 
 const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryUsage.WalletUnlock }) => {
   const { t } = useTranslation()
-  const { checkPIN, getWalletCredentials, isBiometricsActive, disableBiometrics } = useAuth()
+  const { checkWalletPIN, getWalletSecret, isBiometricsActive, disableBiometrics } = useAuth()
   const [store, dispatch] = useStore()
   const [displayLockoutWarning, setDisplayLockoutWarning] = useState(false)
   const [biometricsErr, setBiometricsErr] = useState(false)
@@ -84,15 +81,6 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
 
   const theme = useHekaTheme()
   const styles = useStyles(theme)
-
-  const gotoPostAuthScreens = useCallback(() => {
-    if (store.onboarding.postAuthScreens.length) {
-      const screen = store.onboarding.postAuthScreens[0]
-      if (screen) {
-        navigation.navigate(screen as never)
-      }
-    }
-  }, [navigation, store.onboarding.postAuthScreens])
 
   // listen for biometrics error event
   useEffect(() => {
@@ -137,13 +125,13 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
   }
 
   const getLockoutPenalty = (attempts: number): number | undefined => {
-    let penalty = attemptLockoutBaseRules[attempts]
+    let penalty = attemptLockoutConfig.baseRules[attempts]
     if (
       !penalty &&
-      attempts >= attemptLockoutThresholdRules.attemptThreshold &&
-      !(attempts % attemptLockoutThresholdRules.attemptIncrement)
+      attempts >= attemptLockoutConfig.thresholdRules.threshold &&
+      !(attempts % attemptLockoutConfig.thresholdRules.increment)
     ) {
-      penalty = attemptLockoutThresholdRules.attemptPenalty
+      penalty = attemptLockoutConfig.thresholdRules.thresholdPenaltyDuration
     }
     return penalty
   }
@@ -153,8 +141,8 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
       return
     }
 
-    const creds = await getWalletCredentials()
-    if (creds && creds.key) {
+    const walletSecret = await getWalletSecret()
+    if (walletSecret && walletSecret.key) {
       // remove lockout notification
       dispatch({
         type: DispatchAction.LOCKOUT_UPDATED,
@@ -168,7 +156,6 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
       })
 
       setAuthenticated(true)
-      gotoPostAuthScreens()
     }
   }
 
@@ -215,7 +202,7 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
   const unlockWalletWithPIN = useCallback(async (PIN: string) => {
     try {
       setIsPinChecking(true)
-      const result = await checkPIN(PIN)
+      const result = await checkWalletPIN(PIN)
 
       if (store.loginAttempt.servedPenalty) {
         // once the user starts entering their PIN, unMark them as having served their lockout penalty
@@ -251,7 +238,6 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
       })
 
       setAuthenticated(true)
-      gotoPostAuthScreens()
       return true
     } catch (err: unknown) {
       const error = new BifoldError(t('Error.Title1041'), t('Error.Message1041'), (err as Error)?.message ?? err, 1041)
@@ -280,14 +266,14 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
 
   const verifyPIN = useCallback(async (PIN: string) => {
     try {
-      const credentials = await getWalletCredentials()
-      if (!credentials) {
-        throw new Error('Problem')
+      const walletSecret = await getWalletSecret()
+      if (!walletSecret) {
+        throw new Error('Wallet secret is not defined')
       }
 
-      const key = await hashPIN(PIN, credentials.salt)
+      const key = await hashPIN(PIN, walletSecret.salt)
 
-      if (credentials.key !== key) {
+      if (walletSecret.key !== key) {
         setAlertModalVisible(true)
         return false
       }

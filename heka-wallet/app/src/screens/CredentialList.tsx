@@ -1,7 +1,6 @@
+import { Screens as BifoldScreens, TOKENS, useServices, NotificationStackParams } from '@bifold/core'
+import { toImageSource } from '@bifold/core/src/utils/credential'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Screens as BifoldScreens, TOKENS, useServices } from '@hyperledger/aries-bifold-core'
-import { CredentialStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
-import { toImageSource } from '@hyperledger/aries-bifold-core/App/utils/credential'
 import { useNavigation } from '@react-navigation/core'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React from 'react'
@@ -17,7 +16,7 @@ const useStyles = ({
   TextTheme,
   Spacing,
   BorderWidth,
-  ColorPallet,
+  ColorPalette,
   HekaTextTheme,
   FontWeights,
 }: HekaTheme) =>
@@ -26,11 +25,11 @@ const useStyles = ({
       flexDirection: 'row',
       gap: Spacing.sm,
       paddingVertical: Spacing.xs,
-      borderBottomColor: ColorPallet.brand.primaryDisabled,
+      borderBottomColor: ColorPalette.brand.primaryDisabled,
       borderBottomWidth: BorderWidth.small,
     },
     logoContainer: {
-      backgroundColor: ColorPallet.grayscale.white,
+      backgroundColor: ColorPalette.grayscale.white,
       borderRadius: BorderRadius.small,
       padding: Spacing.xxxs,
       paddingRight: Spacing.lg,
@@ -40,14 +39,14 @@ const useStyles = ({
       width: IconSizes.large,
       height: IconSizes.large,
       borderRadius: BorderRadius.small,
-      backgroundColor: ColorPallet.grayscale.white,
+      backgroundColor: ColorPalette.grayscale.white,
     },
     logoName: {
       ...TextTheme.title,
       width: IconSizes.large,
       height: IconSizes.large,
       fontSize: 0.5 * IconSizes.large,
-      color: ColorPallet.grayscale.white,
+      color: ColorPalette.grayscale.white,
     },
     textContainer: {
       gap: Spacing.xxxs,
@@ -58,7 +57,7 @@ const useStyles = ({
     },
     issuerName: {
       ...HekaTextTheme.bodySmall,
-      color: ColorPallet.grayscale.mediumGrey,
+      color: ColorPalette.grayscale.mediumGrey,
     },
   })
 
@@ -97,9 +96,9 @@ export const CredentialRow: React.FC<CredentialRowProps> = ({ onPress, credentia
 export const CredentialList: React.FC = () => {
   const { t } = useTranslation()
 
-  const { ColorPallet, Spacing } = useHekaTheme()
+  const { ColorPalette, Spacing } = useHekaTheme()
 
-  const navigation = useNavigation<StackNavigationProp<CredentialStackParams>>()
+  const navigation = useNavigation<StackNavigationProp<NotificationStackParams>>()
 
   const [CredentialListOptions, CredentialEmptyList] = useServices([
     TOKENS.COMPONENT_CRED_LIST_OPTIONS,
@@ -111,7 +110,7 @@ export const CredentialList: React.FC = () => {
   return (
     <View>
       <FlatList
-        style={{ backgroundColor: ColorPallet.brand.primaryBackground }}
+        style={{ backgroundColor: ColorPalette.brand.primaryBackground }}
         contentContainerStyle={{
           marginHorizontal: Spacing.lg,
         }}
@@ -121,7 +120,7 @@ export const CredentialList: React.FC = () => {
           <CredentialRow
             key={index}
             credentialDisplay={credential.display}
-            onPress={() => navigation.navigate(BifoldScreens.CredentialDetails, { credential: credential as any })}
+            onPress={() => navigation.navigate(BifoldScreens.CredentialDetails, { credentialId: credential as any })}
           />
         )}
         ListEmptyComponent={() =>

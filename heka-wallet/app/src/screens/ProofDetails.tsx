@@ -1,12 +1,11 @@
 import type { StackScreenProps } from '@react-navigation/stack'
 
-import { ProofExchangeRecord, ProofState } from '@credo-ts/core'
-import { useAgent, useConnectionById, useProofById } from '@credo-ts/react-hooks'
+import { getConnectionName, Screens, useStore } from '@bifold/core'
+import { ProofRequestsStackParams } from '@bifold/core/src/types/navigators'
+import { useAgent, useConnectionById, useProofById } from '@bifold/react-hooks'
+import { ProofCustomMetadata, ProofMetadata, markProofAsViewed } from '@bifold/verifier'
+import { DidCommProofExchangeRecord, DidCommProofState } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Screens, useStore } from '@hyperledger/aries-bifold-core'
-import { ProofRequestsStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
-import { getConnectionName } from '@hyperledger/aries-bifold-core/App/utils/helpers'
-import { ProofCustomMetadata, ProofMetadata, markProofAsViewed } from '@hyperledger/aries-bifold-verifier'
 import React, { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -20,7 +19,7 @@ import LoadingView from '../components/views/LoadingView'
 type ProofDetailsProps = StackScreenProps<ProofRequestsStackParams, Screens.ProofDetails>
 
 interface ProofProps {
-  record: ProofExchangeRecord
+  record: DidCommProofExchangeRecord
 }
 
 const useStyles = ({ TextTheme, Spacing }: HekaTheme) => {
@@ -81,7 +80,7 @@ const UnverifiedProof: React.FC<ProofProps> = ({ record }) => {
   return (
     <View style={styles.header}>
       <View style={styles.headerTitleContainer}>
-        {record.state === ProofState.Abandoned && (
+        {record.state === DidCommProofState.Abandoned && (
           <Text style={styles.headerTitle}>{t('ProofRequest.ProofRequestDeclined')}</Text>
         )}
         {record.isVerified === false && <Text style={styles.headerTitle}>{t('Verifier.ProofVerificationFailed')}</Text>}
@@ -109,15 +108,15 @@ const ProofDetails: React.FC<ProofDetailsProps> = ({ route }) => {
   useEffect(() => {
     return () => {
       if (!store.preferences.useDataRetention) {
-        agent?.proofs.deleteById(recordId)
+        agent?.didcomm.proofs.deleteById(recordId)
       }
       if ((proofRecord?.metadata.get(ProofMetadata.customMetadata) as ProofCustomMetadata).delete_conn_after_seen) {
-        agent?.connections.deleteById(proofRecord?.connectionId ?? '')
+        agent?.didcomm.connections.deleteById(proofRecord?.connectionId ?? '')
       }
     }
   }, [
-    agent?.connections,
-    agent?.proofs,
+    agent?.didcomm.connections,
+    agent?.didcomm.proofs,
     proofRecord?.connectionId,
     proofRecord?.metadata,
     recordId,
@@ -137,7 +136,7 @@ const ProofDetails: React.FC<ProofDetailsProps> = ({ route }) => {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <ScrollView>
-        {proofRecord.state === ProofState.Done ? (
+        {proofRecord.state === DidCommProofState.Done ? (
           <VerifiedProof record={proofRecord} />
         ) : (
           <UnverifiedProof record={proofRecord} />

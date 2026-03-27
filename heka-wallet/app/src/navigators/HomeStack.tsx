@@ -1,16 +1,15 @@
+import { Screens as BifoldScreens, useDefaultStackOptions } from '@bifold/core'
+import { HomeStackParams } from '@bifold/core/src/types/navigators'
 import { useHekaTheme } from '@heka-wallet/shared'
-import { Screens as BifoldScreens } from '@hyperledger/aries-bifold-core'
-import { useDefaultStackOptions } from '@hyperledger/aries-bifold-core/App/navigators/defaultStackOptions'
-import { HomeStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
 import { createStackNavigator } from '@react-navigation/stack'
 import React from 'react'
 
 import { Home } from '../screens'
 
+const Stack = createStackNavigator<HomeStackParams>()
+
 export const HomeStack: React.FC = () => {
   const theme = useHekaTheme()
-
-  const Stack = createStackNavigator<HomeStackParams>()
 
   const defaultStackOptions = useDefaultStackOptions(theme)
 

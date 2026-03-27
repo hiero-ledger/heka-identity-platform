@@ -1,5 +1,5 @@
+import { KeyboardView } from '@bifold/core'
 import { useGlobalStyles } from '@heka-wallet/shared'
-import KeyboardView from '@hyperledger/aries-bifold-core/App/components/views/KeyboardView'
 import { useRegisterConfig } from '@keplr-wallet/hooks'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'

@@ -1,5 +1,5 @@
-import { useAgent } from '@credo-ts/react-hooks'
-import { DispatchAction, useAuth, useStore } from '@hyperledger/aries-bifold-core'
+import { DispatchAction, useAuth, useStore } from '@bifold/core'
+import { useAgent } from '@bifold/react-hooks'
 import { useCallback } from 'react'
 
 export const useWalletAuthHelpers = () => {
@@ -11,7 +11,6 @@ export const useWalletAuthHelpers = () => {
     if (!agent || !state.authentication.didAuthenticate) return
 
     removeSavedWalletSecret()
-    await agent.wallet.close()
     await agent.shutdown()
 
     dispatch({

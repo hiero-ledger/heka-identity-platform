@@ -1,4 +1,3 @@
-import { exportLogs, useHekaTheme } from '@heka-wallet/shared'
 import {
   Locales,
   Screens as BifoldScreens,
@@ -7,11 +6,9 @@ import {
   TOKENS,
   useServices,
   useStore as useBifoldStore,
-} from '@hyperledger/aries-bifold-core'
-import {
-  RootStackParams as BifoldStackParams,
-  SettingStackParams,
-} from '@hyperledger/aries-bifold-core/App/types/navigators'
+} from '@bifold/core'
+import { RootStackParams as BifoldStackParams, SettingStackParams } from '@bifold/core/src/types/navigators'
+import { exportLogs, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/core'
 import { StackNavigationProp } from '@react-navigation/stack'
 import { useCallback, useMemo } from 'react'
@@ -28,7 +25,7 @@ import { useWalletBackupHelpers } from './useWalletBackupHelpers'
 export const useWalletSettings = (): SettingSection[] => {
   const { i18n, t } = useTranslation()
 
-  const { ColorPallet } = useHekaTheme()
+  const { ColorPalette } = useHekaTheme()
 
   const navigation = useNavigation<StackNavigationProp<BifoldStackParams & RootStackParams & SettingStackParams>>()
 
@@ -68,10 +65,10 @@ export const useWalletSettings = (): SettingSection[] => {
           iconRight: {
             name: 'edit',
             action: () => {
-              navigation.navigate(BifoldScreens.NameWallet)
+              navigation.navigate(BifoldScreens.RenameWallet)
             },
             accessibilityLabel: t('NameWallet.EditWalletName'),
-            style: { color: ColorPallet.brand.primary },
+            style: { color: ColorPalette.brand.primary },
           },
         },
         data: [
@@ -102,7 +99,7 @@ export const useWalletSettings = (): SettingSection[] => {
             title: t('Global.Biometrics'),
             value: bifoldStore.preferences.useBiometry ? t('Global.On') : t('Global.Off'),
             accessibilityLabel: t('Global.Biometrics'),
-            onPress: () => navigation.navigate(BifoldScreens.UseBiometry),
+            onPress: () => navigation.navigate(BifoldScreens.ToggleBiometry),
           },
           {
             title: t('Settings.Language'),
@@ -184,20 +181,9 @@ export const useWalletSettings = (): SettingSection[] => {
           accessibilityLabel: t('Settings.Notifications'),
           onPress: () =>
             navigation.getParent()?.navigate(BifoldStacks.SettingStack, {
-              screen: BifoldScreens.UsePushNotifications,
+              screen: BifoldScreens.PushNotifications,
               params: { isMenu: true },
             }),
-        })
-    }
-
-    if (bifoldStore.preferences.useHistoryCapability) {
-      settingSections
-        .find((item) => item.header.title === t('Settings.AppSettings'))
-        ?.data.push({
-          title: t('Global.History'),
-          value: undefined,
-          accessibilityLabel: t('Global.History'),
-          onPress: () => navigation.navigate(BifoldScreens.HistorySettings),
         })
     }
 
@@ -265,12 +251,11 @@ export const useWalletSettings = (): SettingSection[] => {
     bifoldStore.preferences.useConnectionInviterCapability,
     bifoldStore.preferences.walletName,
     bifoldStore.preferences.useBiometry,
-    bifoldStore.preferences.useHistoryCapability,
     bifoldStore.preferences.developerModeEnabled,
     bifoldStore.preferences.useVerifierCapability,
     bifoldStore.preferences.useDataRetention,
     t,
-    ColorPallet.brand.primary,
+    ColorPalette.brand.primary,
     currentLanguage,
     enablePushNotifications,
     navigation,

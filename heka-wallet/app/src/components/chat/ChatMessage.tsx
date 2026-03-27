@@ -1,6 +1,5 @@
+import { Text, formatTime } from '@bifold/core'
 import { useHekaTheme } from '@heka-wallet/shared'
-import { Text } from '@hyperledger/aries-bifold-core'
-import { formatTime } from '@hyperledger/aries-bifold-core/App/utils/helpers'
 import React, { useMemo } from 'react'
 import { View } from 'react-native'
 import { Bubble, IMessage, Message } from 'react-native-gifted-chat'
@@ -13,7 +12,7 @@ export interface ChatMessageProps {
 }
 
 export interface ExtendedChatMessage extends IMessage {
-  renderEvent: () => JSX.Element
+  renderEvent: () => React.JSX.Element
   createdAt: Date
   eventStyles?: EventStyles
 }

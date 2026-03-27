@@ -1,13 +1,7 @@
-import { useAgent } from '@credo-ts/react-hooks'
+import { BifoldError, EventTypes, Screens as BifoldScreens, TabStacks as BifoldTabStacks } from '@bifold/core'
+import { useAgent } from '@bifold/react-hooks'
 import { ConfirmationInputModal, ConfirmationInputType } from '@heka-wallet/shared'
-import {
-  BifoldError,
-  EventTypes,
-  Screens as BifoldScreens,
-  TabStacks as BifoldTabStacks,
-} from '@hyperledger/aries-bifold-core'
 import { StackScreenProps } from '@react-navigation/stack'
-import { PRE_AUTH_GRANT_LITERAL } from '@sphereon/oid4vci-common'
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
@@ -15,7 +9,13 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { CredentialOfferView } from '../components/views'
 import LoadingView from '../components/views/LoadingView'
-import { Credential, mapCredentialRecord, useCredentialRecordHelpers, useOpenIdHandlers } from '../credentials'
+import {
+  Credential,
+  mapCredentialRecord,
+  PRE_AUTH_GRANT_LITERAL,
+  useCredentialRecordHelpers,
+  useOpenIdHandlers,
+} from '../credentials'
 import { OpenIdStackParams, Screens } from '../navigators/types'
 
 type CredentialOfferProps = StackScreenProps<OpenIdStackParams, Screens.OpenIdCredentialOffer>

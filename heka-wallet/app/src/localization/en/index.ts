@@ -193,14 +193,14 @@ const translation = {
   },
   "CredentialOffer": {
     "EnterCredentialPIN": "Please enter credential PIN",
-    "CredentialAddedToYourWallet": "Your credential is good to go now!",
+    "CredentialAddedToYourWallet": "Your credential is ready to go.",
     "CredentialOnTheWay": "Your credential is on the way.",
     "IssuedBy": "Issued by"
   },
   "ProofRequest": {
     "RequestedInformation": "Requested information",
     "PresentationOnTheWay": "Your presentation is on the way.",
-    "PresentationAccepted": "You're in! \nYour presentation has been accepted.",
+    "PresentationAccepted": "You're in! \nYour credential proof has been accepted.",
   },
   "Notifications": {
     "CredentialOffer": "Credential offer",

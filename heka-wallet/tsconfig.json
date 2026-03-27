@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "commonjs",
-    "lib": ["es6"],
+    "lib": ["ESNext"],
     "allowJs": true,
     "jsx": "react-native",
     "skipLibCheck": true,
@@ -14,7 +14,12 @@
     "esModuleInterop": true,
     "declaration": true,
     "experimentalDecorators": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@bifold/core/src/*": ["node_modules/@bifold/core/lib/typescript/src/*"],
+      "@react-navigation/bottom-tabs/src/*": ["node_modules/@react-navigation/bottom-tabs/lib/typescript/src/*"]
+    }
   },
   "exclude": ["node_modules"]
 }

@@ -1,7 +1,7 @@
-import { ProofState } from '@credo-ts/core'
-import { useProofById } from '@credo-ts/react-hooks'
+import { Button, ButtonType, Screens as BifoldScreens, Stacks as BifoldStacks } from '@bifold/core'
+import { useProofById } from '@bifold/react-hooks'
+import { DidCommProofState } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Button, ButtonType, Screens as BifoldScreens, Stacks as BifoldStacks } from '@hyperledger/aries-bifold-core'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useEffect, useState } from 'react'
@@ -13,7 +13,7 @@ import TrainImage from '../../assets/train.svg'
 import { RootStackParams, Stacks } from '../../navigators/types'
 import { Loader } from '../views/LoadingView'
 
-const useStyles = ({ ColorPallet, TextTheme, Spacing }: HekaTheme) =>
+const useStyles = ({ ColorPalette, TextTheme, Spacing }: HekaTheme) =>
   StyleSheet.create({
     container: {
       height: '100%',
@@ -21,10 +21,10 @@ const useStyles = ({ ColorPallet, TextTheme, Spacing }: HekaTheme) =>
       paddingTop: 100,
     },
     pendingBackground: {
-      backgroundColor: ColorPallet.brand.modalPrimaryBackground,
+      backgroundColor: ColorPalette.brand.modalPrimaryBackground,
     },
     completedBackground: {
-      backgroundColor: ColorPallet.brand.brandedSecondary,
+      backgroundColor: ColorPalette.brand.brandedSecondary,
     },
     image: {
       minHeight: 240,
@@ -73,7 +73,7 @@ export const ProofRequestAcceptModal: React.FC<Props> = ({ visible, proofId }) =
   useEffect(() => {
     if (!proofRecord) return
 
-    if (proofRecord.state === ProofState.Done || proofRecord.state === ProofState.PresentationSent) {
+    if (proofRecord.state === DidCommProofState.Done || proofRecord.state === DidCommProofState.PresentationSent) {
       setIsCompleted(true)
     }
   }, [proofRecord])
@@ -82,7 +82,7 @@ export const ProofRequestAcceptModal: React.FC<Props> = ({ visible, proofId }) =
     <Modal visible={visible} transparent={true} animationType={'slide'}>
       {isCompleted ? (
         <SafeAreaView style={styles.completedBackground}>
-          <StatusBar backgroundColor={theme.ColorPallet.brand.brandedSecondary} />
+          <StatusBar backgroundColor={theme.ColorPalette.brand.brandedSecondary} />
           <ScrollView style={styles.container}>
             <View style={styles.image}>
               <TrainImage />

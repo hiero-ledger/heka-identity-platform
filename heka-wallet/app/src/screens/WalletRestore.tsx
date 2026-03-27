@@ -1,13 +1,13 @@
-import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import {
   Button,
   ButtonType,
+  DispatchAction,
   OnboardingStackParams,
   Screens as BifoldScreens,
   ToastType,
   useStore as useBifoldStore,
-} from '@hyperledger/aries-bifold-core'
-import { DispatchAction } from '@hyperledger/aries-bifold-core/App/contexts/reducers/store'
+} from '@bifold/core'
+import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/core'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useEffect, useState } from 'react'
@@ -136,11 +136,11 @@ export const WalletRestore: React.FC = () => {
   const backupStatusText = isBackupAvailable
     ? t('WalletBackup.BackupIsAvailable')
     : t('WalletBackup.BackupIsNotAvailable')
-  const backupStatusColor = !isBackupAvailable ? theme.ColorPallet.semantic.error : theme.TextTheme.normal.color
+  const backupStatusColor = !isBackupAvailable ? theme.ColorPalette.semantic.error : theme.TextTheme.normal.color
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor={theme.ColorPallet.brand.primaryBackground} />
+      <StatusBar backgroundColor={theme.ColorPalette.brand.primaryBackground} />
       {isLoading ? (
         // Workaround for modal rendering issues on iOS (not possible to render more than one)
         // See https://github.com/react-native-modal/react-native-modal/issues/30

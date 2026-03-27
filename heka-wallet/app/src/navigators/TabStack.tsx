@@ -1,15 +1,15 @@
-import { KeplrStack } from '@heka-wallet/keplr'
-import { BootstrapIcon, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import {
   Screens as BifoldScreens,
+  SettingStack,
   Stacks as BifoldStacks,
   TabStacks as BifoldTabStacks,
   TOKENS,
   useContainer,
-} from '@hyperledger/aries-bifold-core'
-import { useNetwork } from '@hyperledger/aries-bifold-core/App/contexts/network'
-import SettingStack from '@hyperledger/aries-bifold-core/App/navigators/SettingStack'
-import { TabStackParams as BifoldTabStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
+  useNetwork,
+} from '@bifold/core'
+import { TabStackParams as BifoldTabStackParams } from '@bifold/core/src/types/navigators'
+import { KeplrStack } from '@heka-wallet/keplr'
+import { BootstrapIcon, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import React, { ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -24,11 +24,15 @@ import { isKeplrIntegrationEnabled } from '../config'
 
 import { TabStackParams, TabStacks } from './types'
 
-const useStyles = ({ TextTheme, ColorPallet }: HekaTheme) =>
+const Tab = createBottomTabNavigator<BifoldTabStackParams & TabStackParams>()
+
+const NOTIFICATION_OPTIONS = { openIDUri: '' }
+
+const useStyles = ({ TextTheme, ColorPalette }: HekaTheme) =>
   StyleSheet.create({
     notificationsBadgeText: {
       ...TextTheme.labelText,
-      color: ColorPallet.grayscale.white,
+      color: ColorPalette.grayscale.white,
     },
   })
 
@@ -38,16 +42,15 @@ export const TabStack: React.FC = () => {
   const theme = useHekaTheme()
   const styles = useStyles(theme)
 
-  const { ColorPallet, TabTheme, IconSizes } = theme
+  const { ColorPalette, TabTheme, IconSizes } = theme
 
   const container = useContainer()
   const HomeStack = container.resolve(TOKENS.STACK_HOME)
   const { useNotifications } = container.resolve(TOKENS.NOTIFICATIONS)
 
-  const { assertConnectedNetwork } = useNetwork()
+  const { assertNetworkConnected } = useNetwork()
 
-  const notifications = useNotifications()
-  const Tab = createBottomTabNavigator<BifoldTabStackParams & TabStackParams>()
+  const notifications = useNotifications(NOTIFICATION_OPTIONS)
 
   const [orientation, setOrientation] = useState(OrientationType.PORTRAIT)
 
@@ -109,7 +112,7 @@ export const TabStack: React.FC = () => {
             listeners={({ navigation }) => ({
               tabPress: (e) => {
                 e.preventDefault()
-                if (!assertConnectedNetwork()) {
+                if (!assertNetworkConnected()) {
                   return
                 }
                 navigation.navigate(BifoldStacks.ConnectStack, { screen: BifoldScreens.Scan })
@@ -143,7 +146,7 @@ export const TabStack: React.FC = () => {
               minWidth: IconSizes.small,
               marginLeft: leftMarginForDevice(),
               textAlign: 'center',
-              backgroundColor: ColorPallet.brand.highlight,
+              backgroundColor: ColorPalette.brand.highlight,
             },
           }}
         />
@@ -175,7 +178,7 @@ interface TabBarIconProps {
 
 const TabBarIcon: React.FC<TabBarIconProps> = ({ iconComponent, label, focused }) => {
   const { fontScale } = useWindowDimensions()
-  const { TabTheme, ColorPallet } = useHekaTheme()
+  const { TabTheme, ColorPalette } = useHekaTheme()
 
   const showLabels = fontScale * TabTheme.tabBarTextStyle.fontSize < 18
   return (
@@ -183,7 +186,7 @@ const TabBarIcon: React.FC<TabBarIconProps> = ({ iconComponent, label, focused }
       style={{
         ...TabTheme.tabBarContainerStyle,
         justifyContent: showLabels ? 'flex-end' : 'center',
-        backgroundColor: focused ? ColorPallet.brand.primaryBackground : ColorPallet.grayscale.white,
+        backgroundColor: focused ? ColorPalette.brand.primaryBackground : ColorPalette.grayscale.white,
       }}
     >
       {iconComponent}

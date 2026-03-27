@@ -3,20 +3,17 @@ import axios from 'axios'
 import { makeAutoObservable, runInAction } from 'mobx'
 import { Platform } from 'react-native'
 import { Config } from 'react-native-config'
-import { Passkey, PasskeyAuthenticationResult, PasskeyRegistrationResult } from 'react-native-passkey'
-import { PasskeyAuthenticationRequest, PasskeyRegistrationRequest } from 'react-native-passkey/lib/typescript/Passkey'
+import {
+  Passkey,
+  PasskeyCreateRequest,
+  PasskeyCreateResult,
+  PasskeyGetRequest,
+  PasskeyGetResult,
+} from 'react-native-passkey'
 import RNUserIdentity from 'react-native-user-identity'
 import url from 'url'
 
-interface PasskeyAuthResultWithExtensions extends PasskeyAuthenticationResult {
-  clientExtensionResults: any
-}
-
-interface PasskeyRegistrationResultWithExtensions extends PasskeyRegistrationResult {
-  clientExtensionResults: any
-}
-
-export type PasskeyAuthResult = PasskeyAuthResultWithExtensions | PasskeyRegistrationResultWithExtensions
+export type PasskeyAuthResult = PasskeyGetResult | PasskeyCreateResult
 
 const logger = GlobalLogger.createContextLogger('Passkeys')
 
@@ -65,7 +62,7 @@ export class PasskeysStore {
 
   async register(username: string): Promise<void> {
     try {
-      const { data: registrationRequest } = await axios.post<PasskeyRegistrationRequest>(
+      const { data: registrationRequest } = await axios.post<PasskeyCreateRequest>(
         `${this._authProviderUrl}/webauthn/registration/challenge`,
         {
           name: username,
@@ -74,7 +71,7 @@ export class PasskeysStore {
         }
       )
 
-      const registrationResult = await Passkey.register(registrationRequest)
+      const registrationResult = await Passkey.create(registrationRequest)
       logger.debug('Registered new account with result:', JSON.stringify(registrationResult))
 
       await axios.post(`${this._authProviderUrl}/webauthn/registration`, {
@@ -95,7 +92,7 @@ export class PasskeysStore {
 
   async authenticate(username: string): Promise<void> {
     try {
-      const { data: authRequest } = await axios.post<PasskeyAuthenticationRequest>(
+      const { data: authRequest } = await axios.post<PasskeyGetRequest>(
         `${this._authProviderUrl}/webauthn/authentication/challenge`,
         {
           name: username,
@@ -103,7 +100,7 @@ export class PasskeysStore {
         }
       )
 
-      const authResult = await Passkey.authenticate(authRequest)
+      const authResult = await Passkey.get(authRequest)
       logger.debug('Authenticated with result:', JSON.stringify(authResult))
 
       await axios.post(`${this._authProviderUrl}/webauthn/authentication`, {

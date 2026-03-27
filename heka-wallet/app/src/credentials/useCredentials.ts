@@ -1,8 +1,8 @@
+import { TOKENS, useServices, useStore } from '@bifold/core'
+import { useAgent, useCredentialByState } from '@bifold/react-hooks'
 import { AnonCredsCredentialMetadataKey } from '@credo-ts/anoncreds'
-import { CredentialExchangeRecord, CredentialState } from '@credo-ts/core'
-import { useAgent, useCredentialByState } from '@credo-ts/react-hooks'
+import { DidCommCredentialExchangeRecord, DidCommCredentialState } from '@credo-ts/didcomm'
 import { usePrevious } from '@heka-wallet/shared'
-import { TOKENS, useServices, useStore } from '@hyperledger/aries-bifold-core'
 import { isEqual } from 'lodash'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -35,36 +35,37 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
   const { sdJwtVcRecords, isLoading: isSdJwtCredentialsLoading } = useSdJwtVcRecords()
   const { mdocCredentialRecords, isLoading: isMdocCredentialsLoading } = useMdocRecords()
 
-  const credentialExchangeRecords = useCredentialByState([CredentialState.CredentialReceived, CredentialState.Done])
-  const previousCredentialExchangeRecords = usePrevious(credentialExchangeRecords)
+  const credentialExchangeRecords = useCredentialByState([
+    DidCommCredentialState.CredentialReceived,
+    DidCommCredentialState.Done,
+  ])
+  const previousDidCommCredentialExchangeRecords = usePrevious(credentialExchangeRecords)
 
   const [anoncredsCredentials, setAnoncredsCredentials] = useState(credentialExchangeRecords)
 
   // Workaround to avoid re-rendering on every update to CredentialExchange records (which cause array reference to change)
   // Example - new credential offers
   useEffect(() => {
-    if (previousCredentialExchangeRecords && isEqual(credentialExchangeRecords, previousCredentialExchangeRecords)) {
+    if (
+      previousDidCommCredentialExchangeRecords &&
+      isEqual(credentialExchangeRecords, previousDidCommCredentialExchangeRecords)
+    ) {
       return
     }
 
     setAnoncredsCredentials(credentialExchangeRecords)
-  }, [credentialExchangeRecords, previousCredentialExchangeRecords])
+  }, [credentialExchangeRecords, previousDidCommCredentialExchangeRecords])
 
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   const loadCredentials = useCallback(async () => {
-    if (
-      !agent?.wallet.isInitialized ||
-      isW3cCredentialsLoading ||
-      isSdJwtCredentialsLoading ||
-      isMdocCredentialsLoading
-    )
+    if (!agent?.isInitialized || isW3cCredentialsLoading || isSdJwtCredentialsLoading || isMdocCredentialsLoading)
       return
 
     setIsLoading(true)
     try {
-      let anoncredsCredentialsToShow: CredentialExchangeRecord[] = anoncredsCredentials
+      let anoncredsCredentialsToShow: DidCommCredentialExchangeRecord[] = anoncredsCredentials
 
       // Filter out hidden credentials when not in dev mode
       if (!store.preferences.developerModeEnabled) {

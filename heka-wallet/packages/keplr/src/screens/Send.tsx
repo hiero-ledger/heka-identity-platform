@@ -1,3 +1,5 @@
+import { Button, ButtonType, KeyboardView, ToastType } from '@bifold/core'
+import ButtonLoading from '@bifold/core/src/components/animated/ButtonLoading'
 import {
   useHekaTheme,
   useGlobalStyles,
@@ -5,9 +7,6 @@ import {
   authenticateByBiometry,
   isBiometryCancelledError,
 } from '@heka-wallet/shared'
-import { Button, ButtonType, ToastType } from '@hyperledger/aries-bifold-core'
-import ButtonLoading from '@hyperledger/aries-bifold-core/App/components/animated/ButtonLoading'
-import KeyboardView from '@hyperledger/aries-bifold-core/App/components/views/KeyboardView'
 import { DenomHelper } from '@keplr-wallet/common'
 import { useGasSimulator, useSendTxConfig } from '@keplr-wallet/hooks'
 import { useNavigation } from '@react-navigation/native'

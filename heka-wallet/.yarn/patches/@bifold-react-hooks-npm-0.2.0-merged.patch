@@ -1,0 +1,418 @@
+diff -ruN a/build/AgentProvider.d.ts b/build/AgentProvider.d.ts
+--- a/build/AgentProvider.d.ts
++++ b/build/AgentProvider.d.ts
+@@ -3,11 +3,15 @@
+ import * as React from 'react';
+ interface AgentContextInterface<AppAgent extends Agent = Agent> {
+     loading: boolean;
+-    agent: AppAgent;
++    agent?: AppAgent;
++    publicDid?: string;
++    setAgent(agent: AppAgent | null): void;
++    setPublicDid(did: string): void;
++    agentIteration: number;
+ }
+ export declare const useAgent: <AppAgent extends Agent<any>>() => AgentContextInterface<AppAgent>;
+ interface Props {
+-    agent: Agent;
++    agent: Agent | undefined;
+ }
+ declare const AgentProvider: React.FC<PropsWithChildren<Props>>;
+-export default AgentProvider;
++export default AgentProvider;
+\ No newline at end of file
+diff -ruN a/build/AgentProvider.js b/build/AgentProvider.js
+--- a/build/AgentProvider.js
++++ b/build/AgentProvider.js
+@@ -48,18 +48,26 @@
+ };
+ exports.useAgent = useAgent;
+ const AgentProvider = ({ agent, children }) => {
+-    const isQaRegistered = (0, recordUtils_1.useIsModuleRegistered)(agent, question_answer_1.QuestionAnswerModule);
+-    const [agentState] = (0, react_1.useState)({
+-        loading: false,
++    const [agentState, setAgentState] = (0, react_1.useState)({
++        loading: true,
+         agent,
++        agentIteration: 1,
++        publicDid: undefined
+     });
+-    return (React.createElement(AgentContext.Provider, { value: agentState },
+-        React.createElement(ConnectionProvider_1.default, { agent: agent },
+-            React.createElement(CredentialProvider_1.default, { agent: agent },
+-                React.createElement(ProofProvider_1.default, { agent: agent },
+-                    React.createElement(CredentialFormatDataProvider_1.default, { agent: agent },
+-                        React.createElement(ProofFormatDataProvider_1.default, { agent: agent },
+-                            React.createElement(BasicMessageProvider_1.default, { agent: agent }, isQaRegistered ? (React.createElement(QuestionAnswerProvider_1.default, { agent: agent },
++    const isQaRegistered = (0, recordUtils_1.useIsModuleRegistered)(agentState.agent, question_answer_1.QuestionAnswerModule);
++    const setInitialState = async (newAgent) => {
++        setAgentState(prev => ({ agent: newAgent, loading: !newAgent, agentIteration: newAgent ? prev.agentIteration + 1 : prev.agentIteration, publicDid: prev.publicDid }));
++    };
++    const setPublicDid = (publicDid) => {
++        setAgentState((state) => ({ ...state, publicDid }))
++    }
++    return (React.createElement(AgentContext.Provider, { value: { agent: agentState.agent, publicDid: agentState.publicDid, agentIteration: agentState.agentIteration, loading: agentState.agent ? false : true, setAgent: setInitialState, setPublicDid } },
++        React.createElement(ConnectionProvider_1.default, { agent: agentState.agent, agentIteration: agentState.agentIteration },
++            React.createElement(CredentialProvider_1.default, { agent: agentState.agent, agentIteration: agentState.agentIteration },
++                React.createElement(ProofProvider_1.default, { agent: agentState.agent, agentIteration: agentState.agentIteration },
++                    React.createElement(CredentialFormatDataProvider_1.default, { agent: agentState.agent, agentIteration: agentState.agentIteration },
++                        React.createElement(ProofFormatDataProvider_1.default, { agent: agentState.agent, agentIteration: agentState.agentIteration },
++                            React.createElement(BasicMessageProvider_1.default, { agent: agentState.agent, agentIteration: agentState.agentIteration }, isQaRegistered ? (React.createElement(QuestionAnswerProvider_1.default, { agent: agentState.agent, agentIteration: agentState.agentIteration },
+                                 children,
+                                 " ")) : (children)))))))));
+ };
+diff -ruN a/build/BasicMessageProvider.d.ts b/build/BasicMessageProvider.d.ts
+--- a/build/BasicMessageProvider.d.ts
++++ b/build/BasicMessageProvider.d.ts
+@@ -6,7 +6,8 @@
+ export declare const useBasicMessages: () => RecordsState<DidCommBasicMessageRecord>;
+ export declare const useBasicMessagesByConnectionId: (connectionId: string) => DidCommBasicMessageRecord[];
+ interface Props {
+-    agent: BifoldAgent;
++    agent: BifoldAgent | undefined;
++    agentIteration: number;
+ }
+ declare const BasicMessageProvider: React.FC<PropsWithChildren<Props>>;
+ export default BasicMessageProvider;
+diff -ruN a/build/BasicMessageProvider.js b/build/BasicMessageProvider.js
+--- a/build/BasicMessageProvider.js
++++ b/build/BasicMessageProvider.js
+@@ -43,12 +43,15 @@
+     return messages;
+ };
+ exports.useBasicMessagesByConnectionId = useBasicMessagesByConnectionId;
+-const BasicMessageProvider = ({ agent, children }) => {
++const BasicMessageProvider = ({ agent, agentIteration, children }) => {
+     const [state, setState] = (0, react_1.useState)({
+         records: [],
+         loading: true,
+     });
+     const setInitialState = (0, react_1.useCallback)(async () => {
++        setState(prev => ({ ...prev, loading: true }));
++        if (!agent)
++            return;
+         const records = await agent.modules.didcomm.basicMessages.findAllByQuery({});
+         setState({ records, loading: false });
+     }, [agent]);
+@@ -66,7 +69,7 @@
+             basicMessageUpdated$ === null || basicMessageUpdated$ === void 0 ? void 0 : basicMessageUpdated$.unsubscribe();
+             basicMessageRemoved$ === null || basicMessageRemoved$ === void 0 ? void 0 : basicMessageRemoved$.unsubscribe();
+         };
+-    }, [state, agent]);
++    }, [state, agent, agentIteration]);
+     return React.createElement(BasicMessageContext.Provider, { value: state }, children);
+ };
+ exports.default = BasicMessageProvider;
+diff -ruN a/build/ConnectionProvider.d.ts b/build/ConnectionProvider.d.ts
+--- a/build/ConnectionProvider.d.ts
++++ b/build/ConnectionProvider.d.ts
+@@ -18,7 +18,8 @@
+ };
+ export declare const useConnectionById: (id: string) => DidCommConnectionRecord | undefined;
+ interface Props {
+-    agent: BifoldAgent;
++    agent: BifoldAgent | undefined;
++    agentIteration: number;
+ }
+ declare const ConnectionProvider: React.FC<PropsWithChildren<Props>>;
+ export default ConnectionProvider;
+diff -ruN a/build/ConnectionProvider.js b/build/ConnectionProvider.js
+--- a/build/ConnectionProvider.js
++++ b/build/ConnectionProvider.js
+@@ -66,12 +66,15 @@
+     return connections.find((c) => c.id === id);
+ };
+ exports.useConnectionById = useConnectionById;
+-const ConnectionProvider = ({ agent, children }) => {
++const ConnectionProvider = ({ agent, agentIteration, children }) => {
+     const [state, setState] = (0, react_1.useState)({
+         records: [],
+         loading: true,
+     });
+     const setInitialState = (0, react_1.useCallback)(async () => {
++        setState(prev => ({ ...prev, loading: true }));
++        if (!agent)
++            return;
+         const records = await agent.modules.didcomm.connections.getAll();
+         setState({ records, loading: false });
+     }, [agent]);
+@@ -89,7 +92,7 @@
+             connectionUpdated$.unsubscribe();
+             connectionRemoved$.unsubscribe();
+         };
+-    }, [state, agent]);
++    }, [state, agent, agentIteration]);
+     return React.createElement(ConnectionContext.Provider, { value: state }, children);
+ };
+ exports.default = ConnectionProvider;
+diff -ruN a/build/CredentialFormatDataProvider.d.ts b/build/CredentialFormatDataProvider.d.ts
+--- a/build/CredentialFormatDataProvider.d.ts
++++ b/build/CredentialFormatDataProvider.d.ts
+@@ -12,7 +12,8 @@
+ export declare const useCredentialsFormatData: () => FormattedDataState;
+ export declare const useCredentialFormatDataById: (id: string) => CredentialFormatData | undefined;
+ interface Props {
+-    agent: BifoldAgent;
++    agent: BifoldAgent | undefined;
++    agentIteration: number;
+ }
+ declare const CredentialFormatDataProvider: React.FC<PropsWithChildren<Props>>;
+ export default CredentialFormatDataProvider;
+diff -ruN a/build/CredentialFormatDataProvider.js b/build/CredentialFormatDataProvider.js
+--- a/build/CredentialFormatDataProvider.js
++++ b/build/CredentialFormatDataProvider.js
+@@ -67,7 +67,7 @@
+     return formattedData.find((c) => c.id === id);
+ };
+ exports.useCredentialFormatDataById = useCredentialFormatDataById;
+-const CredentialFormatDataProvider = ({ agent, children }) => {
++const CredentialFormatDataProvider = ({ agent, agentIteration, children }) => {
+     const [state, setState] = (0, react_1.useState)({
+         formattedData: [],
+         loading: true,
+@@ -77,6 +77,9 @@
+         return Object.assign(Object.assign({}, formatData), { id: record.id });
+     };
+     const setInitialState = (0, react_1.useCallback)(async () => {
++        setState(prev => ({ ...prev, loading: true }));
++        if (!agent)
++            return;
+         const records = await agent.modules.didcomm.credentials.getAll();
+         const formattedData = [];
+         for (const record of records) {
+@@ -91,10 +94,14 @@
+         if (state.loading)
+             return;
+         const credentialAdded$ = (0, recordUtils_1.recordsAddedByType)(agent, didcomm_1.DidCommCredentialExchangeRecord).subscribe(async (record) => {
++            if (!agent)
++                return;
+             const formatData = await fetchCredentialInformation(agent, record);
+             setState(addRecord(formatData, state));
+         });
+         const credentialUpdate$ = (0, recordUtils_1.recordsUpdatedByType)(agent, didcomm_1.DidCommCredentialExchangeRecord).subscribe(async (record) => {
++            if (!agent)
++                return;
+             const formatData = await fetchCredentialInformation(agent, record);
+             setState(updateRecord(formatData, state));
+         });
+@@ -104,7 +111,7 @@
+             credentialUpdate$.unsubscribe();
+             credentialRemove$.unsubscribe();
+         };
+-    }, [state, agent]);
++    }, [state, agent, agentIteration]);
+     return react_1.default.createElement(CredentialFormatDataContext.Provider, { value: state }, children);
+ };
+ exports.default = CredentialFormatDataProvider;
+diff -ruN a/build/CredentialProvider.d.ts b/build/CredentialProvider.d.ts
+--- a/build/CredentialProvider.d.ts
++++ b/build/CredentialProvider.d.ts
+@@ -9,7 +9,8 @@
+ export declare const useCredentialByState: (state: DidCommCredentialState | DidCommCredentialState[]) => DidCommCredentialExchangeRecord[];
+ export declare const useCredentialNotInState: (state: DidCommCredentialState | DidCommCredentialState[]) => DidCommCredentialExchangeRecord[];
+ interface Props {
+-    agent: Agent;
++    agent: Agent | undefined;
++    agentIteration: number;
+ }
+ declare const CredentialProvider: React.FC<PropsWithChildren<Props>>;
+ export default CredentialProvider;
+diff -ruN a/build/CredentialProvider.js b/build/CredentialProvider.js
+--- a/build/CredentialProvider.js
++++ b/build/CredentialProvider.js
+@@ -61,12 +61,15 @@
+     return filteredCredentials;
+ };
+ exports.useCredentialNotInState = useCredentialNotInState;
+-const CredentialProvider = ({ agent, children }) => {
++const CredentialProvider = ({ agent, agentIteration, children }) => {
+     const [state, setState] = (0, react_1.useState)({
+         records: [],
+         loading: true,
+     });
+     const setInitialState = (0, react_1.useCallback)(async () => {
++        setState(prev => ({ ...prev, loading: true }));
++        if (!agent)
++            return;
+         const records = await agent.modules.didcomm.credentials.getAll();
+         setState({ records, loading: false });
+     }, [agent]);
+@@ -84,7 +87,7 @@
+             credentialUpdated$ === null || credentialUpdated$ === void 0 ? void 0 : credentialUpdated$.unsubscribe();
+             credentialRemoved$ === null || credentialRemoved$ === void 0 ? void 0 : credentialRemoved$.unsubscribe();
+         };
+-    }, [state, agent]);
++    }, [state, agent, agentIteration]);
+     return React.createElement(CredentialContext.Provider, { value: state }, children);
+ };
+ exports.default = CredentialProvider;
+diff -ruN a/build/ProofFormatDataProvider.d.ts b/build/ProofFormatDataProvider.d.ts
+--- a/build/ProofFormatDataProvider.d.ts
++++ b/build/ProofFormatDataProvider.d.ts
+@@ -13,7 +13,8 @@
+ export declare const useProofsFormatData: () => FormattedProofDataState;
+ export declare const useProofFormatDataById: (id: string) => ProofFormatData | undefined;
+ interface Props {
+-    agent: Agent;
++    agent: Agent | undefined;
++    agentIteration: number;
+ }
+ declare const ProofFormatDataProvider: React.FC<PropsWithChildren<Props>>;
+ export default ProofFormatDataProvider;
+diff -ruN a/build/ProofFormatDataProvider.js b/build/ProofFormatDataProvider.js
+--- a/build/ProofFormatDataProvider.js
++++ b/build/ProofFormatDataProvider.js
+@@ -68,12 +68,15 @@
+     return formattedData.find((c) => c.id === id);
+ };
+ exports.useProofFormatDataById = useProofFormatDataById;
+-const ProofFormatDataProvider = ({ agent, children }) => {
++const ProofFormatDataProvider = ({ agent, agentIteration, children }) => {
+     const [state, setState] = (0, react_1.useState)({
+         formattedData: [],
+         loading: true,
+     });
+     const setInitialState = (0, react_1.useCallback)(async () => {
++        setState(prev => ({ ...prev, loading: true }));
++        if (!agent)
++            return;
+         const records = await agent.modules.didcomm.proofs.getAll();
+         const formattedData = [];
+         for (const record of records) {
+@@ -89,10 +92,14 @@
+         if (state.loading)
+             return;
+         const proofAdded$ = (0, recordUtils_1.recordsAddedByType)(agent, didcomm_1.DidCommProofExchangeRecord).subscribe(async (record) => {
++            if (!agent)
++                return;
+             const formatData = await agent.modules.didcomm.proofs.getFormatData(record.id);
+             setState(addRecord(Object.assign(Object.assign({}, formatData), { id: record.id }), state));
+         });
+         const proofUpdate$ = (0, recordUtils_1.recordsUpdatedByType)(agent, didcomm_1.DidCommProofExchangeRecord).subscribe(async (record) => {
++            if (!agent)
++                return;
+             const formatData = await agent.modules.didcomm.proofs.getFormatData(record.id);
+             setState(updateRecord(Object.assign(Object.assign({}, formatData), { id: record.id }), state));
+         });
+@@ -102,7 +109,7 @@
+             proofUpdate$.unsubscribe();
+             proofRemove$.unsubscribe();
+         };
+-    }, [state, agent]);
++    }, [state, agent, agentIteration]);
+     return React.createElement(ProofFormatDataContext.Provider, { value: state }, children);
+ };
+ exports.default = ProofFormatDataProvider;
+diff -ruN a/build/ProofProvider.d.ts b/build/ProofProvider.d.ts
+--- a/build/ProofProvider.d.ts
++++ b/build/ProofProvider.d.ts
+@@ -9,7 +9,8 @@
+ export declare const useProofByState: (state: DidCommProofState | DidCommProofState[]) => DidCommProofExchangeRecord[];
+ export declare const useProofNotInState: (state: DidCommProofState | DidCommProofState[]) => DidCommProofExchangeRecord[];
+ interface Props {
+-    agent: BifoldAgent;
++    agent: BifoldAgent | undefined;
++    agentIteration: number;
+ }
+ declare const ProofProvider: React.FC<PropsWithChildren<Props>>;
+ export default ProofProvider;
+diff -ruN a/build/ProofProvider.js b/build/ProofProvider.js
+--- a/build/ProofProvider.js
++++ b/build/ProofProvider.js
+@@ -67,12 +67,15 @@
+     return filteredProofs;
+ };
+ exports.useProofNotInState = useProofNotInState;
+-const ProofProvider = ({ agent, children }) => {
++const ProofProvider = ({ agent, agentIteration, children }) => {
+     const [state, setState] = (0, react_1.useState)({
+         records: [],
+         loading: true,
+     });
+     const setInitialState = (0, react_1.useCallback)(async () => {
++        setState(prev => ({ ...prev, loading: true }));
++        if (!agent)
++            return;
+         const records = await agent.modules.didcomm.proofs.getAll();
+         setState({ records, loading: false });
+     }, [agent]);
+@@ -90,7 +93,7 @@
+             proofUpdated$ === null || proofUpdated$ === void 0 ? void 0 : proofUpdated$.unsubscribe();
+             proofRemoved$ === null || proofRemoved$ === void 0 ? void 0 : proofRemoved$.unsubscribe();
+         };
+-    }, [state, agent]);
++    }, [state, agent, agentIteration]);
+     return React.createElement(ProofContext.Provider, { value: state }, children);
+ };
+ exports.default = ProofProvider;
+diff -ruN a/build/QuestionAnswerProvider.d.ts b/build/QuestionAnswerProvider.d.ts
+--- a/build/QuestionAnswerProvider.d.ts
++++ b/build/QuestionAnswerProvider.d.ts
+@@ -8,7 +8,8 @@
+ export declare const useQuestionAnswerByConnectionId: (connectionId: string) => QuestionAnswerRecord[];
+ export declare const useQuestionAnswerById: (id: string) => QuestionAnswerRecord | undefined;
+ interface Props {
+-    agent: Agent;
++    agent: Agent | undefined;
++    agentIteration: number;
+ }
+ declare const QuestionAnswerProvider: React.FC<PropsWithChildren<Props>>;
+ export default QuestionAnswerProvider;
+diff -ruN a/build/QuestionAnswerProvider.js b/build/QuestionAnswerProvider.js
+--- a/build/QuestionAnswerProvider.js
++++ b/build/QuestionAnswerProvider.js
+@@ -47,12 +47,15 @@
+     return questionAnswerMessages.find((c) => c.id === id);
+ };
+ exports.useQuestionAnswerById = useQuestionAnswerById;
+-const QuestionAnswerProvider = ({ agent, children }) => {
++const QuestionAnswerProvider = ({ agent, agentIteration, children }) => {
+     const [questionAnswerState, setQuestionAnswerState] = (0, react_1.useState)({
+         questionAnswerMessages: [],
+         loading: true,
+     });
+     const setInitialState = (0, react_1.useCallback)(async () => {
++        setQuestionAnswerState(prev => ({ ...prev, loading: true }));
++        if (!agent)
++            return;
+         const questAnswerApi = agent.dependencyManager.resolve(question_answer_1.QuestionAnswerApi);
+         const questionAnswerMessages = await questAnswerApi.getAll();
+         setQuestionAnswerState({ questionAnswerMessages, loading: false });
+@@ -77,11 +80,11 @@
+                 questionAnswerMessages: newQuestionAnswerState,
+             });
+         };
+-        agent.events.on(question_answer_1.QuestionAnswerEventTypes.QuestionAnswerStateChanged, listener);
++        agent === null || agent === void 0 ? void 0 : agent.events.on(question_answer_1.QuestionAnswerEventTypes.QuestionAnswerStateChanged, listener);
+         return () => {
+-            agent.events.off(question_answer_1.QuestionAnswerEventTypes.QuestionAnswerStateChanged, listener);
++            agent === null || agent === void 0 ? void 0 : agent.events.off(question_answer_1.QuestionAnswerEventTypes.QuestionAnswerStateChanged, listener);
+         };
+-    }, [questionAnswerState, agent]);
++    }, [questionAnswerState, agent, agentIteration]);
+     return React.createElement(QuestionAnswerContext.Provider, { value: questionAnswerState }, children);
+ };
+ exports.default = QuestionAnswerProvider;
+diff -ruN a/build/recordUtils.d.ts b/build/recordUtils.d.ts
+--- a/build/recordUtils.d.ts
++++ b/build/recordUtils.d.ts
+@@ -17,5 +17,5 @@
+ export declare const recordsUpdatedByType: <R extends BaseRecordAny>(agent: Agent | undefined, recordClass: RecordClass<R>) => import("rxjs").Observable<R>;
+ export declare const recordsRemovedByType: <R extends BaseRecordAny>(agent: Agent | undefined, recordClass: RecordClass<R>) => import("rxjs").Observable<R>;
+ export declare const isModuleRegistered: (agent: Agent, ModuleClass: Constructor) => boolean;
+-export declare const useIsModuleRegistered: (agent: Agent, ModuleClass: Constructor) => boolean;
++export declare const useIsModuleRegistered: (agent: Agent | undefined, ModuleClass: Constructor) => boolean | undefined;
+ export {};
+diff -ruN a/build/recordUtils.js b/build/recordUtils.js
+--- a/build/recordUtils.js
++++ b/build/recordUtils.js
+@@ -75,7 +75,7 @@
+ };
+ exports.isModuleRegistered = isModuleRegistered;
+ const useIsModuleRegistered = (agent, ModuleClass) => {
+-    return (0, react_1.useMemo)(() => (0, exports.isModuleRegistered)(agent, ModuleClass), [agent, ModuleClass]);
++    return (0, react_1.useMemo)(() => (agent ? (0, exports.isModuleRegistered)(agent, ModuleClass) : undefined), [agent, ModuleClass]);
+ };
+ exports.useIsModuleRegistered = useIsModuleRegistered;
+ //# sourceMappingURL=recordUtils.js.map
+\ No newline at end of file

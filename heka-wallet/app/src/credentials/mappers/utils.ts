@@ -8,7 +8,7 @@ import {
   isDidIndyCredentialDefinitionId,
   isDidIndySchemaId,
   isUnqualifiedCredentialDefinitionId,
-} from '@credo-ts/anoncreds/build/utils/indyIdentifiers'
+} from '@credo-ts/anoncreds/build/utils/indyIdentifiers.mjs'
 
 import {
   isIndyBesuCredDefId,
@@ -55,4 +55,8 @@ export function parseCredentialName(credentialDefinitionId?: string, schemaId?: 
   }
 
   return name
+}
+
+export function humanizeAttributeName(name: string): string {
+  return name.replace(/_/g, ' ')
 }

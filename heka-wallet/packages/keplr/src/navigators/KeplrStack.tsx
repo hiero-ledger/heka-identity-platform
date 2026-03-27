@@ -1,6 +1,5 @@
+import { useStore as useBifoldStore, useDefaultStackOptions } from '@bifold/core'
 import { useHekaTheme } from '@heka-wallet/shared'
-import { useStore as useBifoldStore } from '@hyperledger/aries-bifold-core'
-import { useDefaultStackOptions } from '@hyperledger/aries-bifold-core/App/navigators/defaultStackOptions'
 import { KeyRingStatus } from '@keplr-wallet/background'
 import { useNavigation } from '@react-navigation/native'
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack'
@@ -14,8 +13,9 @@ import { MainStack } from './MainStack'
 import { RegisterStack } from './RegisterStack'
 import { KeplrStackParams, Stacks } from './types'
 
+const Stack = createStackNavigator<KeplrStackParams>()
+
 export const KeplrStack = observer(() => {
-  const Stack = createStackNavigator<KeplrStackParams>()
   const theme = useHekaTheme()
   const defaultStackOptions = useDefaultStackOptions(theme)
 

@@ -1,5 +1,5 @@
+import { Field } from '@bifold/oca/build/legacy'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Field } from '@hyperledger/aries-oca/build/legacy'
 import React from 'react'
 import { FlatList, StyleSheet, View } from 'react-native'
 

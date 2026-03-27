@@ -1,5 +1,5 @@
+import { GenericFn } from '@bifold/core'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { GenericFn } from '@hyperledger/aries-bifold-core'
 import * as React from 'react'
 import { StyleSheet, Text, TouchableOpacity } from 'react-native'
 import { Dialog, Portal } from 'react-native-paper'
@@ -15,13 +15,13 @@ interface ContextMenuModalProps {
   onDismiss: GenericFn
 }
 
-const useStyles = ({ ColorPallet, TextTheme, Spacing }: HekaTheme) =>
+const useStyles = ({ ColorPalette, TextTheme, Spacing }: HekaTheme) =>
   StyleSheet.create({
     dialog: {
       position: 'absolute',
       top: 0,
       right: 0,
-      backgroundColor: ColorPallet.brand.modalPrimaryBackground,
+      backgroundColor: ColorPalette.brand.modalPrimaryBackground,
       borderRadius: Spacing.md,
       padding: Spacing.xs,
     },

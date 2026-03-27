@@ -1,12 +1,5 @@
+import { Button, ButtonType, DispatchAction, OnboardingStackParams, useStore } from '@bifold/core'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import {
-  AuthenticateStackParams,
-  Button,
-  ButtonType,
-  DispatchAction,
-  Screens,
-  useStore,
-} from '@hyperledger/aries-bifold-core'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useCallback } from 'react'
@@ -17,10 +10,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 const DEFAULT_TEXT_SPACING = 10
 const PARAGRAPH_SPACING = DEFAULT_TEXT_SPACING * 2
 
-const useStyles = ({ ColorPallet, TextTheme, Spacing }: HekaTheme) =>
+const useStyles = ({ ColorPalette, TextTheme, Spacing }: HekaTheme) =>
   StyleSheet.create({
     container: {
-      backgroundColor: ColorPallet.brand.primaryBackground,
+      backgroundColor: ColorPalette.brand.primaryBackground,
       padding: Spacing.lg,
     },
     bodyText: {
@@ -46,7 +39,7 @@ const useStyles = ({ ColorPallet, TextTheme, Spacing }: HekaTheme) =>
     },
     link: {
       ...TextTheme.normal,
-      color: ColorPallet.brand.link,
+      color: ColorPalette.brand.link,
       textDecorationLine: 'underline',
       fontWeight: 'bold',
     },
@@ -59,33 +52,17 @@ export const Terms: React.FC = () => {
   const theme = useHekaTheme()
   const styles = useStyles(theme)
 
-  const navigation = useNavigation<StackNavigationProp<AuthenticateStackParams>>()
+  const navigation = useNavigation<StackNavigationProp<OnboardingStackParams>>()
   navigation.setOptions({ title: 'User License Agreement' })
 
   const [store, dispatch] = useStore()
-
-  const agreedToPreviousTerms = store.onboarding.didAgreeToTerms && store.onboarding.didAgreeToTerms !== TERMS_VERSION
 
   const onSubmitPressed = useCallback(() => {
     dispatch({
       type: DispatchAction.DID_AGREE_TO_TERMS,
       payload: [{ DidAgreeToTerms: TERMS_VERSION }],
     })
-
-    if (!agreedToPreviousTerms) {
-      const screenToNavigate = !store.onboarding.didCreatePIN ? Screens.CreatePIN : Screens.UseBiometry
-      navigation.navigate(screenToNavigate)
-    } else if (store.onboarding.postAuthScreens.length) {
-      const screens: string[] = store.onboarding.postAuthScreens
-      screens.shift()
-      dispatch({ type: DispatchAction.SET_POST_AUTH_SCREENS, payload: [screens] })
-      if (screens.length) {
-        navigation.navigate(screens[0] as never)
-      } else {
-        dispatch({ type: DispatchAction.DID_COMPLETE_ONBOARDING, payload: [true] })
-      }
-    }
-  }, [dispatch, agreedToPreviousTerms, store.onboarding.postAuthScreens, store.onboarding.didCreatePIN, navigation])
+  }, [dispatch])
 
   const onBackPressed = useCallback(() => {
     navigation.goBack()
@@ -93,11 +70,9 @@ export const Terms: React.FC = () => {
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']}>
-      <StatusBar backgroundColor={theme.ColorPallet.brand.primaryBackground} />
+      <StatusBar backgroundColor={theme.ColorPalette.brand.primaryBackground} />
       <ScrollView style={styles.container}>
-        <Text style={{ ...styles.bodyText, marginTop: PARAGRAPH_SPACING }}>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-        </Text>
+        <Text style={{ ...styles.bodyText }}>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</Text>
         <Text style={{ ...styles.bodyText, ...styles.textWithSpacing }}>
           Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
           exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit
@@ -125,7 +100,7 @@ export const Terms: React.FC = () => {
         </View>
 
         <View style={styles.controlsContainer}>
-          {store.onboarding.didCompleteOnboarding && (
+          {store.authentication.didAuthenticate && (
             <View style={{ paddingBottom: 10 }}>
               <Button
                 title={t('Global.Back')}
@@ -135,13 +110,14 @@ export const Terms: React.FC = () => {
               />
             </View>
           )}
-          <Button
-            title={t('Global.Accept')}
-            accessibilityLabel={t('Global.Accept')}
-            onPress={onSubmitPressed}
-            buttonType={ButtonType.Primary}
-            disabled={!!store.onboarding.didCompleteOnboarding || !!agreedToPreviousTerms}
-          />
+          {(!store.onboarding.didAgreeToTerms || store.onboarding.didAgreeToTerms !== TERMS_VERSION) && (
+            <Button
+              title={t('Global.Accept')}
+              accessibilityLabel={t('Global.Accept')}
+              onPress={onSubmitPressed}
+              buttonType={ButtonType.Primary}
+            />
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

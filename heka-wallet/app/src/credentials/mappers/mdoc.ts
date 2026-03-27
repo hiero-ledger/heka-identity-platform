@@ -1,5 +1,7 @@
+import { Attribute } from '@bifold/oca/build/legacy'
 import { Mdoc, MdocNameSpaces } from '@credo-ts/core'
-import { Attribute } from '@hyperledger/aries-oca/build/legacy'
+
+import { humanizeAttributeName } from './utils'
 
 export function getAttributesAndMetadataForMdocPayload(namespaces: MdocNameSpaces, mdocInstance: Mdoc) {
   const attributes = Object.values(namespaces).flatMap((namespaceMap) =>
@@ -9,7 +11,7 @@ export function getAttributesAndMetadataForMdocPayload(namespaces: MdocNameSpace
       }
 
       //@ts-expect-error TODO: Properly support nested values
-      return new Attribute({ name: key, value })
+      return new Attribute({ name: humanizeAttributeName(key), value })
     })
   )
 

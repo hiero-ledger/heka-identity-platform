@@ -1,9 +1,9 @@
 import type { PropsWithChildren } from 'react'
 import type * as React from 'react'
 
+import { useAgent } from '@bifold/react-hooks'
+import { recordsAddedByType, recordsRemovedByType, recordsUpdatedByType } from '@bifold/react-hooks/build/recordUtils'
 import { W3cCredentialRecord } from '@credo-ts/core'
-import { useAgent } from '@credo-ts/react-hooks'
-import { recordsAddedByType, recordsRemovedByType, recordsUpdatedByType } from '@credo-ts/react-hooks/build/recordUtils'
 import { createContext, useContext, useEffect, useState } from 'react'
 
 type W3cCredentialRecordState = {
@@ -66,9 +66,7 @@ export const W3cCredentialRecordProvider: React.FC<PropsWithChildren> = ({ child
 
   useEffect(() => {
     if (!agent) return
-    agent.w3cCredentials
-      .getAllCredentialRecords()
-      .then((w3cCredentialRecords) => setState({ w3cCredentialRecords, isLoading: false }))
+    agent.w3cCredentials.getAll().then((w3cCredentialRecords) => setState({ w3cCredentialRecords, isLoading: false }))
   }, [agent])
 
   useEffect(() => {

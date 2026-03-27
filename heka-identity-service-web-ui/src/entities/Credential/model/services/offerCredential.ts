@@ -90,6 +90,7 @@ const offerOpenId4VcCredential = async (
       params.credentialType,
     ),
   });
+  console.log(schemaRegistration);
   const credential = buildCredential({
     format: params.credentialType as Openid4CredentialFormat,
     did: params.did,
@@ -180,5 +181,6 @@ export const getSchemaRegistration = async (
   if (!schemaRegistration.data) {
     throw new Error('Schema is not registered');
   }
+  console.log(schemaRegistration, params);
   return schemaRegistration.data as SchemaRegistration;
 };

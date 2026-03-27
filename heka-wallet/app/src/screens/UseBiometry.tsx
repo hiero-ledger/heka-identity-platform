@@ -1,18 +1,5 @@
+import { Button, ButtonType, DispatchAction, EventTypes, useAuth, useStore } from '@bifold/core'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import {
-  Button,
-  ButtonType,
-  DispatchAction,
-  EventTypes,
-  OnboardingStackParams,
-  Screens,
-  TOKENS,
-  useAuth,
-  useServices,
-  useStore,
-} from '@hyperledger/aries-bifold-core'
-import { CommonActions, useNavigation } from '@react-navigation/native'
-import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -43,7 +30,7 @@ enum UseBiometryUsage {
   ToggleOnOff,
 }
 
-export const useStyles = ({ TextTheme, Spacing }: HekaTheme) => {
+const useStyles = ({ TextTheme, Spacing }: HekaTheme) => {
   return StyleSheet.create({
     container: {
       height: '100%',
@@ -81,14 +68,12 @@ const UseBiometry: React.FC = () => {
   const [store, dispatch] = useStore()
 
   const { t } = useTranslation()
-  const [{ enablePushNotifications }] = useServices([TOKENS.CONFIG])
-  const { isBiometricsActive, commitPIN, disableBiometrics } = useAuth()
+  const { isBiometricsActive, commitWalletToKeychain, disableBiometrics } = useAuth()
   const [biometryAvailable, setBiometryAvailable] = useState(false)
   const [biometryEnabled, setBiometryEnabled] = useState(store.preferences.useBiometry)
   const [canSeeCheckPIN, setCanSeeCheckPIN] = useState<boolean>(false)
-  const { ColorPallet, TextTheme } = useHekaTheme()
-  const navigation = useNavigation<StackNavigationProp<OnboardingStackParams>>()
-  const screenUsage = store.onboarding.didCompleteOnboarding
+  const { ColorPalette, TextTheme } = useHekaTheme()
+  const screenUsage = store.authentication.didAuthenticate
     ? UseBiometryUsage.ToggleOnOff
     : UseBiometryUsage.InitialSetup
 
@@ -107,7 +92,7 @@ const UseBiometry: React.FC = () => {
     }
 
     if (biometryEnabled) {
-      commitPIN(biometryEnabled).then(() => {
+      commitWalletToKeychain(biometryEnabled).then(() => {
         dispatch({
           type: DispatchAction.USE_BIOMETRY,
           payload: [biometryEnabled],
@@ -126,22 +111,12 @@ const UseBiometry: React.FC = () => {
   const continueTouched = async () => {
     try {
       setIsLoading(true)
-      await commitPIN(biometryEnabled)
+      await commitWalletToKeychain(biometryEnabled)
 
       dispatch({
         type: DispatchAction.USE_BIOMETRY,
         payload: [biometryEnabled],
       })
-      if (enablePushNotifications) {
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: Screens.UsePushNotifications }],
-          })
-        )
-      } else {
-        dispatch({ type: DispatchAction.DID_COMPLETE_ONBOARDING, payload: [true] })
-      }
     } finally {
       setIsLoading(false)
     }
@@ -189,6 +164,7 @@ const UseBiometry: React.FC = () => {
     setCanSeeCheckPIN(false)
   }
 
+  console.log(store.onboarding, screenUsage)
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -218,9 +194,9 @@ const UseBiometry: React.FC = () => {
         <View style={styles.switchContainer}>
           <Pressable accessible accessibilityLabel={t('Biometry.Toggle')} accessibilityRole={'switch'}>
             <Switch
-              trackColor={{ false: ColorPallet.grayscale.lightGrey, true: ColorPallet.brand.primaryDisabled }}
-              thumbColor={biometryEnabled ? ColorPallet.brand.primary : ColorPallet.grayscale.mediumGrey}
-              ios_backgroundColor={ColorPallet.grayscale.lightGrey}
+              trackColor={{ false: ColorPalette.grayscale.lightGrey, true: ColorPalette.brand.primaryDisabled }}
+              thumbColor={biometryEnabled ? ColorPalette.brand.primary : ColorPalette.grayscale.mediumGrey}
+              ios_backgroundColor={ColorPalette.grayscale.lightGrey}
               onValueChange={toggleSwitch}
               value={biometryEnabled}
               // disabled={!biometryAvailable}
@@ -231,11 +207,8 @@ const UseBiometry: React.FC = () => {
         <View style={styles.imageContainer}>
           <FingerprintImage />
         </View>
-      </ScrollView>
-      <View style={styles.loaderContainer}>{isLoading && <Loader size={styles.loaderContainer.minHeight} />}</View>
-      <View style={styles.controlsContainer}>
-        {store.onboarding.didCompleteOnboarding ||
-          (biometryEnabled ? (
+        <View style={styles.controlsContainer}>
+          {biometryEnabled ? (
             <Button
               title={t('Global.Continue')}
               accessibilityLabel={t('Global.Continue')}
@@ -249,10 +222,12 @@ const UseBiometry: React.FC = () => {
               onPress={continueTouched}
               buttonType={ButtonType.Secondary}
             />
-          ))}
-      </View>
+          )}
+        </View>
+      </ScrollView>
+      <View style={styles.loaderContainer}>{isLoading && <Loader size={styles.loaderContainer.minHeight} />}</View>
       <Modal
-        style={{ backgroundColor: ColorPallet.brand.primaryBackground }}
+        style={{ backgroundColor: ColorPalette.brand.primaryBackground }}
         visible={canSeeCheckPIN}
         transparent={false}
         animationType={'slide'}

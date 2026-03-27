@@ -1,6 +1,6 @@
+import { Button, ButtonType } from '@bifold/core'
+import ButtonLoading from '@bifold/core/src/components/animated/ButtonLoading'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Button, ButtonType } from '@hyperledger/aries-bifold-core'
-import ButtonLoading from '@hyperledger/aries-bifold-core/App/components/animated/ButtonLoading'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
 import delay from 'delay'
@@ -85,7 +85,7 @@ export const RegisterEndScreen: React.FC<RegisterEndScreenProps> = observer(({ r
     }
   }
 
-  const { ColorPallet, TextTheme, Spacing } = theme
+  const { ColorPalette, TextTheme, Spacing } = theme
 
   return (
     <View style={{ paddingHorizontal: Spacing.xxxl }}>
@@ -100,9 +100,9 @@ export const RegisterEndScreen: React.FC<RegisterEndScreenProps> = observer(({ r
           <Text style={TextTheme.labelTitle}>{t('Biometry.Enable')}</Text>
           <View style={{ flex: 1 }} />
           <Switch
-            trackColor={{ false: ColorPallet.grayscale.lightGrey, true: ColorPallet.brand.primaryDisabled }}
-            thumbColor={isBiometricOn ? ColorPallet.brand.primary : ColorPallet.grayscale.mediumGrey}
-            ios_backgroundColor={ColorPallet.grayscale.lightGrey}
+            trackColor={{ false: ColorPalette.grayscale.lightGrey, true: ColorPalette.brand.primaryDisabled }}
+            thumbColor={isBiometricOn ? ColorPalette.brand.primary : ColorPalette.grayscale.mediumGrey}
+            ios_backgroundColor={ColorPalette.grayscale.lightGrey}
             value={isBiometricOn}
             onChange={toggleBiometry}
           />
