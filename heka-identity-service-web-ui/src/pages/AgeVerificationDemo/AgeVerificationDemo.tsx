@@ -53,7 +53,7 @@ interface AgeVerificationFieldsProps {
   onNext: (attributes: Array<string>) => void;
 }
 
-const AgeVerificationResultView = ({ onStartAgain }: { onStartAgain: () => void }) => {
+const AgeVerificationResultView = () => {
   const { t } = useTranslation();
   const revealedAttributes = useSelector(getPresentationSharedAttributes);
 
@@ -65,7 +65,6 @@ const AgeVerificationResultView = ({ onStartAgain }: { onStartAgain: () => void 
           const displayValue = String(attr.value) === 'true' ? 'Yes' : String(attr.value) === 'false' ? 'No' : String(attr.value);
           const isAgeField = attr.name === AGE_FIELD;
           const isVerified = isAgeField && String(attr.value) === 'true';
-          const isFailed = isAgeField && String(attr.value) !== 'true';
 
           return (
             <Row key={attr.name} className={cls.resultRow}>
@@ -84,9 +83,6 @@ const AgeVerificationResultView = ({ onStartAgain }: { onStartAgain: () => void 
           );
         })}
       </Column>
-      <Button buttonType="outlined" onPress={onStartAgain}>
-        {t('Flow.buttons.startAgain')}
-      </Button>
     </div>
   );
 };
@@ -250,7 +246,7 @@ const AgeVerificationDemo = () => {
       return (
         <Row className={cls.AgeDemo}>
           <BasicPanel title="Age Verification Demo" icon="car" />
-          <AgeVerificationResultView onStartAgain={handleStartAgain} />
+          <AgeVerificationResultView />
         </Row>
       );
     }

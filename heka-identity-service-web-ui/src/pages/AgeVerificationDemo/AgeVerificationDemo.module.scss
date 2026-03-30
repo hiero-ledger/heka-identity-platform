@@ -77,6 +77,12 @@
   overflow: auto;
 }
 
+.resultHeader {
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .resultTitle {
   color: var(--color-primary);
   font: var(--font-headline-m);
