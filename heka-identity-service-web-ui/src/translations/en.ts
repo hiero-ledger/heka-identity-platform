@@ -98,6 +98,14 @@ export default {
     ageCheck: {
       label: 'Verify age (18+)',
     },
+    result: {
+      verified: 'Age Verified',
+      notVerified: 'Age Not Verified',
+      verifiedDescription:
+        'The holder has confirmed they are 18 years or older.',
+      notVerifiedDescription:
+        'The holder could not confirm they are 18 years or older.',
+    },
   },
   IssueCredential: {
     titles: {
