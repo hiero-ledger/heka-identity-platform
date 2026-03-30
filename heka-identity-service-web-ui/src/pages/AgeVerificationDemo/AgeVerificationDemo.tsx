@@ -25,10 +25,14 @@ import {
 import { useFlow } from '@/shared/hooks/flow';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
-import { Row } from '@/shared/ui/Grid';
+import { Column, Row } from '@/shared/ui/Grid';
 import { Loader } from '@/shared/ui/Loader/Loader';
 
 import * as cls from './AgeVerificationDemo.module.scss';
+import {
+  getIsPresentationCompleted,
+  getPresentationSharedAttributes,
+} from '@/entities/Presentation/model/selectors/presentationSelector';
 
 const MDL_SCHEMA_NAME = 'mDL';
 const AGE_FIELD = 'age_over_18';
@@ -42,13 +46,50 @@ const MDL_DEFAULT_VALUES: Record<string, string> = {
   expiry_date: '2030-12-31',
 };
 
-const AGE_EXCLUDED_FIELDS = new Set([AGE_FIELD]);
 
 interface AgeVerificationFieldsProps {
   schema?: Schema;
   onPrev: () => void;
   onNext: (attributes: Array<string>) => void;
 }
+
+const AgeVerificationResultView = ({ onStartAgain }: { onStartAgain: () => void }) => {
+  const { t } = useTranslation();
+  const revealedAttributes = useSelector(getPresentationSharedAttributes);
+
+  return (
+    <div className={cls.resultView}>
+      <h2 className={cls.resultTitle}>{t('Flow.titles.presentationReceived')}</h2>
+      <Column className={cls.resultAttributes}>
+        {revealedAttributes?.map((attr) => {
+          const displayValue = String(attr.value) === 'true' ? 'Yes' : String(attr.value) === 'false' ? 'No' : String(attr.value);
+          const isAgeField = attr.name === AGE_FIELD;
+          const isVerified = isAgeField && String(attr.value) === 'true';
+          const isFailed = isAgeField && String(attr.value) !== 'true';
+
+          return (
+            <Row key={attr.name} className={cls.resultRow}>
+              <span className={cls.resultLabel}>{attr.name}</span>
+              <span className={cls.resultValue}>
+                {displayValue}
+                {isAgeField && (
+                  <span className={isVerified ? cls.ageBadgeSuccess : cls.ageBadgeFail}>
+                    {isVerified
+                      ? t('AgeVerificationDemo.result.verified')
+                      : t('AgeVerificationDemo.result.notVerified')}
+                  </span>
+                )}
+              </span>
+            </Row>
+          );
+        })}
+      </Column>
+      <Button buttonType="outlined" onPress={onStartAgain}>
+        {t('Flow.buttons.startAgain')}
+      </Button>
+    </div>
+  );
+};
 
 const AgeVerificationFields = ({
   schema,
@@ -60,7 +101,7 @@ const AgeVerificationFields = ({
   const regularFields = useMemo(
     () =>
       schema?.fields
-        ?.filter((f) => !AGE_EXCLUDED_FIELDS.has(f.name))
+        ?.filter((f) => f.name !== AGE_FIELD)
         .map((f) => f.name) ?? [],
     [schema?.fields],
   );
@@ -131,6 +172,7 @@ const AgeVerificationDemo = () => {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const schemas = useSelector(getSchemas);
+  const isPresentationCompleted = useSelector(getIsPresentationCompleted);
 
   const initialContext = {
     wizardType: 'demo',
@@ -198,15 +240,26 @@ const AgeVerificationDemo = () => {
   }
 
   if (step.name === DemoSteps.PresentationRequest) {
+    const handleStartAgain = () => {
+      resetFlowState();
+      setFlowContext({ ...initialContext, schema: flowContext.schema });
+      onChangeStep(DemoSteps.IssueNewCredential);
+    };
+
+    if (isPresentationCompleted) {
+      return (
+        <Row className={cls.AgeDemo}>
+          <BasicPanel title="Age Verification Demo" icon="car" />
+          <AgeVerificationResultView onStartAgain={handleStartAgain} />
+        </Row>
+      );
+    }
+
     return (
       <VerificationRequest
         context={{ ...flowContext, useDemo: true }}
         stepDetails={step}
-        onChangeStep={() => {
-          resetFlowState();
-          setFlowContext({ ...initialContext, schema: flowContext.schema });
-          onChangeStep(DemoSteps.IssueNewCredential);
-        }}
+        onChangeStep={handleStartAgain}
       />
     );
   }

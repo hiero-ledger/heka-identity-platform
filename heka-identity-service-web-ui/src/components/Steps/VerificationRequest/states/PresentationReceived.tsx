@@ -79,7 +79,11 @@ export const PresentationReceived = <T extends object>({
               {revealedAttribute.name}
             </Column>
             <Column className={cls.attributeValue}>
-              {revealedAttribute.value}
+              {String(revealedAttribute.value) === 'true'
+                ? 'Yes'
+                : String(revealedAttribute.value) === 'false'
+                  ? 'No'
+                  : String(revealedAttribute.value)}
             </Column>
           </Row>
         ))}
