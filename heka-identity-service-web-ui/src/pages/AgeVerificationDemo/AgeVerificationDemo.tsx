@@ -33,6 +33,15 @@ import * as cls from './AgeVerificationDemo.module.scss';
 const MDL_SCHEMA_NAME = 'mDL';
 const AGE_FIELD = 'age_over_18';
 
+const MDL_DEFAULT_VALUES: Record<string, string> = {
+  given_name: 'John',
+  family_name: 'Smith',
+  birth_date: '1990-01-15',
+  age_over_18: 'true',
+  document_number: 'DL-123456789',
+  expiry_date: '2030-12-31',
+};
+
 const AGE_EXCLUDED_FIELDS = new Set([AGE_FIELD]);
 
 interface AgeVerificationFieldsProps {
@@ -152,6 +161,7 @@ const AgeVerificationDemo = () => {
     const mdlSchema = schemas.find((s) => s.name === MDL_SCHEMA_NAME);
     if (mdlSchema) {
       onChangeContextProperty('schema')(mdlSchema);
+      onChangeContextProperty('credentialValues')(MDL_DEFAULT_VALUES);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schemas]);

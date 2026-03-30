@@ -106,6 +106,7 @@ const Demo = () => {
             title={step.title}
             context={flowContext}
             onPrev={() => onChangeStep(DemoSteps.SelectSchema)}
+            onSkip={() => onChangeStep(DemoSteps.PresentationRequest)}
             onNext={(credentialValues) => {
               onChangeContextProperty('credentialValues')(credentialValues);
               onChangeStep(DemoSteps.CredentialOffer);
