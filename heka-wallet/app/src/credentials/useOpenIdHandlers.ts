@@ -163,7 +163,7 @@ export const useOpenIdHandlers = () => {
         clientId,
         credentialsToRequest: [offeredCredentialToRequest.id],
         verifyCredentialStatus: false,
-        allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.EdDSA, JwaSignatureAlgorithm.ES256],
+        allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.ES256, JwaSignatureAlgorithm.EdDSA],
         credentialBindingResolver: async ({
           supportedDidMethods,
           keyType,
