@@ -1,4 +1,4 @@
-import type { DcqlPresentation, W3cJwtVerifiablePresentation } from '@credo-ts/core'
+import type { W3cJwtVerifiablePresentation } from '@credo-ts/core'
 
 import { MdocDeviceResponse, SdJwtVc, VerifiablePresentation, W3cCredentialSubject } from '@credo-ts/core'
 import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
@@ -90,9 +90,12 @@ export class OpenId4VcVerificationSessionService {
         const presentation = verifiedAuthorizationResponse.presentationExchange.presentations[0]
         sharedAttributes = OpenId4VcVerificationSessionService.extractAttributesFromPresentation(presentation)
       } else if (verifiedAuthorizationResponse.dcql?.presentations) {
-        sharedAttributes = OpenId4VcVerificationSessionService.extractAttributesFromDcqlPresentations(
-          verifiedAuthorizationResponse.dcql.presentations,
-        )
+        const presentationEntries = Object.values(verifiedAuthorizationResponse.dcql.presentations)[0]
+        if (presentationEntries.length) {
+          sharedAttributes = OpenId4VcVerificationSessionService.extractAttributesFromPresentation(
+            presentationEntries[0],
+          )
+        }
       } else {
         throw new InternalServerErrorException('Presentation is missing')
       }
@@ -110,20 +113,6 @@ export class OpenId4VcVerificationSessionService {
   public async deleteVerificationSession(tenantAgent: TenantAgent, verificationSessionId: string): Promise<void> {
     const verificationSessionRepository = tenantAgent.dependencyManager.resolve(OpenId4VcVerificationSessionRepository)
     await verificationSessionRepository.deleteById(tenantAgent.context, verificationSessionId)
-  }
-
-  private static isSdJwtPresentation(presentation: VerifiablePresentation): presentation is SdJwtVc {
-    return (presentation as SdJwtVc).header?.typ === 'vc+sd-jwt'
-  }
-
-  private static isJwtVcJsonPresentation(
-    presentation: VerifiablePresentation,
-  ): presentation is W3cJwtVerifiablePresentation {
-    return (presentation as W3cJwtVerifiablePresentation).jwt?.header?.typ === 'JWT'
-  }
-
-  private static isMdocPresentation(presentation: VerifiablePresentation): presentation is MdocDeviceResponse {
-    return 'documents' in presentation
   }
 
   private static extractAttributesFromPresentation(
@@ -150,11 +139,17 @@ export class OpenId4VcVerificationSessionService {
     return undefined
   }
 
-  private static extractAttributesFromDcqlPresentations(
-    presentations: DcqlPresentation,
-  ): Record<string, unknown> | undefined {
-    const firstEntry = Object.values(presentations)[0]
-    if (!firstEntry?.length) return undefined
-    return OpenId4VcVerificationSessionService.extractAttributesFromPresentation(firstEntry[0])
+  private static isSdJwtPresentation(presentation: VerifiablePresentation): presentation is SdJwtVc {
+    return (presentation as SdJwtVc).header?.typ === 'vc+sd-jwt'
+  }
+
+  private static isJwtVcJsonPresentation(
+    presentation: VerifiablePresentation,
+  ): presentation is W3cJwtVerifiablePresentation {
+    return (presentation as W3cJwtVerifiablePresentation).jwt?.header?.typ === 'JWT'
+  }
+
+  private static isMdocPresentation(presentation: VerifiablePresentation): presentation is MdocDeviceResponse {
+    return 'documents' in presentation
   }
 }
