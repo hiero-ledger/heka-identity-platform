@@ -34,7 +34,7 @@ Identity Service endpoints are protected with JWT Authentication and require int
 You can modify JWT verification options by setting the following environment variables:
 - `JWT_SECRET` - secret used to sign and verify tokens, defaults to `test`
 - `JWT_VERIFY_OPTIONS_ISSUER` - required value of `iss` claim, defaults to `Heka`
-- `JWT_VERIFY_OPTIONS_AUDIENCE` - required value of `aud` claim, defaults to `Heka Identity Platform`
+- `JWT_VERIFY_OPTIONS_AUDIENCE` - required value of `aud` claim, defaults to `Heka Identity Service`
 
 While integration with external auth providers is supported, it's recommended to use [Heka Auth Service](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-auth-service) for basic deployments.
 
