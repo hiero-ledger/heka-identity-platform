@@ -6,6 +6,7 @@ import ROUTES from '@/app/routes/RoutePaths';
 import AuthenticatedLayout from '@/components/Layout/AuthenticatedLayout';
 import UnauthenticatedLayout from '@/components/Layout/UnauthenticatedLayout';
 import { getUserIsSignedIn } from '@/entities/User/model/selectors/userSelector';
+import AgeVerificationDemo from '@/pages/AgeVerificationDemo/AgeVerificationDemo';
 import Demo from '@/pages/Demo/Demo';
 import Home from '@/pages/Home/Home';
 import CredentialOffer from '@/pages/IssueCredential/CredentialOffer/CredentialOffer';
@@ -36,6 +37,10 @@ const AuthenticatedRoutes = () => (
       <Route
         path={ROUTES.DEMO}
         element={<Demo />}
+      />
+      <Route
+        path={ROUTES.AGE_DEMO}
+        element={<AgeVerificationDemo />}
       />
       <Route
         path={ROUTES.ISSUE_CREDENTIAL}
@@ -80,6 +85,10 @@ const UnauthenticatedRoutes = () => (
       <Route
         path={ROUTES.DEMO}
         element={<Demo />}
+      />
+      <Route
+        path={ROUTES.AGE_DEMO}
+        element={<AgeVerificationDemo />}
       />
       <Route
         path="*"

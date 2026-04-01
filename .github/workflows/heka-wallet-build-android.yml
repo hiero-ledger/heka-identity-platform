@@ -35,7 +35,7 @@ jobs:
           checkout-token: '${{ secrets.GITHUB_TOKEN }}'
           checkout-fetch-depth: '0'
           setup-java: 'true'
-          java-version: '15'
+          java-version: '17'
           java-distribution: 'zulu'
           java-cache: 'gradle'
           setup-node: 'true'
@@ -51,23 +51,24 @@ jobs:
 
       - name: Get app version
         id: version
-        working-directory: ./app
+        working-directory: ./heka-wallet/app
         run: echo "version=$(nbgv get-version -v NpmPackageVersion)" >> $GITHUB_OUTPUT
 
       - name: Bundle Heka Wallet debug
         run: yarn bundle-app:android:debug
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
 
       - name: Prepare artifacts
         id: prepare_artifacts
         run: |
           mkdir "output"
-
           cp "app/android/app/build/outputs/apk/debug/app-debug.apk" "output/heka-wallet.apk"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: Build artifacts
-          path: output/
+          path: heka-wallet/output/
 
 

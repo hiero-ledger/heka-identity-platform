@@ -28,8 +28,9 @@ import * as stepCls from '../Steps.module.scss';
 interface FillCredentialDataProps {
   title: string;
   context: IssueCredentialContext;
-  onPrev: () => void;
+  onPrev?: () => void;
   onNext: (values: Record<string, string>) => void;
+  onSkip?: () => void;
 }
 
 export const FillCredentialData = ({
@@ -37,6 +38,7 @@ export const FillCredentialData = ({
   context,
   onPrev,
   onNext,
+  onSkip
 }: FillCredentialDataProps) => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
@@ -159,13 +161,15 @@ export const FillCredentialData = ({
       </form>
 
       <Row className={layoutCls.stepNavigation}>
-        <Button
-          buttonType="outlined"
-          leftIcon="arrow-back"
-          onPress={onPrev}
-        >
-          {t('Common.buttons.back')}
-        </Button>
+        {onPrev && (
+          <Button
+            buttonType="outlined"
+            leftIcon="arrow-back"
+            onPress={onPrev}
+          >
+            {t('Common.buttons.back')}
+          </Button>
+        )}
 
         {context.wizardType === 'template' && !context.templateId && (
           <Button
@@ -201,6 +205,16 @@ export const FillCredentialData = ({
             {t('Common.buttons.saveAsTemplate')}
           </Button>
         )}
+
+        {(context.wizardType === 'demo') && (
+          <Button
+            buttonType="outlined"
+            onPress={onSkip}
+          >
+            {t('Common.buttons.skip')}
+          </Button>
+        )}
+
 
         {(context.wizardType === 'issue' || context.wizardType === 'demo') && (
           <Button

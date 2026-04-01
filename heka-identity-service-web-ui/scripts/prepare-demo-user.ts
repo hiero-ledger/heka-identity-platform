@@ -50,6 +50,7 @@ async function main() {
   const loginResult = await loginResponse.json();
 
   if (!loginResponse.ok) {
+    console.log(`login failed: ${loginResult.error}`);
     return;
   }
   const { access, refresh } = loginResult;
@@ -72,8 +73,21 @@ async function main() {
     fields: ['name', 'surname', 'age'],
     registrations: [
       {
-        network: 'hedera',
+        network: 'key',
         credentialFormat: 'vc+sd-jwt',
+        protocol: 'OpenId4VC',
+      },
+    ],
+  };
+
+  const mdlSchema = {
+    name: 'mDL',
+    bgColor: '#1a3a5c',
+    fields: ['given_name', 'family_name', 'birth_date', 'age_over_18', 'document_number', 'expiry_date'],
+    registrations: [
+      {
+        network: 'key',
+        credentialFormat: 'mso_mdoc',
         protocol: 'OpenId4VC',
       },
     ],
@@ -81,7 +95,7 @@ async function main() {
 
   params.append('userLogo', new Blob([fs.readFileSync(imagePath)]), 'user.png');
   params.append('schemaLogo', schemaLogoBlob, 'schema.jpg');
-  params.append('schemas', JSON.stringify([schema]));
+  params.append('schemas', JSON.stringify([schema, mdlSchema]));
 
   // 3. Create DID
   const prepareResponse = await fetch(agencyEndpoint + '/prepare-wallet', {
@@ -99,6 +113,9 @@ async function main() {
   envConfig['REACT_APP_DEMO_USER_DID'] = did;
   envConfig['REACT_APP_DEMO_USER_ACCESS_TOKEN'] = access;
   envConfig['REACT_APP_DEMO_USER_REFRESH_TOKEN'] = refresh;
+  console.log(`Demo user DID: ${did}`);
+  console.log(access);
+  console.log(refresh);
 
   writeEnvFile(envFilePath, envConfig);
 }

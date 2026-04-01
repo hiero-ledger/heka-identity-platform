@@ -4,6 +4,7 @@ export enum ROUTES {
   SIGN_IN = '/sign-in',
   SIGN_UP = '/sign-up',
   DEMO = '/demo',
+  AGE_DEMO = '/age-demo',
   ISSUE_CREDENTIAL = '/issue-credential/*',
   VERIFY_CREDENTIAL = '/verify-credential/*',
   VERIFICATION_REQUEST = '/verify-credential/verification-request',

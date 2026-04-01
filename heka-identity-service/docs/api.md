@@ -1,4 +1,4 @@
-# Heka Identity Service -  API
+# Heka Identity Service - API
 
 The Identity Service provides a REST API (by default, it is available at <http://localhost:3000> for the locally running application). This API can be explored and accessed via Swagger UI which is available at `/docs` path (<http://localhost:3000/docs> for the case above).
 Since API methods often initiate asynchronous processes, the Generic Agency server provides notification events to inform clients of any updates to the process. These notifications can be received through a webhook URL or a WebSocket connection, you can choose your preferred method for receiving notification using `/user` endpoint.

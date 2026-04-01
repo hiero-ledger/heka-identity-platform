@@ -1,0 +1,132 @@
+@import '@/shared/styles/mixins';
+
+.AgeDemo {
+  width: 100%;
+  height: 100%;
+
+  @include tablet {
+    flex-direction: column;
+  }
+
+  @include mobile {
+    flex-direction: column;
+  }
+}
+
+.contentPanel {
+  flex: 1;
+  height: 100%;
+  background: var(--color-light-high-emphasis);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: auto;
+
+  @include desktop {
+    padding: var(--space-xxxxl);
+  }
+
+  @include tablet {
+    padding: var(--space-md);
+    padding-top: var(--space-xxxl);
+  }
+
+  @include mobile {
+    padding: var(--space-md);
+    padding-top: var(--space-xxxl);
+  }
+}
+
+.skipButton {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-sm) 0;
+}
+
+.ageCheck {
+  width: 100%;
+  padding: var(--space-sm) var(--space-xs);
+  margin-top: var(--space-md);
+  border-top: 1px solid var(--color-dark-disabled);
+  gap: var(--space-md);
+}
+
+.ageCheckLabel {
+  color: var(--color-primary);
+  font: var(--font-body-m);
+  font-weight: 500;
+}
+
+.stepNavigation {
+  height: 100%;
+  width: 100%;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  align-items: flex-end;
+}
+
+.resultView {
+  flex: 1;
+  height: 100%;
+  background: var(--color-light-high-emphasis);
+  padding: var(--space-xxxxl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  overflow: auto;
+}
+
+.resultHeader {
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.resultTitle {
+  color: var(--color-primary);
+  font: var(--font-headline-m);
+}
+
+.resultAttributes {
+  width: 100%;
+  gap: var(--space-none);
+}
+
+.resultRow {
+  width: 100%;
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-dark-disabled);
+  align-items: center;
+}
+
+.resultLabel {
+  flex: 1;
+  color: var(--color-primary);
+  font: var(--font-body-m);
+}
+
+.resultValue {
+  flex: 1;
+  color: var(--color-primary);
+  font: var(--font-subtitle-m);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ageBadgeSuccess,
+.ageBadgeFail {
+  padding: var(--space-xxs) var(--space-sm);
+  border-radius: var(--space-xs);
+  font: var(--font-label-m);
+  color: var(--color-light-high-emphasis);
+}
+
+.ageBadgeSuccess {
+  background-color: #2e7d32;
+}
+
+.ageBadgeFail {
+  background-color: #c62828;
+}
