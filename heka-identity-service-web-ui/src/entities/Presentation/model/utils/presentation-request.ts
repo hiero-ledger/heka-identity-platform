@@ -21,7 +21,18 @@ export interface BuildOpenIdPresentationRequestParams {
   doctype?: string;
   /** namespace for mso_mdoc claim paths (e.g. 'org.iso.18013.5.1') */
   namespace?: string;
+  /** When true, adds responseMode: 'dc_api' and expectedOrigins for Digital Credentials API flow */
+  useDcApi?: boolean;
 }
+
+const buildDcApiFields = (useDcApi?: boolean) =>
+  useDcApi
+    ? {
+        responseMode: 'dc_api' as const,
+        expectedOrigins: [window.location.origin],
+        version: 'v1' as const,
+      }
+    : {};
 
 export const buildSdJwtPresentationRequest = ({
   id,
@@ -29,6 +40,7 @@ export const buildSdJwtPresentationRequest = ({
   name,
   attributes,
   purpose,
+  useDcApi,
 }: BuildOpenIdPresentationRequestParams) => {
   return {
     publicVerifierId: id,
@@ -55,6 +67,7 @@ export const buildSdJwtPresentationRequest = ({
         ],
       },
     },
+    ...buildDcApiFields(useDcApi),
   };
 };
 
@@ -63,6 +76,7 @@ export const buildJwtJsonPresentationRequest = ({
   did,
   name,
   purpose,
+  useDcApi,
 }: BuildOpenIdPresentationRequestParams) => {
   return {
     publicVerifierId: id,
@@ -94,6 +108,7 @@ export const buildJwtJsonPresentationRequest = ({
         ],
       },
     },
+    ...buildDcApiFields(useDcApi),
   };
 };
 
@@ -109,6 +124,7 @@ export const buildMsoMdocPresentationRequest = ({
   purpose,
   doctype = MDL_DOCTYPE,
   namespace = MDL_NAMESPACE,
+  useDcApi,
 }: BuildOpenIdPresentationRequestParams) => {
   return {
     publicVerifierId: id,
@@ -141,6 +157,7 @@ export const buildMsoMdocPresentationRequest = ({
         ],
       },
     },
+    ...buildDcApiFields(useDcApi),
   };
 };
 

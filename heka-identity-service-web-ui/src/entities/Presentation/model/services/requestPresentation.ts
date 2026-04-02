@@ -31,6 +31,7 @@ export interface RequestPresentationParams {
   requestedAttributes?: Array<string>;
   connectionId?: string;
   useDemo?: boolean;
+  useDcApi?: boolean;
 }
 
 export interface RequestPresentationResult {
@@ -49,6 +50,12 @@ export const requestPresentation = createAsyncThunk<
   try {
     switch (params.protocolType) {
       case ProtocolType.Oid4vc:
+        if (params.useDcApi) {
+          return await requestOpenId4VcPresentationDcApi(
+            params.useDemo ? extra.agencyDemoApi : extra.agencyApi,
+            params,
+          );
+        }
         return await requestOpenId4VcPresentation(
           params.useDemo ? extra.agencyDemoApi : extra.agencyApi,
           params,
@@ -102,6 +109,80 @@ const requestOpenId4VcPresentation = async (
     id: response.data.verificationSession.id,
     request: response.data.authorizationRequest,
     state: response.data.verificationSession.state,
+  };
+};
+
+interface RequestOpenIdPresentationDcApiResponse {
+  authorizationRequest: string;
+  authorizationRequestObject: Record<string, unknown>;
+  verificationSession: {
+    id: string;
+    state: OpenIdPresentationState;
+  };
+}
+
+const requestOpenId4VcPresentationDcApi = async (
+  api: AxiosInstance,
+  params: RequestPresentationParams,
+): Promise<RequestPresentationResult> => {
+  const userId = params.useDemo ? demoUser.did : getUserId();
+  if (!userId) {
+    throw new Error('User ID is not set');
+  }
+
+  const body = buildOpenIdPresentationRequest({
+    format: params.credentialType as Openid4CredentialFormat,
+    id: userId,
+    did: params.did ?? userId,
+    name: params.schema.name ?? params.schema.id,
+    attributes:
+      params.requestedAttributes ??
+      params.schema.fields?.map((schema) => schema.name) ??
+      [],
+    doctype: params.schema.name,
+    namespace: params.schema.name,
+    useDcApi: true,
+  });
+
+  const response = await api.post<RequestOpenIdPresentationDcApiResponse>(
+    agencyEndpoints.requestOpenIdPresentation,
+    body,
+  );
+
+  const { verificationSession, authorizationRequestObject } = response.data;
+
+  const isSigned = 'payload' in authorizationRequestObject;
+  const protocol = isSigned ? 'openid4vp-v1-signed' : 'openid4vp-v1-unsigned';
+
+  const credentialResponse = await navigator.credentials.get({
+    // @ts-expect-error — DigitalCredential API not yet in lib.dom.d.ts
+    digital: {
+      requests: [{ protocol, data: authorizationRequestObject }],
+    },
+  });
+
+  if (!credentialResponse || credentialResponse.constructor.name !== 'DigitalCredential') {
+    throw new Error('Did not receive a DigitalCredential response from navigator.credentials.get()');
+  }
+
+  // @ts-expect-error — DigitalCredential.data not yet typed
+  const authorizationResponse: Record<string, unknown> =
+    typeof (credentialResponse as any).data === 'string'
+      ? JSON.parse((credentialResponse as any).data)
+      : (credentialResponse as any).data;
+
+  await api.post(
+    `${agencyEndpoints.updateOpenIdPresentationState(verificationSession.id)}/verify`,
+    {
+      authorizationResponse,
+      origin: window.location.origin,
+    },
+  );
+
+  return {
+    id: verificationSession.id,
+    request: undefined,
+    state: OpenIdPresentationState.ResponseVerified,
   };
 };
 

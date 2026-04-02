@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import { IsBoolean, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator'
+import { IsBoolean, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator'
 
 import { CredentialIssuer } from '../../issuance-sessions/dto/credential-offer.dto'
 
@@ -76,6 +76,32 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
   @IsOptional()
   @IsString()
   public version?: 'v1' | 'v1.draft21' | 'v1.draft24'
+
+  @ApiPropertyOptional({
+    enum: ['direct_post', 'direct_post.jwt', 'dc_api', 'dc_api.jwt'],
+    description: 'Response mode for the authorization request. Use dc_api or dc_api.jwt for Digital Credentials API flow.',
+  })
+  @IsOptional()
+  @IsString()
+  public responseMode?: 'direct_post' | 'direct_post.jwt' | 'dc_api' | 'dc_api.jwt'
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Expected origins for DC API. Required when responseMode is dc_api or dc_api.jwt.',
+  })
+  @IsOptional()
+  public expectedOrigins?: string[]
+}
+
+export class OpenId4VcVerifyDcApiRequestDto {
+  @ApiProperty({ description: 'The authorization response received from navigator.credentials.get()' })
+  @IsObject()
+  public authorizationResponse!: Record<string, unknown>
+
+  @ApiProperty({ description: 'The origin of the verifier page that called navigator.credentials.get()' })
+  @IsString()
+  @IsNotEmpty()
+  public origin!: string
 }
 
 export class OpenId4VcVerificationSessionCreateRequestResponse {
@@ -87,4 +113,11 @@ export class OpenId4VcVerificationSessionCreateRequestResponse {
    */
   @ApiProperty()
   public authorizationRequest!: string
+
+  /**
+   * The authorization request object to pass to the Digital Credentials API (navigator.credentials.get).
+   * Only present when responseMode is dc_api or dc_api.jwt.
+   */
+  @ApiPropertyOptional()
+  public authorizationRequestObject?: Record<string, unknown>
 }

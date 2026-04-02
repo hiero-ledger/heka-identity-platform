@@ -27,7 +27,7 @@ export class OpenId4VcVerificationSessionService {
       throw new UnprocessableEntityException(`Unable to resolve signing key for DID: ${req.requestSigner.did}`)
     }
 
-    const { authorizationRequest, verificationSession } =
+    const { authorizationRequest, verificationSession, authorizationRequestObject } =
       await tenantAgent.openid4vc.verifier.createAuthorizationRequest({
         requestSigner: {
           method: 'did',
@@ -37,12 +37,17 @@ export class OpenId4VcVerificationSessionService {
         presentationExchange: req.presentationExchange,
         dcql: req.dcql,
         version: req.version ?? (req.dcql ? 'v1' : 'v1.draft21'),
+        responseMode: req.responseMode,
+        expectedOrigins: req.expectedOrigins,
       })
+
+    const isDcApi = req.responseMode === 'dc_api' || req.responseMode === 'dc_api.jwt'
 
     return {
       verificationSession:
         OpenId4VcVerificationSessionRecordDto.fromOpenId4VcVerificationSessionRecord(verificationSession),
       authorizationRequest,
+      authorizationRequestObject: isDcApi ? (authorizationRequestObject as Record<string, unknown>) : undefined,
     }
   }
 
@@ -105,6 +110,26 @@ export class OpenId4VcVerificationSessionService {
       verificationSessionRecord,
       sharedAttributes,
     )
+  }
+
+  /**
+   * Verify a DC API authorization response submitted by the browser.
+   * Used when responseMode is dc_api or dc_api.jwt — the wallet returns
+   * the VP token to the browser, which forwards it here for verification.
+   */
+  public async verifyDcApiResponse(
+    tenantAgent: TenantAgent,
+    verificationSessionId: string,
+    authorizationResponse: Record<string, unknown>,
+    origin: string,
+  ): Promise<OpenId4VcVerificationSessionRecordDto> {
+    const { verificationSession } = await tenantAgent.openid4vc.verifier.verifyAuthorizationResponse({
+      verificationSessionId,
+      authorizationResponse,
+      origin,
+    })
+
+    return OpenId4VcVerificationSessionRecordDto.fromOpenId4VcVerificationSessionRecord(verificationSession)
   }
 
   /**

@@ -32,6 +32,7 @@ import { InjectLogger, Logger } from '../../common/logger'
 import {
   OpenId4VcVerificationSessionCreateRequestDto,
   OpenId4VcVerificationSessionCreateRequestResponse,
+  OpenId4VcVerifyDcApiRequestDto,
   GetVerificationSessionByQueryDto,
   OpenId4VcVerificationSessionRecordDto,
 } from './dto'
@@ -121,6 +122,39 @@ export class OpenId4VcVerificationSessionController {
     logger.trace('>')
 
     const res = await this.verificationService.getVerificationSession(tenantAgent, verificationSessionId)
+
+    logger.trace({ res }, '<')
+    return res
+  }
+
+  /**
+   * Verify a DC API authorization response forwarded from the browser.
+   * Called after the wallet returns a VP token to the browser via navigator.credentials.get().
+   */
+  @ApiOperation({ summary: 'Verify DC API authorization response' })
+  @ApiParam({ name: 'verificationSessionId', type: String })
+  @ApiBody({ type: OpenId4VcVerifyDcApiRequestDto })
+  @ApiOkResponse({ description: 'Verification session record', type: OpenId4VcVerificationSessionRecordDto })
+  @ApiBadRequestResponse({ description: 'Bad Request' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @ApiUnprocessableEntityResponse({ description: 'Unprocessable Entity' })
+  @Post(':verificationSessionId/verify')
+  @HttpCode(HttpStatus.OK)
+  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Verifier)
+  public async verifyDcApiResponse(
+    @ReqTenantAgent() tenantAgent: TenantAgent,
+    @Param('verificationSessionId') verificationSessionId: string,
+    @Body() req: OpenId4VcVerifyDcApiRequestDto,
+  ): Promise<OpenId4VcVerificationSessionRecordDto> {
+    const logger = this.logger.child('verifyDcApiResponse', { verificationSessionId })
+    logger.trace('>')
+
+    const res = await this.verificationService.verifyDcApiResponse(
+      tenantAgent,
+      verificationSessionId,
+      req.authorizationResponse,
+      req.origin,
+    )
 
     logger.trace({ res }, '<')
     return res
