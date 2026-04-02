@@ -128,8 +128,22 @@ export class DidService {
           tenantId: authInfo.tenantId,
         },
         async (tenantAgent) => {
-          // TODO: Check and fix if required the next line. didDocument.verificationMethod![0].id can be undefined.
-          const didDocumentRelativeKeyId = didDocument.verificationMethod![0].id
+          // Validate that verification method exists before accessing
+          if (!didDocument.verificationMethod || didDocument.verificationMethod.length === 0) {
+            throw new UnprocessableEntityException(
+              `DID document for ${didDocument.id} must contain at least one verification method`,
+            )
+          }
+
+          const verificationMethod = didDocument.verificationMethod[0]
+          if (!verificationMethod.id) {
+            throw new UnprocessableEntityException(
+              `Verification method in DID document ${didDocument.id} must have an id`,
+            )
+          }
+
+          const didDocumentRelativeKeyId = verificationMethod.id
+
           return await tenantAgent.dids.import({
             did: didDocument.id,
             didDocument,
