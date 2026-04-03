@@ -29,6 +29,16 @@ import { useCallback } from 'react'
 import { extractOpenId4VcCredentialMetadata, setOpenId4VcCredentialMetadata } from './metadata'
 import { OpenId4VcPresentationRequest } from './types'
 
+// Credential formats supported by the wallet
+const WALLET_SUPPORTED_CREDENTIAL_FORMATS = ['vc+sd-jwt', 'jwt_vc_json', 'jwt_vc_json-ld', 'mso_mdoc'] as const
+
+const walletSupportsCredentialFormat = (format?: string) =>
+  format !== undefined && WALLET_SUPPORTED_CREDENTIAL_FORMATS.some((supportedFormat) => supportedFormat === format)
+
+const formatOfferedCredentialDescriptions = (
+  offeredCredentials: OpenId4VciResolvedCredentialOffer['offeredCredentials']
+) => offeredCredentials.map((credential) => `${credential.id}: ${credential.format ?? '<missing format>'}`).join(', ')
+
 export const useOpenIdHandlers = () => {
   const { agent, publicDid } = useAgent<BifoldAgent>()
 
@@ -143,16 +153,28 @@ export const useOpenIdHandlers = () => {
         throw new Error('Credo agent is not initialized')
       }
 
-      // By default request the first offered credential
-      // TODO: Use first supported credential from offered list
+      // By default request the first offered credential with a supported format
       const offeredCredentialToRequest = credentialConfigurationIdToRequest
         ? resolvedCredentialOffer.offeredCredentials.find(
             (offered) => offered.id === credentialConfigurationIdToRequest
           )
-        : resolvedCredentialOffer.offeredCredentials[0]
+        : resolvedCredentialOffer.offeredCredentials.find((offered) => walletSupportsCredentialFormat(offered.format))
       if (!offeredCredentialToRequest) {
+        const offeredCredentialDescriptions = formatOfferedCredentialDescriptions(
+          resolvedCredentialOffer.offeredCredentials
+        )
+        const errorMessage = credentialConfigurationIdToRequest
+          ? `Parameter 'credentialConfigurationIdToRequest' with value ${credentialConfigurationIdToRequest} is not a credential_configuration_id in the credential offer.`
+          : `No supported credential format found in the credential offer. Supported formats: ${WALLET_SUPPORTED_CREDENTIAL_FORMATS.join(', ')}. Offered credentials: ${offeredCredentialDescriptions}`
+        throw new Error(errorMessage)
+      }
+
+      if (credentialConfigurationIdToRequest && !walletSupportsCredentialFormat(offeredCredentialToRequest.format)) {
+        const offeredCredentialDescriptions = formatOfferedCredentialDescriptions(
+          resolvedCredentialOffer.offeredCredentials
+        )
         throw new Error(
-          `Parameter 'credentialConfigurationIdToRequest' with value ${credentialConfigurationIdToRequest} is not a credential_configuration_id in the credential offer.`
+          `Credential configuration '${credentialConfigurationIdToRequest}' uses unsupported format '${offeredCredentialToRequest.format}'. Supported formats: ${WALLET_SUPPORTED_CREDENTIAL_FORMATS.join(', ')}. Offered credentials: ${offeredCredentialDescriptions}`
         )
       }
 

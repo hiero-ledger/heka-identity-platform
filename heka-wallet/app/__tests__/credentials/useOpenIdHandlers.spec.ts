@@ -1,9 +1,12 @@
+import { JwaSignatureAlgorithm, SdJwtVcRecord } from '@credo-ts/core'
+import { OpenId4VciResolvedCredentialOffer } from '@credo-ts/openid4vc'
+import { getHostNameFromUrl } from '@heka-wallet/shared'
 import { renderHook } from '@testing-library/react-native'
+
 import { mockFunction } from '../../../jest-helpers/helpers'
 import { useOpenIdHandlers } from '../../src/credentials/useOpenIdHandlers'
+
 import { hekaIdentityServiceSdJwtVc } from './fixtures'
-import { JwaSignatureAlgorithm, SdJwtVcRecord } from '@credo-ts/core'
-import { getHostNameFromUrl } from '@heka-wallet/shared'
 
 const mockPublicDid = 'did:key:mock-key-fingerprint'
 const mockAuthorizationCode = 'mock-auth-code'
@@ -38,6 +41,17 @@ function renderOpenIdHandlersHookValue() {
 
 describe('useOpenIdHandlers', () => {
   const fixture = hekaIdentityServiceSdJwtVc
+
+  const unsupportedOfferedCredential = {
+    id: 'unsupported-first-id',
+    format: 'jwt_vc' as const,
+    vct: 'empl:unsupported',
+  } as unknown as OpenId4VciResolvedCredentialOffer['offeredCredentials'][number]
+
+  const mixedFormatResolvedCredentialOffer: OpenId4VciResolvedCredentialOffer = {
+    ...fixture.resolvedCredentialOfferPreAuth,
+    offeredCredentials: [unsupportedOfferedCredential, fixture.resolvedCredentialOfferPreAuth.offeredCredentials[0]],
+  }
 
   describe('resolveOpenId4VciOffer', () => {
     it('should resolve OID4VCI offer (pre-auth)', async () => {
@@ -201,14 +215,14 @@ describe('useOpenIdHandlers', () => {
       expect(mockAgent.modules.openId4VcHolder.requestCredentials).toHaveBeenCalledTimes(1)
     })
 
-    it('should receive first credential from resolved offer if no id is specified', async () => {
+    it('should receive first supported credential from resolved offer if no id is specified', async () => {
       mockFunction(mockAgent.modules.openId4VcHolder.requestCredentials).mockResolvedValueOnce(
         fixture.requestCredentialsResponse
       )
 
       const { receiveCredentialFromOpenId4VciOffer } = renderOpenIdHandlersHookValue()
       const credentialRecord = (await receiveCredentialFromOpenId4VciOffer({
-        resolvedCredentialOffer: fixture.resolvedCredentialOfferPreAuth,
+        resolvedCredentialOffer: mixedFormatResolvedCredentialOffer,
         accessToken: fixture.tokenResponse,
       })) as SdJwtVcRecord
 
@@ -216,15 +230,53 @@ describe('useOpenIdHandlers', () => {
       expect(credentialRecord.compactSdJwtVc).toBe(issuedCredential.credential.compact)
 
       expect(mockAgent.modules.openId4VcHolder.requestCredentials).toHaveBeenCalledWith({
-        resolvedCredentialOffer: fixture.resolvedCredentialOfferPreAuth,
+        resolvedCredentialOffer: mixedFormatResolvedCredentialOffer,
         ...fixture.tokenResponse,
         clientId: undefined,
-        credentialsToRequest: [fixture.resolvedCredentialOfferPreAuth.offeredCredentials[0].id],
+        credentialsToRequest: [mixedFormatResolvedCredentialOffer.offeredCredentials[1].id],
         verifyCredentialStatus: false,
         allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.EdDSA, JwaSignatureAlgorithm.ES256],
         credentialBindingResolver: expect.any(Function),
       })
       expect(mockAgent.modules.openId4VcHolder.requestCredentials).toHaveBeenCalledTimes(1)
+    })
+
+    it('should throw if explicitly requested credential uses an unsupported format', async () => {
+      const { receiveCredentialFromOpenId4VciOffer } = renderOpenIdHandlersHookValue()
+
+      await expect(
+        receiveCredentialFromOpenId4VciOffer({
+          resolvedCredentialOffer: mixedFormatResolvedCredentialOffer,
+          accessToken: fixture.tokenResponse,
+          credentialConfigurationIdToRequest: mixedFormatResolvedCredentialOffer.offeredCredentials[0].id,
+        })
+      ).rejects.toThrow(/uses unsupported format 'jwt_vc'/)
+
+      expect(mockAgent.modules.openId4VcHolder.requestCredentials).toHaveBeenCalledTimes(0)
+    })
+
+    it('should throw if no offered credentials use a supported format', async () => {
+      const unsupportedOnlyResolvedCredentialOffer: OpenId4VciResolvedCredentialOffer = {
+        ...fixture.resolvedCredentialOfferPreAuth,
+        offeredCredentials: [
+          {
+            id: 'unsupported-only-id',
+            format: 'jwt_vc' as const,
+            vct: 'empl:unsupported-only',
+          } as unknown as OpenId4VciResolvedCredentialOffer['offeredCredentials'][number],
+        ],
+      }
+
+      const { receiveCredentialFromOpenId4VciOffer } = renderOpenIdHandlersHookValue()
+
+      await expect(
+        receiveCredentialFromOpenId4VciOffer({
+          resolvedCredentialOffer: unsupportedOnlyResolvedCredentialOffer,
+          accessToken: fixture.tokenResponse,
+        })
+      ).rejects.toThrow(/No supported credential format found in the credential offer/)
+
+      expect(mockAgent.modules.openId4VcHolder.requestCredentials).toHaveBeenCalledTimes(0)
     })
 
     it('should throw on receiving empty response', async () => {
