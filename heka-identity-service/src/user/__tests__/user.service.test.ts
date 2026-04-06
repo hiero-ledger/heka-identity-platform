@@ -1,6 +1,6 @@
-import { createMock } from '@golevelup/ts-jest'
+import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
-import { when } from 'jest-when'
+import { when } from 'vitest-when'
 
 import { Role } from 'common/auth'
 import { MessageDeliveryType, User } from 'common/entities'
@@ -28,7 +28,7 @@ describe('UserService', () => {
   test('getMe return authenticated user', async () => {
     when(em.findOneOrFail)
       .calledWith(User, { id: '11' })
-      .mockResolvedValue(
+      .thenResolve(
         new User({
           id: '11',
           messageDeliveryType: MessageDeliveryType.WebSocket,
@@ -38,7 +38,7 @@ describe('UserService', () => {
         }),
       )
 
-    when(fileStorageService.url).mockReturnValue('https://test.logo')
+    when(fileStorageService.url).calledWith(expect.anything()).thenReturn('https://test.logo')
 
     const userDto = await userService.getMe({
       userId: '11',
