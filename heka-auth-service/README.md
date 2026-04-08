@@ -9,8 +9,7 @@ Authentication service for [Heka Identity Service](https://github.com/hiero-ledg
 #### Locally
 
 1. Run local Postgres database with the following command:
-   ```
-   bash
+   ```bash
    $ docker run --name heka-auth-service-postgres -e POSTGRES_DB=heka-auth-service -e POSTGRES_USER=heka -e POSTGRES_PASSWORD=heka1 -p 5433:5432 -d postgres
    ```
 2. Install dependencies:
