@@ -32,6 +32,7 @@ To run Heka Identity Service locally, follow these steps:
 Identity Service endpoints are protected with JWT Authentication and require integration with OAuth 2.0 Authorization Server.
 
 You can modify JWT verification options by setting the following environment variables:
+
 - `JWT_SECRET` - secret used to sign and verify tokens, defaults to `test`
 - `JWT_VERIFY_OPTIONS_ISSUER` - required value of `iss` claim, defaults to `Heka`
 - `JWT_VERIFY_OPTIONS_AUDIENCE` - required value of `aud` claim, defaults to `Heka Identity Service`
