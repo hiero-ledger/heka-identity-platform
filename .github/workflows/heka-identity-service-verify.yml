@@ -65,11 +65,9 @@ jobs:
       - name: Run ESLint
         run: yarn lint
 
-      - name: Run unit tests
-        run: env FORCE_COLOR=1 yarn test src
-
-      - name: Run integration tests
+      - name: Run tests
         env:
+          FORCE_COLOR: 1
           MIKRO_ORM_HOST: postgres
           MIKRO_ORM_PORT: 5432
           MIKRO_ORM_USER: heka
@@ -78,4 +76,4 @@ jobs:
           EXPRESS_HOST: localhost
           FILE_STORAGE_FS_URL: http://localhost:3000
           APP_ENDPOINT: http://localhost:3000
-        run: yarn test test
+        run: yarn test
