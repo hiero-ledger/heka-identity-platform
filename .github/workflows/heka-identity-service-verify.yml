@@ -68,11 +68,11 @@ jobs:
       - name: Run tests
         env:
           FORCE_COLOR: 1
-          MIKRO_ORM_HOST: postgres
+          MIKRO_ORM_HOST: localhost
           MIKRO_ORM_PORT: 5432
           MIKRO_ORM_USER: heka
           MIKRO_ORM_PASSWORD: heka1
-          WALLET_POSTGRES_HOST: postgres
+          WALLET_POSTGRES_HOST: localhost
           EXPRESS_HOST: localhost
           FILE_STORAGE_FS_URL: http://localhost:3000
           APP_ENDPOINT: http://localhost:3000
