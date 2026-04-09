@@ -42,11 +42,18 @@ export class OAuthService {
   }
 
   public async refreshToken(accessToken: string, refreshToken: string): Promise<RefreshResponse> {
-    // parse refresh token
-    const refresh = await this.jwtService.decode(refreshToken)
+    let refresh: { exp?: number; jti?: string }
+    try {
+      refresh = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.configService.jwtConfig.secret,
+        issuer: this.configService.jwtConfig.issuer,
+        audience: this.configService.jwtConfig.audience,
+      })
+    } catch {
+      throw new UnauthorizedException('Refresh token is incorrect.')
+    }
 
-    // check expiration of the refresh token
-    if (SecondsToDate(refresh.exp) <= new Date()) {
+    if (!refresh.jti) {
       throw new UnauthorizedException('Refresh token is incorrect.')
     }
 

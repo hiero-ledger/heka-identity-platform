@@ -65,18 +65,16 @@ jobs:
       - name: Run ESLint
         run: yarn lint
 
-# TODO - re-enable tests after we add proper support for ESM packages in tests configuration
-#      - name: Run unit tests
-#        run: env FORCE_COLOR=1 yarn test ./src --config=./src/jest.config.ts --ci --reporters=default
-
-#      - name: Run integration tests
-#        env:
-#          MIKRO_ORM_HOST: postgres
-#          MIKRO_ORM_PORT: 5432
-#          MIKRO_ORM_USER: heka
-#          MIKRO_ORM_PASSWORD: heka1
-#          WALLET_POSTGRES_HOST: postgres
-#          EXPRESS_HOST: localhost
-#          FILE_STORAGE_FS_URL: http://localhost:3000
-#          APP_ENDPOINT: http://localhost:3000
-#        run: yarn test --ci --reporters=default
+      - name: Run tests
+        env:
+          FORCE_COLOR: 1
+          NODE_OPTIONS: --max-old-space-size=6144
+          MIKRO_ORM_HOST: localhost
+          MIKRO_ORM_PORT: 5432
+          MIKRO_ORM_USER: heka
+          MIKRO_ORM_PASSWORD: heka1
+          WALLET_POSTGRES_HOST: localhost
+          EXPRESS_HOST: localhost
+          FILE_STORAGE_FS_URL: http://localhost:3000
+          APP_ENDPOINT: http://localhost:3000
+        run: yarn test
