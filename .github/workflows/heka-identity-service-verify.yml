@@ -68,6 +68,7 @@ jobs:
       - name: Run tests
         env:
           FORCE_COLOR: 1
+          NODE_OPTIONS: --max-old-space-size=6144
           MIKRO_ORM_HOST: localhost
           MIKRO_ORM_PORT: 5432
           MIKRO_ORM_USER: heka
