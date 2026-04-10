@@ -29,7 +29,7 @@ Authentication service for [Heka Identity Service](https://github.com/hiero-ledg
 
 The application offers a REST API that can be accessed at http://localhost:3004 by default.
 
-The API can be explored with using Swagger UI, which is accessible at the http://localhost:3004/api/docs.
+The API can be explored using Swagger UI, which is accessible at the http://localhost:3004/api/docs.
 
 ## Migrations
 
