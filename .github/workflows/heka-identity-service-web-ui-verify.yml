@@ -19,7 +19,7 @@ jobs:
       run:
         working-directory: ./heka-identity-service-web-ui
     name: Build and check
-    runs-on: ubuntu-latest
+    runs-on: hl-heka-lin-md
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
