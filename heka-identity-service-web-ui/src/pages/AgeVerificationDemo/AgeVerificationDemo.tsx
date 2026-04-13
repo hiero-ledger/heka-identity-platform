@@ -4,10 +4,14 @@ import { useSelector } from 'react-redux';
 
 import { BasicPanel } from '@/components/Panel';
 import { FillCredentialData, PreparationStepLayout } from '@/components/Steps';
-import { StepHeader } from '@/components/StepTitle';
 import { CredentialOffer } from '@/components/Steps/CredentialOffer/CredentialOffer';
 import { VerificationRequest } from '@/components/Steps/VerificationRequest/VerificationRequest';
+import { StepHeader } from '@/components/StepTitle';
 import { demoUser, mainDidMethod } from '@/const/user';
+import {
+  getIsPresentationCompleted,
+  getPresentationSharedAttributes,
+} from '@/entities/Presentation/model/selectors/presentationSelector';
 import { Schema } from '@/entities/Schema';
 import { getSchemas } from '@/entities/Schema/model/selectors/schemasSelector';
 import { getDemoSchemaList } from '@/entities/Schema/model/services/getDemoSchemaList';
@@ -15,7 +19,6 @@ import {
   Openid4CredentialFormat,
   ProtocolType,
 } from '@/entities/Schema/model/types/schema';
-import { CheckboxGroup } from '@/shared/ui/CheckboxGroup/CheckboxGroup';
 import {
   DemoContext,
   DemoSteps,
@@ -25,14 +28,11 @@ import {
 import { useFlow } from '@/shared/hooks/flow';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
+import { CheckboxGroup } from '@/shared/ui/CheckboxGroup/CheckboxGroup';
 import { Column, Row } from '@/shared/ui/Grid';
 import { Loader } from '@/shared/ui/Loader/Loader';
 
 import * as cls from './AgeVerificationDemo.module.scss';
-import {
-  getIsPresentationCompleted,
-  getPresentationSharedAttributes,
-} from '@/entities/Presentation/model/selectors/presentationSelector';
 
 const MDL_SCHEMA_NAME = 'mDL';
 const AGE_FIELD = 'age_over_18';
