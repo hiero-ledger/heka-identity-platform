@@ -1,10 +1,6 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
-import {
-  BadRequestException,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common'
+import { BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common'
 import { when } from 'vitest-when'
 
 import { Agent, TenantAgent } from 'common/agent'
@@ -50,7 +46,9 @@ describe('DidService', () => {
         { did: 'endorser-did', didDocument: { id: 'endorser-did' } },
         { did: 'did:key:z2', didDocument: null },
       ]
-      when(tenantAgent.dids.getCreatedDids).calledWith({ method: 'key' }).thenResolve(mockRecords as any)
+      when(tenantAgent.dids.getCreatedDids)
+        .calledWith({ method: 'key' })
+        .thenResolve(mockRecords as any)
       when(tenantAgent.dids.resolveDidDocument)
         .calledWith('did:key:z2')
         .thenResolve({ id: 'did:key:z2' } as any)
@@ -64,7 +62,9 @@ describe('DidService', () => {
 
     test('uses cached didDocument when available', async () => {
       const mockRecords = [{ did: 'did:key:z1', didDocument: { id: 'did:key:z1' } }]
-      when(tenantAgent.dids.getCreatedDids).calledWith({ method: undefined }).thenResolve(mockRecords as any)
+      when(tenantAgent.dids.getCreatedDids)
+        .calledWith({ method: undefined })
+        .thenResolve(mockRecords as any)
 
       const result = await didService.find(tenantAgent, { own: true })
 

@@ -13,6 +13,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
+    "test:unit": "vitest run src/",
+    "test:e2e": "vitest run test/",
     "check-types": "yarn check-types:src && yarn check-types:test",
     "check-types:src": "tsc -p tsconfig.src.json --noEmit",
     "check-types:test": "tsc -p tsconfig.test.json --noEmit",

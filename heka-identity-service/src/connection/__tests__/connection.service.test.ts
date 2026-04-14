@@ -31,7 +31,9 @@ describe('ConnectionService', () => {
         { id: 'conn-1', state: 'completed', role: 'requester', createdAt: new Date() },
         { id: 'conn-2', state: 'request-sent', role: 'responder', createdAt: new Date() },
       ]
-      when(tenantAgent.didcomm.connections.getAll).calledWith().thenResolve(mockRecords as any)
+      when(tenantAgent.didcomm.connections.getAll)
+        .calledWith()
+        .thenResolve(mockRecords as any)
 
       const result = await connectionService.find(tenantAgent)
 
@@ -61,10 +63,12 @@ describe('ConnectionService', () => {
     }
 
     test('creates invitation with request label and imageUrl', async () => {
-      when(userService.getMe).calledWith(authInfo).thenResolve({
-        name: 'Alice',
-        logo: 'https://logo.png',
-      } as any)
+      when(userService.getMe)
+        .calledWith(authInfo)
+        .thenResolve({
+          name: 'Alice',
+          logo: 'https://logo.png',
+        } as any)
 
       const mockOobRecord = {
         id: 'oob-1',
@@ -98,10 +102,12 @@ describe('ConnectionService', () => {
     })
 
     test('falls back to user name and logo when not provided in request', async () => {
-      when(userService.getMe).calledWith(authInfo).thenResolve({
-        name: 'Alice',
-        logo: 'https://alice-logo.png',
-      } as any)
+      when(userService.getMe)
+        .calledWith(authInfo)
+        .thenResolve({
+          name: 'Alice',
+          logo: 'https://alice-logo.png',
+        } as any)
 
       const mockOobRecord = {
         id: 'oob-2',
@@ -136,10 +142,7 @@ describe('ConnectionService', () => {
         createdAt: new Date(),
       }
       when(tenantAgent.didcomm.oob.receiveInvitationFromUrl)
-        .calledWith(
-          'https://example.com/invite',
-          expect.objectContaining({ label: 'Connection', alias: undefined }),
-        )
+        .calledWith('https://example.com/invite', expect.objectContaining({ label: 'Connection', alias: undefined }))
         .thenResolve({ connectionRecord: mockConnectionRecord } as any)
 
       const result = await connectionService.acceptInvitation(tenantAgent, {
@@ -152,10 +155,7 @@ describe('ConnectionService', () => {
     test('uses custom label and alias when provided', async () => {
       const mockConnectionRecord = { id: 'conn-2', state: 'request-sent', role: 'requester', createdAt: new Date() }
       when(tenantAgent.didcomm.oob.receiveInvitationFromUrl)
-        .calledWith(
-          'https://example.com/invite',
-          expect.objectContaining({ label: 'My Label', alias: 'my-alias' }),
-        )
+        .calledWith('https://example.com/invite', expect.objectContaining({ label: 'My Label', alias: 'my-alias' }))
         .thenResolve({ connectionRecord: mockConnectionRecord } as any)
 
       const result = await connectionService.acceptInvitation(tenantAgent, {
@@ -181,7 +181,9 @@ describe('ConnectionService', () => {
   describe('get', () => {
     test('returns connection when found by ID', async () => {
       const mockRecord = { id: 'conn-1', state: 'completed', role: 'requester', createdAt: new Date() }
-      when(tenantAgent.didcomm.connections.findById).calledWith('conn-1').thenResolve(mockRecord as any)
+      when(tenantAgent.didcomm.connections.findById)
+        .calledWith('conn-1')
+        .thenResolve(mockRecord as any)
 
       const result = await connectionService.get(tenantAgent, 'conn-1')
 
@@ -190,7 +192,9 @@ describe('ConnectionService', () => {
     })
 
     test('falls back to out-of-band ID lookup when not found by direct ID', async () => {
-      when(tenantAgent.didcomm.connections.findById).calledWith('oob-1').thenResolve(null as any)
+      when(tenantAgent.didcomm.connections.findById)
+        .calledWith('oob-1')
+        .thenResolve(null as any)
 
       const mockRecord = { id: 'conn-from-oob', state: 'completed', role: 'requester', createdAt: new Date() }
       when(tenantAgent.didcomm.connections.findAllByOutOfBandId)
@@ -204,7 +208,9 @@ describe('ConnectionService', () => {
     })
 
     test('returns null when connection not found by either ID or OOB ID', async () => {
-      when(tenantAgent.didcomm.connections.findById).calledWith('unknown').thenResolve(null as any)
+      when(tenantAgent.didcomm.connections.findById)
+        .calledWith('unknown')
+        .thenResolve(null as any)
       when(tenantAgent.didcomm.connections.findAllByOutOfBandId).calledWith('unknown').thenResolve([])
 
       const result = await connectionService.get(tenantAgent, 'unknown')

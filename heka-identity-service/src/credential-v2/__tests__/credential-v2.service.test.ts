@@ -83,7 +83,9 @@ describe('CredentialV2Service', () => {
         .thenResolve(template as any)
 
       const mockConn = { id: 'conn-1' }
-      when(tenantAgent.didcomm.connections.findById).calledWith('conn-1').thenResolve(mockConn as any)
+      when(tenantAgent.didcomm.connections.findById)
+        .calledWith('conn-1')
+        .thenResolve(mockConn as any)
 
       when(credentialService.offer)
         .calledWith(tenantAgent, expect.anything())
@@ -163,15 +165,21 @@ describe('CredentialV2Service', () => {
     })
 
     test('throws UnprocessableEntityException when connection not found', async () => {
-      when(tenantAgent.didcomm.connections.findById).calledWith('bad-conn').thenResolve(null as any)
+      when(tenantAgent.didcomm.connections.findById)
+        .calledWith('bad-conn')
+        .thenResolve(null as any)
 
       const template = { protocol: ProtocolType.Aries, schema: { registrations: [] } }
 
       await expect(
-        credentialV2Service.offerForAries(tenantAgent, template as any, {
-          connectionId: 'bad-conn',
-          credentials: [],
-        } as any),
+        credentialV2Service.offerForAries(
+          tenantAgent,
+          template as any,
+          {
+            connectionId: 'bad-conn',
+            credentials: [],
+          } as any,
+        ),
       ).rejects.toThrow(UnprocessableEntityException)
     })
 
@@ -188,10 +196,14 @@ describe('CredentialV2Service', () => {
       }
 
       await expect(
-        credentialV2Service.offerForAries(tenantAgent, template as any, {
-          connectionId: 'conn-1',
-          credentials: [],
-        } as any),
+        credentialV2Service.offerForAries(
+          tenantAgent,
+          template as any,
+          {
+            connectionId: 'conn-1',
+            credentials: [],
+          } as any,
+        ),
       ).rejects.toThrow(UnprocessableEntityException)
     })
   })
@@ -206,9 +218,7 @@ describe('CredentialV2Service', () => {
         name: 'Test Template',
         schema: {
           name: 'TestSchema',
-          registrations: [
-            { protocol: ProtocolType.Aries, network: 'indy', did: 'did:indy:z1', credentials: {} },
-          ],
+          registrations: [{ protocol: ProtocolType.Aries, network: 'indy', did: 'did:indy:z1', credentials: {} }],
         },
       }
       when(verificationTemplateService.getTemplateById)
@@ -243,9 +253,7 @@ describe('CredentialV2Service', () => {
         name: 'VTemplate',
         schema: {
           name: 'TestSchema',
-          registrations: [
-            { protocol: ProtocolType.Oid4vc, network: 'key', did: 'did:key:z1', credentials: {} },
-          ],
+          registrations: [{ protocol: ProtocolType.Oid4vc, network: 'key', did: 'did:key:z1', credentials: {} }],
         },
       }
       when(verificationTemplateService.getTemplateById)

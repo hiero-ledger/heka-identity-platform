@@ -44,9 +44,7 @@ describe('SchemaService', () => {
     })
 
     test('returns empty array when no schemas found', async () => {
-      when(tenantAgent.modules.anoncreds.getCreatedSchemas)
-        .calledWith({ methodName: undefined })
-        .thenResolve([])
+      when(tenantAgent.modules.anoncreds.getCreatedSchemas).calledWith({ methodName: undefined }).thenResolve([])
 
       const result = await schemaService.getCreated(tenantAgent, {})
 

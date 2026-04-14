@@ -99,9 +99,7 @@ describe('SchemaV2Service', () => {
     })
 
     test('returns empty list when no schemas', async () => {
-      when(em.findAndCount)
-        .calledWith(Schema, expect.anything(), expect.anything())
-        .thenResolve([[], 0])
+      when(em.findAndCount).calledWith(Schema, expect.anything(), expect.anything()).thenResolve([[], 0])
 
       const result = await schemaV2Service.getList(authInfo, { offset: 0, limit: 10 })
 
@@ -138,9 +136,7 @@ describe('SchemaV2Service', () => {
     })
 
     test('throws NotFoundException when schema not found', async () => {
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything())
-        .thenResolve(null)
+      when(em.findOne).calledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything()).thenResolve(null)
 
       await expect(schemaV2Service.getById(authInfo, 'missing')).rejects.toThrow(NotFoundException)
     })
@@ -152,17 +148,15 @@ describe('SchemaV2Service', () => {
         .calledWith(Schema, { owner: mockUser, name: { $eq: 'Duplicate' } })
         .thenResolve({ id: 'existing' } as any)
 
-      await expect(
-        schemaV2Service.create(authInfo, { name: 'Duplicate', fields: ['f1'] } as any),
-      ).rejects.toThrow(BadRequestException)
+      await expect(schemaV2Service.create(authInfo, { name: 'Duplicate', fields: ['f1'] } as any)).rejects.toThrow(
+        BadRequestException,
+      )
     })
   })
 
   describe('registration', () => {
     test('throws NotFoundException when schema not found', async () => {
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything())
-        .thenResolve(null)
+      when(em.findOne).calledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything()).thenResolve(null)
 
       await expect(
         schemaV2Service.registration(authInfo, tenantAgent, 'missing', {
@@ -249,9 +243,7 @@ describe('SchemaV2Service', () => {
     })
 
     test('throws NotFoundException when schema not found', async () => {
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'missing' })
-        .thenResolve(null)
+      when(em.findOne).calledWith(Schema, { owner: mockUser, id: 'missing' }).thenResolve(null)
 
       await expect(
         schemaV2Service.getRegistration(authInfo, 'missing', {
@@ -264,9 +256,7 @@ describe('SchemaV2Service', () => {
 
   describe('patch', () => {
     test('throws NotFoundException when schema not found', async () => {
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything())
-        .thenResolve(null)
+      when(em.findOne).calledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything()).thenResolve(null)
 
       await expect(
         schemaV2Service.patch(authInfo, tenantAgent, 'missing', {} as any, undefined as any),

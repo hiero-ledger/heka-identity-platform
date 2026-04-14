@@ -1,5 +1,5 @@
-import { createMock } from '@golevelup/ts-vitest'
 import { DidCommCredentialState } from '@credo-ts/didcomm'
+import { createMock } from '@golevelup/ts-vitest'
 import {
   BadRequestException,
   ConflictException,
@@ -31,7 +31,13 @@ describe('CredentialService', () => {
     credentialService = new CredentialService(agentConfig as any, logger, anoncredsRegistryService, revocationService)
     tenantAgent = createMock<TenantAgent>({
       didcomm: {
-        credentials: { findAllByQuery: vi.fn(), findById: vi.fn(), getById: vi.fn(), offerCredential: vi.fn(), acceptOffer: vi.fn() },
+        credentials: {
+          findAllByQuery: vi.fn(),
+          findById: vi.fn(),
+          getById: vi.fn(),
+          offerCredential: vi.fn(),
+          acceptOffer: vi.fn(),
+        },
         connections: { findById: vi.fn() },
       } as any,
       modules: {
@@ -57,9 +63,7 @@ describe('CredentialService', () => {
     })
 
     test('returns all credentials when no threadId', async () => {
-      when(tenantAgent.didcomm.credentials.findAllByQuery)
-        .calledWith({ threadId: undefined })
-        .thenResolve([])
+      when(tenantAgent.didcomm.credentials.findAllByQuery).calledWith({ threadId: undefined }).thenResolve([])
 
       const result = await credentialService.find(tenantAgent)
 
@@ -78,7 +82,9 @@ describe('CredentialService', () => {
   describe('get', () => {
     test('returns credential record when found', async () => {
       const mockRecord = { id: 'cred-1', state: 'done', createdAt: new Date() }
-      when(tenantAgent.didcomm.credentials.findById).calledWith('cred-1').thenResolve(mockRecord as any)
+      when(tenantAgent.didcomm.credentials.findById)
+        .calledWith('cred-1')
+        .thenResolve(mockRecord as any)
 
       const result = await credentialService.get(tenantAgent, 'cred-1')
 
@@ -86,7 +92,9 @@ describe('CredentialService', () => {
     })
 
     test('throws NotFoundException when not found', async () => {
-      when(tenantAgent.didcomm.credentials.findById).calledWith('missing').thenResolve(null as any)
+      when(tenantAgent.didcomm.credentials.findById)
+        .calledWith('missing')
+        .thenResolve(null as any)
 
       await expect(credentialService.get(tenantAgent, 'missing')).rejects.toThrow(NotFoundException)
     })
@@ -95,7 +103,9 @@ describe('CredentialService', () => {
   describe('accept', () => {
     test('accepts credential offer', async () => {
       const mockRecord = { id: 'cred-1', state: DidCommCredentialState.OfferReceived, createdAt: new Date() }
-      when(tenantAgent.didcomm.credentials.findById).calledWith('cred-1').thenResolve(mockRecord as any)
+      when(tenantAgent.didcomm.credentials.findById)
+        .calledWith('cred-1')
+        .thenResolve(mockRecord as any)
 
       const acceptedRecord = { id: 'cred-1', state: DidCommCredentialState.Done, createdAt: new Date() }
       when(tenantAgent.didcomm.credentials.acceptOffer)
@@ -108,14 +118,18 @@ describe('CredentialService', () => {
     })
 
     test('throws NotFoundException when credential not found', async () => {
-      when(tenantAgent.didcomm.credentials.findById).calledWith('missing').thenResolve(null as any)
+      when(tenantAgent.didcomm.credentials.findById)
+        .calledWith('missing')
+        .thenResolve(null as any)
 
       await expect(credentialService.accept(tenantAgent, 'missing')).rejects.toThrow(NotFoundException)
     })
 
     test('throws ConflictException when credential already accepted', async () => {
       const mockRecord = { id: 'cred-1', state: DidCommCredentialState.Done, createdAt: new Date() }
-      when(tenantAgent.didcomm.credentials.findById).calledWith('cred-1').thenResolve(mockRecord as any)
+      when(tenantAgent.didcomm.credentials.findById)
+        .calledWith('cred-1')
+        .thenResolve(mockRecord as any)
 
       await expect(credentialService.accept(tenantAgent, 'cred-1')).rejects.toThrow(ConflictException)
     })
@@ -123,7 +137,9 @@ describe('CredentialService', () => {
 
   describe('offer', () => {
     test('throws UnprocessableEntityException when connection not found', async () => {
-      when(tenantAgent.didcomm.connections.findById).calledWith('bad-conn').thenResolve(null as any)
+      when(tenantAgent.didcomm.connections.findById)
+        .calledWith('bad-conn')
+        .thenResolve(null as any)
 
       await expect(
         credentialService.offer(tenantAgent, {
@@ -164,7 +180,10 @@ describe('CredentialService', () => {
       const result = await credentialService.offer(tenantAgent, {
         connectionId: 'conn-1',
         credentialDefinitionId: 'creddef-1',
-        attributes: [{ name: 'name', value: 'Alice' }, { name: 'age', value: '30' }],
+        attributes: [
+          { name: 'name', value: 'Alice' },
+          { name: 'age', value: '30' },
+        ],
       } as any)
 
       expect(result.id).toBe('cred-new')
@@ -221,7 +240,9 @@ describe('CredentialService', () => {
       const mockCredential = {
         getTag: vi.fn().mockReturnValue(undefined),
       }
-      when(tenantAgent.didcomm.credentials.getById).calledWith('cred-1').thenResolve(mockCredential as any)
+      when(tenantAgent.didcomm.credentials.getById)
+        .calledWith('cred-1')
+        .thenResolve(mockCredential as any)
 
       await expect(credentialService.revoke(tenantAgent, 'cred-1')).rejects.toThrow(BadRequestException)
     })
@@ -234,7 +255,9 @@ describe('CredentialService', () => {
           return undefined
         }),
       }
-      when(tenantAgent.didcomm.credentials.getById).calledWith('cred-1').thenResolve(mockCredential as any)
+      when(tenantAgent.didcomm.credentials.getById)
+        .calledWith('cred-1')
+        .thenResolve(mockCredential as any)
       when(revocationService.get)
         .calledWith(tenantAgent, 'rev-reg-1')
         .thenResolve({ revocationStatusList: { 5: 1 } } as any)
@@ -250,7 +273,9 @@ describe('CredentialService', () => {
           return undefined
         }),
       }
-      when(tenantAgent.didcomm.credentials.getById).calledWith('cred-1').thenResolve(mockCredential as any)
+      when(tenantAgent.didcomm.credentials.getById)
+        .calledWith('cred-1')
+        .thenResolve(mockCredential as any)
 
       await expect(credentialService.revoke(tenantAgent, 'cred-1')).rejects.toThrow(InternalServerErrorException)
     })
@@ -263,17 +288,21 @@ describe('CredentialService', () => {
           return undefined
         }),
       }
-      when(tenantAgent.didcomm.credentials.getById).calledWith('cred-1').thenResolve(mockCredential as any)
+      when(tenantAgent.didcomm.credentials.getById)
+        .calledWith('cred-1')
+        .thenResolve(mockCredential as any)
       when(revocationService.get)
         .calledWith(tenantAgent, 'rev-reg-1')
         .thenResolve({ revocationStatusList: { 3: 0 } } as any)
       when(tenantAgent.modules.anoncreds.updateRevocationStatusList)
-        .calledWith(expect.objectContaining({
-          revocationStatusList: {
-            revocationRegistryDefinitionId: 'rev-reg-1',
-            revokedCredentialIndexes: [3],
-          },
-        }))
+        .calledWith(
+          expect.objectContaining({
+            revocationStatusList: {
+              revocationRegistryDefinitionId: 'rev-reg-1',
+              revokedCredentialIndexes: [3],
+            },
+          }),
+        )
         .thenResolve({ revocationStatusListState: { state: 'finished' } } as any)
 
       await expect(credentialService.revoke(tenantAgent, 'cred-1')).resolves.toBeUndefined()
@@ -287,7 +316,9 @@ describe('CredentialService', () => {
           return undefined
         }),
       }
-      when(tenantAgent.didcomm.credentials.getById).calledWith('cred-1').thenResolve(mockCredential as any)
+      when(tenantAgent.didcomm.credentials.getById)
+        .calledWith('cred-1')
+        .thenResolve(mockCredential as any)
       when(revocationService.get)
         .calledWith(tenantAgent, 'rev-reg-1')
         .thenResolve({ revocationStatusList: { 3: 0 } } as any)

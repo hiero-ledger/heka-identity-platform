@@ -10,7 +10,7 @@ import ExpressConfig from '../../../config/express'
 import { StatusListService } from '../status-list.service'
 
 // Mock the Bitstring module
-const { mockEncodeBits, mockSet, mockDecodeBits, MockBitstring } = vi.hoisted(() => {
+const { mockEncodeBits, mockSet, MockBitstring } = vi.hoisted(() => {
   const mockEncodeBits = vi.fn().mockResolvedValue('encoded-bitstring')
   const mockSet = vi.fn()
   const mockDecodeBits = vi.fn().mockResolvedValue(Buffer.alloc(100))
@@ -64,7 +64,9 @@ describe('StatusListService', () => {
     test('should create a status list with default size', async () => {
       const req = { issuer: 'did:example:issuer' }
 
-      when(em.persistAndFlush).calledWith(expect.any(Object)).thenResolve(undefined as any)
+      when(em.persistAndFlush)
+        .calledWith(expect.any(Object))
+        .thenResolve(undefined as any)
 
       const result = await service.create(authInfo, req)
 
@@ -84,7 +86,9 @@ describe('StatusListService', () => {
         purpose: StatusListPurpose.Suspension,
       }
 
-      when(em.persistAndFlush).calledWith(expect.any(Object)).thenResolve(undefined as any)
+      when(em.persistAndFlush)
+        .calledWith(expect.any(Object))
+        .thenResolve(undefined as any)
 
       const result = await service.create(authInfo, req)
 
@@ -158,9 +162,7 @@ describe('StatusListService', () => {
     })
 
     test('should return empty array when no status lists found', async () => {
-      when(em.find)
-        .calledWith(CredentialStatusList, { owner: mockUser })
-        .thenResolve([])
+      when(em.find).calledWith(CredentialStatusList, { owner: mockUser }).thenResolve([])
 
       const result = await service.find(authInfo)
 
@@ -207,7 +209,9 @@ describe('StatusListService', () => {
         .calledWith(CredentialStatusList, { owner: mockUser })
         .thenResolve([fullList] as any)
 
-      when(em.persistAndFlush).calledWith(expect.any(Object)).thenResolve(undefined as any)
+      when(em.persistAndFlush)
+        .calledWith(expect.any(Object))
+        .thenResolve(undefined as any)
 
       const result = await service.getOrCreate(authInfo, issuer)
 
@@ -217,11 +221,11 @@ describe('StatusListService', () => {
     })
 
     test('should create new list when no existing lists found', async () => {
-      when(em.find)
-        .calledWith(CredentialStatusList, { owner: mockUser })
-        .thenResolve([])
+      when(em.find).calledWith(CredentialStatusList, { owner: mockUser }).thenResolve([])
 
-      when(em.persistAndFlush).calledWith(expect.any(Object)).thenResolve(undefined as any)
+      when(em.persistAndFlush)
+        .calledWith(expect.any(Object))
+        .thenResolve(undefined as any)
 
       const result = await service.getOrCreate(authInfo, issuer)
 
@@ -327,9 +331,9 @@ describe('StatusListService', () => {
       // decodeBits returns a buffer of length 100, so index 200 is out of bounds
       // The service checks `index > decodedList.length`
       // Buffer.alloc(100) has length 100, so index 200 > 100
-      await expect(
-        service.updateItems(authInfo, id, { indexes: [200], revoked: true }),
-      ).rejects.toThrow(BadRequestException)
+      await expect(service.updateItems(authInfo, id, { indexes: [200], revoked: true })).rejects.toThrow(
+        BadRequestException,
+      )
     })
   })
 

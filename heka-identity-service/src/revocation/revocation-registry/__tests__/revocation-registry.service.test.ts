@@ -106,13 +106,9 @@ describe('RevocationRegistryService', () => {
     })
 
     test('should throw NotFoundException when DID is not found', async () => {
-      when(tenantAgent.dids.getCreatedDids)
-        .calledWith({ did: issuerId })
-        .thenResolve([])
+      when(tenantAgent.dids.getCreatedDids).calledWith({ did: issuerId }).thenResolve([])
 
-      await expect(
-        service.create(tenantAgent, { credentialDefinitionId, issuerId }),
-      ).rejects.toThrow(NotFoundException)
+      await expect(service.create(tenantAgent, { credentialDefinitionId, issuerId })).rejects.toThrow(NotFoundException)
     })
   })
 
@@ -197,9 +193,7 @@ describe('RevocationRegistryService', () => {
     })
 
     test('should return empty array when no records found', async () => {
-      when(tenantAgent.genericRecords.findAllByQuery)
-        .calledWith({ credentialDefinitionId: undefined })
-        .thenResolve([])
+      when(tenantAgent.genericRecords.findAllByQuery).calledWith({ credentialDefinitionId: undefined }).thenResolve([])
 
       const result = await service.find(tenantAgent)
 
@@ -226,13 +220,11 @@ describe('RevocationRegistryService', () => {
     })
 
     test('should throw BadRequestException when revocation registry not found', async () => {
-      when(tenantAgent.genericRecords.findAllByQuery)
-        .calledWith({ revocationRegistryDefinitionId })
-        .thenResolve([])
+      when(tenantAgent.genericRecords.findAllByQuery).calledWith({ revocationRegistryDefinitionId }).thenResolve([])
 
-      await expect(
-        service.update(tenantAgent, revocationRegistryDefinitionId, { lastIndex: 5 }),
-      ).rejects.toThrow(BadRequestException)
+      await expect(service.update(tenantAgent, revocationRegistryDefinitionId, { lastIndex: 5 })).rejects.toThrow(
+        BadRequestException,
+      )
     })
   })
 
@@ -295,9 +287,7 @@ describe('RevocationRegistryService', () => {
     })
 
     test('should create new registry when no existing registries found', async () => {
-      when(tenantAgent.genericRecords.findAllByQuery)
-        .calledWith({ credentialDefinitionId })
-        .thenResolve([])
+      when(tenantAgent.genericRecords.findAllByQuery).calledWith({ credentialDefinitionId }).thenResolve([])
 
       when(tenantAgent.dids.getCreatedDids)
         .calledWith({ did: issuerId })

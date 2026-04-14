@@ -1,5 +1,5 @@
-import { createMock } from '@golevelup/ts-vitest'
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
+import { createMock } from '@golevelup/ts-vitest'
 import { UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 import { when } from 'vitest-when'
@@ -102,9 +102,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
 
     test('should return empty array when no sessions match', async () => {
-      when(mockFindIssuanceSessionsByQuery)
-        .calledWith(expect.anything(), expect.anything())
-        .thenResolve([])
+      when(mockFindIssuanceSessionsByQuery).calledWith(expect.anything(), expect.anything()).thenResolve([])
 
       const result = await service.getIssuanceSessionsByQuery(tenantAgent, {
         publicIssuerId: 'non-existent',
@@ -139,9 +137,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
   describe('deleteIssuanceSession', () => {
     test('should delete an issuance session by id', async () => {
-      when(mockDeleteById)
-        .calledWith(expect.anything(), 'session-1')
-        .thenResolve(undefined)
+      when(mockDeleteById).calledWith(expect.anything(), 'session-1').thenResolve(undefined)
 
       await service.deleteIssuanceSession(tenantAgent, 'session-1')
 

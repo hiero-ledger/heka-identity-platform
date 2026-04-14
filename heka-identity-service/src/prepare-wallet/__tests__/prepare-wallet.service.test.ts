@@ -63,7 +63,9 @@ describe('PrepareWalletService', () => {
 
   test('creates DIDs for all methods, initializes OID4VC, and patches user', async () => {
     when(didService.find).calledWith(tenantAgent, expect.anything()).thenResolve([])
-    when(didService.getMethods).calledWith().thenReturn({ methods: ['key', 'indy'] } as any)
+    when(didService.getMethods)
+      .calledWith()
+      .thenReturn({ methods: ['key', 'indy'] } as any)
 
     when(didService.create)
       .calledWith(authInfo, { method: 'key' })
@@ -72,8 +74,12 @@ describe('PrepareWalletService', () => {
       .calledWith(authInfo, { method: 'indy' })
       .thenResolve({ id: 'did:indy:z2' } as any)
 
-    when(issuerService.createIssuer).calledWith(tenantAgent, expect.anything()).thenResolve({} as any)
-    when(verifierService.createVerifier).calledWith(tenantAgent, expect.anything()).thenResolve({} as any)
+    when(issuerService.createIssuer)
+      .calledWith(tenantAgent, expect.anything())
+      .thenResolve({} as any)
+    when(verifierService.createVerifier)
+      .calledWith(tenantAgent, expect.anything())
+      .thenResolve({} as any)
 
     const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {})
 
@@ -90,7 +96,9 @@ describe('PrepareWalletService', () => {
 
   test('throws when main DID method (key) fails to create', async () => {
     when(didService.find).calledWith(tenantAgent, expect.anything()).thenResolve([])
-    when(didService.getMethods).calledWith().thenReturn({ methods: ['key'] } as any)
+    when(didService.getMethods)
+      .calledWith()
+      .thenReturn({ methods: ['key'] } as any)
     when(didService.create).calledWith(authInfo, { method: 'key' }).thenReject(new Error('KMS failure'))
 
     await expect(prepareWalletService.prepareWallet(authInfo, tenantAgent, {})).rejects.toThrow(
@@ -100,14 +108,20 @@ describe('PrepareWalletService', () => {
 
   test('continues when a non-main DID method fails', async () => {
     when(didService.find).calledWith(tenantAgent, expect.anything()).thenResolve([])
-    when(didService.getMethods).calledWith().thenReturn({ methods: ['key', 'indy'] } as any)
+    when(didService.getMethods)
+      .calledWith()
+      .thenReturn({ methods: ['key', 'indy'] } as any)
     when(didService.create)
       .calledWith(authInfo, { method: 'key' })
       .thenResolve({ id: 'did:key:z1' } as any)
     when(didService.create).calledWith(authInfo, { method: 'indy' }).thenReject(new Error('Indy failure'))
 
-    when(issuerService.createIssuer).calledWith(tenantAgent, expect.anything()).thenResolve({} as any)
-    when(verifierService.createVerifier).calledWith(tenantAgent, expect.anything()).thenResolve({} as any)
+    when(issuerService.createIssuer)
+      .calledWith(tenantAgent, expect.anything())
+      .thenResolve({} as any)
+    when(verifierService.createVerifier)
+      .calledWith(tenantAgent, expect.anything())
+      .thenResolve({} as any)
 
     const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {})
 
@@ -118,12 +132,18 @@ describe('PrepareWalletService', () => {
 
   test('creates and registers schemas when provided', async () => {
     when(didService.find).calledWith(tenantAgent, expect.anything()).thenResolve([])
-    when(didService.getMethods).calledWith().thenReturn({ methods: ['key'] } as any)
+    when(didService.getMethods)
+      .calledWith()
+      .thenReturn({ methods: ['key'] } as any)
     when(didService.create)
       .calledWith(authInfo, { method: 'key' })
       .thenResolve({ id: 'did:key:z1' } as any)
-    when(issuerService.createIssuer).calledWith(tenantAgent, expect.anything()).thenResolve({} as any)
-    when(verifierService.createVerifier).calledWith(tenantAgent, expect.anything()).thenResolve({} as any)
+    when(issuerService.createIssuer)
+      .calledWith(tenantAgent, expect.anything())
+      .thenResolve({} as any)
+    when(verifierService.createVerifier)
+      .calledWith(tenantAgent, expect.anything())
+      .thenResolve({} as any)
 
     when(schemaV2Service.create)
       .calledWith(authInfo, expect.objectContaining({ name: 'TestSchema' }), undefined)

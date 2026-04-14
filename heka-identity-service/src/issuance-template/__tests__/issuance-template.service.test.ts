@@ -54,9 +54,7 @@ describe('IssuanceTemplateService', () => {
           registrations: { map: vi.fn().mockReturnValue([{ protocol: 'Oid4vc', did: 'did:key:z1' }]) },
         },
         fields: {
-          map: vi.fn().mockReturnValue([
-            { id: 'tf1', schemaFieldId: 'f1', schemaFieldName: 'field1', value: 'val1' },
-          ]),
+          map: vi.fn().mockReturnValue([{ id: 'tf1', schemaFieldId: 'f1', schemaFieldName: 'field1', value: 'val1' }]),
         },
       }
       when(em.findOne)
@@ -151,18 +149,16 @@ describe('IssuanceTemplateService', () => {
         .calledWith(IssuanceTemplate, { owner: mockUser, name: { $eq: 'Duplicate' } })
         .thenResolve({ id: 'existing' } as any)
 
-      await expect(
-        service.create(authInfo, { name: 'Duplicate' } as any),
-      ).rejects.toThrow(BadRequestException)
+      await expect(service.create(authInfo, { name: 'Duplicate' } as any)).rejects.toThrow(BadRequestException)
     })
 
     test('throws NotFoundException when schema not found', async () => {
       // findOne returns null for both template name check and schema lookup
       vi.mocked(em.findOne).mockResolvedValue(null as any)
 
-      await expect(
-        service.create(authInfo, { name: 'New', schemaId: 'bad-schema' } as any),
-      ).rejects.toThrow(NotFoundException)
+      await expect(service.create(authInfo, { name: 'New', schemaId: 'bad-schema' } as any)).rejects.toThrow(
+        NotFoundException,
+      )
     })
 
     test('throws BadRequestException when schema not registered for protocol/format/network/did', async () => {
@@ -223,11 +219,12 @@ describe('IssuanceTemplateService', () => {
     test('throws BadRequestException when field IDs not in schema', async () => {
       vi.mocked(em.findOne).mockImplementation((entity: any, filter: any) => {
         if (entity === IssuanceTemplate) return Promise.resolve(null)
-        if (entity === Schema) return Promise.resolve({
-          id: 'schema-1',
-          fields: [{ id: 'f1', name: 'field1' }],
-          registrations: { find: vi.fn().mockReturnValue({ id: 'reg-1' }) },
-        } as any)
+        if (entity === Schema)
+          return Promise.resolve({
+            id: 'schema-1',
+            fields: [{ id: 'f1', name: 'field1' }],
+            registrations: { find: vi.fn().mockReturnValue({ id: 'reg-1' }) },
+          } as any)
         return Promise.resolve(null)
       })
 
@@ -286,20 +283,16 @@ describe('IssuanceTemplateService', () => {
         return Promise.resolve(null)
       })
 
-      await expect(
-        service.patch(authInfo, 'tpl-1', { schemaId: 'nonexistent-schema' } as any),
-      ).rejects.toThrow(NotFoundException)
+      await expect(service.patch(authInfo, 'tpl-1', { schemaId: 'nonexistent-schema' } as any)).rejects.toThrow(
+        NotFoundException,
+      )
     })
   })
 
   describe('patch', () => {
     test('throws NotFoundException when template not found', async () => {
       when(em.findOne)
-        .calledWith(
-          IssuanceTemplate,
-          { owner: mockUser, id: 'missing' },
-          expect.anything(),
-        )
+        .calledWith(IssuanceTemplate, { owner: mockUser, id: 'missing' }, expect.anything())
         .thenResolve(null)
 
       await expect(service.patch(authInfo, 'missing', {} as any)).rejects.toThrow(NotFoundException)
@@ -315,20 +308,14 @@ describe('IssuanceTemplateService', () => {
         fields: { length: 0, removeAll: vi.fn() },
       }
       when(em.findOne)
-        .calledWith(
-          IssuanceTemplate,
-          { owner: mockUser, id: 'tpl-1' },
-          expect.anything(),
-        )
+        .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
         .thenResolve(mockTemplate as any)
 
       when(em.findOne)
         .calledWith(IssuanceTemplate, { owner: mockUser, name: 'Taken Name' })
         .thenResolve({ id: 'other-tpl' } as any)
 
-      await expect(
-        service.patch(authInfo, 'tpl-1', { name: 'Taken Name' } as any),
-      ).rejects.toThrow(BadRequestException)
+      await expect(service.patch(authInfo, 'tpl-1', { name: 'Taken Name' } as any)).rejects.toThrow(BadRequestException)
     })
   })
 })

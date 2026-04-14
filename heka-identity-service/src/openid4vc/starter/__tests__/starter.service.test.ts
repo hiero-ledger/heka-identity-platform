@@ -49,6 +49,5 @@ describe('OpenId4VcStarterService', () => {
 
       expect(mockServer.close).toHaveBeenCalled()
     })
-
   })
 })

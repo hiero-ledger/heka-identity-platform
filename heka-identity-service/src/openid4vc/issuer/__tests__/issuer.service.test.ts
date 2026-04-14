@@ -160,9 +160,7 @@ describe('OpenId4VcIssuerService', () => {
 
       const result = await service.updateIssuerMetadata(tenantAgent, 'issuer-1', {
         action: UpdateIssuerSupportedCredentialsAction.Add,
-        credentialsSupported: [
-          { id: 'cred-2', format: 'vc+sd-jwt' as any, vct: 'https://example.com/vct2' },
-        ] as any,
+        credentialsSupported: [{ id: 'cred-2', format: 'vc+sd-jwt' as any, vct: 'https://example.com/vct2' }] as any,
       })
 
       expect(result).toBeDefined()
@@ -176,9 +174,7 @@ describe('OpenId4VcIssuerService', () => {
       await expect(
         service.updateIssuerMetadata(tenantAgent, 'issuer-1', {
           action: UpdateIssuerSupportedCredentialsAction.Add,
-          credentialsSupported: [
-            { id: 'cred-1', format: 'vc+sd-jwt' as any, vct: 'https://example.com/vct' },
-          ] as any,
+          credentialsSupported: [{ id: 'cred-1', format: 'vc+sd-jwt' as any, vct: 'https://example.com/vct' }] as any,
         }),
       ).rejects.toThrow(BadRequestException)
     })
