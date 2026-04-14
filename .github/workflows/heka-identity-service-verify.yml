@@ -77,4 +77,11 @@ jobs:
           EXPRESS_HOST: localhost
           FILE_STORAGE_FS_URL: http://localhost:3000
           APP_ENDPOINT: http://localhost:3000
-        run: yarn test
+        run: yarn test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: heka-identity-service/coverage/

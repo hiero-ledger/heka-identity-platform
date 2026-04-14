@@ -241,6 +241,330 @@ describe('OpenId4VcIssuanceSessionService', () => {
       await expect(service.offer(authInfo, tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
     })
 
+    test('should create issuance session for SdJwtVc format without credentialStatus', async () => {
+      const mockIssuer = {
+        issuerId: 'issuer-1',
+        credentialConfigurationsSupported: {
+          'cred-sd-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
+        },
+      }
+
+      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
+        .calledWith('issuer-1')
+        .thenResolve(mockIssuer)
+
+      when(statusListService.getOrCreate as any)
+        .calledWith(authInfo, 'issuer-1')
+        .thenResolve({ id: 'sl-1', lastIndex: 0 })
+
+      when(tenantAgent.dids.resolve as any)
+        .calledWith('did:key:z6MkGood')
+        .thenResolve({
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6MkGood#key-1' }],
+          },
+        })
+
+      const mockSession = {
+        id: 'session-new',
+        issuerId: 'issuer-1',
+        state: 'OfferCreated',
+        type: 'OpenId4VcIssuanceSessionRecord',
+        createdAt: new Date(),
+        credentialOfferPayload: {},
+      }
+
+      when(tenantAgent.openid4vc.issuer.createCredentialOffer as any)
+        .calledWith(expect.objectContaining({ issuerId: 'issuer-1' }))
+        .thenResolve({
+          credentialOffer: 'openid-credential-offer://...',
+          issuanceSession: mockSession,
+        })
+
+      const req = {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          {
+            credentialSupportedId: 'cred-sd-1',
+            format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+            issuer: { did: 'did:key:z6MkGood' },
+            payload: { some: 'payload' },
+          },
+        ],
+        baseUri: 'https://example.com',
+      } as any
+
+      const result = await service.offer(authInfo, tenantAgent, req)
+
+      expect(result.credentialOffer).toBe('openid-credential-offer://...')
+      expect(result.issuanceSession.id).toBe('session-new')
+      // SdJwtVc does not support revocation, so addItems should NOT be called
+      expect(statusListService.addItems).not.toHaveBeenCalled()
+      // statusListService.location should NOT have been called for SdJwtVc either
+      expect(statusListService.location).not.toHaveBeenCalled()
+    })
+
+    test('should create issuance session for JwtVcJson format WITH credentialStatus and call addItems', async () => {
+      const mockIssuer = {
+        issuerId: 'issuer-1',
+        credentialConfigurationsSupported: {
+          'cred-jwt-1': {
+            format: 'jwt_vc_json',
+            credential_definition: { type: ['VerifiableCredential', 'MyCred'] },
+          },
+        },
+      }
+
+      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
+        .calledWith('issuer-1')
+        .thenResolve(mockIssuer)
+
+      when(statusListService.getOrCreate as any)
+        .calledWith(authInfo, 'issuer-1')
+        .thenResolve({ id: 'sl-1', lastIndex: 5 })
+
+      when(statusListService.location as any)
+        .calledWith('sl-1')
+        .thenReturn('https://example.com/status-lists/sl-1')
+
+      when(tenantAgent.dids.resolve as any)
+        .calledWith('did:key:z6MkJwt')
+        .thenResolve({
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6MkJwt#key-1' }],
+          },
+        })
+
+      when(statusListService.addItems as any)
+        .calledWith(authInfo, 'sl-1', [6])
+        .thenResolve(undefined)
+
+      const mockSession = {
+        id: 'session-jwt',
+        issuerId: 'issuer-1',
+        state: 'OfferCreated',
+        type: 'OpenId4VcIssuanceSessionRecord',
+        createdAt: new Date(),
+        credentialOfferPayload: {},
+      }
+
+      when(tenantAgent.openid4vc.issuer.createCredentialOffer as any)
+        .calledWith(expect.objectContaining({ issuerId: 'issuer-1' }))
+        .thenResolve({
+          credentialOffer: 'openid-credential-offer://jwt',
+          issuanceSession: mockSession,
+        })
+
+      const req = {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          {
+            credentialSupportedId: 'cred-jwt-1',
+            format: OpenId4VciCredentialFormatProfile.JwtVcJson,
+            issuer: { did: 'did:key:z6MkJwt' },
+          },
+        ],
+        baseUri: 'https://example.com',
+      } as any
+
+      const result = await service.offer(authInfo, tenantAgent, req)
+
+      expect(result.credentialOffer).toBe('openid-credential-offer://jwt')
+      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-1', [6])
+    })
+
+    test('should create issuance session for JwtVcJsonLd format WITH credentialStatus', async () => {
+      const mockIssuer = {
+        issuerId: 'issuer-1',
+        credentialConfigurationsSupported: {
+          'cred-ld-1': {
+            format: 'jwt_vc_json-ld',
+            credential_definition: { type: ['VerifiableCredential'] },
+          },
+        },
+      }
+
+      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
+        .calledWith('issuer-1')
+        .thenResolve(mockIssuer)
+
+      when(statusListService.getOrCreate as any)
+        .calledWith(authInfo, 'issuer-1')
+        .thenResolve({ id: 'sl-2', lastIndex: 10 })
+
+      when(statusListService.location as any)
+        .calledWith('sl-2')
+        .thenReturn('https://example.com/status-lists/sl-2')
+
+      when(tenantAgent.dids.resolve as any)
+        .calledWith('did:key:z6MkLd')
+        .thenResolve({
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6MkLd#key-1' }],
+          },
+        })
+
+      when(statusListService.addItems as any)
+        .calledWith(authInfo, 'sl-2', [11])
+        .thenResolve(undefined)
+
+      const mockSession = {
+        id: 'session-ld',
+        issuerId: 'issuer-1',
+        state: 'OfferCreated',
+        type: 'OpenId4VcIssuanceSessionRecord',
+        createdAt: new Date(),
+        credentialOfferPayload: {},
+      }
+
+      when(tenantAgent.openid4vc.issuer.createCredentialOffer as any)
+        .calledWith(expect.anything())
+        .thenResolve({
+          credentialOffer: 'openid-credential-offer://ld',
+          issuanceSession: mockSession,
+        })
+
+      const req = {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          {
+            credentialSupportedId: 'cred-ld-1',
+            format: OpenId4VciCredentialFormatProfile.JwtVcJsonLd,
+            issuer: { did: 'did:key:z6MkLd' },
+          },
+        ],
+        baseUri: 'https://example.com',
+      } as any
+
+      await service.offer(authInfo, tenantAgent, req)
+
+      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-2', [11])
+    })
+
+    test('should create issuance session for LdpVc format WITH credentialStatus', async () => {
+      const mockIssuer = {
+        issuerId: 'issuer-1',
+        credentialConfigurationsSupported: {
+          'cred-ldp-1': {
+            format: 'ldp_vc',
+            credential_definition: { type: ['VerifiableCredential'] },
+          },
+        },
+      }
+
+      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
+        .calledWith('issuer-1')
+        .thenResolve(mockIssuer)
+
+      when(statusListService.getOrCreate as any)
+        .calledWith(authInfo, 'issuer-1')
+        .thenResolve({ id: 'sl-3', lastIndex: 0 })
+
+      when(statusListService.location as any)
+        .calledWith('sl-3')
+        .thenReturn('https://example.com/status-lists/sl-3')
+
+      when(tenantAgent.dids.resolve as any)
+        .calledWith('did:key:z6MkLdp')
+        .thenResolve({
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6MkLdp#key-1' }],
+          },
+        })
+
+      when(statusListService.addItems as any)
+        .calledWith(authInfo, 'sl-3', [1])
+        .thenResolve(undefined)
+
+      const mockSession = {
+        id: 'session-ldp',
+        issuerId: 'issuer-1',
+        state: 'OfferCreated',
+        type: 'OpenId4VcIssuanceSessionRecord',
+        createdAt: new Date(),
+        credentialOfferPayload: {},
+      }
+
+      when(tenantAgent.openid4vc.issuer.createCredentialOffer as any)
+        .calledWith(expect.anything())
+        .thenResolve({
+          credentialOffer: 'openid-credential-offer://ldp',
+          issuanceSession: mockSession,
+        })
+
+      const req = {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          {
+            credentialSupportedId: 'cred-ldp-1',
+            format: OpenId4VciCredentialFormatProfile.LdpVc,
+            issuer: { did: 'did:key:z6MkLdp' },
+          },
+        ],
+        baseUri: 'https://example.com',
+      } as any
+
+      await service.offer(authInfo, tenantAgent, req)
+
+      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-3', [1])
+    })
+
+    test('should create issuance session for MsoMdoc format without DID resolution or credentialStatus', async () => {
+      const mockIssuer = {
+        issuerId: 'issuer-1',
+        credentialConfigurationsSupported: {
+          'cred-mdoc-1': {
+            format: 'mso_mdoc',
+            doctype: 'org.iso.18013.5.1.mDL',
+          },
+        },
+      }
+
+      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
+        .calledWith('issuer-1')
+        .thenResolve(mockIssuer)
+
+      when(statusListService.getOrCreate as any)
+        .calledWith(authInfo, 'issuer-1')
+        .thenResolve({ id: 'sl-mdoc', lastIndex: 0 })
+
+      const mockSession = {
+        id: 'session-mdoc',
+        issuerId: 'issuer-1',
+        state: 'OfferCreated',
+        type: 'OpenId4VcIssuanceSessionRecord',
+        createdAt: new Date(),
+        credentialOfferPayload: {},
+      }
+
+      when(tenantAgent.openid4vc.issuer.createCredentialOffer as any)
+        .calledWith(expect.objectContaining({ issuerId: 'issuer-1' }))
+        .thenResolve({
+          credentialOffer: 'openid-credential-offer://mdoc',
+          issuanceSession: mockSession,
+        })
+
+      const req = {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          {
+            credentialSupportedId: 'cred-mdoc-1',
+            format: OpenId4VciCredentialFormatProfile.MsoMdoc,
+            namespaces: { 'org.iso.18013.5.1': { family_name: 'Doe' } },
+          },
+        ],
+        baseUri: 'https://example.com',
+      } as any
+
+      const result = await service.offer(authInfo, tenantAgent, req)
+
+      expect(result.credentialOffer).toBe('openid-credential-offer://mdoc')
+      // MsoMdoc does not support revocation, no addItems call
+      expect(statusListService.addItems).not.toHaveBeenCalled()
+      // MsoMdoc uses X.509, so no DID resolution
+      expect(tenantAgent.dids.resolve).not.toHaveBeenCalled()
+    })
+
     test('should throw UnprocessableEntityException when credential format is not allowed by agency config', async () => {
       // Override config to allow no credential formats
       const restrictedConfig = {

@@ -1,10 +1,17 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
-import { BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  InternalServerErrorException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common'
 import { when } from 'vitest-when'
 
 import { Agent, TenantAgent } from 'common/agent'
+import { Role } from 'common/auth'
 import { DidRegistrarService } from 'common/did-registrar'
+import { Wallet } from 'common/entities'
 import { Logger } from 'common/logger'
 
 import { DidService } from '../did.service'
@@ -137,6 +144,91 @@ describe('DidService', () => {
       const result = didService.getMethods()
 
       expect(result.methods).toEqual(['key', 'indy'])
+    })
+  })
+
+  describe('create', () => {
+    const baseAuthInfo = {
+      userId: 'user-1',
+      user: {} as any,
+      userName: 'testuser',
+      walletId: 'wallet-1',
+      tenantId: 'tenant-1',
+    }
+
+    test('throws when wallet already has a publicDid', async () => {
+      when(em.findOneOrFail as any)
+        .calledWith(Wallet, { id: 'wallet-1' })
+        .thenResolve({ id: 'wallet-1', publicDid: 'did:indy:existing' })
+
+      const authInfo = { ...baseAuthInfo, role: Role.Admin }
+
+      await expect(didService.create(authInfo as any, { method: 'indy' } as any)).rejects.toThrow(
+        'The wallet already contains created public DID: did:indy:existing',
+      )
+    })
+
+    test('creates DID via didRegistrarService when no controller wallet is required (Admin role)', async () => {
+      when(em.findOneOrFail as any)
+        .calledWith(Wallet, { id: 'wallet-1' })
+        .thenResolve({ id: 'wallet-1', publicDid: null })
+
+      const didDocument = {
+        id: 'did:indy:test-ns:newdid',
+        verificationMethod: [{ id: 'did:indy:test-ns:newdid#key-1' }],
+      }
+
+      when(didRegistrarService.createDid as any)
+        .calledWith('tenant-1', 'indy', {
+          namespace: 'test-ns',
+        })
+        .thenResolve(didDocument)
+
+      when(em.flush as any)
+        .calledWith()
+        .thenResolve(undefined)
+
+      const authInfo = { ...baseAuthInfo, role: Role.Admin }
+
+      const result = await didService.create(authInfo as any, { method: 'indy' } as any)
+
+      expect(result.id).toBe('did:indy:test-ns:newdid')
+      expect(didRegistrarService.createDid).toHaveBeenCalledWith('tenant-1', 'indy', {
+        namespace: 'test-ns',
+      })
+      expect(em.flush).toHaveBeenCalled()
+    })
+
+    test('throws UnprocessableEntityException when didControllerWallet is not found', async () => {
+      when(em.findOneOrFail as any)
+        .calledWith(Wallet, { id: 'wallet-1' })
+        .thenResolve({ id: 'wallet-1', publicDid: null })
+
+      when(em.findOne as any)
+        .calledWith(Wallet, { id: 'Administration' })
+        .thenResolve(null)
+
+      const authInfo = { ...baseAuthInfo, role: Role.OrgAdmin, orgId: 'org-1' }
+
+      await expect(didService.create(authInfo as any, { method: 'indy' } as any)).rejects.toThrow(
+        UnprocessableEntityException,
+      )
+    })
+
+    test('throws UnprocessableEntityException when didControllerWallet has no publicDid', async () => {
+      when(em.findOneOrFail as any)
+        .calledWith(Wallet, { id: 'wallet-1' })
+        .thenResolve({ id: 'wallet-1', publicDid: null })
+
+      when(em.findOne as any)
+        .calledWith(Wallet, { id: 'Administration' })
+        .thenResolve({ id: 'Administration', publicDid: null })
+
+      const authInfo = { ...baseAuthInfo, role: Role.OrgAdmin, orgId: 'org-1' }
+
+      await expect(didService.create(authInfo as any, { method: 'indy' } as any)).rejects.toThrow(
+        UnprocessableEntityException,
+      )
     })
   })
 })

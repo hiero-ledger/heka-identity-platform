@@ -318,4 +318,431 @@ describe('IssuanceTemplateService', () => {
       await expect(service.patch(authInfo, 'tpl-1', { name: 'Taken Name' } as any)).rejects.toThrow(BadRequestException)
     })
   })
+
+  describe('getById', () => {
+    test('delegates to getTemplateById', async () => {
+      const mockTemplate = {
+        id: 'tpl-1',
+        name: 'My Template',
+        isPinned: false,
+        orderIndex: 0,
+        protocol: 'Oid4vc',
+        credentialFormat: 'SdJwtVc',
+        network: 'key',
+        did: 'did:key:z1',
+        schema: {
+          id: 'schema-1',
+          name: 'Test Schema',
+          logo: null,
+          bgColor: '#fff',
+          fields: { toArray: () => [] },
+          registrations: { map: vi.fn().mockReturnValue([]) },
+        },
+        fields: { map: vi.fn().mockReturnValue([]) },
+      }
+      when(em.findOne)
+        .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+        .thenResolve(mockTemplate as any)
+
+      const result = await service.getById(authInfo, 'tpl-1')
+      expect(result.id).toBe('tpl-1')
+    })
+  })
+
+  describe('create - happy path', () => {
+    test('creates template and persists it', async () => {
+      // Duplicate name check returns null
+      vi.mocked(em.findOne).mockResolvedValue(null as any)
+
+      const mockSchema = {
+        id: 'schema-1',
+        fields: [{ id: 'f1', name: 'field1' }],
+        registrations: { find: vi.fn().mockReturnValue({ id: 'reg-1' }) },
+      }
+      when(em.findOne)
+        .calledWith(Schema, expect.anything(), expect.anything())
+        .thenResolve(mockSchema as any)
+
+      // setPlace needs em.find
+      when(em.find).calledWith(IssuanceTemplate, expect.anything(), expect.anything()).thenResolve([])
+
+      when(em.persistAndFlush)
+        .calledWith(expect.anything())
+        .thenResolve(undefined as any)
+
+      const createdTemplate = {
+        id: 'tpl-new',
+        name: 'New Template',
+        isPinned: false,
+        orderIndex: 0,
+        protocol: 'Oid4vc',
+        credentialFormat: 'SdJwtVc',
+        network: 'key',
+        did: 'did:key:z1',
+        schema: {
+          id: 'schema-1',
+          name: 'Test Schema',
+          logo: null,
+          bgColor: '#fff',
+          fields: { toArray: () => [{ id: 'f1', name: 'field1', orderIndex: 0 }] },
+          registrations: { map: vi.fn().mockReturnValue([]) },
+        },
+        fields: { map: vi.fn().mockReturnValue([]) },
+      }
+
+      // After persistAndFlush, getTemplateById calls findOne — return the created template
+      vi.mocked(em.persistAndFlush).mockImplementation(async () => {
+        vi.mocked(em.findOne).mockResolvedValue(createdTemplate as any)
+      })
+
+      const result = await service.create(authInfo, {
+        name: 'New Template',
+        protocol: 'Oid4vc',
+        credentialFormat: 'SdJwtVc',
+        schemaId: 'schema-1',
+        network: 'key',
+        did: 'did:key:z1',
+        fields: [],
+      } as any)
+
+      expect(result.name).toBe('New Template')
+      expect(em.persistAndFlush).toHaveBeenCalled()
+    })
+
+    test('creates template without fields property', async () => {
+      vi.mocked(em.findOne).mockResolvedValue(null as any)
+
+      const mockSchema = {
+        id: 'schema-1',
+        fields: [{ id: 'f1', name: 'field1' }],
+        registrations: { find: vi.fn().mockReturnValue({ id: 'reg-1' }) },
+      }
+      when(em.findOne)
+        .calledWith(Schema, expect.anything(), expect.anything())
+        .thenResolve(mockSchema as any)
+
+      when(em.find).calledWith(IssuanceTemplate, expect.anything(), expect.anything()).thenResolve([])
+
+      const createdTemplate = {
+        id: 'tpl-new',
+        name: 'New',
+        isPinned: false,
+        orderIndex: 1,
+        protocol: 'Oid4vc',
+        credentialFormat: 'SdJwtVc',
+        network: 'key',
+        did: 'did:key:z1',
+        schema: {
+          id: 'schema-1',
+          name: 'S',
+          logo: null,
+          bgColor: null,
+          fields: { toArray: () => [] },
+          registrations: { map: vi.fn().mockReturnValue([]) },
+        },
+        fields: { map: vi.fn().mockReturnValue([]) },
+      }
+
+      vi.mocked(em.persistAndFlush).mockImplementation(async () => {
+        vi.mocked(em.findOne).mockResolvedValue(createdTemplate as any)
+      })
+
+      const result = await service.create(authInfo, {
+        name: 'New',
+        protocol: 'Oid4vc',
+        credentialFormat: 'SdJwtVc',
+        schemaId: 'schema-1',
+        network: 'key',
+        did: 'did:key:z1',
+      } as any)
+
+      expect(result.name).toBe('New')
+    })
+  })
+
+  describe('patch - happy paths', () => {
+    const buildTemplate = (overrides: Partial<any> = {}) => ({
+      id: 'tpl-1',
+      name: 'Old Name',
+      isPinned: false,
+      orderIndex: 0,
+      protocol: 'Oid4vc',
+      credentialFormat: 'SdJwtVc',
+      network: 'key',
+      did: 'did:key:z1',
+      owner: mockUser,
+      schema: {
+        id: 'schema-1',
+        name: 'Schema',
+        logo: null,
+        bgColor: '#fff',
+        fields: [{ id: 'f1', name: 'field1', orderIndex: 0 }],
+        registrations: { find: vi.fn().mockReturnValue({ id: 'reg-1' }), map: vi.fn().mockReturnValue([]) },
+      },
+      fields: { length: 0, removeAll: vi.fn(), add: vi.fn(), map: vi.fn().mockReturnValue([]) },
+      ...overrides,
+    })
+
+    const setFlushReturnsView = (template: any) => {
+      vi.mocked(em.flush).mockImplementation(async () => {
+        const updatedView = {
+          ...template,
+          schema: {
+            ...template.schema,
+            fields: { toArray: () => (Array.isArray(template.schema.fields) ? template.schema.fields : []) },
+            registrations: { map: vi.fn().mockReturnValue([]) },
+          },
+          fields: { map: vi.fn().mockReturnValue([]) },
+        }
+        when(em.findOne)
+          .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+          .thenResolve(updatedView)
+      })
+    }
+
+    test('updates name successfully', async () => {
+      const template = buildTemplate()
+      vi.mocked(em.findOne).mockResolvedValue(null as any)
+      when(em.findOne)
+        .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+        .thenResolve(template as any)
+      setFlushReturnsView(template)
+
+      await service.patch(authInfo, 'tpl-1', { name: 'Updated Name' } as any)
+
+      expect(template.name).toBe('Updated Name')
+      expect(em.flush).toHaveBeenCalled()
+    })
+
+    test('updates isPinned successfully', async () => {
+      const template = buildTemplate()
+      when(em.findOne)
+        .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+        .thenResolve(template as any)
+      setFlushReturnsView(template)
+
+      await service.patch(authInfo, 'tpl-1', { isPinned: true } as any)
+
+      expect(template.isPinned).toBe(true)
+    })
+
+    test('updates protocol, credentialFormat, network, did', async () => {
+      const template = buildTemplate()
+      when(em.findOne)
+        .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+        .thenResolve(template as any)
+      setFlushReturnsView(template)
+
+      await service.patch(authInfo, 'tpl-1', {
+        protocol: 'Aries',
+        credentialFormat: 'AnonCreds',
+        network: 'hedera',
+        did: 'did:hedera:abc',
+      } as any)
+
+      expect(template.protocol).toBe('Aries')
+      expect(template.credentialFormat).toBe('AnonCreds')
+      expect(template.network).toBe('hedera')
+      expect(template.did).toBe('did:hedera:abc')
+    })
+
+    test('updates schema successfully', async () => {
+      const template = buildTemplate()
+      const newSchema = {
+        id: 'schema-2',
+        fields: [{ id: 'f2', name: 'field2' }],
+        registrations: { find: vi.fn().mockReturnValue({ id: 'reg-2' }), map: vi.fn().mockReturnValue([]) },
+      }
+      vi.mocked(em.findOne).mockImplementation((entity: any, filter: any) => {
+        if (entity === IssuanceTemplate && filter?.id === 'tpl-1') return Promise.resolve(template as any)
+        if (entity === Schema && filter?.id === 'schema-2') return Promise.resolve(newSchema as any)
+        return Promise.resolve(null)
+      })
+      setFlushReturnsView(template)
+
+      await service.patch(authInfo, 'tpl-1', { schemaId: 'schema-2' } as any)
+
+      expect(template.schema).toBe(newSchema)
+    })
+
+    test('updates schema and validates registration with full protocol/format/network/did', async () => {
+      const template = buildTemplate()
+      const newSchema = {
+        id: 'schema-2',
+        fields: [{ id: 'f2', name: 'field2' }],
+        registrations: { find: vi.fn().mockReturnValue({ id: 'reg-2' }), map: vi.fn().mockReturnValue([]) },
+      }
+      vi.mocked(em.findOne).mockImplementation((entity: any, filter: any) => {
+        if (entity === IssuanceTemplate && filter?.id === 'tpl-1') return Promise.resolve(template as any)
+        if (entity === Schema && filter?.id === 'schema-2') return Promise.resolve(newSchema as any)
+        return Promise.resolve(null)
+      })
+      setFlushReturnsView(template)
+
+      await service.patch(authInfo, 'tpl-1', {
+        schemaId: 'schema-2',
+        protocol: 'Oid4vc',
+        credentialFormat: 'SdJwtVc',
+        network: 'key',
+        did: 'did:key:z1',
+      } as any)
+
+      expect(newSchema.registrations.find).toHaveBeenCalled()
+    })
+
+    test('updates fields successfully', async () => {
+      const template = buildTemplate()
+      when(em.findOne)
+        .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+        .thenResolve(template as any)
+      setFlushReturnsView(template)
+
+      await service.patch(authInfo, 'tpl-1', {
+        fields: [{ schemaFieldId: 'f1', value: 'val1' }],
+      } as any)
+
+      expect(template.fields.add).toHaveBeenCalled()
+    })
+
+    test('updates fields and removes existing ones when template has fields', async () => {
+      const template = buildTemplate({
+        fields: { length: 2, removeAll: vi.fn(), add: vi.fn(), map: vi.fn().mockReturnValue([]) },
+      })
+      when(em.findOne)
+        .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+        .thenResolve(template as any)
+      setFlushReturnsView(template)
+
+      await service.patch(authInfo, 'tpl-1', {
+        fields: [{ schemaFieldId: 'f1', value: 'new-val' }],
+      } as any)
+
+      expect(template.fields.removeAll).toHaveBeenCalled()
+      expect(template.fields.add).toHaveBeenCalled()
+    })
+
+    test('handles previousTemplateId = first', async () => {
+      const template = buildTemplate()
+      when(em.findOne)
+        .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+        .thenResolve(template as any)
+      when(em.find).calledWith(IssuanceTemplate, expect.anything(), expect.anything()).thenResolve([])
+      setFlushReturnsView(template)
+
+      await service.patch(authInfo, 'tpl-1', { previousTemplateId: null } as any)
+
+      expect(em.flush).toHaveBeenCalled()
+    })
+
+    test('handles previousTemplateId with another template id', async () => {
+      const template = buildTemplate()
+      const prevTemplate = { id: 'prev-tpl', orderIndex: 0 }
+      vi.mocked(em.findOne).mockImplementation((entity: any, filter: any) => {
+        if (entity === IssuanceTemplate && filter?.id === 'tpl-1') return Promise.resolve(template as any)
+        if (entity === IssuanceTemplate && filter?.id === 'prev-tpl') return Promise.resolve(prevTemplate as any)
+        return Promise.resolve(null)
+      })
+      when(em.find)
+        .calledWith(IssuanceTemplate, expect.anything(), expect.anything())
+        .thenResolve([prevTemplate as any, template as any])
+      setFlushReturnsView(template)
+
+      await service.patch(authInfo, 'tpl-1', { previousTemplateId: 'prev-tpl' } as any)
+
+      expect(em.flush).toHaveBeenCalled()
+    })
+
+    test('throws BadRequestException when previousTemplateId not found', async () => {
+      const template = buildTemplate()
+      vi.mocked(em.findOne).mockImplementation((entity: any, filter: any) => {
+        if (entity === IssuanceTemplate && filter?.id === 'tpl-1') return Promise.resolve(template as any)
+        return Promise.resolve(null)
+      })
+
+      await expect(service.patch(authInfo, 'tpl-1', { previousTemplateId: 'nonexistent' } as any)).rejects.toThrow(
+        BadRequestException,
+      )
+    })
+  })
+
+  describe('patch - error paths', () => {
+    test('throws BadRequestException when schema not registered for new protocol/format/network/did', async () => {
+      const template = {
+        id: 'tpl-1',
+        name: 'Old',
+        owner: mockUser,
+        isPinned: false,
+        schema: { id: 'old-schema', fields: [], registrations: { find: vi.fn().mockReturnValue(undefined) } },
+        fields: { length: 0, removeAll: vi.fn() },
+      }
+      const newSchema = {
+        id: 'schema-2',
+        fields: [],
+        registrations: { find: vi.fn().mockReturnValue(undefined) },
+      }
+      vi.mocked(em.findOne).mockImplementation((entity: any, filter: any) => {
+        if (entity === IssuanceTemplate && filter?.id === 'tpl-1') return Promise.resolve(template as any)
+        if (entity === Schema && filter?.id === 'schema-2') return Promise.resolve(newSchema as any)
+        return Promise.resolve(null)
+      })
+
+      await expect(
+        service.patch(authInfo, 'tpl-1', {
+          schemaId: 'schema-2',
+          protocol: 'Oid4vc',
+          credentialFormat: 'SdJwtVc',
+          network: 'key',
+          did: 'did:key:z1',
+        } as any),
+      ).rejects.toThrow(BadRequestException)
+    })
+
+    test('throws BadRequestException when fields contain duplicates', async () => {
+      const template = {
+        id: 'tpl-1',
+        name: 'Old',
+        owner: mockUser,
+        isPinned: false,
+        schema: {
+          id: 'schema-1',
+          fields: [{ id: 'f1', name: 'field1' }],
+          registrations: { find: vi.fn().mockReturnValue({ id: 'reg-1' }) },
+        },
+        fields: { length: 0, removeAll: vi.fn(), add: vi.fn() },
+      }
+      when(em.findOne)
+        .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+        .thenResolve(template as any)
+
+      await expect(
+        service.patch(authInfo, 'tpl-1', {
+          fields: [{ schemaFieldId: 'f1' }, { schemaFieldId: 'f1' }],
+        } as any),
+      ).rejects.toThrow(BadRequestException)
+    })
+
+    test('throws BadRequestException when field id not in schema during patch', async () => {
+      const template = {
+        id: 'tpl-1',
+        name: 'Old',
+        owner: mockUser,
+        isPinned: false,
+        schema: {
+          id: 'schema-1',
+          fields: [{ id: 'f1', name: 'field1' }],
+          registrations: { find: vi.fn().mockReturnValue({ id: 'reg-1' }) },
+        },
+        fields: { length: 0, removeAll: vi.fn(), add: vi.fn() },
+      }
+      when(em.findOne)
+        .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+        .thenResolve(template as any)
+
+      await expect(
+        service.patch(authInfo, 'tpl-1', {
+          fields: [{ schemaFieldId: 'missing-field' }],
+        } as any),
+      ).rejects.toThrow(BadRequestException)
+    })
+  })
 })
