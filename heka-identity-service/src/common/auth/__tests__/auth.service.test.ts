@@ -207,11 +207,9 @@ describe('AuthService', () => {
         .thenResolve({ id: 'new-tenant-id' } as any)
 
       const createLinkSecret = vi.fn()
-      vi.mocked(agent.modules.tenants.withTenantAgent).mockImplementation(
-        async (_opts: unknown, cb: (ta: unknown) => Promise<void>) => {
-          await cb({ modules: { anoncreds: { createLinkSecret } } })
-        },
-      )
+      vi.mocked(agent.modules.tenants.withTenantAgent).mockImplementation(async (_opts, cb) => {
+        await cb({ modules: { anoncreds: { createLinkSecret } } } as any)
+      })
 
       const result = await service.validateTokenPayload(payload)
 
