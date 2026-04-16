@@ -72,7 +72,7 @@ describe('AuthService', () => {
       modules: {
         tenants: {
           createTenant: vi.fn(),
-          withTenantAgent: vi.fn().mockImplementation(async (_opts: any, cb: any) => {
+          withTenantAgent: vi.fn().mockImplementation(async (_opts: unknown, cb: (ta: unknown) => Promise<void>) => {
             await cb({ modules: { anoncreds: { createLinkSecret: vi.fn() } } })
           }),
         },
@@ -178,7 +178,7 @@ describe('AuthService', () => {
 
       // The new User created inside the service has real Collection internals; replace findOne
       // behavior so the second path (wallets.init / contains / add) works via a post-create hook.
-      vi.mocked(em.persistAndFlush).mockImplementation(async (entity: any) => {
+      vi.mocked(em.persistAndFlush).mockImplementation((entity: any) => {
         if (entity instanceof User) {
           entity.wallets = {
             init: vi.fn().mockResolvedValue(undefined),
@@ -186,6 +186,7 @@ describe('AuthService', () => {
             add: vi.fn(),
           } as any
         }
+        return Promise.resolve()
       })
 
       const result = await service.validateTokenPayload(payload)
@@ -206,9 +207,11 @@ describe('AuthService', () => {
         .thenResolve({ id: 'new-tenant-id' } as any)
 
       const createLinkSecret = vi.fn()
-      vi.mocked(agent.modules.tenants.withTenantAgent).mockImplementation(async (_opts: any, cb: any) => {
-        await cb({ modules: { anoncreds: { createLinkSecret } } })
-      })
+      vi.mocked(agent.modules.tenants.withTenantAgent).mockImplementation(
+        async (_opts: unknown, cb: (ta: unknown) => Promise<void>) => {
+          await cb({ modules: { anoncreds: { createLinkSecret } } })
+        },
+      )
 
       const result = await service.validateTokenPayload(payload)
 

@@ -195,8 +195,9 @@ describe('VerificationTemplateService', () => {
       }
 
       // After persistAndFlush, getTemplateById calls findOne — return the created template
-      vi.mocked(em.persistAndFlush).mockImplementation(async () => {
+      vi.mocked(em.persistAndFlush).mockImplementation(() => {
         vi.mocked(em.findOne).mockResolvedValue(createdTemplate as any)
+        return Promise.resolve()
       })
 
       const result = await service.create(authInfo, {
@@ -303,7 +304,7 @@ describe('VerificationTemplateService', () => {
         .thenResolve(mockTemplate as any)
 
       // After flush, getTemplateById calls findOne — return updated view
-      vi.mocked(em.flush).mockImplementation(async () => {
+      vi.mocked(em.flush).mockImplementation(() => {
         const updatedTemplate = {
           ...mockTemplate,
           name: 'Updated Name',
@@ -315,6 +316,7 @@ describe('VerificationTemplateService', () => {
         when(em.findOne)
           .calledWith(VerificationTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
           .thenResolve(updatedTemplate as any)
+        return Promise.resolve()
       })
 
       await service.patch(authInfo, 'tpl-1', { name: 'Updated Name' } as any)

@@ -391,8 +391,9 @@ describe('IssuanceTemplateService', () => {
       }
 
       // After persistAndFlush, getTemplateById calls findOne — return the created template
-      vi.mocked(em.persistAndFlush).mockImplementation(async () => {
+      vi.mocked(em.persistAndFlush).mockImplementation(() => {
         vi.mocked(em.findOne).mockResolvedValue(createdTemplate as any)
+        return Promise.resolve()
       })
 
       const result = await service.create(authInfo, {
@@ -443,8 +444,9 @@ describe('IssuanceTemplateService', () => {
         fields: { map: vi.fn().mockReturnValue([]) },
       }
 
-      vi.mocked(em.persistAndFlush).mockImplementation(async () => {
+      vi.mocked(em.persistAndFlush).mockImplementation(() => {
         vi.mocked(em.findOne).mockResolvedValue(createdTemplate as any)
+        return Promise.resolve()
       })
 
       const result = await service.create(authInfo, {
@@ -484,7 +486,7 @@ describe('IssuanceTemplateService', () => {
     })
 
     const setFlushReturnsView = (template: any) => {
-      vi.mocked(em.flush).mockImplementation(async () => {
+      vi.mocked(em.flush).mockImplementation(() => {
         const updatedView = {
           ...template,
           schema: {
@@ -497,6 +499,7 @@ describe('IssuanceTemplateService', () => {
         when(em.findOne)
           .calledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
           .thenResolve(updatedView)
+        return Promise.resolve()
       })
     }
 

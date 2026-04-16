@@ -502,8 +502,9 @@ describe('SchemaV2Service', () => {
       vi.mocked(em.findOne).mockResolvedValue(null as any)
       vi.mocked(em.find).mockResolvedValue([] as any)
 
-      vi.mocked(em.persistAndFlush).mockImplementation(async () => {
+      vi.mocked(em.persistAndFlush).mockImplementation(() => {
         vi.mocked(em.findOne).mockResolvedValue(createdSchema)
+        return Promise.resolve()
       })
 
       const result = await schemaV2Service.create(authInfo, {
@@ -535,8 +536,9 @@ describe('SchemaV2Service', () => {
       vi.mocked(fileStorageService.put).mockResolvedValue('logo/new.png')
       vi.mocked(fileStorageService.url).mockReturnValue('https://cdn/logo/new.png')
 
-      vi.mocked(em.persistAndFlush).mockImplementation(async () => {
+      vi.mocked(em.persistAndFlush).mockImplementation(() => {
         vi.mocked(em.findOne).mockResolvedValue(createdSchema)
+        return Promise.resolve()
       })
 
       const logoFile = { originalname: 'new.png' } as any
