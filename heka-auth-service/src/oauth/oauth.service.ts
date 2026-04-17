@@ -165,7 +165,7 @@ export class OAuthService {
 
     return {
       token,
-      expiresIn: this.configService.jwtConfig.accessExpiry,
+      expiresIn: accessTokenExpiresIn,
     }
   }
 

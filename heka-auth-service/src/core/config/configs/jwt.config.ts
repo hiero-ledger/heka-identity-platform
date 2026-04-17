@@ -15,7 +15,7 @@ export const jwtConfigDefaults = {
   secret: 'test',
   accessExpiry: 60 * 60, // 1h
   refreshExpiry: 86400, // 24h
-  demoUserTokenExpiry: 1000 * 24 * 60 * 60 * 30 * 12, // ~1 years validity for Demo User
+  demoUserTokenExpiry: 60 * 60 * 24 * 365, // ~1 year validity for Demo User
 }
 
 export class JwtConfig {
