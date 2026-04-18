@@ -15,7 +15,13 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { CredentialOfferView } from '../components/views'
 import LoadingView from '../components/views/LoadingView'
-import { Credential, mapCredentialRecord, useCredentialRecordHelpers, useOpenIdHandlers } from '../credentials'
+import {
+  Credential,
+  isOpenId4VcCredentialStatusFailure,
+  mapCredentialRecord,
+  useCredentialRecordHelpers,
+  useOpenIdHandlers,
+} from '../credentials'
 import { OpenIdStackParams, Screens } from '../navigators/types'
 
 type CredentialOfferProps = StackScreenProps<OpenIdStackParams, Screens.OpenIdCredentialOffer>
@@ -69,11 +75,12 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
         console.error(`Couldn't receive credential from OpenID4VCI offer`, {
           error,
         })
+        const statusRelated = isOpenId4VcCredentialStatusFailure(error)
         DeviceEventEmitter.emit(
           EventTypes.ERROR_ADDED,
           new BifoldError(
-            t('Error.Title1035'),
-            t('Error.Message1035'),
+            statusRelated ? t('CredentialOffer.StatusVerificationTitle') : t('Error.Title1035'),
+            statusRelated ? t('CredentialOffer.StatusVerificationMessage') : t('Error.Message1035'),
             (error as Error)?.message || t('Error.Unknown'),
             1035
           )

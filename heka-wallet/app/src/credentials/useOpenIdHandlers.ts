@@ -27,6 +27,7 @@ import { PRE_AUTH_GRANT_LITERAL } from '@sphereon/oid4vci-common'
 import { useCallback } from 'react'
 
 import { extractOpenId4VcCredentialMetadata, setOpenId4VcCredentialMetadata } from './metadata'
+import { shouldVerifyOpenId4VcCredentialStatus } from './openId4VcCredentialStatus'
 import { OpenId4VcPresentationRequest } from './types'
 
 // Credential formats supported by the wallet
@@ -189,7 +190,7 @@ export const useOpenIdHandlers = () => {
         ...accessToken,
         clientId,
         credentialsToRequest: [offeredCredentialToRequest.id],
-        verifyCredentialStatus: false,
+        verifyCredentialStatus: shouldVerifyOpenId4VcCredentialStatus(),
         allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.EdDSA, JwaSignatureAlgorithm.ES256],
         credentialBindingResolver: async ({
           supportedDidMethods,

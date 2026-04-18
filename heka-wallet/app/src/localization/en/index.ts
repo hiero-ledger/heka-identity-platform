@@ -195,7 +195,10 @@ const translation = {
     "EnterCredentialPIN": "Please enter credential PIN",
     "CredentialAddedToYourWallet": "Your credential is good to go now!",
     "CredentialOnTheWay": "Your credential is on the way.",
-    "IssuedBy": "Issued by"
+    "IssuedBy": "Issued by",
+    "StatusVerificationTitle": "Credential cannot be added",
+    "StatusVerificationMessage":
+      "This credential was revoked or its status could not be verified. For your security, it was not saved to your wallet."
   },
   "ProofRequest": {
     "RequestedInformation": "Requested information",
