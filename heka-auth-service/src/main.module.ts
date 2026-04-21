@@ -1,10 +1,11 @@
 import { ConfigModule, ConfigService } from '@config'
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import { DatabaseModule } from '@core/database'
 import { LoggerModule } from '@core/logger'
 import { ScheduledTaskModule } from '@core/scheduled-tasks/scheduled-tasks.module'
 import { CorrelationIdMiddleware } from '@eropple/nestjs-correlation-id'
 import { ClassSerializerInterceptor, INestApplication, Module, ValidationPipe, VersioningType } from '@nestjs/common'
-import { Reflector } from '@nestjs/core'
+import { APP_GUARD, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import bodyParser from 'body-parser'
 import chalk from 'chalk'
@@ -15,7 +16,33 @@ import { OAuthModule } from './oauth'
 import { UserModule } from './user'
 
 @Module({
-  imports: [ConfigModule, LoggerModule, DatabaseModule, ScheduledTaskModule, OAuthModule, UserModule, HealthModule],
+  imports: [
+    ConfigModule,
+    LoggerModule,
+    DatabaseModule,
+    ScheduledTaskModule,
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        throttlers: [
+          {
+            ttl: configService.throttleConfig.ttl,
+            limit: configService.throttleConfig.limit,
+          },
+        ],
+      }),
+    }),
+    OAuthModule,
+    UserModule,
+    HealthModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class MainModule {
   public static appConfigure = (app: INestApplication) => {

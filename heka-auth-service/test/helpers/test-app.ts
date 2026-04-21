@@ -1,5 +1,6 @@
 import { Global, INestApplication, Module } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
+import { APP_GUARD } from '@nestjs/core'
 
 import { MainModule } from '../../src/main.module'
 import { User, Token } from '../../src/core/database'
@@ -34,6 +35,8 @@ export async function startTestApp(): Promise<INestApplication> {
   })
     .overrideModule(DatabaseModule)
     .useModule(TestDatabaseModule)
+    .overrideProvider(APP_GUARD)
+    .useValue({ canActivate: () => true })
     .compile()
 
   const app = moduleRef.createNestApplication({ bufferLogs: true })
