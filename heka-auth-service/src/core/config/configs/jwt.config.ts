@@ -1,4 +1,4 @@
-import { IsInt, IsString, Min } from 'class-validator'
+import { IsInt, IsString, Min, MinLength } from 'class-validator'
 
 export enum JwtConfigKeys {
   issuer = 'JWT_ISSUER',
@@ -12,7 +12,6 @@ export enum JwtConfigKeys {
 export const jwtConfigDefaults = {
   issuer: 'Heka',
   audience: 'Heka Identity Service',
-  secret: 'test',
   accessExpiry: 60 * 60, // 1h
   refreshExpiry: 86400, // 24h
   demoUserTokenExpiry: 1000 * 24 * 60 * 60 * 30 * 12, // ~1 years validity for Demo User
@@ -26,6 +25,7 @@ export class JwtConfig {
   public audience!: string
 
   @IsString()
+  @MinLength(32)
   public secret!: string
 
   @IsInt()
@@ -43,7 +43,7 @@ export class JwtConfig {
     const env = configuration ?? process.env
     this.issuer = env[JwtConfigKeys.issuer] || jwtConfigDefaults.issuer
     this.audience = env[JwtConfigKeys.audience] || jwtConfigDefaults.audience
-    this.secret = env[JwtConfigKeys.secret] || jwtConfigDefaults.secret
+    this.secret = env[JwtConfigKeys.secret]
 
     this.accessExpiry = env[JwtConfigKeys.accessExpiry]
       ? parseInt(env[JwtConfigKeys.accessExpiry])
