@@ -68,23 +68,25 @@ export default registerAs('agent', () => {
   // FIXME: Add `indybesu` DID method once we get public network deployed
   const didMethods = process.env.DID_METHODS ? process.env.DID_METHODS.split(',') : ['indy', 'key', 'hedera']
 
-  const indyEndorserSeed = process.env.INDY_ENDORSER_SEED ?? 'afjdemoverysecure000000000000002'
+  const isProd = process.env.NODE_ENV === 'production'
+  
+  const indyEndorserSeed = process.env.INDY_ENDORSER_SEED
+  if (isProd && !indyEndorserSeed) throw new Error('Critical Configuration Error: INDY_ENDORSER_SEED is missing')
   //const indyEndorserId = process.env.INDY_ENDORSER_ID ?? ''
   const indyEndorserDid = process.env.INDY_ENDORSER_DID ?? 'did:indy:bcovrin:test:4bbYgjU6JbV4DShPbGoQcA'
 
   const indyBesuChainId = process.env.INDY_BESU_CHAIN_ID ? parseInt(process.env.INDY_BESU_CHAIN_ID) : 1337
   const indyBesuNodeAddress = process.env.INDY_BESU_NODE_ADDRESS ?? 'http://localhost:8545'
   const indyBesuNetwork = process.env.INDY_BESU_NETWORK ?? 'testnet'
-  const indyBesuEndorserPrivateKey =
-    process.env.INDY_BESU_ENDORSER_PRIVATE_KEY ?? 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3'
+  const indyBesuEndorserPrivateKey = process.env.INDY_BESU_ENDORSER_PRIVATE_KEY
+  if (isProd && !indyBesuEndorserPrivateKey) throw new Error('Critical Configuration Error: INDY_BESU_ENDORSER_PRIVATE_KEY is missing')
   const indyBesuEndorserPublicKey =
     process.env.INDY_BESU_ENDORSER_PUBLIC_KEY ?? '03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d'
 
   const hederaNetwork: HederaNetwork = (process.env.HEDERA_NETWORK as HederaNetwork) ?? 'testnet'
   const hederaOperatorId = process.env.HEDERA_OPERATOR_ID ?? '0.0.5489553'
-  const hederaOperatorKey =
-    process.env.HEDERA_OPERATOR_KEY ??
-    '302e020100300506032b6570042204209f54b75b6238ced43e41b1463999cb40bf2f7dd2c9fd4fd3ef780027c016a138'
+  const hederaOperatorKey = process.env.HEDERA_OPERATOR_KEY
+  if (isProd && !hederaOperatorKey) throw new Error('Critical Configuration Error: HEDERA_OPERATOR_KEY is missing')
 
   const oidConfig = {
     port: oid4VcPort,
