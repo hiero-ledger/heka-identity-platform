@@ -1,7 +1,6 @@
 import { OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
 import { InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
-import { when } from 'vitest-when'
 
 import { TenantAgent } from 'common/agent'
 
@@ -58,14 +57,16 @@ describe('OpenId4VcVerificationSessionService', () => {
 
   describe('getVerificationSessionsByQuery', () => {
     test('should return verification sessions matching query', async () => {
-      when(mockFindByQuery)
-        .calledWith(expect.anything(), expect.objectContaining({ verifierId: 'verifier-1' }))
-        .thenResolve([makeSessionRecord()])
+      mockFindByQuery.mockResolvedValue([makeSessionRecord()])
 
       const result = await service.getVerificationSessionsByQuery(tenantAgent, {
         publicVerifierId: 'verifier-1',
       })
 
+      expect(mockFindByQuery).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ verifierId: 'verifier-1' }),
+      )
       expect(result).toHaveLength(1)
       expect(result[0].publicVerifierId).toBe('verifier-1')
     })
@@ -73,25 +74,108 @@ describe('OpenId4VcVerificationSessionService', () => {
 
   describe('getVerificationSession', () => {
     test('should return verification session by id when state is not ResponseVerified', async () => {
-      when(mockGetById).calledWith(expect.anything(), 'vs-1').thenResolve(makeSessionRecord())
+      mockGetById.mockResolvedValue(makeSessionRecord())
 
       const result = await service.getVerificationSession(tenantAgent, 'vs-1')
 
+      expect(mockGetById).toHaveBeenCalledWith(expect.anything(), 'vs-1')
       expect(result.id).toBe('vs-1')
       expect(result.publicVerifierId).toBe('verifier-1')
       expect(result.sharedAttributes).toBeUndefined()
     })
 
     test('should extract attributes from sd-jwt presentation when state is ResponseVerified', async () => {
-      when(mockGetById)
-        .calledWith(expect.anything(), 'vs-1')
-        .thenResolve(makeSessionRecord({ state: OpenId4VcVerificationSessionState.ResponseVerified }))
+      mockGetById.mockResolvedValue(makeSessionRecord({ state: OpenId4VcVerificationSessionState.ResponseVerified }))
 
-      when(mockGetVerifiedAuthorizationResponse)
-        .calledWith('vs-1')
-        .thenResolve({
-          presentationExchange: {
-            presentations: [
+      mockGetVerifiedAuthorizationResponse.mockResolvedValue({
+        presentationExchange: {
+          presentations: [
+            {
+              header: { typ: 'vc+sd-jwt' },
+              prettyClaims: {
+                vct: 'https://example.com/vct',
+                cnf: {},
+                iss: 'did:key:z6Mk1234',
+                iat: 123456,
+                name: 'John Doe',
+                age: 30,
+              },
+            },
+          ],
+        },
+      })
+
+      const result = await service.getVerificationSession(tenantAgent, 'vs-1')
+
+      expect(mockGetById).toHaveBeenCalledWith(expect.anything(), 'vs-1')
+      expect(mockGetVerifiedAuthorizationResponse).toHaveBeenCalledWith('vs-1')
+      expect(result.sharedAttributes).toBeDefined()
+      expect(result.sharedAttributes).toEqual({ name: 'John Doe', age: 30 })
+    })
+
+    test('should extract attributes from jwt_vc_json presentation when state is ResponseVerified', async () => {
+      mockGetById.mockResolvedValue(makeSessionRecord({ state: OpenId4VcVerificationSessionState.ResponseVerified }))
+
+      mockGetVerifiedAuthorizationResponse.mockResolvedValue({
+        presentationExchange: {
+          presentations: [
+            {
+              jwt: { header: { typ: 'JWT' } },
+              presentation: {
+                verifiableCredential: [
+                  {
+                    credentialSubject: {
+                      claims: { name: 'Jane Doe', email: 'jane@example.com' },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      })
+
+      const result = await service.getVerificationSession(tenantAgent, 'vs-1')
+
+      expect(mockGetById).toHaveBeenCalledWith(expect.anything(), 'vs-1')
+      expect(mockGetVerifiedAuthorizationResponse).toHaveBeenCalledWith('vs-1')
+      expect(result.sharedAttributes).toEqual({ name: 'Jane Doe', email: 'jane@example.com' })
+    })
+
+    test('should extract attributes from mdoc presentation when state is ResponseVerified', async () => {
+      mockGetById.mockResolvedValue(makeSessionRecord({ state: OpenId4VcVerificationSessionState.ResponseVerified }))
+
+      mockGetVerifiedAuthorizationResponse.mockResolvedValue({
+        presentationExchange: {
+          presentations: [
+            {
+              documents: [
+                {
+                  issuerSignedNamespaces: {
+                    'org.iso.18013.5.1': { given_name: 'Alice', family_name: 'Smith' },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      })
+
+      const result = await service.getVerificationSession(tenantAgent, 'vs-1')
+
+      expect(mockGetById).toHaveBeenCalledWith(expect.anything(), 'vs-1')
+      expect(mockGetVerifiedAuthorizationResponse).toHaveBeenCalledWith('vs-1')
+      expect(result.sharedAttributes).toEqual({ given_name: 'Alice', family_name: 'Smith' })
+    })
+
+    test('should extract attributes from dcql presentations when state is ResponseVerified', async () => {
+      mockGetById.mockResolvedValue(makeSessionRecord({ state: OpenId4VcVerificationSessionState.ResponseVerified }))
+
+      mockGetVerifiedAuthorizationResponse.mockResolvedValue({
+        presentationExchange: undefined,
+        dcql: {
+          presentations: {
+            credentialQuery1: [
               {
                 header: { typ: 'vc+sd-jwt' },
                 prettyClaims: {
@@ -99,128 +183,38 @@ describe('OpenId4VcVerificationSessionService', () => {
                   cnf: {},
                   iss: 'did:key:z6Mk1234',
                   iat: 123456,
-                  name: 'John Doe',
-                  age: 30,
+                  degree: 'Bachelor',
                 },
               },
             ],
           },
-        })
+        },
+      })
 
       const result = await service.getVerificationSession(tenantAgent, 'vs-1')
 
-      expect(result.sharedAttributes).toBeDefined()
-      expect(result.sharedAttributes).toEqual({ name: 'John Doe', age: 30 })
-    })
-
-    test('should extract attributes from jwt_vc_json presentation when state is ResponseVerified', async () => {
-      when(mockGetById)
-        .calledWith(expect.anything(), 'vs-1')
-        .thenResolve(makeSessionRecord({ state: OpenId4VcVerificationSessionState.ResponseVerified }))
-
-      when(mockGetVerifiedAuthorizationResponse)
-        .calledWith('vs-1')
-        .thenResolve({
-          presentationExchange: {
-            presentations: [
-              {
-                jwt: { header: { typ: 'JWT' } },
-                presentation: {
-                  verifiableCredential: [
-                    {
-                      credentialSubject: {
-                        claims: { name: 'Jane Doe', email: 'jane@example.com' },
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        })
-
-      const result = await service.getVerificationSession(tenantAgent, 'vs-1')
-
-      expect(result.sharedAttributes).toEqual({ name: 'Jane Doe', email: 'jane@example.com' })
-    })
-
-    test('should extract attributes from mdoc presentation when state is ResponseVerified', async () => {
-      when(mockGetById)
-        .calledWith(expect.anything(), 'vs-1')
-        .thenResolve(makeSessionRecord({ state: OpenId4VcVerificationSessionState.ResponseVerified }))
-
-      when(mockGetVerifiedAuthorizationResponse)
-        .calledWith('vs-1')
-        .thenResolve({
-          presentationExchange: {
-            presentations: [
-              {
-                documents: [
-                  {
-                    issuerSignedNamespaces: {
-                      'org.iso.18013.5.1': { given_name: 'Alice', family_name: 'Smith' },
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-        })
-
-      const result = await service.getVerificationSession(tenantAgent, 'vs-1')
-
-      expect(result.sharedAttributes).toEqual({ given_name: 'Alice', family_name: 'Smith' })
-    })
-
-    test('should extract attributes from dcql presentations when state is ResponseVerified', async () => {
-      when(mockGetById)
-        .calledWith(expect.anything(), 'vs-1')
-        .thenResolve(makeSessionRecord({ state: OpenId4VcVerificationSessionState.ResponseVerified }))
-
-      when(mockGetVerifiedAuthorizationResponse)
-        .calledWith('vs-1')
-        .thenResolve({
-          presentationExchange: undefined,
-          dcql: {
-            presentations: {
-              credentialQuery1: [
-                {
-                  header: { typ: 'vc+sd-jwt' },
-                  prettyClaims: {
-                    vct: 'https://example.com/vct',
-                    cnf: {},
-                    iss: 'did:key:z6Mk1234',
-                    iat: 123456,
-                    degree: 'Bachelor',
-                  },
-                },
-              ],
-            },
-          },
-        })
-
-      const result = await service.getVerificationSession(tenantAgent, 'vs-1')
-
+      expect(mockGetById).toHaveBeenCalledWith(expect.anything(), 'vs-1')
+      expect(mockGetVerifiedAuthorizationResponse).toHaveBeenCalledWith('vs-1')
       expect(result.sharedAttributes).toEqual({ degree: 'Bachelor' })
     })
 
     test('should throw InternalServerErrorException when no presentations exist for ResponseVerified state', async () => {
-      when(mockGetById)
-        .calledWith(expect.anything(), 'vs-1')
-        .thenResolve(makeSessionRecord({ state: OpenId4VcVerificationSessionState.ResponseVerified }))
+      mockGetById.mockResolvedValue(makeSessionRecord({ state: OpenId4VcVerificationSessionState.ResponseVerified }))
 
-      when(mockGetVerifiedAuthorizationResponse).calledWith('vs-1').thenResolve({
+      mockGetVerifiedAuthorizationResponse.mockResolvedValue({
         presentationExchange: undefined,
         dcql: undefined,
       })
 
       await expect(service.getVerificationSession(tenantAgent, 'vs-1')).rejects.toThrow(InternalServerErrorException)
+      expect(mockGetById).toHaveBeenCalledWith(expect.anything(), 'vs-1')
+      expect(mockGetVerifiedAuthorizationResponse).toHaveBeenCalledWith('vs-1')
     })
   })
 
   describe('deleteVerificationSession', () => {
     test('should delete a verification session by id', async () => {
-      when(mockDeleteById).calledWith(expect.anything(), 'vs-1').thenResolve(undefined)
+      mockDeleteById.mockResolvedValue(undefined)
 
       await service.deleteVerificationSession(tenantAgent, 'vs-1')
 
@@ -241,27 +235,21 @@ describe('OpenId4VcVerificationSessionService', () => {
         },
       } as any
 
-      when(tenantAgent.dids.resolve as any)
-        .calledWith('did:key:z6Mk1234')
-        .thenResolve({
-          didDocument: {
-            verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
-          },
-        })
+      ;(tenantAgent.dids.resolve as any).mockResolvedValue({
+        didDocument: {
+          verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+        },
+      })
 
-      when(mockCreateAuthorizationRequest)
-        .calledWith(
-          expect.objectContaining({
-            verifierId: 'verifier-1',
-          }),
-        )
-        .thenResolve({
-          authorizationRequest: 'openid://?request_uri=https://example.com/auth',
-          verificationSession: makeSessionRecord(),
-        })
+      mockCreateAuthorizationRequest.mockResolvedValue({
+        authorizationRequest: 'openid://?request_uri=https://example.com/auth',
+        verificationSession: makeSessionRecord(),
+      })
 
       const result = await service.createRequest(tenantAgent, req)
 
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6Mk1234')
+      expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(expect.objectContaining({ verifierId: 'verifier-1' }))
       expect(result.authorizationRequest).toBe('openid://?request_uri=https://example.com/auth')
       expect(result.verificationSession.publicVerifierId).toBe('verifier-1')
     })
@@ -278,11 +266,10 @@ describe('OpenId4VcVerificationSessionService', () => {
         },
       } as any
 
-      when(tenantAgent.dids.resolve as any)
-        .calledWith('did:key:z6MkBad')
-        .thenResolve({ didDocument: null })
+      ;(tenantAgent.dids.resolve as any).mockResolvedValue({ didDocument: null })
 
       await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
     })
 
     test('should throw UnprocessableEntityException when DID document has no verification methods', async () => {
@@ -297,11 +284,10 @@ describe('OpenId4VcVerificationSessionService', () => {
         },
       } as any
 
-      when(tenantAgent.dids.resolve as any)
-        .calledWith('did:key:z6MkEmpty')
-        .thenResolve({ didDocument: { verificationMethod: [] } })
+      ;(tenantAgent.dids.resolve as any).mockResolvedValue({ didDocument: { verificationMethod: [] } })
 
       await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkEmpty')
     })
 
     test('should use version v1 when dcql is provided and version is not specified', async () => {
@@ -311,21 +297,20 @@ describe('OpenId4VcVerificationSessionService', () => {
         dcql: { query: {} },
       } as any
 
-      when(tenantAgent.dids.resolve as any)
-        .calledWith('did:key:z6Mk1234')
-        .thenResolve({
-          didDocument: {
-            verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
-          },
-        })
+      ;(tenantAgent.dids.resolve as any).mockResolvedValue({
+        didDocument: {
+          verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+        },
+      })
 
-      when(mockCreateAuthorizationRequest).calledWith(expect.anything()).thenResolve({
+      mockCreateAuthorizationRequest.mockResolvedValue({
         authorizationRequest: 'openid://?request_uri=https://example.com/auth',
         verificationSession: makeSessionRecord(),
       })
 
       await service.createRequest(tenantAgent, req)
 
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6Mk1234')
       expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           version: 'v1',

@@ -2,7 +2,6 @@ import { CredoError } from '@credo-ts/core'
 import { DidCommProofState } from '@credo-ts/didcomm'
 import { createMock } from '@golevelup/ts-vitest'
 import { ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common'
-import { when } from 'vitest-when'
 
 import { TenantAgent } from 'common/agent'
 
@@ -36,30 +35,28 @@ describe('ProofService', () => {
   describe('find', () => {
     test('returns proof records by threadId', async () => {
       const mockRecords = [{ id: 'proof-1', state: 'request-sent', createdAt: new Date() }]
-      when(tenantAgent.didcomm.proofs.findAllByQuery)
-        .calledWith({ threadId: 'thread-1' })
-        .thenResolve(mockRecords as any)
+      vi.mocked(tenantAgent.didcomm.proofs.findAllByQuery).mockResolvedValue(mockRecords as any)
 
       const result = await proofService.find(tenantAgent, 'thread-1')
 
+      expect(tenantAgent.didcomm.proofs.findAllByQuery).toHaveBeenCalledWith({ threadId: 'thread-1' })
       expect(result).toHaveLength(1)
       expect(result[0].id).toBe('proof-1')
     })
 
     test('returns all proofs when no threadId', async () => {
-      when(tenantAgent.didcomm.proofs.findAllByQuery).calledWith({ threadId: undefined }).thenResolve([])
+      vi.mocked(tenantAgent.didcomm.proofs.findAllByQuery).mockResolvedValue([])
 
       const result = await proofService.find(tenantAgent)
 
+      expect(tenantAgent.didcomm.proofs.findAllByQuery).toHaveBeenCalledWith({ threadId: undefined })
       expect(result).toHaveLength(0)
     })
   })
 
   describe('request', () => {
     test('throws UnprocessableEntityException when connection not found', async () => {
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('bad-conn')
-        .thenResolve(null as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(null as any)
 
       await expect(
         proofService.request(tenantAgent, {
@@ -67,22 +64,14 @@ describe('ProofService', () => {
           request: { format: 'DifPresentationExchange', presentationExchange: {} },
         } as any),
       ).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('bad-conn')
     })
 
     test('creates proof request with DifPresentationExchange format', async () => {
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('conn-1')
-        .thenResolve({ id: 'conn-1' } as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue({ id: 'conn-1' } as any)
 
       const mockProofRecord = { id: 'proof-1', state: 'request-sent', createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.requestProof)
-        .calledWith(
-          expect.objectContaining({
-            connectionId: 'conn-1',
-            protocolVersion: 'v2',
-          }),
-        )
-        .thenResolve(mockProofRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.requestProof).mockResolvedValue(mockProofRecord as any)
 
       const result = await proofService.request(tenantAgent, {
         connectionId: 'conn-1',
@@ -92,25 +81,24 @@ describe('ProofService', () => {
         },
       } as any)
 
+      expect(tenantAgent.didcomm.proofs.requestProof).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectionId: 'conn-1',
+          protocolVersion: 'v2',
+        }),
+      )
       expect(result.id).toBe('proof-1')
     })
 
     test('creates AnoncredsIndy request with SchemaIdProofParams', async () => {
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('conn-1')
-        .thenResolve({ id: 'conn-1' } as any)
-
-      when(tenantAgent.modules.anoncreds.getSchema)
-        .calledWith('schema-1')
-        .thenResolve({
-          schema: { attrNames: ['name', 'age'] },
-          resolutionMetadata: {},
-        } as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue({ id: 'conn-1' } as any)
+      vi.mocked(tenantAgent.modules.anoncreds.getSchema).mockResolvedValue({
+        schema: { attrNames: ['name', 'age'] },
+        resolutionMetadata: {},
+      } as any)
 
       const mockProofRecord = { id: 'proof-2', state: 'request-sent', createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.requestProof)
-        .calledWith(expect.objectContaining({ connectionId: 'conn-1' }))
-        .thenResolve(mockProofRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.requestProof).mockResolvedValue(mockProofRecord as any)
 
       const proofParams = new SchemaIdProofParamsDto()
       proofParams.schemaId = 'schema-1'
@@ -124,6 +112,7 @@ describe('ProofService', () => {
         },
       } as any)
 
+      expect(tenantAgent.modules.anoncreds.getSchema).toHaveBeenCalledWith('schema-1')
       expect(result.id).toBe('proof-2')
       expect(tenantAgent.didcomm.proofs.requestProof).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -141,28 +130,18 @@ describe('ProofService', () => {
     })
 
     test('creates AnoncredsIndy request with CredDefIdProofParams', async () => {
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('conn-1')
-        .thenResolve({ id: 'conn-1' } as any)
-
-      when(tenantAgent.modules.anoncreds.getCredentialDefinition)
-        .calledWith('creddef-1')
-        .thenResolve({
-          credentialDefinition: { schemaId: 'schema-1' },
-          resolutionMetadata: {},
-        } as any)
-
-      when(tenantAgent.modules.anoncreds.getSchema)
-        .calledWith('schema-1')
-        .thenResolve({
-          schema: { attrNames: ['email'] },
-          resolutionMetadata: {},
-        } as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue({ id: 'conn-1' } as any)
+      vi.mocked(tenantAgent.modules.anoncreds.getCredentialDefinition).mockResolvedValue({
+        credentialDefinition: { schemaId: 'schema-1' },
+        resolutionMetadata: {},
+      } as any)
+      vi.mocked(tenantAgent.modules.anoncreds.getSchema).mockResolvedValue({
+        schema: { attrNames: ['email'] },
+        resolutionMetadata: {},
+      } as any)
 
       const mockProofRecord = { id: 'proof-3', state: 'request-sent', createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.requestProof)
-        .calledWith(expect.anything())
-        .thenResolve(mockProofRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.requestProof).mockResolvedValue(mockProofRecord as any)
 
       const proofParams = new CredDefIdProofParamsDto()
       proofParams.credentialDefinitionId = 'creddef-1'
@@ -176,18 +155,16 @@ describe('ProofService', () => {
         },
       } as any)
 
+      expect(tenantAgent.modules.anoncreds.getCredentialDefinition).toHaveBeenCalledWith('creddef-1')
+      expect(tenantAgent.modules.anoncreds.getSchema).toHaveBeenCalledWith('schema-1')
       expect(result.id).toBe('proof-3')
     })
 
     test('creates AnoncredsIndy request with AttrsPredsProofParams', async () => {
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('conn-1')
-        .thenResolve({ id: 'conn-1' } as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue({ id: 'conn-1' } as any)
 
       const mockProofRecord = { id: 'proof-4', state: 'request-sent', createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.requestProof)
-        .calledWith(expect.anything())
-        .thenResolve(mockProofRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.requestProof).mockResolvedValue(mockProofRecord as any)
 
       const result = await proofService.request(tenantAgent, {
         connectionId: 'conn-1',
@@ -215,16 +192,11 @@ describe('ProofService', () => {
     })
 
     test('throws UnprocessableEntityException when schema resolution fails', async () => {
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('conn-1')
-        .thenResolve({ id: 'conn-1' } as any)
-
-      when(tenantAgent.modules.anoncreds.getSchema)
-        .calledWith('bad-schema')
-        .thenResolve({
-          schema: null,
-          resolutionMetadata: { error: 'notFound' },
-        } as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue({ id: 'conn-1' } as any)
+      vi.mocked(tenantAgent.modules.anoncreds.getSchema).mockResolvedValue({
+        schema: null,
+        resolutionMetadata: { error: 'notFound' },
+      } as any)
 
       const proofParams = new SchemaIdProofParamsDto()
       proofParams.schemaId = 'bad-schema'
@@ -239,22 +211,19 @@ describe('ProofService', () => {
           },
         } as any),
       ).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.modules.anoncreds.getSchema).toHaveBeenCalledWith('bad-schema')
     })
 
     test('returns no revealedAttributes when format data has no presentation', async () => {
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('conn-1')
-        .thenResolve({ id: 'conn-1' } as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue({ id: 'conn-1' } as any)
 
       const mockRecord = { id: 'proof-5', state: 'done', createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.findById)
-        .calledWith('proof-5')
-        .thenResolve(mockRecord as any)
-      when(tenantAgent.didcomm.proofs.getFormatData)
-        .calledWith('proof-5')
-        .thenResolve({ presentation: {} } as any)
+      vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({ presentation: {} } as any)
 
       const result = await proofService.get(tenantAgent, 'proof-5')
+      expect(tenantAgent.didcomm.proofs.findById).toHaveBeenCalledWith('proof-5')
+      expect(tenantAgent.didcomm.proofs.getFormatData).toHaveBeenCalledWith('proof-5')
       expect(result.revealedAttributes).toBeUndefined()
     })
   })
@@ -262,26 +231,24 @@ describe('ProofService', () => {
   describe('get', () => {
     test('returns proof record with anoncreds revealed attributes', async () => {
       const mockRecord = { id: 'proof-1', state: 'done', createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.findById)
-        .calledWith('proof-1')
-        .thenResolve(mockRecord as any)
-      when(tenantAgent.didcomm.proofs.getFormatData)
-        .calledWith('proof-1')
-        .thenResolve({
-          presentation: {
-            anoncreds: {
-              requested_proof: {
-                revealed_attrs: {
-                  name: { raw: 'Alice' },
-                  age: { raw: '30' },
-                },
+      vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({
+        presentation: {
+          anoncreds: {
+            requested_proof: {
+              revealed_attrs: {
+                name: { raw: 'Alice' },
+                age: { raw: '30' },
               },
             },
           },
-        } as any)
+        },
+      } as any)
 
       const result = await proofService.get(tenantAgent, 'proof-1')
 
+      expect(tenantAgent.didcomm.proofs.findById).toHaveBeenCalledWith('proof-1')
+      expect(tenantAgent.didcomm.proofs.getFormatData).toHaveBeenCalledWith('proof-1')
       expect(result.id).toBe('proof-1')
       expect(result.revealedAttributes).toHaveLength(2)
       expect(result.revealedAttributes![0]).toEqual({ name: 'name', value: 'Alice' })
@@ -290,18 +257,14 @@ describe('ProofService', () => {
 
     test('returns proof record with presentationExchange revealed attributes', async () => {
       const mockRecord = { id: 'proof-2', state: 'done', createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.findById)
-        .calledWith('proof-2')
-        .thenResolve(mockRecord as any)
-      when(tenantAgent.didcomm.proofs.getFormatData)
-        .calledWith('proof-2')
-        .thenResolve({
-          presentation: {
-            presentationExchange: {
-              verifiableCredential: [{ credentialSubject: { email: 'alice@example.com', role: 'admin' } }],
-            },
+      vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({
+        presentation: {
+          presentationExchange: {
+            verifiableCredential: [{ credentialSubject: { email: 'alice@example.com', role: 'admin' } }],
           },
-        } as any)
+        },
+      } as any)
 
       const result = await proofService.get(tenantAgent, 'proof-2')
 
@@ -311,68 +274,55 @@ describe('ProofService', () => {
     })
 
     test('throws NotFoundException when proof not found', async () => {
-      when(tenantAgent.didcomm.proofs.findById)
-        .calledWith('missing')
-        .thenResolve(null as any)
+      vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(null as any)
 
       await expect(proofService.get(tenantAgent, 'missing')).rejects.toThrow(NotFoundException)
+      expect(tenantAgent.didcomm.proofs.findById).toHaveBeenCalledWith('missing')
     })
   })
 
   describe('present', () => {
     test('accepts proof request', async () => {
       const mockRecord = { id: 'proof-1', state: DidCommProofState.RequestReceived, createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.findById)
-        .calledWith('proof-1')
-        .thenResolve(mockRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord as any)
 
       const acceptedRecord = { id: 'proof-1', state: DidCommProofState.Done, createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.acceptRequest)
-        .calledWith({ proofExchangeRecordId: 'proof-1' })
-        .thenResolve(acceptedRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.acceptRequest).mockResolvedValue(acceptedRecord as any)
 
       const result = await proofService.present(tenantAgent, 'proof-1')
 
+      expect(tenantAgent.didcomm.proofs.acceptRequest).toHaveBeenCalledWith({ proofExchangeRecordId: 'proof-1' })
       expect(result.id).toBe('proof-1')
     })
 
     test('throws NotFoundException when proof not found', async () => {
-      when(tenantAgent.didcomm.proofs.findById)
-        .calledWith('missing')
-        .thenResolve(null as any)
+      vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(null as any)
 
       await expect(proofService.present(tenantAgent, 'missing')).rejects.toThrow(NotFoundException)
     })
 
     test('throws ConflictException when proof already presented', async () => {
       const mockRecord = { id: 'proof-1', state: DidCommProofState.Done, createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.findById)
-        .calledWith('proof-1')
-        .thenResolve(mockRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord as any)
 
       await expect(proofService.present(tenantAgent, 'proof-1')).rejects.toThrow(ConflictException)
     })
 
     test('wraps CredoError for auto-select failure as UnprocessableEntityException', async () => {
       const mockRecord = { id: 'proof-1', state: DidCommProofState.RequestReceived, createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.findById)
-        .calledWith('proof-1')
-        .thenResolve(mockRecord as any)
-      when(tenantAgent.didcomm.proofs.acceptRequest)
-        .calledWith({ proofExchangeRecordId: 'proof-1' })
-        .thenReject(new CredoError('Unable to automatically select requested attributes'))
+      vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.acceptRequest).mockRejectedValue(
+        new CredoError('Unable to automatically select requested attributes'),
+      )
 
       await expect(proofService.present(tenantAgent, 'proof-1')).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.didcomm.proofs.acceptRequest).toHaveBeenCalledWith({ proofExchangeRecordId: 'proof-1' })
     })
 
     test('rethrows non-CredoError errors', async () => {
       const mockRecord = { id: 'proof-1', state: DidCommProofState.RequestReceived, createdAt: new Date() }
-      when(tenantAgent.didcomm.proofs.findById)
-        .calledWith('proof-1')
-        .thenResolve(mockRecord as any)
-      when(tenantAgent.didcomm.proofs.acceptRequest)
-        .calledWith({ proofExchangeRecordId: 'proof-1' })
-        .thenReject(new Error('Unexpected'))
+      vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord as any)
+      vi.mocked(tenantAgent.didcomm.proofs.acceptRequest).mockRejectedValue(new Error('Unexpected'))
 
       await expect(proofService.present(tenantAgent, 'proof-1')).rejects.toThrow('Unexpected')
     })

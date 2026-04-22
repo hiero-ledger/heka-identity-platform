@@ -1,6 +1,5 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { ConflictException } from '@nestjs/common'
-import { when } from 'vitest-when'
 
 import { TenantAgent } from 'common/agent'
 
@@ -37,7 +36,7 @@ describe('OpenId4VcVerifierService', () => {
     test('should create a verifier when no duplicate exists', async () => {
       const options = { publicVerifierId: 'did:key:z6MkVerifier1' } as any
 
-      when(mockFindByQuery).calledWith(expect.anything(), { verifierId: 'did:key:z6MkVerifier1' }).thenResolve([])
+      mockFindByQuery.mockResolvedValue([])
 
       const mockVerifierRecord = {
         id: 'record-1',
@@ -46,21 +45,22 @@ describe('OpenId4VcVerifierService', () => {
         createdAt: new Date(),
       }
 
-      when(mockCreateVerifier).calledWith({ verifierId: 'did:key:z6MkVerifier1' }).thenResolve(mockVerifierRecord)
+      mockCreateVerifier.mockResolvedValue(mockVerifierRecord)
 
       const result = await service.createVerifier(tenantAgent, options)
 
+      expect(mockFindByQuery).toHaveBeenCalledWith(expect.anything(), { verifierId: 'did:key:z6MkVerifier1' })
+      expect(mockCreateVerifier).toHaveBeenCalledWith({ verifierId: 'did:key:z6MkVerifier1' })
       expect(result.publicVerifierId).toBe('did:key:z6MkVerifier1')
     })
 
     test('should throw ConflictException if verifier already exists', async () => {
       const options = { publicVerifierId: 'did:key:z6MkVerifier1' } as any
 
-      when(mockFindByQuery)
-        .calledWith(expect.anything(), { verifierId: 'did:key:z6MkVerifier1' })
-        .thenResolve([{ verifierId: 'did:key:z6MkVerifier1' }])
+      mockFindByQuery.mockResolvedValue([{ verifierId: 'did:key:z6MkVerifier1' }])
 
       await expect(service.createVerifier(tenantAgent, options)).rejects.toThrow(ConflictException)
+      expect(mockFindByQuery).toHaveBeenCalledWith(expect.anything(), { verifierId: 'did:key:z6MkVerifier1' })
     })
   })
 
@@ -75,21 +75,21 @@ describe('OpenId4VcVerifierService', () => {
         },
       ]
 
-      when(mockFindByQuery)
-        .calledWith(expect.anything(), { verifierId: 'did:key:z6MkVerifier1' })
-        .thenResolve(mockVerifiers)
+      mockFindByQuery.mockResolvedValue(mockVerifiers)
 
       const result = await service.find(tenantAgent, 'did:key:z6MkVerifier1')
 
+      expect(mockFindByQuery).toHaveBeenCalledWith(expect.anything(), { verifierId: 'did:key:z6MkVerifier1' })
       expect(result).toHaveLength(1)
       expect(result[0].publicVerifierId).toBe('did:key:z6MkVerifier1')
     })
 
     test('should return empty array when no verifiers match', async () => {
-      when(mockFindByQuery).calledWith(expect.anything(), { verifierId: 'did:key:z6MkNonExistent' }).thenResolve([])
+      mockFindByQuery.mockResolvedValue([])
 
       const result = await service.find(tenantAgent, 'did:key:z6MkNonExistent')
 
+      expect(mockFindByQuery).toHaveBeenCalledWith(expect.anything(), { verifierId: 'did:key:z6MkNonExistent' })
       expect(result).toHaveLength(0)
     })
   })

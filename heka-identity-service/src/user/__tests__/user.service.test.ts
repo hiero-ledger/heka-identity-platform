@@ -1,6 +1,5 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
-import { when } from 'vitest-when'
 
 import { TenantAgent } from 'common/agent'
 import { Role } from 'common/auth'
@@ -39,19 +38,17 @@ describe('UserService', () => {
   })
 
   test('getMe return authenticated user', async () => {
-    when(em.findOneOrFail)
-      .calledWith(User, { id: '11' })
-      .thenResolve(
-        new User({
-          id: '11',
-          messageDeliveryType: MessageDeliveryType.WebSocket,
-          backgroundColor: '#F58529',
-          name: 'Cameron',
-          logo: 'https://test.logo',
-        }),
-      )
+    vi.mocked(em.findOneOrFail).mockResolvedValue(
+      new User({
+        id: '11',
+        messageDeliveryType: MessageDeliveryType.WebSocket,
+        backgroundColor: '#F58529',
+        name: 'Cameron',
+        logo: 'https://test.logo',
+      }),
+    )
 
-    when(fileStorageService.url).calledWith(expect.anything()).thenReturn('https://test.logo')
+    vi.mocked(fileStorageService.url).mockReturnValue('https://test.logo')
 
     const userDto = await userService.getMe(authInfo)
 
@@ -67,14 +64,15 @@ describe('UserService', () => {
   describe('patchMe', () => {
     test('updates user name, backgroundColor, and sets registeredAt', async () => {
       const user = new User({ id: '11', backgroundColor: '#000', name: 'Old' })
-      when(em.findOneOrFail).calledWith(User, { id: '11' }).thenResolve(user)
-      when(fileStorageService.url).calledWith(expect.anything()).thenReturn('https://logo.png')
+      vi.mocked(em.findOneOrFail).mockResolvedValue(user)
+      vi.mocked(fileStorageService.url).mockReturnValue('https://logo.png')
 
       const result = await userService.patchMe(authInfo, tenantAgent, {
         name: 'NewName',
         backgroundColor: '#fff',
       })
 
+      expect(em.findOneOrFail).toHaveBeenCalledWith(User, { id: '11' })
       expect(user.name).toBe('NewName')
       expect(user.backgroundColor).toBe('#fff')
       expect(user.registeredAt).toBeInstanceOf(Date)
@@ -91,27 +89,29 @@ describe('UserService', () => {
 
     test('updates messageDeliveryType and webHook', async () => {
       const user = new User({ id: '11' })
-      when(em.findOneOrFail).calledWith(User, { id: '11' }).thenResolve(user)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(user)
 
       await userService.patchMe(authInfo, tenantAgent, {
         messageDeliveryType: MessageDeliveryType.WebHook,
         webHook: 'https://hooks.example.com',
       })
 
+      expect(em.findOneOrFail).toHaveBeenCalledWith(User, { id: '11' })
       expect(user.messageDeliveryType).toBe(MessageDeliveryType.WebHook)
       expect(user.webHook).toBe('https://hooks.example.com')
     })
 
     test('uploads new logo and removes old one', async () => {
       const user = new User({ id: '11', logo: 'old/path.png' })
-      when(em.findOneOrFail).calledWith(User, { id: '11' }).thenResolve(user)
-      when(fileStorageService.put).calledWith(expect.anything(), expect.anything()).thenResolve('new/path.png')
-      when(fileStorageService.url).calledWith('new/path.png').thenReturn('https://cdn/new.png')
+      vi.mocked(em.findOneOrFail).mockResolvedValue(user)
+      vi.mocked(fileStorageService.put).mockResolvedValue('new/path.png')
+      vi.mocked(fileStorageService.url).mockReturnValue('https://cdn/new.png')
 
       const logoFile = { originalname: 'logo.png' } as Express.Multer.File
 
       const result = await userService.patchMe(authInfo, tenantAgent, {}, logoFile)
 
+      expect(em.findOneOrFail).toHaveBeenCalledWith(User, { id: '11' })
       expect(fileStorageService.remove).toHaveBeenCalledWith('old/path.png')
       expect(fileStorageService.put).toHaveBeenCalledWith(logoFile, expect.objectContaining({ replace: true }))
       expect(user.logo).toBe('new/path.png')
@@ -120,10 +120,11 @@ describe('UserService', () => {
 
     test('does not overwrite logo when req.logo is empty string', async () => {
       const user = new User({ id: '11', logo: 'some/path.png' })
-      when(em.findOneOrFail).calledWith(User, { id: '11' }).thenResolve(user)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(user)
 
       await userService.patchMe(authInfo, tenantAgent, { logo: '' })
 
+      expect(em.findOneOrFail).toHaveBeenCalledWith(User, { id: '11' })
       expect(user.logo).toBe('some/path.png')
       expect(em.flush).toHaveBeenCalled()
     })
@@ -132,10 +133,11 @@ describe('UserService', () => {
       const existingDate = new Date('2025-01-01')
       const user = new User({ id: '11' })
       user.registeredAt = existingDate
-      when(em.findOneOrFail).calledWith(User, { id: '11' }).thenResolve(user)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(user)
 
       await userService.patchMe(authInfo, tenantAgent, { name: 'Updated' })
 
+      expect(em.findOneOrFail).toHaveBeenCalledWith(User, { id: '11' })
       expect(user.registeredAt).toBe(existingDate)
     })
   })

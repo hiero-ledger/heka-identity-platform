@@ -2,7 +2,6 @@ import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
 import { BadRequestException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
-import { when } from 'vitest-when'
 
 import { AuthInfo, Role } from '../../../common/auth'
 import { CredentialStatusList, StatusListPurpose } from '../../../common/entities/credential-status-list.entity'
@@ -64,9 +63,7 @@ describe('StatusListService', () => {
     test('should create a status list with default size', async () => {
       const req = { issuer: 'did:example:issuer' }
 
-      when(em.persistAndFlush)
-        .calledWith(expect.any(Object))
-        .thenResolve(undefined as any)
+      vi.mocked(em.persistAndFlush).mockResolvedValue(undefined as any)
 
       const result = await service.create(authInfo, req)
 
@@ -86,9 +83,7 @@ describe('StatusListService', () => {
         purpose: StatusListPurpose.Suspension,
       }
 
-      when(em.persistAndFlush)
-        .calledWith(expect.any(Object))
-        .thenResolve(undefined as any)
+      vi.mocked(em.persistAndFlush).mockResolvedValue(undefined as any)
 
       const result = await service.create(authInfo, req)
 
@@ -108,12 +103,11 @@ describe('StatusListService', () => {
         size: 100,
       }
 
-      when(em.findOneOrFail)
-        .calledWith(CredentialStatusList, { id, owner: mockUser })
-        .thenResolve(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
 
       const result = await service.get(authInfo, id)
 
+      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id, owner: mockUser })
       expect(result.encodedList).toBe('encoded-data')
       expect(result.lastIndex).toBe(5)
       expect(result.purpose).toBe(StatusListPurpose.Revocation)
@@ -123,11 +117,10 @@ describe('StatusListService', () => {
     test('should propagate error when entity is not found', async () => {
       const id = 'nonexistent-id'
 
-      when(em.findOneOrFail)
-        .calledWith(CredentialStatusList, { id, owner: mockUser })
-        .thenReject(new Error('Entity not found'))
+      vi.mocked(em.findOneOrFail).mockRejectedValue(new Error('Entity not found'))
 
       await expect(service.get(authInfo, id)).rejects.toThrow('Entity not found')
+      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id, owner: mockUser })
     })
   })
 
@@ -148,12 +141,11 @@ describe('StatusListService', () => {
         },
       ]
 
-      when(em.find)
-        .calledWith(CredentialStatusList, { owner: mockUser })
-        .thenResolve(entities as any)
+      vi.mocked(em.find).mockResolvedValue(entities as any)
 
       const result = await service.find(authInfo)
 
+      expect(em.find).toHaveBeenCalledWith(CredentialStatusList, { owner: mockUser })
       expect(result).toHaveLength(2)
       expect(result[0].encodedList).toBe('encoded-1')
       expect(result[0].lastIndex).toBe(3)
@@ -162,7 +154,7 @@ describe('StatusListService', () => {
     })
 
     test('should return empty array when no status lists found', async () => {
-      when(em.find).calledWith(CredentialStatusList, { owner: mockUser }).thenResolve([])
+      vi.mocked(em.find).mockResolvedValue([])
 
       const result = await service.find(authInfo)
 
@@ -184,9 +176,7 @@ describe('StatusListService', () => {
         owner: mockUser,
       }
 
-      when(em.find)
-        .calledWith(CredentialStatusList, { owner: mockUser })
-        .thenResolve([existingList] as any)
+      vi.mocked(em.find).mockResolvedValue([existingList] as any)
 
       const result = await service.getOrCreate(authInfo, issuer)
 
@@ -205,13 +195,8 @@ describe('StatusListService', () => {
         owner: mockUser,
       }
 
-      when(em.find)
-        .calledWith(CredentialStatusList, { owner: mockUser })
-        .thenResolve([fullList] as any)
-
-      when(em.persistAndFlush)
-        .calledWith(expect.any(Object))
-        .thenResolve(undefined as any)
+      vi.mocked(em.find).mockResolvedValue([fullList] as any)
+      vi.mocked(em.persistAndFlush).mockResolvedValue(undefined as any)
 
       const result = await service.getOrCreate(authInfo, issuer)
 
@@ -221,11 +206,8 @@ describe('StatusListService', () => {
     })
 
     test('should create new list when no existing lists found', async () => {
-      when(em.find).calledWith(CredentialStatusList, { owner: mockUser }).thenResolve([])
-
-      when(em.persistAndFlush)
-        .calledWith(expect.any(Object))
-        .thenResolve(undefined as any)
+      vi.mocked(em.find).mockResolvedValue([])
+      vi.mocked(em.persistAndFlush).mockResolvedValue(undefined as any)
 
       const result = await service.getOrCreate(authInfo, issuer)
 
@@ -245,25 +227,23 @@ describe('StatusListService', () => {
         owner: mockUser,
       }
 
-      when(em.findOneOrFail)
-        .calledWith(CredentialStatusList, { id, owner: mockUser })
-        .thenResolve(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
 
       mockEncodeBits.mockResolvedValue('updated-encoded')
 
       await service.addItems(authInfo, id, [5, 6, 7])
 
+      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id, owner: mockUser })
       expect(statusListEntity.encodedList).toBe('updated-encoded')
       expect(statusListEntity.lastIndex).toBe(8) // 5 + 3
       expect(em.flush).toHaveBeenCalled()
     })
 
     test('should propagate error when entity not found', async () => {
-      when(em.findOneOrFail)
-        .calledWith(CredentialStatusList, { id: 'bad-id', owner: mockUser })
-        .thenReject(new Error('Entity not found'))
+      vi.mocked(em.findOneOrFail).mockRejectedValue(new Error('Entity not found'))
 
       await expect(service.addItems(authInfo, 'bad-id', [0])).rejects.toThrow('Entity not found')
+      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id: 'bad-id', owner: mockUser })
     })
   })
 
@@ -278,9 +258,7 @@ describe('StatusListService', () => {
         owner: mockUser,
       }
 
-      when(em.findOneOrFail)
-        .calledWith(CredentialStatusList, { id, owner: mockUser })
-        .thenResolve(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
 
       mockEncodeBits.mockResolvedValue('revoked-encoded')
 
@@ -302,9 +280,7 @@ describe('StatusListService', () => {
         owner: mockUser,
       }
 
-      when(em.findOneOrFail)
-        .calledWith(CredentialStatusList, { id, owner: mockUser })
-        .thenResolve(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
 
       mockEncodeBits.mockResolvedValue('unrevoked-encoded')
 
@@ -324,9 +300,7 @@ describe('StatusListService', () => {
         owner: mockUser,
       }
 
-      when(em.findOneOrFail)
-        .calledWith(CredentialStatusList, { id, owner: mockUser })
-        .thenResolve(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
 
       // decodeBits returns a buffer of length 100, so index 200 is out of bounds
       // The service checks `index > decodedList.length`
@@ -347,12 +321,11 @@ describe('StatusListService', () => {
         encodedList: 'encoded-data',
       }
 
-      when(em.findOneOrFail)
-        .calledWith(CredentialStatusList, { id })
-        .thenResolve(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
 
       const result = await service.getItemDetails(id)
 
+      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id })
       expect(result.id).toBe(id)
       expect(result.issuer).toBe('did:example:issuer')
       expect(result.validFrom).toBeDefined()
@@ -366,11 +339,10 @@ describe('StatusListService', () => {
     })
 
     test('should propagate error when entity not found', async () => {
-      when(em.findOneOrFail)
-        .calledWith(CredentialStatusList, { id: 'bad-id' })
-        .thenReject(new Error('Entity not found'))
+      vi.mocked(em.findOneOrFail).mockRejectedValue(new Error('Entity not found'))
 
       await expect(service.getItemDetails('bad-id')).rejects.toThrow('Entity not found')
+      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id: 'bad-id' })
     })
   })
 

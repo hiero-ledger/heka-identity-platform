@@ -1,7 +1,6 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
 import { BadRequestException, NotFoundException } from '@nestjs/common'
-import { when } from 'vitest-when'
 
 import { TenantAgent } from 'common/agent'
 import { AnoncredsRegistryService } from 'common/anoncreds-registry'
@@ -89,14 +88,13 @@ describe('SchemaV2Service', () => {
           registrations: mockRegistrations,
         },
       ]
-      when(em.findAndCount)
-        .calledWith(Schema, expect.anything(), expect.anything())
-        .thenResolve([mockSchemas as any, 1])
-
-      when(fileStorageService.url).calledWith('path/logo.png').thenReturn('https://cdn/logo.png')
+      vi.mocked(em.findAndCount).mockResolvedValue([mockSchemas as any, 1])
+      vi.mocked(fileStorageService.url).mockReturnValue('https://cdn/logo.png')
 
       const result = await schemaV2Service.getList(authInfo, { offset: 0, limit: 10 })
 
+      expect(em.findAndCount).toHaveBeenCalledWith(Schema, expect.anything(), expect.anything())
+      expect(fileStorageService.url).toHaveBeenCalledWith('path/logo.png')
       expect(result.total).toBe(1)
       expect(result.items).toHaveLength(1)
       expect(result.items[0].name).toBe('Test Schema')
@@ -104,10 +102,11 @@ describe('SchemaV2Service', () => {
     })
 
     test('returns empty list when no schemas', async () => {
-      when(em.findAndCount).calledWith(Schema, expect.anything(), expect.anything()).thenResolve([[], 0])
+      vi.mocked(em.findAndCount).mockResolvedValue([[], 0])
 
       const result = await schemaV2Service.getList(authInfo, { offset: 0, limit: 10 })
 
+      expect(em.findAndCount).toHaveBeenCalledWith(Schema, expect.anything(), expect.anything())
       expect(result.total).toBe(0)
       expect(result.items).toHaveLength(0)
     })
@@ -129,39 +128,38 @@ describe('SchemaV2Service', () => {
           count: () => 0,
         },
       }
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'schema-1' }, expect.anything())
-        .thenResolve(mockSchema as any)
+      vi.mocked(em.findOne).mockResolvedValue(mockSchema as any)
 
       const result = await schemaV2Service.getById(authInfo, 'schema-1')
 
+      expect(em.findOne).toHaveBeenCalledWith(Schema, { owner: mockUser, id: 'schema-1' }, expect.anything())
       expect(result.id).toBe('schema-1')
       expect(result.name).toBe('My Schema')
       expect(result.logo).toBeUndefined()
     })
 
     test('throws NotFoundException when schema not found', async () => {
-      when(em.findOne).calledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything()).thenResolve(null)
+      vi.mocked(em.findOne).mockResolvedValue(null)
 
       await expect(schemaV2Service.getById(authInfo, 'missing')).rejects.toThrow(NotFoundException)
+      expect(em.findOne).toHaveBeenCalledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything())
     })
   })
 
   describe('create', () => {
     test('throws BadRequestException when schema name already exists', async () => {
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, name: { $eq: 'Duplicate' } })
-        .thenResolve({ id: 'existing' } as any)
+      vi.mocked(em.findOne).mockResolvedValue({ id: 'existing' } as any)
 
       await expect(schemaV2Service.create(authInfo, { name: 'Duplicate', fields: ['f1'] } as any)).rejects.toThrow(
         BadRequestException,
       )
+      expect(em.findOne).toHaveBeenCalledWith(Schema, { owner: mockUser, name: { $eq: 'Duplicate' } })
     })
   })
 
   describe('registration', () => {
     test('throws NotFoundException when schema not found', async () => {
-      when(em.findOne).calledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything()).thenResolve(null)
+      vi.mocked(em.findOne).mockResolvedValue(null)
 
       await expect(
         schemaV2Service.registration(authInfo, tenantAgent, 'missing', {
@@ -169,18 +167,16 @@ describe('SchemaV2Service', () => {
           did: 'did:key:z1',
         } as any),
       ).rejects.toThrow(NotFoundException)
+      expect(em.findOne).toHaveBeenCalledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything())
     })
 
     test('throws BadRequestException when already registered', async () => {
       const mockSchema = { id: 'schema-1', name: 'Test', owner: mockUser, fields: { toArray: () => [] } }
-      // findOne for schema lookup
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'schema-1' }, expect.anything())
-        .thenResolve(mockSchema as any)
-      // findOne for registration check
-      when(em.findOne)
-        .calledWith(expect.anything(), expect.objectContaining({ schema: mockSchema }))
-        .thenResolve({ id: 'existing-reg' } as any)
+      vi.mocked(em.findOne).mockImplementation((entity: any, filter: any) => {
+        if (entity === Schema) return Promise.resolve(mockSchema as any)
+        if (filter?.schema) return Promise.resolve({ id: 'existing-reg' } as any)
+        return Promise.resolve(null)
+      })
 
       await expect(
         schemaV2Service.registration(authInfo, tenantAgent, 'schema-1', {
@@ -193,12 +189,10 @@ describe('SchemaV2Service', () => {
 
     test('throws BadRequestException for unsupported protocol', async () => {
       const mockSchema = { id: 'schema-1', name: 'Test', owner: mockUser, fields: { toArray: () => [] } }
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'schema-1' }, expect.anything())
-        .thenResolve(mockSchema as any)
-      when(em.findOne)
-        .calledWith(expect.anything(), expect.objectContaining({ schema: mockSchema }))
-        .thenResolve(null)
+      vi.mocked(em.findOne).mockImplementation((entity: any) => {
+        if (entity === Schema) return Promise.resolve(mockSchema as any)
+        return Promise.resolve(null)
+      })
 
       await expect(
         schemaV2Service.registration(authInfo, tenantAgent, 'schema-1', {
@@ -212,14 +206,11 @@ describe('SchemaV2Service', () => {
   describe('getRegistration', () => {
     test('returns registered:true when registration exists', async () => {
       const mockSchema = { id: 'schema-1' }
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'schema-1' })
-        .thenResolve(mockSchema as any)
-
       const mockReg = { credentials: { supportedCredentialId: 'cred-1' } }
-      when(em.findOne)
-        .calledWith(expect.anything(), expect.objectContaining({ schema: mockSchema }))
-        .thenResolve(mockReg as any)
+      vi.mocked(em.findOne).mockImplementation((entity: any) => {
+        if (entity === Schema) return Promise.resolve(mockSchema as any)
+        return Promise.resolve(mockReg as any)
+      })
 
       const result = await schemaV2Service.getRegistration(authInfo, 'schema-1', {
         protocol: ProtocolType.Oid4vc,
@@ -232,12 +223,10 @@ describe('SchemaV2Service', () => {
 
     test('returns registered:false when no registration', async () => {
       const mockSchema = { id: 'schema-1' }
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'schema-1' })
-        .thenResolve(mockSchema as any)
-      when(em.findOne)
-        .calledWith(expect.anything(), expect.objectContaining({ schema: mockSchema }))
-        .thenResolve(null)
+      vi.mocked(em.findOne).mockImplementation((entity: any) => {
+        if (entity === Schema) return Promise.resolve(mockSchema as any)
+        return Promise.resolve(null)
+      })
 
       const result = await schemaV2Service.getRegistration(authInfo, 'schema-1', {
         protocol: ProtocolType.Oid4vc,
@@ -248,7 +237,7 @@ describe('SchemaV2Service', () => {
     })
 
     test('throws NotFoundException when schema not found', async () => {
-      when(em.findOne).calledWith(Schema, { owner: mockUser, id: 'missing' }).thenResolve(null)
+      vi.mocked(em.findOne).mockResolvedValue(null)
 
       await expect(
         schemaV2Service.getRegistration(authInfo, 'missing', {
@@ -256,16 +245,18 @@ describe('SchemaV2Service', () => {
           did: 'did:key:z1',
         } as any),
       ).rejects.toThrow(NotFoundException)
+      expect(em.findOne).toHaveBeenCalledWith(Schema, { owner: mockUser, id: 'missing' })
     })
   })
 
   describe('patch', () => {
     test('throws NotFoundException when schema not found', async () => {
-      when(em.findOne).calledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything()).thenResolve(null)
+      vi.mocked(em.findOne).mockResolvedValue(null)
 
       await expect(
         schemaV2Service.patch(authInfo, tenantAgent, 'missing', {} as any, undefined as any),
       ).rejects.toThrow(NotFoundException)
+      expect(em.findOne).toHaveBeenCalledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything())
     })
 
     test('patches schema bgColor and name fields and refreshes OCA', async () => {
@@ -377,10 +368,11 @@ describe('SchemaV2Service', () => {
         },
       }
 
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'schema-1' }, expect.anything())
-        .thenResolve(mockSchema)
-      when(em.findOne).calledWith(Schema, { owner: mockUser, id: 'schema-prev' }).thenResolve(prevSchema)
+      vi.mocked(em.findOne).mockImplementation((entity: any, filter: any) => {
+        if (entity === Schema && filter?.id === 'schema-1') return Promise.resolve(mockSchema)
+        if (entity === Schema && filter?.id === 'schema-prev') return Promise.resolve(prevSchema)
+        return Promise.resolve(null)
+      })
       vi.mocked(em.find).mockResolvedValue([prevSchema, mockSchema] as any)
 
       await schemaV2Service.patch(
@@ -402,10 +394,10 @@ describe('SchemaV2Service', () => {
         fields: { toArray: () => [] },
         registrations: { filter: (fn: any) => [].filter(fn) },
       }
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'schema-1' }, expect.anything())
-        .thenResolve(mockSchema)
-      when(em.findOne).calledWith(Schema, { owner: mockUser, id: 'missing-prev' }).thenResolve(null)
+      vi.mocked(em.findOne).mockImplementation((entity: any, filter: any) => {
+        if (entity === Schema && filter?.id === 'schema-1') return Promise.resolve(mockSchema)
+        return Promise.resolve(null)
+      })
 
       await expect(
         schemaV2Service.patch(
@@ -567,12 +559,10 @@ describe('SchemaV2Service', () => {
     }
 
     test('registers Aries Anoncreds schema successfully', async () => {
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'schema-1' }, expect.anything())
-        .thenResolve(mockSchemaBase)
-      when(em.findOne)
-        .calledWith(expect.anything(), expect.objectContaining({ schema: mockSchemaBase }))
-        .thenResolve(null)
+      vi.mocked(em.findOne).mockImplementation((entity: any) => {
+        if (entity === Schema) return Promise.resolve(mockSchemaBase)
+        return Promise.resolve(null)
+      })
 
       vi.mocked(anoncredsRegistryService.registerSchema).mockResolvedValue({
         schemaId: 'schema-on-ledger-id',
@@ -603,12 +593,10 @@ describe('SchemaV2Service', () => {
     })
 
     test('throws BadRequestException when Aries credentialFormat is unsupported', async () => {
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'schema-1' }, expect.anything())
-        .thenResolve(mockSchemaBase)
-      when(em.findOne)
-        .calledWith(expect.anything(), expect.objectContaining({ schema: mockSchemaBase }))
-        .thenResolve(null)
+      vi.mocked(em.findOne).mockImplementation((entity: any) => {
+        if (entity === Schema) return Promise.resolve(mockSchemaBase)
+        return Promise.resolve(null)
+      })
 
       await expect(
         schemaV2Service.registration(authInfo, tenantAgent, 'schema-1', {
@@ -621,8 +609,10 @@ describe('SchemaV2Service', () => {
     })
 
     const setupOid4vcRegister = (schema = mockSchemaBase) => {
-      when(em.findOne).calledWith(Schema, { owner: mockUser, id: 'schema-1' }, expect.anything()).thenResolve(schema)
-      when(em.findOne).calledWith(expect.anything(), expect.objectContaining({ schema })).thenResolve(null)
+      vi.mocked(em.findOne).mockImplementation((entity: any) => {
+        if (entity === Schema) return Promise.resolve(schema)
+        return Promise.resolve(null)
+      })
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue({
         issuerId: 'issuer-1',
@@ -708,7 +698,7 @@ describe('SchemaV2Service', () => {
         bgColor: '#fff',
       }
       setupOid4vcRegister(schemaWithLogo)
-      when(fileStorageService.url).calledWith('path/to/logo.png').thenReturn('https://cdn/logo.png')
+      vi.mocked(fileStorageService.url).mockReturnValue('https://cdn/logo.png')
 
       await schemaV2Service.registration(authInfo, tenantAgent, 'schema-1', {
         protocol: ProtocolType.Oid4vc,
@@ -721,12 +711,10 @@ describe('SchemaV2Service', () => {
     })
 
     test('throws BadRequestException when Oid4vc schema already registered in issuer metadata', async () => {
-      when(em.findOne)
-        .calledWith(Schema, { owner: mockUser, id: 'schema-1' }, expect.anything())
-        .thenResolve(mockSchemaBase)
-      when(em.findOne)
-        .calledWith(expect.anything(), expect.objectContaining({ schema: mockSchemaBase }))
-        .thenResolve(null)
+      vi.mocked(em.findOne).mockImplementation((entity: any) => {
+        if (entity === Schema) return Promise.resolve(mockSchemaBase)
+        return Promise.resolve(null)
+      })
 
       const supportedCredentialId = `${mockSchemaBase.name}:${DidMethod.Key}:${OpenId4VCCredentialRegistrationFormat.SdJwtVc}`
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue({
@@ -748,7 +736,7 @@ describe('SchemaV2Service', () => {
 
   describe('getList with filters', () => {
     test('applies text filter and isHidden filter', async () => {
-      when(em.findAndCount).calledWith(Schema, expect.anything(), expect.anything()).thenResolve([[], 0])
+      vi.mocked(em.findAndCount).mockResolvedValue([[], 0])
 
       const result = await schemaV2Service.getList(authInfo, {
         offset: 0,

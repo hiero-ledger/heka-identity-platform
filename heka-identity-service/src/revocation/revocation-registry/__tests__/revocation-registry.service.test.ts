@@ -1,6 +1,5 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { BadRequestException, NotFoundException } from '@nestjs/common'
-import { when } from 'vitest-when'
 
 import { TenantAgent } from '../../../common/agent'
 import { AnoncredsRegistryService } from '../../../common/anoncreds-registry'
@@ -40,22 +39,24 @@ describe('RevocationRegistryService', () => {
     const revocationRegistryDefinitionId = 'did:indy:test:revregdef123'
 
     test('should create a revocation registry with default maximumCredentialNumber', async () => {
-      when(tenantAgent.dids.getCreatedDids)
-        .calledWith({ did: issuerId })
-        .thenResolve([{ did: issuerId }] as any)
-
-      when(anoncredsRegistryService.registerRevocationRegistryDefinition)
-        .calledWith(tenantAgent, issuerId, credentialDefinitionId, defaultMaximumCredentialNumber)
-        .thenResolve({
-          revocationRegistryDefinitionId,
-          revocationRegistryDefinition: {} as any,
-        })
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([{ did: issuerId }] as any)
+      vi.mocked(anoncredsRegistryService.registerRevocationRegistryDefinition).mockResolvedValue({
+        revocationRegistryDefinitionId,
+        revocationRegistryDefinition: {} as any,
+      })
 
       const result = await service.create(tenantAgent, {
         credentialDefinitionId,
         issuerId,
       })
 
+      expect(tenantAgent.dids.getCreatedDids).toHaveBeenCalledWith({ did: issuerId })
+      expect(anoncredsRegistryService.registerRevocationRegistryDefinition).toHaveBeenCalledWith(
+        tenantAgent,
+        issuerId,
+        credentialDefinitionId,
+        defaultMaximumCredentialNumber,
+      )
       expect(result.revocationRegistryDefinitionId).toBe(revocationRegistryDefinitionId)
       expect(result.index).toBe(0)
       expect(result.maximumCredentialNumber).toBe(defaultMaximumCredentialNumber)
@@ -85,16 +86,11 @@ describe('RevocationRegistryService', () => {
     test('should create a revocation registry with custom maximumCredentialNumber', async () => {
       const customMax = 500
 
-      when(tenantAgent.dids.getCreatedDids)
-        .calledWith({ did: issuerId })
-        .thenResolve([{ did: issuerId }] as any)
-
-      when(anoncredsRegistryService.registerRevocationRegistryDefinition)
-        .calledWith(tenantAgent, issuerId, credentialDefinitionId, customMax)
-        .thenResolve({
-          revocationRegistryDefinitionId,
-          revocationRegistryDefinition: {} as any,
-        })
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([{ did: issuerId }] as any)
+      vi.mocked(anoncredsRegistryService.registerRevocationRegistryDefinition).mockResolvedValue({
+        revocationRegistryDefinitionId,
+        revocationRegistryDefinition: {} as any,
+      })
 
       const result = await service.create(tenantAgent, {
         credentialDefinitionId,
@@ -102,13 +98,20 @@ describe('RevocationRegistryService', () => {
         maximumCredentialNumber: customMax,
       })
 
+      expect(anoncredsRegistryService.registerRevocationRegistryDefinition).toHaveBeenCalledWith(
+        tenantAgent,
+        issuerId,
+        credentialDefinitionId,
+        customMax,
+      )
       expect(result.maximumCredentialNumber).toBe(customMax)
     })
 
     test('should throw NotFoundException when DID is not found', async () => {
-      when(tenantAgent.dids.getCreatedDids).calledWith({ did: issuerId }).thenResolve([])
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([])
 
       await expect(service.create(tenantAgent, { credentialDefinitionId, issuerId })).rejects.toThrow(NotFoundException)
+      expect(tenantAgent.dids.getCreatedDids).toHaveBeenCalledWith({ did: issuerId })
     })
   })
 
@@ -119,14 +122,13 @@ describe('RevocationRegistryService', () => {
       const timestamp = '1700000000'
       const revocationList = [0, 1, 0, 0]
 
-      when(tenantAgent.modules.anoncreds.getRevocationStatusList as any)
-        .calledWith(id, 1700000000)
-        .thenResolve({
-          revocationStatusList: { revocationList },
-        })
+      vi.mocked(tenantAgent.modules.anoncreds.getRevocationStatusList).mockResolvedValue({
+        revocationStatusList: { revocationList },
+      } as any)
 
       const result = await service.get(tenantAgent, id, timestamp)
 
+      expect(tenantAgent.modules.anoncreds.getRevocationStatusList).toHaveBeenCalledWith(id, 1700000000)
       expect(result.timestamp).toBe(1700000000)
       expect(result.revocationStatusList).toEqual(revocationList)
     })
@@ -134,14 +136,13 @@ describe('RevocationRegistryService', () => {
     test('should use current timestamp when none is provided', async () => {
       const revocationList = [0, 0, 0]
 
-      when(tenantAgent.modules.anoncreds.getRevocationStatusList as any)
-        .calledWith(id, expect.any(Number))
-        .thenResolve({
-          revocationStatusList: { revocationList },
-        })
+      vi.mocked(tenantAgent.modules.anoncreds.getRevocationStatusList).mockResolvedValue({
+        revocationStatusList: { revocationList },
+      } as any)
 
       const result = await service.get(tenantAgent, id)
 
+      expect(tenantAgent.modules.anoncreds.getRevocationStatusList).toHaveBeenCalledWith(id, expect.any(Number))
       expect(result.timestamp).toBeGreaterThan(0)
       expect(result.revocationStatusList).toEqual(revocationList)
     })
@@ -151,9 +152,9 @@ describe('RevocationRegistryService', () => {
     })
 
     test('should throw NotFoundException when revocation status list is not found', async () => {
-      when(tenantAgent.modules.anoncreds.getRevocationStatusList as any)
-        .calledWith(id, expect.any(Number))
-        .thenResolve({ revocationStatusList: null })
+      vi.mocked(tenantAgent.modules.anoncreds.getRevocationStatusList).mockResolvedValue({
+        revocationStatusList: null,
+      } as any)
 
       await expect(service.get(tenantAgent, id, '1700000000')).rejects.toThrow(NotFoundException)
     })
@@ -179,12 +180,11 @@ describe('RevocationRegistryService', () => {
         },
       ]
 
-      when(tenantAgent.genericRecords.findAllByQuery)
-        .calledWith({ credentialDefinitionId })
-        .thenResolve(records as any)
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue(records as any)
 
       const result = await service.find(tenantAgent, credentialDefinitionId)
 
+      expect(tenantAgent.genericRecords.findAllByQuery).toHaveBeenCalledWith({ credentialDefinitionId })
       expect(result).toHaveLength(2)
       expect(result[0].revocationRegistryDefinitionId).toBe('revregdef1')
       expect(result[0].index).toBe(5)
@@ -193,10 +193,11 @@ describe('RevocationRegistryService', () => {
     })
 
     test('should return empty array when no records found', async () => {
-      when(tenantAgent.genericRecords.findAllByQuery).calledWith({ credentialDefinitionId: undefined }).thenResolve([])
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue([])
 
       const result = await service.find(tenantAgent)
 
+      expect(tenantAgent.genericRecords.findAllByQuery).toHaveBeenCalledWith({ credentialDefinitionId: undefined })
       expect(result).toEqual([])
     })
   })
@@ -209,18 +210,17 @@ describe('RevocationRegistryService', () => {
         content: { index: 0 },
       }
 
-      when(tenantAgent.genericRecords.findAllByQuery)
-        .calledWith({ revocationRegistryDefinitionId })
-        .thenResolve([record] as any)
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue([record] as any)
 
       await service.update(tenantAgent, revocationRegistryDefinitionId, { lastIndex: 5 })
 
+      expect(tenantAgent.genericRecords.findAllByQuery).toHaveBeenCalledWith({ revocationRegistryDefinitionId })
       expect(record.content.index).toBe(5)
       expect(tenantAgent.genericRecords.update).toHaveBeenCalledWith(record)
     })
 
     test('should throw BadRequestException when revocation registry not found', async () => {
-      when(tenantAgent.genericRecords.findAllByQuery).calledWith({ revocationRegistryDefinitionId }).thenResolve([])
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue([])
 
       await expect(service.update(tenantAgent, revocationRegistryDefinitionId, { lastIndex: 5 })).rejects.toThrow(
         BadRequestException,
@@ -243,9 +243,7 @@ describe('RevocationRegistryService', () => {
         },
       ]
 
-      when(tenantAgent.genericRecords.findAllByQuery)
-        .calledWith({ credentialDefinitionId })
-        .thenResolve(records as any)
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue(records as any)
 
       const result = await service.getOrCreate(tenantAgent, credentialDefinitionId, issuerId)
 
@@ -264,41 +262,32 @@ describe('RevocationRegistryService', () => {
         },
       ]
 
-      when(tenantAgent.genericRecords.findAllByQuery)
-        .calledWith({ credentialDefinitionId })
-        .thenResolve(fullRecords as any)
-
-      // Setup for create path
-      when(tenantAgent.dids.getCreatedDids)
-        .calledWith({ did: issuerId })
-        .thenResolve([{ did: issuerId }] as any)
-
-      when(anoncredsRegistryService.registerRevocationRegistryDefinition)
-        .calledWith(tenantAgent, issuerId, credentialDefinitionId, defaultMaximumCredentialNumber)
-        .thenResolve({
-          revocationRegistryDefinitionId: 'new-revregdef',
-          revocationRegistryDefinition: {} as any,
-        })
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue(fullRecords as any)
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([{ did: issuerId }] as any)
+      vi.mocked(anoncredsRegistryService.registerRevocationRegistryDefinition).mockResolvedValue({
+        revocationRegistryDefinitionId: 'new-revregdef',
+        revocationRegistryDefinition: {} as any,
+      })
 
       const result = await service.getOrCreate(tenantAgent, credentialDefinitionId, issuerId)
 
+      expect(anoncredsRegistryService.registerRevocationRegistryDefinition).toHaveBeenCalledWith(
+        tenantAgent,
+        issuerId,
+        credentialDefinitionId,
+        defaultMaximumCredentialNumber,
+      )
       expect(result.revocationRegistryDefinitionId).toBe('new-revregdef')
       expect(result.index).toBe(0)
     })
 
     test('should create new registry when no existing registries found', async () => {
-      when(tenantAgent.genericRecords.findAllByQuery).calledWith({ credentialDefinitionId }).thenResolve([])
-
-      when(tenantAgent.dids.getCreatedDids)
-        .calledWith({ did: issuerId })
-        .thenResolve([{ did: issuerId }] as any)
-
-      when(anoncredsRegistryService.registerRevocationRegistryDefinition)
-        .calledWith(tenantAgent, issuerId, credentialDefinitionId, defaultMaximumCredentialNumber)
-        .thenResolve({
-          revocationRegistryDefinitionId: 'new-revregdef',
-          revocationRegistryDefinition: {} as any,
-        })
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue([])
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([{ did: issuerId }] as any)
+      vi.mocked(anoncredsRegistryService.registerRevocationRegistryDefinition).mockResolvedValue({
+        revocationRegistryDefinitionId: 'new-revregdef',
+        revocationRegistryDefinition: {} as any,
+      })
 
       const result = await service.getOrCreate(tenantAgent, credentialDefinitionId, issuerId)
 

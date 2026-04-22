@@ -4,7 +4,6 @@ import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
 import { UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
-import { when } from 'vitest-when'
 
 import { Agent } from 'common/agent'
 import { Role } from 'common/auth'
@@ -101,17 +100,17 @@ describe('AuthService', () => {
       const request = { headers: { authorization: 'Bearer my-jwt' } } as IncomingMessage
       const payload = { sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer] }
 
-      when(jwtService.verifyAsync)
-        .calledWith('my-jwt')
-        .thenResolve(payload as any)
+      vi.mocked(jwtService.verifyAsync).mockResolvedValue(payload as any)
 
       const user = makeUser({ id: '11' })
       const wallet = makeWallet()
-      when(em.findOne).calledWith(User, { id: '11' }).thenResolve(user)
-      when(em.findOne).calledWith(Wallet, { id: 'Issuer_11_in_Organization_7' }).thenResolve(wallet)
+      vi.mocked(em.findOne).mockResolvedValueOnce(user).mockResolvedValueOnce(wallet)
 
       const result = await service.validateRequestToken(request)
 
+      expect(jwtService.verifyAsync).toHaveBeenCalledWith('my-jwt')
+      expect(em.findOne).toHaveBeenNthCalledWith(1, User, { id: '11' })
+      expect(em.findOne).toHaveBeenNthCalledWith(2, Wallet, { id: 'Issuer_11_in_Organization_7' })
       expect(result.userId).toBe('11')
       expect(result.role).toBe(Role.Issuer)
       expect(result.walletId).toBe('Issuer_11_in_Organization_7')
@@ -137,11 +136,12 @@ describe('AuthService', () => {
       const user = makeUser({ id: '11', walletsContains: true })
       const wallet = makeWallet()
 
-      when(em.findOne).calledWith(User, { id: '11' }).thenResolve(user)
-      when(em.findOne).calledWith(Wallet, { id: 'Issuer_11_in_Organization_7' }).thenResolve(wallet)
+      vi.mocked(em.findOne).mockResolvedValueOnce(user).mockResolvedValueOnce(wallet)
 
       const result = await service.validateTokenPayload(payload)
 
+      expect(em.findOne).toHaveBeenNthCalledWith(1, User, { id: '11' })
+      expect(em.findOne).toHaveBeenNthCalledWith(2, Wallet, { id: 'Issuer_11_in_Organization_7' })
       expect(result).toEqual({
         userId: '11',
         user,
@@ -160,11 +160,12 @@ describe('AuthService', () => {
       const user = makeUser({ id: '11', walletsContains: false })
       const wallet = makeWallet()
 
-      when(em.findOne).calledWith(User, { id: '11' }).thenResolve(user)
-      when(em.findOne).calledWith(Wallet, { id: 'Issuer_11_in_Organization_7' }).thenResolve(wallet)
+      vi.mocked(em.findOne).mockResolvedValueOnce(user).mockResolvedValueOnce(wallet)
 
       await service.validateTokenPayload(payload)
 
+      expect(em.findOne).toHaveBeenNthCalledWith(1, User, { id: '11' })
+      expect(em.findOne).toHaveBeenNthCalledWith(2, Wallet, { id: 'Issuer_11_in_Organization_7' })
       expect(user.wallets.add).toHaveBeenCalledWith(wallet)
       expect(em.flush).toHaveBeenCalled()
     })
@@ -173,8 +174,7 @@ describe('AuthService', () => {
       const payload = { sub: 'new-user', org_id: '7', name: 'Bob', roles: [Role.Issuer] } as any
       const wallet = makeWallet()
 
-      when(em.findOne).calledWith(User, { id: 'new-user' }).thenResolve(null)
-      when(em.findOne).calledWith(Wallet, { id: 'Issuer_new-user_in_Organization_7' }).thenResolve(wallet)
+      vi.mocked(em.findOne).mockResolvedValueOnce(null).mockResolvedValueOnce(wallet)
 
       // The new User created inside the service has real Collection internals; replace findOne
       // behavior so the second path (wallets.init / contains / add) works via a post-create hook.
@@ -191,6 +191,8 @@ describe('AuthService', () => {
 
       const result = await service.validateTokenPayload(payload)
 
+      expect(em.findOne).toHaveBeenNthCalledWith(1, User, { id: 'new-user' })
+      expect(em.findOne).toHaveBeenNthCalledWith(2, Wallet, { id: 'Issuer_new-user_in_Organization_7' })
       expect(em.persistAndFlush).toHaveBeenCalled()
       expect(result.userId).toBe('new-user')
     })
@@ -199,12 +201,9 @@ describe('AuthService', () => {
       const payload = { sub: '11', org_id: '7', name: 'Alice', roles: [Role.Issuer] } as any
       const user = makeUser({ id: '11', walletsContains: true })
 
-      when(em.findOne).calledWith(User, { id: '11' }).thenResolve(user)
-      when(em.findOne).calledWith(Wallet, { id: 'Issuer_11_in_Organization_7' }).thenResolve(null)
+      vi.mocked(em.findOne).mockResolvedValueOnce(user).mockResolvedValueOnce(null)
 
-      when(agent.modules.tenants.createTenant)
-        .calledWith({ config: { label: 'Issuer_11_in_Organization_7' } })
-        .thenResolve({ id: 'new-tenant-id' } as any)
+      vi.mocked(agent.modules.tenants.createTenant).mockResolvedValue({ id: 'new-tenant-id' } as any)
 
       const createLinkSecret = vi.fn()
       vi.mocked(agent.modules.tenants.withTenantAgent).mockImplementation(async (_opts, cb) => {
@@ -213,7 +212,11 @@ describe('AuthService', () => {
 
       const result = await service.validateTokenPayload(payload)
 
-      expect(agent.modules.tenants.createTenant).toHaveBeenCalled()
+      expect(em.findOne).toHaveBeenNthCalledWith(1, User, { id: '11' })
+      expect(em.findOne).toHaveBeenNthCalledWith(2, Wallet, { id: 'Issuer_11_in_Organization_7' })
+      expect(agent.modules.tenants.createTenant).toHaveBeenCalledWith({
+        config: { label: 'Issuer_11_in_Organization_7' },
+      })
       expect(createLinkSecret).toHaveBeenCalled()
       expect(result.tenantId).toBe('new-tenant-id')
     })

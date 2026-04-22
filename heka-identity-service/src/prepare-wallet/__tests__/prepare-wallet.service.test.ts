@@ -1,5 +1,4 @@
 import { createMock } from '@golevelup/ts-vitest'
-import { when } from 'vitest-when'
 
 import { TenantAgent } from 'common/agent'
 import { Role } from 'common/auth'
@@ -51,38 +50,30 @@ describe('PrepareWalletService', () => {
   })
 
   test('returns existing DID when wallet is already prepared', async () => {
-    when(didService.find)
-      .calledWith(tenantAgent, expect.objectContaining({ method: 'key', own: true }))
-      .thenResolve([{ id: 'did:key:existing' }] as any)
+    vi.mocked(didService.find).mockResolvedValue([{ id: 'did:key:existing' }] as any)
 
     const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {})
 
+    expect(didService.find).toHaveBeenCalledWith(tenantAgent, expect.objectContaining({ method: 'key', own: true }))
     expect(result.did).toBe('did:key:existing')
     expect(didService.create).not.toHaveBeenCalled()
   })
 
   test('creates DIDs for all methods, initializes OID4VC, and patches user', async () => {
-    when(didService.find).calledWith(tenantAgent, expect.anything()).thenResolve([])
-    when(didService.getMethods)
-      .calledWith()
-      .thenReturn({ methods: ['key', 'indy'] } as any)
+    vi.mocked(didService.find).mockResolvedValue([])
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] } as any)
 
-    when(didService.create)
-      .calledWith(authInfo, { method: 'key' })
-      .thenResolve({ id: 'did:key:z1' } as any)
-    when(didService.create)
-      .calledWith(authInfo, { method: 'indy' })
-      .thenResolve({ id: 'did:indy:z2' } as any)
+    vi.mocked(didService.create)
+      .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
+      .mockResolvedValueOnce({ id: 'did:indy:z2' } as any)
 
-    when(issuerService.createIssuer)
-      .calledWith(tenantAgent, expect.anything())
-      .thenResolve({} as any)
-    when(verifierService.createVerifier)
-      .calledWith(tenantAgent, expect.anything())
-      .thenResolve({} as any)
+    vi.mocked(issuerService.createIssuer).mockResolvedValue({} as any)
+    vi.mocked(verifierService.createVerifier).mockResolvedValue({} as any)
 
     const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {})
 
+    expect(didService.create).toHaveBeenNthCalledWith(1, authInfo, { method: 'key' })
+    expect(didService.create).toHaveBeenNthCalledWith(2, authInfo, { method: 'indy' })
     expect(result.did).toBe('did:key:z1')
     expect(issuerService.createIssuer).toHaveBeenCalledTimes(2)
     expect(verifierService.createVerifier).toHaveBeenCalledTimes(2)
@@ -95,62 +86,44 @@ describe('PrepareWalletService', () => {
   })
 
   test('throws when main DID method (key) fails to create', async () => {
-    when(didService.find).calledWith(tenantAgent, expect.anything()).thenResolve([])
-    when(didService.getMethods)
-      .calledWith()
-      .thenReturn({ methods: ['key'] } as any)
-    when(didService.create).calledWith(authInfo, { method: 'key' }).thenReject(new Error('KMS failure'))
+    vi.mocked(didService.find).mockResolvedValue([])
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] } as any)
+    vi.mocked(didService.create).mockRejectedValue(new Error('KMS failure'))
 
     await expect(prepareWalletService.prepareWallet(authInfo, tenantAgent, {})).rejects.toThrow(
       'Failed to create DID for main method key',
     )
+    expect(didService.create).toHaveBeenCalledWith(authInfo, { method: 'key' })
   })
 
   test('continues when a non-main DID method fails', async () => {
-    when(didService.find).calledWith(tenantAgent, expect.anything()).thenResolve([])
-    when(didService.getMethods)
-      .calledWith()
-      .thenReturn({ methods: ['key', 'indy'] } as any)
-    when(didService.create)
-      .calledWith(authInfo, { method: 'key' })
-      .thenResolve({ id: 'did:key:z1' } as any)
-    when(didService.create).calledWith(authInfo, { method: 'indy' }).thenReject(new Error('Indy failure'))
+    vi.mocked(didService.find).mockResolvedValue([])
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] } as any)
+    vi.mocked(didService.create)
+      .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
+      .mockRejectedValueOnce(new Error('Indy failure'))
 
-    when(issuerService.createIssuer)
-      .calledWith(tenantAgent, expect.anything())
-      .thenResolve({} as any)
-    when(verifierService.createVerifier)
-      .calledWith(tenantAgent, expect.anything())
-      .thenResolve({} as any)
+    vi.mocked(issuerService.createIssuer).mockResolvedValue({} as any)
+    vi.mocked(verifierService.createVerifier).mockResolvedValue({} as any)
 
     const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {})
 
+    expect(didService.create).toHaveBeenNthCalledWith(1, authInfo, { method: 'key' })
+    expect(didService.create).toHaveBeenNthCalledWith(2, authInfo, { method: 'indy' })
     expect(result.did).toBe('did:key:z1')
     // Only 1 issuer/verifier created (for the key method; indy failed)
     expect(issuerService.createIssuer).toHaveBeenCalledTimes(1)
   })
 
   test('creates and registers schemas when provided', async () => {
-    when(didService.find).calledWith(tenantAgent, expect.anything()).thenResolve([])
-    when(didService.getMethods)
-      .calledWith()
-      .thenReturn({ methods: ['key'] } as any)
-    when(didService.create)
-      .calledWith(authInfo, { method: 'key' })
-      .thenResolve({ id: 'did:key:z1' } as any)
-    when(issuerService.createIssuer)
-      .calledWith(tenantAgent, expect.anything())
-      .thenResolve({} as any)
-    when(verifierService.createVerifier)
-      .calledWith(tenantAgent, expect.anything())
-      .thenResolve({} as any)
+    vi.mocked(didService.find).mockResolvedValue([])
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] } as any)
+    vi.mocked(didService.create).mockResolvedValue({ id: 'did:key:z1' } as any)
+    vi.mocked(issuerService.createIssuer).mockResolvedValue({} as any)
+    vi.mocked(verifierService.createVerifier).mockResolvedValue({} as any)
 
-    when(schemaV2Service.create)
-      .calledWith(authInfo, expect.objectContaining({ name: 'TestSchema' }), undefined)
-      .thenResolve({ id: 'schema-1' } as any)
-    when(schemaV2Service.registration)
-      .calledWith(authInfo, tenantAgent, 'schema-1', expect.anything())
-      .thenResolve({} as any)
+    vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
+    vi.mocked(schemaV2Service.registration).mockResolvedValue({} as any)
 
     const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {
       schemas: [
@@ -162,6 +135,13 @@ describe('PrepareWalletService', () => {
       ],
     })
 
+    expect(didService.create).toHaveBeenCalledWith(authInfo, { method: 'key' })
+    expect(schemaV2Service.create).toHaveBeenCalledWith(
+      authInfo,
+      expect.objectContaining({ name: 'TestSchema' }),
+      undefined,
+    )
+    expect(schemaV2Service.registration).toHaveBeenCalledWith(authInfo, tenantAgent, 'schema-1', expect.anything())
     expect(result.did).toBe('did:key:z1')
     expect(schemaV2Service.create).toHaveBeenCalledTimes(1)
     expect(schemaV2Service.registration).toHaveBeenCalledTimes(1)

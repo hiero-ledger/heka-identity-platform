@@ -1,6 +1,5 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
-import { when } from 'vitest-when'
 
 import { TenantAgent } from 'common/agent'
 import { Role } from 'common/auth'
@@ -78,18 +77,12 @@ describe('CredentialV2Service', () => {
           ],
         },
       }
-      when(issuanceTemplateService.getTemplateById)
-        .calledWith(authInfo, 'template-1')
-        .thenResolve(template as any)
+      vi.mocked(issuanceTemplateService.getTemplateById).mockResolvedValue(template as any)
 
       const mockConn = { id: 'conn-1' }
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('conn-1')
-        .thenResolve(mockConn as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(mockConn as any)
 
-      when(credentialService.offer)
-        .calledWith(tenantAgent, expect.anything())
-        .thenResolve({ id: 'cred-1', state: 'offer-sent' } as any)
+      vi.mocked(credentialService.offer).mockResolvedValue({ id: 'cred-1', state: 'offer-sent' } as any)
 
       const result = await credentialV2Service.offerByTemplate(tenantAgent, authInfo, {
         templateId: 'template-1',
@@ -97,6 +90,9 @@ describe('CredentialV2Service', () => {
         credentials: [{ name: 'field1', value: 'val1' }],
       } as any)
 
+      expect(issuanceTemplateService.getTemplateById).toHaveBeenCalledWith(authInfo, 'template-1')
+      expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('conn-1')
+      expect(credentialService.offer).toHaveBeenCalledWith(tenantAgent, expect.anything())
       expect(result.id).toBe('cred-1')
       expect(result.state).toBe('offer-sent')
       expect(result.offer).toBeUndefined()
@@ -120,31 +116,27 @@ describe('CredentialV2Service', () => {
           ],
         },
       }
-      when(issuanceTemplateService.getTemplateById)
-        .calledWith(authInfo, 'template-2')
-        .thenResolve(template as any)
+      vi.mocked(issuanceTemplateService.getTemplateById).mockResolvedValue(template as any)
 
-      when(issuanceSessionService.offer)
-        .calledWith(authInfo, tenantAgent, expect.anything())
-        .thenResolve({
-          issuanceSession: { id: 'session-1', state: 'OfferCreated' },
-          credentialOffer: 'openid-credential-offer://...',
-        } as any)
+      vi.mocked(issuanceSessionService.offer).mockResolvedValue({
+        issuanceSession: { id: 'session-1', state: 'OfferCreated' },
+        credentialOffer: 'openid-credential-offer://...',
+      } as any)
 
       const result = await credentialV2Service.offerByTemplate(tenantAgent, authInfo, {
         templateId: 'template-2',
         credentials: [{ name: 'f1', value: 'v1' }],
       } as any)
 
+      expect(issuanceTemplateService.getTemplateById).toHaveBeenCalledWith(authInfo, 'template-2')
+      expect(issuanceSessionService.offer).toHaveBeenCalledWith(authInfo, tenantAgent, expect.anything())
       expect(result.id).toBe('session-1')
       expect(result.state).toBe('OfferCreated')
       expect(result.offer).toBe('openid-credential-offer://...')
     })
 
     test('throws InternalServerErrorException for unsupported protocol', async () => {
-      when(issuanceTemplateService.getTemplateById)
-        .calledWith(authInfo, 'template-bad')
-        .thenResolve({ protocol: 'Unknown' } as any)
+      vi.mocked(issuanceTemplateService.getTemplateById).mockResolvedValue({ protocol: 'Unknown' } as any)
 
       await expect(
         credentialV2Service.offerByTemplate(tenantAgent, authInfo, {
@@ -152,6 +144,7 @@ describe('CredentialV2Service', () => {
           credentials: [],
         } as any),
       ).rejects.toThrow(InternalServerErrorException)
+      expect(issuanceTemplateService.getTemplateById).toHaveBeenCalledWith(authInfo, 'template-bad')
     })
   })
 
@@ -165,9 +158,7 @@ describe('CredentialV2Service', () => {
     })
 
     test('throws UnprocessableEntityException when connection not found', async () => {
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('bad-conn')
-        .thenResolve(null as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(null as any)
 
       const template = { protocol: ProtocolType.Aries, schema: { registrations: [] } }
 
@@ -181,12 +172,11 @@ describe('CredentialV2Service', () => {
           } as any,
         ),
       ).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('bad-conn')
     })
 
     test('throws UnprocessableEntityException when schema registration not found', async () => {
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('conn-1')
-        .thenResolve({ id: 'conn-1' } as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue({ id: 'conn-1' } as any)
 
       const template = {
         protocol: ProtocolType.Aries,
@@ -205,6 +195,7 @@ describe('CredentialV2Service', () => {
           } as any,
         ),
       ).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('conn-1')
     })
   })
 
@@ -221,17 +212,11 @@ describe('CredentialV2Service', () => {
           registrations: [{ protocol: ProtocolType.Aries, network: 'indy', did: 'did:indy:z1', credentials: {} }],
         },
       }
-      when(verificationTemplateService.getTemplateById)
-        .calledWith(authInfo, 'vtemplate-1')
-        .thenResolve(template as any)
+      vi.mocked(verificationTemplateService.getTemplateById).mockResolvedValue(template as any)
 
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('conn-1')
-        .thenResolve({ id: 'conn-1' } as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue({ id: 'conn-1' } as any)
 
-      when(proofService.request)
-        .calledWith(tenantAgent, expect.anything())
-        .thenResolve({ id: 'proof-1', state: 'request-sent' } as any)
+      vi.mocked(proofService.request).mockResolvedValue({ id: 'proof-1', state: 'request-sent' } as any)
 
       const result = await credentialV2Service.proofByTemplate(tenantAgent, authInfo, {
         templateId: 'vtemplate-1',
@@ -239,6 +224,9 @@ describe('CredentialV2Service', () => {
         fields: ['name', 'age'],
       } as any)
 
+      expect(verificationTemplateService.getTemplateById).toHaveBeenCalledWith(authInfo, 'vtemplate-1')
+      expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('conn-1')
+      expect(proofService.request).toHaveBeenCalledWith(tenantAgent, expect.anything())
       expect(result.id).toBe('proof-1')
       expect(result.state).toBe('request-sent')
       expect(result.request).toBeUndefined()
@@ -256,31 +244,27 @@ describe('CredentialV2Service', () => {
           registrations: [{ protocol: ProtocolType.Oid4vc, network: 'key', did: 'did:key:z1', credentials: {} }],
         },
       }
-      when(verificationTemplateService.getTemplateById)
-        .calledWith(authInfo, 'vtemplate-2')
-        .thenResolve(template as any)
+      vi.mocked(verificationTemplateService.getTemplateById).mockResolvedValue(template as any)
 
-      when(verificationSessionService.createRequest)
-        .calledWith(tenantAgent, expect.anything())
-        .thenResolve({
-          verificationSession: { id: 'vsession-1', state: 'RequestCreated' },
-          authorizationRequest: 'https://auth-req-url',
-        } as any)
+      vi.mocked(verificationSessionService.createRequest).mockResolvedValue({
+        verificationSession: { id: 'vsession-1', state: 'RequestCreated' },
+        authorizationRequest: 'https://auth-req-url',
+      } as any)
 
       const result = await credentialV2Service.proofByTemplate(tenantAgent, authInfo, {
         templateId: 'vtemplate-2',
         fields: ['name'],
       } as any)
 
+      expect(verificationTemplateService.getTemplateById).toHaveBeenCalledWith(authInfo, 'vtemplate-2')
+      expect(verificationSessionService.createRequest).toHaveBeenCalledWith(tenantAgent, expect.anything())
       expect(result.id).toBe('vsession-1')
       expect(result.state).toBe('RequestCreated')
       expect(result.request).toBe('https://auth-req-url')
     })
 
     test('throws InternalServerErrorException for unsupported protocol', async () => {
-      when(verificationTemplateService.getTemplateById)
-        .calledWith(authInfo, 'bad')
-        .thenResolve({ protocol: 'Unknown' } as any)
+      vi.mocked(verificationTemplateService.getTemplateById).mockResolvedValue({ protocol: 'Unknown' } as any)
 
       await expect(
         credentialV2Service.proofByTemplate(tenantAgent, authInfo, {
@@ -288,6 +272,7 @@ describe('CredentialV2Service', () => {
           fields: [],
         } as any),
       ).rejects.toThrow(InternalServerErrorException)
+      expect(verificationTemplateService.getTemplateById).toHaveBeenCalledWith(authInfo, 'bad')
     })
   })
 })

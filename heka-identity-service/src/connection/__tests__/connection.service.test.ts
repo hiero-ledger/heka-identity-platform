@@ -1,6 +1,5 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { InternalServerErrorException } from '@nestjs/common'
-import { when } from 'vitest-when'
 
 import { TenantAgent } from 'common/agent'
 import { Role } from 'common/auth'
@@ -31,22 +30,22 @@ describe('ConnectionService', () => {
         { id: 'conn-1', state: 'completed', role: 'requester', createdAt: new Date() },
         { id: 'conn-2', state: 'request-sent', role: 'responder', createdAt: new Date() },
       ]
-      when(tenantAgent.didcomm.connections.getAll)
-        .calledWith()
-        .thenResolve(mockRecords as any)
+      vi.mocked(tenantAgent.didcomm.connections.getAll).mockResolvedValue(mockRecords as any)
 
       const result = await connectionService.find(tenantAgent)
 
+      expect(tenantAgent.didcomm.connections.getAll).toHaveBeenCalledWith()
       expect(result).toHaveLength(2)
       expect(result[0].id).toBe('conn-1')
       expect(result[1].id).toBe('conn-2')
     })
 
     test('returns empty array when no connections', async () => {
-      when(tenantAgent.didcomm.connections.getAll).calledWith().thenResolve([])
+      vi.mocked(tenantAgent.didcomm.connections.getAll).mockResolvedValue([])
 
       const result = await connectionService.find(tenantAgent)
 
+      expect(tenantAgent.didcomm.connections.getAll).toHaveBeenCalledWith()
       expect(result).toHaveLength(0)
     })
   })
@@ -63,12 +62,7 @@ describe('ConnectionService', () => {
     }
 
     test('creates invitation with request label and imageUrl', async () => {
-      when(userService.getMe)
-        .calledWith(authInfo)
-        .thenResolve({
-          name: 'Alice',
-          logo: 'https://logo.png',
-        } as any)
+      vi.mocked(userService.getMe).mockResolvedValue({ name: 'Alice', logo: 'https://logo.png' } as any)
 
       const mockOobRecord = {
         id: 'oob-1',
@@ -76,19 +70,10 @@ describe('ConnectionService', () => {
           toUrl: vi.fn().mockReturnValue('https://example.com/invite?oob=abc'),
         },
       }
-      when(tenantAgent.didcomm.oob.createInvitation)
-        .calledWith(
-          expect.objectContaining({
-            label: 'Custom Label',
-            alias: 'my-alias',
-            imageUrl: 'https://custom.png',
-            multiUseInvitation: true,
-          }),
-        )
-        .thenResolve(mockOobRecord as any)
+      vi.mocked(tenantAgent.didcomm.oob.createInvitation).mockResolvedValue(mockOobRecord as any)
 
       const mockDidcommConfig = { endpoints: ['https://endpoint.com'] }
-      when(tenantAgent.dependencyManager.resolve).calledWith(expect.anything()).thenReturn(mockDidcommConfig)
+      vi.mocked(tenantAgent.dependencyManager.resolve).mockReturnValue(mockDidcommConfig)
 
       const result = await connectionService.createInvitation(authInfo, tenantAgent, {
         label: 'Custom Label',
@@ -97,17 +82,21 @@ describe('ConnectionService', () => {
         multiUseInvitation: true,
       })
 
+      expect(userService.getMe).toHaveBeenCalledWith(authInfo)
+      expect(tenantAgent.didcomm.oob.createInvitation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          label: 'Custom Label',
+          alias: 'my-alias',
+          imageUrl: 'https://custom.png',
+          multiUseInvitation: true,
+        }),
+      )
       expect(result.id).toBe('oob-1')
       expect(result.invitationUrl).toBe('https://example.com/invite?oob=abc')
     })
 
     test('falls back to user name and logo when not provided in request', async () => {
-      when(userService.getMe)
-        .calledWith(authInfo)
-        .thenResolve({
-          name: 'Alice',
-          logo: 'https://alice-logo.png',
-        } as any)
+      vi.mocked(userService.getMe).mockResolvedValue({ name: 'Alice', logo: 'https://alice-logo.png' } as any)
 
       const mockOobRecord = {
         id: 'oob-2',
@@ -115,20 +104,17 @@ describe('ConnectionService', () => {
           toUrl: vi.fn().mockReturnValue('https://example.com/invite'),
         },
       }
-      when(tenantAgent.didcomm.oob.createInvitation)
-        .calledWith(
-          expect.objectContaining({
-            label: 'Alice',
-            imageUrl: 'https://alice-logo.png',
-          }),
-        )
-        .thenResolve(mockOobRecord as any)
+      vi.mocked(tenantAgent.didcomm.oob.createInvitation).mockResolvedValue(mockOobRecord as any)
 
       const mockDidcommConfig = { endpoints: ['https://endpoint.com'] }
-      when(tenantAgent.dependencyManager.resolve).calledWith(expect.anything()).thenReturn(mockDidcommConfig)
+      vi.mocked(tenantAgent.dependencyManager.resolve).mockReturnValue(mockDidcommConfig)
 
       const result = await connectionService.createInvitation(authInfo, tenantAgent, {})
 
+      expect(userService.getMe).toHaveBeenCalledWith(authInfo)
+      expect(tenantAgent.didcomm.oob.createInvitation).toHaveBeenCalledWith(
+        expect.objectContaining({ label: 'Alice', imageUrl: 'https://alice-logo.png' }),
+      )
       expect(result.id).toBe('oob-2')
     })
   })
@@ -141,22 +127,26 @@ describe('ConnectionService', () => {
         role: 'requester',
         createdAt: new Date(),
       }
-      when(tenantAgent.didcomm.oob.receiveInvitationFromUrl)
-        .calledWith('https://example.com/invite', expect.objectContaining({ label: 'Connection', alias: undefined }))
-        .thenResolve({ connectionRecord: mockConnectionRecord } as any)
+      vi.mocked(tenantAgent.didcomm.oob.receiveInvitationFromUrl).mockResolvedValue({
+        connectionRecord: mockConnectionRecord,
+      } as any)
 
       const result = await connectionService.acceptInvitation(tenantAgent, {
         invitationUrl: 'https://example.com/invite',
       })
 
+      expect(tenantAgent.didcomm.oob.receiveInvitationFromUrl).toHaveBeenCalledWith(
+        'https://example.com/invite',
+        expect.objectContaining({ label: 'Connection', alias: undefined }),
+      )
       expect(result.id).toBe('conn-1')
     })
 
     test('uses custom label and alias when provided', async () => {
       const mockConnectionRecord = { id: 'conn-2', state: 'request-sent', role: 'requester', createdAt: new Date() }
-      when(tenantAgent.didcomm.oob.receiveInvitationFromUrl)
-        .calledWith('https://example.com/invite', expect.objectContaining({ label: 'My Label', alias: 'my-alias' }))
-        .thenResolve({ connectionRecord: mockConnectionRecord } as any)
+      vi.mocked(tenantAgent.didcomm.oob.receiveInvitationFromUrl).mockResolvedValue({
+        connectionRecord: mockConnectionRecord,
+      } as any)
 
       const result = await connectionService.acceptInvitation(tenantAgent, {
         invitationUrl: 'https://example.com/invite',
@@ -164,13 +154,17 @@ describe('ConnectionService', () => {
         alias: 'my-alias',
       })
 
+      expect(tenantAgent.didcomm.oob.receiveInvitationFromUrl).toHaveBeenCalledWith(
+        'https://example.com/invite',
+        expect.objectContaining({ label: 'My Label', alias: 'my-alias' }),
+      )
       expect(result.id).toBe('conn-2')
     })
 
     test('throws InternalServerErrorException when connectionRecord is undefined', async () => {
-      when(tenantAgent.didcomm.oob.receiveInvitationFromUrl)
-        .calledWith('https://example.com/invite', expect.anything())
-        .thenResolve({ connectionRecord: undefined } as any)
+      vi.mocked(tenantAgent.didcomm.oob.receiveInvitationFromUrl).mockResolvedValue({
+        connectionRecord: undefined,
+      } as any)
 
       await expect(
         connectionService.acceptInvitation(tenantAgent, { invitationUrl: 'https://example.com/invite' }),
@@ -181,40 +175,37 @@ describe('ConnectionService', () => {
   describe('get', () => {
     test('returns connection when found by ID', async () => {
       const mockRecord = { id: 'conn-1', state: 'completed', role: 'requester', createdAt: new Date() }
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('conn-1')
-        .thenResolve(mockRecord as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(mockRecord as any)
 
       const result = await connectionService.get(tenantAgent, 'conn-1')
 
+      expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('conn-1')
       expect(result).not.toBeNull()
       expect(result!.id).toBe('conn-1')
     })
 
     test('falls back to out-of-band ID lookup when not found by direct ID', async () => {
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('oob-1')
-        .thenResolve(null as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(null)
 
       const mockRecord = { id: 'conn-from-oob', state: 'completed', role: 'requester', createdAt: new Date() }
-      when(tenantAgent.didcomm.connections.findAllByOutOfBandId)
-        .calledWith('oob-1')
-        .thenResolve([mockRecord as any])
+      vi.mocked(tenantAgent.didcomm.connections.findAllByOutOfBandId).mockResolvedValue([mockRecord as any])
 
       const result = await connectionService.get(tenantAgent, 'oob-1')
 
+      expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('oob-1')
+      expect(tenantAgent.didcomm.connections.findAllByOutOfBandId).toHaveBeenCalledWith('oob-1')
       expect(result).not.toBeNull()
       expect(result!.id).toBe('conn-from-oob')
     })
 
     test('returns null when connection not found by either ID or OOB ID', async () => {
-      when(tenantAgent.didcomm.connections.findById)
-        .calledWith('unknown')
-        .thenResolve(null as any)
-      when(tenantAgent.didcomm.connections.findAllByOutOfBandId).calledWith('unknown').thenResolve([])
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(null)
+      vi.mocked(tenantAgent.didcomm.connections.findAllByOutOfBandId).mockResolvedValue([])
 
       const result = await connectionService.get(tenantAgent, 'unknown')
 
+      expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('unknown')
+      expect(tenantAgent.didcomm.connections.findAllByOutOfBandId).toHaveBeenCalledWith('unknown')
       expect(result).toBeNull()
     })
   })

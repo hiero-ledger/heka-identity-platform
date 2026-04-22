@@ -2,7 +2,6 @@ import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
 import { UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
-import { when } from 'vitest-when'
 
 import { TenantAgent } from 'common/agent'
 import { AuthInfo, Role } from 'common/auth'
@@ -89,25 +88,28 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       ]
 
-      when(mockFindIssuanceSessionsByQuery)
-        .calledWith(expect.anything(), expect.objectContaining({ issuerId: 'issuer-1' }))
-        .thenResolve(mockSessions)
+      mockFindIssuanceSessionsByQuery.mockResolvedValue(mockSessions)
 
       const result = await service.getIssuanceSessionsByQuery(tenantAgent, {
         publicIssuerId: 'issuer-1',
       })
 
+      expect(mockFindIssuanceSessionsByQuery).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ issuerId: 'issuer-1' }),
+      )
       expect(result).toHaveLength(1)
       expect(result[0].publicIssuerId).toBe('issuer-1')
     })
 
     test('should return empty array when no sessions match', async () => {
-      when(mockFindIssuanceSessionsByQuery).calledWith(expect.anything(), expect.anything()).thenResolve([])
+      mockFindIssuanceSessionsByQuery.mockResolvedValue([])
 
       const result = await service.getIssuanceSessionsByQuery(tenantAgent, {
         publicIssuerId: 'non-existent',
       })
 
+      expect(mockFindIssuanceSessionsByQuery).toHaveBeenCalled()
       expect(result).toHaveLength(0)
     })
   })
@@ -123,12 +125,11 @@ describe('OpenId4VcIssuanceSessionService', () => {
         credentialOfferPayload: {},
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuanceSessionById as any)
-        .calledWith('session-1')
-        .thenResolve(mockSession)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(mockSession as any)
 
       const result = await service.getIssuanceSession(tenantAgent, 'session-1')
 
+      expect(tenantAgent.openid4vc.issuer.getIssuanceSessionById).toHaveBeenCalledWith('session-1')
       expect(result).toBeDefined()
       expect(result.id).toBe('session-1')
       expect(result.publicIssuerId).toBe('issuer-1')
@@ -137,7 +138,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
   describe('deleteIssuanceSession', () => {
     test('should delete an issuance session by id', async () => {
-      when(mockDeleteById).calledWith(expect.anything(), 'session-1').thenResolve(undefined)
+      mockDeleteById.mockResolvedValue(undefined)
 
       await service.deleteIssuanceSession(tenantAgent, 'session-1')
 
@@ -152,13 +153,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
         credentialConfigurationsSupported: {},
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
-        .calledWith('issuer-1')
-        .thenResolve(mockIssuer)
-
-      when(statusListService.getOrCreate as any)
-        .calledWith(authInfo, 'issuer-1')
-        .thenResolve({ id: 'sl-1', lastIndex: 0 })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -173,6 +169,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
       } as any
 
       await expect(service.offer(authInfo, tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).toHaveBeenCalledWith('issuer-1')
+      expect(statusListService.getOrCreate).toHaveBeenCalledWith(authInfo, 'issuer-1')
     })
 
     test('should throw UnprocessableEntityException when credential format does not match supported format', async () => {
@@ -183,13 +181,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
-        .calledWith('issuer-1')
-        .thenResolve(mockIssuer)
-
-      when(statusListService.getOrCreate as any)
-        .calledWith(authInfo, 'issuer-1')
-        .thenResolve({ id: 'sl-1', lastIndex: 0 })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -214,17 +207,9 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
-        .calledWith('issuer-1')
-        .thenResolve(mockIssuer)
-
-      when(statusListService.getOrCreate as any)
-        .calledWith(authInfo, 'issuer-1')
-        .thenResolve({ id: 'sl-1', lastIndex: 0 })
-
-      when(tenantAgent.dids.resolve as any)
-        .calledWith('did:key:z6MkBad')
-        .thenResolve({ didDocument: null })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({ didDocument: null } as any)
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -239,6 +224,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       } as any
 
       await expect(service.offer(authInfo, tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
     })
 
     test('should create issuance session for SdJwtVc format without credentialStatus', async () => {
@@ -249,21 +235,13 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
-        .calledWith('issuer-1')
-        .thenResolve(mockIssuer)
-
-      when(statusListService.getOrCreate as any)
-        .calledWith(authInfo, 'issuer-1')
-        .thenResolve({ id: 'sl-1', lastIndex: 0 })
-
-      when(tenantAgent.dids.resolve as any)
-        .calledWith('did:key:z6MkGood')
-        .thenResolve({
-          didDocument: {
-            verificationMethod: [{ id: 'did:key:z6MkGood#key-1' }],
-          },
-        })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
+        didDocument: {
+          verificationMethod: [{ id: 'did:key:z6MkGood#key-1' }],
+        },
+      } as any)
 
       const mockSession = {
         id: 'session-new',
@@ -274,12 +252,10 @@ describe('OpenId4VcIssuanceSessionService', () => {
         credentialOfferPayload: {},
       }
 
-      when(tenantAgent.openid4vc.issuer.createCredentialOffer as any)
-        .calledWith(expect.objectContaining({ issuerId: 'issuer-1' }))
-        .thenResolve({
-          credentialOffer: 'openid-credential-offer://...',
-          issuanceSession: mockSession,
-        })
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://...',
+        issuanceSession: mockSession,
+      } as any)
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -296,6 +272,10 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       const result = await service.offer(authInfo, tenantAgent, req)
 
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkGood')
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
+        expect.objectContaining({ issuerId: 'issuer-1' }),
+      )
       expect(result.credentialOffer).toBe('openid-credential-offer://...')
       expect(result.issuanceSession.id).toBe('session-new')
       // SdJwtVc does not support revocation, so addItems should NOT be called
@@ -315,29 +295,15 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
-        .calledWith('issuer-1')
-        .thenResolve(mockIssuer)
-
-      when(statusListService.getOrCreate as any)
-        .calledWith(authInfo, 'issuer-1')
-        .thenResolve({ id: 'sl-1', lastIndex: 5 })
-
-      when(statusListService.location as any)
-        .calledWith('sl-1')
-        .thenReturn('https://example.com/status-lists/sl-1')
-
-      when(tenantAgent.dids.resolve as any)
-        .calledWith('did:key:z6MkJwt')
-        .thenResolve({
-          didDocument: {
-            verificationMethod: [{ id: 'did:key:z6MkJwt#key-1' }],
-          },
-        })
-
-      when(statusListService.addItems as any)
-        .calledWith(authInfo, 'sl-1', [6])
-        .thenResolve(undefined)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 5 } as any)
+      vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-1')
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
+        didDocument: {
+          verificationMethod: [{ id: 'did:key:z6MkJwt#key-1' }],
+        },
+      } as any)
+      vi.mocked(statusListService.addItems).mockResolvedValue(undefined)
 
       const mockSession = {
         id: 'session-jwt',
@@ -348,12 +314,10 @@ describe('OpenId4VcIssuanceSessionService', () => {
         credentialOfferPayload: {},
       }
 
-      when(tenantAgent.openid4vc.issuer.createCredentialOffer as any)
-        .calledWith(expect.objectContaining({ issuerId: 'issuer-1' }))
-        .thenResolve({
-          credentialOffer: 'openid-credential-offer://jwt',
-          issuanceSession: mockSession,
-        })
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://jwt',
+        issuanceSession: mockSession,
+      } as any)
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -369,6 +333,10 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       const result = await service.offer(authInfo, tenantAgent, req)
 
+      expect(statusListService.location).toHaveBeenCalledWith('sl-1')
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
+        expect.objectContaining({ issuerId: 'issuer-1' }),
+      )
       expect(result.credentialOffer).toBe('openid-credential-offer://jwt')
       expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-1', [6])
     })
@@ -384,29 +352,15 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
-        .calledWith('issuer-1')
-        .thenResolve(mockIssuer)
-
-      when(statusListService.getOrCreate as any)
-        .calledWith(authInfo, 'issuer-1')
-        .thenResolve({ id: 'sl-2', lastIndex: 10 })
-
-      when(statusListService.location as any)
-        .calledWith('sl-2')
-        .thenReturn('https://example.com/status-lists/sl-2')
-
-      when(tenantAgent.dids.resolve as any)
-        .calledWith('did:key:z6MkLd')
-        .thenResolve({
-          didDocument: {
-            verificationMethod: [{ id: 'did:key:z6MkLd#key-1' }],
-          },
-        })
-
-      when(statusListService.addItems as any)
-        .calledWith(authInfo, 'sl-2', [11])
-        .thenResolve(undefined)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-2', lastIndex: 10 } as any)
+      vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-2')
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
+        didDocument: {
+          verificationMethod: [{ id: 'did:key:z6MkLd#key-1' }],
+        },
+      } as any)
+      vi.mocked(statusListService.addItems).mockResolvedValue(undefined)
 
       const mockSession = {
         id: 'session-ld',
@@ -417,12 +371,10 @@ describe('OpenId4VcIssuanceSessionService', () => {
         credentialOfferPayload: {},
       }
 
-      when(tenantAgent.openid4vc.issuer.createCredentialOffer as any)
-        .calledWith(expect.anything())
-        .thenResolve({
-          credentialOffer: 'openid-credential-offer://ld',
-          issuanceSession: mockSession,
-        })
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://ld',
+        issuanceSession: mockSession,
+      } as any)
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -452,29 +404,15 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
-        .calledWith('issuer-1')
-        .thenResolve(mockIssuer)
-
-      when(statusListService.getOrCreate as any)
-        .calledWith(authInfo, 'issuer-1')
-        .thenResolve({ id: 'sl-3', lastIndex: 0 })
-
-      when(statusListService.location as any)
-        .calledWith('sl-3')
-        .thenReturn('https://example.com/status-lists/sl-3')
-
-      when(tenantAgent.dids.resolve as any)
-        .calledWith('did:key:z6MkLdp')
-        .thenResolve({
-          didDocument: {
-            verificationMethod: [{ id: 'did:key:z6MkLdp#key-1' }],
-          },
-        })
-
-      when(statusListService.addItems as any)
-        .calledWith(authInfo, 'sl-3', [1])
-        .thenResolve(undefined)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-3', lastIndex: 0 } as any)
+      vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-3')
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
+        didDocument: {
+          verificationMethod: [{ id: 'did:key:z6MkLdp#key-1' }],
+        },
+      } as any)
+      vi.mocked(statusListService.addItems).mockResolvedValue(undefined)
 
       const mockSession = {
         id: 'session-ldp',
@@ -485,12 +423,10 @@ describe('OpenId4VcIssuanceSessionService', () => {
         credentialOfferPayload: {},
       }
 
-      when(tenantAgent.openid4vc.issuer.createCredentialOffer as any)
-        .calledWith(expect.anything())
-        .thenResolve({
-          credentialOffer: 'openid-credential-offer://ldp',
-          issuanceSession: mockSession,
-        })
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://ldp',
+        issuanceSession: mockSession,
+      } as any)
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -520,13 +456,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
-        .calledWith('issuer-1')
-        .thenResolve(mockIssuer)
-
-      when(statusListService.getOrCreate as any)
-        .calledWith(authInfo, 'issuer-1')
-        .thenResolve({ id: 'sl-mdoc', lastIndex: 0 })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-mdoc', lastIndex: 0 } as any)
 
       const mockSession = {
         id: 'session-mdoc',
@@ -537,12 +468,10 @@ describe('OpenId4VcIssuanceSessionService', () => {
         credentialOfferPayload: {},
       }
 
-      when(tenantAgent.openid4vc.issuer.createCredentialOffer as any)
-        .calledWith(expect.objectContaining({ issuerId: 'issuer-1' }))
-        .thenResolve({
-          credentialOffer: 'openid-credential-offer://mdoc',
-          issuanceSession: mockSession,
-        })
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://mdoc',
+        issuanceSession: mockSession,
+      } as any)
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -558,6 +487,9 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       const result = await service.offer(authInfo, tenantAgent, req)
 
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
+        expect.objectContaining({ issuerId: 'issuer-1' }),
+      )
       expect(result.credentialOffer).toBe('openid-credential-offer://mdoc')
       // MsoMdoc does not support revocation, no addItems call
       expect(statusListService.addItems).not.toHaveBeenCalled()
@@ -584,13 +516,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any)
-        .calledWith('issuer-1')
-        .thenResolve(mockIssuer)
-
-      when(statusListService.getOrCreate as any)
-        .calledWith(authInfo, 'issuer-1')
-        .thenResolve({ id: 'sl-1', lastIndex: 0 })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -615,13 +542,12 @@ describe('OpenId4VcIssuanceSessionService', () => {
         issuanceMetadata: undefined,
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuanceSessionById as any)
-        .calledWith('session-1')
-        .thenResolve(mockSession)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(mockSession as any)
 
       await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')).rejects.toThrow(
         'Credential not found',
       )
+      expect(tenantAgent.openid4vc.issuer.getIssuanceSessionById).toHaveBeenCalledWith('session-1')
     })
 
     test('should throw error when credential does not support revocation', async () => {
@@ -632,9 +558,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuanceSessionById as any)
-        .calledWith('session-1')
-        .thenResolve(mockSession)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(mockSession as any)
 
       await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')).rejects.toThrow(
         'Credential does not support revocation',
@@ -657,13 +581,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       }
 
-      when(tenantAgent.openid4vc.issuer.getIssuanceSessionById as any)
-        .calledWith('session-1')
-        .thenResolve(mockSession)
-
-      when(statusListService.updateItems as any)
-        .calledWith(authInfo, 'sl-123', { indexes: [5], revoked: true })
-        .thenResolve(undefined)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(mockSession as any)
+      vi.mocked(statusListService.updateItems).mockResolvedValue(undefined)
 
       await service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')
 

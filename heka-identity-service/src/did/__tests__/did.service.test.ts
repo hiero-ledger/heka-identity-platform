@@ -6,7 +6,6 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common'
-import { when } from 'vitest-when'
 
 import { Agent, TenantAgent } from 'common/agent'
 import { Role } from 'common/auth'
@@ -53,15 +52,13 @@ describe('DidService', () => {
         { did: 'endorser-did', didDocument: { id: 'endorser-did' } },
         { did: 'did:key:z2', didDocument: null },
       ]
-      when(tenantAgent.dids.getCreatedDids)
-        .calledWith({ method: 'key' })
-        .thenResolve(mockRecords as any)
-      when(tenantAgent.dids.resolveDidDocument)
-        .calledWith('did:key:z2')
-        .thenResolve({ id: 'did:key:z2' } as any)
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue(mockRecords as any)
+      vi.mocked(tenantAgent.dids.resolveDidDocument).mockResolvedValue({ id: 'did:key:z2' } as any)
 
       const result = await didService.find(tenantAgent, { method: 'key', own: true })
 
+      expect(tenantAgent.dids.getCreatedDids).toHaveBeenCalledWith({ method: 'key' })
+      expect(tenantAgent.dids.resolveDidDocument).toHaveBeenCalledWith('did:key:z2')
       expect(result).toHaveLength(2)
       expect(result[0].id).toBe('did:key:z1')
       expect(result[1].id).toBe('did:key:z2')
@@ -69,12 +66,11 @@ describe('DidService', () => {
 
     test('uses cached didDocument when available', async () => {
       const mockRecords = [{ did: 'did:key:z1', didDocument: { id: 'did:key:z1' } }]
-      when(tenantAgent.dids.getCreatedDids)
-        .calledWith({ method: undefined })
-        .thenResolve(mockRecords as any)
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue(mockRecords as any)
 
       const result = await didService.find(tenantAgent, { own: true })
 
+      expect(tenantAgent.dids.getCreatedDids).toHaveBeenCalledWith({ method: undefined })
       expect(result).toHaveLength(1)
       expect(tenantAgent.dids.resolveDidDocument).not.toHaveBeenCalled()
     })
@@ -82,60 +78,55 @@ describe('DidService', () => {
 
   describe('get', () => {
     test('returns DID document on successful resolution', async () => {
-      when(tenantAgent.dids.resolve)
-        .calledWith('did:key:z1')
-        .thenResolve({
-          didDocument: { id: 'did:key:z1' },
-          didResolutionMetadata: {},
-        } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
+        didDocument: { id: 'did:key:z1' },
+        didResolutionMetadata: {},
+      } as any)
 
       const result = await didService.get(tenantAgent, 'did:key:z1')
 
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z1')
       expect(result.id).toBe('did:key:z1')
     })
 
     test('throws NotFoundException when DID not found', async () => {
-      when(tenantAgent.dids.resolve)
-        .calledWith('did:key:missing')
-        .thenResolve({
-          didDocument: null,
-          didResolutionMetadata: { error: 'notFound', message: 'Not found' },
-        } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
+        didDocument: null,
+        didResolutionMetadata: { error: 'notFound', message: 'Not found' },
+      } as any)
 
       await expect(didService.get(tenantAgent, 'did:key:missing')).rejects.toThrow(NotFoundException)
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:missing')
     })
 
     test('throws BadRequestException for unsupportedDidMethod', async () => {
-      when(tenantAgent.dids.resolve)
-        .calledWith('did:bad:z1')
-        .thenResolve({
-          didDocument: null,
-          didResolutionMetadata: { error: 'unsupportedDidMethod', message: 'Unsupported' },
-        } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
+        didDocument: null,
+        didResolutionMetadata: { error: 'unsupportedDidMethod', message: 'Unsupported' },
+      } as any)
 
       await expect(didService.get(tenantAgent, 'did:bad:z1')).rejects.toThrow(BadRequestException)
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:bad:z1')
     })
 
     test('throws BadRequestException for invalidDid', async () => {
-      when(tenantAgent.dids.resolve)
-        .calledWith('invalid')
-        .thenResolve({
-          didDocument: null,
-          didResolutionMetadata: { error: 'invalidDid', message: 'Invalid' },
-        } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
+        didDocument: null,
+        didResolutionMetadata: { error: 'invalidDid', message: 'Invalid' },
+      } as any)
 
       await expect(didService.get(tenantAgent, 'invalid')).rejects.toThrow(BadRequestException)
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('invalid')
     })
 
     test('throws InternalServerErrorException for unknown errors', async () => {
-      when(tenantAgent.dids.resolve)
-        .calledWith('did:key:z1')
-        .thenResolve({
-          didDocument: null,
-          didResolutionMetadata: { error: 'internalError', message: 'Something broke' },
-        } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
+        didDocument: null,
+        didResolutionMetadata: { error: 'internalError', message: 'Something broke' },
+      } as any)
 
       await expect(didService.get(tenantAgent, 'did:key:z1')).rejects.toThrow(InternalServerErrorException)
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z1')
     })
   })
 
@@ -157,41 +148,31 @@ describe('DidService', () => {
     }
 
     test('throws when wallet already has a publicDid', async () => {
-      when(em.findOneOrFail as any)
-        .calledWith(Wallet, { id: 'wallet-1' })
-        .thenResolve({ id: 'wallet-1', publicDid: 'did:indy:existing' })
+      ;(em.findOneOrFail as any).mockResolvedValue({ id: 'wallet-1', publicDid: 'did:indy:existing' })
 
       const authInfo = { ...baseAuthInfo, role: Role.Admin }
 
       await expect(didService.create(authInfo as any, { method: 'indy' } as any)).rejects.toThrow(
         'The wallet already contains created public DID: did:indy:existing',
       )
+      expect(em.findOneOrFail).toHaveBeenCalledWith(Wallet, { id: 'wallet-1' })
     })
 
     test('creates DID via didRegistrarService when no controller wallet is required (Admin role)', async () => {
-      when(em.findOneOrFail as any)
-        .calledWith(Wallet, { id: 'wallet-1' })
-        .thenResolve({ id: 'wallet-1', publicDid: null })
+      ;(em.findOneOrFail as any).mockResolvedValue({ id: 'wallet-1', publicDid: null })
 
       const didDocument = {
         id: 'did:indy:test-ns:newdid',
         verificationMethod: [{ id: 'did:indy:test-ns:newdid#key-1' }],
       }
-
-      when(didRegistrarService.createDid as any)
-        .calledWith('tenant-1', 'indy', {
-          namespace: 'test-ns',
-        })
-        .thenResolve(didDocument)
-
-      when(em.flush as any)
-        .calledWith()
-        .thenResolve(undefined)
+      ;(didRegistrarService.createDid as any).mockResolvedValue(didDocument)
+      ;(em.flush as any).mockResolvedValue(undefined)
 
       const authInfo = { ...baseAuthInfo, role: Role.Admin }
 
       const result = await didService.create(authInfo as any, { method: 'indy' } as any)
 
+      expect(em.findOneOrFail).toHaveBeenCalledWith(Wallet, { id: 'wallet-1' })
       expect(result.id).toBe('did:indy:test-ns:newdid')
       expect(didRegistrarService.createDid).toHaveBeenCalledWith('tenant-1', 'indy', {
         namespace: 'test-ns',
@@ -200,35 +181,29 @@ describe('DidService', () => {
     })
 
     test('throws UnprocessableEntityException when didControllerWallet is not found', async () => {
-      when(em.findOneOrFail as any)
-        .calledWith(Wallet, { id: 'wallet-1' })
-        .thenResolve({ id: 'wallet-1', publicDid: null })
-
-      when(em.findOne as any)
-        .calledWith(Wallet, { id: 'Administration' })
-        .thenResolve(null)
+      ;(em.findOneOrFail as any).mockResolvedValue({ id: 'wallet-1', publicDid: null })
+      ;(em.findOne as any).mockResolvedValue(null)
 
       const authInfo = { ...baseAuthInfo, role: Role.OrgAdmin, orgId: 'org-1' }
 
       await expect(didService.create(authInfo as any, { method: 'indy' } as any)).rejects.toThrow(
         UnprocessableEntityException,
       )
+      expect(em.findOneOrFail).toHaveBeenCalledWith(Wallet, { id: 'wallet-1' })
+      expect(em.findOne).toHaveBeenCalledWith(Wallet, { id: 'Administration' })
     })
 
     test('throws UnprocessableEntityException when didControllerWallet has no publicDid', async () => {
-      when(em.findOneOrFail as any)
-        .calledWith(Wallet, { id: 'wallet-1' })
-        .thenResolve({ id: 'wallet-1', publicDid: null })
-
-      when(em.findOne as any)
-        .calledWith(Wallet, { id: 'Administration' })
-        .thenResolve({ id: 'Administration', publicDid: null })
+      ;(em.findOneOrFail as any).mockResolvedValue({ id: 'wallet-1', publicDid: null })
+      ;(em.findOne as any).mockResolvedValue({ id: 'Administration', publicDid: null })
 
       const authInfo = { ...baseAuthInfo, role: Role.OrgAdmin, orgId: 'org-1' }
 
       await expect(didService.create(authInfo as any, { method: 'indy' } as any)).rejects.toThrow(
         UnprocessableEntityException,
       )
+      expect(em.findOneOrFail).toHaveBeenCalledWith(Wallet, { id: 'wallet-1' })
+      expect(em.findOne).toHaveBeenCalledWith(Wallet, { id: 'Administration' })
     })
   })
 })
