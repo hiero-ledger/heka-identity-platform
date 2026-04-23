@@ -5,6 +5,7 @@ import { TenantAgent } from 'common/agent'
 import { Role } from 'common/auth'
 import { UserService } from 'user/user.service'
 
+import { connectionRecord, oobRecord } from '../../../test/helpers/mock-records'
 import { ConnectionService } from '../connection.service'
 
 describe('ConnectionService', () => {
@@ -27,10 +28,15 @@ describe('ConnectionService', () => {
   describe('find', () => {
     test('returns all connection records', async () => {
       const mockRecords = [
-        { id: 'conn-1', state: 'completed', role: 'requester', createdAt: new Date() },
-        { id: 'conn-2', state: 'request-sent', role: 'responder', createdAt: new Date() },
+        connectionRecord({ id: 'conn-1', state: 'completed', role: 'requester', createdAt: new Date() }),
+        connectionRecord({
+          id: 'conn-2',
+          state: 'request-sent',
+          role: 'responder',
+          createdAt: new Date(),
+        }),
       ]
-      vi.mocked(tenantAgent.didcomm.connections.getAll).mockResolvedValue(mockRecords as any)
+      vi.mocked(tenantAgent.didcomm.connections.getAll).mockResolvedValue(mockRecords)
 
       const result = await connectionService.find(tenantAgent)
 
@@ -64,13 +70,13 @@ describe('ConnectionService', () => {
     test('creates invitation with request label and imageUrl', async () => {
       vi.mocked(userService.getMe).mockResolvedValue({ name: 'Alice', logo: 'https://logo.png' } as any)
 
-      const mockOobRecord = {
+      const mockOobRecord = oobRecord({
         id: 'oob-1',
         outOfBandInvitation: {
           toUrl: vi.fn().mockReturnValue('https://example.com/invite?oob=abc'),
         },
-      }
-      vi.mocked(tenantAgent.didcomm.oob.createInvitation).mockResolvedValue(mockOobRecord as any)
+      })
+      vi.mocked(tenantAgent.didcomm.oob.createInvitation).mockResolvedValue(mockOobRecord)
 
       const mockDidcommConfig = { endpoints: ['https://endpoint.com'] }
       vi.mocked(tenantAgent.dependencyManager.resolve).mockReturnValue(mockDidcommConfig)
@@ -98,13 +104,13 @@ describe('ConnectionService', () => {
     test('falls back to user name and logo when not provided in request', async () => {
       vi.mocked(userService.getMe).mockResolvedValue({ name: 'Alice', logo: 'https://alice-logo.png' } as any)
 
-      const mockOobRecord = {
+      const mockOobRecord = oobRecord({
         id: 'oob-2',
         outOfBandInvitation: {
           toUrl: vi.fn().mockReturnValue('https://example.com/invite'),
         },
-      }
-      vi.mocked(tenantAgent.didcomm.oob.createInvitation).mockResolvedValue(mockOobRecord as any)
+      })
+      vi.mocked(tenantAgent.didcomm.oob.createInvitation).mockResolvedValue(mockOobRecord)
 
       const mockDidcommConfig = { endpoints: ['https://endpoint.com'] }
       vi.mocked(tenantAgent.dependencyManager.resolve).mockReturnValue(mockDidcommConfig)
@@ -121,12 +127,12 @@ describe('ConnectionService', () => {
 
   describe('acceptInvitation', () => {
     test('accepts invitation and returns connection record', async () => {
-      const mockConnectionRecord = {
+      const mockConnectionRecord = connectionRecord({
         id: 'conn-1',
         state: 'request-sent',
         role: 'requester',
         createdAt: new Date(),
-      }
+      })
       vi.mocked(tenantAgent.didcomm.oob.receiveInvitationFromUrl).mockResolvedValue({
         connectionRecord: mockConnectionRecord,
       } as any)
@@ -143,7 +149,12 @@ describe('ConnectionService', () => {
     })
 
     test('uses custom label and alias when provided', async () => {
-      const mockConnectionRecord = { id: 'conn-2', state: 'request-sent', role: 'requester', createdAt: new Date() }
+      const mockConnectionRecord = connectionRecord({
+        id: 'conn-2',
+        state: 'request-sent',
+        role: 'requester',
+        createdAt: new Date(),
+      })
       vi.mocked(tenantAgent.didcomm.oob.receiveInvitationFromUrl).mockResolvedValue({
         connectionRecord: mockConnectionRecord,
       } as any)
@@ -174,8 +185,13 @@ describe('ConnectionService', () => {
 
   describe('get', () => {
     test('returns connection when found by ID', async () => {
-      const mockRecord = { id: 'conn-1', state: 'completed', role: 'requester', createdAt: new Date() }
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(mockRecord as any)
+      const mockRecord = connectionRecord({
+        id: 'conn-1',
+        state: 'completed',
+        role: 'requester',
+        createdAt: new Date(),
+      })
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(mockRecord)
 
       const result = await connectionService.get(tenantAgent, 'conn-1')
 
@@ -187,8 +203,13 @@ describe('ConnectionService', () => {
     test('falls back to out-of-band ID lookup when not found by direct ID', async () => {
       vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(null)
 
-      const mockRecord = { id: 'conn-from-oob', state: 'completed', role: 'requester', createdAt: new Date() }
-      vi.mocked(tenantAgent.didcomm.connections.findAllByOutOfBandId).mockResolvedValue([mockRecord as any])
+      const mockRecord = connectionRecord({
+        id: 'conn-from-oob',
+        state: 'completed',
+        role: 'requester',
+        createdAt: new Date(),
+      })
+      vi.mocked(tenantAgent.didcomm.connections.findAllByOutOfBandId).mockResolvedValue([mockRecord])
 
       const result = await connectionService.get(tenantAgent, 'oob-1')
 

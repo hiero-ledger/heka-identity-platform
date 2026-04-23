@@ -4,6 +4,11 @@ import { TenantAgent } from 'common/agent'
 import { AnoncredsRegistryService } from 'common/anoncreds-registry'
 import { Logger } from 'common/logger'
 
+import {
+  anonCredsCredentialDefinition,
+  anonCredsCredentialDefinitionRecord,
+  anonCredsSchema,
+} from '../../../test/helpers/mock-records'
 import { CredentialDefinitionService } from '../credential-definition.service'
 
 describe('CredentialDefinitionService', () => {
@@ -24,12 +29,16 @@ describe('CredentialDefinitionService', () => {
   describe('getCreated', () => {
     test('returns credential definitions filtered by issuerId and schemaId', async () => {
       const mockCredDefs = [
-        {
+        anonCredsCredentialDefinitionRecord({
           credentialDefinitionId: 'creddef-1',
-          credentialDefinition: { issuerId: 'issuer-1', schemaId: 'schema-1', tag: 'default' },
-        },
+          credentialDefinition: anonCredsCredentialDefinition({
+            issuerId: 'issuer-1',
+            schemaId: 'schema-1',
+            tag: 'default',
+          }),
+        }),
       ]
-      vi.mocked(tenantAgent.modules.anoncreds.getCreatedCredentialDefinitions).mockResolvedValue(mockCredDefs as any)
+      vi.mocked(tenantAgent.modules.anoncreds.getCreatedCredentialDefinitions).mockResolvedValue(mockCredDefs)
 
       const result = await credDefService.getCreated(tenantAgent, 'issuer-1', 'schema-1')
 
@@ -44,16 +53,24 @@ describe('CredentialDefinitionService', () => {
 
     test('returns all credential definitions when no filters provided', async () => {
       const mockCredDefs = [
-        {
+        anonCredsCredentialDefinitionRecord({
           credentialDefinitionId: 'creddef-1',
-          credentialDefinition: { issuerId: 'issuer-1', schemaId: 'schema-1', tag: 'tag1' },
-        },
-        {
+          credentialDefinition: anonCredsCredentialDefinition({
+            issuerId: 'issuer-1',
+            schemaId: 'schema-1',
+            tag: 'tag1',
+          }),
+        }),
+        anonCredsCredentialDefinitionRecord({
           credentialDefinitionId: 'creddef-2',
-          credentialDefinition: { issuerId: 'issuer-2', schemaId: 'schema-2', tag: 'tag2' },
-        },
+          credentialDefinition: anonCredsCredentialDefinition({
+            issuerId: 'issuer-2',
+            schemaId: 'schema-2',
+            tag: 'tag2',
+          }),
+        }),
       ]
-      vi.mocked(tenantAgent.modules.anoncreds.getCreatedCredentialDefinitions).mockResolvedValue(mockCredDefs as any)
+      vi.mocked(tenantAgent.modules.anoncreds.getCreatedCredentialDefinitions).mockResolvedValue(mockCredDefs)
 
       const result = await credDefService.getCreated(tenantAgent)
 
@@ -81,14 +98,21 @@ describe('CredentialDefinitionService', () => {
     test('validates schema exists then registers credential definition', async () => {
       const req = { schemaId: 'schema-1', issuerId: 'issuer-1', tag: 'default' }
 
-      vi.mocked(anoncredsRegistryService.getSchema).mockResolvedValue({ schemaId: 'schema-1', schema: {} } as any)
+      vi.mocked(anoncredsRegistryService.getSchema).mockResolvedValue({
+        schemaId: 'schema-1',
+        schema: anonCredsSchema(),
+      })
 
       vi.mocked(anoncredsRegistryService.registerCredentialDefinition).mockResolvedValue({
         credentialDefinitionId: 'creddef-new',
-        credentialDefinition: { issuerId: 'issuer-1', schemaId: 'schema-1', tag: 'default' },
-      } as any)
+        credentialDefinition: anonCredsCredentialDefinition({
+          issuerId: 'issuer-1',
+          schemaId: 'schema-1',
+          tag: 'default',
+        }),
+      })
 
-      const result = await credDefService.create(tenantAgent, req as any)
+      const result = await credDefService.create(tenantAgent, req)
 
       expect(anoncredsRegistryService.getSchema).toHaveBeenCalledWith(tenantAgent, 'schema-1')
       expect(anoncredsRegistryService.registerCredentialDefinition).toHaveBeenCalledWith(tenantAgent, req)
@@ -111,8 +135,12 @@ describe('CredentialDefinitionService', () => {
     test('resolves credential definition by ID', async () => {
       vi.mocked(anoncredsRegistryService.getCredentialDefinition).mockResolvedValue({
         credentialDefinitionId: 'creddef-1',
-        credentialDefinition: { issuerId: 'issuer-1', schemaId: 'schema-1', tag: 'resolved' },
-      } as any)
+        credentialDefinition: anonCredsCredentialDefinition({
+          issuerId: 'issuer-1',
+          schemaId: 'schema-1',
+          tag: 'resolved',
+        }),
+      })
 
       const result = await credDefService.get(tenantAgent, 'creddef-1')
 

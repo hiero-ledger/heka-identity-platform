@@ -3,6 +3,7 @@ import { EntityManager } from '@mikro-orm/core'
 import { BadRequestException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
+import { entityStub } from '../../../../test/helpers/mock-records'
 import { AuthInfo, Role } from '../../../common/auth'
 import { CredentialStatusList, StatusListPurpose } from '../../../common/entities/credential-status-list.entity'
 import ExpressConfig from '../../../config/express'
@@ -95,15 +96,15 @@ describe('StatusListService', () => {
   describe('get', () => {
     test('should return a StatusList for the given id', async () => {
       const id = 'status-list-1'
-      const statusListEntity = {
+      const statusListEntity = entityStub<CredentialStatusList>({
         id,
         encodedList: 'encoded-data',
         lastIndex: 5,
         purpose: StatusListPurpose.Revocation,
         size: 100,
-      }
+      })
 
-      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
 
       const result = await service.get(authInfo, id)
 
@@ -127,21 +128,21 @@ describe('StatusListService', () => {
   describe('find', () => {
     test('should return an array of StatusList objects', async () => {
       const entities = [
-        {
+        entityStub<CredentialStatusList>({
           encodedList: 'encoded-1',
           lastIndex: 3,
           purpose: StatusListPurpose.Revocation,
           size: 100,
-        },
-        {
+        }),
+        entityStub<CredentialStatusList>({
           encodedList: 'encoded-2',
           lastIndex: 7,
           purpose: StatusListPurpose.Suspension,
           size: 200,
-        },
+        }),
       ]
 
-      vi.mocked(em.find).mockResolvedValue(entities as any)
+      vi.mocked(em.find).mockResolvedValue(entities)
 
       const result = await service.find(authInfo)
 
@@ -166,7 +167,7 @@ describe('StatusListService', () => {
     const issuer = 'did:example:issuer'
 
     test('should return existing list when one has available capacity', async () => {
-      const existingList = {
+      const existingList = entityStub<CredentialStatusList>({
         id: 'list-1',
         lastIndex: 50,
         size: 100,
@@ -174,9 +175,9 @@ describe('StatusListService', () => {
         encodedList: 'encoded',
         purpose: StatusListPurpose.Revocation,
         owner: mockUser,
-      }
+      })
 
-      vi.mocked(em.find).mockResolvedValue([existingList] as any)
+      vi.mocked(em.find).mockResolvedValue([existingList])
 
       const result = await service.getOrCreate(authInfo, issuer)
 
@@ -185,7 +186,7 @@ describe('StatusListService', () => {
     })
 
     test('should create new list when all existing lists are full', async () => {
-      const fullList = {
+      const fullList = entityStub<CredentialStatusList>({
         id: 'list-1',
         lastIndex: 100,
         size: 100,
@@ -193,9 +194,9 @@ describe('StatusListService', () => {
         encodedList: 'encoded',
         purpose: StatusListPurpose.Revocation,
         owner: mockUser,
-      }
+      })
 
-      vi.mocked(em.find).mockResolvedValue([fullList] as any)
+      vi.mocked(em.find).mockResolvedValue([fullList])
       vi.mocked(em.persistAndFlush).mockResolvedValue(undefined as any)
 
       const result = await service.getOrCreate(authInfo, issuer)
@@ -219,15 +220,15 @@ describe('StatusListService', () => {
   describe('addItems', () => {
     test('should update the encoded list and last index', async () => {
       const id = 'status-list-1'
-      const statusListEntity = {
+      const statusListEntity = entityStub<CredentialStatusList>({
         id,
         encodedList: 'original-encoded',
         lastIndex: 5,
         size: 100,
         owner: mockUser,
-      }
+      })
 
-      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
 
       mockEncodeBits.mockResolvedValue('updated-encoded')
 
@@ -250,15 +251,15 @@ describe('StatusListService', () => {
   describe('updateItems', () => {
     test('should update status list items to revoked', async () => {
       const id = 'status-list-1'
-      const statusListEntity = {
+      const statusListEntity = entityStub<CredentialStatusList>({
         id,
         encodedList: 'original-encoded',
         lastIndex: 10,
         size: 100,
         owner: mockUser,
-      }
+      })
 
-      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
 
       mockEncodeBits.mockResolvedValue('revoked-encoded')
 
@@ -272,15 +273,15 @@ describe('StatusListService', () => {
 
     test('should update status list items to unrevoked', async () => {
       const id = 'status-list-1'
-      const statusListEntity = {
+      const statusListEntity = entityStub<CredentialStatusList>({
         id,
         encodedList: 'original-encoded',
         lastIndex: 10,
         size: 100,
         owner: mockUser,
-      }
+      })
 
-      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
 
       mockEncodeBits.mockResolvedValue('unrevoked-encoded')
 
@@ -292,15 +293,15 @@ describe('StatusListService', () => {
 
     test('should throw BadRequestException when index is out of bounds', async () => {
       const id = 'status-list-1'
-      const statusListEntity = {
+      const statusListEntity = entityStub<CredentialStatusList>({
         id,
         encodedList: 'original-encoded',
         lastIndex: 10,
         size: 100,
         owner: mockUser,
-      }
+      })
 
-      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
 
       // decodeBits returns a buffer of length 100, so index 200 is out of bounds
       // The service checks `index > decodedList.length`
@@ -314,14 +315,14 @@ describe('StatusListService', () => {
   describe('getItemDetails', () => {
     test('should return credential status list response', async () => {
       const id = 'status-list-1'
-      const statusListEntity = {
+      const statusListEntity = entityStub<CredentialStatusList>({
         id,
         issuer: 'did:example:issuer',
         purpose: StatusListPurpose.Revocation,
         encodedList: 'encoded-data',
-      }
+      })
 
-      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity as any)
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
 
       const result = await service.getItemDetails(id)
 

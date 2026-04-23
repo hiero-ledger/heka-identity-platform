@@ -1,6 +1,7 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { BadRequestException, NotFoundException } from '@nestjs/common'
 
+import { didRecordStub } from '../../../../test/helpers/mock-records'
 import { TenantAgent } from '../../../common/agent'
 import { AnoncredsRegistryService } from '../../../common/anoncreds-registry'
 import { defaultMaximumCredentialNumber } from '../dto/create-revocation-registry.dto'
@@ -39,7 +40,7 @@ describe('RevocationRegistryService', () => {
     const revocationRegistryDefinitionId = 'did:indy:test:revregdef123'
 
     test('should create a revocation registry with default maximumCredentialNumber', async () => {
-      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([{ did: issuerId }] as any)
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did: issuerId })])
       vi.mocked(anoncredsRegistryService.registerRevocationRegistryDefinition).mockResolvedValue({
         revocationRegistryDefinitionId,
         revocationRegistryDefinition: {} as any,
@@ -86,7 +87,7 @@ describe('RevocationRegistryService', () => {
     test('should create a revocation registry with custom maximumCredentialNumber', async () => {
       const customMax = 500
 
-      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([{ did: issuerId }] as any)
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did: issuerId })])
       vi.mocked(anoncredsRegistryService.registerRevocationRegistryDefinition).mockResolvedValue({
         revocationRegistryDefinitionId,
         revocationRegistryDefinition: {} as any,
@@ -263,7 +264,7 @@ describe('RevocationRegistryService', () => {
       ]
 
       vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue(fullRecords as any)
-      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([{ did: issuerId }] as any)
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did: issuerId })])
       vi.mocked(anoncredsRegistryService.registerRevocationRegistryDefinition).mockResolvedValue({
         revocationRegistryDefinitionId: 'new-revregdef',
         revocationRegistryDefinition: {} as any,
@@ -283,7 +284,7 @@ describe('RevocationRegistryService', () => {
 
     test('should create new registry when no existing registries found', async () => {
       vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue([])
-      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([{ did: issuerId }] as any)
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did: issuerId })])
       vi.mocked(anoncredsRegistryService.registerRevocationRegistryDefinition).mockResolvedValue({
         revocationRegistryDefinitionId: 'new-revregdef',
         revocationRegistryDefinition: {} as any,

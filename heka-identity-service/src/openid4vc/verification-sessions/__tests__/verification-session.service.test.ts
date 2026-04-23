@@ -4,6 +4,7 @@ import { InternalServerErrorException, UnprocessableEntityException } from '@nes
 
 import { TenantAgent } from 'common/agent'
 
+import { didResolutionResult, verificationSessionRecord } from '../../../../test/helpers/mock-records'
 import { OpenId4VcVerificationSessionService } from '../verification-session.service'
 
 describe('OpenId4VcVerificationSessionService', () => {
@@ -16,14 +17,15 @@ describe('OpenId4VcVerificationSessionService', () => {
   const mockCreateAuthorizationRequest = vi.fn()
   const mockGetVerifiedAuthorizationResponse = vi.fn()
 
-  const makeSessionRecord = (overrides: Record<string, unknown> = {}) => ({
-    id: 'vs-1',
-    verifierId: 'verifier-1',
-    state: OpenId4VcVerificationSessionState.RequestCreated,
-    type: 'OpenId4VcVerificationSessionRecord',
-    createdAt: new Date(),
-    ...overrides,
-  })
+  const makeSessionRecord = (overrides: Record<string, unknown> = {}) =>
+    verificationSessionRecord({
+      id: 'vs-1',
+      verifierId: 'verifier-1',
+      state: OpenId4VcVerificationSessionState.RequestCreated,
+      type: 'OpenId4VcVerificationSessionRecord',
+      createdAt: new Date(),
+      ...overrides,
+    })
 
   beforeEach(() => {
     service = new OpenId4VcVerificationSessionService()
@@ -235,11 +237,13 @@ describe('OpenId4VcVerificationSessionService', () => {
         },
       } as any
 
-      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
-        didDocument: {
-          verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
-        },
-      } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResult({
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+          },
+        }),
+      )
 
       mockCreateAuthorizationRequest.mockResolvedValue({
         authorizationRequest: 'openid://?request_uri=https://example.com/auth',
@@ -266,7 +270,7 @@ describe('OpenId4VcVerificationSessionService', () => {
         },
       } as any
 
-      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({ didDocument: null } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(didResolutionResult({ didDocument: null }))
 
       await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
@@ -284,7 +288,9 @@ describe('OpenId4VcVerificationSessionService', () => {
         },
       } as any
 
-      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({ didDocument: { verificationMethod: [] } } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResult({ didDocument: { verificationMethod: [] } }),
+      )
 
       await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkEmpty')
@@ -297,11 +303,13 @@ describe('OpenId4VcVerificationSessionService', () => {
         dcql: { query: {} },
       } as any
 
-      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
-        didDocument: {
-          verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
-        },
-      } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResult({
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+          },
+        }),
+      )
 
       mockCreateAuthorizationRequest.mockResolvedValue({
         authorizationRequest: 'openid://?request_uri=https://example.com/auth',

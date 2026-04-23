@@ -3,6 +3,7 @@ import { ConflictException, BadRequestException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
 
+import { didRecordStub, issuerRecord } from '../../../../test/helpers/mock-records'
 import { UpdateIssuerSupportedCredentialsAction } from '../dto/update-issuer.dto'
 import { OpenId4VcIssuerService } from '../issuer.service'
 
@@ -42,7 +43,7 @@ describe('OpenId4VcIssuerService', () => {
 
       vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([])
 
-      const mockIssuerRecord = {
+      const mockIssuerRecord = issuerRecord({
         id: 'record-1',
         issuerId: 'did:key:z6Mk1234',
         credentialConfigurationsSupported: {},
@@ -50,8 +51,8 @@ describe('OpenId4VcIssuerService', () => {
         type: 'OpenId4VcIssuerRecord',
         createdAt: new Date(),
         accessTokenPublicJwk: undefined,
-      }
-      vi.mocked(tenantAgent.openid4vc.issuer.createIssuer).mockResolvedValue(mockIssuerRecord as any)
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.createIssuer).mockResolvedValue(mockIssuerRecord)
 
       const result = await service.createIssuer(tenantAgent, options)
 
@@ -69,7 +70,9 @@ describe('OpenId4VcIssuerService', () => {
         credentialsSupported: [],
       } as any
 
-      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([{ issuerId: 'did:key:z6Mk1234' }] as any)
+      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([
+        issuerRecord({ issuerId: 'did:key:z6Mk1234' }),
+      ])
 
       await expect(service.createIssuer(tenantAgent, options)).rejects.toThrow(ConflictException)
       expect(tenantAgent.openid4vc.issuer.getAllIssuers).toHaveBeenCalledWith()
@@ -79,16 +82,16 @@ describe('OpenId4VcIssuerService', () => {
   describe('find', () => {
     test('should return matching issuers', async () => {
       const mockIssuers = [
-        {
+        issuerRecord({
           id: 'record-1',
           issuerId: 'did:key:z6Mk1234',
           credentialConfigurationsSupported: {},
           type: 'OpenId4VcIssuerRecord',
           createdAt: new Date(),
           accessTokenPublicJwk: undefined,
-        },
+        }),
       ]
-      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue(mockIssuers as any)
+      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue(mockIssuers)
 
       const result = await service.find(tenantAgent, 'did:key:z6Mk1234')
 
@@ -108,7 +111,7 @@ describe('OpenId4VcIssuerService', () => {
   })
 
   describe('updateIssuerMetadata', () => {
-    const mockIssuerRecord = {
+    const mockIssuerRecord = issuerRecord({
       id: 'record-1',
       issuerId: 'issuer-1',
       credentialConfigurationsSupported: {
@@ -118,10 +121,10 @@ describe('OpenId4VcIssuerService', () => {
       type: 'OpenId4VcIssuerRecord',
       createdAt: new Date(),
       accessTokenPublicJwk: undefined,
-    }
+    })
 
     test('should replace issuer metadata with Replace action', async () => {
-      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord as any)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord)
       vi.mocked(tenantAgent.openid4vc.issuer.updateIssuerMetadata).mockResolvedValue(undefined)
 
       const result = await service.updateIssuerMetadata(tenantAgent, 'issuer-1', {
@@ -140,7 +143,7 @@ describe('OpenId4VcIssuerService', () => {
     })
 
     test('should add credentials with Add action', async () => {
-      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord as any)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord)
       vi.mocked(tenantAgent.openid4vc.issuer.updateIssuerMetadata).mockResolvedValue(undefined)
 
       const result = await service.updateIssuerMetadata(tenantAgent, 'issuer-1', {
@@ -154,7 +157,7 @@ describe('OpenId4VcIssuerService', () => {
     })
 
     test('should throw BadRequestException on duplicate credential id with Add action', async () => {
-      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord as any)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord)
 
       await expect(
         service.updateIssuerMetadata(tenantAgent, 'issuer-1', {
@@ -168,14 +171,14 @@ describe('OpenId4VcIssuerService', () => {
 
   describe('supportedCredentials', () => {
     test('should return credentials matching the format filter', async () => {
-      const mockIssuer = {
+      const mockIssuer = issuerRecord({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
           'cred-2': { format: 'jwt_vc_json', credential_definition: { type: ['VerifiableCredential'] } },
         },
-      }
-      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
 
       const result = await service.supportedCredentials(tenantAgent, {
         publicIssuerId: 'issuer-1',
@@ -188,13 +191,13 @@ describe('OpenId4VcIssuerService', () => {
     })
 
     test('should return empty array when no credentials match filter', async () => {
-      const mockIssuer = {
+      const mockIssuer = issuerRecord({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
         },
-      }
-      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
 
       const result = await service.supportedCredentials(tenantAgent, {
         publicIssuerId: 'issuer-1',
@@ -208,8 +211,8 @@ describe('OpenId4VcIssuerService', () => {
 
   describe('applyUserDisplay', () => {
     test('should update display for all issuers across all DIDs', async () => {
-      const dids = [{ did: 'did:key:z6Mk1111' }, { did: 'did:key:z6Mk2222' }]
-      const mockIssuerRecord = {
+      const dids = [didRecordStub({ did: 'did:key:z6Mk1111' }), didRecordStub({ did: 'did:key:z6Mk2222' })]
+      const mockIssuerRecord = issuerRecord({
         id: 'record-1',
         issuerId: 'did:key:z6Mk1111',
         credentialConfigurationsSupported: {},
@@ -217,10 +220,10 @@ describe('OpenId4VcIssuerService', () => {
         type: 'OpenId4VcIssuerRecord',
         createdAt: new Date(),
         accessTokenPublicJwk: undefined,
-      }
-      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue(dids as any)
-      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([mockIssuerRecord] as any)
-      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord as any)
+      })
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue(dids)
+      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([mockIssuerRecord])
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord)
       vi.mocked(tenantAgent.openid4vc.issuer.updateIssuerMetadata).mockResolvedValue(undefined)
 
       const display = { name: 'New Org Display' } as any

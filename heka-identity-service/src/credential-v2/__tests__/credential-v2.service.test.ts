@@ -12,6 +12,7 @@ import { OpenId4VcVerificationSessionService } from 'openid4vc/verification-sess
 import { ProofService } from 'proof/proof.service'
 import { VerificationTemplateService } from 'verification-template'
 
+import { connectionRecord, credentialExchangeRecord, proofExchangeRecord } from '../../../test/helpers/mock-records'
 import { CredentialV2Service } from '../credential-v2.service'
 
 describe('CredentialV2Service', () => {
@@ -79,10 +80,12 @@ describe('CredentialV2Service', () => {
       }
       vi.mocked(issuanceTemplateService.getTemplateById).mockResolvedValue(template as any)
 
-      const mockConn = { id: 'conn-1' }
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(mockConn as any)
+      const mockConn = connectionRecord({ id: 'conn-1' })
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(mockConn)
 
-      vi.mocked(credentialService.offer).mockResolvedValue({ id: 'cred-1', state: 'offer-sent' } as any)
+      vi.mocked(credentialService.offer).mockResolvedValue(
+        credentialExchangeRecord({ id: 'cred-1', state: 'offer-sent' }),
+      )
 
       const result = await credentialV2Service.offerByTemplate(tenantAgent, authInfo, {
         templateId: 'template-1',
@@ -158,7 +161,7 @@ describe('CredentialV2Service', () => {
     })
 
     test('throws UnprocessableEntityException when connection not found', async () => {
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(null as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(null)
 
       const template = { protocol: ProtocolType.Aries, schema: { registrations: [] } }
 
@@ -176,7 +179,7 @@ describe('CredentialV2Service', () => {
     })
 
     test('throws UnprocessableEntityException when schema registration not found', async () => {
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue({ id: 'conn-1' } as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecord({ id: 'conn-1' }))
 
       const template = {
         protocol: ProtocolType.Aries,
@@ -214,9 +217,9 @@ describe('CredentialV2Service', () => {
       }
       vi.mocked(verificationTemplateService.getTemplateById).mockResolvedValue(template as any)
 
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue({ id: 'conn-1' } as any)
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecord({ id: 'conn-1' }))
 
-      vi.mocked(proofService.request).mockResolvedValue({ id: 'proof-1', state: 'request-sent' } as any)
+      vi.mocked(proofService.request).mockResolvedValue(proofExchangeRecord({ id: 'proof-1', state: 'request-sent' }))
 
       const result = await credentialV2Service.proofByTemplate(tenantAgent, authInfo, {
         templateId: 'vtemplate-1',

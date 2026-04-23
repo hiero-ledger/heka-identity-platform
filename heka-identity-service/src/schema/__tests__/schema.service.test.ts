@@ -5,6 +5,7 @@ import { TenantAgent } from 'common/agent'
 import { AnoncredsRegistryService } from 'common/anoncreds-registry'
 import { Logger } from 'common/logger'
 
+import { anonCredsSchema, anonCredsSchemaRecord } from '../../../test/helpers/mock-records'
 import { SchemaService } from '../schema.service'
 
 describe('SchemaService', () => {
@@ -25,12 +26,17 @@ describe('SchemaService', () => {
   describe('getCreated', () => {
     test('returns schemas filtered by method', async () => {
       const mockSchemas = [
-        {
+        anonCredsSchemaRecord({
           schemaId: 'schema-1',
-          schema: { issuerId: 'issuer-1', name: 'Test Schema', version: '1.0', attrNames: ['name', 'age'] },
-        },
+          schema: anonCredsSchema({
+            issuerId: 'issuer-1',
+            name: 'Test Schema',
+            version: '1.0',
+            attrNames: ['name', 'age'],
+          }),
+        }),
       ]
-      vi.mocked(tenantAgent.modules.anoncreds.getCreatedSchemas).mockResolvedValue(mockSchemas as any)
+      vi.mocked(tenantAgent.modules.anoncreds.getCreatedSchemas).mockResolvedValue(mockSchemas)
 
       const result = await schemaService.getCreated(tenantAgent, { method: 'indy' })
 
@@ -55,8 +61,13 @@ describe('SchemaService', () => {
     test('resolves schema by ID via registry service', async () => {
       vi.mocked(anoncredsRegistryService.getSchema).mockResolvedValue({
         schemaId: 'schema-1',
-        schema: { issuerId: 'issuer-1', name: 'Resolved Schema', version: '2.0', attrNames: ['email'] },
-      } as any)
+        schema: anonCredsSchema({
+          issuerId: 'issuer-1',
+          name: 'Resolved Schema',
+          version: '2.0',
+          attrNames: ['email'],
+        }),
+      })
 
       const result = await schemaService.get(tenantAgent, 'schema-1')
 
@@ -71,15 +82,20 @@ describe('SchemaService', () => {
     test('registers schema and returns DTO', async () => {
       vi.mocked(anoncredsRegistryService.registerSchema).mockResolvedValue({
         schemaId: 'new-schema-1',
-        schema: { issuerId: 'issuer-1', name: 'New Schema', version: '1.0', attrNames: ['name', 'age'] },
-      } as any)
+        schema: anonCredsSchema({
+          issuerId: 'issuer-1',
+          name: 'New Schema',
+          version: '1.0',
+          attrNames: ['name', 'age'],
+        }),
+      })
 
       const result = await schemaService.create(tenantAgent, {
         issuerId: 'issuer-1',
         name: 'New Schema',
         version: '1.0',
         attrNames: ['name', 'age'],
-      } as any)
+      })
 
       expect(anoncredsRegistryService.registerSchema).toHaveBeenCalledWith(
         tenantAgent,

@@ -13,6 +13,7 @@ import { DidRegistrarService } from 'common/did-registrar'
 import { Wallet } from 'common/entities'
 import { Logger } from 'common/logger'
 
+import { didResolutionResult } from '../../../test/helpers/mock-records'
 import { DidService } from '../did.service'
 
 describe('DidService', () => {
@@ -78,10 +79,7 @@ describe('DidService', () => {
 
   describe('get', () => {
     test('returns DID document on successful resolution', async () => {
-      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
-        didDocument: { id: 'did:key:z1' },
-        didResolutionMetadata: {},
-      } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(didResolutionResult({ didDocument: { id: 'did:key:z1' } }))
 
       const result = await didService.get(tenantAgent, 'did:key:z1')
 
@@ -90,40 +88,42 @@ describe('DidService', () => {
     })
 
     test('throws NotFoundException when DID not found', async () => {
-      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
-        didDocument: null,
-        didResolutionMetadata: { error: 'notFound', message: 'Not found' },
-      } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResult({ didDocument: null, didResolutionMetadata: { error: 'notFound', message: 'Not found' } }),
+      )
 
       await expect(didService.get(tenantAgent, 'did:key:missing')).rejects.toThrow(NotFoundException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:missing')
     })
 
     test('throws BadRequestException for unsupportedDidMethod', async () => {
-      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
-        didDocument: null,
-        didResolutionMetadata: { error: 'unsupportedDidMethod', message: 'Unsupported' },
-      } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResult({
+          didDocument: null,
+          didResolutionMetadata: { error: 'unsupportedDidMethod', message: 'Unsupported' },
+        }),
+      )
 
       await expect(didService.get(tenantAgent, 'did:bad:z1')).rejects.toThrow(BadRequestException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:bad:z1')
     })
 
     test('throws BadRequestException for invalidDid', async () => {
-      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
-        didDocument: null,
-        didResolutionMetadata: { error: 'invalidDid', message: 'Invalid' },
-      } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResult({ didDocument: null, didResolutionMetadata: { error: 'invalidDid', message: 'Invalid' } }),
+      )
 
       await expect(didService.get(tenantAgent, 'invalid')).rejects.toThrow(BadRequestException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('invalid')
     })
 
     test('throws InternalServerErrorException for unknown errors', async () => {
-      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
-        didDocument: null,
-        didResolutionMetadata: { error: 'internalError', message: 'Something broke' },
-      } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResult({
+          didDocument: null,
+          didResolutionMetadata: { error: 'internalError', message: 'Something broke' },
+        }),
+      )
 
       await expect(didService.get(tenantAgent, 'did:key:z1')).rejects.toThrow(InternalServerErrorException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z1')
