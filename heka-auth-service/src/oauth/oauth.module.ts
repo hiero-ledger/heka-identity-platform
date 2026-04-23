@@ -8,7 +8,7 @@ import { PassportModule } from '@nestjs/passport'
 import { BearerGuard } from './guards'
 import { OAuthController } from './oauth.controller'
 import { OAuthService } from './oauth.service'
-import { JwtStrategy } from './strategies'
+import { GitHubStrategy, JwtStrategy } from './strategies'
 
 @Module({
   imports: [
@@ -27,7 +27,7 @@ import { JwtStrategy } from './strategies'
     }),
   ],
   controllers: [OAuthController],
-  providers: [OAuthService, JwtStrategy, BearerGuard],
+  providers: [OAuthService, JwtStrategy, GitHubStrategy, BearerGuard],
   exports: [OAuthService, JwtStrategy],
 })
 export class OAuthModule {}

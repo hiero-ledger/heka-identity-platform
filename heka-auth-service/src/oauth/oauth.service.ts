@@ -3,12 +3,13 @@ import { AuthorizationTokenType } from '@const'
 import { User, UserRole } from '@core/database'
 import { TokenType } from '@core/database/entities/token.entity'
 import { TokenRepository, UserRepository } from '@core/database/repositories'
-import { Injectable, UnauthorizedException } from '@nestjs/common'
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { JwtService, JwtSignOptions } from '@nestjs/jwt'
 import { classFromJson, ExpiresInToDate, SecondsToDate, verifyPassword } from '@utils'
 import { v4 as uuidv4 } from 'uuid'
 
-import { LoginRequest, LoginResponse, LogoutRequest, RefreshResponse, Token } from './dto'
+import { GitHubLoginResponse, LoginRequest, LoginResponse, LogoutRequest, RefreshResponse, Token } from './dto'
+import { GitHubProfile } from './strategies/github.strategy'
 
 class AccessTokenPayload {
   public accessToken!: string
@@ -16,6 +17,8 @@ class AccessTokenPayload {
 
 @Injectable()
 export class OAuthService {
+  private readonly logger = new Logger(OAuthService.name)
+
   public constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
@@ -39,6 +42,60 @@ export class OAuthService {
 
     // authenticate user
     return await this.generateTokens(user)
+  }
+
+  /**
+   * Authenticates or registers a contributor using their GitHub OAuth profile.
+   *
+   * Implements the first step of the contributor identity verification flow:
+   * linking a GitHub account to a Heka identity. If the contributor has not
+   * previously authenticated via GitHub, a new User account is created with
+   * UserRole.User and their GitHub profile data is stored for future DID
+   * and Verifiable Credential issuance.
+   *
+   * @param profile - Validated GitHub OAuth profile from GitHubStrategy
+   * @returns JWT tokens and GitHub profile info, including isNewUser flag
+   */
+  public async loginWithGitHub(profile: GitHubProfile): Promise<GitHubLoginResponse> {
+    this.logger.verbose({ githubId: profile.id }, 'loginWithGitHub >')
+
+    // Resolve primary email: prefer primary+verified, fall back to first available
+    const primaryEmail =
+      profile.emails.find((e) => e.primary && e.verified)?.value ||
+      profile.emails.find((e) => e.primary)?.value ||
+      profile.emails[0]?.value ||
+      null
+
+    let user = await this.userRepository.findOne({ githubId: profile.id })
+    let isNewUser = false
+
+    if (!user) {
+      this.logger.log({ githubUsername: profile.username }, 'Creating new user from GitHub profile')
+      user = new User({
+        name: `github:${profile.username}`,
+        // GitHub users have no local password — use a non-guessable placeholder
+        password: uuidv4(),
+        role: UserRole.User,
+        githubId: profile.id,
+        githubUsername: profile.username,
+        githubEmail: primaryEmail ?? undefined,
+        githubAvatarUrl: profile.photos[0]?.value ?? undefined,
+      })
+      await this.userRepository.persistAndFlush(user)
+      isNewUser = true
+    } else {
+      // Sync GitHub profile data on every login
+      user.githubUsername = profile.username
+      user.githubEmail = primaryEmail ?? user.githubEmail
+      user.githubAvatarUrl = profile.photos[0]?.value ?? user.githubAvatarUrl
+      await this.userRepository.persistAndFlush(user)
+    }
+
+    const tokens = await this.generateTokens(user)
+
+    this.logger.verbose({ githubId: profile.id, isNewUser }, 'loginWithGitHub <')
+
+    return { ...tokens, githubUsername: profile.username, githubId: profile.id, isNewUser }
   }
 
   public async refreshToken(accessToken: string, refreshToken: string): Promise<RefreshResponse> {

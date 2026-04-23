@@ -28,6 +28,18 @@ export class User extends CustomBaseEntity {
   @Enum(() => UserRole)
   public role!: UserRole
 
+  @Property({ nullable: true, unique: true })
+  public githubId?: string
+
+  @Property({ nullable: true })
+  public githubUsername?: string
+
+  @Property({ nullable: true })
+  public githubEmail?: string
+
+  @Property({ nullable: true })
+  public githubAvatarUrl?: string
+
   public constructor(partial?: Partial<User>) {
     super()
     Object.assign(this, partial)
@@ -35,5 +47,9 @@ export class User extends CustomBaseEntity {
 
   public isDemoUser(config: JwtConfig): boolean {
     return this.name === config.demoUser
+  }
+
+  public isGitHubUser(): boolean {
+    return !!this.githubId
   }
 }
