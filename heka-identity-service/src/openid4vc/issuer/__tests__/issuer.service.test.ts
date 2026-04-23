@@ -40,7 +40,7 @@ describe('OpenId4VcIssuerService', () => {
         display: [{ name: 'Test Issuer' }],
       } as any
 
-      ;(tenantAgent.openid4vc.issuer.getAllIssuers as any).mockResolvedValue([])
+      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([])
 
       const mockIssuerRecord = {
         id: 'record-1',
@@ -51,7 +51,7 @@ describe('OpenId4VcIssuerService', () => {
         createdAt: new Date(),
         accessTokenPublicJwk: undefined,
       }
-      ;(tenantAgent.openid4vc.issuer.createIssuer as any).mockResolvedValue(mockIssuerRecord)
+      vi.mocked(tenantAgent.openid4vc.issuer.createIssuer).mockResolvedValue(mockIssuerRecord as any)
 
       const result = await service.createIssuer(tenantAgent, options)
 
@@ -69,7 +69,7 @@ describe('OpenId4VcIssuerService', () => {
         credentialsSupported: [],
       } as any
 
-      ;(tenantAgent.openid4vc.issuer.getAllIssuers as any).mockResolvedValue([{ issuerId: 'did:key:z6Mk1234' }])
+      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([{ issuerId: 'did:key:z6Mk1234' }] as any)
 
       await expect(service.createIssuer(tenantAgent, options)).rejects.toThrow(ConflictException)
       expect(tenantAgent.openid4vc.issuer.getAllIssuers).toHaveBeenCalledWith()
@@ -88,7 +88,7 @@ describe('OpenId4VcIssuerService', () => {
           accessTokenPublicJwk: undefined,
         },
       ]
-      ;(tenantAgent.openid4vc.issuer.getAllIssuers as any).mockResolvedValue(mockIssuers)
+      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue(mockIssuers as any)
 
       const result = await service.find(tenantAgent, 'did:key:z6Mk1234')
 
@@ -98,7 +98,7 @@ describe('OpenId4VcIssuerService', () => {
     })
 
     test('should return empty array when no issuers match', async () => {
-      ;(tenantAgent.openid4vc.issuer.getAllIssuers as any).mockResolvedValue([])
+      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([])
 
       const result = await service.find(tenantAgent, 'did:key:z6MkNonExistent')
 
@@ -121,8 +121,8 @@ describe('OpenId4VcIssuerService', () => {
     }
 
     test('should replace issuer metadata with Replace action', async () => {
-      ;(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any).mockResolvedValue(mockIssuerRecord)
-      ;(tenantAgent.openid4vc.issuer.updateIssuerMetadata as any).mockResolvedValue(undefined)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord as any)
+      vi.mocked(tenantAgent.openid4vc.issuer.updateIssuerMetadata).mockResolvedValue(undefined)
 
       const result = await service.updateIssuerMetadata(tenantAgent, 'issuer-1', {
         action: UpdateIssuerSupportedCredentialsAction.Replace,
@@ -140,8 +140,8 @@ describe('OpenId4VcIssuerService', () => {
     })
 
     test('should add credentials with Add action', async () => {
-      ;(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any).mockResolvedValue(mockIssuerRecord)
-      ;(tenantAgent.openid4vc.issuer.updateIssuerMetadata as any).mockResolvedValue(undefined)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord as any)
+      vi.mocked(tenantAgent.openid4vc.issuer.updateIssuerMetadata).mockResolvedValue(undefined)
 
       const result = await service.updateIssuerMetadata(tenantAgent, 'issuer-1', {
         action: UpdateIssuerSupportedCredentialsAction.Add,
@@ -154,7 +154,7 @@ describe('OpenId4VcIssuerService', () => {
     })
 
     test('should throw BadRequestException on duplicate credential id with Add action', async () => {
-      ;(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any).mockResolvedValue(mockIssuerRecord)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord as any)
 
       await expect(
         service.updateIssuerMetadata(tenantAgent, 'issuer-1', {
@@ -175,7 +175,7 @@ describe('OpenId4VcIssuerService', () => {
           'cred-2': { format: 'jwt_vc_json', credential_definition: { type: ['VerifiableCredential'] } },
         },
       }
-      ;(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any).mockResolvedValue(mockIssuer)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
 
       const result = await service.supportedCredentials(tenantAgent, {
         publicIssuerId: 'issuer-1',
@@ -194,7 +194,7 @@ describe('OpenId4VcIssuerService', () => {
           'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
         },
       }
-      ;(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any).mockResolvedValue(mockIssuer)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer as any)
 
       const result = await service.supportedCredentials(tenantAgent, {
         publicIssuerId: 'issuer-1',
@@ -218,10 +218,10 @@ describe('OpenId4VcIssuerService', () => {
         createdAt: new Date(),
         accessTokenPublicJwk: undefined,
       }
-      ;(tenantAgent.dids.getCreatedDids as any).mockResolvedValue(dids)
-      ;(tenantAgent.openid4vc.issuer.getAllIssuers as any).mockResolvedValue([mockIssuerRecord])
-      ;(tenantAgent.openid4vc.issuer.getIssuerByIssuerId as any).mockResolvedValue(mockIssuerRecord)
-      ;(tenantAgent.openid4vc.issuer.updateIssuerMetadata as any).mockResolvedValue(undefined)
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue(dids as any)
+      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([mockIssuerRecord] as any)
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord as any)
+      vi.mocked(tenantAgent.openid4vc.issuer.updateIssuerMetadata).mockResolvedValue(undefined)
 
       const display = { name: 'New Org Display' } as any
 
@@ -233,7 +233,7 @@ describe('OpenId4VcIssuerService', () => {
     })
 
     test('should do nothing if no DIDs exist', async () => {
-      ;(tenantAgent.dids.getCreatedDids as any).mockResolvedValue([])
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([])
 
       await service.applyUserDisplay(tenantAgent, { name: 'Display' } as any)
 

@@ -235,11 +235,11 @@ describe('OpenId4VcVerificationSessionService', () => {
         },
       } as any
 
-      ;(tenantAgent.dids.resolve as any).mockResolvedValue({
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
         didDocument: {
           verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
         },
-      })
+      } as any)
 
       mockCreateAuthorizationRequest.mockResolvedValue({
         authorizationRequest: 'openid://?request_uri=https://example.com/auth',
@@ -266,7 +266,7 @@ describe('OpenId4VcVerificationSessionService', () => {
         },
       } as any
 
-      ;(tenantAgent.dids.resolve as any).mockResolvedValue({ didDocument: null })
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({ didDocument: null } as any)
 
       await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
@@ -284,7 +284,7 @@ describe('OpenId4VcVerificationSessionService', () => {
         },
       } as any
 
-      ;(tenantAgent.dids.resolve as any).mockResolvedValue({ didDocument: { verificationMethod: [] } })
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({ didDocument: { verificationMethod: [] } } as any)
 
       await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkEmpty')
@@ -297,11 +297,11 @@ describe('OpenId4VcVerificationSessionService', () => {
         dcql: { query: {} },
       } as any
 
-      ;(tenantAgent.dids.resolve as any).mockResolvedValue({
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue({
         didDocument: {
           verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
         },
-      })
+      } as any)
 
       mockCreateAuthorizationRequest.mockResolvedValue({
         authorizationRequest: 'openid://?request_uri=https://example.com/auth',

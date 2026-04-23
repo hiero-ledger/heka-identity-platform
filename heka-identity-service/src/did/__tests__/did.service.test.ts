@@ -148,7 +148,7 @@ describe('DidService', () => {
     }
 
     test('throws when wallet already has a publicDid', async () => {
-      ;(em.findOneOrFail as any).mockResolvedValue({ id: 'wallet-1', publicDid: 'did:indy:existing' })
+      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: 'did:indy:existing' })
 
       const authInfo = { ...baseAuthInfo, role: Role.Admin }
 
@@ -159,14 +159,14 @@ describe('DidService', () => {
     })
 
     test('creates DID via didRegistrarService when no controller wallet is required (Admin role)', async () => {
-      ;(em.findOneOrFail as any).mockResolvedValue({ id: 'wallet-1', publicDid: null })
+      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: null })
 
       const didDocument = {
         id: 'did:indy:test-ns:newdid',
         verificationMethod: [{ id: 'did:indy:test-ns:newdid#key-1' }],
       }
-      ;(didRegistrarService.createDid as any).mockResolvedValue(didDocument)
-      ;(em.flush as any).mockResolvedValue(undefined)
+      vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocument as any)
+      vi.mocked(em.flush).mockResolvedValue(undefined)
 
       const authInfo = { ...baseAuthInfo, role: Role.Admin }
 
@@ -181,8 +181,8 @@ describe('DidService', () => {
     })
 
     test('throws UnprocessableEntityException when didControllerWallet is not found', async () => {
-      ;(em.findOneOrFail as any).mockResolvedValue({ id: 'wallet-1', publicDid: null })
-      ;(em.findOne as any).mockResolvedValue(null)
+      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: null })
+      vi.mocked(em.findOne).mockResolvedValue(null)
 
       const authInfo = { ...baseAuthInfo, role: Role.OrgAdmin, orgId: 'org-1' }
 
@@ -194,8 +194,8 @@ describe('DidService', () => {
     })
 
     test('throws UnprocessableEntityException when didControllerWallet has no publicDid', async () => {
-      ;(em.findOneOrFail as any).mockResolvedValue({ id: 'wallet-1', publicDid: null })
-      ;(em.findOne as any).mockResolvedValue({ id: 'Administration', publicDid: null })
+      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: null })
+      vi.mocked(em.findOne).mockResolvedValue({ id: 'Administration', publicDid: null })
 
       const authInfo = { ...baseAuthInfo, role: Role.OrgAdmin, orgId: 'org-1' }
 
