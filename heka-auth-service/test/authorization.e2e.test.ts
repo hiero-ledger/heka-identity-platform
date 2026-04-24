@@ -87,4 +87,32 @@ describe('E2E authorization', () => {
 
     expect(revokeTokenResponse.status).toBe(205)
   })
+
+  test('login fails with wrong password', async () => {
+    const user = newUser()
+    const createUserResponse = await request(app)
+      .post('/api/v1/user/register')
+      .send({
+        name: user.name,
+        password: user.password,
+        role: UserRole.Issuer,
+      } satisfies RegisterUserRequest)
+
+    expect(createUserResponse.status).toBe(201)
+
+    const loginUserResponse = await request(app)
+      .post('/api/v1/oauth/token')
+      .send({
+        name: user.name,
+        password: 'WrongPassword123!',
+      } satisfies LoginRequest)
+
+    expect(loginUserResponse.status).toBe(401)
+  })
+
+  test('profile endpoint requires authentication', async () => {
+    const response = await request(app).get('/api/v1/user/profile')
+
+    expect(response.status).toBe(401)
+  })
 })
