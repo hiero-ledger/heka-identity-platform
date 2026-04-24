@@ -153,9 +153,9 @@ export async function startApp(app: INestApplication, { withSwaggerUi }: { withS
 
   app.enableShutdownHooks()
 
-  // process.on('unhandledRejection', (err) => {
-  //   logger.error(`Unhandled Rejection: ${err}`)
-  // })
+  process.on('unhandledRejection', (err) => {
+    logger.error(`Unhandled Rejection: ${err}`)
+  })
 
   // Recreate OCA files for Aries
   await app.get(OCAFilesService)?.run()

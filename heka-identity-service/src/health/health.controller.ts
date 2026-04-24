@@ -1,8 +1,15 @@
 import { Controller, Get, Inject } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
-import { HealthCheck, HealthCheckResult, HealthCheckService, MemoryHealthIndicator } from '@nestjs/terminus'
+import {
+  HealthCheck,
+  HealthCheckResult,
+  HealthCheckService,
+  MemoryHealthIndicator,
+  MikroOrmHealthIndicator,
+} from '@nestjs/terminus'
 
+import { Agent, AGENT_TOKEN } from 'common/agent'
 import { InjectLogger, Logger } from 'common/logger'
 import HealthConfig from 'config/health'
 
@@ -12,6 +19,9 @@ export class HealthController {
   public constructor(
     private readonly healthCheckService: HealthCheckService,
     private readonly memoryHealthIndicator: MemoryHealthIndicator,
+    private readonly mikroOrmHealthIndicator: MikroOrmHealthIndicator,
+    @Inject(AGENT_TOKEN)
+    private readonly agent: Agent,
     @InjectLogger(HealthController)
     private readonly logger: Logger,
     @Inject(HealthConfig.KEY)
@@ -31,6 +41,10 @@ export class HealthController {
     const checkResult = await this.healthCheckService.check([
       () => this.memoryHealthIndicator.checkHeap('memory_heap', memoryHeapThresholdMb * 1024 * 1024),
       () => this.memoryHealthIndicator.checkRSS('memory_rss', memoryRssThresholdMb * 1024 * 1024),
+      () => this.mikroOrmHealthIndicator.pingCheck('database'),
+      () => ({
+        agent: this.agent.isInitialized ? { status: 'up' } : { status: 'down' },
+      }),
     ])
     logger.traceObject({ checkResult })
 
