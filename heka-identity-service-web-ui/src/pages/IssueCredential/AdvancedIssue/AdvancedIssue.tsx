@@ -129,7 +129,7 @@ export const AdvancedIssue = ({ type = 'issue' }: AdvancedIssueProps) => {
 
   useEffect(() => {
     onChangeContextProperty('schema')(singleSchema);
-  }, [singleSchema]);
+  }, [singleSchema, onChangeContextProperty]);
 
   return (
     <PreparationStepLayout

@@ -75,7 +75,7 @@ export const FillCredentialData = ({
       );
       navigate(ROUTES.ISSUE_CREDENTIAL_TEMPLATES);
     },
-    [navigate, dispatch, context],
+    [navigate, dispatch, context, getValues],
   );
 
   const onUpdateTemplate = useCallback(async () => {

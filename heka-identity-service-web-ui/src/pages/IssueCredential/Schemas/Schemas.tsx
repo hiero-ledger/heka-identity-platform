@@ -66,7 +66,7 @@ export const Schemas = () => {
 
   useEffect(() => {
     setLocalSchemas(schemas);
-  }, [setLocalSchemas, isLoading]);
+  }, [schemas]);
 
   useEffect(() => {
     if (schema?.id) {

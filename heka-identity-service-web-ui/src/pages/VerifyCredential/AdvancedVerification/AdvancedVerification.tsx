@@ -98,9 +98,9 @@ const AdvancedVerification = ({
 
   const onSelectProtocol = useCallback(() => {
     if (flowContext?.protocolType === ProtocolType.Oid4vc) {
-      flowContext.network = undefined;
+      onChangeContextProperty('network')(undefined);
     }
-    flowContext.did = undefined;
+    onChangeContextProperty('did')(undefined);
 
     const nextStep =
       flowContext?.protocolType === ProtocolType.Oid4vc
@@ -108,7 +108,7 @@ const AdvancedVerification = ({
         : VerifyCredentialSteps.SelectNetwork;
 
     onChangeStep(nextStep);
-  }, [flowContext?.protocolType, onChangeStep]);
+  }, [flowContext?.protocolType, onChangeStep, onChangeContextProperty]);
 
   const onRequest = useCallback(
     (attributes: Array<string>) => {
@@ -126,7 +126,7 @@ const AdvancedVerification = ({
 
   useEffect(() => {
     onChangeContextProperty('schema')(singleSchema);
-  }, [singleSchema]);
+  }, [singleSchema, onChangeContextProperty]);
 
   return (
     <PreparationStepLayout

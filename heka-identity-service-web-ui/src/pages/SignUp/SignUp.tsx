@@ -61,8 +61,8 @@ const SignUpView: React.FC = () => {
             password: data.password,
           }),
         );
-      } catch (e) {
-        console.log(e.message);
+      } catch {
+        /* empty */
       }
     },
     [dispatch],
