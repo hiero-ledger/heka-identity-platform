@@ -1,7 +1,6 @@
-import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { Collection, Entity, Enum, ManyToOne, OneToMany, Property } from '@mikro-orm/core'
 
-import { AriesCredentialFormat, CredentialFormat, DidMethod, ProtocolType } from '../types'
+import { AriesCredentialFormat, CredentialFormat, DidMethod, OpenId4VcCredentialFormat, ProtocolType } from '../types'
 
 import { Identified } from './identified.entity'
 import { IssuanceTemplateField } from './issuance-template-field.entity'
@@ -23,7 +22,7 @@ export class IssuanceTemplate extends Identified {
   public protocol!: ProtocolType
 
   @Property({ nullable: false, type: 'string' })
-  @Enum(() => AriesCredentialFormat || OpenId4VciCredentialFormatProfile)
+  @Enum(() => AriesCredentialFormat || OpenId4VcCredentialFormat)
   public credentialFormat!: CredentialFormat
 
   @Property({ nullable: false, type: 'string' })
