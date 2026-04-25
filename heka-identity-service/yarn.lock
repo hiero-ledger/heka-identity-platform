@@ -6798,6 +6798,7 @@ __metadata:
     vitest-when: "npm:0.5.0"
     ws: "npm:^8.13.0"
     yaml: "npm:^2.2.2"
+    zod: "npm:^4.3.6"
     zstd-napi: "npm:^0.0.10"
   languageName: unknown
   linkType: soft
