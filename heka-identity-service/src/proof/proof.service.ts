@@ -26,6 +26,7 @@ import {
   SchemaIdProofParamsDto,
 } from './dto/proof-params.dto'
 import { ProofRequestFormat } from './dto/proof-request.dto'
+import { formatCredentialAttribute } from './utils/format-credential-attribute'
 
 @Injectable()
 export class ProofService {
@@ -83,15 +84,24 @@ export class ProofService {
         proofRecordDto.revealedAttributes = []
         for (const verifiableCredential of verifiableCredentials) {
           if (typeof verifiableCredential === 'string') {
-            // skip?
-          } else {
-            for (const [attribute, value] of Object.entries(verifiableCredential.credentialSubject)) {
-              proofRecordDto.revealedAttributes.push({
-                name: attribute,
-                // FIXME: Support all types
-                value: value?.toString() ?? '',
-              })
+            // Skip string-encoded credentials (JWT format)
+            // These would need to be decoded first
+            continue
+          }
+
+          // Process credential subject attributes
+          for (const [attribute, value] of Object.entries(verifiableCredential.credentialSubject)) {
+            // Skip the 'id' field as it's the subject identifier, not an attribute
+            if (attribute === 'id') {
+              continue
             }
+
+            const formatted = formatCredentialAttribute(value)
+            proofRecordDto.revealedAttributes.push({
+              name: attribute,
+              value: formatted.value,
+              rawValue: formatted.rawValue,
+            })
           }
         }
       }

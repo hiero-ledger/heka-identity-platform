@@ -3,20 +3,35 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export interface ProofRevealedAttributeDtoOptions {
   name: string
-  value: string
+  value: string | number | boolean | null
+  rawValue?: unknown
 }
 
 export class ProofRevealedAttributeDto {
   public constructor(options: ProofRevealedAttributeDtoOptions) {
     this.name = options.name
     this.value = options.value
+    this.rawValue = options.rawValue
   }
 
   @ApiProperty()
   public name: string
 
-  @ApiProperty()
-  public value: string
+  @ApiProperty({
+    description: 'The formatted value of the attribute (string, number, boolean, or null)',
+    oneOf: [
+      { type: 'string' },
+      { type: 'number' },
+      { type: 'boolean' },
+      { type: 'null' },
+    ],
+  })
+  public value: string | number | boolean | null
+
+  @ApiPropertyOptional({
+    description: 'The original raw value for complex types (arrays, objects)',
+  })
+  public rawValue?: unknown
 }
 
 export interface ProofRecordDtoOptions {
