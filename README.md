@@ -38,3 +38,4 @@ The Heka Identity Platform operates under the governance of the **Hiero Technica
 
 - Maintainers are nominated and approved according to Hiero governance rules.
 - All code and documentation follow LF and Hiero licensing and compliance requirements.
+
