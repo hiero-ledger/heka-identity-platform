@@ -12,7 +12,7 @@ import { $agencyDemoApi } from '@/shared/api';
 import { $agencyApi, $authApi } from '@/shared/api/config/api';
 
 import { createReducerManager } from './reducerManager';
-import { StateSchema, ThunkExtraArg } from './StateSchema';
+import { ReduxStoreWithManager, StateSchema, ThunkExtraArg } from './StateSchema';
 
 export function createReduxStore(
   initialState?: StateSchema,
@@ -47,9 +47,8 @@ export function createReduxStore(
           extraArgument: extraArg,
         },
       }),
-  });
+  }) as ReduxStoreWithManager;
 
-  // @ts-ignore
   store.reducerManager = reducerManager;
 
   return store;
