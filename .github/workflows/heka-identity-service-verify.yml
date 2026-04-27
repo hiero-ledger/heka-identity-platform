@@ -85,7 +85,6 @@ jobs:
         run: yarn test:coverage
 
       - name: Report coverage
-        if: always()
         uses: davelosert/vitest-coverage-report-action@15b5b41bb7d36796d89f4bf482b09529c53f3446 # v2.9.2
         with:
           working-directory: ./heka-identity-service

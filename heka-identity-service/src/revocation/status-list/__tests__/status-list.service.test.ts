@@ -327,16 +327,19 @@ describe('StatusListService', () => {
       const result = await service.getItemDetails(id)
 
       expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id })
-      expect(result.id).toBe(id)
-      expect(result.issuer).toBe('did:example:issuer')
-      expect(result.validFrom).toBeDefined()
-      expect(result.credentialSubject.id).toBe(id)
-      expect(result.credentialSubject.statusPurpose).toBe(StatusListPurpose.Revocation)
-      expect(result.credentialSubject.encodedList).toBe('encoded-data')
-      expect(result.credentialSubject.type).toBe('BitstringStatusList')
-      expect(result['@context']).toContain('https://www.w3.org/ns/credentials/v2')
-      expect(result.type).toContain('VerifiableCredential')
-      expect(result.type).toContain('BitstringStatusListCredential')
+      expect(result).toEqual({
+        '@context': ['https://www.w3.org/ns/credentials/v2'],
+        type: ['VerifiableCredential', 'BitstringStatusListCredential'],
+        id,
+        issuer: 'did:example:issuer',
+        validFrom: expect.any(String),
+        credentialSubject: {
+          id,
+          type: 'BitstringStatusList',
+          statusPurpose: StatusListPurpose.Revocation,
+          encodedList: 'encoded-data',
+        },
+      })
     })
 
     test('should propagate error when entity not found', async () => {

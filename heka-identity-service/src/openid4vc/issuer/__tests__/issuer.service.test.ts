@@ -3,7 +3,7 @@ import { ConflictException, BadRequestException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
 
-import { didRecordStub, issuerRecord } from '../../../../test/helpers/mock-records'
+import { didRecordStub, issuerRecordStub } from '../../../../test/helpers/mock-records'
 import { UpdateIssuerSupportedCredentialsAction } from '../dto/update-issuer.dto'
 import { OpenId4VcIssuerService } from '../issuer.service'
 
@@ -43,7 +43,7 @@ describe('OpenId4VcIssuerService', () => {
 
       vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([])
 
-      const mockIssuerRecord = issuerRecord({
+      const mockIssuerRecord = issuerRecordStub({
         id: 'record-1',
         issuerId: 'did:key:z6Mk1234',
         credentialConfigurationsSupported: {},
@@ -71,7 +71,7 @@ describe('OpenId4VcIssuerService', () => {
       } as any
 
       vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([
-        issuerRecord({ issuerId: 'did:key:z6Mk1234' }),
+        issuerRecordStub({ issuerId: 'did:key:z6Mk1234' }),
       ])
 
       await expect(service.createIssuer(tenantAgent, options)).rejects.toThrow(ConflictException)
@@ -82,7 +82,7 @@ describe('OpenId4VcIssuerService', () => {
   describe('find', () => {
     test('should return matching issuers', async () => {
       const mockIssuers = [
-        issuerRecord({
+        issuerRecordStub({
           id: 'record-1',
           issuerId: 'did:key:z6Mk1234',
           credentialConfigurationsSupported: {},
@@ -111,7 +111,7 @@ describe('OpenId4VcIssuerService', () => {
   })
 
   describe('updateIssuerMetadata', () => {
-    const mockIssuerRecord = issuerRecord({
+    const mockIssuerRecord = issuerRecordStub({
       id: 'record-1',
       issuerId: 'issuer-1',
       credentialConfigurationsSupported: {
@@ -171,7 +171,7 @@ describe('OpenId4VcIssuerService', () => {
 
   describe('supportedCredentials', () => {
     test('should return credentials matching the format filter', async () => {
-      const mockIssuer = issuerRecord({
+      const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
@@ -191,7 +191,7 @@ describe('OpenId4VcIssuerService', () => {
     })
 
     test('should return empty array when no credentials match filter', async () => {
-      const mockIssuer = issuerRecord({
+      const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
@@ -212,7 +212,7 @@ describe('OpenId4VcIssuerService', () => {
   describe('applyUserDisplay', () => {
     test('should update display for all issuers across all DIDs', async () => {
       const dids = [didRecordStub({ did: 'did:key:z6Mk1111' }), didRecordStub({ did: 'did:key:z6Mk2222' })]
-      const mockIssuerRecord = issuerRecord({
+      const mockIssuerRecord = issuerRecordStub({
         id: 'record-1',
         issuerId: 'did:key:z6Mk1111',
         credentialConfigurationsSupported: {},

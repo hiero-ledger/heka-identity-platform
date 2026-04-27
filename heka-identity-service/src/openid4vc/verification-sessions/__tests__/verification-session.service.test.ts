@@ -4,7 +4,7 @@ import { InternalServerErrorException, UnprocessableEntityException } from '@nes
 
 import { TenantAgent } from 'common/agent'
 
-import { didResolutionResult, verificationSessionRecord } from '../../../../test/helpers/mock-records'
+import { didResolutionResultStub, verificationSessionRecordStub } from '../../../../test/helpers/mock-records'
 import { OpenId4VcVerificationSessionService } from '../verification-session.service'
 
 describe('OpenId4VcVerificationSessionService', () => {
@@ -18,7 +18,7 @@ describe('OpenId4VcVerificationSessionService', () => {
   const mockGetVerifiedAuthorizationResponse = vi.fn()
 
   const makeSessionRecord = (overrides: Record<string, unknown> = {}) =>
-    verificationSessionRecord({
+    verificationSessionRecordStub({
       id: 'vs-1',
       verifierId: 'verifier-1',
       state: OpenId4VcVerificationSessionState.RequestCreated,
@@ -238,7 +238,7 @@ describe('OpenId4VcVerificationSessionService', () => {
       } as any
 
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
-        didResolutionResult({
+        didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
           },
@@ -270,7 +270,7 @@ describe('OpenId4VcVerificationSessionService', () => {
         },
       } as any
 
-      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(didResolutionResult({ didDocument: null }))
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(didResolutionResultStub({ didDocument: null }))
 
       await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
@@ -289,7 +289,7 @@ describe('OpenId4VcVerificationSessionService', () => {
       } as any
 
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
-        didResolutionResult({ didDocument: { verificationMethod: [] } }),
+        didResolutionResultStub({ didDocument: { verificationMethod: [] } }),
       )
 
       await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
@@ -304,7 +304,7 @@ describe('OpenId4VcVerificationSessionService', () => {
       } as any
 
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
-        didResolutionResult({
+        didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
           },

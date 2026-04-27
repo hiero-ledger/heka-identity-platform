@@ -7,7 +7,11 @@ import { TenantAgent } from 'common/agent'
 import { AuthInfo, Role } from 'common/auth'
 import AgentConfig from 'config/agent'
 
-import { didResolutionResult, issuanceSessionRecord, issuerRecord } from '../../../../test/helpers/mock-records'
+import {
+  didResolutionResultStub,
+  issuanceSessionRecordStub,
+  issuerRecordStub,
+} from '../../../../test/helpers/mock-records'
 import { StatusListService } from '../../../revocation/status-list/status-list.service'
 import { OpenId4VcIssuanceSessionService } from '../issuance-session.service'
 
@@ -79,7 +83,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
   describe('getIssuanceSessionsByQuery', () => {
     test('should return issuance sessions matching query', async () => {
       const mockSessions = [
-        issuanceSessionRecord({
+        issuanceSessionRecordStub({
           id: 'session-1',
           issuerId: 'issuer-1',
           state: 'OfferCreated',
@@ -117,7 +121,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
   describe('getIssuanceSession', () => {
     test('should return an issuance session by id', async () => {
-      const mockSession = issuanceSessionRecord({
+      const mockSession = issuanceSessionRecordStub({
         id: 'session-1',
         issuerId: 'issuer-1',
         state: 'OfferCreated',
@@ -149,7 +153,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
   describe('offer', () => {
     test('should throw UnprocessableEntityException when credential is not in issuer supported list', async () => {
-      const mockIssuer = issuerRecord({
+      const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {},
       })
@@ -175,7 +179,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
 
     test('should throw UnprocessableEntityException when credential format does not match supported format', async () => {
-      const mockIssuer = issuerRecord({
+      const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
@@ -201,7 +205,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
 
     test('should throw UnprocessableEntityException when DID cannot be resolved', async () => {
-      const mockIssuer = issuerRecord({
+      const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
@@ -210,7 +214,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
       vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
-      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(didResolutionResult({ didDocument: null }))
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(didResolutionResultStub({ didDocument: null }))
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -229,7 +233,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
 
     test('should create issuance session for SdJwtVc format without credentialStatus', async () => {
-      const mockIssuer = issuerRecord({
+      const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-sd-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
@@ -239,14 +243,14 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
       vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
-        didResolutionResult({
+        didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6MkGood#key-1' }],
           },
         }),
       )
 
-      const mockSession = issuanceSessionRecord({
+      const mockSession = issuanceSessionRecordStub({
         id: 'session-new',
         issuerId: 'issuer-1',
         state: 'OfferCreated',
@@ -288,7 +292,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
 
     test('should create issuance session for JwtVcJson format WITH credentialStatus and call addItems', async () => {
-      const mockIssuer = issuerRecord({
+      const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-jwt-1': {
@@ -302,7 +306,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 5 } as any)
       vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-1')
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
-        didResolutionResult({
+        didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6MkJwt#key-1' }],
           },
@@ -310,7 +314,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       )
       vi.mocked(statusListService.addItems).mockResolvedValue(undefined)
 
-      const mockSession = issuanceSessionRecord({
+      const mockSession = issuanceSessionRecordStub({
         id: 'session-jwt',
         issuerId: 'issuer-1',
         state: 'OfferCreated',
@@ -347,7 +351,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
 
     test('should create issuance session for JwtVcJsonLd format WITH credentialStatus', async () => {
-      const mockIssuer = issuerRecord({
+      const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-ld-1': {
@@ -361,7 +365,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-2', lastIndex: 10 } as any)
       vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-2')
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
-        didResolutionResult({
+        didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6MkLd#key-1' }],
           },
@@ -369,7 +373,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       )
       vi.mocked(statusListService.addItems).mockResolvedValue(undefined)
 
-      const mockSession = issuanceSessionRecord({
+      const mockSession = issuanceSessionRecordStub({
         id: 'session-ld',
         issuerId: 'issuer-1',
         state: 'OfferCreated',
@@ -401,7 +405,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
 
     test('should create issuance session for LdpVc format WITH credentialStatus', async () => {
-      const mockIssuer = issuerRecord({
+      const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-ldp-1': {
@@ -415,7 +419,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-3', lastIndex: 0 } as any)
       vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-3')
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
-        didResolutionResult({
+        didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6MkLdp#key-1' }],
           },
@@ -423,7 +427,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       )
       vi.mocked(statusListService.addItems).mockResolvedValue(undefined)
 
-      const mockSession = issuanceSessionRecord({
+      const mockSession = issuanceSessionRecordStub({
         id: 'session-ldp',
         issuerId: 'issuer-1',
         state: 'OfferCreated',
@@ -455,7 +459,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
 
     test('should create issuance session for MsoMdoc format without DID resolution or credentialStatus', async () => {
-      const mockIssuer = issuerRecord({
+      const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-mdoc-1': {
@@ -468,7 +472,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
       vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-mdoc', lastIndex: 0 } as any)
 
-      const mockSession = issuanceSessionRecord({
+      const mockSession = issuanceSessionRecordStub({
         id: 'session-mdoc',
         issuerId: 'issuer-1',
         state: 'OfferCreated',
@@ -518,7 +522,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       const restrictedService = new OpenId4VcIssuanceSessionService(restrictedConfig, statusListService)
 
-      const mockIssuer = issuerRecord({
+      const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
@@ -546,7 +550,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
   describe('revokeIssuanceSession', () => {
     test('should throw error when credential not found', async () => {
-      const mockSession = issuanceSessionRecord({
+      const mockSession = issuanceSessionRecordStub({
         id: 'session-1',
         issuanceMetadata: undefined,
       })
@@ -560,7 +564,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
 
     test('should throw error when credential does not support revocation', async () => {
-      const mockSession = issuanceSessionRecord({
+      const mockSession = issuanceSessionRecordStub({
         id: 'session-1',
         issuanceMetadata: {
           credentials: [{ format: 'vc+sd-jwt', credentialStatus: undefined }],
@@ -575,7 +579,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
 
     test('should call statusListService.updateItems on successful revocation', async () => {
-      const mockSession = issuanceSessionRecord({
+      const mockSession = issuanceSessionRecordStub({
         id: 'session-1',
         issuanceMetadata: {
           credentials: [

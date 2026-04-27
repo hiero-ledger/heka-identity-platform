@@ -26,40 +26,43 @@ type LooseStub<T> = { [K in keyof T]?: unknown }
 
 const stub = <T>(overrides: LooseStub<T>): T => overrides as T
 
-export const connectionRecord = (overrides: LooseStub<DidCommConnectionRecord> = {}) =>
+export const connectionRecordStub = (overrides: LooseStub<DidCommConnectionRecord> = {}) =>
   stub<DidCommConnectionRecord>(overrides)
 
-export const oobRecord = (overrides: LooseStub<DidCommOutOfBandRecord> = {}) => stub<DidCommOutOfBandRecord>(overrides)
+export const oobRecordStub = (overrides: LooseStub<DidCommOutOfBandRecord> = {}) =>
+  stub<DidCommOutOfBandRecord>(overrides)
 
-export const credentialExchangeRecord = (overrides: LooseStub<DidCommCredentialExchangeRecord> = {}) =>
+export const credentialExchangeRecordStub = (overrides: LooseStub<DidCommCredentialExchangeRecord> = {}) =>
   stub<DidCommCredentialExchangeRecord>(overrides)
 
-export const proofExchangeRecord = (overrides: LooseStub<DidCommProofExchangeRecord> = {}) =>
+export const proofExchangeRecordStub = (overrides: LooseStub<DidCommProofExchangeRecord> = {}) =>
   stub<DidCommProofExchangeRecord>(overrides)
 
-export const issuerRecord = (overrides: LooseStub<OpenId4VcIssuerRecord> = {}) => stub<OpenId4VcIssuerRecord>(overrides)
+export const issuerRecordStub = (overrides: LooseStub<OpenId4VcIssuerRecord> = {}) =>
+  stub<OpenId4VcIssuerRecord>(overrides)
 
-export const issuanceSessionRecord = (overrides: LooseStub<OpenId4VcIssuanceSessionRecord> = {}) =>
+export const issuanceSessionRecordStub = (overrides: LooseStub<OpenId4VcIssuanceSessionRecord> = {}) =>
   stub<OpenId4VcIssuanceSessionRecord>(overrides)
 
-export const verificationSessionRecord = (overrides: LooseStub<OpenId4VcVerificationSessionRecord> = {}) =>
+export const verificationSessionRecordStub = (overrides: LooseStub<OpenId4VcVerificationSessionRecord> = {}) =>
   stub<OpenId4VcVerificationSessionRecord>(overrides)
 
-export const didResolutionResult = (overrides: LooseStub<DidResolutionResult> = {}): DidResolutionResult =>
+export const didResolutionResultStub = (overrides: LooseStub<DidResolutionResult> = {}): DidResolutionResult =>
   ({ didResolutionMetadata: {}, didDocumentMetadata: {}, ...overrides }) as DidResolutionResult
 
 export const didRecordStub = (overrides: LooseStub<DidRecord> = {}) => stub<DidRecord>(overrides)
 
-export const anonCredsSchema = (overrides: LooseStub<AnonCredsSchema> = {}) => stub<AnonCredsSchema>(overrides)
+export const anonCredsSchemaStub = (overrides: LooseStub<AnonCredsSchema> = {}) => stub<AnonCredsSchema>(overrides)
 
-export const anonCredsCredentialDefinition = (overrides: LooseStub<AnonCredsCredentialDefinition> = {}) =>
+export const anonCredsCredentialDefinitionStub = (overrides: LooseStub<AnonCredsCredentialDefinition> = {}) =>
   stub<AnonCredsCredentialDefinition>(overrides)
 
-export const anonCredsSchemaRecord = (overrides: LooseStub<AnonCredsSchemaRecord> = {}) =>
+export const anonCredsSchemaRecordStub = (overrides: LooseStub<AnonCredsSchemaRecord> = {}) =>
   stub<AnonCredsSchemaRecord>(overrides)
 
-export const anonCredsCredentialDefinitionRecord = (overrides: LooseStub<AnonCredsCredentialDefinitionRecord> = {}) =>
-  stub<AnonCredsCredentialDefinitionRecord>(overrides)
+export const anonCredsCredentialDefinitionRecordStub = (
+  overrides: LooseStub<AnonCredsCredentialDefinitionRecord> = {},
+) => stub<AnonCredsCredentialDefinitionRecord>(overrides)
 
 /** Generic stub for project-owned mikro-orm entities (Schema, IssuanceTemplate, etc.). */
 export const entityStub = <T>(overrides: LooseStub<T>): T => overrides as T

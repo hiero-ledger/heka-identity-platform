@@ -22,7 +22,12 @@ To run Heka Identity Service locally, follow these steps:
    ```bash
    yarn install
    ```
-
+> **Note for Python 3.12+ users:**
+> Building native dependencies like `@2060.io/ffi-napi` requires `node-gyp`, which relies on `distutils`—a module that was permanently removed in Python 3.12. If `yarn install` crashes with a `ModuleNotFoundError: No module named 'distutils'`, you must use Python 3.11 instead. You can do this without changing your system default by passing the environment variable:
+>
+> ```bash
+> npm_config_python=/path/to/python3.11 yarn install
+> ``
 5. Configure persistent storage. You can find information on how to configure it in the [Persistence](#persistence)
    and [Migrations](#migrations) sections.
 6. Run the server as described in the [Run the app](#run-the-app)

@@ -5,9 +5,9 @@ import { AnoncredsRegistryService } from 'common/anoncreds-registry'
 import { Logger } from 'common/logger'
 
 import {
-  anonCredsCredentialDefinition,
-  anonCredsCredentialDefinitionRecord,
-  anonCredsSchema,
+  anonCredsCredentialDefinitionStub,
+  anonCredsCredentialDefinitionRecordStub,
+  anonCredsSchemaStub,
 } from '../../../test/helpers/mock-records'
 import { CredentialDefinitionService } from '../credential-definition.service'
 
@@ -29,9 +29,9 @@ describe('CredentialDefinitionService', () => {
   describe('getCreated', () => {
     test('returns credential definitions filtered by issuerId and schemaId', async () => {
       const mockCredDefs = [
-        anonCredsCredentialDefinitionRecord({
+        anonCredsCredentialDefinitionRecordStub({
           credentialDefinitionId: 'creddef-1',
-          credentialDefinition: anonCredsCredentialDefinition({
+          credentialDefinition: anonCredsCredentialDefinitionStub({
             issuerId: 'issuer-1',
             schemaId: 'schema-1',
             tag: 'default',
@@ -53,17 +53,17 @@ describe('CredentialDefinitionService', () => {
 
     test('returns all credential definitions when no filters provided', async () => {
       const mockCredDefs = [
-        anonCredsCredentialDefinitionRecord({
+        anonCredsCredentialDefinitionRecordStub({
           credentialDefinitionId: 'creddef-1',
-          credentialDefinition: anonCredsCredentialDefinition({
+          credentialDefinition: anonCredsCredentialDefinitionStub({
             issuerId: 'issuer-1',
             schemaId: 'schema-1',
             tag: 'tag1',
           }),
         }),
-        anonCredsCredentialDefinitionRecord({
+        anonCredsCredentialDefinitionRecordStub({
           credentialDefinitionId: 'creddef-2',
-          credentialDefinition: anonCredsCredentialDefinition({
+          credentialDefinition: anonCredsCredentialDefinitionStub({
             issuerId: 'issuer-2',
             schemaId: 'schema-2',
             tag: 'tag2',
@@ -100,12 +100,12 @@ describe('CredentialDefinitionService', () => {
 
       vi.mocked(anoncredsRegistryService.getSchema).mockResolvedValue({
         schemaId: 'schema-1',
-        schema: anonCredsSchema(),
+        schema: anonCredsSchemaStub(),
       })
 
       vi.mocked(anoncredsRegistryService.registerCredentialDefinition).mockResolvedValue({
         credentialDefinitionId: 'creddef-new',
-        credentialDefinition: anonCredsCredentialDefinition({
+        credentialDefinition: anonCredsCredentialDefinitionStub({
           issuerId: 'issuer-1',
           schemaId: 'schema-1',
           tag: 'default',
@@ -135,7 +135,7 @@ describe('CredentialDefinitionService', () => {
     test('resolves credential definition by ID', async () => {
       vi.mocked(anoncredsRegistryService.getCredentialDefinition).mockResolvedValue({
         credentialDefinitionId: 'creddef-1',
-        credentialDefinition: anonCredsCredentialDefinition({
+        credentialDefinition: anonCredsCredentialDefinitionStub({
           issuerId: 'issuer-1',
           schemaId: 'schema-1',
           tag: 'resolved',

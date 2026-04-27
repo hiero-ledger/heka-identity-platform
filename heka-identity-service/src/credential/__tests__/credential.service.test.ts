@@ -13,7 +13,7 @@ import { AnoncredsRegistryService } from 'common/anoncreds-registry'
 import { Logger } from 'common/logger'
 import { RevocationRegistryService } from 'revocation/revocation-registry/revocation-registry.service'
 
-import { connectionRecord, credentialExchangeRecord } from '../../../test/helpers/mock-records'
+import { connectionRecordStub, credentialExchangeRecordStub } from '../../../test/helpers/mock-records'
 import { CredentialService } from '../credential.service'
 
 describe('CredentialService', () => {
@@ -49,8 +49,8 @@ describe('CredentialService', () => {
   describe('find', () => {
     test('returns credential records by threadId', async () => {
       const mockRecords = [
-        credentialExchangeRecord({ id: 'cred-1', state: 'offer-sent', createdAt: new Date() }),
-        credentialExchangeRecord({ id: 'cred-2', state: 'done', createdAt: new Date() }),
+        credentialExchangeRecordStub({ id: 'cred-1', state: 'offer-sent', createdAt: new Date() }),
+        credentialExchangeRecordStub({ id: 'cred-2', state: 'done', createdAt: new Date() }),
       ]
       vi.mocked(tenantAgent.didcomm.credentials.findAllByQuery).mockResolvedValue(mockRecords)
 
@@ -81,7 +81,7 @@ describe('CredentialService', () => {
 
   describe('get', () => {
     test('returns credential record when found', async () => {
-      const mockRecord = credentialExchangeRecord({ id: 'cred-1', state: 'done', createdAt: new Date() })
+      const mockRecord = credentialExchangeRecordStub({ id: 'cred-1', state: 'done', createdAt: new Date() })
       vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(mockRecord)
 
       const result = await credentialService.get(tenantAgent, 'cred-1')
@@ -100,14 +100,14 @@ describe('CredentialService', () => {
 
   describe('accept', () => {
     test('accepts credential offer', async () => {
-      const mockRecord = credentialExchangeRecord({
+      const mockRecord = credentialExchangeRecordStub({
         id: 'cred-1',
         state: DidCommCredentialState.OfferReceived,
         createdAt: new Date(),
       })
       vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(mockRecord)
 
-      const acceptedRecord = credentialExchangeRecord({
+      const acceptedRecord = credentialExchangeRecordStub({
         id: 'cred-1',
         state: DidCommCredentialState.Done,
         createdAt: new Date(),
@@ -129,7 +129,7 @@ describe('CredentialService', () => {
     })
 
     test('throws ConflictException when credential already accepted', async () => {
-      const mockRecord = credentialExchangeRecord({
+      const mockRecord = credentialExchangeRecordStub({
         id: 'cred-1',
         state: DidCommCredentialState.Done,
         createdAt: new Date(),
@@ -156,7 +156,7 @@ describe('CredentialService', () => {
     })
 
     test('offers credential without revocation', async () => {
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecord({ id: 'conn-1' }))
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecordStub({ id: 'conn-1' }))
 
       vi.mocked(anoncredsRegistryService.getCredentialDefinition).mockResolvedValue({
         credentialDefinitionId: 'creddef-1',
@@ -171,7 +171,11 @@ describe('CredentialService', () => {
         schema: { attrNames: ['name', 'age'] },
       } as any)
 
-      const mockCredRecord = credentialExchangeRecord({ id: 'cred-new', state: 'offer-sent', createdAt: new Date() })
+      const mockCredRecord = credentialExchangeRecordStub({
+        id: 'cred-new',
+        state: 'offer-sent',
+        createdAt: new Date(),
+      })
       vi.mocked(tenantAgent.didcomm.credentials.offerCredential).mockResolvedValue(mockCredRecord)
 
       const result = await credentialService.offer(tenantAgent, {
@@ -194,7 +198,7 @@ describe('CredentialService', () => {
     })
 
     test('offers credential with revocation and updates registry', async () => {
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecord({ id: 'conn-1' }))
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecordStub({ id: 'conn-1' }))
 
       vi.mocked(anoncredsRegistryService.getCredentialDefinition).mockResolvedValue({
         credentialDefinitionId: 'creddef-1',
@@ -214,7 +218,11 @@ describe('CredentialService', () => {
         schema: { attrNames: ['name'] },
       } as any)
 
-      const mockCredRecord = credentialExchangeRecord({ id: 'cred-rev', state: 'offer-sent', createdAt: new Date() })
+      const mockCredRecord = credentialExchangeRecordStub({
+        id: 'cred-rev',
+        state: 'offer-sent',
+        createdAt: new Date(),
+      })
       vi.mocked(tenantAgent.didcomm.credentials.offerCredential).mockResolvedValue(mockCredRecord)
 
       const result = await credentialService.offer(tenantAgent, {
@@ -238,7 +246,7 @@ describe('CredentialService', () => {
       const mockCredential = {
         getTag: vi.fn().mockReturnValue(undefined),
       }
-      vi.mocked(tenantAgent.didcomm.credentials.getById).mockResolvedValue(credentialExchangeRecord(mockCredential))
+      vi.mocked(tenantAgent.didcomm.credentials.getById).mockResolvedValue(credentialExchangeRecordStub(mockCredential))
 
       await expect(credentialService.revoke(tenantAgent, 'cred-1')).rejects.toThrow(BadRequestException)
       expect(tenantAgent.didcomm.credentials.getById).toHaveBeenCalledWith('cred-1')
@@ -252,7 +260,7 @@ describe('CredentialService', () => {
           return undefined
         }),
       }
-      vi.mocked(tenantAgent.didcomm.credentials.getById).mockResolvedValue(credentialExchangeRecord(mockCredential))
+      vi.mocked(tenantAgent.didcomm.credentials.getById).mockResolvedValue(credentialExchangeRecordStub(mockCredential))
       vi.mocked(revocationService.get).mockResolvedValue({ revocationStatusList: { 5: 1 } } as any)
 
       await expect(credentialService.revoke(tenantAgent, 'cred-1')).rejects.toThrow(ConflictException)
@@ -268,7 +276,7 @@ describe('CredentialService', () => {
           return undefined
         }),
       }
-      vi.mocked(tenantAgent.didcomm.credentials.getById).mockResolvedValue(credentialExchangeRecord(mockCredential))
+      vi.mocked(tenantAgent.didcomm.credentials.getById).mockResolvedValue(credentialExchangeRecordStub(mockCredential))
 
       await expect(credentialService.revoke(tenantAgent, 'cred-1')).rejects.toThrow(InternalServerErrorException)
       expect(tenantAgent.didcomm.credentials.getById).toHaveBeenCalledWith('cred-1')
@@ -282,7 +290,7 @@ describe('CredentialService', () => {
           return undefined
         }),
       }
-      vi.mocked(tenantAgent.didcomm.credentials.getById).mockResolvedValue(credentialExchangeRecord(mockCredential))
+      vi.mocked(tenantAgent.didcomm.credentials.getById).mockResolvedValue(credentialExchangeRecordStub(mockCredential))
       vi.mocked(revocationService.get).mockResolvedValue({ revocationStatusList: { 3: 0 } } as any)
       vi.mocked(tenantAgent.modules.anoncreds.updateRevocationStatusList).mockResolvedValue({
         revocationStatusListState: { state: 'finished' },
@@ -310,7 +318,7 @@ describe('CredentialService', () => {
           return undefined
         }),
       }
-      vi.mocked(tenantAgent.didcomm.credentials.getById).mockResolvedValue(credentialExchangeRecord(mockCredential))
+      vi.mocked(tenantAgent.didcomm.credentials.getById).mockResolvedValue(credentialExchangeRecordStub(mockCredential))
       vi.mocked(revocationService.get).mockResolvedValue({ revocationStatusList: { 3: 0 } } as any)
       vi.mocked(tenantAgent.modules.anoncreds.updateRevocationStatusList).mockResolvedValue({
         revocationStatusListState: { state: 'failed' },

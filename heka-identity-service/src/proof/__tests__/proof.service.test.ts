@@ -5,7 +5,7 @@ import { ConflictException, NotFoundException, UnprocessableEntityException } fr
 
 import { TenantAgent } from 'common/agent'
 
-import { connectionRecord, proofExchangeRecord } from '../../../test/helpers/mock-records'
+import { connectionRecordStub, proofExchangeRecordStub } from '../../../test/helpers/mock-records'
 import { AttrsPredsProofParamsDto, SchemaIdProofParamsDto, CredDefIdProofParamsDto } from '../dto/proof-params.dto'
 import { ProofRequestFormat } from '../dto/proof-request.dto'
 import { ProofService } from '../proof.service'
@@ -35,7 +35,7 @@ describe('ProofService', () => {
 
   describe('find', () => {
     test('returns proof records by threadId', async () => {
-      const mockRecords = [proofExchangeRecord({ id: 'proof-1', state: 'request-sent', createdAt: new Date() })]
+      const mockRecords = [proofExchangeRecordStub({ id: 'proof-1', state: 'request-sent', createdAt: new Date() })]
       vi.mocked(tenantAgent.didcomm.proofs.findAllByQuery).mockResolvedValue(mockRecords)
 
       const result = await proofService.find(tenantAgent, 'thread-1')
@@ -69,9 +69,9 @@ describe('ProofService', () => {
     })
 
     test('creates proof request with DifPresentationExchange format', async () => {
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecord({ id: 'conn-1' }))
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecordStub({ id: 'conn-1' }))
 
-      const mockProofRecord = proofExchangeRecord({ id: 'proof-1', state: 'request-sent', createdAt: new Date() })
+      const mockProofRecord = proofExchangeRecordStub({ id: 'proof-1', state: 'request-sent', createdAt: new Date() })
       vi.mocked(tenantAgent.didcomm.proofs.requestProof).mockResolvedValue(mockProofRecord)
 
       const result = await proofService.request(tenantAgent, {
@@ -92,13 +92,13 @@ describe('ProofService', () => {
     })
 
     test('creates AnoncredsIndy request with SchemaIdProofParams', async () => {
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecord({ id: 'conn-1' }))
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecordStub({ id: 'conn-1' }))
       vi.mocked(tenantAgent.modules.anoncreds.getSchema).mockResolvedValue({
         schema: { attrNames: ['name', 'age'] },
         resolutionMetadata: {},
       } as any)
 
-      const mockProofRecord = proofExchangeRecord({ id: 'proof-2', state: 'request-sent', createdAt: new Date() })
+      const mockProofRecord = proofExchangeRecordStub({ id: 'proof-2', state: 'request-sent', createdAt: new Date() })
       vi.mocked(tenantAgent.didcomm.proofs.requestProof).mockResolvedValue(mockProofRecord)
 
       const proofParams = new SchemaIdProofParamsDto()
@@ -131,7 +131,7 @@ describe('ProofService', () => {
     })
 
     test('creates AnoncredsIndy request with CredDefIdProofParams', async () => {
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecord({ id: 'conn-1' }))
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecordStub({ id: 'conn-1' }))
       vi.mocked(tenantAgent.modules.anoncreds.getCredentialDefinition).mockResolvedValue({
         credentialDefinition: { schemaId: 'schema-1' },
         resolutionMetadata: {},
@@ -141,7 +141,7 @@ describe('ProofService', () => {
         resolutionMetadata: {},
       } as any)
 
-      const mockProofRecord = proofExchangeRecord({ id: 'proof-3', state: 'request-sent', createdAt: new Date() })
+      const mockProofRecord = proofExchangeRecordStub({ id: 'proof-3', state: 'request-sent', createdAt: new Date() })
       vi.mocked(tenantAgent.didcomm.proofs.requestProof).mockResolvedValue(mockProofRecord)
 
       const proofParams = new CredDefIdProofParamsDto()
@@ -162,9 +162,9 @@ describe('ProofService', () => {
     })
 
     test('creates AnoncredsIndy request with AttrsPredsProofParams', async () => {
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecord({ id: 'conn-1' }))
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecordStub({ id: 'conn-1' }))
 
-      const mockProofRecord = proofExchangeRecord({ id: 'proof-4', state: 'request-sent', createdAt: new Date() })
+      const mockProofRecord = proofExchangeRecordStub({ id: 'proof-4', state: 'request-sent', createdAt: new Date() })
       vi.mocked(tenantAgent.didcomm.proofs.requestProof).mockResolvedValue(mockProofRecord)
 
       const result = await proofService.request(tenantAgent, {
@@ -193,7 +193,7 @@ describe('ProofService', () => {
     })
 
     test('throws UnprocessableEntityException when schema resolution fails', async () => {
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecord({ id: 'conn-1' }))
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecordStub({ id: 'conn-1' }))
       vi.mocked(tenantAgent.modules.anoncreds.getSchema).mockResolvedValue({
         schema: null,
         resolutionMetadata: { error: 'notFound' },
@@ -216,9 +216,9 @@ describe('ProofService', () => {
     })
 
     test('returns no revealedAttributes when format data has no presentation', async () => {
-      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecord({ id: 'conn-1' }))
+      vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(connectionRecordStub({ id: 'conn-1' }))
 
-      const mockRecord = proofExchangeRecord({ id: 'proof-5', state: 'done', createdAt: new Date() })
+      const mockRecord = proofExchangeRecordStub({ id: 'proof-5', state: 'done', createdAt: new Date() })
       vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord)
       vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({ presentation: {} } as any)
 
@@ -231,7 +231,7 @@ describe('ProofService', () => {
 
   describe('get', () => {
     test('returns proof record with anoncreds revealed attributes', async () => {
-      const mockRecord = proofExchangeRecord({ id: 'proof-1', state: 'done', createdAt: new Date() })
+      const mockRecord = proofExchangeRecordStub({ id: 'proof-1', state: 'done', createdAt: new Date() })
       vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord)
       vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({
         presentation: {
@@ -257,7 +257,7 @@ describe('ProofService', () => {
     })
 
     test('returns proof record with presentationExchange revealed attributes', async () => {
-      const mockRecord = proofExchangeRecord({ id: 'proof-2', state: 'done', createdAt: new Date() })
+      const mockRecord = proofExchangeRecordStub({ id: 'proof-2', state: 'done', createdAt: new Date() })
       vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord)
       vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({
         presentation: {
@@ -284,14 +284,14 @@ describe('ProofService', () => {
 
   describe('present', () => {
     test('accepts proof request', async () => {
-      const mockRecord = proofExchangeRecord({
+      const mockRecord = proofExchangeRecordStub({
         id: 'proof-1',
         state: DidCommProofState.RequestReceived,
         createdAt: new Date(),
       })
       vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord)
 
-      const acceptedRecord = proofExchangeRecord({
+      const acceptedRecord = proofExchangeRecordStub({
         id: 'proof-1',
         state: DidCommProofState.Done,
         createdAt: new Date(),
@@ -311,7 +311,7 @@ describe('ProofService', () => {
     })
 
     test('throws ConflictException when proof already presented', async () => {
-      const mockRecord = proofExchangeRecord({
+      const mockRecord = proofExchangeRecordStub({
         id: 'proof-1',
         state: DidCommProofState.Done,
         createdAt: new Date(),
@@ -322,7 +322,7 @@ describe('ProofService', () => {
     })
 
     test('wraps CredoError for auto-select failure as UnprocessableEntityException', async () => {
-      const mockRecord = proofExchangeRecord({
+      const mockRecord = proofExchangeRecordStub({
         id: 'proof-1',
         state: DidCommProofState.RequestReceived,
         createdAt: new Date(),
@@ -337,7 +337,7 @@ describe('ProofService', () => {
     })
 
     test('rethrows non-CredoError errors', async () => {
-      const mockRecord = proofExchangeRecord({
+      const mockRecord = proofExchangeRecordStub({
         id: 'proof-1',
         state: DidCommProofState.RequestReceived,
         createdAt: new Date(),

@@ -5,7 +5,7 @@ import { TenantAgent } from 'common/agent'
 import { AnoncredsRegistryService } from 'common/anoncreds-registry'
 import { Logger } from 'common/logger'
 
-import { anonCredsSchema, anonCredsSchemaRecord } from '../../../test/helpers/mock-records'
+import { anonCredsSchemaStub, anonCredsSchemaRecordStub } from '../../../test/helpers/mock-records'
 import { SchemaService } from '../schema.service'
 
 describe('SchemaService', () => {
@@ -26,9 +26,9 @@ describe('SchemaService', () => {
   describe('getCreated', () => {
     test('returns schemas filtered by method', async () => {
       const mockSchemas = [
-        anonCredsSchemaRecord({
+        anonCredsSchemaRecordStub({
           schemaId: 'schema-1',
-          schema: anonCredsSchema({
+          schema: anonCredsSchemaStub({
             issuerId: 'issuer-1',
             name: 'Test Schema',
             version: '1.0',
@@ -61,7 +61,7 @@ describe('SchemaService', () => {
     test('resolves schema by ID via registry service', async () => {
       vi.mocked(anoncredsRegistryService.getSchema).mockResolvedValue({
         schemaId: 'schema-1',
-        schema: anonCredsSchema({
+        schema: anonCredsSchemaStub({
           issuerId: 'issuer-1',
           name: 'Resolved Schema',
           version: '2.0',
@@ -82,7 +82,7 @@ describe('SchemaService', () => {
     test('registers schema and returns DTO', async () => {
       vi.mocked(anoncredsRegistryService.registerSchema).mockResolvedValue({
         schemaId: 'new-schema-1',
-        schema: anonCredsSchema({
+        schema: anonCredsSchemaStub({
           issuerId: 'issuer-1',
           name: 'New Schema',
           version: '1.0',
