@@ -28,6 +28,9 @@ const NOTIFICATION_EVENT_TYPES: NotificationEventType[] = [
 
 @Injectable()
 export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy {
+  private readonly eventNotificationHandler = this.sendEventNotification.bind(this)
+  private isSubscribed = false
+
   public constructor(
     @Inject(AGENT_TOKEN)
     private readonly agent: Agent,
@@ -43,15 +46,26 @@ export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy
   }
 
   public onModuleInit() {
-    for (const eventType of NOTIFICATION_EVENT_TYPES) {
-      this.agent.events.on(eventType, this.sendEventNotification.bind(this))
+    if (this.isSubscribed) {
+      this.logger.warn('Notification event listeners are already registered, skipping duplicate registration')
+      return
     }
+
+    for (const eventType of NOTIFICATION_EVENT_TYPES) {
+      this.agent.events.on(eventType, this.eventNotificationHandler)
+    }
+    this.isSubscribed = true
   }
 
   public onModuleDestroy() {
-    for (const eventType of NOTIFICATION_EVENT_TYPES) {
-      this.agent.events.off(eventType, this.sendEventNotification.bind(this))
+    if (!this.isSubscribed) {
+      return
     }
+
+    for (const eventType of NOTIFICATION_EVENT_TYPES) {
+      this.agent.events.off(eventType, this.eventNotificationHandler)
+    }
+    this.isSubscribed = false
   }
 
   @UseRequestContext()
