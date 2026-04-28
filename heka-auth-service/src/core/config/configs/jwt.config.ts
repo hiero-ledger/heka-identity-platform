@@ -18,6 +18,8 @@ export const jwtConfigDefaults = {
   demoUserTokenExpiry: 60 * 60 * 24 * 365, // ~1 year validity for Demo User
 }
 
+let warnedJwtSecret = false
+
 export class JwtConfig {
   @IsString()
   public issuer!: string
@@ -43,6 +45,26 @@ export class JwtConfig {
     const env = configuration ?? process.env
     this.issuer = env[JwtConfigKeys.issuer] || jwtConfigDefaults.issuer
     this.audience = env[JwtConfigKeys.audience] || jwtConfigDefaults.audience
+
+    // Emit a loud one-time warning if JWT_SECRET is missing and the hardcoded
+    // default 'test' is about to be substituted. This eliminates the silent
+    // fail-open mode reported in issue #17 while preserving the existing
+    // demo-friendly default per maintainer guidance on the issue thread.
+    if (!env[JwtConfigKeys.secret] && !warnedJwtSecret) {
+      warnedJwtSecret = true
+      // eslint-disable-next-line no-console
+      console.warn(
+        [
+          '',
+          '============================================================',
+          `WARNING: ${JwtConfigKeys.secret} is not set; using insecure default for JWT signing secret.`,
+          'This default value is publicly known and MUST NOT be used in production.',
+          `Set the ${JwtConfigKeys.secret} environment variable to override.`,
+          '============================================================',
+          '',
+        ].join('\n'),
+      )
+    }
     this.secret = env[JwtConfigKeys.secret] || jwtConfigDefaults.secret
 
     this.accessExpiry = env[JwtConfigKeys.accessExpiry]
