@@ -39,6 +39,7 @@
     "@credo-ts/openid4vc": "0.6.2",
     "@credo-ts/tenants": "0.6.2",
     "@digitalcredentials/bitstring": "^3.1.2",
+    "@hiero-did-sdk/client": "^0.1.8",
     "@hyperledger/anoncreds-nodejs": "^0.3.4",
     "@hyperledger/anoncreds-shared": "^0.3.4",
     "@hyperledger/indy-vdr-nodejs": "^0.2.3",
@@ -65,10 +66,12 @@
     "@types/multer": "^1.4.11",
     "async-mutex": "^0.5.0",
     "axios": "^1.6.0",
+    "chalk": "^4.1.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "colorette": "^2.0.20",
     "ethers": "^6.8.1",
+    "express": "^5.1.0",
     "express-promise-router": "^4.1.1",
     "fs-extra": "^11.1.1",
     "indybesu-vdr": "file:indy-besu-vdr-pkg",
@@ -86,7 +89,9 @@
     "swagger-ui-express": "^4.6.2",
     "typescript": "~5.5.2",
     "uuid": "^9.0.0",
+    "ws": "^8.13.0",
     "yaml": "^2.2.2",
+    "zod": "^4.3.6",
     "zstd-napi": "^0.0.10"
   },
   "devDependencies": {
@@ -102,6 +107,7 @@
     "@types/passport-jwt": "^3.0.8",
     "@types/supertest": "^2.0.12",
     "@types/uuid": "^9.0.1",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^5.59.8",
     "@typescript-eslint/parser": "^5.59.8",
     "did-resolver": "^4.1.0",
@@ -122,8 +128,7 @@
     "tsconfig-paths": "^4.2.0",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^2.1.8",
-    "vitest-when": "0.5.0",
-    "ws": "^8.13.0"
+    "vitest-when": "0.5.0"
   },
   "mikro-orm": {
     "useTsNode": true
