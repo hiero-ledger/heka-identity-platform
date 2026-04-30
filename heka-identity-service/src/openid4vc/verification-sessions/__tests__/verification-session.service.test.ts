@@ -276,6 +276,17 @@ describe('OpenId4VcVerificationSessionService', () => {
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
     })
 
+    test('should throw UnprocessableEntityException when both presentationExchange and dcql are missing', async () => {
+      const req = {
+        publicVerifierId: 'verifier-1',
+        requestSigner: { did: 'did:key:z6MkMissing' },
+      } as any
+
+      await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.dids.resolve).not.toHaveBeenCalled()
+      expect(mockCreateAuthorizationRequest).not.toHaveBeenCalled()
+    })
+
     test('should throw UnprocessableEntityException when DID document has no verification methods', async () => {
       const req = {
         publicVerifierId: 'verifier-1',
@@ -322,6 +333,75 @@ describe('OpenId4VcVerificationSessionService', () => {
       expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           version: 'v1',
+        }),
+      )
+    })
+
+    test('should use version v1.draft21 when presentationExchange is provided and version is not specified', async () => {
+      const req = {
+        publicVerifierId: 'verifier-1',
+        requestSigner: { did: 'did:key:z6Mk1234' },
+        presentationExchange: {
+          definition: {
+            id: 'def-1',
+            input_descriptors: [],
+          },
+        },
+      } as any
+
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+          },
+        }),
+      )
+
+      mockCreateAuthorizationRequest.mockResolvedValue({
+        authorizationRequest: 'openid://?request_uri=https://example.com/auth',
+        verificationSession: makeSessionRecord(),
+      })
+
+      await service.createRequest(tenantAgent, req)
+
+      expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          version: 'v1.draft21',
+        }),
+      )
+    })
+
+    test('should respect explicitly provided version when creating authorization request', async () => {
+      const req = {
+        publicVerifierId: 'verifier-1',
+        requestSigner: { did: 'did:key:z6Mk1234' },
+        presentationExchange: {
+          definition: {
+            id: 'def-1',
+            input_descriptors: [],
+          },
+        },
+        version: 'v1.draft24',
+      } as any
+
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+          },
+        }),
+      )
+
+      mockCreateAuthorizationRequest.mockResolvedValue({
+        authorizationRequest: 'openid://?request_uri=https://example.com/auth',
+        verificationSession: makeSessionRecord(),
+      })
+
+      await service.createRequest(tenantAgent, req)
+
+      expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          version: 'v1.draft24',
         }),
       )
     })

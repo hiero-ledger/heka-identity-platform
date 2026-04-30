@@ -22,6 +22,10 @@ export class OpenId4VcVerificationSessionService {
     tenantAgent: TenantAgent,
     req: OpenId4VcVerificationSessionCreateRequestDto,
   ): Promise<OpenId4VcVerificationSessionCreateRequestResponse> {
+    if (!req.presentationExchange && !req.dcql) {
+      throw new UnprocessableEntityException('Either presentationExchange or dcql must be provided')
+    }
+
     const { didDocument } = await tenantAgent.dids.resolve(req.requestSigner.did)
     if (!didDocument || !didDocument.verificationMethod?.length) {
       throw new UnprocessableEntityException(`Unable to resolve signing key for DID: ${req.requestSigner.did}`)
