@@ -76,7 +76,7 @@ function getTestModulesMap() {
       registries: [new IndyVdrAnonCredsRegistry(), new IndyBesuAnonCredsRegistry(), new HederaAnonCredsRegistry()],
       anoncreds,
       tailsFileService: new TailsService({
-        corsOptions: undefined,
+        corsOptions: { origin: [] },
         enableCors: false,
         host: 'localhost',
         port: 8000,

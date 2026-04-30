@@ -143,8 +143,11 @@ export async function startApp(app: INestApplication, { withSwaggerUi }: { withS
   })
 
   if (expressConfig.enableCors) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    app.enableCors(expressConfig.corsOptions)
+    if ((expressConfig.corsOptions.origin as string[]).length === 0) {
+      logger.warn('CORS is enabled but EXPRESS_ALLOWED_ORIGINS is empty — no origins will be allowed')
+    } else {
+      app.enableCors({ ...expressConfig.corsOptions })
+    }
   }
 
   app.useWebSocketAdapter(new WsAdapter(app))

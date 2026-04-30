@@ -171,6 +171,28 @@ You can also change the ports that the app listens on by setting the following e
 $ yarn test
 ```
 
+## CORS Configuration
+
+Cross-Origin Resource Sharing (CORS) controls which browser origins are permitted to call the Heka Identity Service API.
+CORS is **disabled by default** — it must be explicitly opted in via environment variables.
+
+| Variable | Description | Default |
+|---|---|---|
+| `EXPRESS_ENABLE_CORS` | Set to `true` to enable CORS. Any other value (including unset) disables it. | `false` |
+| `EXPRESS_ALLOWED_ORIGINS` | Comma-separated list of permitted origins. Ignored when CORS is disabled. | `""` (empty — no origins allowed) |
+| `EXPRESS_CORS_OPTIONS` | JSON string of additional [CORS options](https://github.com/expressjs/cors#configuration-options) merged with the origin list. Invalid JSON is silently ignored. | `{}` |
+
+> **Security warning:** Enabling CORS without setting `EXPRESS_ALLOWED_ORIGINS` blocks all cross-origin requests.
+> Never set `EXPRESS_ALLOWED_ORIGINS` to `*` in production — use an explicit allowlist of trusted origins.
+
+Example `.env` snippet:
+
+```dotenv
+EXPRESS_ENABLE_CORS=true
+EXPRESS_ALLOWED_ORIGINS=https://admin.example.com,https://wallet.example.com
+EXPRESS_CORS_OPTIONS={"credentials":true}
+```
+
 ## Development tools
 
 ```bash
