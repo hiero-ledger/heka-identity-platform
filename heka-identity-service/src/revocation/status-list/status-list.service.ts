@@ -83,6 +83,10 @@ export class StatusListService {
   public async addItems(authInfo: AuthInfo, id: string, indexes: Array<number>): Promise<void> {
     const statusList = await this.em.findOneOrFail(CredentialStatusList, { id, owner: authInfo.user })
 
+    if (statusList.lastIndex + indexes.length > statusList.size) {
+      throw new BadRequestException('Status list does not have enough free indexes')
+    }
+
     statusList.encodedList = await this.updatedBistring(statusList.encodedList, indexes, false)
     statusList.lastIndex = statusList.lastIndex += indexes.length
 
@@ -122,7 +126,7 @@ export class StatusListService {
 
     // set items
     for (const index of indexes) {
-      if (index > decodedList.length) {
+      if (index < 0 || index >= decodedList.length) {
         throw new BadRequestException('Status list index is out of bounds')
       }
       bitstring.set(index, revoked)

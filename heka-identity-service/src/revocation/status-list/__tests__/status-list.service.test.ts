@@ -246,6 +246,23 @@ describe('StatusListService', () => {
       await expect(service.addItems(authInfo, 'bad-id', [0])).rejects.toThrow('Entity not found')
       expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id: 'bad-id', owner: mockUser })
     })
+
+    test('should throw BadRequestException when there are not enough free indexes', async () => {
+      const id = 'status-list-1'
+      const statusListEntity = entityStub<CredentialStatusList>({
+        id,
+        encodedList: 'original-encoded',
+        lastIndex: 99,
+        size: 100,
+        owner: mockUser,
+      })
+
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
+
+      await expect(service.addItems(authInfo, id, [100, 101])).rejects.toThrow(BadRequestException)
+      expect(mockSet).not.toHaveBeenCalled()
+      expect(em.flush).not.toHaveBeenCalled()
+    })
   })
 
   describe('updateItems', () => {
@@ -303,10 +320,8 @@ describe('StatusListService', () => {
 
       vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
 
-      // decodeBits returns a buffer of length 100, so index 200 is out of bounds
-      // The service checks `index > decodedList.length`
-      // Buffer.alloc(100) has length 100, so index 200 > 100
-      await expect(service.updateItems(authInfo, id, { indexes: [200], revoked: true })).rejects.toThrow(
+      // decodeBits returns a buffer of length 100, so index 100 is out of bounds
+      await expect(service.updateItems(authInfo, id, { indexes: [100], revoked: true })).rejects.toThrow(
         BadRequestException,
       )
     })
