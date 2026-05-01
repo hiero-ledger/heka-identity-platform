@@ -22,6 +22,7 @@ To run Heka Identity Service locally, follow these steps:
    ```bash
    yarn install
    ```
+
 ### Fixing node-gyp issues with Python 3.12
 
 If you encounter `node-gyp` build failures with Python 3.12,
@@ -30,14 +31,18 @@ you have two options:
 **Option 1 — Install setuptools (recommended)**
 Python 3.12 removed `distutils` which node-gyp depends on.
 Installing `setuptools` restores it:
+
 ```bash
 pip install setuptools
 ```
+
 **Option 2 — Use Python 3.11**
 Downgrade or switch your active Python version to 3.11:
+
 ```bash
 npm install --python=python3.11
 ```
+
 5. Configure persistent storage. You can find information on how to configure it in the [Persistence](#persistence)
    and [Migrations](#migrations) sections.
 6. Run the server as described in the [Run the app](#run-the-app)
@@ -53,6 +58,21 @@ You can modify JWT verification options by setting the following environment var
 - `JWT_VERIFY_OPTIONS_AUDIENCE` - required value of `aud` claim, defaults to `Heka Identity Service`
 
 While integration with external auth providers is supported, it's recommended to use [Heka Auth Service](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-auth-service) for basic deployments.
+
+## Notification webhooks (`/user`)
+
+If you set `messageDeliveryType` to **WebHook**, the Identity Service validates the configured URL before saving it (and again before sending each notification): only `http:` / `https:` absolute URLs without embedded credentials, with DNS/IP checks that disallow loopback/private/link-local resolves and commonly abused internal hostname patterns.
+
+Optional environment variables:
+
+- `WEBHOOK_ALLOW_HTTP` — set to `true` to allow `http://` callbacks (HTTPS-only by default; useful for local dev).
+- `WEBHOOK_ALLOW_INTERNAL_DNS_NAMES` — set to `true` to permit hostnames ending in `.internal`, `.local`, or `.localhost` (default: blocked; `localhost` remains blocked).
+- `WEBHOOK_HTTP_TIMEOUT_MS` — timeout for each webhook POST in milliseconds (default `10000`).
+- `WEBHOOK_HTTP_MAX_REDIRECTS` — maximum redirects axios may follow when posting (default `0`).
+- `WEBHOOK_DNS_RESOLUTION_TIMEOUT_MS` — cap for resolving the webhook hostname in milliseconds (default `5000`).
+- `WEBHOOK_MAX_RESPONSE_BODY_BYTES` — max response payload read for the outbound POST in bytes (default `512000`).
+
+Hostnames are validated when the profile is saved and again immediately before each outbound connection (custom `http(s).Agent` DNS `lookup`), using the same rules.
 
 ## Persistence
 

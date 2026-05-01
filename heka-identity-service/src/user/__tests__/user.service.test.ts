@@ -5,6 +5,7 @@ import { TenantAgent } from 'common/agent'
 import { Role } from 'common/auth'
 import { MessageDeliveryType, User } from 'common/entities'
 import { Logger } from 'common/logger'
+import { WebhookEgressService } from 'common/webhook/webhook-egress.service'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
 
 import { FileStorageService } from '../../common/file-storage/file-storage.service'
@@ -16,6 +17,7 @@ describe('UserService', () => {
   let userService: UserService
   let issuerService: OpenId4VcIssuerService
   let fileStorageService: FileStorageService
+  let webhookEgress: WebhookEgressService
   let tenantAgent: TenantAgent
 
   const authInfo = {
@@ -33,7 +35,9 @@ describe('UserService', () => {
     logger = createMock<Logger>()
     issuerService = createMock<OpenId4VcIssuerService>()
     fileStorageService = createMock<FileStorageService>()
-    userService = new UserService(em, logger, issuerService, fileStorageService)
+    webhookEgress = createMock<WebhookEgressService>()
+    vi.mocked(webhookEgress.assertCallbackUrlAllowed).mockResolvedValue(undefined)
+    userService = new UserService(em, logger, issuerService, fileStorageService, webhookEgress)
     tenantAgent = createMock<TenantAgent>()
   })
 
@@ -99,6 +103,7 @@ describe('UserService', () => {
       expect(em.findOneOrFail).toHaveBeenCalledWith(User, { id: '11' })
       expect(user.messageDeliveryType).toBe(MessageDeliveryType.WebHook)
       expect(user.webHook).toBe('https://hooks.example.com')
+      expect(webhookEgress.assertCallbackUrlAllowed).toHaveBeenCalledWith('https://hooks.example.com')
     })
 
     test('uploads new logo and removes old one', async () => {

@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common'
 import { User } from 'common/entities'
 import { MessageDeliveryType } from 'common/entities/user.entity'
 import { InjectLogger, Logger } from 'common/logger'
+import { WebhookEgressService } from 'common/webhook/webhook-egress.service'
 import { throwError } from 'utils/common'
 
 import { NotificationDto } from './dto'
@@ -13,6 +14,7 @@ import { NotificationGateway } from './notification.gateway'
 export class NotificationService {
   public constructor(
     private readonly httpService: HttpService,
+    private readonly webhookEgress: WebhookEgressService,
     private readonly notificationGateway: NotificationGateway,
     @InjectLogger(NotificationService)
     private readonly logger: Logger,
@@ -38,6 +40,7 @@ export class NotificationService {
 
     if (messageDeliveryType === MessageDeliveryType.WebHook) {
       const webHook = userWebHook ?? throwError('User web hook is missing, but required for WebHook delivery method')
+      await this.webhookEgress.assertCallbackUrlAllowed(webHook)
       await this.httpService.axiosRef.post(webHook, notification)
     } else {
       // By default, send notification via WebSocket

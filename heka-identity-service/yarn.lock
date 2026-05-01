@@ -6907,6 +6907,7 @@ __metadata:
     express-promise-router: "npm:^4.1.1"
     fs-extra: "npm:^11.1.1"
     indybesu-vdr: "file:indy-besu-vdr-pkg"
+    ipaddr.js: "npm:^2.2.0"
     jsonwebtoken: "npm:^9.0.0"
     minio: "npm:^8.0.1"
     nestjs-pino: "npm:^3.2.0"
@@ -7120,8 +7121,8 @@ __metadata:
 
 "indybesu-vdr@file:indy-besu-vdr-pkg::locator=heka-identity-service%40workspace%3A.":
   version: 0.1.0
-  resolution: "indybesu-vdr@file:indy-besu-vdr-pkg#indy-besu-vdr-pkg::hash=75babc&locator=heka-identity-service%40workspace%3A."
-  checksum: 10c0/aaf8f681f782f910b99c5d1eddbb7ec6d9d0e46f6e02f37058514bbc543f017775542bbfcac27e648012726414b77beecd5e6bbab160262d812b64e29f87adb2
+  resolution: "indybesu-vdr@file:indy-besu-vdr-pkg#indy-besu-vdr-pkg::hash=b83bd0&locator=heka-identity-service%40workspace%3A."
+  checksum: 10c0/ea83c6addf083db943937c7e0bf797c45698f5edf67f3e2f8a023ec91fc65f11fb016b4934b218ca0aec69cef17b66c75f342e1a96052e6f7d6b5c36a6605829
   languageName: node
   linkType: hard
 
@@ -7192,6 +7193,13 @@ __metadata:
   version: 2.2.0
   resolution: "ipaddr.js@npm:2.2.0"
   checksum: 10c0/e4ee875dc1bd92ac9d27e06cfd87cdb63ca786ff9fd7718f1d4f7a8ef27db6e5d516128f52d2c560408cbb75796ac2f83ead669e73507c86282d45f84c5abbb6
+  languageName: node
+  linkType: hard
+
+"ipaddr.js@npm:^2.2.0":
+  version: 2.3.0
+  resolution: "ipaddr.js@npm:2.3.0"
+  checksum: 10c0/084bab99e2f6875d7a62adc3325e1c64b038a12c9521e35fb967b5e263a8b3afb1b8884dd77c276092331f5d63298b767491e10997ef147c62da01b143780bbd
   languageName: node
   linkType: hard
 
