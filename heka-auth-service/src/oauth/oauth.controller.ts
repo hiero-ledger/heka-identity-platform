@@ -36,10 +36,10 @@ export class OAuthController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.RESET_CONTENT)
   @Post('revoke')
-  public async logout(@Body() body: LogoutRequest): Promise<void> {
+  public async logout(@AccessToken() accessToken: string, @Body() body: LogoutRequest): Promise<void> {
     this.logger.verbose('logout >')
 
-    await this.authService.logout(body)
+    await this.authService.logout(accessToken, body)
 
     this.logger.verbose('logout <')
   }

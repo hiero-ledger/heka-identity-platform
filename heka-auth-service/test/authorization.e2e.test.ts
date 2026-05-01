@@ -31,8 +31,9 @@ describe('E2E authorization', () => {
     await ormSchemaGenerator.clearDatabase()
   })
 
+  let userCounter = 0
   const newUser = () => ({
-    name: 'user' + Date.now().toString(),
+    name: `user${Date.now().toString()}-${userCounter++}`,
     password: 'Password1234!',
   })
 
@@ -108,6 +109,61 @@ describe('E2E authorization', () => {
       } satisfies LoginRequest)
 
     expect(loginUserResponse.status).toBe(401)
+  })
+
+  test('logout rejects refresh token that belongs to another access token', async () => {
+    const firstUser = newUser()
+    const secondUser = newUser()
+
+    await request(app)
+      .post('/api/v1/user/register')
+      .send({
+        name: firstUser.name,
+        password: firstUser.password,
+        role: UserRole.Issuer,
+      } satisfies RegisterUserRequest)
+      .expect(201)
+
+    await request(app)
+      .post('/api/v1/user/register')
+      .send({
+        name: secondUser.name,
+        password: secondUser.password,
+        role: UserRole.Issuer,
+      } satisfies RegisterUserRequest)
+      .expect(201)
+
+    const firstLoginResponse = await request(app)
+      .post('/api/v1/oauth/token')
+      .send({
+        name: firstUser.name,
+        password: firstUser.password,
+      } satisfies LoginRequest)
+      .expect(200)
+
+    const secondLoginResponse = await request(app)
+      .post('/api/v1/oauth/token')
+      .send({
+        name: secondUser.name,
+        password: secondUser.password,
+      } satisfies LoginRequest)
+      .expect(200)
+
+    await request(app)
+      .post('/api/v1/oauth/revoke')
+      .auth(firstLoginResponse.body.access, { type: 'bearer' })
+      .send({
+        refresh: secondLoginResponse.body.refresh,
+      } satisfies LogoutRequest)
+      .expect(401)
+
+    await request(app)
+      .post('/api/v1/oauth/refresh')
+      .auth(secondLoginResponse.body.access, { type: 'bearer' })
+      .send({
+        refresh: secondLoginResponse.body.refresh,
+      } satisfies RefreshRequest)
+      .expect(200)
   })
 
   test('profile endpoint requires authentication', async () => {

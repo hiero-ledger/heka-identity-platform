@@ -95,19 +95,22 @@ export class OAuthService {
     return await this.generateTokens(user)
   }
 
-  public async logout(data: LogoutRequest): Promise<void> {
+  public async logout(accessToken: string, data: LogoutRequest): Promise<void> {
     // resolve access token by refresh token
     const storedRefreshToken = await this.tokenRepository.get(data.refresh)
     if (!storedRefreshToken || !storedRefreshToken.payload) {
       return
     }
 
+    const tokenPayload = classFromJson(storedRefreshToken.payload, AccessTokenPayload).accessToken
+    if (accessToken !== tokenPayload) {
+      throw new UnauthorizedException('Refresh token is incorrect.')
+    }
+
     const user = await this.userRepository.findOne({ id: storedRefreshToken.subject })
     if (!user) {
       return
     }
-
-    const accessToken = classFromJson(storedRefreshToken.payload, AccessTokenPayload).accessToken
 
     // skip token invalidation for demo user
     if (user.isDemoUser(this.configService.jwtConfig)) {
