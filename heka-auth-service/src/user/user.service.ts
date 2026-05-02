@@ -2,7 +2,7 @@ import { ConfigService } from '@config'
 import { User, UserRole } from '@core/database'
 import { TokenType } from '@core/database/entities/token.entity'
 import { TokenRepository, UserRepository } from '@core/database/repositories'
-import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common'
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
 import { ExpiresInToDate, hashPassword, verifyPassword } from '@utils'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -13,6 +13,7 @@ import {
   RegisterUserResponse,
   RequestChangePasswordRequest,
   RequestChangePasswordResponse,
+  UpdateUserRoleResponse,
 } from './dto'
 
 @Injectable()
@@ -24,21 +25,38 @@ export class UserService {
   ) {}
 
   public async register(data: RegisterUserRequest): Promise<RegisterUserResponse> {
-    // check existing
     const existingUser = await this.userRepository.findOne({ name: data.name })
     if (existingUser) {
       throw new BadRequestException(`User with client_id '${data.name}' already exists`)
     }
 
-    // create user account
     const user = new User({
       name: data.name,
       password: await hashPassword(data.password),
-      role: data.role ?? UserRole.User,
+      role: UserRole.User,
     })
     await this.userRepository.persistAndFlush(user)
 
     return new RegisterUserResponse()
+  }
+
+  public async updateUserRole(currentUserId: string, targetId: string, role: UserRole): Promise<UpdateUserRoleResponse> {
+    const user = await this.userRepository.findOne({ id: targetId })
+    if (!user) {
+      throw new NotFoundException(`User '${targetId}' not found`)
+    }
+
+    if (currentUserId === targetId && role !== UserRole.Admin) {
+      const adminCount = await this.userRepository.count({ role: UserRole.Admin })
+      if (adminCount === 1) {
+        throw new BadRequestException('Cannot remove admin role from the only remaining admin account')
+      }
+    }
+
+    user.role = role
+    await this.userRepository.persistAndFlush(user)
+
+    return new UpdateUserRoleResponse({ id: user.id, role: user.role })
   }
 
   public async requestChangePassword(data: RequestChangePasswordRequest): Promise<RequestChangePasswordResponse> {

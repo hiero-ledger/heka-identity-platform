@@ -58,6 +58,12 @@ export async function createAgent({ credentials, indyLedgers, indyBesuConfig, wa
     throw new Error('Wallet key is not defined')
   }
 
+  if (!Config.HEDERA_OPERATOR_ID || !Config.HEDERA_OPERATOR_KEY) {
+    throw new Error(
+      'HEDERA_OPERATOR_ID and HEDERA_OPERATOR_KEY must be set via react-native-config. See .env.example for setup instructions.'
+    )
+  }
+
   return new Agent({
     config: {
       label: walletName || 'Heka Wallet',
@@ -102,10 +108,8 @@ export async function createAgent({ credentials, indyLedgers, indyBesuConfig, wa
         networks: [
           {
             network: 'testnet',
-            operatorId: Config.HEDERA_OPERATOR_ID ?? '0.0.5065521',
-            operatorKey:
-              Config.HEDERA_OPERATOR_KEY ??
-              '302e020100300506032b657004220420e4f76aa303bfbf350ad080b879173b31977e5661d51ff5932f6597e2bb6680ff',
+            operatorId: Config.HEDERA_OPERATOR_ID,
+            operatorKey: Config.HEDERA_OPERATOR_KEY,
           },
         ],
       }),

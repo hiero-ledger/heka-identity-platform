@@ -1,9 +1,18 @@
-import { User } from '@core/database'
-import { Body, Controller, Get, HttpCode, HttpStatus, Logger, Post, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { User, UserRole } from '@core/database'
+import { Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, Patch, Post, UseGuards } from '@nestjs/common'
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiForbiddenResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger'
 
 import { Sender } from '../oauth'
-import { UserAuthGuard } from '../oauth/guards'
+import { Roles, RolesGuard, UserAuthGuard } from '../oauth/guards'
 import {
   ChangePasswordRequest,
   ChangePasswordResponse,
@@ -12,6 +21,8 @@ import {
   RegisterUserResponse,
   RequestChangePasswordRequest,
   RequestChangePasswordResponse,
+  UpdateUserRoleRequest,
+  UpdateUserRoleResponse,
 } from './dto'
 import { UserService } from './user.service'
 
@@ -82,6 +93,30 @@ export class UserController {
     const result = new GetProfileResponse(sender)
 
     this.logger.verbose('getProfile <')
+    return result
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Assign a role to a user (Admin only)' })
+  @ApiParam({ name: 'id', description: 'ID of the user whose role will be updated' })
+  @ApiBody({ type: UpdateUserRoleRequest })
+  @ApiOkResponse({ type: UpdateUserRoleResponse })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized — valid bearer token required' })
+  @ApiForbiddenResponse({ description: 'Forbidden — Admin role required' })
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(UserAuthGuard, RolesGuard)
+  @Roles(UserRole.Admin)
+  @Patch(':id/role')
+  public async updateUserRole(
+    @Sender() sender: User,
+    @Param('id') id: string,
+    @Body() body: UpdateUserRoleRequest,
+  ): Promise<UpdateUserRoleResponse> {
+    this.logger.verbose({ id }, 'updateUserRole >')
+
+    const result = await this.authService.updateUserRole(sender.id, id, body.role)
+
+    this.logger.verbose('updateUserRole <')
     return result
   }
 }
