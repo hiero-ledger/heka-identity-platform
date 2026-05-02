@@ -7,7 +7,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService, JwtSignOptions } from '@nestjs/jwt'
 import { classFromJson, ExpiresInToDate, SecondsToDate, verifyPassword } from '@utils'
 import { v4 as uuidv4 } from 'uuid'
-
+import { UnauthorizedException } from '@nestjs/common'
 import { LoginRequest, LoginResponse, LogoutRequest, RefreshResponse, Token } from './dto'
 
 class AccessTokenPayload {
@@ -208,5 +208,18 @@ export class OAuthService {
     const { token: access, expiresIn } = await this.generateAccessToken(user)
     const { token: refresh } = await this.generateRefreshToken(user, access)
     return new Token({ access, refresh, tokenType: AuthorizationTokenType, expiresIn })
+  }
+  async validateToken(token: string): Promise<{ valid: boolean }> {
+    const storedToken = await this.tokenRepository.get(token)
+
+    if (!storedToken) {
+      throw new UnauthorizedException('Token not found')
+    }
+
+    if (storedToken.expireIn && new Date(storedToken.expireIn) < new Date()) {
+      throw new UnauthorizedException('Token expired')
+    }
+
+    return { valid: true }
   }
 }

@@ -4,6 +4,7 @@ import { EntityManager } from '@mikro-orm/core'
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Mutex } from 'async-mutex'
+import axios from 'axios' // ✅ NEW
 
 import { Agent, AGENT_TOKEN } from 'common/agent'
 import { User, Wallet } from 'common/entities'
@@ -17,6 +18,7 @@ import { TokenPayload } from './token-payload.interface'
 @Injectable()
 export class AuthService {
   private readonly ensureUserAndWalletMutex: Mutex
+
   public constructor(
     @Inject(AGENT_TOKEN)
     private readonly agent: Agent,
@@ -29,6 +31,7 @@ export class AuthService {
     this.ensureUserAndWalletMutex = new Mutex()
   }
 
+  // 🔥 UPDATED METHOD
   public async validateRequestToken(request: IncomingMessage): Promise<AuthInfo> {
     const logger = this.logger.child('validateRequestToken', { request })
     logger.trace('>')
@@ -39,10 +42,32 @@ export class AuthService {
     }
     logger.traceObject({ token })
 
+    // ✅ Step 1: verify JWT signature + expiry
     const payload = await this.jwtService.verifyAsync<TokenPayload>(token)
     logger.traceObject({ payload })
 
+    // 🔥 Step 2: check revocation via auth-service
+    await this.validateWithAuthService(token)
+
+    // ✅ Step 3: continue normal flow
     return this.validateTokenPayload(payload)
+  }
+
+  // 🔥 NEW METHOD (CORE FIX)
+  private async validateWithAuthService(token: string): Promise<void> {
+    try {
+      await axios.post(
+        'http://localhost:3000/oauth/validate', // 🔁 replace with env later
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      )
+    } catch (error) {
+      throw new UnauthorizedException('Token revoked or invalid')
+    }
   }
 
   public async validateTokenPayload(tokenPayload: TokenPayload): Promise<AuthInfo> {

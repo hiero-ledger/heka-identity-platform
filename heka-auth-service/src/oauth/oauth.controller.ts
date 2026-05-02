@@ -62,4 +62,19 @@ export class OAuthController {
     this.logger.verbose('refreshToken <')
     return response
   }
+
+  // 🔥 NEW ENDPOINT (CRITICAL FIX)
+  @ApiOperation({ summary: 'Validate access token (revocation check)' })
+  @UseGuards(BearerGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @Post('validate')
+  public async validateToken(@AccessToken() accessToken: string): Promise<{ valid: boolean }> {
+    this.logger.verbose('validateToken >')
+
+    const result = await this.authService.validateToken(accessToken)
+
+    this.logger.verbose('validateToken <')
+    return result
+  }
 }
