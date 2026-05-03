@@ -34,11 +34,9 @@ describe('Rate limiting', () => {
   })
 
   test('POST /api/v1/user/register blocked after 5 attempts', async () => {
-    const payload = { name: `ratelimit_reg_${Date.now()}`, password: 'Password1234!', role: 'Issuer' }
+    const payload = { name: 'ratelimituser', password: 'Password1234!', role: 'Issuer' }
     for (let i = 0; i < 5; i++) {
-      await request(app)
-        .post('/api/v1/user/register')
-        .send({ ...payload, name: `ratelimit_reg_${Date.now()}_${i}` })
+      await request(app).post('/api/v1/user/register').send(payload)
     }
     const blocked = await request(app).post('/api/v1/user/register').send(payload)
     expect(blocked.status).toBe(429)
