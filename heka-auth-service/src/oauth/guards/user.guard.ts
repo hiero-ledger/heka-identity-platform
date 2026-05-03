@@ -19,6 +19,7 @@ export class UserAuthGuard extends AuthGuard('jwt') {
       const request = context.switchToHttp().getRequest()
 
       const token = extractTokenFromRequest(request)
+
       const storedToken = await this.tokenRepository.get(token)
       if (!storedToken) throw new UnauthorizedException()
 
@@ -27,8 +28,11 @@ export class UserAuthGuard extends AuthGuard('jwt') {
       })
       if (!user) throw new UnauthorizedException()
 
+      // Attach user to request (keep existing behavior)
       request['sender'] = user
-      return request
+
+      // ✅ FIX: return boolean instead of request
+      return true
     } catch {
       throw new UnauthorizedException()
     }

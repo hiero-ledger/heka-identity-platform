@@ -4,11 +4,15 @@ import { IncomingMessage } from 'http'
 
 @Injectable()
 export class BearerGuard implements CanActivate {
-  public canActivate(context: ExecutionContext): Promise<boolean> {
+  public async canActivate(context: ExecutionContext): Promise<boolean> {
     try {
       const request = context.switchToHttp().getRequest()
+
+      // Extract and attach token (same logic as before)
       request['accessToken'] = extractTokenFromRequest(request)
-      return request
+
+      // ✅ Return boolean instead of request
+      return true
     } catch {
       throw new UnauthorizedException()
     }
@@ -17,8 +21,14 @@ export class BearerGuard implements CanActivate {
 
 export function extractTokenFromRequest(request: IncomingMessage): string {
   const [type, token] = request.headers[AuthorizationHeader]?.split(' ') ?? []
-  if (type.toLowerCase() !== AuthorizationTokenType.toLowerCase()) {
+
+  if (!type || type.toLowerCase() !== AuthorizationTokenType.toLowerCase()) {
     throw new UnauthorizedException()
   }
+
+  if (!token) {
+    throw new UnauthorizedException()
+  }
+
   return token
 }
