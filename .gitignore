@@ -54,3 +54,7 @@ node_modules/
 
 # Intellij IDEs
 .idea
+
+# Auto-generated files
+docs/swagger-spec.yaml
+.yarn/install-state.gz

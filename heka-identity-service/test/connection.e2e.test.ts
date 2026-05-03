@@ -1,7 +1,7 @@
 import { Server } from 'net'
 
 import { DidCommConnectionEventTypes, DidCommDidExchangeRole, DidCommDidExchangeState } from '@credo-ts/didcomm'
-import { SchemaGenerator } from '@mikro-orm/sqlite'
+import { SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request, { WSChain } from 'superwstest'
 

@@ -4,7 +4,7 @@ import { DidCommCredentialState, DidCommProofState } from '@credo-ts/didcomm'
 import { OpenId4VcIssuanceSessionState, OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
 import { MikroORM } from '@mikro-orm/core'
 import { PostgreSqlDriver } from '@mikro-orm/postgresql'
-import { SchemaGenerator } from '@mikro-orm/sqlite'
+import { SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request, { WSChain } from 'superwstest'
 

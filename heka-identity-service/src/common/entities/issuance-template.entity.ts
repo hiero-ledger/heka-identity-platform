@@ -1,5 +1,5 @@
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
-import { Collection, Entity, Enum, ManyToOne, OneToMany, Property } from '@mikro-orm/core'
+import { Collection, Entity, Enum, ManyToOne, OneToMany, Property, Index } from '@mikro-orm/core'
 
 import { AriesCredentialFormat, CredentialFormat, DidMethod, ProtocolType } from '../types'
 
@@ -11,8 +11,7 @@ import { User } from './user.entity'
 @Entity()
 export class IssuanceTemplate extends Identified {
   @ManyToOne(() => User, { nullable: false, lazy: true })
-  // FIXME: Attribute index is unsupported for SqlLite for e2e tests, because this indexes made automatically for SQLLite. But for Postgres @Index() is required.
-  // @Index()
+  @Index()
   public owner!: User
 
   @Property({ nullable: false, length: 500 })
@@ -34,8 +33,7 @@ export class IssuanceTemplate extends Identified {
   public did!: string
 
   @ManyToOne(() => Schema, { nullable: false, lazy: true })
-  // FIXME: Attribute index is unsupported for SqlLite for e2e tests, because this indexes made automatically for SQLLite. But for Postgres @Index() is required.
-  // @Index()
+  @Index()
   public schema!: Schema
 
   @Property({ nullable: false, type: 'boolean' })
