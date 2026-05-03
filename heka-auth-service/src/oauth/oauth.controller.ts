@@ -1,5 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Logger, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { Throttle } from '@nestjs/throttler'
 
 import { LoginRequest, LoginResponse, LogoutRequest, RefreshRequest, RefreshResponse } from './dto'
 import { BearerGuard, UserAuthGuard } from './guards'
@@ -16,6 +17,7 @@ export class OAuthController {
     this.logger.verbose('constructor <')
   }
 
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Generate tokens' })
   @ApiBody({ type: LoginRequest })
   @ApiOkResponse({ type: LoginResponse })
@@ -44,6 +46,7 @@ export class OAuthController {
     this.logger.verbose('logout <')
   }
 
+  @Throttle({ auth: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Refresh tokens' })
   @ApiBody({ type: RefreshRequest })
   @ApiOkResponse({ type: RefreshResponse })

@@ -4,8 +4,9 @@ import { LoggerModule } from '@core/logger'
 import { ScheduledTaskModule } from '@core/scheduled-tasks/scheduled-tasks.module'
 import { CorrelationIdMiddleware } from '@eropple/nestjs-correlation-id'
 import { ClassSerializerInterceptor, INestApplication, Module, ValidationPipe, VersioningType } from '@nestjs/common'
-import { Reflector } from '@nestjs/core'
+import { APP_GUARD, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import bodyParser from 'body-parser'
 import chalk from 'chalk'
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino'
@@ -15,7 +16,20 @@ import { OAuthModule } from './oauth'
 import { UserModule } from './user'
 
 @Module({
-  imports: [ConfigModule, LoggerModule, DatabaseModule, ScheduledTaskModule, OAuthModule, UserModule, HealthModule],
+  imports: [
+    ConfigModule,
+    LoggerModule,
+    DatabaseModule,
+    ScheduledTaskModule,
+    OAuthModule,
+    UserModule,
+    HealthModule,
+    ThrottlerModule.forRoot([
+      { name: 'default', ttl: 60_000, limit: 30 },
+      { name: 'auth', ttl: 60_000, limit: 5 },
+    ]),
+  ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class MainModule {
   public static appConfigure = (app: INestApplication) => {
