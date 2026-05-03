@@ -7,6 +7,9 @@ import { ClassSerializerInterceptor, INestApplication, Module, ValidationPipe, V
 import { APP_GUARD, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
+import { Redis } from 'ioredis'
+
+import { RedisThrottlerStorage } from './core/throttler/redis-throttler.storage'
 import bodyParser from 'body-parser'
 import chalk from 'chalk'
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino'
@@ -24,10 +27,20 @@ import { UserModule } from './user'
     OAuthModule,
     UserModule,
     HealthModule,
-    ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60_000, limit: 30 },
-      { name: 'auth', ttl: 60_000, limit: 5 },
-    ]),
+    ThrottlerModule.forRootAsync({
+      useFactory: () => ({
+        storage: process.env.REDIS_URL ? new RedisThrottlerStorage(new Redis(process.env.REDIS_URL!)) : undefined,
+        getTracker: (req: Record<string, any>) => {
+          const username: string = req.body?.name ?? ''
+          const ip: string = req.ip ?? ''
+          return username ? `${username}:${ip}` : ip
+        },
+        throttlers: [
+          { name: 'default', ttl: 60_000, limit: 30 },
+          { name: 'auth', ttl: 60_000, limit: 5 },
+        ],
+      }),
+    }),
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

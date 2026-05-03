@@ -1,7 +1,7 @@
 import { User } from '@core/database'
 import { Body, Controller, Get, HttpCode, HttpStatus, Logger, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { Throttle } from '@nestjs/throttler'
+import { SkipThrottle, Throttle } from '@nestjs/throttler'
 
 import { Sender } from '../oauth'
 import { UserAuthGuard } from '../oauth/guards'
@@ -26,7 +26,7 @@ export class UserController {
     this.logger.verbose('constructor <')
   }
 
-  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
+  @SkipThrottle({ default: true })
   @ApiOperation({ summary: 'Register a new user' })
   @ApiBody({ type: RegisterUserRequest })
   @ApiOkResponse({ type: RegisterUserResponse })
@@ -41,6 +41,7 @@ export class UserController {
     return result
   }
 
+  @SkipThrottle({ default: true })
   @Throttle({ auth: { limit: 3, ttl: 60_000 } })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Request to change user password' })
@@ -59,7 +60,7 @@ export class UserController {
     return result
   }
 
-  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
+  @SkipThrottle({ default: true })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Change user password' })
   @ApiBody({ type: ChangePasswordRequest })
