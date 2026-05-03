@@ -25,7 +25,7 @@ describe('Rate limiting', () => {
   })
 
   test('POST /api/v1/oauth/token blocked after 5 attempts', async () => {
-    const payload = { name: 'bruteforce_token', password: 'wrong' }
+    const payload = { grant_type: 'password', username: 'bruteforceuser', password: 'wrong' }
     for (let i = 0; i < 5; i++) {
       await request(app).post('/api/v1/oauth/token').send(payload)
     }

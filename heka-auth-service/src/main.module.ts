@@ -2,11 +2,13 @@ import { ConfigModule, ConfigService } from '@config'
 import { DatabaseModule } from '@core/database'
 import { LoggerModule } from '@core/logger'
 import { ScheduledTaskModule } from '@core/scheduled-tasks/scheduled-tasks.module'
+import { AuthThrottlerGuard } from '@core/throttler/auth-throttler.guard'
 import { CorrelationIdMiddleware } from '@eropple/nestjs-correlation-id'
 import { ClassSerializerInterceptor, INestApplication, Module, ValidationPipe, VersioningType } from '@nestjs/common'
 import { APP_GUARD, Reflector } from '@nestjs/core'
+import { ConfigService as NestConfigService } from '@nestjs/config'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
+import { ThrottlerModule } from '@nestjs/throttler'
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis'
 import Redis from 'ioredis'
 import bodyParser from 'body-parser'
@@ -27,10 +29,11 @@ import { UserModule } from './user'
     UserModule,
     HealthModule,
     ThrottlerModule.forRootAsync({
-      useFactory: () => ({
-        storage: process.env.REDIS_URL ? new ThrottlerStorageRedisService(new Redis(process.env.REDIS_URL)) : undefined,
-        getTracker: (req) =>
-          (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.ip,
+      inject: [NestConfigService],
+      useFactory: (configService: NestConfigService) => ({
+        storage: new ThrottlerStorageRedisService(
+          new Redis(configService.getOrThrow<string>('REDIS_URL')),
+        ),
         throttlers: [
           { name: 'default', ttl: 60_000, limit: 30 },
           { name: 'auth', ttl: 60_000, limit: 5 },
@@ -38,7 +41,7 @@ import { UserModule } from './user'
       }),
     }),
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [AuthThrottlerGuard, { provide: APP_GUARD, useClass: AuthThrottlerGuard }],
 })
 export class MainModule {
   public static appConfigure = (app: INestApplication) => {
