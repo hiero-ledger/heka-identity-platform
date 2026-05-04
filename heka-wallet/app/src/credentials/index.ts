@@ -1,6 +1,7 @@
 export * from './types'
 export * from './mappers'
 export * from './metadata'
+export * from './openId4VcCredentialStatus'
 export * from './useCredentials'
 export * from './useOpenIdHandlers'
 export * from './useCredentialRecordHelpers'

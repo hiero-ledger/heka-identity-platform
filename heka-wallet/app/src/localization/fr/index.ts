@@ -195,7 +195,10 @@ const translation = {
     "EnterCredentialPIN": "Veuillez saisir le code PIN du certificat",
     "CredentialAddedToYourWallet": "Votre certificat est prêt à l'emploi !",
     "CredentialOnTheWay": "Votre certificat est en route.",
-    "IssuedBy": "Émis par"
+    "IssuedBy": "Émis par",
+    "StatusVerificationTitle": "Le certificat ne peut pas être ajouté",
+    "StatusVerificationMessage":
+      "Ce certificat a été révoqué ou son statut n'a pas pu être vérifié. Pour votre sécurité, il n'a pas été enregistré dans votre portefeuille."
   },
   "ProofRequest": {
     "RequestedInformation": "Informations demandées",

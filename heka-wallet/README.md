@@ -36,6 +36,17 @@ yarn lint
 yarn test
 ```
 
+### OpenID4VCI credential status verification
+
+When receiving credentials via OpenID4VCI, the wallet calls Credo’s `requestCredentials` with **`verifyCredentialStatus: true` by default**, so revoked credentials or failed status-list checks are rejected instead of being stored.
+
+- **Production and release builds:** status verification is always enabled; a revoked or invalid-status credential will surface an error and will not be saved.
+- **Development only:** you can disable verification for local issuers without status infrastructure by setting in your app env (e.g. `.env` used by `react-native-config`):
+
+  `DISABLE_OPENID4VC_CREDENTIAL_STATUS_VERIFY=true`
+
+  This escape hatch is ignored outside `__DEV__`. Prefer fixing the issuer’s status endpoints rather than relying on this flag.
+
 ## Run the app
 
 Note that it's strongly recommended to use a physical device instead of emulator.

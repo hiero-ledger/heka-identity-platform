@@ -4,6 +4,7 @@ import { getHostNameFromUrl } from '@heka-wallet/shared'
 import { renderHook } from '@testing-library/react-native'
 
 import { mockFunction } from '../../../jest-helpers/helpers'
+import * as openId4VcCredentialStatus from '../../src/credentials/openId4VcCredentialStatus'
 import { useOpenIdHandlers } from '../../src/credentials/useOpenIdHandlers'
 
 import { hekaIdentityServiceSdJwtVc } from './fixtures'
@@ -187,6 +188,14 @@ describe('useOpenIdHandlers', () => {
   })
 
   describe('receiveCredentialFromOpenId4VciOffer', () => {
+    beforeEach(() => {
+      jest.spyOn(openId4VcCredentialStatus, 'shouldVerifyOpenId4VcCredentialStatus').mockReturnValue(true)
+    })
+
+    afterEach(() => {
+      jest.restoreAllMocks()
+    })
+
     it('should receive specified credential from resolved offer', async () => {
       mockFunction(mockAgent.modules.openId4VcHolder.requestCredentials).mockResolvedValueOnce(
         fixture.requestCredentialsResponse
@@ -208,7 +217,7 @@ describe('useOpenIdHandlers', () => {
         ...fixture.tokenResponse,
         clientId: undefined,
         credentialsToRequest: [credentialIdToRequest],
-        verifyCredentialStatus: false,
+        verifyCredentialStatus: true,
         allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.EdDSA, JwaSignatureAlgorithm.ES256],
         credentialBindingResolver: expect.any(Function),
       })
@@ -234,11 +243,49 @@ describe('useOpenIdHandlers', () => {
         ...fixture.tokenResponse,
         clientId: undefined,
         credentialsToRequest: [mixedFormatResolvedCredentialOffer.offeredCredentials[1].id],
-        verifyCredentialStatus: false,
+        verifyCredentialStatus: true,
         allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.EdDSA, JwaSignatureAlgorithm.ES256],
         credentialBindingResolver: expect.any(Function),
       })
       expect(mockAgent.modules.openId4VcHolder.requestCredentials).toHaveBeenCalledTimes(1)
+    })
+
+    it('should pass verifyCredentialStatus false when dev escape hatch disables verification', async () => {
+      jest.spyOn(openId4VcCredentialStatus, 'shouldVerifyOpenId4VcCredentialStatus').mockReturnValue(false)
+      mockFunction(mockAgent.modules.openId4VcHolder.requestCredentials).mockResolvedValueOnce(
+        fixture.requestCredentialsResponse
+      )
+
+      const { receiveCredentialFromOpenId4VciOffer } = renderOpenIdHandlersHookValue()
+      await receiveCredentialFromOpenId4VciOffer({
+        resolvedCredentialOffer: fixture.resolvedCredentialOfferPreAuth,
+        accessToken: fixture.tokenResponse,
+      })
+
+      expect(mockAgent.modules.openId4VcHolder.requestCredentials).toHaveBeenCalledWith(
+        expect.objectContaining({
+          verifyCredentialStatus: false,
+        })
+      )
+    })
+
+    it('should propagate when issuer rejects revoked credential after status verification', async () => {
+      mockFunction(mockAgent.modules.openId4VcHolder.requestCredentials).mockRejectedValueOnce(
+        new Error('Credential has been revoked')
+      )
+
+      const { receiveCredentialFromOpenId4VciOffer } = renderOpenIdHandlersHookValue()
+
+      await expect(
+        receiveCredentialFromOpenId4VciOffer({
+          resolvedCredentialOffer: fixture.resolvedCredentialOfferPreAuth,
+          accessToken: fixture.tokenResponse,
+        })
+      ).rejects.toThrow(/revoked/i)
+
+      expect(mockAgent.modules.openId4VcHolder.requestCredentials).toHaveBeenCalledWith(
+        expect.objectContaining({ verifyCredentialStatus: true })
+      )
     })
 
     it('should throw if explicitly requested credential uses an unsupported format', async () => {
