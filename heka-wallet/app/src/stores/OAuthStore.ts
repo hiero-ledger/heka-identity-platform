@@ -32,9 +32,7 @@ export class OAuthStore {
   private _isInitialized = false
 
   constructor(private readonly _config: OAuthStoreConfig) {
-    // TODO: Find a proper way to remove '@ts-ignore' without making '_config' public
-    // @ts-ignore
-    makeAutoObservable(this, { _config: false })
+    makeAutoObservable(this, {}, { autoBind: true })
 
     this.initialize()
   }
