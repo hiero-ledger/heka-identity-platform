@@ -64,6 +64,10 @@ Initial supported use cases:
 
 - **VC-based authorization for agents**: [OID4VP In-Task Authorization Extension for Agent2Agent (A2A) protocol](https://github.com/DSRCorporation/a2a-oid4vp-in-task-auth-extension/blob/main/v1/spec.md)
 
+## Roadmap
+
+See [roadmap](./ROADMAP.md) for the platform's planned scope and timeline — covering core maintenance, emerging protocol support, AI / agentic economy integrations, and other development directions.
+
 ## Demos
 
 Please see the [demo folder](./demo) to explore demos showcasing various decentralized identity use cases implemented with Heka Identity Platform.
