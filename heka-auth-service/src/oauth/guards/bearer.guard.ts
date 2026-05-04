@@ -16,9 +16,18 @@ export class BearerGuard implements CanActivate {
 }
 
 export function extractTokenFromRequest(request: IncomingMessage): string {
-  const [type, token] = request.headers[AuthorizationHeader]?.split(' ') ?? []
-  if (type.toLowerCase() !== AuthorizationTokenType.toLowerCase()) {
+  const header = request.headers[AuthorizationHeader]
+  if (!header) {
     throw new UnauthorizedException()
   }
+
+  const [type, token] = header.trim().split(/\s+/)
+  if (!type || type.toLowerCase() !== AuthorizationTokenType.toLowerCase()) {
+    throw new UnauthorizedException()
+  }
+  if (!token) {
+    throw new UnauthorizedException()
+  }
+
   return token
 }
