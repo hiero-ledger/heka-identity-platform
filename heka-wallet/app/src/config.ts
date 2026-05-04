@@ -11,7 +11,7 @@ export const isExternalAuthEnabled = Config.ENABLE_EXTERNAL_AUTH === 'true'
 
 export const isWalletBackupEnabled = Config.ENABLE_WALLET_BACKUP === 'true' && Passkey.isSupported()
 
-export const isExampleCredentialEnabled = Config.ENABLE_EXAMPLE_CREDENTIAL === 'true'
+export const isExampleCredentialEnabled = Config.ENABLE_EXAMPLE_CREDENTIAL !== 'true'
 
 export const isPublicInvitationEnabled = Config.ENABLE_PUBLIC_INVITATION === 'true'
 
