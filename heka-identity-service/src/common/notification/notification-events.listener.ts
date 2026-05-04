@@ -32,8 +32,7 @@ export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy
     @Inject(AGENT_TOKEN)
     private readonly agent: Agent,
     private readonly notificationService: NotificationService,
-    // @ts-ignore: The property is used by @UseRequestContext
-    // See https://mikro-orm.io/docs/identity-map#userequestcontext-decorator
+    // @ts-expect-error: used at runtime by @UseRequestContext
     private readonly orm: MikroORM,
     private readonly em: EntityManager,
     @InjectLogger(NotificationEventsListener)

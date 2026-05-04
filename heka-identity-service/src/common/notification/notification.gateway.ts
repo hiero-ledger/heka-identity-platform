@@ -16,8 +16,7 @@ export class NotificationGateway implements OnGatewayConnection {
 
   public constructor(
     private readonly authService: AuthService,
-    // @ts-ignore: The property is used by @UseRequestContext
-    // See https://mikro-orm.io/docs/identity-map#userequestcontext-decorator
+    // @ts-expect-error: used at runtime by @UseRequestContext
     private readonly orm: MikroORM,
     @InjectLogger(NotificationGateway)
     private readonly logger: Logger,
