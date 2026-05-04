@@ -164,7 +164,7 @@ export class DidService {
       })
     }
 
-    // wallet.publicDid = didDocument.id
+    wallet.publicDid = didDocument.id
     await this.em.flush()
 
     const res = new DidDocumentDto(didDocument)

@@ -167,7 +167,8 @@ describe('DidService', () => {
     })
 
     test('creates DID via didRegistrarService when no controller wallet is required (Admin role)', async () => {
-      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: null })
+      const wallet = { id: 'wallet-1', publicDid: null }
+      vi.mocked(em.findOneOrFail).mockResolvedValue(wallet)
 
       const didDocument = {
         id: 'did:indy:test-ns:newdid',
@@ -186,6 +187,22 @@ describe('DidService', () => {
         namespace: 'test-ns',
       })
       expect(em.flush).toHaveBeenCalled()
+      expect(wallet.publicDid).toBe('did:indy:test-ns:newdid') 
+    })
+    test('throws when create is called twice for the same wallet', async () => {
+      const wallet = { id: 'wallet-1', publicDid: null }
+      vi.mocked(em.findOneOrFail).mockResolvedValue(wallet)
+      vi.mocked(didRegistrarService.createDid).mockResolvedValue({
+        id: 'did:indy:test-ns:newdid',
+        verificationMethod: [{ id: 'did:indy:test-ns:newdid#key-1' }],
+      } as any)
+      vi.mocked(em.flush).mockResolvedValue(undefined)
+
+      const authInfo = { ...baseAuthInfo, role: Role.Admin }
+
+      await didService.create(authInfo as any, { method: 'indy' } as any)
+      await expect(didService.create(authInfo as any, { method: 'indy' } as any))
+        .rejects.toThrow('The wallet already contains created public DID: did:indy:test-ns:newdid')
     })
 
     test('throws UnprocessableEntityException when didControllerWallet is not found', async () => {
