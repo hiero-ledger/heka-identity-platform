@@ -179,18 +179,16 @@ CORS is **disabled by default** — it must be explicitly opted in via environme
 | Variable | Description | Default |
 |---|---|---|
 | `EXPRESS_ENABLE_CORS` | Set to `true` to enable CORS. Any other value (including unset) disables it. | `false` |
-| `EXPRESS_ALLOWED_ORIGINS` | Comma-separated list of permitted origins. Ignored when CORS is disabled. | `""` (empty — no origins allowed) |
-| `EXPRESS_CORS_OPTIONS` | JSON string of additional [CORS options](https://github.com/expressjs/cors#configuration-options) merged with the origin list. Invalid JSON is silently ignored. | `{}` |
+| `EXPRESS_CORS_OPTIONS` | JSON string of [CORS options](https://github.com/expressjs/cors#configuration-options) passed directly to `app.enableCors()`. Must be valid JSON; invalid JSON crashes on startup (fail-fast). | `{}` |
 
-> **Security warning:** Enabling CORS without setting `EXPRESS_ALLOWED_ORIGINS` blocks all cross-origin requests.
-> Never set `EXPRESS_ALLOWED_ORIGINS` to `*` in production — use an explicit allowlist of trusted origins.
+> **Security warning:** Enabling CORS without setting an `origin` inside `EXPRESS_CORS_OPTIONS` defaults to `Access-Control-Allow-Origin: *`.
+> Always set an explicit origin allowlist in production.
 
 Example `.env` snippet:
 
 ```dotenv
 EXPRESS_ENABLE_CORS=true
-EXPRESS_ALLOWED_ORIGINS=https://admin.example.com,https://wallet.example.com
-EXPRESS_CORS_OPTIONS={"credentials":true}
+EXPRESS_CORS_OPTIONS={"origin":["https://admin.example.com","https://wallet.example.com"],"credentials":true}
 ```
 
 ## Development tools

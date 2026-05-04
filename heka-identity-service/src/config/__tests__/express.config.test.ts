@@ -7,9 +7,7 @@ describe('express config', () => {
 
   beforeEach(() => {
     originalEnv = { ...process.env }
-    // Clear all CORS-related env vars before each test
     delete process.env.EXPRESS_ENABLE_CORS
-    delete process.env.EXPRESS_ALLOWED_ORIGINS
     delete process.env.EXPRESS_CORS_OPTIONS
   })
 
@@ -42,47 +40,22 @@ describe('express config', () => {
     })
   })
 
-  describe('corsOptions.origin', () => {
-    it('is an empty array when EXPRESS_ALLOWED_ORIGINS is not set', () => {
-      const config = expressConfig()
-      expect(config.corsOptions.origin).toEqual([])
-    })
-
-    it('parses a single origin correctly', () => {
-      process.env.EXPRESS_ALLOWED_ORIGINS = 'https://admin.example.com'
-      const config = expressConfig()
-      expect(config.corsOptions.origin).toEqual(['https://admin.example.com'])
-    })
-
-    it('parses comma-separated origins into an array', () => {
-      process.env.EXPRESS_ALLOWED_ORIGINS = 'https://admin.example.com,https://wallet.example.com'
-      const config = expressConfig()
-      expect(config.corsOptions.origin).toEqual(['https://admin.example.com', 'https://wallet.example.com'])
-    })
-
-    it('trims whitespace around each origin', () => {
-      process.env.EXPRESS_ALLOWED_ORIGINS = '  https://admin.example.com , https://wallet.example.com  '
-      const config = expressConfig()
-      expect(config.corsOptions.origin).toEqual(['https://admin.example.com', 'https://wallet.example.com'])
-    })
-
-    it('filters out empty entries from trailing commas', () => {
-      process.env.EXPRESS_ALLOWED_ORIGINS = 'https://admin.example.com,,https://wallet.example.com,'
-      const config = expressConfig()
-      expect(config.corsOptions.origin).toEqual(['https://admin.example.com', 'https://wallet.example.com'])
-    })
-  })
-
   describe('corsOptions', () => {
-    it('is an object with only origin when EXPRESS_CORS_OPTIONS is not set', () => {
+    it('is an empty object when EXPRESS_CORS_OPTIONS is not set', () => {
       const config = expressConfig()
-      expect(config.corsOptions).toEqual({ origin: [] })
+      expect(config.corsOptions).toEqual({})
     })
 
-    it('parses valid JSON from EXPRESS_CORS_OPTIONS and includes origin', () => {
+    it('parses valid JSON from EXPRESS_CORS_OPTIONS', () => {
       process.env.EXPRESS_CORS_OPTIONS = '{"credentials":true,"maxAge":3600}'
       const config = expressConfig()
-      expect(config.corsOptions).toEqual({ credentials: true, maxAge: 3600, origin: [] })
+      expect(config.corsOptions).toEqual({ credentials: true, maxAge: 3600 })
+    })
+
+    it('preserves origin when set inside EXPRESS_CORS_OPTIONS', () => {
+      process.env.EXPRESS_CORS_OPTIONS = '{"origin":["https://admin.example.com","https://wallet.example.com"]}'
+      const config = expressConfig()
+      expect(config.corsOptions.origin).toEqual(['https://admin.example.com', 'https://wallet.example.com'])
     })
 
     it('throws when EXPRESS_CORS_OPTIONS contains invalid JSON', () => {

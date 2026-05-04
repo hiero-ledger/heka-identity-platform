@@ -8,18 +8,9 @@ export default registerAs('express', () => {
 
   const enableCors = process.env.EXPRESS_ENABLE_CORS === 'true'
 
-  let corsOptions: Record<string, unknown> = {}
-  if (process.env.EXPRESS_CORS_OPTIONS) {
-    corsOptions = JSON.parse(process.env.EXPRESS_CORS_OPTIONS) as Record<string, unknown>
-  }
-
-  const allowedOrigins: string[] = process.env.EXPRESS_ALLOWED_ORIGINS
-    ? process.env.EXPRESS_ALLOWED_ORIGINS.split(',')
-        .map((o) => o.trim())
-        .filter(Boolean)
-    : []
-
-  corsOptions.origin = allowedOrigins
+  const corsOptions: Record<string, unknown> = process.env.EXPRESS_CORS_OPTIONS
+    ? (JSON.parse(process.env.EXPRESS_CORS_OPTIONS) as Record<string, unknown>)
+    : {}
 
   return {
     port,
