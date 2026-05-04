@@ -54,3 +54,4 @@ node_modules/
 
 # Intellij IDEs
 .idea
+.DS_Store
