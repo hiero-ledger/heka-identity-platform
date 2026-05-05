@@ -2,7 +2,7 @@
 
 // No type definitions available for this package
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
+// @ts-expect-error: no type definitions available for this package
 import { Bitstring } from '@digitalcredentials/bitstring'
 import { EntityManager } from '@mikro-orm/core'
 import { BadRequestException, Inject, Injectable } from '@nestjs/common'
