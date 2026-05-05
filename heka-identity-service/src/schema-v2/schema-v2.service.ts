@@ -152,7 +152,7 @@ export class SchemaV2Service {
         version: '1.0.0',
         attrNames: schema.fields
           .toArray()
-          .sort((x) => x.orderIndex ?? 0)
+          .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
           .map((x) => x.name),
       })
 
@@ -200,7 +200,7 @@ export class SchemaV2Service {
       {},
       ...schema.fields
         .toArray()
-        .sort((s) => s.orderIndex ?? 0)
+        .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
         .map((x) => ({ [x.name]: {} }) as IssuerCredentialSubject),
     )
 
@@ -490,7 +490,7 @@ export class SchemaV2Service {
       orderIndex: schema.orderIndex,
       fields: schema.fields
         .toArray()
-        .sort((s) => s.orderIndex ?? 0)
+        .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
         .map((f) => ({
           id: f.id,
           name: f.name,
