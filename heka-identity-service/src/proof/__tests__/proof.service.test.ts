@@ -274,6 +274,38 @@ describe('ProofService', () => {
       expect(result.revealedAttributes).toContainEqual({ name: 'role', value: 'admin' })
     })
 
+    test('serializes complex credential attributes as JSON instead of [object Object]', async () => {
+      const mockRecord = proofExchangeRecordStub({ id: 'proof-3', state: 'done', createdAt: new Date() })
+      vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord)
+      vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({
+        presentation: {
+          presentationExchange: {
+            verifiableCredential: [
+              {
+                credentialSubject: {
+                  name: 'Alice',
+                  address: { street: '123 Main St', city: 'Springfield' },
+                  tags: ['verified', 'premium'],
+                },
+              },
+            ],
+          },
+        },
+      } as any)
+
+      const result = await proofService.get(tenantAgent, 'proof-3')
+
+      expect(result.revealedAttributes).toContainEqual({ name: 'name', value: 'Alice' })
+      expect(result.revealedAttributes).toContainEqual({
+        name: 'address',
+        value: JSON.stringify({ street: '123 Main St', city: 'Springfield' }),
+      })
+      expect(result.revealedAttributes).toContainEqual({
+        name: 'tags',
+        value: JSON.stringify(['verified', 'premium']),
+      })
+    })
+
     test('throws NotFoundException when proof not found', async () => {
       vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(null)
 
