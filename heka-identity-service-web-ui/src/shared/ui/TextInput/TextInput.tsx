@@ -102,16 +102,14 @@ export function TextInputUncontrolled({
   initValue,
   onChange,
 }: TextInputUncontrolledProps) {
-  const [value, setValue] = useState<string | undefined>(undefined);
+  const [value, setValue] = useState<string>('');
 
   useEffect(() => {
-    setValue(initValue);
+    setValue(initValue ?? '');
   }, [initValue]);
 
   const onChangeHandler = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
-      if (!event.target.value) return;
-
       setValue(event.target.value);
       if (onChange) onChange(event.target.value);
     },

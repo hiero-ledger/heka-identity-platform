@@ -14,6 +14,7 @@ export default {
     buttons: {
       back: 'Back',
       next: 'Next',
+      skip: 'Skip',
       logo: 'Logo',
       background: 'Background color',
       esc: 'Esc',
@@ -44,6 +45,7 @@ export default {
     },
     buttons: {
       start: 'Get started',
+      ageVerification: 'Age verification via mDL',
     },
   },
   Flow: {
@@ -90,6 +92,15 @@ export default {
   Demo: {
     titles: {
       main: 'Demo',
+    },
+  },
+  AgeVerificationDemo: {
+    ageCheck: {
+      label: 'Verify age (18+)',
+    },
+    result: {
+      verified: 'Age Verified',
+      notVerified: 'Age Not Verified',
     },
   },
   IssueCredential: {

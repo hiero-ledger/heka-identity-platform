@@ -10,10 +10,10 @@ export enum OrmConfigKeys {
 
 const dbConfigDefaults = {
   host: 'localhost',
-  port: 5432,
-  name: 'postgres',
-  user: 'postgres',
-  password: 'postgres',
+  port: 5433,
+  name: 'heka-auth-service',
+  user: 'heka',
+  password: 'heka1',
 }
 
 export class DbConfig {

@@ -13,6 +13,11 @@ export default () =>
         timezone: 'Z',
       },
     },
+    // Each vitest test spins up a fresh Nest app (which creates its own ORM)
+    // plus the standalone helper ORM used for schema management. Keeping the
+    // default knex pool (max: 10) quickly exhausts Postgres' default 100
+    // client cap within a single test file. Cap it tight for tests.
+    pool: { min: 0, max: 2 },
     cache: {
       enabled: false,
     },

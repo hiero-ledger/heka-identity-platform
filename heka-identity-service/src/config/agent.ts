@@ -118,10 +118,10 @@ export default registerAs('agent', () => {
     },
   }
 
-  const mdlIssuerCertificate = process.env.MDL_ISSUER_CERTIFICATE
+  const mdlIssuerCertificate = process.env.MDL_ISSUER_CERTIFICATE ?? 'MIIBwDCCAWWgAwIBAgIUSMdjaVc1KHI+3o6qJXhSC4sJh+cwCgYIKoZIzj0EAwIwNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMB4XDTI2MDMyNzIxNDA1NloXDTM2MDMyNDIxNDA1NlowNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1nIrm3O9VX8MdPrKWMhqqV0QMS4UtxKj6uUc8IdGE2fSsWyi7XQN3HoE1Ln9TDtOIHvSyW8Eyr98MlWGBBF/vqNTMFEwHQYDVR0OBBYEFNfkrHxd2nwtni96XrrYhaMgUFImMB8GA1UdIwQYMBaAFNfkrHxd2nwtni96XrrYhaMgUFImMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAP0V5EW7j6Pb+lJktzdWrtEqhI3mYs9Fd+qh0p2kNXJPAiEAqK+q7Wk+t5e2yzvO3b6t3P5nIEnoQt3cvDsaUZY1dT0='
   const mdlIssuerPrivateKeyJwk = process.env.MDL_ISSUER_PRIVATE_KEY
     ? (JSON.parse(process.env.MDL_ISSUER_PRIVATE_KEY) as Record<string, string>)
-    : undefined
+    : (JSON.parse('{"kty":"EC","x":"1nIrm3O9VX8MdPrKWMhqqV0QMS4UtxKj6uUc8IdGE2c","y":"0rFsou10Ddx6BNS5_Uw7TiB70slvBMq_fDJVhgQRf74","crv":"P-256","d":"ioXmEeGGMTLWF8AZwFwufaR5e_oGTfxR2IrZSQ9niLA","kid":"4f138202-31fb-4f13-b779-8f61b2bef253"}') as Record<string, string>)
 
   const credentialsConfiguration: CredentialsConfiguration = {
     [ProtocolType.Oid4vc]: {

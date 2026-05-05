@@ -40,17 +40,19 @@ const App = () => {
     initStoredLanguage()
   }, [])
 
-  useEffect(() => {
-    // Hide the native splash / loading screen so that our
-    // RN version can be displayed.
-    SplashScreen.hide()
-  }, [])
-
   // This is required for consistent Keychain behavior on iOS and Android in cases where user re-installs the app
   // We want to clear Keychain data after deleting the app, but it's not possible on iOS
   // So we need to manually reset keychain data on first app launch on iOS
   // See https://github.com/oblador/react-native-keychain/issues/135
   const { inProgress: keychainResetInProgress } = useIOSKeychainResetOnFirstLaunch()
+
+  useEffect(() => {
+    // Hide the native splash / loading screen so that our
+    // RN version can be displayed.
+    if (!keychainResetInProgress) {
+      SplashScreen.hide()
+    }
+  }, [keychainResetInProgress])
 
   // TODO: Find a way to show splash instead of a blank screen
   // Do not render anything before keychain reset is completed

@@ -31,6 +31,24 @@ import { CredentialRecord, OpenId4VcPresentationRequest, OpenIdPresentationSubmi
 
 export const PRE_AUTH_GRANT_LITERAL = 'urn:ietf:params:oauth:grant-type:pre-authorized_code'
 
+// Credential formats supported by the wallet
+const WALLET_SUPPORTED_CREDENTIAL_FORMATS: ReadonlyArray<string> = [
+  OpenId4VciCredentialFormatProfile.SdJwtVc,
+  OpenId4VciCredentialFormatProfile.JwtVcJson,
+  OpenId4VciCredentialFormatProfile.JwtVcJsonLd,
+  OpenId4VciCredentialFormatProfile.MsoMdoc,
+]
+
+const walletSupportsCredentialFormat = (format?: string) =>
+  format !== undefined && WALLET_SUPPORTED_CREDENTIAL_FORMATS.includes(format)
+
+const formatOfferedCredentialDescriptions = (
+  offeredCredentials: OpenId4VciResolvedCredentialOffer['offeredCredentialConfigurations']
+) =>
+  Object.keys(offeredCredentials)
+    .map((credentialId) => `${credentialId}: ${offeredCredentials[credentialId].format ?? '<missing format>'}`)
+    .join(', ')
+
 export const useOpenIdHandlers = () => {
   const { agent, publicDid } = useAgent<BifoldAgent>()
 
@@ -160,8 +178,24 @@ export const useOpenIdHandlers = () => {
       )
 
       if (!offeredCredentialsToRequest) {
+        const offeredCredentialDescriptions = formatOfferedCredentialDescriptions(
+          resolvedCredentialOffer.offeredCredentialConfigurations
+        )
+        const errorMessage = credentialConfigurationIdToRequest
+          ? `Parameter 'credentialConfigurationIdToRequest' with value ${credentialConfigurationIdToRequest} is not a credential_configuration_id in the credential offer.`
+          : `No supported credential format found in the credential offer. Supported formats: ${WALLET_SUPPORTED_CREDENTIAL_FORMATS.join(', ')}. Offered credentials: ${offeredCredentialDescriptions}`
+        throw new Error(errorMessage)
+      }
+
+      if (
+        credentialConfigurationIdToRequest &&
+        !walletSupportsCredentialFormat(offeredCredentialsToRequest[credentialConfigurationIdToRequest].format)
+      ) {
+        const offeredCredentialDescriptions = formatOfferedCredentialDescriptions(
+          resolvedCredentialOffer.offeredCredentialConfigurations
+        )
         throw new Error(
-          `Parameter 'credentialConfigurationIdsToRequest' with value ${credentialConfigurationIdToRequest} is not a credential_configuration_id in the credential offer.`
+          `Credential configuration '${credentialConfigurationIdToRequest}' uses unsupported format '${offeredCredentialsToRequest[credentialConfigurationIdToRequest].format}'. Supported formats: ${WALLET_SUPPORTED_CREDENTIAL_FORMATS.join(', ')}. Offered credentials: ${offeredCredentialDescriptions}`
         )
       }
 

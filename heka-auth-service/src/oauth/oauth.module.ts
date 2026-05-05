@@ -6,9 +6,9 @@ import { JwtModule } from '@nestjs/jwt'
 import { PassportModule } from '@nestjs/passport'
 
 import { BearerGuard } from './guards'
-import { OAuthController } from './oath.controller'
+import { OAuthController } from './oauth.controller'
 import { OAuthService } from './oauth.service'
-import { JwtStrategy } from './stratigies'
+import { JwtStrategy } from './strategies'
 
 @Module({
   imports: [

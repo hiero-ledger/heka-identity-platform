@@ -15,6 +15,7 @@
     "resolveJsonModule": true,
     "outDir": "dist",
     "noUnusedLocals": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "types": ["node", "vitest/globals"]
   }
 }

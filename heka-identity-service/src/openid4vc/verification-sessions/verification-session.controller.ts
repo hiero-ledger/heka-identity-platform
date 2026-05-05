@@ -137,7 +137,7 @@ export class OpenId4VcVerificationSessionController {
   @ApiUnprocessableEntityResponse({ description: 'Unprocessable Entity' })
   @HttpCode(HttpStatus.NO_CONTENT)
   @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Verifier)
-  @Delete('/{verificationSessionId}')
+  @Delete(':verificationSessionId')
   public async deleteVerificationSession(
     @ReqTenantAgent() tenantAgent: TenantAgent,
     @Param('verificationSessionId') verificationSessionId: string,
