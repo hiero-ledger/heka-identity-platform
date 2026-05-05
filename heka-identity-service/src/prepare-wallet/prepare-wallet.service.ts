@@ -1,5 +1,5 @@
 import { Injectable, UnprocessableEntityException} from '@nestjs/common'
-import { EntityManager } from '@mikro-orm/core'
+
 import { TenantAgent } from 'common/agent'
 import { AuthInfo } from 'common/auth'
 import { InjectLogger, Logger } from 'common/logger'
@@ -24,7 +24,6 @@ export class PrepareWalletService {
     private readonly openId4VcVerifierService: OpenId4VcVerifierService,
     private readonly schemaV2Service: SchemaV2Service,
     private readonly userService: UserService,
-    private readonly em: EntityManager,
   ) {}
 
   public async prepareWallet(

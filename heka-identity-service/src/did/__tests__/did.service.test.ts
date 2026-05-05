@@ -187,7 +187,7 @@ describe('DidService', () => {
         namespace: 'test-ns',
       })
       expect(em.flush).toHaveBeenCalled()
-      expect(wallet.publicDid).toBe('did:indy:test-ns:newdid') 
+      expect(wallet.publicDid).toBe('did:indy:test-ns:newdid')
     })
     test('throws when create is called twice for the same wallet', async () => {
       const wallet = { id: 'wallet-1', publicDid: null }
