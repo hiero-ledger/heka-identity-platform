@@ -22,7 +22,7 @@ export const Search = ({ onSearch, debounceMs = 300 }: SearchProps) => {
 
   return (
     <div className={cls.SearchWrapper}>
-      <TextInputUncontrolled
+      <TextInputUncontrolled // Implemented Debounce Search
         label="Search"
         initValue={query}
         onChange={setQuery}
