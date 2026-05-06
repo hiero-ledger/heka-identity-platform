@@ -1,4 +1,4 @@
-import { Collection, Entity, Enum, ManyToOne, OneToMany, Property } from '@mikro-orm/core'
+import { Collection, Entity, Enum, Index, ManyToOne, OneToMany, Property } from '@mikro-orm/core'
 
 import { AriesCredentialFormat, CredentialFormat, DidMethod, OpenId4VcCredentialFormat, ProtocolType } from '../types'
 
@@ -10,8 +10,7 @@ import { VerificationTemplateField } from './verification-template-field.entity'
 @Entity()
 export class VerificationTemplate extends Identified {
   @ManyToOne(() => User, { nullable: false, lazy: true })
-  // FIXME: Attribute index is unsupported for SqlLite for e2e tests, because this indexes made automatically for SQLLite. But for Postgres @Index() is required.
-  // @Index()
+  @Index()
   public owner!: User
 
   @Property({ nullable: false, length: 500 })
@@ -33,8 +32,7 @@ export class VerificationTemplate extends Identified {
   public did?: string
 
   @ManyToOne(() => Schema, { nullable: false, lazy: true })
-  // FIXME: Attribute index is unsupported for SqlLite for e2e tests, because this indexes made automatically for SQLLite. But for Postgres @Index() is required.
-  // @Index()
+  @Index()
   public schema!: Schema
 
   @Property({ nullable: false, type: 'boolean' })

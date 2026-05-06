@@ -1,0 +1,418 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.0.3 Chrome/140.0.7339.249 Electron/38.7.0 Safari/537.36" version="29.0.3">
+  <diagram id="SVFWI7yHhve9LLFDnVji" name="Page-1">
+    <mxGraphModel dx="1284" dy="1925" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="583" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-5" value="&lt;span style=&quot;text-align: left;&quot;&gt;Heka Wallet&lt;/span&gt;" style="swimlane;whiteSpace=wrap;html=1;startSize=23;" parent="1" vertex="1">
+          <mxGeometry x="10" y="-720" width="1110" height="2110" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-7" value="Bifold integration" style="swimlane;horizontal=0;whiteSpace=wrap;html=1;" parent="PwTQJZNIiG3ux0fCSqOa-5" vertex="1">
+          <mxGeometry y="270" width="650" height="377" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-26" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=-0.031;entryY=0.536;entryDx=0;entryDy=0;startArrow=classic;startFill=1;entryPerimeter=0;" parent="PwTQJZNIiG3ux0fCSqOa-7" source="PwTQJZNIiG3ux0fCSqOa-9" target="PwTQJZNIiG3ux0fCSqOa-21" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-9" value="Credo agent&lt;br&gt;+ plug-in packages&amp;nbsp;" style="html=1;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="270" y="159.25" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-12" value="React Native AsyncStorage" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.database;whiteSpace=wrap;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="50" y="32.75" width="80" height="98.5" as="geometry" />
+        </mxCell>
+        <mxCell id="4WV-6B_vG_8YK1WsVPuG-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;startArrow=classic;startFill=1;" parent="PwTQJZNIiG3ux0fCSqOa-7" source="PwTQJZNIiG3ux0fCSqOa-13" target="4WV-6B_vG_8YK1WsVPuG-10" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-13" value="Askar Storage&lt;br&gt;(encrypted)" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.database;whiteSpace=wrap;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="50" y="270" width="80" height="98.5" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;startArrow=classic;startFill=1;" parent="PwTQJZNIiG3ux0fCSqOa-7" source="PwTQJZNIiG3ux0fCSqOa-15" target="PwTQJZNIiG3ux0fCSqOa-12" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-25" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=-0.001;entryY=0.176;entryDx=0;entryDy=0;startArrow=classic;startFill=1;entryPerimeter=0;" parent="PwTQJZNIiG3ux0fCSqOa-7" source="PwTQJZNIiG3ux0fCSqOa-15" target="PwTQJZNIiG3ux0fCSqOa-21" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-7" source="PwTQJZNIiG3ux0fCSqOa-15" target="PwTQJZNIiG3ux0fCSqOa-9" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-15" value="Bifold&lt;br&gt;App State Management" style="html=1;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="270" y="42.75" width="160.01" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-17" value="User settings,&lt;br&gt;Auth state, etc." style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="150" y="44" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;startArrow=classic;startFill=1;" parent="PwTQJZNIiG3ux0fCSqOa-7" source="PwTQJZNIiG3ux0fCSqOa-9" target="PwTQJZNIiG3ux0fCSqOa-13" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" y="92" as="sourcePoint" />
+            <mxPoint x="140" y="92" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-19" value="Credo wallet data" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="150" y="320" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-21" value="Bifold UI" style="html=1;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="540" y="26" width="90" height="324" as="geometry" />
+        </mxCell>
+        <mxCell id="3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;startArrow=classic;startFill=1;" parent="PwTQJZNIiG3ux0fCSqOa-7" source="4WV-6B_vG_8YK1WsVPuG-10" target="PwTQJZNIiG3ux0fCSqOa-15" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="4WV-6B_vG_8YK1WsVPuG-10" value="Secure&lt;div&gt;Keychain&lt;/div&gt;" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.database;whiteSpace=wrap;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="50" y="150" width="80" height="98.5" as="geometry" />
+        </mxCell>
+        <mxCell id="4WV-6B_vG_8YK1WsVPuG-12" value="Askar HSM integration&lt;div&gt;(hardware-backed keys)&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="111" y="240" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="Credo&lt;br&gt;wallet&lt;div&gt;credentials&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="125" y="140" width="80" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="Credo wallet config&lt;br&gt;+ credentials" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="227" y="124" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="Provided as Credo agent&lt;br&gt;modules" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="PwTQJZNIiG3ux0fCSqOa-7" vertex="1">
+          <mxGeometry x="340" y="320" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-20" value="Heka Wallet UI" style="swimlane;whiteSpace=wrap;html=1;" parent="PwTQJZNIiG3ux0fCSqOa-5" vertex="1">
+          <mxGeometry x="650" y="23" width="460" height="2087" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-28" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;Shared UI&lt;br&gt;layout&lt;/font&gt;" style="html=1;" parent="PwTQJZNIiG3ux0fCSqOa-20" vertex="1">
+          <mxGeometry x="326" y="39" width="90" height="2001" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-35" value="Custom components/screens&lt;br&gt;for Bifold" style="html=1;" parent="PwTQJZNIiG3ux0fCSqOa-20" vertex="1">
+          <mxGeometry x="81.01" y="477" width="160.01" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-64" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;" parent="PwTQJZNIiG3ux0fCSqOa-20" source="PwTQJZNIiG3ux0fCSqOa-62" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="324" y="77" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-62" value="Pluggable feature UI&lt;br&gt;(can be provided by module)" style="html=1;" parent="PwTQJZNIiG3ux0fCSqOa-20" vertex="1">
+          <mxGeometry x="81.01" y="37" width="160.01" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-21" value="Cryptocurrency wallet&lt;br&gt;UI&lt;br&gt;(can be provided by module)" style="html=1;" parent="PwTQJZNIiG3ux0fCSqOa-20" vertex="1">
+          <mxGeometry x="81.01" y="1204.63" width="158.99" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-66" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="PwTQJZNIiG3ux0fCSqOa-20" source="m1A9E7wZGL6qoOyfrZWK-21" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="1245" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="14" value="Injected using&lt;br&gt;Bifold DI &lt;br&gt;Container" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="PwTQJZNIiG3ux0fCSqOa-20" vertex="1">
+          <mxGeometry x="-10" y="459" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="50" value="Backup/Restore UI&lt;div&gt;(can be provided by module)&lt;/div&gt;" style="html=1;" parent="PwTQJZNIiG3ux0fCSqOa-20" vertex="1">
+          <mxGeometry x="79.99" y="1853" width="160.01" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="60" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="PwTQJZNIiG3ux0fCSqOa-20" source="50" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+            <mxPoint x="325" y="1893" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="25" value="OAuth UI&lt;br&gt;(can be provided by module)" style="html=1;" parent="PwTQJZNIiG3ux0fCSqOa-20" vertex="1">
+          <mxGeometry x="81.00999999999999" y="1444" width="160.01" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="59" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=-0.009;entryY=0.722;entryDx=0;entryDy=0;entryPerimeter=0;" parent="PwTQJZNIiG3ux0fCSqOa-20" source="25" target="PwTQJZNIiG3ux0fCSqOa-28" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="1484" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;exitX=1.03;exitY=0.178;exitDx=0;exitDy=0;exitPerimeter=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="PwTQJZNIiG3ux0fCSqOa-21" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="975" y="354" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-36" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=none;startFill=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="PwTQJZNIiG3ux0fCSqOa-35" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="630" y="540" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-52" value="Pluggable Heka Wallet modules" style="swimlane;horizontal=0;whiteSpace=wrap;html=1;" parent="PwTQJZNIiG3ux0fCSqOa-5" vertex="1">
+          <mxGeometry y="23" width="650" height="247" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-60" value="Any storage" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.database;whiteSpace=wrap;" parent="PwTQJZNIiG3ux0fCSqOa-52" vertex="1">
+          <mxGeometry x="60" y="27.75" width="80" height="98.5" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-22" value="Bifold State Management&lt;br&gt;Utils (optional)" style="html=1;" parent="PwTQJZNIiG3ux0fCSqOa-52" vertex="1">
+          <mxGeometry x="270" y="147" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-54" value="Pluggable feature&lt;br&gt;State Management" style="html=1;" parent="PwTQJZNIiG3ux0fCSqOa-52" vertex="1">
+          <mxGeometry x="270" y="37" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-61" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;startArrow=classic;startFill=1;" parent="PwTQJZNIiG3ux0fCSqOa-52" source="PwTQJZNIiG3ux0fCSqOa-54" target="PwTQJZNIiG3ux0fCSqOa-60" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="280" y="312.75" as="sourcePoint" />
+            <mxPoint x="140" y="312" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-57" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;startArrow=classic;startFill=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-52" source="PwTQJZNIiG3ux0fCSqOa-54" target="m1A9E7wZGL6qoOyfrZWK-22" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="345" y="17" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="12" value="Generic description for pluggable features&lt;br&gt;similar to OAuth &amp;amp; Wallet Backup&lt;br&gt;&lt;br&gt;Not exhaustive, so there can be&lt;br&gt;other components depending&lt;br&gt;on implementation" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="PwTQJZNIiG3ux0fCSqOa-52" vertex="1">
+          <mxGeometry x="20" y="137" width="250" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-58" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="PwTQJZNIiG3ux0fCSqOa-54" target="PwTQJZNIiG3ux0fCSqOa-35" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="390" y="160" />
+              <mxPoint x="811" y="160" />
+            </Array>
+            <mxPoint x="510" y="140" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="PwTQJZNIiG3ux0fCSqOa-63" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;startArrow=classic;startFill=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="PwTQJZNIiG3ux0fCSqOa-54" target="PwTQJZNIiG3ux0fCSqOa-62" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="430" y="110" as="sourcePoint" />
+            <Array as="points">
+              <mxPoint x="550" y="100" />
+              <mxPoint x="550" y="100" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="m1A9E7wZGL6qoOyfrZWK-22" target="PwTQJZNIiG3ux0fCSqOa-15" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-24" value="Hedera Credo package" style="swimlane;horizontal=0;whiteSpace=wrap;html=1;" parent="PwTQJZNIiG3ux0fCSqOa-5" vertex="1">
+          <mxGeometry y="647" width="650" height="253" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;startArrow=classic;startFill=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="m1A9E7wZGL6qoOyfrZWK-24" source="m1A9E7wZGL6qoOyfrZWK-25" target="m1A9E7wZGL6qoOyfrZWK-35" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-25" value="Hedera SSI Resolvers&lt;br&gt;(DIDs &amp;amp; other resources)" style="html=1;" parent="m1A9E7wZGL6qoOyfrZWK-24" vertex="1">
+          <mxGeometry x="470" y="53" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-41" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;startArrow=classic;startFill=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="m1A9E7wZGL6qoOyfrZWK-24" source="m1A9E7wZGL6qoOyfrZWK-34" target="m1A9E7wZGL6qoOyfrZWK-35" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-34" value="Hedera SSI Registries&lt;br&gt;(DIDs &amp;amp; other resources)" style="html=1;" parent="m1A9E7wZGL6qoOyfrZWK-24" vertex="1">
+          <mxGeometry x="80" y="53" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-35" value="Hiero SDK" style="html=1;" parent="m1A9E7wZGL6qoOyfrZWK-24" vertex="1">
+          <mxGeometry x="275" y="163" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="Hedera Module" style="html=1;" parent="m1A9E7wZGL6qoOyfrZWK-24" vertex="1">
+          <mxGeometry x="275" y="53" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=classic;startFill=1;" parent="m1A9E7wZGL6qoOyfrZWK-24" source="m1A9E7wZGL6qoOyfrZWK-35" target="6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="6" target="PwTQJZNIiG3ux0fCSqOa-9" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="1000" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-44" value="Hedera cryptocurrency module" style="swimlane;horizontal=0;whiteSpace=wrap;html=1;" parent="PwTQJZNIiG3ux0fCSqOa-5" vertex="1">
+          <mxGeometry y="900" width="650" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-58" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;startArrow=classic;startFill=1;" parent="m1A9E7wZGL6qoOyfrZWK-44" source="m1A9E7wZGL6qoOyfrZWK-45" target="m1A9E7wZGL6qoOyfrZWK-52" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-45" value="Hiero SDK" style="html=1;" parent="m1A9E7wZGL6qoOyfrZWK-44" vertex="1">
+          <mxGeometry x="70" y="55" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-52" value="Hedera Network Adapter" style="html=1;" parent="m1A9E7wZGL6qoOyfrZWK-44" vertex="1">
+          <mxGeometry x="280" y="55" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-56" value="Implements" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="m1A9E7wZGL6qoOyfrZWK-44" vertex="1">
+          <mxGeometry x="450" y="130" width="90" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-10" value="Cryptocurrency wallet integration" style="swimlane;horizontal=0;whiteSpace=wrap;html=1;" parent="PwTQJZNIiG3ux0fCSqOa-5" vertex="1">
+          <mxGeometry y="1090" width="650" height="306" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-61" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;dashed=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;" parent="m1A9E7wZGL6qoOyfrZWK-10" source="m1A9E7wZGL6qoOyfrZWK-14" target="m1A9E7wZGL6qoOyfrZWK-60" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-14" value="Cryptocurrency wallet&lt;br&gt;module&lt;br&gt;(simplified)" style="html=1;" parent="m1A9E7wZGL6qoOyfrZWK-10" vertex="1">
+          <mxGeometry x="280" y="137.63" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-15" value="Cryptocurrency wallet&lt;br&gt;keys" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="m1A9E7wZGL6qoOyfrZWK-10" vertex="1">
+          <mxGeometry x="140" y="80" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-16" value="Configs, preferences and other&lt;br&gt;non-sensitive data" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="m1A9E7wZGL6qoOyfrZWK-10" vertex="1">
+          <mxGeometry x="140" y="236" width="190" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-17" value="Secure Keychain" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.database;whiteSpace=wrap;" parent="m1A9E7wZGL6qoOyfrZWK-10" vertex="1">
+          <mxGeometry x="50" y="70.69999999999999" width="80" height="98.5" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-18" value="React Native AsyncStorage" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.database;whiteSpace=wrap;" parent="m1A9E7wZGL6qoOyfrZWK-10" vertex="1">
+          <mxGeometry x="50" y="186.07" width="80" height="98.5" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;startArrow=classic;startFill=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" parent="m1A9E7wZGL6qoOyfrZWK-10" source="m1A9E7wZGL6qoOyfrZWK-14" target="m1A9E7wZGL6qoOyfrZWK-18" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="280" y="67.63" as="sourcePoint" />
+            <mxPoint x="159" y="26.879999999999995" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;startArrow=classic;startFill=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" parent="m1A9E7wZGL6qoOyfrZWK-10" source="m1A9E7wZGL6qoOyfrZWK-14" target="m1A9E7wZGL6qoOyfrZWK-17" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="280" y="67.63" as="sourcePoint" />
+            <mxPoint x="150" y="130.63" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-60" value="Network Adapter Interface&lt;br&gt;(send, get balance, &lt;br&gt;fee calculation)" style="html=1;dashed=1;" parent="m1A9E7wZGL6qoOyfrZWK-10" vertex="1">
+          <mxGeometry x="460" y="40" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-55" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="m1A9E7wZGL6qoOyfrZWK-52" target="m1A9E7wZGL6qoOyfrZWK-60" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="540" y="1267" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-57" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="m1A9E7wZGL6qoOyfrZWK-52" target="m1A9E7wZGL6qoOyfrZWK-14" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-62" value="Provides" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="PwTQJZNIiG3ux0fCSqOa-5" vertex="1">
+          <mxGeometry x="447" y="1222" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="m1A9E7wZGL6qoOyfrZWK-65" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="m1A9E7wZGL6qoOyfrZWK-14" target="m1A9E7wZGL6qoOyfrZWK-21" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="m1A9E7wZGL6qoOyfrZWK-34" target="PwTQJZNIiG3ux0fCSqOa-9" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="155" y="680" />
+              <mxPoint x="350" y="680" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="m1A9E7wZGL6qoOyfrZWK-25" target="PwTQJZNIiG3ux0fCSqOa-9" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="545" y="680" />
+              <mxPoint x="350" y="680" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="15" value="OAuth support module" style="swimlane;horizontal=0;whiteSpace=wrap;html=1;" parent="PwTQJZNIiG3ux0fCSqOa-5" vertex="1">
+          <mxGeometry y="1396" width="650" height="274" as="geometry" />
+        </mxCell>
+        <mxCell id="56" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;startArrow=classic;startFill=1;" parent="15" source="16" target="55" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="OAuth State Management" style="html=1;" parent="15" vertex="1">
+          <mxGeometry x="281" y="70" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="17" value="Auth token" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="15" vertex="1">
+          <mxGeometry x="170" y="30" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="18" value="User Info&lt;br&gt;(id, role, email, etc.)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="15" vertex="1">
+          <mxGeometry x="145" y="165" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="19" value="Secure Keychain" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.database;whiteSpace=wrap;" parent="15" vertex="1">
+          <mxGeometry x="50" y="8.25" width="80" height="98.5" as="geometry" />
+        </mxCell>
+        <mxCell id="20" value="React Native AsyncStorage" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.database;whiteSpace=wrap;" parent="15" vertex="1">
+          <mxGeometry x="50" y="113.25" width="80" height="98.5" as="geometry" />
+        </mxCell>
+        <mxCell id="21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;startArrow=classic;startFill=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" parent="15" source="16" target="20" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" as="sourcePoint" />
+            <mxPoint x="149" y="-40.75" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;startArrow=classic;startFill=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" parent="15" source="16" target="19" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" as="sourcePoint" />
+            <mxPoint x="140" y="63" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="55" value="OAuth Server API" style="html=1;strokeColor=default;" parent="15" vertex="1">
+          <mxGeometry x="281" y="180" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="58" value="OAuth API integration" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="15" vertex="1">
+          <mxGeometry x="362" y="151" width="140" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;startArrow=classic;startFill=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="25" target="16" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="465" y="1730" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="26" value="Wallet backup module" style="swimlane;horizontal=0;whiteSpace=wrap;html=1;" parent="PwTQJZNIiG3ux0fCSqOa-5" vertex="1">
+          <mxGeometry y="1670" width="650" height="440" as="geometry" />
+        </mxCell>
+        <mxCell id="38" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="26" source="27" target="35" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="27" value="Passkeys State&lt;br&gt;Management" style="html=1;" parent="26" vertex="1">
+          <mxGeometry x="282" y="206" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="31" value="File system" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.database;whiteSpace=wrap;" parent="26" vertex="1">
+          <mxGeometry x="50" y="6.75" width="80" height="98.5" as="geometry" />
+        </mxCell>
+        <mxCell id="32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;startArrow=classic;startFill=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" parent="26" source="35" target="31" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" as="sourcePoint" />
+            <mxPoint x="149" y="-40.75" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="41" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;startArrow=classic;startFill=1;" parent="26" source="34" target="27" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;startArrow=classic;startFill=1;" parent="26" source="34" target="40" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="34" value="Credential Manager&lt;br&gt;(native API, used internally&lt;br&gt;by passkeys lib)" style="html=1;" parent="26" vertex="1">
+          <mxGeometry x="60" y="206" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="35" value="Wallet Backup Helpers&lt;br&gt;(Hooks)" style="html=1;" parent="26" vertex="1">
+          <mxGeometry x="282" y="16" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="36" value="Temp files" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="26" vertex="1">
+          <mxGeometry x="160" y="24" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="40" value="Device Password Manager&lt;br&gt;(for example, Google&lt;br&gt;Password Manager)" style="html=1;" parent="26" vertex="1">
+          <mxGeometry x="60" y="336" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="43" value="Creation and retrieval of Passkey&lt;br&gt;Credentials" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="26" vertex="1">
+          <mxGeometry x="135" y="286" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="39" value="Passkey PRF HMAC&lt;br&gt;for backup key derivation" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="26" vertex="1">
+          <mxGeometry x="352" y="142" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="46" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;startArrow=classic;startFill=1;" parent="26" source="45" target="27" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="45" value="WebAuthn/FIDO2 Server&lt;br&gt;API" style="html=1;strokeColor=default;" parent="26" vertex="1">
+          <mxGeometry x="282" y="336" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="48" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.25;entryY=1;entryDx=0;entryDy=0;startArrow=classic;startFill=1;" parent="26" source="47" target="35" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="47" value="Backup/Restore Server&lt;br&gt;API" style="html=1;" parent="26" vertex="1">
+          <mxGeometry x="60" y="117" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="44" value="Backs-up or restores Credo/Askar&lt;br&gt;wallet using encrypted backup files" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="26" vertex="1">
+          <mxGeometry x="440" width="210" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="54" value="Wallet Backup/Restore" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="26" vertex="1">
+          <mxGeometry x="470" y="75.25" width="150" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="49" value="Wallet Backup&lt;br&gt;Download/Upload" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="26" vertex="1">
+          <mxGeometry x="206" y="117" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="57" value="Registration/authentication/verification&lt;br&gt;requests" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="26" vertex="1">
+          <mxGeometry x="357" y="296" width="230" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="52" value="Passkeys Auth" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="26" vertex="1">
+          <mxGeometry x="512" y="220" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="37" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;startArrow=classic;startFill=1;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="35" target="PwTQJZNIiG3ux0fCSqOa-9" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="670" y="1706" />
+              <mxPoint x="670" y="640" />
+              <mxPoint x="520" y="640" />
+              <mxPoint x="520" y="560" />
+              <mxPoint x="390" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="51" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;startArrow=classic;startFill=1;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="27" target="50" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="53" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=1;exitY=0.75;exitDx=0;exitDy=0;" parent="PwTQJZNIiG3ux0fCSqOa-5" source="35" target="50" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -4,11 +4,11 @@ import { IncomingMessage } from 'http'
 
 @Injectable()
 export class BearerGuard implements CanActivate {
-  public canActivate(context: ExecutionContext): Promise<boolean> {
+  public async canActivate(context: ExecutionContext): Promise<boolean> {
     try {
       const request = context.switchToHttp().getRequest()
       request['accessToken'] = extractTokenFromRequest(request)
-      return request
+      return true
     } catch {
       throw new UnauthorizedException()
     }

@@ -102,10 +102,10 @@ export async function createAgent({ credentials, indyLedgers, indyBesuConfig, wa
         networks: [
           {
             network: 'testnet',
-            operatorId: Config.HEDERA_OPERATOR_ID ?? '0.0.5065521',
+            operatorId: Config.HEDERA_OPERATOR_ID ?? '0.0.5489553',
             operatorKey:
               Config.HEDERA_OPERATOR_KEY ??
-              '302e020100300506032b657004220420e4f76aa303bfbf350ad080b879173b31977e5661d51ff5932f6597e2bb6680ff',
+              '302e020100300506032b6570042204209f54b75b6238ced43e41b1463999cb40bf2f7dd2c9fd4fd3ef780027c016a138',
           },
         ],
       }),

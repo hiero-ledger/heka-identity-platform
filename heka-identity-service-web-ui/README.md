@@ -1,43 +1,41 @@
-# Heka Identity Web App
+# Heka Identity Service Web UI
 
-An example web application that demonstrates capabilities
-of [Heha Identity Service](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-identity-service)
-and [Heka Identity Wallet](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-wallet) reference implementations.
+An example web application that demonstrates the capabilities of [Heka Identity Service](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-identity-service) and [Heka Wallet](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-wallet) reference implementations.
 
-The application currently supports issuance and verification of multiple types of verifiable credentials using OID4VC and DidComm protocols.
+The application currently supports issuance and verification of multiple types of verifiable credentials using OID4VC and DIDComm protocols.
 
-### Design and project structure
+## Design and Project Structure
 
 The application structure is inspired by [Feature-Sliced Design](https://feature-sliced.design/).
 
-### Capabilities
+## Capabilities
 
-- [Hyperledger Aries](https://github.com/hyperledger/aries)
-  - [Anoncreds Indy](https://hyperledger.github.io/anoncreds-spec/) - AnonCreds credentials and presentations
+- [Hyperledger AnonCreds](https://hyperledger.github.io/anoncreds-spec/)
+  - [AnonCreds Indy](https://hyperledger.github.io/anoncreds-spec/) — AnonCreds credentials and presentations
     represented in legacy Indy format
-  - [Anoncreds W3C](https://hyperledger.github.io/anoncreds-spec/#w3c-verifiable-credentials-representation) -
-    AnonCreds credentials and presentations represented in W3C format. W3C
-- [OpenId4Vc](https://openid.net/sg/openid4vc/)
-  - [sd+jwt_vc](https://datatracker.ietf.org/doc/draft-ietf-oauth-sd-jwt-vc/) - VC as a JWT and supporting selective
+  - [AnonCreds W3C](https://hyperledger.github.io/anoncreds-spec/#w3c-verifiable-credentials-representation) —
+    AnonCreds credentials and presentations represented in W3C format
+- [OpenID4VC](https://openid.net/sg/openid4vc/)
+  - [vc+sd-jwt](https://datatracker.ietf.org/doc/draft-ietf-oauth-sd-jwt-vc/) — VC as a JWT supporting selective
     disclosure
-  - [jwt_vc_json](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html) - VC signed as a JWT, not
+  - [jwt_vc_json](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html) — VC signed as a JWT, not
     using JSON-LD
-  - [jwt_vc_json-ld](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html) - VC signed as a JWT,
+  - [jwt_vc_json-ld](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html) — VC signed as a JWT,
     using JSON-LD
-  - [ldp_vc](https://www.w3.org/TR/vc-data-model/) - VC/VP signed with Linked Data Proof formats
+  - [ldp_vc](https://www.w3.org/TR/vc-data-model/) — VC/VP signed with Linked Data Proof formats
+  - [mso_mdoc](https://www.iso.org/standard/69084.html) — ISO mDoc (mDL)
 
-### Flows
+## Flows
 
-- **Demo** - Demonstration of issuance and verification of predefined `sd+jwt_vc` credentials.
-- **Issuance** - Issuance of all supported credentials types.
+- **Demo** — Demonstration of issuance and verification of predefined `vc+sd-jwt` credentials.
+- **Issuance** — Issuance of all supported credentials types.
   - In addition to predefined credential schemas, this flow also provides an ability to create custom one tied to the user.
-- **Verification** - Verification of all supported credential types.
+- **Verification** — Verification of all supported credential types.
   - Currently, verification requests are tightly tied to credential schemes created under the user.
 
-> **Note:** Issuance and Verification flows work only for **authorized** users, but **Demo** can be run without
-> authorization.
+> **Note:** Issuance and Verification flows work only for **authorized** users, but **Demo** can be run without authorization.
 
-#### Creation of pre-defined Demo user
+### Creation of Pre-Defined Demo User
 
 As mentioned above, **Demo** flow can be run under an unauthorized user, but you must perform the next preparation
 steps before running or deploying the application:
@@ -49,21 +47,43 @@ steps before running or deploying the application:
   ```
 - Update `REACT_APP_DEMO_*` environment variables in [.env](./.env) file with generated values.
 
-### Development
+## Configuration
 
-#### Prerequisites
+The Web UI is configured via environment variables read by webpack at build time. Set them in the `.env` file at the package root.
 
-- Node >18.18.2
-- NPM or Yarn
+| Variable | Default | Description |
+|---|---|---|
+| `REACT_APP_AGENCY_ENDPOINT` | `http://localhost:3000` | Heka Identity Service base URL. |
+| `REACT_APP_AUTH_SERVICE_ENDPOINT` | `http://localhost:3004` | Heka Auth Service base URL. JWT login and token refresh go here. |
+| `REACT_APP_DEMO_USER_DID` | _(empty)_ | DID of the pre-provisioned demo user. Filled in by `scripts/prepare-demo-user.ts` — see [Creation of Pre-Defined Demo User](#creation-of-pre-defined-demo-user). |
+| `REACT_APP_DEMO_USER_ACCESS_TOKEN` | _(empty)_ | JWT access token for the demo user. Filled in by the script above. |
+| `REACT_APP_DEMO_USER_REFRESH_TOKEN` | _(empty)_ | Refresh token for the demo user. Filled in by the script above. |
+
+The Web UI authenticates against [Heka Auth Service](../heka-auth-service/README.md) for login and token refresh, and calls the [Heka Identity Service](../heka-identity-service/README.md) with the resulting JWT. Both services must be running and reachable from the browser at the configured endpoints.
+
+## Development
+
+### Prerequisites
+
+- **Node.js** — version that supports Corepack (Node 20+ recommended).
+- **Yarn 4** via Corepack — this package pins `yarn@4.9.4` in `package.json`. Enable Corepack so the correct Yarn version runs automatically:
+
+  ```bash
+  corepack enable
+  corepack prepare yarn@4.9.4 --activate
+  ```
+
+  Without this, the system Yarn 1.x may run instead and produce unexpected lockfile behavior.
+
 - [Heka Identity Service](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-identity-service) is running
   on `http://localhost:3000`
 - [Heka Auth Service](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-auth-service) is running
   on `http://localhost:3004`
-- Mobile phone with installed [Heka Identity Wallet](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-wallet)
+- Mobile phone with installed [Heka Wallet](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-wallet)
 
 > Update [api](./src/shared/api/config/api.ts) constants if you change one of service endpoints.
 
-#### How to start
+### How to Start
 
 - Update [environment variables defining the endpoints of Agency and Auth services](./.env) if needed
   ```
@@ -72,31 +92,32 @@ steps before running or deploying the application:
   ```
 - Install dependencies:
   ```
-  $ yarn install
+  yarn install
   ```
 - Run application:
   ```
-  $ yarn start
+  yarn start
   ```
 - Client starts on http://localhost:8000
 
-### How to deploy
+## How to Deploy
 
 - Update [environment variables defining the endpoints of Agency and Auth services](./.env) if needed
   ```
   REACT_APP_AGENCY_ENDPOINT=http://localhost:3000
   REACT_APP_AUTH_SERVICE_ENDPOINT=http://localhost:3004
   ```
-- Prepare Demo user as described [above](#creation-of-predefined-demo-user):
+- Prepare Demo user as described [above](#creation-of-pre-defined-demo-user)
 - Build package
   ```
   yarn build:prod
   ```
 
-### Technologies
+## Technologies
 
 - [TypeScript](https://www.typescriptlang.org/docs/home.html)
 - [React](https://reactjs.org/)
 - [Redux](https://redux.js.org/)
-- [SaSS](https://sass-lang.com/)
+- [Sass](https://sass-lang.com/)
 - [Joi](https://joi.dev/api/)
+- [webpack](https://webpack.js.org/)
