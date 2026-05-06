@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:15
     ports:
-      - '5433:5432'
+      - '5432:5432'
     environment:
       - POSTGRES_USER=heka
       - POSTGRES_PASSWORD=heka1

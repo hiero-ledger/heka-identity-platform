@@ -58,7 +58,6 @@
   },
   "devDependencies": {
     "@mikro-orm/cli": "^6.2.9",
-    "@mikro-orm/sqlite": "^6.2.9",
     "@nestjs/cli": "^10.4.2",
     "@nestjs/schematics": "^10.1.2",
     "@nestjs/testing": "^10.3.3",
