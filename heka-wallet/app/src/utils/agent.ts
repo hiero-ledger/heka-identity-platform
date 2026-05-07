@@ -25,6 +25,7 @@ import { getAgentModules, WalletSecret } from '@hyperledger/aries-bifold-core'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Config } from 'react-native-config'
 
+import { getMdlTrustAnchors } from '../config/mdl-trust-anchors'
 import { OpenId4VcCredentialMetadata, setOpenId4VcCredentialMetadata } from '../credentials/metadata'
 import { IndyBesuConfig, IndyBesuDidResolver } from '../indy-besu'
 import { IndyBesuAnoncredsRegistry } from '../indy-besu/anoncreds'
@@ -110,9 +111,9 @@ export async function createAgent({ credentials, indyLedgers, indyBesuConfig, wa
         ],
       }),
       x509: new X509Module({
-        trustedCertificates: [
-          'MIIBwDCCAWWgAwIBAgIUSMdjaVc1KHI+3o6qJXhSC4sJh+cwCgYIKoZIzj0EAwIwNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMB4XDTI2MDMyNzIxNDA1NloXDTM2MDMyNDIxNDA1NlowNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1nIrm3O9VX8MdPrKWMhqqV0QMS4UtxKj6uUc8IdGE2fSsWyi7XQN3HoE1Ln9TDtOIHvSyW8Eyr98MlWGBBF/vqNTMFEwHQYDVR0OBBYEFNfkrHxd2nwtni96XrrYhaMgUFImMB8GA1UdIwQYMBaAFNfkrHxd2nwtni96XrrYhaMgUFImMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAP0V5EW7j6Pb+lJktzdWrtEqhI3mYs9Fd+qh0p2kNXJPAiEAqK+q7Wk+t5e2yzvO3b6t3P5nIEnoQt3cvDsaUZY1dT0=',
-        ],
+        // Trust anchors are build-flavor specific — see src/config/mdl-trust-anchors.ts
+        // Dev certs are excluded from release builds via __DEV__ guard.
+        trustedCertificates: getMdlTrustAnchors(),
       }),
     },
   })
