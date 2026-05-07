@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:15
+    # Pinned 2026-05-05. To update: docker pull postgres:15 && docker inspect --format='{{index .RepoDigests 0}}'
+    image: postgres:15@sha256:d8a1fba368ff56a98e1eb5804cb0fec4f6b30265fde94baf8849fb50a9728869
     ports:
       - '5433:5432'
     environment:
