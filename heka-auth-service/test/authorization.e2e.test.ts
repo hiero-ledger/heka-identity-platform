@@ -28,8 +28,8 @@ describe('E2E authorization', () => {
   })
 
   afterAll(async () => {
-    await nestApp.close()
-    await ormSchemaGenerator.clearDatabase()
+    if (nestApp) await nestApp.close()
+    if (ormSchemaGenerator) await ormSchemaGenerator.clearDatabase()
   })
 
   const newUser = () => ({
