@@ -25,7 +25,7 @@ You can receive this token from a local deployment of [Heka Auth Service](https:
 
 Once you have the token, follow these steps to authenticate:
 
-1. Open the Heka Identity Service Swagger page (To access the Swagger page, simple append `/docs` to the URL of the Heka Identity Service).
+1. Open the Heka Identity Service Swagger page (To access the Swagger page, simply append `/docs` to the URL of the Heka Identity Service).
 2. Click the `Authorize` button in the top right corner of the page and enter the received token, then click `Authorize`.
 
 ## Creating a connection
@@ -64,7 +64,7 @@ To create a credential definition, follow these steps:
 
 1. On the Swagger page, expand the `POST: /credential-definitions` endpoint section and click the `Try it out` button.
 2. Fill the `issuerId`, `schemaId`, and `tag` fields, and click the "Execute" button.
-3. If the execution result returns a success code (201), you will receive credential defenition ID in the response body.
+3. If the execution result returns a success code (201), you will receive credential definition ID in the response body.
 
 ### Offer a credential
 
