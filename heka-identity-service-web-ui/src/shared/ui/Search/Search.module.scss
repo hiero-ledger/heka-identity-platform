@@ -1,14 +1,36 @@
 .SearchWrapper {
   position: relative;
   height: var(--space-xxxxl);
+  width: 100%;
+  min-width: 0;
 }
 
 .searchInput {
+  width: 100%;
+  min-width: 0;
+
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--space-sm);
   border: 1px solid #00000061;
+
+  &::placeholder {
+    color: #0009;
+    opacity: 1;
+  }
 }
 
 // .searchIcon {
-//     transform: scale(2);
+//   transform: scale(2);
 // }
+
+@media (width <= 768px) {
+  .SearchWrapper {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .searchInput {
+    width: 100%;
+    min-width: 0;
+  }
+}

@@ -1,17 +1,34 @@
+import { useEffect, useState } from 'react';
+
 import { TextInputUncontrolled } from '@/shared/ui/TextInput';
 
 import * as cls from './Search.module.scss';
 
 interface SearchProps {
-  onSearch: () => void;
+  onSearch: (query: string) => void;
+  debounceMs?: number;
 }
 
-export const Search = ({ onSearch }: SearchProps) => {
+export const Search = ({
+  onSearch,
+  debounceMs = 300,
+}: SearchProps) => {
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onSearch(query);
+    }, debounceMs);
+
+    return () => clearTimeout(timer);
+  }, [query, debounceMs, onSearch]);
+
   return (
     <div className={cls.SearchWrapper}>
       <TextInputUncontrolled
         label="Search"
-        onChange={onSearch} // TODO: use debounce
+        value={query}
+        onChange={setQuery}
       />
     </div>
   );

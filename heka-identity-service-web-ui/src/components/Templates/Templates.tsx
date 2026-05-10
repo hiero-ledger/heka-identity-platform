@@ -1,6 +1,6 @@
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext } from '@dnd-kit/sortable';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,6 +12,7 @@ import { VerificationTemplate } from '@/entities/VerificationTemplate';
 import useConfirmDialog from '@/shared/ui/ConfirmDialog';
 import { Column, Row } from '@/shared/ui/Grid';
 import { LoaderView } from '@/shared/ui/Loader';
+import { Search } from '@/shared/ui/Search/Search';
 
 import { TemplatesProps, TemplateType } from './types';
 import { PlusButton } from '../PlusButton';
@@ -33,6 +34,7 @@ export const Templates = ({
   const { templates, isLoading, error } = templatesState;
 
   const [localTemplates, setLocalTemplates] = useState(templates ?? []);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [deletingTemplateId, setDeletingTemplateId] = useState<
     string | undefined
@@ -55,6 +57,16 @@ export const Templates = ({
   useEffect(() => {
     if (templates) setLocalTemplates(templates);
   }, [templates]);
+
+  const filteredTemplates = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) return localTemplates;
+
+    return localTemplates.filter((t) =>
+      t.name.toLowerCase().includes(query),
+    );
+  }, [localTemplates, searchQuery]);
 
   const { ConfirmDialog, confirm } = useConfirmDialog({
     text: t('Template.confirmation.deleteTemplate'),
@@ -84,10 +96,17 @@ export const Templates = ({
       const newIndex = event.over?.data.current?.sortable.index ?? 0;
 
       let previousTemplateId;
+
       setLocalTemplates((templates) => {
-        const updatedLocalTemplates = arrayMove(templates, oldIndex, newIndex);
+        const updatedLocalTemplates = arrayMove(
+          templates,
+          oldIndex,
+          newIndex,
+        );
+
         previousTemplateId =
           newIndex === 0 ? null : updatedLocalTemplates[newIndex - 1].id;
+
         return updatedLocalTemplates;
       });
 
@@ -127,17 +146,25 @@ export const Templates = ({
       <Row className={cls.templatesHeaderWrapper}>
         <Row className={cls.templatesHeaderLeft}>
           <p className={cls.schemaTitle}>{t('Common.titles.templates')}</p>
+
           <PlusButton
             title={t('Template.buttons.create')}
             onPress={() => navigate(navigateOnCreateTemplate)}
           />
         </Row>
+
+        <Search onSearch={setSearchQuery} />
       </Row>
+
       {isLoading && <LoaderView />}
-      {!!error && !isLoading && <h2>{t('Common.titles.smthWentWrong')}</h2>}
+
+      {!!error && !isLoading && (
+        <h2>{t('Common.titles.smthWentWrong')}</h2>
+      )}
+
       {!isLoading && !error && (
         <div className={cls.templateItemsContainer}>
-          {localTemplates.length === 0 && (
+          {filteredTemplates.length === 0 && (
             <DesktopView>
               <NoItemFound
                 title={t('Template.titles.noTemplates')}
@@ -151,10 +178,11 @@ export const Templates = ({
               />
             </DesktopView>
           )}
-          {localTemplates.length > 0 && (
+
+          {filteredTemplates.length > 0 && (
             <DndContext onDragEnd={handleDragEnd}>
-              <SortableContext items={localTemplates}>
-                {localTemplates.map((template) => (
+              <SortableContext items={filteredTemplates}>
+                {filteredTemplates.map((template) => (
                   <Template
                     key={template.id}
                     id={template.id}
@@ -170,6 +198,7 @@ export const Templates = ({
           )}
         </div>
       )}
+
       <ConfirmDialog />
     </Column>
   );
