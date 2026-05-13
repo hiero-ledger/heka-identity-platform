@@ -21,11 +21,7 @@ export class ThrottleConfig {
 
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
-    this.ttl = env[ThrottleConfigKeys.ttl]
-      ? parseInt(env[ThrottleConfigKeys.ttl])
-      : throttleConfigDefaults.ttl
-    this.limit = env[ThrottleConfigKeys.limit]
-      ? parseInt(env[ThrottleConfigKeys.limit])
-      : throttleConfigDefaults.limit
+    this.ttl = env[ThrottleConfigKeys.ttl] ? parseInt(env[ThrottleConfigKeys.ttl]) : throttleConfigDefaults.ttl
+    this.limit = env[ThrottleConfigKeys.limit] ? parseInt(env[ThrottleConfigKeys.limit]) : throttleConfigDefaults.limit
   }
 }
