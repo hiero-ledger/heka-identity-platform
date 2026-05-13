@@ -2,10 +2,15 @@ import { ConfigModule, ConfigService } from '@config'
 import { DatabaseModule } from '@core/database'
 import { LoggerModule } from '@core/logger'
 import { ScheduledTaskModule } from '@core/scheduled-tasks/scheduled-tasks.module'
+import { AuthThrottlerGuard } from '@core/throttler/auth-throttler.guard'
 import { CorrelationIdMiddleware } from '@eropple/nestjs-correlation-id'
 import { ClassSerializerInterceptor, INestApplication, Module, ValidationPipe, VersioningType } from '@nestjs/common'
-import { Reflector } from '@nestjs/core'
+import { APP_GUARD, Reflector } from '@nestjs/core'
+import { ConfigService as NestConfigService } from '@nestjs/config'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import { ThrottlerModule } from '@nestjs/throttler'
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis'
+import Redis from 'ioredis'
 import bodyParser from 'body-parser'
 import chalk from 'chalk'
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino'
@@ -15,7 +20,28 @@ import { OAuthModule } from './oauth'
 import { UserModule } from './user'
 
 @Module({
-  imports: [ConfigModule, LoggerModule, DatabaseModule, ScheduledTaskModule, OAuthModule, UserModule, HealthModule],
+  imports: [
+    ConfigModule,
+    LoggerModule,
+    DatabaseModule,
+    ScheduledTaskModule,
+    OAuthModule,
+    UserModule,
+    HealthModule,
+    ThrottlerModule.forRootAsync({
+      inject: [NestConfigService],
+      useFactory: (configService: NestConfigService) => ({
+        storage: new ThrottlerStorageRedisService(
+          new Redis(configService.getOrThrow<string>('REDIS_URL')),
+        ),
+        throttlers: [
+          { name: 'default', ttl: 60_000, limit: 30 },
+          { name: 'auth', ttl: 60_000, limit: 5 },
+        ],
+      }),
+    }),
+  ],
+  providers: [AuthThrottlerGuard, { provide: APP_GUARD, useClass: AuthThrottlerGuard }],
 })
 export class MainModule {
   public static appConfigure = (app: INestApplication) => {
