@@ -1,4 +1,5 @@
-FROM node:18 AS builder
+# Pinned 2026-05-05. To update: docker pull node:18 && docker inspect --format='{{index .RepoDigests 0}}'
+FROM node:18@sha256:eb29363371ee2859fad6a3c5af88d4abc6ff7d399addb13b7de3c1f11bdee6b9 AS builder
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -10,7 +11,8 @@ RUN yarn install
 COPY . .
 RUN yarn build
 
-FROM node:18-bookworm-slim
+# Pinned 2026-05-05. To update: docker pull node:22-bullseye-slim && docker inspect --format='{{index .RepoDigests 0}}'
+FROM node:22-bullseye-slim@sha256:5e435a99bf8a0b5154eed7b421c076688a488c9d066e8b1c89e95904939757ac
 
 RUN apt-get update && apt-get install curl -y
 
