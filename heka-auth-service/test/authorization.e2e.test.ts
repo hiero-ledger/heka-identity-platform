@@ -7,7 +7,6 @@ import request from 'supertest'
 import { initializeMikroOrm, startTestApp } from './helpers'
 import { LoginRequest, LogoutRequest, RefreshRequest } from '../src/oauth/dto'
 import { RegisterUserRequest } from '../src/user/dto'
-import { UserRole } from '../src/core/database'
 import { AuthorizationTokenType } from '../src/common/const'
 import { jwtConfigDefaults } from '../src/core/config/configs/jwt.config'
 
@@ -44,7 +43,6 @@ describe('E2E authorization', () => {
       .send({
         name: user.name,
         password: user.password,
-        role: UserRole.Issuer,
       } satisfies RegisterUserRequest)
 
     expect(createUserResponse.status).toBe(201)
@@ -101,7 +99,6 @@ describe('E2E authorization', () => {
       .send({
         name: user.name,
         password: user.password,
-        role: UserRole.Issuer,
       } satisfies RegisterUserRequest)
 
     expect(createUserResponse.status).toBe(201)
