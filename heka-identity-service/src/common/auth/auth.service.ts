@@ -37,10 +37,9 @@ export class AuthService {
     if (!token) {
       throw new Error('Authorization token is missing')
     }
-    logger.traceObject({ token })
-
     const payload = await this.jwtService.verifyAsync<TokenPayload>(token)
-    logger.traceObject({ payload })
+    // Only log non-sensitive claims — never log full token or email/role fields
+    logger.trace({ payload: { sub: payload.sub, iat: payload.iat, exp: payload.exp } })
 
     return this.validateTokenPayload(payload)
   }
