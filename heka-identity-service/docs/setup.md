@@ -82,6 +82,20 @@ pip install setuptools
 npm install --python=python3.11
 ```
 
+## Required cryptographic secrets (no defaults)
+
+The service refuses to start unless every one of the following environment variables is set to a non-empty value. Previously these had compiled-in defaults in `src/config/agent.ts`; those defaults were publicly known private keys and have been removed. Provide them via your secret manager, CI secrets, or a `.env` file that is **not** committed to the repository.
+
+- `INDY_ENDORSER_SEED` — seed for the Indy endorser DID used to write to the Indy ledger.
+- `INDY_BESU_ENDORSER_PRIVATE_KEY` — hex-encoded secp256k1 private key for the Indy-Besu endorser account.
+- `HEDERA_OPERATOR_KEY` — DER-encoded Ed25519 private key for the Hedera operator account.
+- `MDL_ISSUER_CERTIFICATE` — base64-encoded X.509 certificate of the ISO/IEC 18013-5 mDL issuer.
+- `MDL_ISSUER_PRIVATE_KEY` — JSON-encoded JWK of the mDL issuer signing key (must parse to an object with the expected JWK fields).
+
+If any of these is missing or empty, startup fails with an `AgentSecretsValidationError` listing every missing variable. `MDL_ISSUER_PRIVATE_KEY` is additionally required to parse as a JSON object — a string or malformed JSON will also abort startup.
+
+Any previously deployed instance that relied on the removed defaults MUST rotate the corresponding on-ledger / on-chain keys and certificates, because those values have been public since they shipped in the source tree.
+
 ## Persistence
 
 For application state, this backend uses MikroORM with PostgreSQL. To start a Postgres container compatible with the defaults:

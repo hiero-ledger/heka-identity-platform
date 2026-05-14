@@ -33,7 +33,7 @@ export const indyBesuConfig: IndyBesuConfig = {
     Config.INDY_BESU_CRED_DEF_REGISTRY_CONTRACT_ADDRESS ?? '0x0000000000000000000000000000000000004444',
   rpcUrl: Config.INDY_BESU_RPC_URL ?? 'http://192.168.1.145:8545/',
   signerPrivateKey:
-    Config.INDY_BESU_SIGNER_PRIVATE_KEY ?? 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3',
+    Config.INDY_BESU_SIGNER_PRIVATE_KEY,
 }
 
 export const oauthStoreConfig: OAuthStoreConfig = Config.OAUTH_STORE_CONFIG
