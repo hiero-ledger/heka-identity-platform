@@ -33,7 +33,7 @@ export async function createAuthToken(userId: string, role: Role, orgId?: string
     payload.org_id = orgId
   }
 
-  const secret = 'test'
+  const secret = process.env.JWT_SECRET ?? 'testsecrettestsecrettestsecretXX'
 
   const options: SignOptions = {
     subject: userId,

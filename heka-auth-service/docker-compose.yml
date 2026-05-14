@@ -25,7 +25,7 @@ services:
       - DB_PASSWORD=heka1
       - JWT_ISSUER=Heka
       - JWT_AUDIENCE=Heka Identity Service
-      - JWT_SECRET=test
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in your shell environment (min 32 chars). Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"}
       - JWT_ACCESS_EXPIRY=3600
       - JWT_REFRESH_EXPIRY=86400
       - DEMO_USER=demo

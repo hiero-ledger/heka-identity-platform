@@ -1,3 +1,8 @@
+// JWT_SECRET must be present before any test module imports src/config/jwt.ts
+// (which throws at boot when the secret is missing or shorter than 32 chars).
+// Using ??= preserves a value already injected by the CI environment.
+process.env.JWT_SECRET ??= 'testsecrettestsecrettestsecretXX'
+
 // Vitest runs each test file in an isolated src-module graph, but keeps
 // `node_modules` modules cached across files. `@mikro-orm/core` keeps a
 // static `MetadataStorage.metadata` map that accumulates registered

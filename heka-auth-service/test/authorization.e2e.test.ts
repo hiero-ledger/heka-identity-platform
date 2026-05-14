@@ -18,6 +18,10 @@ describe('E2E authorization', () => {
   let app: Server
 
   beforeAll(async () => {
+    // JWT_SECRET must be at least 32 chars before the NestJS app module compiles.
+    // Use ??= so a value injected by the CI environment is preserved as-is.
+    process.env.JWT_SECRET ??= 'testsecrettestsecrettestsecretXX'
+
     const orm = await initializeMikroOrm()
     ormSchemaGenerator = orm.getSchemaGenerator()
 

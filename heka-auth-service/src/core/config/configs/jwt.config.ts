@@ -12,7 +12,6 @@ export enum JwtConfigKeys {
 export const jwtConfigDefaults = {
   issuer: 'Heka',
   audience: 'Heka Identity Service',
-  secret: 'test',
   accessExpiry: 60 * 60, // 1h
   refreshExpiry: 86400, // 24h
   demoUserTokenExpiry: 60 * 60 * 24 * 365, // ~1 year validity for Demo User
@@ -41,9 +40,18 @@ export class JwtConfig {
 
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
+
+    const secret = env[JwtConfigKeys.secret] as string | undefined
+    if (!secret || secret.length < 32) {
+      throw new Error(
+        '[heka-auth-service] JWT_SECRET env var must be set to a random string of at least 32 characters. ' +
+          "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
+      )
+    }
+
     this.issuer = env[JwtConfigKeys.issuer] || jwtConfigDefaults.issuer
     this.audience = env[JwtConfigKeys.audience] || jwtConfigDefaults.audience
-    this.secret = env[JwtConfigKeys.secret] || jwtConfigDefaults.secret
+    this.secret = secret
 
     this.accessExpiry = env[JwtConfigKeys.accessExpiry]
       ? parseInt(env[JwtConfigKeys.accessExpiry])
