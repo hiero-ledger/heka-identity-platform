@@ -19,6 +19,7 @@ import { Credential, mapCredentialRecord, useCredentialRecordHelpers, useOpenIdH
 import { OpenIdStackParams, Screens } from '../navigators/types'
 
 type CredentialOfferProps = StackScreenProps<OpenIdStackParams, Screens.OpenIdCredentialOffer>
+type OfferStatus = 'resolving' | 'awaitingPin' | 'fetching' | 'presenting' | 'error'
 
 // Based on Bifold component: https://github.com/openwallet-foundation/bifold-wallet/blob/main/packages/legacy/core/App/screens/CredentialOffer.tsx
 export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigation, route }) => {
@@ -34,8 +35,7 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
   const { resolveOpenId4VciOffer, acquireAccessToken, receiveCredentialFromOpenId4VciOffer } = useOpenIdHandlers()
   const { storeCredentialRecord } = useCredentialRecordHelpers()
 
-  const [isLoading, setIsLoading] = useState<boolean>(true)
-  const [isCredentialPinInputVisible, setIsCredentialPinInputVisible] = useState(false)
+  const [status, setStatus] = useState<OfferStatus>('resolving')
   const [isAccepted, setIsAccepted] = useState(false)
 
   const [offerResolutionResult, setOfferResolutionResult] =
@@ -47,8 +47,8 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
   }, [navigation])
 
   const requestCredential = useCallback(
-    async (userPin?: string) => {
-      if (!agent || !publicDid || !offerResolutionResult) return
+    async (userPin?: string): Promise<boolean> => {
+      if (!agent || !publicDid || !offerResolutionResult) return false
       const { resolvedCredentialOffer } = offerResolutionResult
 
       try {
@@ -65,6 +65,7 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
         const credential = await mapCredentialRecord(credentialRecord, agent)
 
         setCredential(credential)
+        return true
       } catch (error: unknown) {
         console.error(`Couldn't receive credential from OpenID4VCI offer`, {
           error,
@@ -78,7 +79,7 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
             1035
           )
         )
-        navigateToHome()
+        return false
       }
     },
     [
@@ -88,14 +89,12 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
       acquireAccessToken,
       receiveCredentialFromOpenId4VciOffer,
       t,
-      navigateToHome,
     ]
   )
 
   useEffect(() => {
     if (!publicDid) return
     const resolveCredentialOffer = async () => {
-      setIsLoading(true)
       try {
         const offerResolutionResult = await resolveOpenId4VciOffer({
           offer,
@@ -129,11 +128,18 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
     const isUserPinRequired = resolvedGrants && resolvedGrants[PRE_AUTH_GRANT_LITERAL]?.user_pin_required
 
     if (isUserPinRequired) {
-      setIsCredentialPinInputVisible(true)
+      setStatus('awaitingPin')
     } else {
-      requestCredential().finally(() => setIsLoading(false))
+      setStatus('fetching')
+      requestCredential().then((success) => {
+        if (success) {
+          setStatus('presenting')
+        } else {
+          navigateToHome()
+        }
+      })
     }
-  }, [offerResolutionResult, requestCredential])
+  }, [offerResolutionResult, requestCredential, navigateToHome])
 
   const onAccept = async () => {
     try {
@@ -159,37 +165,45 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
   }
 
   const onCredentialPinConfirm = async (pin: string) => {
-    await requestCredential(pin)
-    setIsCredentialPinInputVisible(false)
-    setIsLoading(false)
+    setStatus('fetching')
+    const success = await requestCredential(pin)
+    if (success) {
+      setStatus('presenting')
+    } else {
+      setStatus('error')
+    }
   }
 
   const onCredentialPinCancel = () => {
-    setIsCredentialPinInputVisible(false)
     navigateToHome()
   }
 
-  if (isLoading || !credential) {
+  if (status === 'resolving' || status === 'fetching') {
     return <LoadingView />
+  }
+
+  if (status === 'awaitingPin' || status === 'error') {
+    return (
+      <ConfirmationInputModal
+        title={t('CredentialOffer.EnterCredentialPIN')}
+        inputType={ConfirmationInputType.Password}
+        inputLabel={t('Common.Code')}
+        isVisible={true}
+        doneButtonTitle={t('Global.Confirm')}
+        onConfirm={onCredentialPinConfirm}
+        onCancel={onCredentialPinCancel}
+      />
+    )
   }
 
   return (
     <SafeAreaView style={{ flexGrow: 1 }} edges={['bottom', 'left', 'right']}>
       <CredentialOfferView
-        credential={credential}
+        credential={credential!}
         onAccept={onAccept}
         onDecline={onDecline}
         isAccepted={isAccepted}
         isUseBackAsDecline={true}
-      />
-      <ConfirmationInputModal
-        title={t('CredentialOffer.EnterCredentialPIN')}
-        inputType={ConfirmationInputType.Password}
-        inputLabel={t('Common.Code')}
-        isVisible={isCredentialPinInputVisible}
-        doneButtonTitle={t('Global.Confirm')}
-        onConfirm={onCredentialPinConfirm}
-        onCancel={onCredentialPinCancel}
       />
     </SafeAreaView>
   )
