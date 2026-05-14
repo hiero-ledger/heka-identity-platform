@@ -116,8 +116,7 @@ export class MainModule {
     await app.listen(config.port)
 
     logger.verbose(`==========================================================`)
-    logger.verbose(`Configuration:`)
-    logger.verbose(configService.config)
+    logger.verbose(`Configuration: name=${config.name} version=${config.version} port=${config.port}`)
 
     const url = (await app.getUrl()).replace('[::1]', 'localhost')
 

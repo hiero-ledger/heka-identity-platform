@@ -17,7 +17,7 @@ export enum LogLevel {
 
 const loggerConfigDefaults = {
   excludeUrls: [],
-  redactFields: ['db.host', 'db.user', 'db.password', 'jwt.issuer', 'jwt.audience', 'jwt.secret'],
+  redactFields: ['db.host', 'db.user', 'db.password', 'jwt.issuer', 'jwt.audience', 'jwt.secret', '*.secret', '*.password'],
 }
 
 export class LoggerConfig {
