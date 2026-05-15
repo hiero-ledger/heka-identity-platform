@@ -68,7 +68,14 @@ export default registerAs('agent', () => {
   // FIXME: Add `indybesu` DID method once we get public network deployed
   const didMethods = process.env.DID_METHODS ? process.env.DID_METHODS.split(',') : ['indy', 'key', 'hedera']
 
-  const indyEndorserSeed = process.env.INDY_ENDORSER_SEED ?? 'afjdemoverysecure000000000000002'
+  // CWE-798: Never hardcode cryptographic seeds — require via environment variable
+  const indyEndorserSeed = process.env.INDY_ENDORSER_SEED
+  if (!indyEndorserSeed) {
+    throw new Error(
+      'INDY_ENDORSER_SEED environment variable is required but not set. ' +
+      'Set a secure 32-character seed in your environment configuration.'
+    )
+  }
   //const indyEndorserId = process.env.INDY_ENDORSER_ID ?? ''
   const indyEndorserDid = process.env.INDY_ENDORSER_DID ?? 'did:indy:bcovrin:test:4bbYgjU6JbV4DShPbGoQcA'
 
