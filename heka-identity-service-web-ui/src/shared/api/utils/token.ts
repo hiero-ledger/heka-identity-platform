@@ -9,19 +9,23 @@ import {
 } from '@/entities/User/model/const';
 import { authEndpoints } from '@/shared/api/config/endpoints';
 
+let inMemoryAccessToken: string | null = null;
+
 export const storeTokens = (tokens: Tokens) => {
-  if (tokens.accessToken)
-    localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-  if (tokens.refreshToken)
-    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  if (tokens.accessToken) {
+    inMemoryAccessToken = tokens.accessToken;
+  }
+  if (tokens.refreshToken) {
+    sessionStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  }
 };
 
 export const getAccessToken = () => {
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
+  return inMemoryAccessToken;
 };
 
 export const getRefreshToken = () => {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+  return sessionStorage.getItem(REFRESH_TOKEN_KEY);
 };
 
 export const getTokens = () => {
@@ -32,6 +36,9 @@ export const getTokens = () => {
 };
 
 export const clearTokens = () => {
+  inMemoryAccessToken = null;
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  sessionStorage.removeItem(USER_ID);
   localStorage.removeItem(USER_ID);
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
@@ -41,7 +48,6 @@ export const refreshTokens = async (api: AxiosInstance) => {
   const { access, refresh } = getTokens();
 
   if (access === demoUser.accessToken) {
-    // skip refreshing for demo user
     return { accessToken: access };
   }
 
@@ -58,9 +64,9 @@ export const refreshTokens = async (api: AxiosInstance) => {
 };
 
 export const storeUserId = (id: string) => {
-  localStorage.setItem(USER_ID, id);
+  sessionStorage.setItem(USER_ID, id);
 };
 
 export const getUserId = () => {
-  return localStorage.getItem(USER_ID);
+  return sessionStorage.getItem(USER_ID);
 };
