@@ -57,8 +57,14 @@ export default registerAs('agent', () => {
 
   const walletPostgresHost = process.env.WALLET_POSTGRES_HOST ?? 'localhost'
   const walletPostgresPort = process.env.WALLET_POSTGRES_PORT ? parseInt(process.env.WALLET_POSTGRES_PORT, 10) : 5432
-  const walletPostgresUser = process.env.WALLET_POSTGRES_USER ?? 'heka'
-  const walletPostgresPass = process.env.WALLET_POSTGRES_PASSWORD ?? 'heka1'
+  const walletPostgresUser = process.env.WALLET_POSTGRES_USER
+  const walletPostgresPass = process.env.WALLET_POSTGRES_PASSWORD
+  if (!walletPostgresUser) {
+    throw new Error('Required environment variable WALLET_POSTGRES_USER is not set')
+  }
+  if (!walletPostgresPass) {
+    throw new Error('Required environment variable WALLET_POSTGRES_PASSWORD is not set')
+  }
 
   const host = process.env.EXPRESS_HOST || 'localhost'
   const httpEndpoint = process.env.AGENT_HTTP_ENDPOINT ?? `http://${host}:${httpPort}`

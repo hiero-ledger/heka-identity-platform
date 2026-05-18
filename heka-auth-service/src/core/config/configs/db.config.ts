@@ -12,8 +12,6 @@ const dbConfigDefaults = {
   host: 'localhost',
   port: 5433,
   name: 'heka-auth-service',
-  user: 'heka',
-  password: 'heka1',
 }
 
 export class DbConfig {
@@ -39,7 +37,15 @@ export class DbConfig {
     ;(this.host = env[OrmConfigKeys.host] || dbConfigDefaults.host),
       (this.port = env[OrmConfigKeys.port] ? parseInt(env[OrmConfigKeys.port]) : dbConfigDefaults.port)
     this.name = env[OrmConfigKeys.dbName] || dbConfigDefaults.name
-    this.user = env[OrmConfigKeys.user] || dbConfigDefaults.user
-    this.password = env[OrmConfigKeys.password] || dbConfigDefaults.password
+    const user = env[OrmConfigKeys.user]
+    const password = env[OrmConfigKeys.password]
+    if (!user) {
+      throw new Error(`Required environment variable ${OrmConfigKeys.user} is not set`)
+    }
+    if (!password) {
+      throw new Error(`Required environment variable ${OrmConfigKeys.password} is not set`)
+    }
+    this.user = user
+    this.password = password
   }
 }
