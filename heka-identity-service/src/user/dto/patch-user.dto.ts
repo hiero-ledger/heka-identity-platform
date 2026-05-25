@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger'
-import { IsEnum, IsHexColor, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator'
+import { IsEnum, IsHexColor, IsOptional, IsString, IsUrl, ValidateIf } from 'class-validator'
 
 import { MessageDeliveryType } from 'common/entities/user.entity'
 
@@ -11,8 +11,8 @@ export class PatchUserDto {
 
   @ApiPropertyOptional()
   @ValidateIf((obj) => obj.messageDeliveryType === MessageDeliveryType.WebHook)
-  @IsString()
-  @IsNotEmpty()
+  @IsUrl({ protocols: ['https'], require_protocol: true, require_tls: true },
+    { message: 'webHook must be a valid HTTPS URL' })
   public readonly webHook?: string
 
   @ApiPropertyOptional()
