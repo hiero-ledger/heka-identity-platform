@@ -8,7 +8,7 @@ async function bootstrap() {
     bufferLogs: true,
     bodyParser: true,
   })
-  void MainModule.bootstrap(app).catch()
+  await MainModule.bootstrap(app)
 }
 
 void bootstrap()

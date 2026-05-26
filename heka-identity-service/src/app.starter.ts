@@ -143,7 +143,6 @@ export async function startApp(app: INestApplication, { withSwaggerUi }: { withS
   })
 
   if (expressConfig.enableCors) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     app.enableCors(expressConfig.corsOptions)
   }
 
@@ -153,9 +152,9 @@ export async function startApp(app: INestApplication, { withSwaggerUi }: { withS
 
   app.enableShutdownHooks()
 
-  // process.on('unhandledRejection', (err) => {
-  //   logger.error(`Unhandled Rejection: ${err}`)
-  // })
+  process.on('unhandledRejection', (err) => {
+    logger.error(`Unhandled Rejection: ${err}`)
+  })
 
   // Recreate OCA files for Aries
   await app.get(OCAFilesService)?.run()

@@ -29,14 +29,11 @@ export function createReducerManager(
       if (keysToRemove.length > 0) {
         state = { ...state };
         keysToRemove.forEach((key) => {
-          // TODO: fix types
-          // @ts-ignore
-          delete state[key];
+          delete (state as Partial<StateSchema>)[key];
         });
         keysToRemove = [];
       }
 
-      // @ts-ignore
       return combinedReducer(state, action);
     },
     add: (key: StateSchemaKey, reducer: Reducer) => {
@@ -54,9 +51,7 @@ export function createReducerManager(
         return;
       }
 
-      // TODO: fix types
-      // @ts-ignore
-      delete reducers[key];
+      delete (reducers as Partial<ReducersMapObject<StateSchema>>)[key];
       keysToRemove.push(key);
 
       mountedReducers[key] = false;

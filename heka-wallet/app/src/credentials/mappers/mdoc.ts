@@ -3,34 +3,43 @@ import { Attribute } from '@hyperledger/aries-oca/build/legacy'
 
 export function getAttributesAndMetadataForMdocPayload(namespaces: MdocNameSpaces, mdocInstance: Mdoc) {
   const attributes = Object.values(namespaces).flatMap((namespaceMap) =>
-    Object.entries(namespaceMap).map(([key, value]) => {
-      if (typeof value !== 'string' && typeof value !== 'number') {
-        value = JSON.stringify(value)
+    Object.entries(namespaceMap).map(([key, rawValue]) => {
+      // Handle different value types properly
+      let value: string | number
+
+      if (typeof rawValue === 'string' || typeof rawValue === 'number') {
+        value = rawValue
+      } else {
+        // Convert complex types to JSON string representation
+        value = JSON.stringify(rawValue)
       }
 
-      //@ts-expect-error TODO: Properly support nested values
       return new Attribute({ name: key, value })
     })
   )
 
-  // FIXME: Date should be fixed in Mdoc library
-  // The problem is that mdocInstance.validityInfo.validFrom and validUntil are already Date objects that contain NaN, not just NaN values.
-  // When you call toISOString() on a Date containing NaN, it will throw an error.
+  // Handle date validation and conversion safely
+  // The Mdoc library sometimes provides Date objects with NaN values
+  // which would throw errors when calling toISOString()
+  const safeToISOString = (date: Date): string | undefined => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return undefined
+    }
+    try {
+      return date.toISOString()
+    } catch (error) {
+      // Additional safety in case toISOString() throws for any other reason
+      return undefined
+    }
+  }
+
   const mdocMetadata = {
     type: mdocInstance.docType,
     // TODO: Add proper holder binding metadata
     holder: undefined,
-    issuedAt: mdocInstance.validityInfo.signed.toISOString(),
-    validFrom:
-      mdocInstance.validityInfo.validFrom instanceof Date &&
-      !Number.isNaN(mdocInstance.validityInfo.validFrom.getTime())
-        ? mdocInstance.validityInfo.validFrom.toISOString()
-        : undefined,
-    validUntil:
-      mdocInstance.validityInfo.validUntil instanceof Date &&
-      !Number.isNaN(mdocInstance.validityInfo.validUntil.getTime())
-        ? mdocInstance.validityInfo.validUntil.toISOString()
-        : undefined,
+    issuedAt: safeToISOString(mdocInstance.validityInfo.signed) ?? 'Unknown',
+    validFrom: safeToISOString(mdocInstance.validityInfo.validFrom),
+    validUntil: safeToISOString(mdocInstance.validityInfo.validUntil),
   }
 
   return {

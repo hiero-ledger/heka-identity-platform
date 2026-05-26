@@ -165,6 +165,15 @@
       "schema": "public",
       "indexes": [
         {
+          "columnNames": [
+            "owner_id"
+          ],
+          "composite": false,
+          "keyName": "schema_owner_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
           "keyName": "schema_pkey",
           "columnNames": [
             "id"
@@ -260,6 +269,15 @@
       "schema": "public",
       "indexes": [
         {
+          "columnNames": [
+            "schema_id"
+          ],
+          "composite": false,
+          "keyName": "schema_registration_schema_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
           "keyName": "schema_registration_pkey",
           "columnNames": [
             "id"
@@ -328,6 +346,15 @@
       "name": "schema_field",
       "schema": "public",
       "indexes": [
+        {
+          "columnNames": [
+            "schema_id"
+          ],
+          "composite": false,
+          "keyName": "schema_field_schema_id_index",
+          "primary": false,
+          "unique": false
+        },
         {
           "keyName": "schema_field_pkey",
           "columnNames": [
@@ -453,6 +480,24 @@
       "schema": "public",
       "indexes": [
         {
+          "columnNames": [
+            "owner_id"
+          ],
+          "composite": false,
+          "keyName": "issuance_template_owner_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "schema_id"
+          ],
+          "composite": false,
+          "keyName": "issuance_template_schema_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
           "keyName": "issuance_template_pkey",
           "columnNames": [
             "id"
@@ -532,6 +577,24 @@
       "name": "issuance_template_field",
       "schema": "public",
       "indexes": [
+        {
+          "columnNames": [
+            "template_id"
+          ],
+          "composite": false,
+          "keyName": "issuance_template_field_template_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "schema_field_id"
+          ],
+          "composite": false,
+          "keyName": "issuance_template_field_schema_field_id_index",
+          "primary": false,
+          "unique": false
+        },
         {
           "keyName": "issuance_template_field_pkey",
           "columnNames": [
@@ -764,6 +827,24 @@
       "schema": "public",
       "indexes": [
         {
+          "columnNames": [
+            "owner_id"
+          ],
+          "composite": false,
+          "keyName": "verification_template_owner_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "schema_id"
+          ],
+          "composite": false,
+          "keyName": "verification_template_schema_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
           "keyName": "verification_template_pkey",
           "columnNames": [
             "id"
@@ -834,6 +915,24 @@
       "name": "verification_template_field",
       "schema": "public",
       "indexes": [
+        {
+          "columnNames": [
+            "template_id"
+          ],
+          "composite": false,
+          "keyName": "verification_template_field_template_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "schema_field_id"
+          ],
+          "composite": false,
+          "keyName": "verification_template_field_schema_field_id_index",
+          "primary": false,
+          "unique": false
+        },
         {
           "keyName": "verification_template_field_pkey",
           "columnNames": [

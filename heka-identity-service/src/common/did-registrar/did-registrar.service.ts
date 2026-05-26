@@ -22,7 +22,7 @@ const DID_REGISTRAR_TENANT_LABEL = 'DidRegistrarTenant'
 @Injectable()
 export class DidRegistrarService implements OnApplicationBootstrap {
   private readonly registrars!: Record<string, DidRegistrar>
-  // @ts-ignore
+  // @ts-expect-error: assigned in onApplicationBootstrap, reserved for future use
   private tenantId!: string // FIXME: Currently unused but in future we want all DID to be created from separated tenant
   private readonly em!: EntityManager
 

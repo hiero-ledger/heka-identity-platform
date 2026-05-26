@@ -1,7 +1,7 @@
 import { Server } from 'net'
 
 import { Agent, DidKey, KeyDidCreateOptions, Kms, SdJwtVcRecord } from '@credo-ts/core'
-import { SchemaGenerator } from '@mikro-orm/sqlite'
+import { SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 

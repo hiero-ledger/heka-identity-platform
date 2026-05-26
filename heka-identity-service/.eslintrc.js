@@ -46,6 +46,22 @@ module.exports = {
         },
       },
     ],
+    'import/no-extraneous-dependencies': [
+      'error',
+      {
+        devDependencies: [
+          '**/*.test.ts',
+          '**/*.spec.ts',
+          '**/__tests__/**/*',
+          '**/__mocks__/**/*',
+          'test/**/*',
+          'vitest.config.mts',
+          '.eslintrc.js',
+        ],
+        peerDependencies: false,
+        optionalDependencies: false,
+      },
+    ],
   },
   overrides: [
     {

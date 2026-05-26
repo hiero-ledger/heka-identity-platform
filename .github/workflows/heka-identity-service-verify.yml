@@ -13,6 +13,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  checks: write
+  pull-requests: write
+  contents: write
+
 jobs:
   verify:
     defaults:
@@ -77,4 +82,11 @@ jobs:
           EXPRESS_HOST: localhost
           FILE_STORAGE_FS_URL: http://localhost:3000
           APP_ENDPOINT: http://localhost:3000
-        run: yarn test
+        run: yarn test:coverage
+
+      - name: Report coverage
+        uses: davelosert/vitest-coverage-report-action@15b5b41bb7d36796d89f4bf482b09529c53f3446 # v2.9.2
+        with:
+          working-directory: ./heka-identity-service
+          json-summary-path: ./coverage/coverage-summary.json
+          json-final-path: ./coverage/coverage-final.json

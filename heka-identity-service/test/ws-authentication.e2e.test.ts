@@ -1,6 +1,6 @@
 import { Server } from 'net'
 
-import { SchemaGenerator } from '@mikro-orm/sqlite'
+import { SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request, { WSChain } from 'superwstest'
 import { WebSocket } from 'ws'

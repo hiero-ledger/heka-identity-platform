@@ -173,7 +173,7 @@ export class OAuthService {
     user: User,
     accessToken: string,
   ): Promise<{ token: string; expiresIn: number }> => {
-    const expiresIn = 1000 * this.configService.jwtConfig.refreshExpiry
+    const expiresIn = this.configService.jwtConfig.refreshExpiry
     const expiration = ExpiresInToDate(this.configService.jwtConfig.refreshExpiry)
 
     const storedToken = await this.tokenRepository.put({
