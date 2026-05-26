@@ -7,6 +7,13 @@ import { askarNodeJS } from '@openwallet-foundation/askar-nodejs'
 export type CredoAgentWithDidComm = CredoAgent<{ didcomm: DidCommModule }>
 
 export function createCredoAgent(agentName: string, inboundPort: number = 3010): CredoAgentWithDidComm {
+  // Wallet encryption key must be set via DEMO_AGENT_WALLET_KEY env var
+  // Minimum 32 characters recommended for production use
+  const walletKey = process.env.DEMO_AGENT_WALLET_KEY
+  if (!walletKey) {
+    throw new Error('DEMO_AGENT_WALLET_KEY environment variable is required but not set')
+  }
+
   const agentHttpEndpoint = `http://localhost:${inboundPort}`
 
   const agent = new CredoAgent({
@@ -20,7 +27,7 @@ export function createCredoAgent(agentName: string, inboundPort: number = 3010):
         askar: askarNodeJS,
         store: {
           id: agentName,
-          key: 'key',
+          key: walletKey,
           database: {
             type: 'sqlite',
             config: {
