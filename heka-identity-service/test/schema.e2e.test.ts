@@ -4,7 +4,7 @@ import * as path from 'path'
 
 const _testDir = typeof __dirname !== 'undefined' ? __dirname : path.resolve(process.cwd(), 'test')
 
-import { SchemaGenerator } from '@mikro-orm/sqlite'
+import { SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 

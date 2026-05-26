@@ -100,7 +100,6 @@
   "devDependencies": {
     "@golevelup/ts-vitest": "^0.5.2",
     "@mikro-orm/cli": "^5.7.12",
-    "@mikro-orm/sqlite": "^5.7.12",
     "@nestjs/testing": "^11.1.5",
     "@types/express": "^5.0.0",
     "@types/fs-extra": "^11.0.2",

@@ -8,30 +8,30 @@
  */
 declare module '@digitalcredentials/bitstring' {
   export class Bitstring {
-    constructor(options: { length: number } | { buffer: Uint8Array })
+    public constructor(options: { length: number } | { buffer: Uint8Array })
 
     /**
      * Set the bit at the given position.
      * @param position - The zero-based index of the bit.
      * @param on - Whether to set (true) or unset (false) the bit.
      */
-    set(position: number, on: boolean): void
+    public set(position: number, on: boolean): void
 
     /**
      * Get the bit value at the given position.
      * @param position - The zero-based index of the bit.
      * @returns Whether the bit is set.
      */
-    get(position: number): boolean
+    public get(position: number): boolean
 
     /**
      * Encode the bitstring to a compressed base64url string.
      */
-    encodeBits(): Promise<string>
+    public encodeBits(): Promise<string>
 
     /**
      * Decode a compressed base64url string to a Uint8Array buffer.
      */
-    static decodeBits(options: { encoded: string }): Promise<Uint8Array>
+    public static decodeBits(options: { encoded: string }): Promise<Uint8Array>
   }
 }

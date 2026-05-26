@@ -143,7 +143,6 @@ export async function startApp(app: INestApplication, { withSwaggerUi }: { withS
   })
 
   if (expressConfig.enableCors) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     app.enableCors(expressConfig.corsOptions)
   }
 
