@@ -175,10 +175,10 @@ yarn test
 Cross-Origin Resource Sharing (CORS) controls which browser origins are permitted to call the Heka Identity Service API.
 CORS is **disabled by default** — it must be explicitly opted in via environment variables.
 
-| Variable | Description | Default |
-|---|---|---|
-| `EXPRESS_ENABLE_CORS` | Set to `true` to enable CORS. Any other value (including unset) disables it. | `false` |
-| `EXPRESS_CORS_OPTIONS` | JSON string of [CORS options](https://github.com/expressjs/cors#configuration-options) passed directly to `app.enableCors()`. Must be valid JSON; invalid JSON crashes on startup (fail-fast). | `{}` |
+| Variable               | Description                                                                                                                                                                                    | Default |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `EXPRESS_ENABLE_CORS`  | Set to `true` to enable CORS. Any other value (including unset) disables it.                                                                                                                   | `false` |
+| `EXPRESS_CORS_OPTIONS` | JSON string of [CORS options](https://github.com/expressjs/cors#configuration-options) passed directly to `app.enableCors()`. Must be valid JSON; invalid JSON crashes on startup (fail-fast). | `{}`    |
 
 > **Security warning:** Enabling CORS without setting an `origin` inside `EXPRESS_CORS_OPTIONS` defaults to `Access-Control-Allow-Origin: *`.
 > Always set an explicit origin allowlist in production.
@@ -216,7 +216,7 @@ This section is the canonical reference for runtime configuration. Defaults matc
 ### HTTP server (Express)
 
 | Variable               | Default     | Description                                                 |
-|------------------------|-------------|-------------------------------------------------------------|
+| ---------------------- | ----------- | ----------------------------------------------------------- |
 | `EXPRESS_HOST`         | `localhost` | Host the server binds to.                                   |
 | `EXPRESS_PORT`         | `3000`      | Port for the REST API and Swagger UI.                       |
 | `EXPRESS_PREFIX`       | _(unset)_   | Optional global URL prefix (e.g. `/api`).                   |
@@ -228,7 +228,7 @@ This section is the canonical reference for runtime configuration. Defaults matc
 The agent exposes three separate ports — REST/Swagger uses `EXPRESS_PORT`, DIDComm uses two ports, and OpenID4VC uses one. The `*_ENDPOINT` variables are what gets advertised in OOB invitations and OID4VCI metadata; override them when fronting the service with a reverse proxy or a tunnel (see [Local Configuration for Heka Wallet Integration](local-config-for-heka-wallet-integration.md)).
 
 | Variable                               | Default                                       | Description                                                              |
-|----------------------------------------|-----------------------------------------------|--------------------------------------------------------------------------|
+| -------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------ |
 | `AGENT_LABEL`                          | `Heka`                                        | Label advertised by the agent (also used as the wallet store ID prefix). |
 | `AGENT_HTTP_PORT`                      | `3001`                                        | DIDComm HTTP transport port.                                             |
 | `AGENT_WS_PORT`                        | `3002`                                        | DIDComm WebSocket transport port.                                        |
@@ -245,7 +245,7 @@ The service uses two separate Postgres instances (or two databases on the same i
 **Application database (MikroORM):**
 
 | Variable                  | Default                 | Description                                              |
-|---------------------------|-------------------------|----------------------------------------------------------|
+| ------------------------- | ----------------------- | -------------------------------------------------------- |
 | `MIKRO_ORM_DATABASE_TYPE` | `postgresql`            | Database driver. PostgreSQL is the only tested option.   |
 | `MIKRO_ORM_HOST`          | `localhost`             | Database host.                                           |
 | `MIKRO_ORM_PORT`          | `5432`                  | Database port.                                           |
@@ -257,7 +257,7 @@ The service uses two separate Postgres instances (or two databases on the same i
 **Agent wallet database (Askar):**
 
 | Variable                   | Default     | Description               |
-|----------------------------|-------------|---------------------------|
+| -------------------------- | ----------- | ------------------------- |
 | `WALLET_POSTGRES_HOST`     | `localhost` | Wallet database host.     |
 | `WALLET_POSTGRES_PORT`     | `5432`      | Wallet database port.     |
 | `WALLET_POSTGRES_USER`     | `heka`      | Wallet database user.     |
@@ -270,7 +270,7 @@ API requests must carry a Bearer token signed with `JWT_SECRET`. The default val
 > When pairing this service with [Heka Auth Service](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-auth-service), the three variables in this section must match the corresponding settings on the auth-service side. See [JWT alignment with Identity Service](../../heka-auth-service/README.md#jwt-alignment-with-identity-service) for the side-by-side mapping.
 
 | Variable                      | Default                 | Description                                                                       |
-|-------------------------------|-------------------------|-----------------------------------------------------------------------------------|
+| ----------------------------- | ----------------------- | --------------------------------------------------------------------------------- |
 | `JWT_SECRET`                  | `test`                  | Secret used to sign and verify tokens. **Replace in any non-trivial deployment.** |
 | `JWT_VERIFY_OPTIONS_ISSUER`   | `Heka`                  | Required value of the `iss` claim.                                                |
 | `JWT_VERIFY_OPTIONS_AUDIENCE` | `Heka Identity Service` | Required value of the `aud` claim.                                                |
@@ -280,7 +280,7 @@ API requests must carry a Bearer token signed with `JWT_SECRET`. The default val
 The token strategy (`src/common/auth/jwt.strategy.ts`) and validator (`src/common/auth/auth.service.ts`) expect:
 
 | Claim         | Required | Description                                                                                                                                                      |
-|---------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sub`         | Yes      | Stable user identifier. Used to provision and look up the user record.                                                                                           |
 | `roles`       | Yes      | Array of role strings. The first entry is taken as the primary role. Valid values: `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User`. |
 | `name`        | Yes      | User-facing display name; also used as the wallet label on first sight.                                                                                          |
@@ -292,20 +292,20 @@ The `tenantId` is **not** a JWT claim — it is derived internally from `(role, 
 ### Ledger / DID methods
 
 | Variable      | Default           | Description                                                                                         |
-|---------------|-------------------|-----------------------------------------------------------------------------------------------------|
+| ------------- | ----------------- | --------------------------------------------------------------------------------------------------- |
 | `DID_METHODS` | `indy,key,hedera` | Comma-separated list of enabled DID methods. Supported values: `key`, `indy`, `hedera`, `indybesu`. |
 
 **Hyperledger Indy** — when `indy` is enabled:
 
 | Variable             | Default                                        | Description                                    |
-|----------------------|------------------------------------------------|------------------------------------------------|
+| -------------------- | ---------------------------------------------- | ---------------------------------------------- |
 | `INDY_ENDORSER_SEED` | _(dev seed)_                                   | Endorser seed for writing to the Indy network. |
 | `INDY_ENDORSER_DID`  | `did:indy:bcovrin:test:4bbYgjU6JbV4DShPbGoQcA` | Endorser DID.                                  |
 
 **Indy Besu** — when `indybesu` is enabled:
 
 | Variable                         | Default                 | Description                         |
-|----------------------------------|-------------------------|-------------------------------------|
+| -------------------------------- | ----------------------- | ----------------------------------- |
 | `INDY_BESU_CHAIN_ID`             | `1337`                  | EVM chain ID.                       |
 | `INDY_BESU_NODE_ADDRESS`         | `http://localhost:8545` | RPC endpoint.                       |
 | `INDY_BESU_NETWORK`              | `testnet`               | Indy Besu network identifier.       |
@@ -315,7 +315,7 @@ The `tenantId` is **not** a JWT claim — it is derived internally from `(role, 
 **Hedera** — see [Hedera Integration](hedera.md) for the full guide. Variables:
 
 | Variable              | Default         | Description                                                                 |
-|-----------------------|-----------------|-----------------------------------------------------------------------------|
+| --------------------- | --------------- | --------------------------------------------------------------------------- |
 | `HEDERA_NETWORK`      | `testnet`       | One of `testnet`, `mainnet`, `previewnet`.                                  |
 | `HEDERA_OPERATOR_ID`  | _(dev account)_ | Operator account ID (`0.0.<account-num>`). **Replace for non-trivial use.** |
 | `HEDERA_OPERATOR_KEY` | _(dev key)_     | DER-encoded Ed25519 private key. **Replace for non-trivial use.**           |
@@ -325,14 +325,14 @@ The `tenantId` is **not** a JWT claim — it is derived internally from `(role, 
 Required when issuing `mso_mdoc` credentials (mobile driving licences and similar):
 
 | Variable                 | Default      | Description                                                                                      |
-|--------------------------|--------------|--------------------------------------------------------------------------------------------------|
+| ------------------------ | ------------ | ------------------------------------------------------------------------------------------------ |
 | `MDL_ISSUER_CERTIFICATE` | _(dev cert)_ | Base64-encoded X.509 certificate used as the mDL issuer's IACA. **Replace for non-trivial use.** |
 | `MDL_ISSUER_PRIVATE_KEY` | _(dev key)_  | JSON-encoded JWK private key matching the certificate. **Replace for non-trivial use.**          |
 
 ### Logging
 
 | Variable                | Default            | Description                                                              |
-|-------------------------|--------------------|--------------------------------------------------------------------------|
+| ----------------------- | ------------------ | ------------------------------------------------------------------------ |
 | `PINO_LEVEL`            | `info`             | Logger level. One of `trace`, `debug`, `info`, `warn`, `error`, `fatal`. |
 | `PINO_FILE_DESTINATION` | _(unset — stdout)_ | Path to write logs to instead of stdout.                                 |
 | `NODE_ENV`              | _(unset)_          | When set to `production`, switches the logger to non-pretty JSON output. |
@@ -341,9 +341,9 @@ Required when issuing `mso_mdoc` credentials (mobile driving licences and simila
 
 The service exposes `GET /health`, which checks memory, database connectivity, and agent state:
 
-| Variable                          | Default        | Description                                                       |
-|-----------------------------------|----------------|-------------------------------------------------------------------|
-| `HEALTH_MEMORY_HEAP_THRESHOLD_MB` | `2048`         | Heap usage threshold above which `memory_heap` reports unhealthy. |
-| `HEALTH_MEMORY_RSS_THRESHOLD_MB`  | `2048`         | RSS usage threshold above which `memory_rss` reports unhealthy.   |
+| Variable                          | Default | Description                                                       |
+| --------------------------------- | ------- | ----------------------------------------------------------------- |
+| `HEALTH_MEMORY_HEAP_THRESHOLD_MB` | `2048`  | Heap usage threshold above which `memory_heap` reports unhealthy. |
+| `HEALTH_MEMORY_RSS_THRESHOLD_MB`  | `2048`  | RSS usage threshold above which `memory_rss` reports unhealthy.   |
 
 Use `/health` as a Kubernetes readiness/liveness probe or a Compose healthcheck.

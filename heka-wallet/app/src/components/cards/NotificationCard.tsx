@@ -211,7 +211,7 @@ const NotificationDeclineModal: React.FC<NotificationDeclineModalProps> = ({
     async (proofRecord: DidCommProofExchangeRecord) => {
       if (!agent) return
       try {
-        await agent.didcomm.proofs.declineRequest({ proofRecordId: proofRecord.id })
+        await agent.didcomm.proofs.declineRequest({ proofExchangeRecordId: proofRecord.id })
       } catch (error: unknown) {
         const errorMessage = new BifoldError(
           t('Error.Title1028'),
@@ -236,7 +236,7 @@ const NotificationDeclineModal: React.FC<NotificationDeclineModalProps> = ({
     async (credentialRecord: DidCommCredentialExchangeRecord) => {
       if (!agent) return
       try {
-        await agent.didcomm.credentials.declineOffer(credentialRecord.id)
+        await agent.didcomm.credentials.declineOffer({ credentialExchangeRecordId: credentialRecord.id })
       } catch (error: unknown) {
         const errorMessage = new BifoldError(
           t('Error.Title1028'),

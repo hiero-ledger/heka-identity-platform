@@ -87,6 +87,7 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig, w
     config: {
       logger: new CredoLogger('Credo Agent'),
       autoUpdateStorageOnStartup: true,
+      allowInsecureHttpUrls: true,
     },
     dependencies: agentDependencies,
     modules: {
@@ -339,5 +340,9 @@ export async function setupMediatorWithPublicDidIfNeeded(agent: Agent, mediatorP
     timeoutMs: 5000,
   })
 
-  await agent.didcomm.mediationRecipient.provision(mediatorConnectionRecord)
+  // Credo 0.6's `provision` only requests mediation and sets it as default — unlike 0.5, it no longer
+  // starts message pickup. Without this call, messages routed via the mediator are never fetched until
+  // the next `agent.initialize()` (or a background→foreground app transition).
+  const mediationRecord = await agent.didcomm.mediationRecipient.provision(mediatorConnectionRecord)
+  await agent.didcomm.mediationRecipient.initiateMessagePickup(mediationRecord, DidCommMediatorPickupStrategy.Implicit)
 }

@@ -62,14 +62,8 @@ export const PendingPresentation = ({
         alignItems="flex-start"
         className={cls.header}
       >
-        <Row
-          className={cls.title}
-        >
-          {t('Flow.titles.verificationRequest')}
-        </Row>
-        <Row
-          className={cls.description}
-        >
+        <Row className={cls.title}>{t('Flow.titles.verificationRequest')}</Row>
+        <Row className={cls.description}>
           <p>
             {t('Common.titles.scanQR')}&nbsp;
             <CopyLink value={value} />

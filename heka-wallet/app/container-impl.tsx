@@ -13,6 +13,7 @@ import { ColorPalette } from '@heka-wallet/shared'
 import { HeaderTitle } from '@react-navigation/elements'
 import { StackNavigationOptions } from '@react-navigation/stack'
 import React from 'react'
+import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { DependencyContainer } from 'tsyringe'
 
 import { CredentialStack } from './src/navigators/CredentialStack'
@@ -70,6 +71,11 @@ const configuration: Config = {
     headerTitleAlign: 'left',
     headerTitle: (props: { children: React.ReactNode }) => <HeaderTitle {...props} />,
     headerBackAccessibilityLabel: i18n.t('Global.Back') as string,
+    // Replace React Navigation's default back-icon.png (fails to resolve from a yarn-workspace
+    // node_modules path) with a vector glyph that uses the already-bundled MaterialCommunityIcons font.
+    headerBackImage: ({ tintColor }: { tintColor?: string }) => (
+      <MaterialCommunityIcon name="arrow-left" size={26} color={tintColor ?? ColorPalette.brand.headerIcon} />
+    ),
   },
 }
 

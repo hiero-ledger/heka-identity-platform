@@ -37,6 +37,20 @@ export const useWalletSettings = (): SettingSection[] => {
   const [{ enablePushNotifications }] = useServices([TOKENS.CONFIG])
   const currentLanguage = i18n.t('Language.code', { context: i18n.language as Locales })
 
+  const onExportLogs = useCallback(async () => {
+    try {
+      await exportLogs()
+    } catch (error: unknown) {
+      if ((error as { dismissedAction?: boolean })?.dismissedAction) return
+      console.error(error)
+      Toast.show({
+        type: ToastType.Error,
+        text1: t('Error.Problem'),
+        text2: (error as Error)?.message || t('Error.Unknown'),
+      })
+    }
+  }, [t])
+
   const onWalletBackup = useCallback(async () => {
     const user = await passkeysStore.getUser()
     try {
@@ -134,7 +148,8 @@ export const useWalletSettings = (): SettingSection[] => {
           {
             title: t('Settings.Logs'),
             accessibilityLabel: t('Settings.Logs'),
-            onPress: exportLogs,
+            onPress: onExportLogs,
+            loadingProps: { title: t('Settings.Logs') },
           },
         ],
       },
@@ -261,5 +276,6 @@ export const useWalletSettings = (): SettingSection[] => {
     navigation,
     oauthStore,
     onWalletBackup,
+    onExportLogs,
   ])
 }

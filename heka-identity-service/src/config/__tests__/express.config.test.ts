@@ -16,9 +16,9 @@ describe('express config', () => {
   })
 
   describe('enableCors', () => {
-    it('defaults to false when EXPRESS_ENABLE_CORS is not set', () => {
+    it('defaults to true when EXPRESS_ENABLE_CORS is not set', () => {
       const config = expressConfig()
-      expect(config.enableCors).toBe(false)
+      expect(config.enableCors).toBe(true)
     })
 
     it('is true when EXPRESS_ENABLE_CORS=true', () => {
@@ -41,9 +41,14 @@ describe('express config', () => {
   })
 
   describe('corsOptions', () => {
-    it('is an empty object when EXPRESS_CORS_OPTIONS is not set', () => {
+    it('defaults to permissive options when EXPRESS_CORS_OPTIONS is not set', () => {
       const config = expressConfig()
-      expect(config.corsOptions).toEqual({})
+      expect(config.corsOptions).toEqual({
+        origin: '*',
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+        preflightContinue: false,
+        optionsSuccessStatus: 204,
+      })
     })
 
     it('parses valid JSON from EXPRESS_CORS_OPTIONS', () => {

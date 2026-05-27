@@ -21,7 +21,6 @@ export const useNotifications = (): NotificationRecord[] => {
   const proofsRequested = useProofByState(DidCommProofState.RequestReceived)
 
   return useMemo(() => {
-    console.log('update notifications memo')
     const validProofsDone = proofsDone.filter((proof: DidCommProofExchangeRecord) => {
       if (proof.isVerified === undefined) return false
       const metadata = proof.metadata.get(ProofMetadata.customMetadata) as ProofCustomMetadata

@@ -15,6 +15,8 @@ import {
   OpenId4VCCredentialRegistrationFormat,
   ProtocolType,
 } from 'common/types'
+import { UpdateIssuerSupportedCredentialsAction } from 'openid4vc/issuer/dto/update-issuer.dto'
+import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
 import { RevocationRegistryService } from 'revocation/revocation-registry/revocation-registry.service'
 import { StatusListService } from 'revocation/status-list/status-list.service'
 
@@ -29,6 +31,7 @@ describe('SchemaV2Service', () => {
   let revocationRegistryService: RevocationRegistryService
   let statusListService: StatusListService
   let ocaService: OCAService
+  let openId4VcIssuerService: OpenId4VcIssuerService
   let tenantAgent: TenantAgent
 
   const mockUser = { id: 'user-1', name: 'Test User' }
@@ -50,6 +53,7 @@ describe('SchemaV2Service', () => {
     revocationRegistryService = createMock<RevocationRegistryService>()
     statusListService = createMock<StatusListService>()
     ocaService = createMock<OCAService>()
+    openId4VcIssuerService = createMock<OpenId4VcIssuerService>()
     schemaV2Service = new SchemaV2Service(
       logger,
       em,
@@ -58,6 +62,7 @@ describe('SchemaV2Service', () => {
       revocationRegistryService,
       statusListService,
       ocaService,
+      openId4VcIssuerService,
     )
     tenantAgent = createMock<TenantAgent>({
       openid4vc: {
@@ -469,7 +474,11 @@ describe('SchemaV2Service', () => {
 
       await schemaV2Service.patch(authInfo, tenantAgent, 'schema-1', { bgColor: '#333' } as any, undefined as any)
 
-      expect(tenantAgent.openid4vc.issuer.updateIssuerMetadata).toHaveBeenCalled()
+      expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalledWith(
+        tenantAgent,
+        'issuer-1',
+        expect.objectContaining({ action: UpdateIssuerSupportedCredentialsAction.Replace }),
+      )
     })
   })
 
@@ -633,7 +642,11 @@ describe('SchemaV2Service', () => {
         did: 'did:key:z1',
       } as any)
 
-      expect(tenantAgent.openid4vc.issuer.updateIssuerMetadata).toHaveBeenCalled()
+      expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalledWith(
+        tenantAgent,
+        'issuer-1',
+        expect.objectContaining({ action: UpdateIssuerSupportedCredentialsAction.Add }),
+      )
       expect(statusListService.create).toHaveBeenCalled()
       expect(em.persistAndFlush).toHaveBeenCalled()
       expect(result.credentials).toMatchObject({ statusListId: 'status-list-1' })
@@ -649,7 +662,7 @@ describe('SchemaV2Service', () => {
         did: 'did:key:z1',
       } as any)
 
-      expect(tenantAgent.openid4vc.issuer.updateIssuerMetadata).toHaveBeenCalled()
+      expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalled()
     })
 
     test('registers Oid4vc JwtVcJsonLd successfully', async () => {
@@ -662,7 +675,7 @@ describe('SchemaV2Service', () => {
         did: 'did:key:z1',
       } as any)
 
-      expect(tenantAgent.openid4vc.issuer.updateIssuerMetadata).toHaveBeenCalled()
+      expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalled()
     })
 
     test('registers Oid4vc LdpVc successfully', async () => {
@@ -675,7 +688,7 @@ describe('SchemaV2Service', () => {
         did: 'did:key:z1',
       } as any)
 
-      expect(tenantAgent.openid4vc.issuer.updateIssuerMetadata).toHaveBeenCalled()
+      expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalled()
     })
 
     test('registers Oid4vc MsoMdoc successfully', async () => {
@@ -688,7 +701,7 @@ describe('SchemaV2Service', () => {
         did: 'did:key:z1',
       } as any)
 
-      expect(tenantAgent.openid4vc.issuer.updateIssuerMetadata).toHaveBeenCalled()
+      expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalled()
     })
 
     test('registers Oid4vc with schema that has a logo (uses fileStorage.url in display)', async () => {

@@ -54,6 +54,3 @@ node_modules/
 
 # Intellij IDEs
 .idea
-
-# GSD artifacts
-.planning

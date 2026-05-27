@@ -233,7 +233,7 @@ describe('useOpenIdHandlers', () => {
 
       expect(mockAgent.openid4vc.holder.requestCredentials).toHaveBeenCalledWith(
         expect.objectContaining({
-          resolvedCredentialOffer: fixture.resolvedCredentialOfferPreAuth,
+          resolvedCredentialOffer: mixedFormatResolvedCredentialOffer,
           credentialConfigurationIds: expect.any(Array),
           verifyCredentialStatus: false,
           allowedProofOfPossessionSignatureAlgorithms: [

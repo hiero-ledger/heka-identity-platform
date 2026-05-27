@@ -17,11 +17,23 @@ export const BifoldStack: React.FC = () => {
   )
 
   useEffect(() => {
-    // if user gets locked out, erase agent
-    console.log(`Lock out the user, didAuthenticate: ${store.authentication.didAuthenticate}`)
-    if (!store.authentication.didAuthenticate && agent) {
-      agent.shutdown()
-      // setAgent(null)
+    // if user gets locked out, shut down and erase agent so the onboarding
+    // workflow re-runs Splash on re-unlock and re-initializes a fresh agent
+    if (store.authentication.didAuthenticate || !agent) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        await agent.shutdown()
+      } catch (err) {
+        console.warn(`Agent shutdown failed during lockout: ${err}`)
+      } finally {
+        if (!cancelled) setAgent(null)
+      }
+    })()
+
+    return () => {
+      cancelled = true
     }
   }, [store.authentication.didAuthenticate, agent, setAgent])
 
@@ -44,7 +56,7 @@ export const BifoldStack: React.FC = () => {
     })
   }, [dispatch, loadState, t, store.stateLoaded])
 
-  if (shouldRenderMainStack) {
+  if (shouldRenderMainStack && agent) {
     return (
       <ActivityProvider>
         <MainStack />

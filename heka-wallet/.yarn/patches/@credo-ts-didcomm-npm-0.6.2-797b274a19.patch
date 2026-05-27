@@ -1,0 +1,33 @@
+diff --git a/build/modules/basic-messages/handlers/BasicMessageHandler.mjs b/build/modules/basic-messages/handlers/BasicMessageHandler.mjs
+index 6ae4e6ec02fb50e90e972af5e6c7fd31ff8bd656..2400e4e54917f04d4149a1a45235495fbeb04bfe 100644
+--- a/build/modules/basic-messages/handlers/BasicMessageHandler.mjs
++++ b/build/modules/basic-messages/handlers/BasicMessageHandler.mjs
+@@ -8,7 +8,14 @@ var DidCommBasicMessageHandler = class {
+ 		this.basicMessageService = basicMessageService;
+ 	}
+ 	async handle(messageContext) {
+-		const connection = messageContext.assertReadyConnection();
++		let connection;
++		try {
++			connection = messageContext.assertReadyConnection();
++		} catch {
++			// Ignore connection readiness and allow receiving connection-less messages
++			console.warn('Error on asserting connection readiness for inbound Basic Message, handling as connection-less...');
++			connection = { id: 'unknown-connection' };
++		}
+ 		await this.basicMessageService.save(messageContext, connection);
+ 	}
+ };
+diff --git a/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs b/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs
+index 3f5cdb1dee711e06b35f876e484da00cc211009b..fbaabfe36655af78ae535e5fb7814574e94c118a 100644
+--- a/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs
++++ b/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs
+@@ -114,7 +114,7 @@ __decorate([
+ ], DidCommOutOfBandInvitation.prototype, "services", void 0);
+ __decorate([
+ 	IsOptional(),
+-	IsUrl(),
++	IsUrl({ require_tld: false }),
+ 	__decorateMetadata("design:type", String)
+ ], DidCommOutOfBandInvitation.prototype, "imageUrl", void 0);
+ /**

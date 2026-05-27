@@ -240,7 +240,7 @@ export const useOpenIdHandlers = () => {
             .createKeyForSignatureAlgorithm({
               algorithm: signatureAlgorithm,
             })
-            .then((key) => Kms.PublicJwk.fromUnknown(key))
+            .then((key) => Kms.PublicJwk.fromUnknown(key.publicJwk))
 
           if (didMethod) {
             const didResult = await agent.dids.create<JwkDidCreateOptions | KeyDidCreateOptions>({
@@ -269,8 +269,13 @@ export const useOpenIdHandlers = () => {
             }
           }
 
-          // Support plain jwk for sd-jwt only
-          if (supportsJwk && credentialFormat === OpenId4VciCredentialFormatProfile.SdJwtVc) {
+          // Support plain jwk for sd-jwt and mdoc
+          if (
+            supportsJwk &&
+            (credentialFormat === OpenId4VciCredentialFormatProfile.SdJwtVc ||
+              credentialFormat === OpenId4VciCredentialFormatProfile.SdJwtDc ||
+              credentialFormat === OpenId4VciCredentialFormatProfile.MsoMdoc)
+          ) {
             return {
               method: 'jwk',
               keys: [key],
@@ -424,7 +429,7 @@ export const useOpenIdHandlers = () => {
       }
 
       if (result.serverResponse && (result.serverResponse.status < 200 || result.serverResponse.status > 299)) {
-        throw new Error(`Error while accepting authorization request. ${result.serverResponse?.body as string}`)
+        throw new Error(`Error while accepting authorization request. ${JSON.stringify(result.serverResponse?.body)}`)
       }
 
       return result

@@ -97,9 +97,18 @@ export const buildJwtJsonPresentationRequest = ({
   };
 };
 
-const MDL_DOCTYPE = 'org.iso.18013.5.1.mDL'
-const MDL_NAMESPACE = 'org.iso.18013.5.1'
-const MDL_ALG = ['ES256', 'ES384', 'ES512', 'EdDSA', 'ESB256', 'ESB320', 'ESB384', 'ESB512']
+const MDL_DOCTYPE = 'org.iso.18013.5.1.mDL';
+const MDL_NAMESPACE = 'org.iso.18013.5.1';
+const MDL_ALG = [
+  'ES256',
+  'ES384',
+  'ES512',
+  'EdDSA',
+  'ESB256',
+  'ESB320',
+  'ESB384',
+  'ESB512',
+];
 
 export const buildMsoMdocPresentationRequest = ({
   id,

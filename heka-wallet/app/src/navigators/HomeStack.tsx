@@ -1,4 +1,4 @@
-import { Screens as BifoldScreens, useDefaultStackOptions } from '@bifold/core'
+import { Screens as BifoldScreens, Stacks as BifoldStacks, useDefaultStackOptions } from '@bifold/core'
 import { HomeStackParams } from '@bifold/core/src/types/navigators'
 import { useHekaTheme } from '@heka-wallet/shared'
 import { createStackNavigator } from '@react-navigation/stack'
@@ -6,7 +6,9 @@ import React from 'react'
 
 import { Home } from '../screens'
 
-const Stack = createStackNavigator<HomeStackParams>()
+import { CredentialStack } from './CredentialStack'
+
+const Stack = createStackNavigator<HomeStackParams & { [BifoldStacks.CredentialStack]: undefined }>()
 
 export const HomeStack: React.FC = () => {
   const theme = useHekaTheme()
@@ -22,6 +24,7 @@ export const HomeStack: React.FC = () => {
           headerShown: false,
         })}
       />
+      <Stack.Screen name={BifoldStacks.CredentialStack} component={CredentialStack} options={{ headerShown: false }} />
     </Stack.Navigator>
   )
 }

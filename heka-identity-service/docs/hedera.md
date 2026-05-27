@@ -19,7 +19,7 @@ The integration is configured in `src/common/agent/agent-modules.provider.ts` an
 The service needs a Hedera **operator account** to submit transactions to the network. Configure it via environment variables:
 
 | Variable              | Required                    | Default                        | Notes                                                                                        |
-|-----------------------|-----------------------------|--------------------------------|----------------------------------------------------------------------------------------------|
+| --------------------- | --------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
 | `HEDERA_NETWORK`      | No                          | `testnet`                      | One of `testnet`, `mainnet`, `previewnet`.                                                   |
 | `HEDERA_OPERATOR_ID`  | **Yes for non-trivial use** | A built-in testnet account ID  | The Hedera account that pays for and signs ledger transactions. Format: `0.0.<account-num>`. |
 | `HEDERA_OPERATOR_KEY` | **Yes for non-trivial use** | A built-in testnet private key | DER-encoded Ed25519 private key for the operator account.                                    |
@@ -48,7 +48,7 @@ For programmatic account creation (CI / multiple environments), see the [Hedera 
 The service writes the following resource types when Hedera is the active registry:
 
 | Resource                                                   | When written                                                                                    |
-|------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | **DID document**                                           | When a tenant creates a `did:hedera` (e.g. via `POST /dids` or via `prepare-wallet`).           |
 | **AnonCreds schema**                                       | When a tenant publishes a schema against a Hedera-based issuer DID.                             |
 | **AnonCreds credential definition**                        | When a credential definition is registered against a Hedera schema.                             |

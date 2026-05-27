@@ -11,7 +11,7 @@ import {
   useServices,
   useStore,
 } from '@bifold/core'
-import { minPINLength } from '@bifold/core/src/constants'
+import { defaultAutoLockTime, minPINLength } from '@bifold/core/src/constants'
 import { hashPIN } from '@bifold/core/src/utils/crypto'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation, CommonActions } from '@react-navigation/native'
@@ -75,7 +75,8 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
   const navigation = useNavigation()
   const [alertModalVisible, setAlertModalVisible] = useState<boolean>(false)
   const [biometricsEnrollmentChange, setBiometricsEnrollmentChange] = useState<boolean>(false)
-  const [logger] = useServices([TOKENS.UTIL_LOGGER])
+  const [logger, { customAutoLockTimes }] = useServices([TOKENS.UTIL_LOGGER, TOKENS.CONFIG])
+  const defaultAutoLockoutTime = customAutoLockTimes?.default?.time ?? defaultAutoLockTime
 
   const [isPinChecking, setIsPinChecking] = useState(false)
 
@@ -94,19 +95,22 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
     }
   }, [biometricsErr])
 
-  // This method is used to notify the app that the user is able to receive another lockout penalty
+  // This method is used to notify the app that the user is able to receive another lockout penalty.
+  // `servedPenalty: undefined` (not `false`) is intentional: `false` flips the AttemptLockout
+  // onboarding task to incomplete, briefly making it the activeScreen and unmounting PINEnter.
+  // See node_modules/@bifold/core/src/hooks/lockout.ts (useUnMarkServedPenalty).
   const unMarkServedPenalty = useCallback(() => {
     dispatch({
       type: DispatchAction.ATTEMPT_UPDATED,
       payload: [
         {
           loginAttempts: store.loginAttempt.loginAttempts,
-          lockoutDate: store.loginAttempt.lockoutDate,
-          servedPenalty: false,
+          lockoutDate: undefined,
+          servedPenalty: undefined,
         },
       ],
     })
-  }, [dispatch, store.loginAttempt.lockoutDate, store.loginAttempt.loginAttempts])
+  }, [dispatch, store.loginAttempt.loginAttempts])
 
   const attemptLockout = async (penalty: number) => {
     // set the attempt lockout time
@@ -317,7 +321,11 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
       return (
         <>
           <Text style={styles.textTitle}>{t('PINEnter.ReEnterPIN')}</Text>
-          <Text style={styles.helpText}>{t('PINEnter.LockedOut')}</Text>
+          <Text style={styles.helpText}>
+            {t('PINEnter.LockedOut', {
+              time: String(store.preferences.autoLockTime ?? defaultAutoLockoutTime),
+            })}
+          </Text>
         </>
       )
     }

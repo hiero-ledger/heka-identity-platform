@@ -213,7 +213,7 @@ export const useChatMessagesByConnection = (connection: DidCommConnectionRecord)
             })
           }
           if (record.state === DidCommCredentialState.OfferReceived) {
-            navigation.navigate(Stacks.ContactStack as any, {
+            navigation.navigate(Stacks.NotificationStack as any, {
               screen: Screens.CredentialOffer,
               params: { credentialId: record.id },
             })
@@ -250,7 +250,7 @@ export const useChatMessagesByConnection = (connection: DidCommConnectionRecord)
             })
           }
           if (record.state === DidCommProofState.RequestReceived) {
-            navigation.navigate(Stacks.ContactStack as any, {
+            navigation.navigate(Stacks.NotificationStack as any, {
               screen: Screens.ProofRequest,
               params: { proofId: record.id },
             })

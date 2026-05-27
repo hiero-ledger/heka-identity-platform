@@ -1,19 +1,8 @@
-import { Button, ButtonType, DispatchAction, EventTypes, useAuth, useStore } from '@bifold/core'
+import { Button, ButtonType, DispatchAction, useAuth, useStore } from '@bifold/core'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  StyleSheet,
-  Text,
-  View,
-  Modal,
-  Switch,
-  ScrollView,
-  Pressable,
-  DeviceEventEmitter,
-  Linking,
-  Platform,
-} from 'react-native'
+import { StyleSheet, Text, View, Modal, Switch, ScrollView, Pressable, Linking, Platform } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import FingerprintImage from '../assets/fingerprint.svg'
@@ -73,7 +62,7 @@ const UseBiometry: React.FC = () => {
   const [biometryEnabled, setBiometryEnabled] = useState(store.preferences.useBiometry)
   const [canSeeCheckPIN, setCanSeeCheckPIN] = useState<boolean>(false)
   const { ColorPalette, TextTheme } = useHekaTheme()
-  const screenUsage = store.authentication.didAuthenticate
+  const screenUsage = store.onboarding.didConsiderBiometry
     ? UseBiometryUsage.ToggleOnOff
     : UseBiometryUsage.InitialSetup
 
@@ -84,29 +73,7 @@ const UseBiometry: React.FC = () => {
     isBiometricsActive().then((result) => {
       setBiometryAvailable(result)
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (screenUsage === UseBiometryUsage.InitialSetup) {
-      return
-    }
-
-    if (biometryEnabled) {
-      commitWalletToKeychain(biometryEnabled).then(() => {
-        dispatch({
-          type: DispatchAction.USE_BIOMETRY,
-          payload: [biometryEnabled],
-        })
-      })
-    } else {
-      disableBiometrics().then(() => {
-        dispatch({
-          type: DispatchAction.USE_BIOMETRY,
-          payload: [biometryEnabled],
-        })
-      })
-    }
-  }, [biometryEnabled]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isBiometricsActive])
 
   const continueTouched = async () => {
     try {
@@ -148,23 +115,34 @@ const UseBiometry: React.FC = () => {
     // to first authenticate before this action is accepted
     if (screenUsage === UseBiometryUsage.ToggleOnOff) {
       setCanSeeCheckPIN(true)
-      DeviceEventEmitter.emit(EventTypes.BIOMETRY_UPDATE, true)
       return
     }
 
     setBiometryEnabled((previousState) => !previousState)
   }
 
-  const onAuthenticationComplete = (status: boolean) => {
+  const onAuthenticationComplete = async (status: boolean) => {
     // If successfully authenticated the toggle may proceed.
     if (status) {
-      setBiometryEnabled((previousState) => !previousState)
+      const newValue = !biometryEnabled
+      setBiometryEnabled(newValue)
+
+      try {
+        if (newValue) {
+          await commitWalletToKeychain(newValue)
+        } else {
+          await disableBiometrics()
+        }
+      } finally {
+        dispatch({
+          type: DispatchAction.USE_BIOMETRY,
+          payload: [newValue],
+        })
+      }
     }
-    DeviceEventEmitter.emit(EventTypes.BIOMETRY_UPDATE, false)
     setCanSeeCheckPIN(false)
   }
 
-  console.log(store.onboarding, screenUsage)
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -207,23 +185,25 @@ const UseBiometry: React.FC = () => {
         <View style={styles.imageContainer}>
           <FingerprintImage />
         </View>
-        <View style={styles.controlsContainer}>
-          {biometryEnabled ? (
-            <Button
-              title={t('Global.Continue')}
-              accessibilityLabel={t('Global.Continue')}
-              onPress={continueTouched}
-              buttonType={ButtonType.Primary}
-            />
-          ) : (
-            <Button
-              title={t('Biometry.Skip')}
-              accessibilityLabel={t('Biometry.Skip')}
-              onPress={continueTouched}
-              buttonType={ButtonType.Secondary}
-            />
-          )}
-        </View>
+        {screenUsage === UseBiometryUsage.InitialSetup && (
+          <View style={styles.controlsContainer}>
+            {biometryEnabled ? (
+              <Button
+                title={t('Global.Continue')}
+                accessibilityLabel={t('Global.Continue')}
+                onPress={continueTouched}
+                buttonType={ButtonType.Primary}
+              />
+            ) : (
+              <Button
+                title={t('Biometry.Skip')}
+                accessibilityLabel={t('Biometry.Skip')}
+                onPress={continueTouched}
+                buttonType={ButtonType.Secondary}
+              />
+            )}
+          </View>
+        )}
       </ScrollView>
       <View style={styles.loaderContainer}>{isLoading && <Loader size={styles.loaderContainer.minHeight} />}</View>
       <Modal

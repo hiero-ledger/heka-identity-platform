@@ -131,19 +131,6 @@ const config = mergeConfig(defaultConfig, {
       url: path.resolve(nodeModulesDir, 'url'),
     },
   },
-  server: {
-    enhanceMiddleware: (middleware) => {
-      return (req, res, next) => {
-        // Workaround for React Navigation assets resolution on Android (caused by monorepo setup)
-        // See https://github.com/react-navigation/react-navigation/issues/9584
-        if (/\/node_modules\/@react-navigation\/.+\/assets\/.+\.png\?.+$/.test(req.url)) {
-          req.url = `/assets/../${req.url}`
-        }
-
-        return middleware(req, res, next)
-      }
-    },
-  },
   watchFolders: combinedWatchFolders,
 })
 

@@ -74,7 +74,7 @@ export const AriesCredentialOffer: React.FC<Props> = ({ route }) => {
 
     try {
       setIsAccepted(true)
-      await agent.didcomm.credentials.acceptOffer({ credentialRecordId: credential.id })
+      await agent.didcomm.credentials.acceptOffer({ credentialExchangeRecordId: credential.id })
     } catch (err: unknown) {
       setIsAccepted(false)
       const error = new BifoldError(t('Error.Title1024'), t('Error.Message1024'), (err as Error)?.message ?? err, 1024)
@@ -87,7 +87,10 @@ export const AriesCredentialOffer: React.FC<Props> = ({ route }) => {
 
     try {
       setIsDeclining(true)
-      await agent.didcomm.credentials.declineOffer(credential.id, { sendProblemReport: true })
+      await agent.didcomm.credentials.declineOffer({
+        credentialExchangeRecordId: credential.id,
+        sendProblemReport: true,
+      })
     } catch (err: unknown) {
       await agent.didcomm.credentials.deleteById(credential.id)
     } finally {

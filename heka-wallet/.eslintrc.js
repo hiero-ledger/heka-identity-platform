@@ -39,7 +39,7 @@ module.exports = {
     'no-console': 'warn',
     // TODO: Consider to enable errors for explicit any (will require refactoring and manual '@ts-ignore' for some places)
     '@typescript-eslint/no-explicit-any': 'warn',
-    // Because of early development, we only warn on ts-ignore. In future, we want to move to error
+    // Because of current stage in development, we only warn on ts-ignore. In future, we want to move to error
     '@typescript-eslint/ban-ts-comment': 'warn',
     // Aries protocols define attributes with snake case.
     '@typescript-eslint/camelcase': 'off',
@@ -65,7 +65,7 @@ module.exports = {
         'newlines-between': 'always',
       },
     ],
-    'import/no-cycle': 'error',
+    'import/no-cycle': ['error', { ignoreExternal: true }],
     'import/no-extraneous-dependencies': [
       'error',
       {
@@ -75,7 +75,7 @@ module.exports = {
     'react-hooks/exhaustive-deps': 'error',
     'react/no-unescaped-entities': 'warn',
     'react/prop-types': 'off', // Prop type validation provided by TS is sufficient
-    'react-native/no-raw-text': 'warn',
+    'react-native/no-raw-text': ['warn', { skip: ['ThemedText'] }],
     'react-native/no-color-literals': 'off',
     'react-native/no-inline-styles': 'off',
     'react-native/sort-styles': 'off',

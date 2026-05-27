@@ -56,7 +56,3 @@ export function parseCredentialName(credentialDefinitionId?: string, schemaId?: 
 
   return name
 }
-
-export function humanizeAttributeName(name: string): string {
-  return name.replace(/_/g, ' ')
-}

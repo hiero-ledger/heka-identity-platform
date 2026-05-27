@@ -1,7 +1,7 @@
 import { Attribute } from '@bifold/oca/build/legacy'
 import { Hasher, Kms, TypedArrayEncoder } from '@credo-ts/core'
 
-import { humanizeAttributeName } from './utils'
+import { humanizeAttributeName } from './humanize'
 
 interface SdJwtVcMetadata {
   type: string

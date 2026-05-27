@@ -1,7 +1,7 @@
 import { Attribute } from '@bifold/oca/build/legacy'
 import { Mdoc, MdocNameSpaces } from '@credo-ts/core'
 
-import { humanizeAttributeName } from './utils'
+import { humanizeAttributeName } from './humanize'
 
 export function getAttributesAndMetadataForMdocPayload(namespaces: MdocNameSpaces, mdocInstance: Mdoc) {
   const attributes = Object.values(namespaces).flatMap((namespaceMap) =>

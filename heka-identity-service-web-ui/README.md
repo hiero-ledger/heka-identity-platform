@@ -51,13 +51,13 @@ steps before running or deploying the application:
 
 The Web UI is configured via environment variables read by webpack at build time. Set them in the `.env` file at the package root.
 
-| Variable | Default | Description |
-|---|---|---|
-| `REACT_APP_AGENCY_ENDPOINT` | `http://localhost:3000` | Heka Identity Service base URL. |
-| `REACT_APP_AUTH_SERVICE_ENDPOINT` | `http://localhost:3004` | Heka Auth Service base URL. JWT login and token refresh go here. |
-| `REACT_APP_DEMO_USER_DID` | _(empty)_ | DID of the pre-provisioned demo user. Filled in by `scripts/prepare-demo-user.ts` — see [Creation of Pre-Defined Demo User](#creation-of-pre-defined-demo-user). |
-| `REACT_APP_DEMO_USER_ACCESS_TOKEN` | _(empty)_ | JWT access token for the demo user. Filled in by the script above. |
-| `REACT_APP_DEMO_USER_REFRESH_TOKEN` | _(empty)_ | Refresh token for the demo user. Filled in by the script above. |
+| Variable                            | Default                 | Description                                                                                                                                                      |
+| ----------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REACT_APP_AGENCY_ENDPOINT`         | `http://localhost:3000` | Heka Identity Service base URL.                                                                                                                                  |
+| `REACT_APP_AUTH_SERVICE_ENDPOINT`   | `http://localhost:3004` | Heka Auth Service base URL. JWT login and token refresh go here.                                                                                                 |
+| `REACT_APP_DEMO_USER_DID`           | _(empty)_               | DID of the pre-provisioned demo user. Filled in by `scripts/prepare-demo-user.ts` — see [Creation of Pre-Defined Demo User](#creation-of-pre-defined-demo-user). |
+| `REACT_APP_DEMO_USER_ACCESS_TOKEN`  | _(empty)_               | JWT access token for the demo user. Filled in by the script above.                                                                                               |
+| `REACT_APP_DEMO_USER_REFRESH_TOKEN` | _(empty)_               | Refresh token for the demo user. Filled in by the script above.                                                                                                  |
 
 The Web UI authenticates against [Heka Auth Service](../heka-auth-service/README.md) for login and token refresh, and calls the [Heka Identity Service](../heka-identity-service/README.md) with the resulting JWT. Both services must be running and reachable from the browser at the configured endpoints.
 

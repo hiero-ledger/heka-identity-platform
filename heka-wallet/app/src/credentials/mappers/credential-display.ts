@@ -22,9 +22,10 @@ import {
   W3cCredentialJson,
 } from '../types'
 
+import { humanizeAttributeName } from './humanize'
 import { getAttributesAndMetadataForMdocPayload } from './mdoc'
 import { getAttributesAndMetadataForSdJwtPayload } from './sd-jwt'
-import { humanizeAttributeName, parseCredentialName } from './utils'
+import { parseCredentialName } from './utils'
 
 const UNKNOWN_CREDENTIAL_LABEL = 'Unknown credential'
 const UNKNOWN_ISSUER_LABEL = 'Unknown issuer'

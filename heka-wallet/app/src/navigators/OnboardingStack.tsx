@@ -99,15 +99,13 @@ export const OnboardingStack: React.FC = () => {
 
   const { agent } = useAgent()
 
-  const { activeScreen, onboardingState } = useOnboardingState(
+  const { activeScreen } = useOnboardingState(
     store,
     config,
     Number(termsVersion),
     agent ?? null,
     generateOnboardingWorkflowSteps
   )
-
-  console.log(onboardingState)
 
   useEffect(() => {
     versionMonitor?.checkForUpdate?.().then((versionInfo) => {
