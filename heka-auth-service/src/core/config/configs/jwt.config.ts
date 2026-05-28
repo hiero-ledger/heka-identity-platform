@@ -18,6 +18,8 @@ export const jwtConfigDefaults = {
   demoUserTokenExpiry: 60 * 60 * 24 * 365, // ~1 year validity for Demo User
 }
 
+let warnedJwtSecret = false
+
 export class JwtConfig {
   @IsString()
   public issuer!: string
@@ -43,6 +45,14 @@ export class JwtConfig {
     const env = configuration ?? process.env
     this.issuer = env[JwtConfigKeys.issuer] || jwtConfigDefaults.issuer
     this.audience = env[JwtConfigKeys.audience] || jwtConfigDefaults.audience
+
+    if (!env[JwtConfigKeys.secret] && !warnedJwtSecret) {
+      warnedJwtSecret = true
+      // eslint-disable-next-line no-console
+      console.warn(
+        `WARNING: ${JwtConfigKeys.secret} not set; using insecure default for JWT signing secret. Do not use in production.`,
+      )
+    }
     this.secret = env[JwtConfigKeys.secret] || jwtConfigDefaults.secret
 
     this.accessExpiry = env[JwtConfigKeys.accessExpiry]
