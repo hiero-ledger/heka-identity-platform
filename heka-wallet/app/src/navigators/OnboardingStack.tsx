@@ -11,7 +11,6 @@ import {
   AttemptLockout,
   useDefaultStackOptions,
 } from '@bifold/core'
-import { useAgent } from '@bifold/react-hooks'
 import { Agent } from '@credo-ts/core'
 import { useHekaTheme } from '@heka-wallet/shared'
 import { StackActions, useNavigation, useNavigationState } from '@react-navigation/native'
@@ -19,6 +18,8 @@ import { StackNavigationProp, createStackNavigator } from '@react-navigation/sta
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
+
+import { useHekaAgent } from '../utils/agent'
 
 import { getOnboardingScreens } from './OnboardingScreens'
 
@@ -97,7 +98,7 @@ export const OnboardingStack: React.FC = () => {
   })
   const { disableOnboardingSkip } = config
 
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const { activeScreen } = useOnboardingState(
     store,

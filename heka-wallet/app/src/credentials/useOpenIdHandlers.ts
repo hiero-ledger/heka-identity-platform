@@ -1,5 +1,3 @@
-import { BifoldAgent } from '@bifold/core'
-import { useAgent } from '@bifold/react-hooks'
 import {
   ClaimFormat,
   CredentialMultiInstanceUseMode,
@@ -26,6 +24,8 @@ import { getHostNameFromUrl } from '@heka-wallet/shared'
 import { useCallback } from 'react'
 import { Linking } from 'react-native'
 
+import { useHekaAgent } from '../utils/agent'
+
 import { extractOpenId4VcCredentialMetadata, setOpenId4VcCredentialMetadata } from './metadata'
 import { CredentialRecord, OpenId4VcPresentationRequest, OpenIdPresentationSubmissionParams } from './types'
 
@@ -50,7 +50,7 @@ const formatOfferedCredentialDescriptions = (
     .join(', ')
 
 export const useOpenIdHandlers = () => {
-  const { agent, publicDid } = useAgent<BifoldAgent>()
+  const { agent, publicDid } = useHekaAgent()
 
   const resolveOpenId4VciOffer = useCallback(
     async ({

@@ -1,4 +1,3 @@
-import { useAgent } from '@bifold/react-hooks'
 import {
   DidCommBasicMessageEventTypes,
   DidCommBasicMessageRole,
@@ -6,10 +5,11 @@ import {
 } from '@credo-ts/didcomm'
 import { useEffect } from 'react'
 
+import { useHekaAgent } from './agent'
 import { useInvitationHandlers } from './useInvitationHandlers'
 
 export const useBasicMessageInvitations = () => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const { handleInvitationUrl } = useInvitationHandlers()
 

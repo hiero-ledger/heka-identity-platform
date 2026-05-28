@@ -1,6 +1,5 @@
 import { BifoldError, DispatchAction, EventTypes, Screens, TOKENS, useAuth, useServices, useStore } from '@bifold/core'
 import { createPINValidations } from '@bifold/core/src/utils/PINValidation'
-import { useAgent } from '@bifold/react-hooks'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { ParamListBase, useNavigation } from '@react-navigation/native'
 import { StackScreenProps } from '@react-navigation/stack'
@@ -12,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import PinKeyPad from '../components/misc/PinKeyPad'
 import { AlertModal } from '../components/modals/AlertModal'
 import { Loader } from '../components/views/LoadingView'
-import { HekaWalletAgent } from '../utils/agent'
+import { useHekaAgent } from '../utils/agent'
 
 const useStyles = ({ TextTheme, Spacing }: HekaTheme) => {
   return StyleSheet.create({
@@ -59,7 +58,7 @@ const PINCreate: React.FC<PINCreateProps> = ({ setAuthenticated, route }) => {
   const theme = useHekaTheme()
   const styles = useStyles(theme)
 
-  const { agent } = useAgent<HekaWalletAgent>()
+  const { agent } = useHekaAgent()
 
   const { setPIN: setWalletPIN, checkWalletPIN, rekeyWallet } = useAuth()
 

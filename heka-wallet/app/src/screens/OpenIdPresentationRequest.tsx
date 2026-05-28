@@ -1,7 +1,6 @@
 import type { StackScreenProps } from '@react-navigation/stack'
 
 import { BifoldError, EventTypes, Screens as BifoldScreens, TabStacks as BifoldTabStacks } from '@bifold/core'
-import { useAgent } from '@bifold/react-hooks'
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
@@ -16,6 +15,7 @@ import {
   useOpenIdHandlers,
 } from '../credentials'
 import { OpenIdStackParams, Screens } from '../navigators/types'
+import { useHekaAgent } from '../utils/agent'
 
 type Props = StackScreenProps<OpenIdStackParams, Screens.OpenIdPresentationRequest>
 
@@ -29,7 +29,7 @@ export const OpenIdPresentationRequest: React.FC<Props> = ({ navigation, route }
 
   const { t } = useTranslation()
 
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const { resolveOpenId4VpPresentationRequest, acceptOpenId4VpPresentationRequest } = useOpenIdHandlers()
 

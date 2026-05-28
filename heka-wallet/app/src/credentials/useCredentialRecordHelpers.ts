@@ -1,4 +1,3 @@
-import { useAgent } from '@bifold/react-hooks'
 import {
   MdocRecord,
   MdocRepository,
@@ -12,10 +11,12 @@ import {
 import { DidCommCredentialExchangeRepository } from '@credo-ts/didcomm'
 import { useCallback } from 'react'
 
+import { useHekaAgent } from '../utils/agent'
+
 import { CredentialRecord } from './types'
 
 export const useCredentialRecordHelpers = () => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const storeCredentialRecord = useCallback(
     async (record: CredentialRecord) => {

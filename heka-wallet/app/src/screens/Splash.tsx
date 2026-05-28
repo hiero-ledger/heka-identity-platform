@@ -1,16 +1,4 @@
-import {
-  DispatchAction,
-  Stacks,
-  useAuth,
-  useStore,
-  createLinkSecretIfRequired,
-  TOKENS,
-  EventTypes,
-  BifoldError,
-  useServices,
-  BifoldAgent,
-} from '@bifold/core'
-import { useAgent } from '@bifold/react-hooks'
+import { DispatchAction, Stacks, useAuth, useStore, TOKENS, EventTypes, BifoldError, useServices } from '@bifold/core'
 import { DidCommHttpOutboundTransport, DidCommWsOutboundTransport } from '@credo-ts/didcomm'
 import { useNavigation } from '@react-navigation/core'
 import { CommonActions } from '@react-navigation/native'
@@ -28,6 +16,8 @@ import {
   ensureExampleCredentialCreated,
   setupMediatorWithPublicDidIfNeeded,
   tryRestartExistingAgent,
+  createAnoncredsLinkSecretIfRequired,
+  useHekaAgent,
 } from '../utils/agent'
 
 /**
@@ -40,7 +30,7 @@ export const Splash: React.FC = () => {
   const navigation = useNavigation()
 
   const [store, dispatch] = useStore()
-  const { agent, setAgent, setPublicDid } = useAgent()
+  const { agent, setAgent, setPublicDid } = useHekaAgent()
   const { getWalletSecret } = useAuth()
 
   const [indyLedgers, logger] = useServices([TOKENS.UTIL_LEDGERS, TOKENS.UTIL_LOGGER])
@@ -93,7 +83,6 @@ export const Splash: React.FC = () => {
           walletSecret,
           indyLedgers,
           indyBesuConfig,
-          walletName: store.preferences.walletName,
         })
 
         const wsTransport = new DidCommWsOutboundTransport()
@@ -104,8 +93,7 @@ export const Splash: React.FC = () => {
 
         await newAgent.initialize()
 
-        // TODO: Remove type assertion by creating own version of link secret util or by patching
-        await createLinkSecretIfRequired(newAgent as unknown as BifoldAgent)
+        await createAnoncredsLinkSecretIfRequired(newAgent)
 
         // We don't need to use Indy -> Askar migration, but still need to set a flag that migration is complete
         // Otherwise, we may get side effects from Bifold side
@@ -123,7 +111,11 @@ export const Splash: React.FC = () => {
         logger.info(`Public DID: ${publicDid}`)
 
         if (isPublicInvitationEnabled) {
-          const invitationUrl = await createPublicInvitationOrGetExisting(newAgent, publicDid)
+          const invitationUrl = await createPublicInvitationOrGetExisting(
+            newAgent,
+            publicDid,
+            store.preferences.walletName ?? 'Heka Wallet'
+          )
           logger.info(`Public invitation URL: ${invitationUrl}`)
         }
 

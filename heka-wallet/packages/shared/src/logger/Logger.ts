@@ -181,8 +181,6 @@ export async function exportLogs() {
     return
   }
 
-  // Stage the shared artifact in the cache dir — react-native-share's built-in
-  // Android FileProvider only exposes cache-path and Download/, not getFilesDir().
   let resultPath = ''
 
   const logStat = await stat(filePath)

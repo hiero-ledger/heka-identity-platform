@@ -1,7 +1,6 @@
 import { BifoldError, ButtonLocation, ContactStackParams, EventTypes, IconButton, ToastType } from '@bifold/core'
 import { RootStackParams } from '@bifold/core/src/types/navigators'
 import { ModalUsage } from '@bifold/core/src/types/remove'
-import { useAgent } from '@bifold/react-hooks'
 import { useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
@@ -12,6 +11,7 @@ import Toast from 'react-native-toast-message'
 
 import DeleteIcon from '../../assets/bin.svg'
 import { Credential, useCredentialRecordHelpers } from '../../credentials'
+import { useHekaAgent } from '../../utils/agent'
 import ActionWarningModal from '../modals/ActionWarningModal'
 import { ContextMenuModal } from '../modals/ContextMenuModal'
 import { LoaderModal } from '../views/LoadingView'
@@ -21,7 +21,7 @@ interface CredentialContextMenuProps {
 }
 
 const CredentialContextMenu: React.FC<CredentialContextMenuProps> = ({ credential }) => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const { t } = useTranslation()
   const navigation = useNavigation<StackNavigationProp<ContactStackParams & RootStackParams>>()

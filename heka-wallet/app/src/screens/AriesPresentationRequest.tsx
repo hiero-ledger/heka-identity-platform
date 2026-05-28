@@ -6,7 +6,7 @@ import {
   TabStacks,
   useNetwork,
 } from '@bifold/core'
-import { useAgent, useProofById } from '@bifold/react-hooks'
+import { useProofById } from '@bifold/react-hooks'
 import { AnonCredsRequestedAttributeMatch, AnonCredsRequestedPredicateMatch } from '@credo-ts/anoncreds'
 import { ClaimFormat, DifPexInputDescriptorToCredentials, W3cCredentialRecord } from '@credo-ts/core'
 import { DidCommProofFormatPayload } from '@credo-ts/didcomm'
@@ -25,7 +25,7 @@ import {
   PresentationSubmissionEntry,
   ProofExchangeFormatKeys,
 } from '../credentials'
-import { HekaWalletAgent } from '../utils/agent'
+import { useHekaAgent } from '../utils/agent'
 
 type Props = StackScreenProps<NotificationStackParams, BifoldScreens.ProofRequest>
 
@@ -39,7 +39,7 @@ export const AriesPresentationRequest: React.FC<Props> = ({ route }) => {
   const { proofId } = route.params
   const proofRequestRecord = useProofById(proofId)
 
-  const { agent } = useAgent<HekaWalletAgent>()
+  const { agent } = useHekaAgent()
 
   const navigation = useNavigation<StackNavigationProp<NotificationStackParams>>()
   const { assertNetworkConnected } = useNetwork()

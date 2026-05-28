@@ -1,4 +1,4 @@
-import { TOKENS, useServices, connectFromScanOrDeepLink } from '@bifold/core'
+import { TOKENS, useServices, connectFromScanOrDeepLink, BifoldAgent } from '@bifold/core'
 import { ParsedInvitation, parseInvitationUrl } from '@bifold/core/src/utils/parsers'
 import { useAgent } from '@bifold/react-hooks'
 import { useNavigation } from '@react-navigation/core'
@@ -10,7 +10,7 @@ import { RootStackParams, Screens, Stacks } from '../navigators/types'
 export const useInvitationHandlers = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParams>>()
 
-  const { agent } = useAgent()
+  const { agent } = useAgent<BifoldAgent>()
 
   const [logger, { enableImplicitInvitations, enableReuseConnections }] = useServices([
     TOKENS.UTIL_LOGGER,

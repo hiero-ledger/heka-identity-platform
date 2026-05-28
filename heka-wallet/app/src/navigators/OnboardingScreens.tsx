@@ -77,7 +77,6 @@ export const getOnboardingScreens = (t: TFunction, components: ScreenComponents)
       title: t('Screens.EnterPIN') as string,
       headerShown: false,
       headerLeft: () => false,
-      rightLeft: () => false,
     }),
   },
   {

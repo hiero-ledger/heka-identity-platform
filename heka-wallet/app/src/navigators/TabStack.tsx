@@ -10,8 +10,8 @@ import {
 import { TabStackParams as BifoldTabStackParams } from '@bifold/core/src/types/navigators'
 import { KeplrStack } from '@heka-wallet/keplr'
 import { BootstrapIcon, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import React, { ReactNode, useState } from 'react'
+import { BottomTabBar, BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs'
+import React, { ReactNode, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native'
 import { isTablet } from 'react-native-device-info'
@@ -27,6 +27,27 @@ import { TabStackParams, TabStacks } from './types'
 const Tab = createBottomTabNavigator<BifoldTabStackParams & TabStackParams>()
 
 const NOTIFICATION_OPTIONS = { openIDUri: '' }
+
+// Screens are declared with HomeStack first so React Navigation focuses it on remount
+// (e.g. after lockout-relogin) — `initialRouteName` alone is unreliable for a non-first tab.
+// Visual tab-bar order is decoupled here and explicitly defined on the JS side to avoid Android/iOS inconsistency.
+const tabBarVisualOrder: string[] = [
+  isKeplrIntegrationEnabled ? TabStacks.KeplrStack : BifoldTabStacks.ConnectStack,
+  BifoldTabStacks.HomeStack,
+  TabStacks.BifoldSettingsStack,
+]
+
+const OrderedTabBar: React.FC<BottomTabBarProps> = (props) => {
+  const { state } = props
+  const orderedRoutes = useMemo(
+    () => [...state.routes].sort((a, b) => tabBarVisualOrder.indexOf(a.name) - tabBarVisualOrder.indexOf(b.name)),
+    [state.routes]
+  )
+  const focusedKey = state.routes[state.index].key
+  const orderedIndex = orderedRoutes.findIndex((route) => route.key === focusedKey)
+
+  return <BottomTabBar {...props} state={{ ...state, routes: orderedRoutes, index: orderedIndex }} />
+}
 
 const useStyles = ({ TextTheme, ColorPalette }: HekaTheme) =>
   StyleSheet.create({
@@ -70,6 +91,7 @@ export const TabStack: React.FC = () => {
       <Tab.Navigator
         initialRouteName={BifoldTabStacks.HomeStack}
         backBehavior={'initialRoute'}
+        tabBar={(props) => <OrderedTabBar {...props} />}
         screenOptions={{
           unmountOnBlur: true,
           tabBarHideOnKeyboard: true,
@@ -77,6 +99,34 @@ export const TabStack: React.FC = () => {
           header: () => null,
         }}
       >
+        <Tab.Screen
+          name={BifoldTabStacks.HomeStack}
+          component={HomeStack}
+          options={{
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon
+                iconComponent={
+                  <MaterialCommunityIcon name={'view-dashboard-outline'} color={color} size={IconSizes.medium} />
+                }
+                label={t('TabStack.Credentials')}
+                focused={focused}
+              />
+            ),
+            tabBarShowLabel: false,
+            tabBarAccessibilityLabel: `${t('TabStack.Credentials')} (${notifications.length ?? 0})`,
+            // TODO: Find a way to pass styled text here without cast to any
+            tabBarBadge: notifications.length
+              ? ((<Text style={styles.notificationsBadgeText}>{notifications.length}</Text>) as any)
+              : null,
+            tabBarBadgeStyle: {
+              height: IconSizes.small,
+              minWidth: IconSizes.small,
+              marginLeft: leftMarginForDevice(),
+              textAlign: 'center',
+              backgroundColor: ColorPalette.brand.highlight,
+            },
+          }}
+        />
         {isKeplrIntegrationEnabled ? (
           <Tab.Screen
             name={TabStacks.KeplrStack}
@@ -122,34 +172,6 @@ export const TabStack: React.FC = () => {
             {() => <View />}
           </Tab.Screen>
         )}
-        <Tab.Screen
-          name={BifoldTabStacks.HomeStack}
-          component={HomeStack}
-          options={{
-            tabBarIcon: ({ color, focused }) => (
-              <TabBarIcon
-                iconComponent={
-                  <MaterialCommunityIcon name={'view-dashboard-outline'} color={color} size={IconSizes.medium} />
-                }
-                label={t('TabStack.Credentials')}
-                focused={focused}
-              />
-            ),
-            tabBarShowLabel: false,
-            tabBarAccessibilityLabel: `${t('TabStack.Credentials')} (${notifications.length ?? 0})`,
-            // TODO: Find a way to pass styled text here without cast to any
-            tabBarBadge: notifications.length
-              ? ((<Text style={styles.notificationsBadgeText}>{notifications.length}</Text>) as any)
-              : null,
-            tabBarBadgeStyle: {
-              height: IconSizes.small,
-              minWidth: IconSizes.small,
-              marginLeft: leftMarginForDevice(),
-              textAlign: 'center',
-              backgroundColor: ColorPalette.brand.highlight,
-            },
-          }}
-        />
         <Tab.Screen
           name={TabStacks.BifoldSettingsStack}
           component={SettingStack}

@@ -1,6 +1,5 @@
 import { useAuth } from '@bifold/core'
 import { storeWalletSecret } from '@bifold/core/src/services/keychain'
-import { useAgent } from '@bifold/react-hooks'
 import { AskarModuleConfig, AskarStoreManager } from '@credo-ts/askar'
 import { agentDependencies } from '@credo-ts/react-native'
 import { askar } from '@openwallet-foundation/askar-react-native'
@@ -14,6 +13,7 @@ import { unzipWithPassword, zipWithPassword } from 'react-native-zip-archive'
 import { walletProviderURL } from '../config'
 import { useRootStore } from '../contexts'
 
+import { useHekaAgent } from './agent'
 import { generatePbkdf2Key } from './crypto'
 
 const IOS_PASSWORD_LENGTH = 32
@@ -28,7 +28,7 @@ interface WalletBackupMetadata {
 
 export const useWalletBackupHelpers = () => {
   const { t } = useTranslation()
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const { getWalletSecret } = useAuth()
   const { passkeysStore } = useRootStore()

@@ -1,5 +1,5 @@
 import { TOKENS, useServices, useStore } from '@bifold/core'
-import { useAgent, useCredentialByState } from '@bifold/react-hooks'
+import { useCredentialByState } from '@bifold/react-hooks'
 import { AnonCredsCredentialMetadataKey } from '@credo-ts/anoncreds'
 import { DidCommCredentialExchangeRecord, DidCommCredentialState } from '@credo-ts/didcomm'
 import { usePrevious } from '@heka-wallet/shared'
@@ -7,6 +7,7 @@ import { isEqual } from 'lodash'
 import { useCallback, useEffect, useState } from 'react'
 
 import { useMdocRecords, useSdJwtVcRecords, useW3cCredentialRecords } from '../contexts'
+import { useHekaAgent } from '../utils/agent'
 
 import { mapCredentialRecord } from './mappers'
 import { Credential, CredentialRecord } from './types'
@@ -25,7 +26,7 @@ interface CredentialsState {
 }
 
 export const useCredentials = (maxCount?: number): CredentialsState => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const [store] = useStore()
 

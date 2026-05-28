@@ -1,5 +1,4 @@
 import { BifoldError, EventTypes, Screens as BifoldScreens, TabStacks as BifoldTabStacks } from '@bifold/core'
-import { useAgent } from '@bifold/react-hooks'
 import { ConfirmationInputModal, ConfirmationInputType } from '@heka-wallet/shared'
 import { StackScreenProps } from '@react-navigation/stack'
 import React, { useCallback, useEffect, useState } from 'react'
@@ -17,6 +16,7 @@ import {
   useOpenIdHandlers,
 } from '../credentials'
 import { OpenIdStackParams, Screens } from '../navigators/types'
+import { useHekaAgent } from '../utils/agent'
 
 type CredentialOfferProps = StackScreenProps<OpenIdStackParams, Screens.OpenIdCredentialOffer>
 
@@ -29,7 +29,7 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
   const { t } = useTranslation()
 
   const { offer } = route.params
-  const { agent, publicDid } = useAgent()
+  const { agent, publicDid } = useHekaAgent()
 
   const { resolveOpenId4VciOffer, acquireAccessToken, receiveCredentialFromOpenId4VciOffer } = useOpenIdHandlers()
   const { storeCredentialRecord } = useCredentialRecordHelpers()

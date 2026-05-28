@@ -10,7 +10,7 @@ import {
   ToastType,
 } from '@bifold/core'
 import { RootStackParams } from '@bifold/core/src/types/navigators'
-import { useAgent, useCredentialByState } from '@bifold/react-hooks'
+import { useCredentialByState } from '@bifold/react-hooks'
 import { DidCommConnectionRecord, DidCommCredentialState } from '@credo-ts/didcomm'
 import { useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
@@ -22,6 +22,7 @@ import Toast from 'react-native-toast-message'
 
 import DeleteIcon from '../../assets/bin.svg'
 import EditIcon from '../../assets/edit.svg'
+import { useHekaAgent } from '../../utils/agent'
 import ActionWarningModal, { ModalUsage } from '../modals/ActionWarningModal'
 import { ContextMenuModal } from '../modals/ContextMenuModal'
 import { LoaderModal } from '../views/LoadingView'
@@ -31,7 +32,7 @@ interface ConnectionContextMenuProps {
 }
 
 const ConnectionContextMenu: React.FC<ConnectionContextMenuProps> = ({ connection }) => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const { t } = useTranslation()
   const navigation = useNavigation<StackNavigationProp<ContactStackParams & RootStackParams>>()

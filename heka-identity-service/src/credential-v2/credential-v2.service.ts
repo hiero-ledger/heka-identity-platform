@@ -172,7 +172,6 @@ export class CredentialV2Service {
     request: OfferByIssuanceTemplateRequest,
   ): Promise<OpenId4VcIssuanceSessionsCreateOfferResponse> {
     const registration = this.ensureSchemaRegistration(template)
-    this.logger.error(JSON.stringify(registration))
 
     return await this.openId4VcIssuanceSessionService.offer(authInfo, tenantAgent, {
       publicIssuerId: registration.did,

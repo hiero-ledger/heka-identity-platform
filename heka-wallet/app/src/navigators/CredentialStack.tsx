@@ -5,8 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 
-// TODO: Revisit navigation mapping
-const Stack = createStackNavigator<CredentialStackParams & { 'Credential Details': undefined }>()
+const Stack = createStackNavigator<CredentialStackParams>()
 
 export const CredentialStack: React.FC = () => {
   const theme = useHekaTheme()

@@ -36,8 +36,10 @@ const mockAgent = {
   },
 }
 
-jest.mock('@bifold/react-hooks', () => ({
-  useAgent: jest.fn(() => ({ loading: false, agent: mockAgent, publicDid: mockPublicDid })),
+// useHekaAgent lives in utils/agent.ts, which eagerly imports native/ESM Credo modules.
+// Mock the module so the heavy graph is never loaded in the test environment.
+jest.mock('../../src/utils/agent', () => ({
+  useHekaAgent: jest.fn(() => ({ loading: false, agent: mockAgent, publicDid: mockPublicDid })),
 }))
 
 function renderOpenIdHandlersHookValue() {

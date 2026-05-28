@@ -7,7 +7,7 @@ import {
   TabStacks,
   useNetwork,
 } from '@bifold/core'
-import { useAgent, useCredentialById } from '@bifold/react-hooks'
+import { useCredentialById } from '@bifold/react-hooks'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
 import React, { useEffect, useState } from 'react'
@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { CredentialOfferView } from '../components/views'
 import LoadingView from '../components/views/LoadingView'
 import { Credential, mapCredentialRecord } from '../credentials'
+import { useHekaAgent } from '../utils/agent'
 
 type Props = StackScreenProps<NotificationStackParams, BifoldScreens.CredentialOffer>
 
@@ -31,7 +32,7 @@ export const AriesCredentialOffer: React.FC<Props> = ({ route }) => {
   const { credentialId } = route.params
   const credentialExchangeRecord = useCredentialById(credentialId)
 
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const navigation = useNavigation<StackNavigationProp<NotificationStackParams>>()
   const { assertNetworkConnected } = useNetwork()

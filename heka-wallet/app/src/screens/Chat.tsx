@@ -9,7 +9,7 @@ import {
   useStore,
 } from '@bifold/core'
 import { RootStackParams } from '@bifold/core/src/types/navigators'
-import { useAgent, useBasicMessagesByConnectionId, useConnectionById } from '@bifold/react-hooks'
+import { useBasicMessagesByConnectionId, useConnectionById } from '@bifold/react-hooks'
 import { DidCommBasicMessageRepository, DidCommConnectionRecord } from '@credo-ts/didcomm'
 import { useHekaTheme } from '@heka-wallet/shared'
 import { useIsFocused, useNavigation } from '@react-navigation/native'
@@ -27,7 +27,7 @@ import { ChatMessage } from '../components/chat/ChatMessage'
 import { Role } from '../components/chat/types'
 import ConnectionContextMenu from '../components/misc/ConnectionContextMenu'
 import { useChatMessagesByConnection } from '../hooks/chat-messages'
-import { HekaWalletAgent } from '../utils/agent'
+import { useHekaAgent } from '../utils/agent'
 
 type ChatProps = StackScreenProps<ContactStackParams, Screens.Chat> | StackScreenProps<RootStackParams, Screens.Chat>
 
@@ -39,7 +39,7 @@ const Chat: React.FC<ChatProps> = ({ route }) => {
   const { connectionId } = route.params
   const [store] = useStore()
   const { t } = useTranslation()
-  const { agent } = useAgent<HekaWalletAgent>()
+  const { agent } = useHekaAgent()
   const navigation = useNavigation<StackNavigationProp<RootStackParams | ContactStackParams>>()
   const connection = useConnectionById(connectionId) as DidCommConnectionRecord
   const basicMessages = useBasicMessagesByConnectionId(connectionId)

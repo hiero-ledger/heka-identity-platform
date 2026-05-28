@@ -1,9 +1,10 @@
 import { DispatchAction, useAuth, useStore } from '@bifold/core'
-import { useAgent } from '@bifold/react-hooks'
 import { useCallback } from 'react'
 
+import { useHekaAgent } from './agent'
+
 export const useWalletAuthHelpers = () => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
   const [state, dispatch] = useStore()
   const { removeSavedWalletSecret } = useAuth()
 

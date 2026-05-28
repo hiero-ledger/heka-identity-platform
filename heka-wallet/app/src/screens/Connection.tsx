@@ -32,6 +32,8 @@ const GoalCodes = {
   credentialOffer: 'aries.vc.issue',
 } as const
 
+const NOTIFICATION_OPTIONS = { openIDUri: '' }
+
 const useStyles = ({ TextTheme }: HekaTheme) =>
   StyleSheet.create({
     container: {
@@ -65,7 +67,7 @@ const Connection: React.FC<ConnectionProps> = ({ navigation, route }) => {
 
   const [logger, { useNotifications }] = useServices([TOKENS.UTIL_LOGGER, TOKENS.NOTIFICATIONS, TOKENS.CONFIG])
 
-  const notifications = useNotifications({ openIDUri: '' })
+  const notifications = useNotifications(NOTIFICATION_OPTIONS)
   const oobRecord = useOutOfBandById(oobRecordId ?? '')
   const connection = useConnectionByOutOfBandId(oobRecordId ?? '')
 

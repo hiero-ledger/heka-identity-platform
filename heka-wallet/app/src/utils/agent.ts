@@ -1,4 +1,5 @@
 import { getAgentModules, WalletSecret } from '@bifold/core'
+import { useAgent } from '@bifold/react-hooks'
 import {
   AnonCredsDidCommCredentialFormatService,
   AnonCredsDidCommProofFormatService,
@@ -70,12 +71,13 @@ interface CreateAgentOptions {
   walletSecret: WalletSecret
   indyLedgers: IndyVdrPoolConfig[]
   indyBesuConfig: IndyBesuConfig
-  walletName?: string
 }
 
 export type HekaWalletAgent = Awaited<ReturnType<typeof createAgent>>
 
-export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig, walletName: _ }: CreateAgentOptions) {
+export const useHekaAgent = (): ReturnType<typeof useAgent<HekaWalletAgent>> => useAgent<HekaWalletAgent>()
+
+export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }: CreateAgentOptions) {
   if (!walletSecret.key) {
     throw new Error('Wallet key is not defined')
   }
@@ -219,7 +221,11 @@ export async function tryRestartExistingAgent(agent: Agent, credentials: WalletS
   return true
 }
 
-export async function createPublicInvitationOrGetExisting(agent: Agent, invitationDid: string): Promise<string> {
+export async function createPublicInvitationOrGetExisting(
+  agent: Agent,
+  invitationDid: string,
+  label: string
+): Promise<string> {
   const publicInvitationId = await AsyncStorage.getItem(PUBLIC_INVITATION_ID_KEY)
 
   let publicInvitationRecord: DidCommOutOfBandRecord
@@ -233,6 +239,7 @@ export async function createPublicInvitationOrGetExisting(agent: Agent, invitati
     }
   } else {
     publicInvitationRecord = await agent.didcomm.oob.createInvitation({
+      label,
       invitationDid,
       multiUseInvitation: true,
     })
@@ -340,9 +347,18 @@ export async function setupMediatorWithPublicDidIfNeeded(agent: Agent, mediatorP
     timeoutMs: 5000,
   })
 
-  // Credo 0.6's `provision` only requests mediation and sets it as default — unlike 0.5, it no longer
-  // starts message pickup. Without this call, messages routed via the mediator are never fetched until
-  // the next `agent.initialize()` (or a background→foreground app transition).
   const mediationRecord = await agent.didcomm.mediationRecipient.provision(mediatorConnectionRecord)
-  await agent.didcomm.mediationRecipient.initiateMessagePickup(mediationRecord, DidCommMediatorPickupStrategy.Implicit)
+  await agent.didcomm.mediationRecipient.initiateMessagePickup(mediationRecord)
+}
+
+export async function createAnoncredsLinkSecretIfRequired(agent: HekaWalletAgent): Promise<void> {
+  // If we don't have any link secrets yet, we will create a
+  // default link secret that will be used for all anoncreds
+  // credential requests.
+  const linkSecretIds = await agent.modules.anoncreds.getLinkSecretIds()
+  if (linkSecretIds.length === 0) {
+    await agent.modules.anoncreds.createLinkSecret({
+      setAsDefault: true,
+    })
+  }
 }

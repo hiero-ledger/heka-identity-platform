@@ -142,8 +142,6 @@ export async function startApp(app: INestApplication, { withSwaggerUi }: { withS
     defaultVersion: VERSION_NEUTRAL,
   })
 
-  console.log(expressConfig)
-
   if (expressConfig.enableCors) {
     app.enableCors(expressConfig.corsOptions)
   }

@@ -1,7 +1,6 @@
 import type { StackScreenProps } from '@react-navigation/stack'
 
 import { BifoldError, EventTypes, Screens } from '@bifold/core'
-import { useAgent } from '@bifold/react-hooks'
 import { useHekaTheme } from '@heka-wallet/shared'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -13,7 +12,7 @@ import { Record } from '../components/misc'
 import CredentialContextMenu from '../components/misc/CredentialContextMenu'
 import LoadingView from '../components/views/LoadingView'
 import { mapCredentialRecord, Credential } from '../credentials'
-import { HekaWalletAgent } from '../utils/agent'
+import { useHekaAgent } from '../utils/agent'
 
 type CredentialStackParams = {
   [Screens.CredentialDetails]: { credentialId: string | Credential }
@@ -35,7 +34,7 @@ export const CredentialDetails: React.FC<Props> = ({ navigation, route }) => {
   const theme = useHekaTheme()
   const { Spacing } = theme
 
-  const { agent } = useAgent<HekaWalletAgent>()
+  const { agent } = useHekaAgent()
 
   const [isCredentialLoading, setIsCredentialLoading] = useState(false)
   const [credential, setCredential] = useState<Credential | undefined>(

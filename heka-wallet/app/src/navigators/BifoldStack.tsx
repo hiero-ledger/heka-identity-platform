@@ -1,14 +1,15 @@
 import { ActivityProvider, BifoldError, EventTypes, TOKENS, useServices, useStore, MainStack } from '@bifold/core'
-import { useAgent } from '@bifold/react-hooks'
 import React, { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
+
+import { useHekaAgent } from '../utils/agent'
 
 export const BifoldStack: React.FC = () => {
   const [store, dispatch] = useStore()
   const { t } = useTranslation()
   const [OnBoardingStack, loadState] = useServices([TOKENS.STACK_ONBOARDING, TOKENS.LOAD_STATE])
-  const { agent, setAgent } = useAgent()
+  const { agent, setAgent } = useHekaAgent()
   const [onboardingComplete, setOnboardingComplete] = useState(false)
 
   const shouldRenderMainStack = useMemo(
