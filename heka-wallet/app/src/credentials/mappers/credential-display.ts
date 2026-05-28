@@ -157,19 +157,32 @@ export function getW3cCredentialDisplay(
     issuerDisplay.backgroundColor = fallbackDisplay.issuer.color
   }
 
-  // FIXME: Support credential with multiple subjects
-  const credentialSubject = Array.isArray(credential.credentialSubject)
-    ? credential.credentialSubject[0] ?? {}
-    : credential.credentialSubject
+  // Handle credentials with single or multiple subjects
+  const credentialSubjects = Array.isArray(credential.credentialSubject)
+    ? credential.credentialSubject
+    : [credential.credentialSubject]
 
-  const attributes = Object.keys(credentialSubject).map((key) => {
-    let value = credentialSubject[key] as any
+  // Extract attributes from all subjects
+  const attributes = credentialSubjects.flatMap((subject, subjectIndex) => {
+    const subjectPrefix = credentialSubjects.length > 1 ? `Subject ${subjectIndex + 1} - ` : ''
 
-    if (typeof value !== 'string' && typeof value !== 'number') {
-      value = JSON.stringify(value)
-    }
+    return Object.keys(subject).map((key) => {
+      // Skip the 'id' field as it's the subject identifier, not an attribute
+      if (key === 'id') {
+        return null
+      }
 
-    return new Attribute({ name: key, value })
+      const rawValue = subject[key]
+      let value: string | number
+
+      if (typeof rawValue === 'string' || typeof rawValue === 'number') {
+        value = rawValue
+      } else {
+        value = JSON.stringify(rawValue)
+      }
+
+      return new Attribute({ name: `${subjectPrefix}${key}`, value })
+    }).filter((attr): attr is Attribute => attr !== null)
   })
 
   return {
