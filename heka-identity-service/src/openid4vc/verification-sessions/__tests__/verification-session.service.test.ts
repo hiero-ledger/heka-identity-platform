@@ -93,6 +93,7 @@ describe('OpenId4VcVerificationSessionService', () => {
         presentationExchange: {
           presentations: [
             {
+              claimFormat: 'dc+sd-jwt',
               header: { typ: 'vc+sd-jwt' },
               prettyClaims: {
                 vct: 'https://example.com/vct',
@@ -179,6 +180,7 @@ describe('OpenId4VcVerificationSessionService', () => {
           presentations: {
             credentialQuery1: [
               {
+                claimFormat: 'dc+sd-jwt',
                 header: { typ: 'vc+sd-jwt' },
                 prettyClaims: {
                   vct: 'https://example.com/vct',

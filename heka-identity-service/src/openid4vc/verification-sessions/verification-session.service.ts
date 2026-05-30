@@ -1,6 +1,6 @@
 import type { W3cJwtVerifiablePresentation } from '@credo-ts/core'
 
-import { MdocDeviceResponse, SdJwtVc, VerifiablePresentation, W3cCredentialSubject } from '@credo-ts/core'
+import { ClaimFormat, MdocDeviceResponse, SdJwtVc, VerifiablePresentation, W3cCredentialSubject } from '@credo-ts/core'
 import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
 import { Injectable, InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
 
@@ -140,7 +140,7 @@ export class OpenId4VcVerificationSessionService {
   }
 
   private static isSdJwtPresentation(presentation: VerifiablePresentation): presentation is SdJwtVc {
-    return (presentation as SdJwtVc).header?.typ === 'vc+sd-jwt'
+    return (presentation as SdJwtVc).claimFormat === ClaimFormat.SdJwtDc
   }
 
   private static isJwtVcJsonPresentation(
