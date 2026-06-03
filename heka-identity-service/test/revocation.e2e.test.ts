@@ -19,8 +19,8 @@ describe.skip('Revocation E2E Tests', () => {
   let ormSchemaGenerator: SchemaGenerator
 
   let nestApp: INestApplication
-  let revocationRegistryDefinitionId: string
-  let revocationIndex: number
+  let revocationRegistryDefinitionId!: string
+  let revocationIndex!: number
   let app: Server
 
   let adminAuthToken: string
