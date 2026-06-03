@@ -22,7 +22,9 @@ if (!Passkey.isSupported()) {
 
 export const walletProviderURL = Config.WALLET_PROVIDER_URL ?? 'https://backup.ssi-agency.dsr-corporation.com/api/v1'
 
-export const agencyProviderURL = Config.AGENCY_PROVIDER_URL ?? 'https://api.ssi-agency.dsr-corporation.com'
+// Full endpoint of the OCA bundle provider (e.g. 'https://api.ssi-agency.dsr-corporation.com/oca').
+// Optional: when unset, no remote OCA bundles are fetched and credential branding falls back to local defaults.
+export const ocaBundleProviderUrl = Config.OCA_BUNDLE_PROVIDER_URL
 
 export const indyBesuConfig: IndyBesuConfig = {
   didRegistryContractAddress:

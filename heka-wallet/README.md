@@ -74,12 +74,12 @@ The wallet is configured via environment variables loaded by [`react-native-conf
 
 See the [Hedera Integration guide](../heka-identity-service/docs/hedera.md) for guidance on obtaining your own operator credentials.
 
-### Backup and Agency Endpoints
+### Backup and OCA Bundle Endpoints
 
-| Variable              | Default                                                | Description                                                                                                                        |
-|-----------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| `WALLET_PROVIDER_URL` | `https://backup.ssi-agency.dsr-corporation.com/api/v1` | Wallet backup endpoint. The default points to a third-party hosted instance — replace with your own deployment for production use. |
-| `AGENCY_PROVIDER_URL` | `https://api.ssi-agency.dsr-corporation.com`           | Default agency endpoint for issuance / verification flows. Same caveat as above.                                                   |
+| Variable                  | Default                                                | Description                                                                                                                          |
+|---------------------------|--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
+| `WALLET_PROVIDER_URL`     | `https://backup.ssi-agency.dsr-corporation.com/api/v1` | Wallet backup endpoint. The default points to a third-party hosted instance — replace with your own deployment for production use.   |
+| `OCA_BUNDLE_PROVIDER_URL` | _(unset)_                                              | Optional full endpoint of the OCA bundle provider for remote credential branding overlays. When unset, no remote OCA calls are made. |
 
 ### Indy Besu
 

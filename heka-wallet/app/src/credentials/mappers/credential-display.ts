@@ -11,7 +11,7 @@ import {
 } from '@credo-ts/didcomm'
 import { getHostNameFromUrl, sanitizeString } from '@heka-wallet/shared'
 
-import { agencyProviderURL, fallbackDisplay } from '../../config'
+import { fallbackDisplay, ocaBundleProviderUrl } from '../../config'
 import { HekaWalletAgent } from '../../utils/agent'
 import { OpenId4VcCredentialMetadata } from '../metadata'
 import {
@@ -242,7 +242,11 @@ export function getMdocCredentialDisplay(
 export async function resolveOverlay(
   credentialRecord: DidCommCredentialExchangeRecord,
   connection?: DidCommConnectionRecord | null
-) {
+): Promise<CredentialOverlay<BrandingOverlay>> {
+  if (!ocaBundleProviderUrl) {
+    return {} as CredentialOverlay<BrandingOverlay>
+  }
+
   const credentialIdentifiers = getCredentialIdentifiers(credentialRecord)
 
   const resolverParams = {
@@ -255,7 +259,7 @@ export async function resolveOverlay(
     language: i18n.language,
   }
 
-  const bundleResolver = new RemoteOCABundleResolver(`${agencyProviderURL}/oca`, {
+  const bundleResolver = new RemoteOCABundleResolver(ocaBundleProviderUrl, {
     language: i18n.language,
     brandingOverlayType: BrandingOverlayType.Branding10,
   })
@@ -328,7 +332,7 @@ export async function getAnoncredsCredentialDisplay(
     backgroundColor: bundleOverlay.brandingOverlay?.primaryBackgroundColor ?? fallbackDisplay.credential.color,
     watermark: bundleOverlay.metaOverlay?.watermark,
     logo: { url: bundleOverlay.brandingOverlay?.logo ?? issuerConnection?.imageUrl ?? fallbackDisplay.issuer.logo },
-    flaggedAttributeNames: (bundleOverlay as any).bundle.bundle.flaggedAttributes.map((attr: any) => attr.name),
+    flaggedAttributeNames: (bundleOverlay as any).bundle?.bundle?.flaggedAttributes?.map((attr: any) => attr.name),
     presentationFields,
     isRevoked: !!credentialRecord.revocationNotification,
     issuer: {
