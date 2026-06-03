@@ -7,7 +7,7 @@ import { SchemaField } from './schema-field.entity'
 @Entity()
 export class IssuanceTemplateField extends Identified {
   @ManyToOne(() => IssuanceTemplate, { nullable: false })
- @Index()
+  @Index()
   public template!: IssuanceTemplate
 
   @ManyToOne(() => SchemaField, { nullable: false })
