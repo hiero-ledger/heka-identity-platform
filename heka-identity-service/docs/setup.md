@@ -4,12 +4,12 @@
 
 ### Prerequisites
 
-- **Node.js** — version that supports Corepack (Node 20+ recommended).
-- **Yarn 4** via Corepack — this project pins `yarn@4.9.4` in `package.json`. Enable Corepack so the correct Yarn version is used automatically:
+- **Node.js** — version that supports Corepack (Node 22 LTS recommended).
+- **Yarn 4** via Corepack — this project pins `yarn@4.16.0` in `package.json`. Enable Corepack so the correct Yarn version is used automatically:
 
   ```bash
   corepack enable
-  corepack prepare yarn@4.9.4 --activate
+  corepack prepare yarn@4.16.0 --activate
   ```
 
   Without this, the system Yarn 1.x may run instead and produce unexpected lockfile behavior.
