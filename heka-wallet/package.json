@@ -104,5 +104,5 @@
     "@credo-ts/didcomm@npm:0.6.2": "patch:@credo-ts/didcomm@npm%3A0.6.2#~/.yarn/patches/@credo-ts-didcomm-npm-0.6.2-797b274a19.patch",
     "@hiero-did-sdk/zstd@npm:0.1.8": "patch:@hiero-did-sdk/zstd@npm%3A0.1.8#~/.yarn/patches/@hiero-did-sdk-zstd-npm-0.1.8-e30dd925a3.patch"
   },
-  "packageManager": "yarn@4.9.4"
+  "packageManager": "yarn@4.16.0"
 }
