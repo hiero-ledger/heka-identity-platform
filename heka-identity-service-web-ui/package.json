@@ -20,7 +20,7 @@
     "prepare": "husky"
   },
   "engines": {
-    "node": ">=20.19.2 <23.0.0"
+    "node": "^20.19.2 || ^22.13.0"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
