@@ -32,7 +32,7 @@
     "postinstall": "patch-package"
   },
   "engines": {
-    "node": ">=20.19.2 <23.0.0"
+    "node": "^20.19.2 || ^22.13.0"
   },
   "dependencies": {
     "@credo-ts/anoncreds": "0.6.2",
