@@ -974,7 +974,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mikro-orm/core@npm:6.3.6, @mikro-orm/core@npm:^6.2.9":
+"@mikro-orm/core@npm:6.3.6":
   version: 6.3.6
   resolution: "@mikro-orm/core@npm:6.3.6"
   dependencies:
@@ -986,6 +986,21 @@ __metadata:
     mikro-orm: "npm:6.3.6"
     reflect-metadata: "npm:0.2.2"
   checksum: 10c0/a0b586c46e17ec8afaed016667e4745611878fe02897c6aeac147986c37caa4b3a5fdf6e30e799d8e03b38482bee0384a44330e9e602f8ae8479f078ab0bbe65
+  languageName: node
+  linkType: hard
+
+"@mikro-orm/core@npm:^6.6.10":
+  version: 6.6.10
+  resolution: "@mikro-orm/core@npm:6.6.10"
+  dependencies:
+    dataloader: "npm:2.2.3"
+    dotenv: "npm:17.3.1"
+    esprima: "npm:4.0.1"
+    fs-extra: "npm:11.3.3"
+    globby: "npm:11.1.0"
+    mikro-orm: "npm:6.6.10"
+    reflect-metadata: "npm:0.2.2"
+  checksum: 10c0/13fc37fa35d96f00ca7f3dc58545befb70ceffa5370cb4eff73e561cbd61c13c3c0e9aa3855e61a92334241a9fe0c8f279ce86969e109b51bd694bf8c1b77bbc
   languageName: node
   linkType: hard
 
@@ -3380,6 +3395,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"dataloader@npm:2.2.3":
+  version: 2.2.3
+  resolution: "dataloader@npm:2.2.3"
+  checksum: 10c0/9b9a056fbc863ca86da87d59e053e871e263b4966aa4d55e40d61a65e96815fae5530ca220629064ca5f8e3000c0c4ec93292e170c38ff393fb34256b4d7c1aa
+  languageName: node
+  linkType: hard
+
 "dateformat@npm:^4.6.3":
   version: 4.6.3
   resolution: "dateformat@npm:4.6.3"
@@ -3550,6 +3572,13 @@ __metadata:
   version: 16.4.5
   resolution: "dotenv@npm:16.4.5"
   checksum: 10c0/48d92870076832af0418b13acd6e5a5a3e83bb00df690d9812e94b24aff62b88ade955ac99a05501305b8dc8f1b0ee7638b18493deb6fe93d680e5220936292f
+  languageName: node
+  linkType: hard
+
+"dotenv@npm:17.3.1":
+  version: 17.3.1
+  resolution: "dotenv@npm:17.3.1"
+  checksum: 10c0/c78e0c2d5a549c751e544cc60e2b95e7cb67e0c551f42e094d161c6b297aa44b630a3c2dcacf5569e529a6c2a6b84e2ab9be8d37b299d425df5a18b81ce4a35f
   languageName: node
   linkType: hard
 
@@ -4345,6 +4374,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"fs-extra@npm:11.3.3":
+  version: 11.3.3
+  resolution: "fs-extra@npm:11.3.3"
+  dependencies:
+    graceful-fs: "npm:^4.2.0"
+    jsonfile: "npm:^6.0.1"
+    universalify: "npm:^2.0.0"
+  checksum: 10c0/984924ff4104e3e9f351b658a864bf3b354b2c90429f57aec0acd12d92c4e6b762cbacacdffb4e745b280adce882e1f980c485d9f02c453f769ab4e7fc646ce3
+  languageName: node
+  linkType: hard
+
 "fs-extra@npm:^10.0.0":
   version: 10.1.0
   resolution: "fs-extra@npm:10.1.0"
@@ -4687,7 +4727,7 @@ __metadata:
   dependencies:
     "@eropple/nestjs-correlation-id": "npm:^1.0.1"
     "@mikro-orm/cli": "npm:^6.2.9"
-    "@mikro-orm/core": "npm:^6.2.9"
+    "@mikro-orm/core": "npm:^6.6.10"
     "@mikro-orm/migrations": "npm:^6.2.9"
     "@mikro-orm/nestjs": "npm:^5.2.3"
     "@mikro-orm/postgresql": "npm:^6.2.9"
@@ -6074,6 +6114,13 @@ __metadata:
   version: 6.3.6
   resolution: "mikro-orm@npm:6.3.6"
   checksum: 10c0/458878e9d29a1c8a95c4acb6166667630839bd3ece6000f2aca527fa51e7dbdc883b5939672808816d8a56c01e42bd080277507c1a8ac69851eb29ca353c0f15
+  languageName: node
+  linkType: hard
+
+"mikro-orm@npm:6.6.10":
+  version: 6.6.10
+  resolution: "mikro-orm@npm:6.6.10"
+  checksum: 10c0/9358f44ec20ec6e1dcb8189475e7c1f5ea4c059349a0069118f2a1578392e930bab751977d179198d08c9d83b2e6f14e0626818f6be2b24e135932296ec94f34
   languageName: node
   linkType: hard
 
