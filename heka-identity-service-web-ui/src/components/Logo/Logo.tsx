@@ -17,8 +17,8 @@ export const Logo = ({ label, onClick }: LogoProps) => {
       aria-label={label}
     >
       <HieroLogo
-        height={"100%"}
-        width={"100%"}
+        height={'100%'}
+        width={'100%'}
       />
     </Button>
   );

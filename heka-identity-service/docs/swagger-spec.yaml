@@ -1513,7 +1513,6 @@ paths:
       security: *a37
       summary: "Get a Verification Session By Id "
       tags: *a38
-  /openid4vc/verification-session/verificationSessionId:
     delete:
       operationId: OpenId4VcVerificationSessionController_deleteVerificationSession
       parameters:
@@ -3652,6 +3651,15 @@ components:
           type: boolean
         presentationExchange:
           type: object
+        dcql:
+          type: object
+        version:
+          type: string
+          enum:
+            - v1
+            - v1.draft21
+            - v1.draft24
+          default: v1.draft21
       required:
         - publicVerifierId
         - requestSigner

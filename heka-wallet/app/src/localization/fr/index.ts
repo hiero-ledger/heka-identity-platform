@@ -193,14 +193,14 @@ const translation = {
   },
   "CredentialOffer": {
     "EnterCredentialPIN": "Veuillez saisir le code PIN du certificat",
-    "CredentialAddedToYourWallet": "Votre certificat est prêt à l'emploi !",
+    "CredentialAddedToYourWallet": "Votre certificat est prête à être utilisée.",
     "CredentialOnTheWay": "Votre certificat est en route.",
     "IssuedBy": "Émis par"
   },
   "ProofRequest": {
     "RequestedInformation": "Informations demandées",
     "PresentationOnTheWay": "Votre présentation est en route.",
-    "PresentationAccepted": "Vous êtes dans ! \nVotre présentation a été acceptée."
+    "PresentationAccepted": "Vous êtes dans ! \nVotre preuve de présentation a été acceptée."
   },
   "Notifications": {
     "CredentialOffer": "Offre de certificat",

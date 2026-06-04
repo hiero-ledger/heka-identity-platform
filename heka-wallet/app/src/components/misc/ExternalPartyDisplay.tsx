@@ -1,11 +1,11 @@
+import { formatTime } from '@bifold/core'
+import { credentialTextColor, toImageSource } from '@bifold/core/src/utils/credential'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { credentialTextColor, toImageSource } from '@hyperledger/aries-bifold-core/App/utils/credential'
-import { formatTime } from '@hyperledger/aries-bifold-core/App/utils/helpers'
 import React from 'react'
 import { Image, StyleSheet, Text, View, ViewStyle } from 'react-native'
 
 const useStyles = (
-  { Spacing, IconSizes, ColorPallet, BorderWidth, BorderRadius }: HekaTheme,
+  { Spacing, IconSizes, ColorPalette, BorderWidth, BorderRadius }: HekaTheme,
   backgroundColor?: string
 ) =>
   StyleSheet.create({
@@ -13,12 +13,12 @@ const useStyles = (
       flexDirection: 'row',
       gap: Spacing.md,
       minHeight: IconSizes.large,
-      backgroundColor: backgroundColor ?? ColorPallet.grayscale.white,
+      backgroundColor: backgroundColor ?? ColorPalette.grayscale.white,
     },
     containerWithBorder: {
       borderWidth: BorderWidth.small,
       borderRadius: BorderRadius.big,
-      borderColor: ColorPallet.grayscale.lightGrey,
+      borderColor: ColorPalette.grayscale.lightGrey,
       padding: Spacing.md,
     },
     connectionLogo: {
@@ -29,7 +29,7 @@ const useStyles = (
     textContainer: {
       flex: 1,
       gap: Spacing.xxxxs,
-      color: credentialTextColor(ColorPallet, backgroundColor ?? ColorPallet.grayscale.white),
+      color: credentialTextColor(ColorPalette, backgroundColor ?? ColorPalette.grayscale.white),
     },
   })
 

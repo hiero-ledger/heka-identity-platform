@@ -1,12 +1,6 @@
 import type { StackScreenProps } from '@react-navigation/stack'
 
-import { useAgent } from '@credo-ts/react-hooks'
-import {
-  BifoldError,
-  EventTypes,
-  Screens as BifoldScreens,
-  TabStacks as BifoldTabStacks,
-} from '@hyperledger/aries-bifold-core'
+import { BifoldError, EventTypes, Screens as BifoldScreens, TabStacks as BifoldTabStacks } from '@bifold/core'
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
@@ -21,6 +15,7 @@ import {
   useOpenIdHandlers,
 } from '../credentials'
 import { OpenIdStackParams, Screens } from '../navigators/types'
+import { useHekaAgent } from '../utils/agent'
 
 type Props = StackScreenProps<OpenIdStackParams, Screens.OpenIdPresentationRequest>
 
@@ -34,7 +29,7 @@ export const OpenIdPresentationRequest: React.FC<Props> = ({ navigation, route }
 
   const { t } = useTranslation()
 
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const { resolveOpenId4VpPresentationRequest, acceptOpenId4VpPresentationRequest } = useOpenIdHandlers()
 
@@ -82,8 +77,7 @@ export const OpenIdPresentationRequest: React.FC<Props> = ({ navigation, route }
       }
 
       await acceptOpenId4VpPresentationRequest({
-        authorizationRequest: presentationSubmission.submissionParams.authorizationRequest,
-        credentialsForRequest: presentationSubmission.submissionParams.credentialsForRequest,
+        submissionParams: presentationSubmission.submissionParams,
         selectedCredentials: presentationSubmission.entries.reduce<Record<string, string>>((result, entry) => {
           result[entry.inputDescriptorId] = entry.selectedOption!.credential.id
           return result

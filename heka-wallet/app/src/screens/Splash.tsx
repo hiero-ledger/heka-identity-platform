@@ -1,18 +1,5 @@
-import { HttpOutboundTransport, WsOutboundTransport } from '@credo-ts/core'
-import { useAgent } from '@credo-ts/react-hooks'
-import {
-  DispatchAction,
-  Screens,
-  Stacks,
-  OnboardingState,
-  useAuth,
-  useStore,
-  createLinkSecretIfRequired,
-  TOKENS,
-  EventTypes,
-  BifoldError,
-  useServices,
-} from '@hyperledger/aries-bifold-core'
+import { DispatchAction, Stacks, useAuth, useStore, TOKENS, EventTypes, BifoldError, useServices } from '@bifold/core'
+import { DidCommHttpOutboundTransport, DidCommWsOutboundTransport } from '@credo-ts/didcomm'
 import { useNavigation } from '@react-navigation/core'
 import { CommonActions } from '@react-navigation/native'
 import React, { useEffect, useState } from 'react'
@@ -29,64 +16,9 @@ import {
   ensureExampleCredentialCreated,
   setupMediatorWithPublicDidIfNeeded,
   tryRestartExistingAgent,
+  createAnoncredsLinkSecretIfRequired,
+  useHekaAgent,
 } from '../utils/agent'
-
-const OnboardingVersion = 1
-
-const onboardingComplete = (state: OnboardingState): boolean => {
-  return (
-    (state.onboardingVersion !== 0 && state.didCompleteOnboarding) ||
-    (state.onboardingVersion === 0 && state.didConsiderBiometry)
-  )
-}
-
-const resumeOnboardingAt = (
-  state: OnboardingState,
-  params: { enableWalletNaming?: boolean; showPreface?: boolean; termsVersion?: boolean | string }
-): Screens => {
-  const termsVer = params.termsVersion ?? true
-  if (
-    (state.didSeePreface || !params.showPreface) &&
-    state.didCompleteTutorial &&
-    state.didAgreeToTerms === termsVer &&
-    state.didCreatePIN &&
-    (state.didNameWallet || !params.enableWalletNaming) &&
-    !state.didConsiderBiometry
-  ) {
-    return Screens.UseBiometry
-  }
-
-  if (
-    (state.didSeePreface || !params.showPreface) &&
-    state.didCompleteTutorial &&
-    state.didAgreeToTerms === termsVer &&
-    state.didCreatePIN &&
-    params.enableWalletNaming &&
-    !state.didNameWallet
-  ) {
-    return Screens.NameWallet
-  }
-
-  if (
-    (state.didSeePreface || !params.showPreface) &&
-    state.didCompleteTutorial &&
-    state.didAgreeToTerms === termsVer &&
-    !state.didCreatePIN
-  ) {
-    return Screens.CreatePIN
-  }
-
-  if ((state.didSeePreface || !params.showPreface) && state.didCompleteTutorial && state.didAgreeToTerms !== termsVer) {
-    return Screens.Terms
-  }
-
-  if (state.didSeePreface || !params.showPreface) {
-    return Screens.Onboarding
-  }
-
-  console.error('Preface navigation has been triggered', JSON.stringify(state))
-  return Screens.Preface
-}
 
 /**
  * To customize this splash screen set the background color of the
@@ -98,15 +30,10 @@ export const Splash: React.FC = () => {
   const navigation = useNavigation()
 
   const [store, dispatch] = useStore()
-  const { agent, setAgent, setPublicDid } = useAgent()
-  const { getWalletCredentials } = useAuth()
+  const { agent, setAgent, setPublicDid } = useHekaAgent()
+  const { getWalletSecret } = useAuth()
 
-  const [{ version: TermsVersion }, indyLedgers, { showPreface, enablePushNotifications }, logger] = useServices([
-    TOKENS.SCREEN_TERMS,
-    TOKENS.UTIL_LEDGERS,
-    TOKENS.CONFIG,
-    TOKENS.UTIL_LOGGER,
-  ])
+  const [indyLedgers, logger] = useServices([TOKENS.UTIL_LEDGERS, TOKENS.UTIL_LOGGER])
 
   const [mounted, setMounted] = useState(false)
 
@@ -115,108 +42,6 @@ export const Splash: React.FC = () => {
   useEffect(() => {
     setMounted(true)
   }, [])
-
-  useEffect(() => {
-    if (!mounted || store.authentication.didAuthenticate) {
-      return
-    }
-
-    const initOnboarding = async (): Promise<void> => {
-      try {
-        // load authentication attempts from storage
-        if (!store.stateLoaded) {
-          return
-        }
-
-        if (store.onboarding.onboardingVersion !== OnboardingVersion) {
-          dispatch({ type: DispatchAction.ONBOARDING_VERSION, payload: [OnboardingVersion] })
-        }
-
-        if (onboardingComplete(store.onboarding)) {
-          if (store.onboarding.onboardingVersion !== OnboardingVersion) {
-            dispatch({ type: DispatchAction.ONBOARDING_VERSION, payload: [OnboardingVersion] })
-          }
-          // if they previously completed onboarding before wallet naming was enabled, mark complete
-          if (!store.onboarding.didNameWallet) {
-            dispatch({ type: DispatchAction.DID_NAME_WALLET, payload: [true] })
-          }
-
-          // if they previously completed onboarding before preface was enabled, mark seen
-          if (!store.onboarding.didSeePreface) {
-            dispatch({ type: DispatchAction.DID_SEE_PREFACE })
-          }
-
-          // add post authentication screens
-          const postAuthScreens = []
-          if (store.onboarding.didAgreeToTerms !== TermsVersion) {
-            postAuthScreens.push(Screens.Terms)
-          }
-          if (!store.onboarding.didConsiderPushNotifications && enablePushNotifications) {
-            postAuthScreens.push(Screens.UsePushNotifications)
-          }
-          dispatch({ type: DispatchAction.SET_POST_AUTH_SCREENS, payload: [postAuthScreens] })
-
-          if (!store.loginAttempt.lockoutDate) {
-            navigation.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: Screens.EnterPIN }],
-              })
-            )
-          } else {
-            // return to lockout screen if lockout date is set
-            navigation.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: Screens.AttemptLockout }],
-              })
-            )
-          }
-          return
-        } else {
-          // If onboarding was interrupted we need to pickup from where we left off.
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [
-                {
-                  name: resumeOnboardingAt(store.onboarding, {
-                    enableWalletNaming: store.preferences.enableWalletNaming,
-                    showPreface,
-                    termsVersion: TermsVersion,
-                  }),
-                },
-              ],
-            })
-          )
-        }
-      } catch (err: unknown) {
-        const error = new BifoldError(
-          t('Error.Title1044'),
-          t('Error.Message1044'),
-          (err as Error)?.message ?? err,
-          1044
-        )
-        DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
-      }
-    }
-
-    initOnboarding()
-  }, [
-    navigation,
-    dispatch,
-    store.onboarding.didNameWallet,
-    store.preferences.enableWalletNaming,
-    store.authentication.didAuthenticate,
-    mounted,
-    store.stateLoaded,
-    store.onboarding,
-    store.loginAttempt.lockoutDate,
-    TermsVersion,
-    enablePushNotifications,
-    showPreface,
-    t,
-  ])
 
   useEffect(() => {
     if (
@@ -230,16 +55,16 @@ export const Splash: React.FC = () => {
 
     const initAgent = async (): Promise<void> => {
       try {
-        const credentials = await getWalletCredentials()
-        if (!credentials?.key) {
-          logger.warn('Wallet credentials are not defined')
+        const walletSecret = await getWalletSecret()
+        if (!walletSecret?.key) {
+          logger.warn('Wallet secret is not defined')
           return
         }
 
         if (agent) {
           logger.info('Agent already initialized, restarting...')
 
-          const isAgentRestarted = await tryRestartExistingAgent(agent, credentials)
+          const isAgentRestarted = await tryRestartExistingAgent(agent, walletSecret)
 
           if (isAgentRestarted) {
             navigation.dispatch(
@@ -255,21 +80,20 @@ export const Splash: React.FC = () => {
         logger.info('No agent initialized, creating a new one')
 
         const newAgent = await createAgent({
-          credentials,
+          walletSecret,
           indyLedgers,
           indyBesuConfig,
-          walletName: store.preferences.walletName,
         })
 
-        const wsTransport = new WsOutboundTransport()
-        const httpTransport = new HttpOutboundTransport()
+        const wsTransport = new DidCommWsOutboundTransport()
+        const httpTransport = new DidCommHttpOutboundTransport()
 
-        newAgent.registerOutboundTransport(wsTransport)
-        newAgent.registerOutboundTransport(httpTransport)
+        newAgent.didcomm.registerOutboundTransport(wsTransport)
+        newAgent.didcomm.registerOutboundTransport(httpTransport)
 
         await newAgent.initialize()
 
-        await createLinkSecretIfRequired(newAgent)
+        await createAnoncredsLinkSecretIfRequired(newAgent)
 
         // We don't need to use Indy -> Askar migration, but still need to set a flag that migration is complete
         // Otherwise, we may get side effects from Bifold side
@@ -287,7 +111,11 @@ export const Splash: React.FC = () => {
         logger.info(`Public DID: ${publicDid}`)
 
         if (isPublicInvitationEnabled) {
-          const invitationUrl = await createPublicInvitationOrGetExisting(newAgent, publicDid)
+          const invitationUrl = await createPublicInvitationOrGetExisting(
+            newAgent,
+            publicDid,
+            store.preferences.walletName ?? 'Heka Wallet'
+          )
           logger.info(`Public invitation URL: ${invitationUrl}`)
         }
 

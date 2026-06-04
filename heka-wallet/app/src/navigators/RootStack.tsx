@@ -1,4 +1,3 @@
-import { RootStack as BifoldStack } from '@hyperledger/aries-bifold-core'
 import { createStackNavigator } from '@react-navigation/stack'
 import { observer } from 'mobx-react-lite'
 import React from 'react'
@@ -11,13 +10,14 @@ import { useDeeplinks } from '../utils/useDeeplinks'
 
 import { AuthStack } from './AuthStack'
 import { BackupStack } from './BackupStack'
+import { BifoldStack } from './BifoldStack'
 import { OpenIdStack } from './OpenIdStack'
 import { SettingsStack } from './SettingsStack'
 import { RootStackParams, Stacks } from './types'
 
-export const RootStack: React.FC = observer(() => {
-  const Stack = createStackNavigator<RootStackParams>()
+const Stack = createStackNavigator<RootStackParams>()
 
+export const RootStack: React.FC = observer(() => {
   const rootStore = useRootStore()
   const { oauthStore } = rootStore
 

@@ -1,7 +1,7 @@
 import { Server } from 'net'
 
 // import { CredentialEventTypes, CredentialState } from '@credo-ts/core'
-import { SchemaGenerator } from '@mikro-orm/sqlite'
+import { SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication, HttpStatus } from '@nestjs/common'
 // import { CreateRevocationRegistryRequestDto, VerifyRevocationDto } from 'revocation/dto'
 import request, { WSChain } from 'superwstest'
@@ -19,8 +19,8 @@ describe.skip('Revocation E2E Tests', () => {
   let ormSchemaGenerator: SchemaGenerator
 
   let nestApp: INestApplication
-  let revocationRegistryDefinitionId: string
-  let revocationIndex: number
+  let revocationRegistryDefinitionId!: string
+  let revocationIndex!: number
   let app: Server
 
   let adminAuthToken: string

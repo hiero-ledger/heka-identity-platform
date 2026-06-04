@@ -42,11 +42,18 @@ export class OAuthService {
   }
 
   public async refreshToken(accessToken: string, refreshToken: string): Promise<RefreshResponse> {
-    // parse refresh token
-    const refresh = await this.jwtService.decode(refreshToken)
+    let refresh: { exp?: number; jti?: string }
+    try {
+      refresh = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.configService.jwtConfig.secret,
+        issuer: this.configService.jwtConfig.issuer,
+        audience: this.configService.jwtConfig.audience,
+      })
+    } catch {
+      throw new UnauthorizedException('Refresh token is incorrect.')
+    }
 
-    // check expiration of the refresh token
-    if (SecondsToDate(refresh.exp) <= new Date()) {
+    if (!refresh.jti) {
       throw new UnauthorizedException('Refresh token is incorrect.')
     }
 
@@ -158,7 +165,7 @@ export class OAuthService {
 
     return {
       token,
-      expiresIn: this.configService.jwtConfig.accessExpiry,
+      expiresIn: accessTokenExpiresIn,
     }
   }
 
@@ -166,7 +173,7 @@ export class OAuthService {
     user: User,
     accessToken: string,
   ): Promise<{ token: string; expiresIn: number }> => {
-    const expiresIn = 1000 * this.configService.jwtConfig.refreshExpiry
+    const expiresIn = this.configService.jwtConfig.refreshExpiry
     const expiration = ExpiresInToDate(this.configService.jwtConfig.refreshExpiry)
 
     const storedToken = await this.tokenRepository.put({

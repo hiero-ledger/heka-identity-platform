@@ -25,7 +25,7 @@ type AuthState = AuthorizeResult
 const logger = GlobalLogger.createContextLogger('OAuth')
 
 export class OAuthStore {
-  protected static keychainOptions: Keychain.Options = getKeychainAccessOptions(WalletKeychainServices.OAuth)
+  protected static keychainOptions: Keychain.SetOptions = getKeychainAccessOptions(WalletKeychainServices.OAuth)
 
   private _authState: AuthState | null = null
   private _userInfo: UserInfo | null = null

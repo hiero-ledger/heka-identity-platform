@@ -10,7 +10,7 @@ export class KeyChainStore {
   @observable
   protected _isBiometryOn = false
 
-  protected static defaultOptions: Keychain.Options = {
+  protected static defaultOptions: Keychain.GetOptions & Keychain.SetOptions = {
     authenticationPrompt: {
       title: 'Biometric Authentication',
     },
@@ -116,7 +116,7 @@ export class KeyChainStore {
     // No need to await.
     this.restore()
 
-    const type = yield* toGenerator(Keychain.getSupportedBiometryType(KeyChainStore.defaultOptions))
+    const type = yield* toGenerator(Keychain.getSupportedBiometryType())
     this._isBiometrySupported = type != null
   }
 

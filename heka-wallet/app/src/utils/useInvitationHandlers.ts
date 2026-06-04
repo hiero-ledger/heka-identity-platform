@@ -1,7 +1,6 @@
-import { useAgent } from '@credo-ts/react-hooks'
-import { TOKENS, useServices } from '@hyperledger/aries-bifold-core'
-import { connectFromScanOrDeepLink } from '@hyperledger/aries-bifold-core/App/utils/helpers'
-import { ParsedInvitation, parseInvitationUrl } from '@hyperledger/aries-bifold-core/App/utils/parsers'
+import { TOKENS, useServices, connectFromScanOrDeepLink, BifoldAgent } from '@bifold/core'
+import { ParsedInvitation, parseInvitationUrl } from '@bifold/core/src/utils/parsers'
+import { useAgent } from '@bifold/react-hooks'
 import { useNavigation } from '@react-navigation/core'
 import { StackNavigationProp } from '@react-navigation/stack'
 import { useCallback } from 'react'
@@ -11,7 +10,7 @@ import { RootStackParams, Screens, Stacks } from '../navigators/types'
 export const useInvitationHandlers = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParams>>()
 
-  const { agent } = useAgent()
+  const { agent } = useAgent<BifoldAgent>()
 
   const [logger, { enableImplicitInvitations, enableReuseConnections }] = useServices([
     TOKENS.UTIL_LOGGER,

@@ -1,30 +1,27 @@
+import { credentialCustomMetadata, CredentialMetadata } from '@bifold/core'
+import { useCredentialByState, useProofByState } from '@bifold/react-hooks'
+import { ProofCustomMetadata, ProofMetadata } from '@bifold/verifier'
 import {
-  CredentialExchangeRecord,
-  CredentialExchangeRecord as CredentialRecord,
-  CredentialState,
-  ProofExchangeRecord,
-  ProofState,
-} from '@credo-ts/core'
-import { useCredentialByState, useProofByState } from '@credo-ts/react-hooks'
-import { credentialCustomMetadata, CredentialMetadata } from '@hyperledger/aries-bifold-core/App/types/metadata'
-import { ProofCustomMetadata, ProofMetadata } from '@hyperledger/aries-bifold-verifier'
-import { useEffect, useState } from 'react'
+  DidCommCredentialExchangeRecord,
+  DidCommCredentialExchangeRecord as CredentialRecord,
+  DidCommCredentialState,
+  DidCommProofExchangeRecord,
+  DidCommProofState,
+} from '@credo-ts/didcomm'
+import { useMemo } from 'react'
 
-export type NotificationRecord = CredentialExchangeRecord | ProofExchangeRecord
+export type NotificationRecord = DidCommCredentialExchangeRecord | DidCommProofExchangeRecord
 
 // Based on Bifold hook: https://github.com/openwallet-foundation/bifold-wallet/blob/main/packages/legacy/core/App/hooks/notifications.ts
 // The difference is removal of basic message records - we have chat section on home screen, so separate notifications on messages are redundant
 export const useNotifications = (): NotificationRecord[] => {
-  const [notifications, setNotifications] = useState<NotificationRecord[]>([])
+  const credsDone = useCredentialByState(DidCommCredentialState.Done)
+  const proofsDone = useProofByState([DidCommProofState.Done, DidCommProofState.PresentationReceived])
+  const offers = useCredentialByState(DidCommCredentialState.OfferReceived)
+  const proofsRequested = useProofByState(DidCommProofState.RequestReceived)
 
-  const credsReceived = useCredentialByState(CredentialState.CredentialReceived)
-  const credsDone = useCredentialByState(CredentialState.Done)
-  const proofsDone = useProofByState([ProofState.Done, ProofState.PresentationReceived])
-  const offers = useCredentialByState(CredentialState.OfferReceived)
-  const proofsRequested = useProofByState(ProofState.RequestReceived)
-
-  useEffect(() => {
-    const validProofsDone = proofsDone.filter((proof: ProofExchangeRecord) => {
+  return useMemo(() => {
+    const validProofsDone = proofsDone.filter((proof: DidCommProofExchangeRecord) => {
       if (proof.isVerified === undefined) return false
       const metadata = proof.metadata.get(ProofMetadata.customMetadata) as ProofCustomMetadata
       return !metadata?.details_seen
@@ -37,11 +34,8 @@ export const useNotifications = (): NotificationRecord[] => {
       }
     })
 
-    const notif = [...offers, ...proofsRequested, ...validProofsDone, ...revoked].sort(
+    return [...offers, ...proofsRequested, ...validProofsDone, ...revoked].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
-    setNotifications(notif)
-  }, [credsReceived, proofsDone, proofsRequested, offers, credsDone])
-
-  return notifications
+  }, [proofsDone, proofsRequested, offers, credsDone])
 }

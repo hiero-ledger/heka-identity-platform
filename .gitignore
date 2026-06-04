@@ -54,3 +54,7 @@ node_modules/
 
 # Intellij IDEs
 .idea
+
+# Yarn Berry (regenerated on install; keep .yarn/releases & .yarn/plugins tracked)
+**/.yarn/cache
+**/.yarn/install-state.gz

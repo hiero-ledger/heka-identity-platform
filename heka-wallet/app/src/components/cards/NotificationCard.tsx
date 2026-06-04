@@ -1,12 +1,11 @@
-import { CredentialExchangeRecord, ProofExchangeRecord, ProofState } from '@credo-ts/core'
-import { useAgent } from '@credo-ts/react-hooks'
+import { useStore, EventTypes, BifoldError, Screens, Stacks } from '@bifold/core'
+import { hitSlop } from '@bifold/core/src/constants'
+import { HomeStackParams } from '@bifold/core/src/types/navigators'
+import { CustomNotification } from '@bifold/core/src/types/notification'
+import { useAgent } from '@bifold/react-hooks'
+import { markProofAsViewed } from '@bifold/verifier'
+import { DidCommCredentialExchangeRecord, DidCommProofExchangeRecord, DidCommProofState } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { EventTypes, hitSlop } from '@hyperledger/aries-bifold-core/App/constants'
-import { useStore } from '@hyperledger/aries-bifold-core/App/contexts/store'
-import { BifoldError } from '@hyperledger/aries-bifold-core/App/types/error'
-import { HomeStackParams, Screens, Stacks } from '@hyperledger/aries-bifold-core/App/types/navigators'
-import { CustomNotification } from '@hyperledger/aries-bifold-core/App/types/notification'
-import { markProofAsViewed } from '@hyperledger/aries-bifold-verifier'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useCallback, useEffect, useState } from 'react'
@@ -21,12 +20,12 @@ import ActionWarningModal, { ModalUsage } from '../modals/ActionWarningModal'
 const CARD_WIDTH = 300
 const CARD_HEIGHT = 120
 
-const useStyles = ({ BorderWidth, BorderRadius, ColorPallet, Spacing, TextTheme }: HekaTheme) =>
+const useStyles = ({ BorderWidth, BorderRadius, ColorPalette, Spacing, TextTheme }: HekaTheme) =>
   StyleSheet.create({
     container: {
       borderWidth: BorderWidth.small,
       borderRadius: BorderRadius.big,
-      borderColor: ColorPallet.grayscale.lightGrey,
+      borderColor: ColorPalette.grayscale.lightGrey,
       padding: Spacing.md,
       gap: Spacing.sm,
       width: CARD_WIDTH,
@@ -81,9 +80,9 @@ const useNotificationOptions = (
         },
       }
     case NotificationType.ProofRequest: {
-      const proofRecord = record as ProofExchangeRecord
+      const proofRecord = record as DidCommProofExchangeRecord
       const isProofCompleted =
-        proofRecord.state === ProofState.Done || proofRecord.state === ProofState.PresentationReceived
+        proofRecord.state === DidCommProofState.Done || proofRecord.state === DidCommProofState.PresentationReceived
 
       const onPress = isProofCompleted
         ? () => {
@@ -141,7 +140,7 @@ export const NotificationCard: React.FC<Props> = ({ notificationType, notificati
 
   const theme = useHekaTheme()
   const styles = useStyles(theme)
-  const { IconSizes, ColorPallet, TextTheme } = theme
+  const { IconSizes, ColorPalette, TextTheme } = theme
 
   const [declineModalVisible, setDeclineModalVisible] = useState(false)
 
@@ -159,7 +158,7 @@ export const NotificationCard: React.FC<Props> = ({ notificationType, notificati
               onPress={() => setDeclineModalVisible(true)}
               hitSlop={hitSlop}
             >
-              <Icon name={'close'} size={IconSizes.medium} color={ColorPallet.brand.text} />
+              <Icon name={'close'} size={IconSizes.medium} color={ColorPalette.brand.text} />
             </TouchableOpacity>
           </View>
         )}
@@ -209,10 +208,10 @@ const NotificationDeclineModal: React.FC<NotificationDeclineModalProps> = ({
   const [state, setState] = useState<NotificationDeclineModalState | null>(null)
 
   const onProofRequestDecline = useCallback(
-    async (proofRecord: ProofExchangeRecord) => {
+    async (proofRecord: DidCommProofExchangeRecord) => {
       if (!agent) return
       try {
-        await agent.proofs.declineRequest({ proofRecordId: proofRecord.id })
+        await agent.didcomm.proofs.declineRequest({ proofExchangeRecordId: proofRecord.id })
       } catch (error: unknown) {
         const errorMessage = new BifoldError(
           t('Error.Title1028'),
@@ -230,14 +229,14 @@ const NotificationDeclineModal: React.FC<NotificationDeclineModalProps> = ({
 
   const onProofRequestDismiss = useCallback(async () => {
     if (!agent) return
-    await markProofAsViewed(agent, notificationRecord as ProofExchangeRecord)
+    await markProofAsViewed(agent, notificationRecord as DidCommProofExchangeRecord)
   }, [agent, notificationRecord])
 
   const onCredentialOfferDecline = useCallback(
-    async (credentialRecord: CredentialExchangeRecord) => {
+    async (credentialRecord: DidCommCredentialExchangeRecord) => {
       if (!agent) return
       try {
-        await agent.credentials.declineOffer(credentialRecord.id)
+        await agent.didcomm.credentials.declineOffer({ credentialExchangeRecordId: credentialRecord.id })
       } catch (error: unknown) {
         const errorMessage = new BifoldError(
           t('Error.Title1028'),
@@ -260,7 +259,8 @@ const NotificationDeclineModal: React.FC<NotificationDeclineModalProps> = ({
 
   useEffect(() => {
     if (notificationType === NotificationType.ProofRequest) {
-      const isProofRequestCompleted = (notificationRecord as ProofExchangeRecord).state === ProofState.Done
+      const isProofRequestCompleted =
+        (notificationRecord as DidCommProofExchangeRecord).state === DidCommProofState.Done
       const onSubmit = isProofRequestCompleted ? onProofRequestDismiss : onProofRequestDecline
       setState({ modalUsage: ModalUsage.ProofRequestDecline, onSubmit })
     } else if (notificationType === NotificationType.CredentialOffer) {

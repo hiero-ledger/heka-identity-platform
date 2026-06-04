@@ -1,36 +1,36 @@
+import { BifoldAgent, BifoldError, EventTypes, TOKENS, useServices, useStore } from '@bifold/core'
+import { useConnections, useAgent } from '@bifold/react-hooks'
 import {
-  BasicMessageRecord,
-  ConnectionRecord,
-  ConnectionType,
-  CredentialExchangeRecord,
-  DidExchangeState,
-  ProofExchangeRecord,
-} from '@credo-ts/core'
-import { useAgent, useConnections } from '@credo-ts/react-hooks'
-import { BifoldAgent, BifoldError, EventTypes, TOKENS, useServices, useStore } from '@hyperledger/aries-bifold-core'
+  DidCommBasicMessageRecord,
+  DidCommConnectionRecord,
+  DidCommConnectionType,
+  DidCommCredentialExchangeRecord,
+  DidCommDidExchangeState,
+  DidCommProofExchangeRecord,
+} from '@credo-ts/didcomm'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
 
 interface ConnectionWithMessages {
-  conn: ConnectionRecord
-  msgs: (BasicMessageRecord | CredentialExchangeRecord | ProofExchangeRecord)[]
+  conn: DidCommConnectionRecord
+  msgs: (DidCommBasicMessageRecord | DidCommCredentialExchangeRecord | DidCommProofExchangeRecord)[]
 }
 
 interface ConnectionWithLatestMessage {
-  conn: ConnectionRecord
-  latestMsg: BasicMessageRecord | CredentialExchangeRecord | ProofExchangeRecord
+  conn: DidCommConnectionRecord
+  latestMsg: DidCommBasicMessageRecord | DidCommCredentialExchangeRecord | DidCommProofExchangeRecord
 }
 
-async function sortContactsByLastMessage(contacts: ConnectionRecord[], agent: BifoldAgent) {
+async function sortContactsByLastMessage(contacts: DidCommConnectionRecord[], agent: BifoldAgent) {
   const contactsWithMessages = await Promise.all<ConnectionWithMessages>(
     contacts.map(
-      async (conn: ConnectionRecord): Promise<ConnectionWithMessages> => ({
+      async (conn: DidCommConnectionRecord): Promise<ConnectionWithMessages> => ({
         conn,
         msgs: [
-          ...(await agent.basicMessages.findAllByQuery({ connectionId: conn.id })),
-          ...(await agent.proofs.findAllByQuery({ connectionId: conn.id })),
-          ...(await agent.credentials.findAllByQuery({ connectionId: conn.id })),
+          ...(await agent.didcomm.basicMessages.findAllByQuery({ connectionId: conn.id })),
+          ...(await agent.didcomm.proofs.findAllByQuery({ connectionId: conn.id })),
+          ...(await agent.didcomm.credentials.findAllByQuery({ connectionId: conn.id })),
         ],
       })
     )
@@ -46,7 +46,10 @@ async function sortContactsByLastMessage(contacts: ConnectionRecord[], agent: Bi
           return accDate > curDate ? acc : cur
         },
         // Initial value if no messages exist for this connection is a placeholder with the date the connection was created
-        { createdAt: pair.conn.createdAt } as BasicMessageRecord | CredentialExchangeRecord | ProofExchangeRecord
+        { createdAt: pair.conn.createdAt } as
+          | DidCommBasicMessageRecord
+          | DidCommCredentialExchangeRecord
+          | DidCommProofExchangeRecord
       ),
     }
   })
@@ -61,7 +64,7 @@ async function sortContactsByLastMessage(contacts: ConnectionRecord[], agent: Bi
 }
 
 interface ContactsState {
-  contacts: ConnectionRecord[]
+  contacts: DidCommConnectionRecord[]
   isLoading: boolean
 }
 
@@ -70,16 +73,16 @@ export const useContacts = (): ContactsState => {
 
   const [store] = useStore()
 
-  const { agent } = useAgent()
+  const { agent } = useAgent<BifoldAgent>()
 
   const [{ contactHideList }] = useServices([TOKENS.CONFIG])
 
   const { records } = useConnections()
-  const [contacts, setContacts] = useState<ConnectionRecord[]>([])
+  const [contacts, setContacts] = useState<DidCommConnectionRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (!agent?.wallet.isInitialized || !records.length) return
+    if (!agent?.isInitialized || !records.length) return
 
     setIsLoading(true)
     sortContactsByLastMessage(records, agent)
@@ -88,9 +91,9 @@ export const useContacts = (): ContactsState => {
         if (!store.preferences.developerModeEnabled) {
           orderedContacts = orderedContacts.filter((r) => {
             return (
-              !r.connectionTypes.includes(ConnectionType.Mediator) &&
+              !r.connectionTypes.includes(DidCommConnectionType.Mediator) &&
               !contactHideList?.includes((r.theirLabel || r.alias) ?? '') &&
-              r.state === DidExchangeState.Completed
+              r.state === DidCommDidExchangeState.Completed
             )
           })
         }

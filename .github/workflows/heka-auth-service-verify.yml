@@ -49,13 +49,14 @@ jobs:
           checkout-ref: '${{ github.ref }}'
           checkout-token: '${{ secrets.GITHUB_TOKEN }}'
           setup-node: 'true'
-          node-version: '20'
+          node-version: '22'
 
       - name: Enable Corepack
         run: corepack enable
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
+        shell: bash
 
       - name: Run typecheck
         run: yarn check-types

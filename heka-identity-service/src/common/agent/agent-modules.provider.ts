@@ -112,7 +112,8 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       cache: new InMemoryLruCache({ limit: 100 }),
     }),
     anoncreds: new AnonCredsModule({
-      // @ts-ignore
+      // @ts-expect-error Credo-ts requires a non-empty tuple but registries
+      // are populated conditionally from agent config at runtime.
       registries: anoncredsRegistries,
       anoncreds,
       tailsFileService: new TailsService(appConfig),

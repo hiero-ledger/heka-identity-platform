@@ -1,23 +1,25 @@
-import { ConnectionRecord, ConnectionType, DidExchangeState } from '@credo-ts/core'
-import { useAgent } from '@credo-ts/react-hooks'
-import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import {
   BifoldAgent,
   BifoldError,
   ButtonLocation,
+  ContactStackParams,
   EventTypes,
-  HeaderButton,
+  formatTime,
+  getConnectionName,
+  IconButton,
   Screens,
   Stacks,
   TOKENS,
   useServices,
   useStore,
-} from '@hyperledger/aries-bifold-core'
-import { useChatMessagesByConnection } from '@hyperledger/aries-bifold-core/App/hooks/chat-messages'
-import { ContactStackParams, RootStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
-import { fetchContactsByLatestMessage } from '@hyperledger/aries-bifold-core/App/utils/contacts'
-import { toImageSource } from '@hyperledger/aries-bifold-core/App/utils/credential'
-import { formatTime, getConnectionName } from '@hyperledger/aries-bifold-core/App/utils/helpers'
+} from '@bifold/core'
+import { useChatMessagesByConnection } from '@bifold/core/src/hooks/chat-messages'
+import { RootStackParams } from '@bifold/core/src/types/navigators'
+import { fetchContactsByLatestMessage } from '@bifold/core/src/utils/contacts'
+import { toImageSource } from '@bifold/core/src/utils/credential'
+import { useConnections, useAgent } from '@bifold/react-hooks'
+import { DidCommConnectionRecord, DidCommConnectionType, DidCommDidExchangeState } from '@credo-ts/didcomm'
+import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/core'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
@@ -33,7 +35,7 @@ const useStyles = ({
   TextTheme,
   Spacing,
   BorderWidth,
-  ColorPallet,
+  ColorPalette,
   HekaTextTheme,
   FontWeights,
 }: HekaTheme) =>
@@ -42,11 +44,11 @@ const useStyles = ({
       flexDirection: 'row',
       gap: Spacing.sm,
       paddingVertical: Spacing.sm,
-      borderBottomColor: ColorPallet.brand.primaryDisabled,
+      borderBottomColor: ColorPalette.brand.primaryDisabled,
       borderBottomWidth: BorderWidth.small,
     },
     logoContainer: {
-      backgroundColor: ColorPallet.grayscale.white,
+      backgroundColor: ColorPalette.grayscale.white,
       borderRadius: BorderRadius.small,
     },
     logo: {
@@ -54,14 +56,14 @@ const useStyles = ({
       width: IconSizes.large,
       height: IconSizes.large,
       borderRadius: BorderRadius.small,
-      backgroundColor: ColorPallet.grayscale.white,
+      backgroundColor: ColorPalette.grayscale.white,
     },
     logoName: {
       ...TextTheme.title,
       width: IconSizes.large,
       height: IconSizes.large,
       fontSize: 0.5 * IconSizes.large,
-      color: ColorPallet.grayscale.white,
+      color: ColorPalette.grayscale.white,
     },
     textContainer: {
       gap: Spacing.xxxs,
@@ -72,7 +74,7 @@ const useStyles = ({
     },
     connectionEvent: {
       ...HekaTextTheme.bodySmall,
-      color: ColorPallet.grayscale.mediumGrey,
+      color: ColorPalette.grayscale.mediumGrey,
     },
     timeContainer: {
       paddingVertical: Spacing.xxxs,
@@ -89,7 +91,7 @@ interface ListContactsProps {
 }
 
 interface ConnectionRowProps {
-  connection: ConnectionRecord
+  connection: DidCommConnectionRecord
 }
 
 export const ContactListItem: React.FC<ConnectionRowProps> = ({ connection }) => {
@@ -142,27 +144,29 @@ export const ContactListItem: React.FC<ConnectionRowProps> = ({ connection }) =>
 
 const ListContacts: React.FC<ListContactsProps> = ({ navigation }) => {
   const { t } = useTranslation()
-  const { agent } = useAgent()
+  const { agent } = useAgent<BifoldAgent>()
   const [store] = useStore()
   const [{ contactHideList }] = useServices([TOKENS.CONFIG])
 
-  const { ColorPallet, Spacing } = useHekaTheme()
+  const { ColorPalette, Spacing } = useHekaTheme()
 
-  const [connections, setConnections] = useState<ConnectionRecord[]>([])
+  const { records: connectionRecords } = useConnections()
+
+  const [connections, setConnections] = useState<DidCommConnectionRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const fetchAndSetConnections = async () => {
-      if (!agent) return
-      let orderedContacts = await fetchContactsByLatestMessage(agent as BifoldAgent)
+      if (!agent || !connectionRecords) return
+      let orderedContacts = await fetchContactsByLatestMessage(agent as BifoldAgent, connectionRecords)
 
       // if developer mode is disabled, filter out mediator connections and connections in the hide list
       if (!store.preferences.developerModeEnabled) {
         orderedContacts = orderedContacts.filter((r) => {
           return (
-            !r.connectionTypes.includes(ConnectionType.Mediator) &&
+            !r.connectionTypes.includes(DidCommConnectionType.Mediator) &&
             !contactHideList?.includes((r.theirLabel || r.alias) ?? '') &&
-            r.state === DidExchangeState.Completed
+            r.state === DidCommDidExchangeState.Completed
           )
         })
       }
@@ -182,7 +186,7 @@ const ListContacts: React.FC<ListContactsProps> = ({ navigation }) => {
         DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
       })
       .finally(() => setIsLoading(false))
-  }, [agent, contactHideList, store.preferences.developerModeEnabled, t])
+  }, [agent, connectionRecords, contactHideList, store.preferences.developerModeEnabled, t])
 
   const onPressAddContact = useCallback(() => {
     navigation.getParent()?.navigate(Stacks.ConnectStack, { screen: Screens.Scan, params: { defaultToConnect: true } })
@@ -192,7 +196,7 @@ const ListContacts: React.FC<ListContactsProps> = ({ navigation }) => {
     if (store.preferences.useConnectionInviterCapability) {
       navigation.setOptions({
         headerRight: () => (
-          <HeaderButton
+          <IconButton
             buttonLocation={ButtonLocation.Right}
             testID={t('Contacts.AddContact')}
             accessibilityLabel={t('Contacts.AddContact')}
@@ -211,7 +215,7 @@ const ListContacts: React.FC<ListContactsProps> = ({ navigation }) => {
   return (
     <View>
       <FlatList
-        style={{ backgroundColor: ColorPallet.brand.primaryBackground }}
+        style={{ backgroundColor: ColorPalette.brand.primaryBackground }}
         contentContainerStyle={{
           marginHorizontal: Spacing.lg,
         }}

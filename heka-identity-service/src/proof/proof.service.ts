@@ -63,7 +63,6 @@ export class ProofService {
     const formatData = await tenantAgent.didcomm.proofs.getFormatData(id)
 
     if (formatData.presentation?.anoncreds) {
-      // @ts-ignore
       const revealedAttrs = formatData.presentation.anoncreds.requested_proof.revealed_attrs
 
       if (revealedAttrs) {

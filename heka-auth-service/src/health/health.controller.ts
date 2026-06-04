@@ -1,7 +1,13 @@
 import { ConfigService } from '@config'
 import { Controller, Get, Logger } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
-import { HealthCheck, HealthCheckResult, HealthCheckService, MemoryHealthIndicator } from '@nestjs/terminus'
+import {
+  HealthCheck,
+  HealthCheckResult,
+  HealthCheckService,
+  MemoryHealthIndicator,
+  MikroOrmHealthIndicator,
+} from '@nestjs/terminus'
 
 @ApiTags('Health')
 @Controller('health')
@@ -11,6 +17,7 @@ export class HealthController {
   public constructor(
     private readonly healthCheckService: HealthCheckService,
     private readonly memoryHealthIndicator: MemoryHealthIndicator,
+    private readonly mikroOrmHealthIndicator: MikroOrmHealthIndicator,
     private readonly configService: ConfigService,
   ) {
     this.logger.verbose('constructor<>')
@@ -26,6 +33,7 @@ export class HealthController {
     return await this.healthCheckService.check([
       () => this.memoryHealthIndicator.checkHeap('memory_heap', memoryHeapThresholdMb * 1024 * 1024),
       () => this.memoryHealthIndicator.checkRSS('memory_rss', memoryRssThresholdMb * 1024 * 1024),
+      () => this.mikroOrmHealthIndicator.pingCheck('database'),
     ])
   }
 }

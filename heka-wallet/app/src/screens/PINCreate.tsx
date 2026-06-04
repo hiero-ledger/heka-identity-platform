@@ -1,18 +1,8 @@
+import { BifoldError, DispatchAction, EventTypes, Screens, TOKENS, useAuth, useServices, useStore } from '@bifold/core'
+import { createPINValidations } from '@bifold/core/src/utils/PINValidation'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import {
-  AuthenticateStackParams,
-  BifoldError,
-  DispatchAction,
-  EventTypes,
-  Screens,
-  TOKENS,
-  useAuth,
-  useServices,
-  useStore,
-} from '@hyperledger/aries-bifold-core'
-import { PINCreationValidations } from '@hyperledger/aries-bifold-core/App/utils/PINCreationValidation'
-import { CommonActions, ParamListBase, useNavigation } from '@react-navigation/native'
-import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
+import { ParamListBase, useNavigation } from '@react-navigation/native'
+import { StackScreenProps } from '@react-navigation/stack'
 import React, { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleSheet, View, DeviceEventEmitter, Text } from 'react-native'
@@ -21,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import PinKeyPad from '../components/misc/PinKeyPad'
 import { AlertModal } from '../components/modals/AlertModal'
 import { Loader } from '../components/views/LoadingView'
+import { useHekaAgent } from '../utils/agent'
 
 const useStyles = ({ TextTheme, Spacing }: HekaTheme) => {
   return StyleSheet.create({
@@ -67,7 +58,9 @@ const PINCreate: React.FC<PINCreateProps> = ({ setAuthenticated, route }) => {
   const theme = useHekaTheme()
   const styles = useStyles(theme)
 
-  const { setPIN: setWalletPIN, checkPIN, rekeyWallet } = useAuth()
+  const { agent } = useHekaAgent()
+
+  const { setPIN: setWalletPIN, checkWalletPIN, rekeyWallet } = useAuth()
 
   const [pinEntry, setPinEntry] = useState(updatePin ? PinEntry.Old : PinEntry.New)
 
@@ -80,9 +73,9 @@ const PINCreate: React.FC<PINCreateProps> = ({ setAuthenticated, route }) => {
     title: '',
     message: '',
   })
-  const navigation = useNavigation<StackNavigationProp<AuthenticateStackParams>>()
+  const navigation = useNavigation()
 
-  const [{ PINSecurity }] = useServices([TOKENS.CONFIG, TOKENS.COMP_BUTTON])
+  const [{ PINSecurity }] = useServices([TOKENS.CONFIG, TOKENS.COMPONENT_BUTTON])
 
   const createPin = useCallback(async (PIN: string) => {
     try {
@@ -90,39 +83,39 @@ const PINCreate: React.FC<PINCreateProps> = ({ setAuthenticated, route }) => {
       // This will trigger initAgent
       setAuthenticated(true)
 
+      // This dispatch action triggers navigation under-the-hood (since Bifold 3.0.0)
       dispatch({
         type: DispatchAction.DID_CREATE_PIN,
       })
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: Screens.UseBiometry }],
-        })
-      )
     } catch (err: unknown) {
       const error = new BifoldError(t('Error.Title1040'), t('Error.Message1040'), (err as Error)?.message ?? err, 1040)
       DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const changePin = useCallback(async (oldPIN: string, newPIN: string) => {
-    const success = await rekeyWallet(oldPIN, newPIN, store.preferences.useBiometry)
-    if (success) {
-      setModalState({
-        visible: true,
-        title: t('PINCreate.PinChangeSuccessTitle'),
-        message: t('PINCreate.PinChangeSuccessMessage'),
-        onModalDismiss: () => {
-          navigation.navigate(Screens.Settings as never)
-        },
-      })
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const changePin = useCallback(
+    async (oldPIN: string, newPIN: string) => {
+      if (!agent) return
+
+      const success = await rekeyWallet(agent, oldPIN, newPIN, store.preferences.useBiometry)
+      if (success) {
+        setModalState({
+          visible: true,
+          title: t('PINChange.PinChangeSuccessTitle'),
+          message: t('PINChange.PinChangeSuccessMessage'),
+          onModalDismiss: () => {
+            navigation.navigate(Screens.Settings as never)
+          },
+        })
+      }
+    },
+    [agent] // eslint-disable-line react-hooks/exhaustive-deps
+  )
 
   const onPinOldSet = useCallback(
     async (value: string) => {
       setIsPinChecking(true)
-      const valid = await checkPIN(value)
+      const valid = await checkWalletPIN(value)
       setIsPinChecking(false)
 
       if (!valid) {
@@ -138,12 +131,12 @@ const PINCreate: React.FC<PINCreateProps> = ({ setAuthenticated, route }) => {
       setPinEntry(PinEntry.New)
       return true
     },
-    [PIN, checkPIN, t] // eslint-disable-line react-hooks/exhaustive-deps
+    [PIN, checkWalletPIN, t] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   const onPinSet = useCallback(
     async (value: string) => {
-      const validations = PINCreationValidations(value, PINSecurity.rules)
+      const validations = createPINValidations(value, PINSecurity.rules)
       if (validations.length) {
         for (const validation of validations) {
           if (validation.isInvalid) {

@@ -2,19 +2,20 @@ source 'https://cdn.cocoapods.org'
 require_relative '../../node_modules/react-native/scripts/react_native_pods'
 require_relative '../../node_modules/react-native-permissions/scripts/setup'
 
+# prevents location usage from react-native-vision-camera
+$VCEnableLocation = false
+
+# From RNP docs here: https://www.npmjs.com/package/react-native-permissions/v/4.0.1
+def node_require(script)
+  # Resolve script with node to allow for hoisting
+  require `node -p "require.resolve('#{script}', {paths: [process.argv[1]]})" #{__dir__}`.strip
+end
+
+node_require('react-native/scripts/react_native_pods.rb')
+node_require('react-native-permissions/scripts/setup.rb')
+
 platform :ios, '16.0'
 prepare_react_native_project!
-
-# If you are using a `react-native-flipper` your iOS build will fail when `NO_FLIPPER=1` is set.
-# because `react-native-flipper` depends on (FlipperKit,...) that will be excluded
-#
-# To fix this you can also exclude `react-native-flipper` using a `react-native.config.js`
-# ```js
-# module.exports = {
-#   dependencies: {
-#     ...(process.env.NO_FLIPPER ? { 'react-native-flipper': { platforms: { ios: null } } } : {}),
-# ```
-flipper_config = FlipperConfiguration.disabled
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
@@ -35,11 +36,6 @@ target 'HekaWallet' do
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
-
-  target 'HekaWalletTests' do
-    inherit! :complete
-    # Pods for testing
-  end
 
   post_install do |installer|
 

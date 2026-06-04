@@ -22,8 +22,6 @@ const DID_REGISTRAR_TENANT_LABEL = 'DidRegistrarTenant'
 @Injectable()
 export class DidRegistrarService implements OnApplicationBootstrap {
   private readonly registrars!: Record<string, DidRegistrar>
-  // @ts-ignore
-  private tenantId!: string // FIXME: Currently unused but in future we want all DID to be created from separated tenant
   private readonly em!: EntityManager
 
   public constructor(
@@ -59,7 +57,9 @@ export class DidRegistrarService implements OnApplicationBootstrap {
   }
 
   public async onApplicationBootstrap() {
-    this.tenantId = await this.initTenant()
+    // Initialize the DID registrar tenant. The tenant record is not currently
+    // consumed, but will be used when DID creation moves to a dedicated tenant.
+    await this.initTenant()
   }
 
   public getDidRegistrar(method?: string): DidRegistrar {

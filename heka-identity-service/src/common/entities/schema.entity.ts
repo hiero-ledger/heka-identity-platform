@@ -1,10 +1,9 @@
 // Use type-only imports to break ESM circular dependency TDZ with schema-field and schema-registration.
 // The @OneToMany decorators use string entity names so there is no runtime reference to these modules.
-
 import type { SchemaField } from './schema-field.entity'
 import type { SchemaRegistration } from './schema-registration.entity'
 
-import { Collection, Entity, ManyToOne, OneToMany, Property } from '@mikro-orm/core'
+import { Collection, Entity, ManyToOne, OneToMany, Property, Index } from '@mikro-orm/core'
 
 import { Identified } from './identified.entity'
 import { User } from './user.entity'
@@ -12,8 +11,7 @@ import { User } from './user.entity'
 @Entity()
 export class Schema extends Identified {
   @ManyToOne(() => User, { nullable: false, lazy: true })
-  // FIXME: Attribute index is unsupported for SqlLite for e2e tests, because this indexes made automatically for SQLLite. But for Postgres @Index() is required.
-  // @Index()
+  @Index()
   public owner!: User
 
   @Property({ nullable: false, length: 500 })

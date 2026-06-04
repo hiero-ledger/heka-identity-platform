@@ -1,18 +1,23 @@
-const presets = ['module:metro-react-native-babel-preset']
+const presets = ['module:@react-native/babel-preset']
 const plugins = [
   [
     'module-resolver',
     {
-      extensions: ['.tsx', 'ts', '.js', '.jsx', '.json'],
+      extensions: ['.tsx', '.ts', '.js', '.jsx', '.json', '.mjs'],
     },
   ],
-  ['@babel/plugin-transform-flow-strip-types'],
   ['@babel/plugin-proposal-decorators', { legacy: true }],
-  ['@babel/plugin-proposal-class-properties'],
-  ['@babel/plugin-transform-private-methods'],
-  ['react-native-paper/babel'],
-  ['react-native-reanimated/plugin'],
+  ['@babel/plugin-transform-export-namespace-from'],
 ]
+
+// react-native-paper/babel rewrites imports into the package's ESM-only
+// lib/module/* tree, which Jest's transformIgnorePatterns don't cover.
+// It's a Metro tree-shaking optimization — skip it under Jest.
+if (process.env['NODE_ENV'] !== 'test') {
+  plugins.push(['react-native-paper/babel'])
+}
+
+plugins.push(['react-native-reanimated/plugin']) // must remain last
 
 if (process.env['ENV'] === 'prod') {
   plugins.push('transform-remove-console')

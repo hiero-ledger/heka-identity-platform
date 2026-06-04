@@ -1,36 +1,56 @@
 import {
+  ClaimFormat,
+  CredentialMultiInstanceUseMode,
+  DcqlCredentialsForRequest,
+  DcqlQueryResult,
   DidJwk,
   DidKey,
-  DifPexCredentialsForRequest,
-  getJwkFromKey,
-  JwaSignatureAlgorithm,
+  JsonObject,
   JwkDidCreateOptions,
   KeyDidCreateOptions,
-  Mdoc,
-  MdocRecord,
-  SdJwtVcRecord,
-  W3cCredentialRecord,
+  Kms,
+  MdocNameSpaces,
 } from '@credo-ts/core'
 import {
+  OpenId4VcCredentialHolderBinding,
   OpenId4VciCredentialFormatProfile,
   OpenId4VciRequestTokenResponse,
   OpenId4VciResolvedAuthorizationRequest,
-  OpenId4VciResolvedAuthorizationRequestWithCode,
   OpenId4VciResolvedCredentialOffer,
   OpenId4VciTokenRequestOptions,
-  OpenId4VcSiopVerifiedAuthorizationRequest,
+  getOfferedCredentials,
 } from '@credo-ts/openid4vc'
-import { useAgent } from '@credo-ts/react-hooks'
 import { getHostNameFromUrl } from '@heka-wallet/shared'
-import { BifoldAgent } from '@hyperledger/aries-bifold-core'
-import { PRE_AUTH_GRANT_LITERAL } from '@sphereon/oid4vci-common'
 import { useCallback } from 'react'
+import { Linking } from 'react-native'
+
+import { useHekaAgent } from '../utils/agent'
 
 import { extractOpenId4VcCredentialMetadata, setOpenId4VcCredentialMetadata } from './metadata'
-import { OpenId4VcPresentationRequest } from './types'
+import { CredentialRecord, OpenId4VcPresentationRequest, OpenIdPresentationSubmissionParams } from './types'
+
+export const PRE_AUTH_GRANT_LITERAL = 'urn:ietf:params:oauth:grant-type:pre-authorized_code'
+
+// Credential formats supported by the wallet
+const WALLET_SUPPORTED_CREDENTIAL_FORMATS: ReadonlyArray<string> = [
+  OpenId4VciCredentialFormatProfile.SdJwtVc,
+  OpenId4VciCredentialFormatProfile.JwtVcJson,
+  OpenId4VciCredentialFormatProfile.JwtVcJsonLd,
+  OpenId4VciCredentialFormatProfile.MsoMdoc,
+]
+
+const walletSupportsCredentialFormat = (format?: string) =>
+  format !== undefined && WALLET_SUPPORTED_CREDENTIAL_FORMATS.includes(format)
+
+const formatOfferedCredentialDescriptions = (
+  offeredCredentials: OpenId4VciResolvedCredentialOffer['offeredCredentialConfigurations']
+) =>
+  Object.keys(offeredCredentials)
+    .map((credentialId) => `${credentialId}: ${offeredCredentials[credentialId].format ?? '<missing format>'}`)
+    .join(', ')
 
 export const useOpenIdHandlers = () => {
-  const { agent, publicDid } = useAgent<BifoldAgent>()
+  const { agent, publicDid } = useHekaAgent()
 
   const resolveOpenId4VciOffer = useCallback(
     async ({
@@ -59,7 +79,7 @@ export const useOpenIdHandlers = () => {
         uri: offer.uri,
       })
 
-      const resolvedCredentialOffer = await agent.modules.openId4VcHolder.resolveCredentialOffer(offerUri)
+      const resolvedCredentialOffer = await agent.openid4vc.holder.resolveCredentialOffer(offerUri)
       let resolvedAuthorizationRequest: OpenId4VciResolvedAuthorizationRequest | undefined = undefined
 
       // NOTE: we always assume scopes are used at the moment
@@ -72,16 +92,9 @@ export const useOpenIdHandlers = () => {
         }
 
         if (authorization) {
-          const uniqueScopes = Array.from(
-            new Set(
-              resolvedCredentialOffer.offeredCredentials.map((o) => o.scope).filter((s): s is string => s !== undefined)
-            )
-          )
-
-          resolvedAuthorizationRequest = await agent.modules.openId4VcHolder.resolveIssuanceAuthorizationRequest(
+          resolvedAuthorizationRequest = await agent.openid4vc.holder.resolveOpenId4VciAuthorizationRequest(
             resolvedCredentialOffer,
             {
-              scope: uniqueScopes,
               redirectUri: authorization.redirectUri,
               clientId: authorization.clientId,
             }
@@ -104,7 +117,7 @@ export const useOpenIdHandlers = () => {
       userPin,
     }: {
       resolvedCredentialOffer: OpenId4VciResolvedCredentialOffer
-      resolvedAuthorizationRequest?: OpenId4VciResolvedAuthorizationRequestWithCode
+      resolvedAuthorizationRequest?: OpenId4VciResolvedAuthorizationRequest
       userPin?: string
     }) => {
       if (!agent) {
@@ -117,10 +130,21 @@ export const useOpenIdHandlers = () => {
       }
 
       if (resolvedAuthorizationRequest) {
-        tokenOptions = { ...tokenOptions, resolvedAuthorizationRequest, code: resolvedAuthorizationRequest.code }
+        tokenOptions = {
+          ...tokenOptions,
+          dpop: resolvedAuthorizationRequest.dpop
+            ? {
+                alg: resolvedAuthorizationRequest.dpop.jwk.supportedSignatureAlgorithms[0],
+                jwk: resolvedAuthorizationRequest.dpop.jwk,
+              }
+            : undefined,
+          // @ts-expect-error - TODO: Fix typecheck here
+          codeVerifier:
+            'codeVerifier' in resolvedAuthorizationRequest ? resolvedAuthorizationRequest.codeVerifier : undefined,
+        }
       }
 
-      return await agent.modules.openId4VcHolder.requestToken(tokenOptions)
+      return await agent.openid4vc.holder.requestToken(tokenOptions)
     },
     [agent]
   )
@@ -143,34 +167,55 @@ export const useOpenIdHandlers = () => {
         throw new Error('Credo agent is not initialized')
       }
 
-      // By default request the first offered credential
-      // TODO: Use first supported credential from offered list
-      const offeredCredentialToRequest = credentialConfigurationIdToRequest
-        ? resolvedCredentialOffer.offeredCredentials.find(
-            (offered) => offered.id === credentialConfigurationIdToRequest
-          )
-        : resolvedCredentialOffer.offeredCredentials[0]
-      if (!offeredCredentialToRequest) {
+      // TODO: Support batch issuance
+      const credentialIdsToRequest = credentialConfigurationIdToRequest
+        ? [credentialConfigurationIdToRequest]
+        : [resolvedCredentialOffer.credentialOfferPayload.credential_configuration_ids[0]]
+
+      const offeredCredentialsToRequest = getOfferedCredentials(
+        credentialIdsToRequest,
+        resolvedCredentialOffer.offeredCredentialConfigurations
+      )
+
+      if (!offeredCredentialsToRequest) {
+        const offeredCredentialDescriptions = formatOfferedCredentialDescriptions(
+          resolvedCredentialOffer.offeredCredentialConfigurations
+        )
+        const errorMessage = credentialConfigurationIdToRequest
+          ? `Parameter 'credentialConfigurationIdToRequest' with value ${credentialConfigurationIdToRequest} is not a credential_configuration_id in the credential offer.`
+          : `No supported credential format found in the credential offer. Supported formats: ${WALLET_SUPPORTED_CREDENTIAL_FORMATS.join(', ')}. Offered credentials: ${offeredCredentialDescriptions}`
+        throw new Error(errorMessage)
+      }
+
+      if (
+        credentialConfigurationIdToRequest &&
+        !walletSupportsCredentialFormat(offeredCredentialsToRequest[credentialConfigurationIdToRequest].format)
+      ) {
+        const offeredCredentialDescriptions = formatOfferedCredentialDescriptions(
+          resolvedCredentialOffer.offeredCredentialConfigurations
+        )
         throw new Error(
-          `Parameter 'credentialConfigurationIdToRequest' with value ${credentialConfigurationIdToRequest} is not a credential_configuration_id in the credential offer.`
+          `Credential configuration '${credentialConfigurationIdToRequest}' uses unsupported format '${offeredCredentialsToRequest[credentialConfigurationIdToRequest].format}'. Supported formats: ${WALLET_SUPPORTED_CREDENTIAL_FORMATS.join(', ')}. Offered credentials: ${offeredCredentialDescriptions}`
         )
       }
 
-      // FIXME: Return credential_supported entry for credential so it's easy to store metadata
-      const credentials = await agent.modules.openId4VcHolder.requestCredentials({
+      const { credentials } = await agent.openid4vc.holder.requestCredentials({
         resolvedCredentialOffer,
         ...accessToken,
         clientId,
-        credentialsToRequest: [offeredCredentialToRequest.id],
+        credentialConfigurationIds: Object.keys(offeredCredentialsToRequest),
         verifyCredentialStatus: false,
-        allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.EdDSA, JwaSignatureAlgorithm.ES256],
+        allowedProofOfPossessionSignatureAlgorithms: [
+          Kms.KnownJwaSignatureAlgorithms.EdDSA,
+          Kms.KnownJwaSignatureAlgorithms.ES256,
+        ],
         credentialBindingResolver: async ({
           supportedDidMethods,
-          keyType,
+          proofTypes,
           supportsAllDidMethods,
           supportsJwk,
           credentialFormat,
-        }) => {
+        }): Promise<OpenId4VcCredentialHolderBinding> => {
           // Prefer did:jwk, otherwise use did:key, otherwise use undefined
           let didMethod: 'key' | 'jwk' | undefined =
             supportsAllDidMethods || supportedDidMethods?.includes('did:jwk')
@@ -184,15 +229,24 @@ export const useOpenIdHandlers = () => {
             didMethod = 'key'
           }
 
-          const key = await agent.wallet.createKey({
-            keyType,
-          })
+          // TODO: support key attestations
+          if (!proofTypes.jwt || proofTypes.jwt.keyAttestationsRequired) {
+            throw new Error('Unable to request credentials. Only jwt proof type without key attestations supported')
+          }
+
+          const signatureAlgorithm = proofTypes.jwt.supportedSignatureAlgorithms[0]
+
+          const key = await agent.kms
+            .createKeyForSignatureAlgorithm({
+              algorithm: signatureAlgorithm,
+            })
+            .then((key) => Kms.PublicJwk.fromUnknown(key.publicJwk))
 
           if (didMethod) {
             const didResult = await agent.dids.create<JwkDidCreateOptions | KeyDidCreateOptions>({
               method: didMethod,
               options: {
-                key,
+                keyId: key.keyId,
               },
             })
 
@@ -206,25 +260,30 @@ export const useOpenIdHandlers = () => {
               verificationMethodId = didJwk.verificationMethodId
             } else {
               const didKey = DidKey.fromDid(didResult.didState.did)
-              verificationMethodId = `${didKey.did}#${didKey.key.fingerprint}`
+              verificationMethodId = `${didKey.did}#${didKey.publicJwk.fingerprint}`
             }
 
             return {
-              didUrl: verificationMethodId,
+              didUrls: [verificationMethodId],
               method: 'did',
             }
           }
 
-          // Support plain jwk for sd-jwt only
-          if (supportsJwk && credentialFormat === OpenId4VciCredentialFormatProfile.SdJwtVc) {
+          // Support plain jwk for sd-jwt and mdoc
+          if (
+            supportsJwk &&
+            (credentialFormat === OpenId4VciCredentialFormatProfile.SdJwtVc ||
+              credentialFormat === OpenId4VciCredentialFormatProfile.SdJwtDc ||
+              credentialFormat === OpenId4VciCredentialFormatProfile.MsoMdoc)
+          ) {
             return {
               method: 'jwk',
-              jwk: getJwkFromKey(key),
+              keys: [key],
             }
           }
 
           throw new Error(
-            `No supported binding method could be found. Supported methods are did:key and did:jwk, or plain jwk for sd-jwt. Issuer supports ${
+            `No supported binding method could be found. Supported methods are did:key and did:jwk, or plain jwk for sd-jwt/mdoc. Issuer supports ${
               supportsJwk ? 'jwk, ' : ''
             }${supportedDidMethods?.join(', ') ?? 'Unknown'}`
           )
@@ -234,30 +293,15 @@ export const useOpenIdHandlers = () => {
       const [firstCredential] = credentials
       if (!firstCredential) throw new Error('Error retrieving credential.')
 
-      let record: SdJwtVcRecord | W3cCredentialRecord | MdocRecord
+      const { record, credentialConfiguration } = firstCredential
 
-      // TODO: Add claimFormat to SdJwtVc
-      if ('compact' in firstCredential.credential) {
-        record = new SdJwtVcRecord({
-          compactSdJwtVc: firstCredential.credential.compact,
-        })
-      } else if (firstCredential.credential instanceof Mdoc) {
-        record = new MdocRecord({ mdoc: firstCredential.credential })
-      } else {
-        record = new W3cCredentialRecord({
-          credential: firstCredential.credential,
-          // FIXME: We don't support expanded types right now, it would become problem for JSON-LD support
-          tags: {},
-        })
-      }
-
-      const openId4VcMetadata = extractOpenId4VcCredentialMetadata(offeredCredentialToRequest, {
-        id: resolvedCredentialOffer.metadata.issuer,
-        display: resolvedCredentialOffer.metadata.credentialIssuerMetadata.display,
+      const openId4VcMetadata = extractOpenId4VcCredentialMetadata(credentialConfiguration, {
+        id: resolvedCredentialOffer.metadata.credentialIssuer.credential_issuer,
+        display: resolvedCredentialOffer.metadata.credentialIssuer.display,
       })
 
       agent.config.logger.info('Resolved openid issuer metadata', {
-        display: resolvedCredentialOffer.metadata.credentialIssuerMetadata?.display,
+        display: resolvedCredentialOffer.metadata.credentialIssuer.display,
         issuerId: openId4VcMetadata.issuer.id,
       })
 
@@ -269,39 +313,38 @@ export const useOpenIdHandlers = () => {
   )
 
   const resolveOpenId4VpPresentationRequest = useCallback(
-    async (request: { data?: string; uri?: string }): Promise<OpenId4VcPresentationRequest> => {
+    async (request: { data?: string; uri?: string }, origin?: string): Promise<OpenId4VcPresentationRequest> => {
       if (!agent) {
         throw new Error('Credo agent is not initialized')
       }
 
-      let requestUri = request.uri
+      const requestToResolve = request.uri ?? request.data
 
-      if (!requestUri && request.data) {
-        // FIXME: Credo only support request string, but we already parsed it before. So we construct an request here
-        // but in the future we need to support the parsed request in Credo directly
-        requestUri = `openid://request=${encodeURIComponent(request.data)}`
-      } else if (!requestUri) {
-        throw new Error('Either data or uri must be provided')
+      if (!requestToResolve) {
+        throw new Error('Either supply a uri or requestPayload to get the credentials for a proof request')
       }
 
-      agent.config.logger.info(`Receiving openid uri ${requestUri}`, {
-        requestUri,
+      agent.config.logger.info(`Receiving OID4VP request ${requestToResolve}`, {
+        requestToResolve,
         data: request.data,
         uri: request.uri,
       })
 
-      const resolved = await agent.modules.openId4VcHolder.resolveSiopAuthorizationRequest(requestUri)
+      const resolved = await agent.openid4vc.holder.resolveOpenId4VpAuthorizationRequest(requestToResolve, { origin })
 
-      if (!resolved.presentationExchange) {
-        throw new Error('No presentation exchange found in authorization request.')
+      if (!resolved.presentationExchange && !resolved.dcql) {
+        throw new Error('No presentation exchange or dcql found in authorization request.')
       }
 
       return {
         ...resolved.presentationExchange,
-        authorizationRequest: resolved.authorizationRequest,
-        verifierHostName: resolved.authorizationRequest.responseURI
-          ? getHostNameFromUrl(resolved.authorizationRequest.responseURI)
+        ...resolved.dcql,
+        authorizationRequest: resolved.authorizationRequestPayload,
+        verifierHostName: resolved.authorizationRequestPayload.response_uri
+          ? getHostNameFromUrl(resolved.authorizationRequestPayload.response_uri as string)
           : undefined,
+        origin: resolved.origin,
+        transactionData: resolved.transactionData,
       }
     },
     [agent]
@@ -309,46 +352,84 @@ export const useOpenIdHandlers = () => {
 
   const acceptOpenId4VpPresentationRequest = useCallback(
     async ({
-      authorizationRequest,
-      credentialsForRequest,
+      submissionParams,
       selectedCredentials,
     }: {
-      authorizationRequest: OpenId4VcSiopVerifiedAuthorizationRequest
-      credentialsForRequest: DifPexCredentialsForRequest
+      submissionParams: OpenIdPresentationSubmissionParams
       selectedCredentials: { [inputDescriptorId: string]: string }
     }) => {
       if (!agent) {
         throw new Error('Credo agent is not initialized')
       }
 
-      if (!credentialsForRequest.areRequirementsSatisfied) {
+      if (
+        !submissionParams.credentialsForRequest?.areRequirementsSatisfied &&
+        !submissionParams.queryResult?.can_be_satisfied
+      ) {
         throw new Error('Requirements from proof request are not satisfied')
       }
 
-      const credentials = Object.fromEntries(
-        credentialsForRequest.requirements.flatMap((requirement) =>
-          requirement.submissionEntry.map((entry) => {
-            const credentialId = selectedCredentials[entry.inputDescriptorId]
+      // Map all requirements and entries to a credential record. If a credential record for an
+      // input descriptor has been provided in `selectedCredentials` we will use that. Otherwise
+      // it will pick the first available credential.
+      const presentationExchangeCredentials = submissionParams.credentialsForRequest
+        ? Object.fromEntries(
+            await Promise.all(
+              submissionParams.credentialsForRequest.requirements.flatMap((requirement) =>
+                requirement.submissionEntry.slice(0, requirement.needsCount).map(async (entry) => {
+                  const credentialId = selectedCredentials[entry.inputDescriptorId]
+                  const credential =
+                    entry.verifiableCredentials.find((vc) => vc.credentialRecord.id === credentialId) ??
+                    entry.verifiableCredentials[0]
 
-            // Use first available credential if not found in 'selectedCredentials'
-            const credential =
-              entry.verifiableCredentials.find((vc) => vc.credentialRecord.id === credentialId) ??
-              entry.verifiableCredentials[0]
+                  // NOTE: we don't support single-use credentials for PEX
+                  return [entry.inputDescriptorId, [credential]]
+                })
+              )
+            )
+          )
+        : undefined
 
-            return [entry.inputDescriptorId, [credential.credentialRecord]]
-          })
-        )
-      )
+      const dcqlCredentials = submissionParams.queryResult
+        ? Object.fromEntries(
+            await Promise.all(
+              Object.entries(
+                Object.keys(selectedCredentials).length > 0
+                  ? // FIXME: this method should take into account w3c credentials
+                    getSelectedCredentialsForDcqlRequest(submissionParams.queryResult, selectedCredentials)
+                  : agent.openid4vc.holder.selectCredentialsForDcqlRequest(submissionParams.queryResult, {
+                      // FIXME: we currently allow re-sharing if we don't have new instances anymore
+                      // we should make this configurable maybe? Or dependant on credential type?
+                      useMode: CredentialMultiInstanceUseMode.NewOrFirst,
+                    })
+              )
+            )
+          )
+        : undefined
 
-      const result = await agent.modules.openId4VcHolder.acceptSiopAuthorizationRequest({
-        authorizationRequest,
-        presentationExchange: {
-          credentials,
-        },
+      const result = await agent.openid4vc.holder.acceptOpenId4VpAuthorizationRequest({
+        authorizationRequestPayload: submissionParams.authorizationRequest,
+        origin: submissionParams.origin,
+        presentationExchange: presentationExchangeCredentials
+          ? {
+              credentials: presentationExchangeCredentials,
+            }
+          : undefined,
+        dcql: dcqlCredentials
+          ? {
+              credentials: dcqlCredentials,
+            }
+          : undefined,
       })
 
-      if (result.serverResponse.status < 200 || result.serverResponse.status > 299) {
-        throw new Error(`Error while accepting authorization request. ${result.serverResponse.body as string}`)
+      // If redirect_uri is provided, open it in the browser
+      // Even if the response returned an error, the redirect URI must be opened
+      if (result.redirectUri) {
+        await Linking.openURL(result.redirectUri)
+      }
+
+      if (result.serverResponse && (result.serverResponse.status < 200 || result.serverResponse.status > 299)) {
+        throw new Error(`Error while accepting authorization request. ${JSON.stringify(result.serverResponse?.body)}`)
       }
 
       return result
@@ -363,4 +444,65 @@ export const useOpenIdHandlers = () => {
     resolveOpenId4VpPresentationRequest,
     acceptOpenId4VpPresentationRequest,
   }
+}
+
+function getSelectedCredentialsForDcqlRequest(
+  dcqlQueryResult: DcqlQueryResult,
+  selectedCredentials: { [credentialQueryId: string]: string }
+): DcqlCredentialsForRequest {
+  if (!dcqlQueryResult.can_be_satisfied) {
+    throw new Error('Cannot select the credentials for the dcql query presentation if the request cannot be satisfied')
+  }
+
+  const credentials: DcqlCredentialsForRequest = {}
+
+  type WithRecord<T> = T & {
+    record: CredentialRecord
+  }
+
+  for (const [credentialQueryId, credentialRecordId] of Object.entries(selectedCredentials)) {
+    const matchesForCredentialQuery = dcqlQueryResult.credential_matches[credentialQueryId]
+    if (matchesForCredentialQuery.success) {
+      const validCredentialMatch = matchesForCredentialQuery.valid_credentials.find(
+        (credential) => (credential as WithRecord<typeof credential>).record.id === credentialRecordId
+      )
+
+      if (!validCredentialMatch) {
+        throw new Error(
+          `Could not find credential record ${credentialRecordId} in valid credential matches for credentialQueryId ${credentialQueryId}`
+        )
+      }
+
+      // TODO: fix the typing, make selection in Credo easier
+      const matchWithRecord = validCredentialMatch as typeof validCredentialMatch & {
+        record: CredentialRecord
+      }
+
+      if (matchWithRecord.record.type === 'MdocRecord') {
+        credentials[credentialQueryId] = [
+          {
+            claimFormat: ClaimFormat.MsoMdoc,
+            credentialRecord: matchWithRecord.record,
+            disclosedPayload: matchWithRecord.claims.valid_claim_sets[0].output as MdocNameSpaces,
+            // FIXME: we currently allow re-sharing if we don't have new instances anymore
+            // we should make this configurable maybe? Or dependant on credential type?
+            useMode: CredentialMultiInstanceUseMode.NewOrFirst,
+          },
+        ]
+      } else if (matchWithRecord.record.type === 'SdJwtVcRecord') {
+        credentials[credentialQueryId] = [
+          {
+            claimFormat: ClaimFormat.SdJwtDc,
+            credentialRecord: matchWithRecord.record,
+            disclosedPayload: matchWithRecord.claims.valid_claim_sets[0].output as JsonObject,
+            // FIXME: we currently allow re-sharing if we don't have new instances anymore
+            // we should make this configurable maybe? Or dependant on credential type?
+            useMode: CredentialMultiInstanceUseMode.NewOrFirst,
+          },
+        ]
+      }
+    }
+  }
+
+  return credentials
 }

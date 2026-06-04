@@ -10,10 +10,10 @@ export enum OrmConfigKeys {
 
 const dbConfigDefaults = {
   host: 'localhost',
-  port: 5432,
-  name: 'postgres',
-  user: 'postgres',
-  password: 'postgres',
+  port: 5433,
+  name: 'heka-auth-service',
+  user: 'heka',
+  password: 'heka1',
 }
 
 export class DbConfig {
@@ -36,8 +36,8 @@ export class DbConfig {
 
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
-    ;(this.host = env[OrmConfigKeys.host] || dbConfigDefaults.host),
-      (this.port = env[OrmConfigKeys.port] ? parseInt(env[OrmConfigKeys.port]) : dbConfigDefaults.port)
+    this.host = env[OrmConfigKeys.host] || dbConfigDefaults.host
+    this.port = env[OrmConfigKeys.port] ? parseInt(env[OrmConfigKeys.port]) : dbConfigDefaults.port
     this.name = env[OrmConfigKeys.dbName] || dbConfigDefaults.name
     this.user = env[OrmConfigKeys.user] || dbConfigDefaults.user
     this.password = env[OrmConfigKeys.password] || dbConfigDefaults.password

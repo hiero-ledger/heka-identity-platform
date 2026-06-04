@@ -54,7 +54,7 @@ export const IconButton: React.FC<Props> = ({
       <BootstrapIcon
         name={iconName}
         size={iconSize ?? DEFAULT_ICON_SIZE}
-        color={iconColor ?? theme.ColorPallet.brand.icon}
+        color={iconColor ?? theme.ColorPalette.brand.icon}
       />
       {!!label && (
         <Text style={{ ...theme.Buttons.primaryText, marginLeft: theme.Spacing.xs, ...textStyle }}>{label}</Text>

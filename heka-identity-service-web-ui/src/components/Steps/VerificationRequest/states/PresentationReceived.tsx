@@ -50,7 +50,7 @@ export const PresentationReceived = <T extends object>({
         <Row className={cls.title}>{t('Flow.titles.presentationReceived')}</Row>
         <Column className={cls.buttonGroup}>
           <Button
-            buttonType="outlined"
+            buttonType="filled"
             onPress={() => onChangeStep(stepDetails.next?.name)}
           >
             {stepDetails.next?.title}
@@ -58,6 +58,7 @@ export const PresentationReceived = <T extends object>({
           {!context.useDemo && (
             <Button
               buttonType="text"
+              className={cls.textButton}
               onPress={() => setTemplateModalOpen(true)}
             >
               {t('Common.buttons.saveAsTemplate')}
@@ -79,7 +80,11 @@ export const PresentationReceived = <T extends object>({
               {revealedAttribute.name}
             </Column>
             <Column className={cls.attributeValue}>
-              {revealedAttribute.value}
+              {String(revealedAttribute.value) === 'true'
+                ? 'Yes'
+                : String(revealedAttribute.value) === 'false'
+                  ? 'No'
+                  : String(revealedAttribute.value)}
             </Column>
           </Row>
         ))}

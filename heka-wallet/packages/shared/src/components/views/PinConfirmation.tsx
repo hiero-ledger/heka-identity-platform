@@ -1,5 +1,5 @@
-import { useAuth } from '@hyperledger/aries-bifold-core'
-import { hashPIN } from '@hyperledger/aries-bifold-core/App/utils/crypto'
+import { useAuth } from '@bifold/core'
+import { hashPIN } from '@bifold/core/src/utils/crypto'
 import React, { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Alert } from 'react-native'
@@ -17,21 +17,21 @@ interface Props {
 export const PinConfirmation: React.FC<Props> = ({ title, onSuccess, onClose }) => {
   const { t } = useTranslation()
 
-  const { getWalletCredentials } = useAuth()
+  const { getWalletSecret } = useAuth()
 
   const [validationError, setValidationError] = useState(false)
 
   const onConfirm = useCallback(
     async (pin: string) => {
       try {
-        const credentials = await getWalletCredentials()
+        const walletSecret = await getWalletSecret()
 
-        if (!credentials) {
-          throw new Error('checkPin: Got undefined wallet credentials')
+        if (!walletSecret) {
+          throw new Error('PinConfirmation: Got undefined wallet secret')
         }
 
-        const pinHash = await hashPIN(pin, credentials.salt)
-        const isPinValid = pinHash === credentials.key
+        const pinHash = await hashPIN(pin, walletSecret.salt)
+        const isPinValid = pinHash === walletSecret.key
 
         if (isPinValid) {
           onSuccess()
@@ -43,7 +43,7 @@ export const PinConfirmation: React.FC<Props> = ({ title, onSuccess, onClose }) 
         Alert.alert(t('Error.Problem'))
       }
     },
-    [getWalletCredentials, onSuccess, t]
+    [getWalletSecret, onSuccess, t]
   )
 
   const onPinChanged = useCallback((pin: string) => {

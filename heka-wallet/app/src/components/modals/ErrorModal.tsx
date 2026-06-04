@@ -1,4 +1,4 @@
-import { BifoldError, EventTypes } from '@hyperledger/aries-bifold-core'
+import { BifoldError, EventTypes } from '@bifold/core'
 import * as React from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
