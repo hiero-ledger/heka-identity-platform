@@ -1,5 +1,5 @@
 import { getAgentModules, WalletSecret } from '@bifold/core'
-import { useAgent } from '@bifold/react-hooks'
+import { useOptionalAgent } from '@bifold/react-hooks'
 import {
   AnonCredsDidCommCredentialFormatService,
   AnonCredsDidCommProofFormatService,
@@ -42,7 +42,7 @@ import {
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import { IndyVdrAnonCredsRegistry, IndyVdrPoolConfig } from '@credo-ts/indy-vdr'
 import { agentDependencies } from '@credo-ts/react-native'
-import { anoncreds } from '@hyperledger/anoncreds-react-native'
+import { NativeAnoncreds } from '@hyperledger/anoncreds-react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Config } from 'react-native-config'
 
@@ -57,6 +57,10 @@ import { TailsService } from './revocation/TailsService'
 const PUBLIC_DID_KEY = 'PUBLIC_DID'
 
 const PUBLIC_INVITATION_ID_KEY = 'PUBLIC_INVITATION_ID'
+
+export const TRUSTED_X509_CERTIFICATES = [
+  'MIIBwDCCAWWgAwIBAgIUSMdjaVc1KHI+3o6qJXhSC4sJh+cwCgYIKoZIzj0EAwIwNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMB4XDTI2MDMyNzIxNDA1NloXDTM2MDMyNDIxNDA1NlowNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1nIrm3O9VX8MdPrKWMhqqV0QMS4UtxKj6uUc8IdGE2fSsWyi7XQN3HoE1Ln9TDtOIHvSyW8Eyr98MlWGBBF/vqNTMFEwHQYDVR0OBBYEFNfkrHxd2nwtni96XrrYhaMgUFImMB8GA1UdIwQYMBaAFNfkrHxd2nwtni96XrrYhaMgUFImMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAP0V5EW7j6Pb+lJktzdWrtEqhI3mYs9Fd+qh0p2kNXJPAiEAqK+q7Wk+t5e2yzvO3b6t3P5nIEnoQt3cvDsaUZY1dT0=',
+] as const
 
 const EXAMPLE_CREDENTIAL_VCT = 'ExampleCredential'
 const EXAMPLE_CREDENTIAL_METADATA: OpenId4VcCredentialMetadata = {
@@ -75,7 +79,8 @@ interface CreateAgentOptions {
 
 export type HekaWalletAgent = Awaited<ReturnType<typeof createAgent>>
 
-export const useHekaAgent = (): ReturnType<typeof useAgent<HekaWalletAgent>> => useAgent<HekaWalletAgent>()
+export const useHekaAgent = (): ReturnType<typeof useOptionalAgent<HekaWalletAgent>> =>
+  useOptionalAgent<HekaWalletAgent>()
 
 export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }: CreateAgentOptions) {
   if (!walletSecret.key) {
@@ -146,7 +151,7 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
         registrars: [new KeyDidRegistrar(), new PeerDidRegistrar(), new JwkDidRegistrar(), new HederaDidRegistrar()],
       }),
       anoncreds: new AnonCredsModule({
-        anoncreds,
+        anoncreds: NativeAnoncreds.instance,
         registries: [
           new IndyVdrAnonCredsRegistry(),
           new IndyBesuAnoncredsRegistry(indyBesuConfig),
@@ -166,9 +171,7 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
         ],
       }),
       x509: new X509Module({
-        trustedCertificates: [
-          'MIIBwDCCAWWgAwIBAgIUSMdjaVc1KHI+3o6qJXhSC4sJh+cwCgYIKoZIzj0EAwIwNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMB4XDTI2MDMyNzIxNDA1NloXDTM2MDMyNDIxNDA1NlowNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1nIrm3O9VX8MdPrKWMhqqV0QMS4UtxKj6uUc8IdGE2fSsWyi7XQN3HoE1Ln9TDtOIHvSyW8Eyr98MlWGBBF/vqNTMFEwHQYDVR0OBBYEFNfkrHxd2nwtni96XrrYhaMgUFImMB8GA1UdIwQYMBaAFNfkrHxd2nwtni96XrrYhaMgUFImMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAP0V5EW7j6Pb+lJktzdWrtEqhI3mYs9Fd+qh0p2kNXJPAiEAqK+q7Wk+t5e2yzvO3b6t3P5nIEnoQt3cvDsaUZY1dT0=',
-        ],
+        trustedCertificates: [...TRUSTED_X509_CERTIFICATES],
       }),
     },
   })

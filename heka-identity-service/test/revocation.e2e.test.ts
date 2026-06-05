@@ -35,11 +35,11 @@ describe.skip('Revocation E2E Tests', () => {
 
   beforeAll(async () => {
     const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
   })
 
   beforeEach(async () => {
-    // await ormSchemaGenerator.refreshDatabase()
+    // await ormSchemaGenerator.refresh()
     //
     // nestApp = await startTestApp()
     // app = nestApp.getHttpServer() as Server
@@ -49,7 +49,7 @@ describe.skip('Revocation E2E Tests', () => {
     //
     // const adminId = uuid()
 
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -247,7 +247,7 @@ describe.skip('Revocation E2E Tests', () => {
   })
 
   afterAll(async () => {
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
   })
 
   // it('should create a revocation registry', async () => {

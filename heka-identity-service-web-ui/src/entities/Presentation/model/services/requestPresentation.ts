@@ -6,6 +6,7 @@ import { demoUser } from '@/const/user';
 import {
   AnoncredsPresentationState,
   OpenIdPresentationState,
+  SharedAttribute,
 } from '@/entities/Presentation/model/types/presentation';
 import {
   buildAriesPresentationRequest,
@@ -21,6 +22,43 @@ import {
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { handleError } from '@/shared/api/utils/error';
 import { getUserId } from '@/shared/api/utils/token';
+import { DcApiProtocolIdentifier } from '@/shared/lib/dcApi';
+
+/**
+ * Error codes for the DC API `navigator.credentials.get()` step, mapped to user-facing messages
+ * in the UI (`PresentationOptions.errors.*`). Classified here so cancellations / unsupported-browser cases
+ * bypass `handleError` — which toasts a generic message and, when there is no access token (the
+ * demo flow), signs the user out.
+ */
+export type DcApiErrorCode = 'cancelled' | 'unsupported' | 'failed';
+
+export class DcApiError extends Error {
+  public readonly code: DcApiErrorCode;
+
+  constructor(code: DcApiErrorCode) {
+    super(`dc-api:${code}`);
+    this.name = 'DcApiError';
+    this.code = code;
+  }
+}
+
+const toDcApiError = (error: unknown): DcApiError => {
+  const name = error instanceof Error ? error.name : '';
+  // Picker dismissed, no credential chosen, or the request was aborted (our Cancel button, page
+  // navigation, or the OS cross-device timeout) → a cancellation, not a failure.
+  if (name === 'NotAllowedError' || name === 'AbortError') {
+    return new DcApiError('cancelled');
+  }
+  // The browser/platform cannot service the request: the protocol/interface is unavailable
+  // (`NotSupportedError`) or it was blocked by policy / an insecure context (`SecurityError`).
+  // These names track current Chrome DC API behavior. `TypeError` is intentionally NOT classified
+  // here — it signals a malformed request (a bug on our side), which should surface as a generic
+  // failure rather than be mislabeled an "unsupported browser" (which would hide the bug).
+  if (name === 'NotSupportedError' || name === 'SecurityError') {
+    return new DcApiError('unsupported');
+  }
+  return new DcApiError('failed');
+};
 
 export interface RequestPresentationParams {
   protocolType: ProtocolType;
@@ -38,6 +76,7 @@ export interface RequestPresentationResult {
   id: string;
   request?: string;
   state: OpenIdPresentationState | AnoncredsPresentationState;
+  sharedAttributes?: Array<SharedAttribute>;
 }
 
 export const requestPresentation = createAsyncThunk<
@@ -45,7 +84,7 @@ export const requestPresentation = createAsyncThunk<
   RequestPresentationParams,
   ThunkConfig<string>
 >('presentation/request', async (params, thunkAPI) => {
-  const { extra, rejectWithValue, dispatch } = thunkAPI;
+  const { extra, rejectWithValue, dispatch, signal } = thunkAPI;
 
   try {
     switch (params.protocolType) {
@@ -54,6 +93,7 @@ export const requestPresentation = createAsyncThunk<
           return await requestOpenId4VcPresentationDcApi(
             params.useDemo ? extra.agencyDemoApi : extra.agencyApi,
             params,
+            signal,
           );
         }
         return await requestOpenId4VcPresentation(
@@ -67,6 +107,11 @@ export const requestPresentation = createAsyncThunk<
         );
     }
   } catch (error) {
+    // DC API picker/transport errors are classified to a stable code and surfaced inline by the
+    // UI, skipping the generic toast + demo sign-out side effects of handleError.
+    if (error instanceof DcApiError) {
+      return rejectWithValue(error.code);
+    }
     return handleError(error, rejectWithValue, dispatch);
   }
 });
@@ -124,6 +169,7 @@ interface RequestOpenIdPresentationDcApiResponse {
 const requestOpenId4VcPresentationDcApi = async (
   api: AxiosInstance,
   params: RequestPresentationParams,
+  signal?: AbortSignal,
 ): Promise<RequestPresentationResult> => {
   const userId = params.useDemo ? demoUser.did : getUserId();
   if (!userId) {
@@ -142,6 +188,8 @@ const requestOpenId4VcPresentationDcApi = async (
     doctype: params.schema.name,
     namespace: params.schema.name,
     useDcApi: true,
+    // Bind the calling page into the signed request so the holder accepts it.
+    expectedOrigins: [window.location.origin],
   });
 
   const response = await api.post<RequestOpenIdPresentationDcApiResponse>(
@@ -152,26 +200,45 @@ const requestOpenId4VcPresentationDcApi = async (
   const { verificationSession, authorizationRequestObject } = response.data;
 
   const isSigned = 'payload' in authorizationRequestObject;
-  const protocol = isSigned ? 'openid4vp-v1-signed' : 'openid4vp-v1-unsigned';
+  const protocolIdentifier = isSigned
+    ? DcApiProtocolIdentifier.OpenId4VpV1Signed
+    : DcApiProtocolIdentifier.OpenId4VpV1Unsigned;
 
-  const credentialResponse = await navigator.credentials.get({
-    // @ts-expect-error — DigitalCredential API not yet in lib.dom.d.ts
-    digital: {
-      requests: [{ protocol, data: authorizationRequestObject }],
-    },
-  });
-
-  if (!credentialResponse || credentialResponse.constructor.name !== 'DigitalCredential') {
-    throw new Error('Did not receive a DigitalCredential response from navigator.credentials.get()');
+  let credentialResponse: Credential | null;
+  try {
+    credentialResponse = await navigator.credentials.get({
+      // @ts-expect-error — DigitalCredential API not yet in lib.dom.d.ts
+      digital: {
+        requests: [
+          {
+            protocol: protocolIdentifier,
+            data: authorizationRequestObject,
+          },
+        ],
+      },
+      signal,
+    });
+  } catch (error) {
+    throw toDcApiError(error);
   }
 
-  // @ts-expect-error — DigitalCredential.data not yet typed
-  const authorizationResponse: Record<string, unknown> =
-    typeof (credentialResponse as any).data === 'string'
-      ? JSON.parse((credentialResponse as any).data)
-      : (credentialResponse as any).data;
+  if (
+    !credentialResponse ||
+    credentialResponse.constructor.name !== 'DigitalCredential'
+  ) {
+    throw new DcApiError('failed');
+  }
 
-  await api.post(
+  // DigitalCredential.data is not yet typed in lib.dom.d.ts
+  const data = (
+    credentialResponse as unknown as { data: string | Record<string, unknown> }
+  ).data;
+  const authorizationResponse: Record<string, unknown> =
+    typeof data === 'string' ? JSON.parse(data) : data;
+
+  const verifyResponse = await api.post<{
+    sharedAttributes?: Record<string, unknown>;
+  }>(
     `${agencyEndpoints.updateOpenIdPresentationState(verificationSession.id)}/verify`,
     {
       authorizationResponse,
@@ -179,10 +246,17 @@ const requestOpenId4VcPresentationDcApi = async (
     },
   );
 
+  const sharedAttributes = verifyResponse.data.sharedAttributes
+    ? Object.entries(verifyResponse.data.sharedAttributes).map(
+        ([name, value]) => ({ name, value: String(value) }),
+      )
+    : undefined;
+
   return {
     id: verificationSession.id,
     request: undefined,
     state: OpenIdPresentationState.ResponseVerified,
+    sharedAttributes,
   };
 };
 

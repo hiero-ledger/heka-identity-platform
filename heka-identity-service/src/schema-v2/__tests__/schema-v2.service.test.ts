@@ -67,7 +67,7 @@ describe('SchemaV2Service', () => {
     tenantAgent = createMock<TenantAgent>({
       openid4vc: {
         issuer: { getIssuerByIssuerId: vi.fn(), updateIssuerMetadata: vi.fn() },
-      } as any,
+      },
     })
   })
 
@@ -93,7 +93,7 @@ describe('SchemaV2Service', () => {
           registrations: mockRegistrations,
         },
       ]
-      vi.mocked(em.findAndCount).mockResolvedValue([mockSchemas as any, 1])
+      vi.mocked(em.findAndCount).mockResolvedValue([mockSchemas, 1])
       vi.mocked(fileStorageService.url).mockReturnValue('https://cdn/logo.png')
 
       const result = await schemaV2Service.getList(authInfo, { offset: 0, limit: 10 })
@@ -133,7 +133,7 @@ describe('SchemaV2Service', () => {
           count: () => 0,
         },
       }
-      vi.mocked(em.findOne).mockResolvedValue(mockSchema as any)
+      vi.mocked(em.findOne).mockResolvedValue(mockSchema)
 
       const result = await schemaV2Service.getById(authInfo, 'schema-1')
 
@@ -220,7 +220,7 @@ describe('SchemaV2Service', () => {
       const result = await schemaV2Service.getRegistration(authInfo, 'schema-1', {
         protocol: ProtocolType.Oid4vc,
         did: 'did:key:z1',
-      } as any)
+      })
 
       expect(result.registered).toBe(true)
       expect(result.credentials).toEqual({ supportedCredentialId: 'cred-1' })
@@ -236,7 +236,7 @@ describe('SchemaV2Service', () => {
       const result = await schemaV2Service.getRegistration(authInfo, 'schema-1', {
         protocol: ProtocolType.Oid4vc,
         did: 'did:key:z1',
-      } as any)
+      })
 
       expect(result.registered).toBe(false)
     })
@@ -282,13 +282,13 @@ describe('SchemaV2Service', () => {
       }
 
       vi.mocked(em.findOne).mockResolvedValue(mockSchema)
-      vi.mocked(em.find).mockResolvedValue([] as any)
+      vi.mocked(em.find).mockResolvedValue([])
 
       const result = await schemaV2Service.patch(
         authInfo,
         tenantAgent,
         'schema-1',
-        { bgColor: '#222' } as any,
+        { bgColor: '#222' },
         undefined as any,
       )
 
@@ -318,7 +318,7 @@ describe('SchemaV2Service', () => {
       vi.mocked(em.findOne).mockResolvedValue(mockSchema)
       vi.mocked(em.find).mockResolvedValue([mockSchema] as any)
 
-      await schemaV2Service.patch(authInfo, tenantAgent, 'schema-1', { isHidden: true } as any, undefined as any)
+      await schemaV2Service.patch(authInfo, tenantAgent, 'schema-1', { isHidden: true }, undefined as any)
 
       expect(mockSchema.isHidden).toBe(true)
       expect(em.flush).toHaveBeenCalled()
@@ -344,7 +344,7 @@ describe('SchemaV2Service', () => {
       vi.mocked(em.findOne).mockResolvedValue(mockSchema)
       vi.mocked(em.find).mockResolvedValue([mockSchema] as any)
 
-      await schemaV2Service.patch(authInfo, tenantAgent, 'schema-1', { previousSchemaId: '' } as any, undefined as any)
+      await schemaV2Service.patch(authInfo, tenantAgent, 'schema-1', { previousSchemaId: '' }, undefined as any)
 
       expect(em.flush).toHaveBeenCalled()
     })
@@ -384,7 +384,7 @@ describe('SchemaV2Service', () => {
         authInfo,
         tenantAgent,
         'schema-1',
-        { previousSchemaId: 'schema-prev' } as any,
+        { previousSchemaId: 'schema-prev' },
         undefined as any,
       )
 
@@ -434,10 +434,10 @@ describe('SchemaV2Service', () => {
       const logoFile = { originalname: 'new.png' } as any
 
       vi.mocked(em.findOne).mockResolvedValue(mockSchema)
-      vi.mocked(em.find).mockResolvedValue([] as any)
+      vi.mocked(em.find).mockResolvedValue([])
       vi.mocked(fileStorageService.put).mockResolvedValue('new/logo.png')
 
-      await schemaV2Service.patch(authInfo, tenantAgent, 'schema-1', {} as any, logoFile)
+      await schemaV2Service.patch(authInfo, tenantAgent, 'schema-1', {}, logoFile)
 
       expect(fileStorageService.remove).toHaveBeenCalledWith('old/logo.png')
       expect(fileStorageService.put).toHaveBeenCalled()
@@ -463,7 +463,7 @@ describe('SchemaV2Service', () => {
       }
 
       vi.mocked(em.findOne).mockResolvedValue(mockSchema)
-      vi.mocked(em.find).mockResolvedValue([] as any)
+      vi.mocked(em.find).mockResolvedValue([])
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
@@ -472,7 +472,7 @@ describe('SchemaV2Service', () => {
         display: [{ name: 'Issuer' }],
       } as any)
 
-      await schemaV2Service.patch(authInfo, tenantAgent, 'schema-1', { bgColor: '#333' } as any, undefined as any)
+      await schemaV2Service.patch(authInfo, tenantAgent, 'schema-1', { bgColor: '#333' }, undefined as any)
 
       expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalledWith(
         tenantAgent,
@@ -500,23 +500,23 @@ describe('SchemaV2Service', () => {
       }
 
       // duplicate name check -> null; lastSchema -> null; setPlace finds empty
-      vi.mocked(em.findOne).mockResolvedValue(null as any)
-      vi.mocked(em.find).mockResolvedValue([] as any)
+      vi.mocked(em.findOne).mockResolvedValue(null)
+      vi.mocked(em.find).mockResolvedValue([])
 
-      vi.mocked(em.persistAndFlush).mockImplementation(() => {
+      vi.mocked(em.persist).mockImplementation(() => {
         vi.mocked(em.findOne).mockResolvedValue(createdSchema)
-        return Promise.resolve()
+        return em
       })
 
       const result = await schemaV2Service.create(authInfo, {
         name: 'New Schema',
         bgColor: '#abc',
         fields: [],
-      } as any)
+      })
 
       expect(result.id).toBe('schema-new')
       expect(result.name).toBe('New Schema')
-      expect(em.persistAndFlush).toHaveBeenCalled()
+      expect(em.flush).toHaveBeenCalled()
     })
 
     test('creates schema with logoFile', async () => {
@@ -532,20 +532,20 @@ describe('SchemaV2Service', () => {
         registrations: { map: vi.fn().mockReturnValue([]), count: () => 0 },
       }
 
-      vi.mocked(em.findOne).mockResolvedValue(null as any)
-      vi.mocked(em.find).mockResolvedValue([] as any)
+      vi.mocked(em.findOne).mockResolvedValue(null)
+      vi.mocked(em.find).mockResolvedValue([])
       vi.mocked(fileStorageService.put).mockResolvedValue('logo/new.png')
       vi.mocked(fileStorageService.url).mockReturnValue('https://cdn/logo/new.png')
 
-      vi.mocked(em.persistAndFlush).mockImplementation(() => {
+      vi.mocked(em.persist).mockImplementation(() => {
         vi.mocked(em.findOne).mockResolvedValue(createdSchema)
-        return Promise.resolve()
+        return em
       })
 
       const logoFile = { originalname: 'new.png' } as any
       const result = await schemaV2Service.create(
         authInfo,
-        { name: 'New Schema', bgColor: '#abc', fields: [] } as any,
+        { name: 'New Schema', bgColor: '#abc', fields: [] },
         logoFile,
       )
 
@@ -588,12 +588,12 @@ describe('SchemaV2Service', () => {
         credentialFormat: AriesCredentialRegistrationFormat.Anoncreds,
         network: DidMethod.Indy,
         did: 'did:indy:test',
-      } as any)
+      })
 
       expect(anoncredsRegistryService.registerSchema).toHaveBeenCalled()
       expect(anoncredsRegistryService.registerCredentialDefinition).toHaveBeenCalled()
       expect(revocationRegistryService.create).toHaveBeenCalled()
-      expect(em.persistAndFlush).toHaveBeenCalled()
+      expect(em.flush).toHaveBeenCalled()
       expect(ocaService.refreshOCAFiles).toHaveBeenCalled()
       expect(result.credentials).toEqual({
         credentialDefinitionId: 'cred-def-1',
@@ -640,7 +640,7 @@ describe('SchemaV2Service', () => {
         credentialFormat: OpenId4VCCredentialRegistrationFormat.SdJwtVc,
         network: DidMethod.Key,
         did: 'did:key:z1',
-      } as any)
+      })
 
       expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalledWith(
         tenantAgent,
@@ -648,7 +648,7 @@ describe('SchemaV2Service', () => {
         expect.objectContaining({ action: UpdateIssuerSupportedCredentialsAction.Add }),
       )
       expect(statusListService.create).toHaveBeenCalled()
-      expect(em.persistAndFlush).toHaveBeenCalled()
+      expect(em.flush).toHaveBeenCalled()
       expect(result.credentials).toMatchObject({ statusListId: 'status-list-1' })
     })
 
@@ -660,7 +660,7 @@ describe('SchemaV2Service', () => {
         credentialFormat: OpenId4VCCredentialRegistrationFormat.JwtVcJson,
         network: DidMethod.Key,
         did: 'did:key:z1',
-      } as any)
+      })
 
       expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalled()
     })
@@ -673,7 +673,7 @@ describe('SchemaV2Service', () => {
         credentialFormat: OpenId4VCCredentialRegistrationFormat.JwtVcJsonLd,
         network: DidMethod.Key,
         did: 'did:key:z1',
-      } as any)
+      })
 
       expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalled()
     })
@@ -686,7 +686,7 @@ describe('SchemaV2Service', () => {
         credentialFormat: OpenId4VCCredentialRegistrationFormat.LdpVc,
         network: DidMethod.Key,
         did: 'did:key:z1',
-      } as any)
+      })
 
       expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalled()
     })
@@ -699,7 +699,7 @@ describe('SchemaV2Service', () => {
         credentialFormat: OpenId4VCCredentialRegistrationFormat.MsoMdoc,
         network: DidMethod.Key,
         did: 'did:key:z1',
-      } as any)
+      })
 
       expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalled()
     })
@@ -718,7 +718,7 @@ describe('SchemaV2Service', () => {
         credentialFormat: OpenId4VCCredentialRegistrationFormat.SdJwtVc,
         network: DidMethod.Key,
         did: 'did:key:z1',
-      } as any)
+      })
 
       expect(fileStorageService.url).toHaveBeenCalledWith('path/to/logo.png')
     })
@@ -756,7 +756,7 @@ describe('SchemaV2Service', () => {
         limit: 10,
         text: 'hello',
         isHidden: true,
-      } as any)
+      })
 
       expect(result.total).toBe(0)
       expect(em.findAndCount).toHaveBeenCalled()

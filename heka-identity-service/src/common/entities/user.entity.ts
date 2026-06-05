@@ -1,4 +1,5 @@
-import { Collection, Entity, Enum, ManyToMany, Property } from '@mikro-orm/core'
+import { Collection } from '@mikro-orm/core'
+import { Entity, Enum, ManyToMany, Property } from '@mikro-orm/decorators/legacy'
 
 import { Identified } from './identified.entity'
 import { Wallet } from './wallet.entity'
@@ -8,19 +9,19 @@ export class User extends Identified {
   @Enum({ items: () => MessageDeliveryType, nullable: true })
   public messageDeliveryType?: MessageDeliveryType
 
-  @Property({ nullable: true })
+  @Property({ nullable: true, type: 'string' })
   public webHook?: string
 
   @ManyToMany({ entity: () => Wallet, inversedBy: 'users' })
   public wallets = new Collection<Wallet>(this)
 
-  @Property({ nullable: true })
+  @Property({ nullable: true, type: 'string' })
   public name?: string
 
-  @Property({ nullable: true })
+  @Property({ nullable: true, type: 'string' })
   public logo?: string
 
-  @Property({ nullable: true })
+  @Property({ nullable: true, type: 'string' })
   public backgroundColor?: string
 
   @Property({ type: 'timestamp', nullable: true })

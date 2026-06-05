@@ -64,7 +64,7 @@ describe('StatusListService', () => {
     test('should create a status list with default size', async () => {
       const req = { issuer: 'did:example:issuer' }
 
-      vi.mocked(em.persistAndFlush).mockResolvedValue(undefined as any)
+      vi.mocked(em.flush).mockResolvedValue(undefined)
 
       const result = await service.create(authInfo, req)
 
@@ -74,7 +74,7 @@ describe('StatusListService', () => {
       expect(result.size).toBe(100)
       expect(result.purpose).toBe(StatusListPurpose.Revocation)
       expect(result.owner).toBe(mockUser)
-      expect(em.persistAndFlush).toHaveBeenCalledWith(result)
+      expect(em.persist).toHaveBeenCalledWith(result)
     })
 
     test('should create a status list with custom size and purpose', async () => {
@@ -84,7 +84,7 @@ describe('StatusListService', () => {
         purpose: StatusListPurpose.Suspension,
       }
 
-      vi.mocked(em.persistAndFlush).mockResolvedValue(undefined as any)
+      vi.mocked(em.flush).mockResolvedValue(undefined)
 
       const result = await service.create(authInfo, req)
 
@@ -182,7 +182,7 @@ describe('StatusListService', () => {
       const result = await service.getOrCreate(authInfo, issuer)
 
       expect(result).toBe(existingList)
-      expect(em.persistAndFlush).not.toHaveBeenCalled()
+      expect(em.persist).not.toHaveBeenCalled()
     })
 
     test('should create new list when all existing lists are full', async () => {
@@ -197,23 +197,23 @@ describe('StatusListService', () => {
       })
 
       vi.mocked(em.find).mockResolvedValue([fullList])
-      vi.mocked(em.persistAndFlush).mockResolvedValue(undefined as any)
+      vi.mocked(em.flush).mockResolvedValue(undefined)
 
       const result = await service.getOrCreate(authInfo, issuer)
 
       expect(result).toBeInstanceOf(CredentialStatusList)
       expect(result.issuer).toBe(issuer)
-      expect(em.persistAndFlush).toHaveBeenCalled()
+      expect(em.flush).toHaveBeenCalled()
     })
 
     test('should create new list when no existing lists found', async () => {
       vi.mocked(em.find).mockResolvedValue([])
-      vi.mocked(em.persistAndFlush).mockResolvedValue(undefined as any)
+      vi.mocked(em.flush).mockResolvedValue(undefined)
 
       const result = await service.getOrCreate(authInfo, issuer)
 
       expect(result).toBeInstanceOf(CredentialStatusList)
-      expect(em.persistAndFlush).toHaveBeenCalled()
+      expect(em.flush).toHaveBeenCalled()
     })
   })
 

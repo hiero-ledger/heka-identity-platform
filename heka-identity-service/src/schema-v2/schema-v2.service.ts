@@ -19,13 +19,9 @@ import {
   OpenId4VCCredentialRegistrationFormat,
   ProtocolType,
 } from '../common/types'
-import { AriesRegistrationCredentials, OID4VCRegistrationCredentials } from '../common/types/registration-credentials'
-import { IssuerCredentialSubject } from '../openid4vc/issuer/dto/common/credential'
 import { UpdateIssuerSupportedCredentialsAction } from '../openid4vc/issuer/dto/update-issuer.dto'
 import { OpenId4VcIssuerService } from '../openid4vc/issuer/issuer.service'
-import { CreateRevocationRegistryRequest } from '../revocation/revocation-registry/dto'
 import { RevocationRegistryService } from '../revocation/revocation-registry/revocation-registry.service'
-import { CreateStatusListRequest } from '../revocation/status-list/dto'
 import { StatusListService } from '../revocation/status-list/status-list.service'
 import { moveElement } from '../utils/array'
 
@@ -167,7 +163,7 @@ export class SchemaV2Service {
         issuerId: did,
         credentialDefinitionId: resultCredentials.credentialDefinitionId,
         maximumCredentialNumber: undefined,
-      } as CreateRevocationRegistryRequest)
+      })
 
       // save
       const schemaRegistration = new SchemaRegistration({
@@ -179,9 +175,10 @@ export class SchemaV2Service {
         credentials: {
           credentialDefinitionId: resultCredentials.credentialDefinitionId,
           revocationRegistryDefinitionId: revocationRegistry.revocationRegistryDefinitionId,
-        } as AriesRegistrationCredentials,
+        },
       })
-      await this.em.persistAndFlush(schemaRegistration)
+      this.em.persist(schemaRegistration)
+      await this.em.flush()
 
       // update OCA files for Aries registrations
       // TODO: it will be good if will update OCA files for changed schema only.
@@ -200,7 +197,7 @@ export class SchemaV2Service {
       ...schema.fields
         .toArray()
         .sort((s) => s.orderIndex ?? 0)
-        .map((x) => ({ [x.name]: {} }) as IssuerCredentialSubject),
+        .map((x) => ({ [x.name]: {} })),
     )
 
   private makeCredentialDisplay = (schema: Schema) => [
@@ -338,7 +335,7 @@ export class SchemaV2Service {
     const revocationStatusList = await this.statusListService.create(prop.authInfo, {
       issuer: did,
       purpose: StatusListPurpose.Revocation,
-    } as CreateStatusListRequest)
+    })
 
     // save
     const schemaRegistration = new SchemaRegistration({
@@ -350,9 +347,10 @@ export class SchemaV2Service {
       credentials: {
         supportedCredentialId,
         statusListId: revocationStatusList.id,
-      } as OID4VCRegistrationCredentials,
+      },
     })
-    await this.em.persistAndFlush(schemaRegistration)
+    this.em.persist(schemaRegistration)
+    await this.em.flush()
     return schemaRegistration
   }
 
@@ -549,7 +547,8 @@ export class SchemaV2Service {
       )
     })
 
-    await this.em.persistAndFlush(newSchema)
+    this.em.persist(newSchema)
+    await this.em.flush()
 
     // result
     logger.trace('<')

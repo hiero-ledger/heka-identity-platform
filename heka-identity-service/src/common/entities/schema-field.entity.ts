@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, Property, Index } from '@mikro-orm/core'
+import { Entity, ManyToOne, Property, Index } from '@mikro-orm/decorators/legacy'
 
 import { Identified } from './identified.entity'
 import { Schema } from './schema.entity'
@@ -9,7 +9,7 @@ export class SchemaField extends Identified {
   @Index()
   public schema!: Schema
 
-  @Property({ nullable: false, length: 250 })
+  @Property({ nullable: false, length: 250, type: 'string' })
   public name!: string
 
   @Property({ nullable: true, type: 'number' })

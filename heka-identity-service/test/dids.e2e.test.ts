@@ -20,11 +20,11 @@ describe('E2E public DIDs creation', () => {
 
   beforeAll(async () => {
     const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
   })
 
   beforeEach(async () => {
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -39,7 +39,7 @@ describe('E2E public DIDs creation', () => {
   })
 
   afterAll(async () => {
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
   })
 
   test.skip('only one public DID per wallet can be created', async () => {

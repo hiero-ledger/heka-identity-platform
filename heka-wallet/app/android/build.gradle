@@ -42,12 +42,45 @@ allprojects {
     }
 }
 
-subprojects {
-    configurations.all {
-       it.resolutionStrategy.activateDependencyLocking()
+allprojects { project ->
+    if (project.name in ["animo-id-expo-digital-credentials-api", "animo-id-expo-secure-environment"]) {
+        project.ext.set("react.internal.disableJavaVersionAlignment", "true")
     }
 }
 
-dependencyLocking {
-    lockAllConfigurations()
+subprojects {
+    // Fix for NDK 27 C++ compatibility issues with native modules
+    afterEvaluate { project ->
+        ["com.android.application", "com.android.library"].each { pluginId ->
+            project.plugins.withId(pluginId) {
+                project.android {
+                    compileOptions {
+                        sourceCompatibility JavaVersion.VERSION_17
+                        targetCompatibility JavaVersion.VERSION_17
+                    }
+                }
+            }
+        }
+
+        project.plugins.withId("com.android.library") {
+            project.android {
+                if (project.android.hasProperty("externalNativeBuild")) {
+                    project.android.defaultConfig {
+                        externalNativeBuild {
+                            cmake {
+                                cppFlags "-std=c++17"
+                                arguments "-DCMAKE_CXX_STANDARD=17"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+project(':app') {
+    dependencyLocking {
+        lockAllConfigurations()
+    }
 }

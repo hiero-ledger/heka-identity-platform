@@ -239,6 +239,7 @@ const BrandColors: BrandColors = {
   tabBarInactive: GrayscaleColors.white,
   inlineError: '#EF2727',
   inlineWarning: '#FF9000',
+  loadingIcon: GrayscaleColors.white,
 }
 
 const SemanticColors: SemanticColors = {

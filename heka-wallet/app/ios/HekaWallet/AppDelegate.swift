@@ -1,3 +1,4 @@
+import Expo
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
@@ -5,25 +6,26 @@ import UIKit
 import UserNotifications
 
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
   var window: UIWindow?
 
-  var reactNativeDelegate: ReactNativeDelegate?
+  var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
 
-  func application(
-    _: UIApplication,
+  override func application(
+    _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     // Set notification delegate to allow foreground notifications
     UNUserNotificationCenter.current().delegate = self
 
     let delegate = ReactNativeDelegate()
-    let factory = RCTReactNativeFactory(delegate: delegate)
+    let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
+    bindReactNativeFactory(factory)
 
     window = UIWindow(frame: UIScreen.main.bounds)
 
@@ -36,22 +38,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // Exclude .afj folder from backup
     excludeDotAFJFolderFromBackup()
 
-    return true
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  func application(
+  override func application(
     _ app: UIApplication,
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
-    return RCTLinkingManager.application(app, open: url, options: options)
+    return super.application(app, open: url, options: options)
+      || RCTLinkingManager.application(app, open: url, options: options)
   }
 
-  func applicationDidBecomeActive(_: UIApplication) {
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    super.applicationDidBecomeActive(application)
     UIApplication.shared.applicationIconBadgeNumber = 0
   }
 
-  func application(
+  override func application(
     _: UIApplication,
     supportedInterfaceOrientationsFor _: UIWindow?
   ) -> UIInterfaceOrientationMask {
@@ -90,7 +94,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
   }
 }
 
-class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
+class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   override func sourceURL(for _: RCTBridge) -> URL? {
     self.bundleURL()
   }

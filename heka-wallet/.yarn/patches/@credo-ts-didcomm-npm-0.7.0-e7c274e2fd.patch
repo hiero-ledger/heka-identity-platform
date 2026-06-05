@@ -19,7 +19,7 @@ index 6ae4e6ec02fb50e90e972af5e6c7fd31ff8bd656..2400e4e54917f04d4149a1a45235495f
  	}
  };
 diff --git a/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs b/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs
-index 3f5cdb1dee711e06b35f876e484da00cc211009b..fbaabfe36655af78ae535e5fb7814574e94c118a 100644
+index 41a63cc5a458a993b80e3735b6c4e5c3ac50febd..55618afb5d55205151808d30e81742a6159d3f06 100644
 --- a/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs
 +++ b/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs
 @@ -114,7 +114,7 @@ __decorate([

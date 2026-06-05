@@ -1,6 +1,7 @@
 import { DidCommConnectionEventTypes, DidCommCredentialEventTypes, DidCommProofEventTypes } from '@credo-ts/didcomm'
 import { OpenId4VcVerifierEvents, OpenId4VcIssuerEvents } from '@credo-ts/openid4vc'
-import { EntityManager, MikroORM, UseRequestContext } from '@mikro-orm/core'
+import { EntityManager, MikroORM } from '@mikro-orm/core'
+import { CreateRequestContext } from '@mikro-orm/decorators/legacy'
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
 
 import { Agent, AGENT_TOKEN } from 'common/agent'
@@ -32,8 +33,8 @@ export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy
     @Inject(AGENT_TOKEN)
     private readonly agent: Agent,
     private readonly notificationService: NotificationService,
-    // @ts-ignore: The property is used by @UseRequestContext
-    // See https://mikro-orm.io/docs/identity-map#userequestcontext-decorator
+    // @ts-ignore: The property is used by @CreateRequestContext
+    // See https://mikro-orm.io/docs/identity-map#createrequestcontext-decorator
     private readonly orm: MikroORM,
     private readonly em: EntityManager,
     @InjectLogger(NotificationEventsListener)
@@ -54,7 +55,7 @@ export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy
     }
   }
 
-  @UseRequestContext()
+  @CreateRequestContext()
   private async sendEventNotification(event: NotificationEvent) {
     const logger = this.logger.child('sendEventNotification', { event })
     logger.trace('>')

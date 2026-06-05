@@ -4,6 +4,12 @@
  * This package ships without TypeScript type definitions.
  * These declarations cover the API surface used by this project.
  *
+ * Structured as a typeRoot package (folder + index.d.ts) and registered via
+ * `types` in tsconfig.json so it is always loaded during program creation —
+ * regardless of `include` globs or ts-node's `files` setting. (As a global
+ * `declare module` it is otherwise only picked up when the file happens to be
+ * a root of the program, which ts-node does not guarantee.)
+ *
  * @see https://github.com/digitalcredentials/bitstring
  */
 declare module '@digitalcredentials/bitstring' {

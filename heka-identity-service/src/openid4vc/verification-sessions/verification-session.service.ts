@@ -22,32 +22,46 @@ export class OpenId4VcVerificationSessionService {
     tenantAgent: TenantAgent,
     req: OpenId4VcVerificationSessionCreateRequestDto,
   ): Promise<OpenId4VcVerificationSessionCreateRequestResponse> {
-    const { didDocument } = await tenantAgent.dids.resolve(req.requestSigner.did)
-    if (!didDocument || !didDocument.verificationMethod?.length) {
-      throw new UnprocessableEntityException(`Unable to resolve signing key for DID: ${req.requestSigner.did}`)
+    const isDcApi = req.responseMode === 'dc_api' || req.responseMode === 'dc_api.jwt'
+
+    // DC API requests are sent over the W3C Digital Credentials API. The bundled wallet matcher only
+    // accepts a *signed* request object (a JAR — `{ request: <jwt> }`); an unsigned plain object makes
+    // it fail with "request object not found". So a DC API request is signed with the verifier's DID
+    // when a signer is supplied (the calling origin is also bound via expectedOrigins). With no signer
+    // it falls back to unsigned `web-origin` (origin validated at verification time, see
+    // verifyDcApiResponse). All non-DC-API flows require a DID signer.
+    let requestSigner: { method: 'none' } | { method: 'did'; didUrl: string }
+    if (isDcApi && !req.requestSigner?.did) {
+      requestSigner = { method: 'none' }
+    } else {
+      if (!req.requestSigner?.did) {
+        throw new UnprocessableEntityException('requestSigner.did is required')
+      }
+      const { didDocument } = await tenantAgent.dids.resolve(req.requestSigner.did)
+      if (!didDocument || !didDocument.verificationMethod?.length) {
+        throw new UnprocessableEntityException(`Unable to resolve signing key for DID: ${req.requestSigner.did}`)
+      }
+      requestSigner = { method: 'did', didUrl: didDocument.verificationMethod[0].id }
     }
 
     const { authorizationRequest, verificationSession, authorizationRequestObject } =
       await tenantAgent.openid4vc.verifier.createAuthorizationRequest({
-        requestSigner: {
-          method: 'did',
-          didUrl: didDocument.verificationMethod[0].id,
-        },
+        requestSigner,
         verifierId: req.publicVerifierId,
         presentationExchange: req.presentationExchange,
         dcql: req.dcql,
         version: req.version ?? (req.dcql ? 'v1' : 'v1.draft21'),
         responseMode: req.responseMode,
-        expectedOrigins: req.expectedOrigins,
+        // Expected origins are embedded in signed requests (the holder binds them); an unsigned DC
+        // API request relies on the origin supplied at verification time instead.
+        expectedOrigins: isDcApi && requestSigner.method === 'none' ? undefined : req.expectedOrigins,
       })
-
-    const isDcApi = req.responseMode === 'dc_api' || req.responseMode === 'dc_api.jwt'
 
     return {
       verificationSession:
         OpenId4VcVerificationSessionRecordDto.fromOpenId4VcVerificationSessionRecord(verificationSession),
       authorizationRequest,
-      authorizationRequestObject: isDcApi ? (authorizationRequestObject as Record<string, unknown>) : undefined,
+      authorizationRequestObject: isDcApi ? authorizationRequestObject : undefined,
     }
   }
 
@@ -88,28 +102,38 @@ export class OpenId4VcVerificationSessionService {
     let sharedAttributes: Record<string, unknown> | undefined = undefined
 
     if (verificationSessionRecord.state === OpenId4VcVerificationSessionState.ResponseVerified) {
-      const verifiedAuthorizationResponse =
-        await tenantAgent.openid4vc.verifier.getVerifiedAuthorizationResponse(verificationSessionId)
-
-      if (verifiedAuthorizationResponse.presentationExchange?.presentations?.length) {
-        const presentation = verifiedAuthorizationResponse.presentationExchange.presentations[0]
-        sharedAttributes = OpenId4VcVerificationSessionService.extractAttributesFromPresentation(presentation)
-      } else if (verifiedAuthorizationResponse.dcql?.presentations) {
-        const presentationEntries = Object.values(verifiedAuthorizationResponse.dcql.presentations)[0]
-        if (presentationEntries.length) {
-          sharedAttributes = OpenId4VcVerificationSessionService.extractAttributesFromPresentation(
-            presentationEntries[0],
-          )
-        }
-      } else {
-        throw new InternalServerErrorException('Presentation is missing')
-      }
+      sharedAttributes = await this.getSharedAttributes(tenantAgent, verificationSessionId)
     }
 
     return OpenId4VcVerificationSessionRecordDto.fromOpenId4VcVerificationSessionRecord(
       verificationSessionRecord,
       sharedAttributes,
     )
+  }
+
+  /**
+   * Resolve the disclosed attributes of a verified authorization response, supporting
+   * both Presentation Exchange and DCQL presentations across SD-JWT, JWT VC and mdoc.
+   */
+  private async getSharedAttributes(
+    tenantAgent: TenantAgent,
+    verificationSessionId: string,
+  ): Promise<Record<string, unknown> | undefined> {
+    const verifiedAuthorizationResponse =
+      await tenantAgent.openid4vc.verifier.getVerifiedAuthorizationResponse(verificationSessionId)
+
+    if (verifiedAuthorizationResponse.presentationExchange?.presentations?.length) {
+      const presentation = verifiedAuthorizationResponse.presentationExchange.presentations[0]
+      return OpenId4VcVerificationSessionService.extractAttributesFromPresentation(presentation)
+    } else if (verifiedAuthorizationResponse.dcql?.presentations) {
+      const presentationEntries = Object.values(verifiedAuthorizationResponse.dcql.presentations)[0]
+      if (presentationEntries.length) {
+        return OpenId4VcVerificationSessionService.extractAttributesFromPresentation(presentationEntries[0])
+      }
+      return undefined
+    } else {
+      throw new InternalServerErrorException('Presentation is missing')
+    }
   }
 
   /**
@@ -129,7 +153,15 @@ export class OpenId4VcVerificationSessionService {
       origin,
     })
 
-    return OpenId4VcVerificationSessionRecordDto.fromOpenId4VcVerificationSessionRecord(verificationSession)
+    let sharedAttributes: Record<string, unknown> | undefined = undefined
+    if (verificationSession.state === OpenId4VcVerificationSessionState.ResponseVerified) {
+      sharedAttributes = await this.getSharedAttributes(tenantAgent, verificationSessionId)
+    }
+
+    return OpenId4VcVerificationSessionRecordDto.fromOpenId4VcVerificationSessionRecord(
+      verificationSession,
+      sharedAttributes,
+    )
   }
 
   /**
@@ -153,12 +185,9 @@ export class OpenId4VcVerificationSessionService {
           : presentation.presentation.verifiableCredential.credentialSubject
       return (credentialSubject as W3cCredentialSubject).claims
     } else if (OpenId4VcVerificationSessionService.isMdocPresentation(presentation)) {
-      const doc = presentation.documents[0]
-      if (doc) {
-        return Object.values(doc.issuerSignedNamespaces).reduce<Record<string, unknown>>(
-          (acc, ns) => ({ ...acc, ...ns }),
-          {},
-        )
+      const firstDocClaims = Object.values(presentation.issuerClaims)[0]
+      if (firstDocClaims) {
+        return Object.values(firstDocClaims).reduce<Record<string, unknown>>((acc, ns) => ({ ...acc, ...ns }), {})
       }
     }
     return undefined
@@ -175,6 +204,6 @@ export class OpenId4VcVerificationSessionService {
   }
 
   private static isMdocPresentation(presentation: VerifiablePresentation): presentation is MdocDeviceResponse {
-    return 'documents' in presentation
+    return (presentation as MdocDeviceResponse).claimFormat === ClaimFormat.MsoMdoc
   }
 }

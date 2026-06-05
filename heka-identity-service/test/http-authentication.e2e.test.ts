@@ -17,9 +17,9 @@ describe('E2E HTTP authentication', () => {
 
   beforeAll(async () => {
     const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
 
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -32,7 +32,7 @@ describe('E2E HTTP authentication', () => {
 
     await nestApp.close()
 
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
   })
 
   test('authenticates for valid bearer token with Admin role', async () => {

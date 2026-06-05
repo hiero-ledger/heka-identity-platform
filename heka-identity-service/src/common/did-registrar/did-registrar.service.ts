@@ -108,7 +108,8 @@ export class DidRegistrarService implements OnApplicationBootstrap {
       tenantId: didRegistrarTenant.id,
     })
 
-    await this.em.persistAndFlush(wallet)
+    this.em.persist(wallet)
+    await this.em.flush()
 
     return wallet.tenantId
   }

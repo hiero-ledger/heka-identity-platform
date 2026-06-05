@@ -8,6 +8,7 @@ const plugins = [
   ],
   ['@babel/plugin-proposal-decorators', { legacy: true }],
   ['@babel/plugin-transform-export-namespace-from'],
+  ['@babel/plugin-transform-class-static-block'],
 ]
 
 // react-native-paper/babel rewrites imports into the package's ESM-only

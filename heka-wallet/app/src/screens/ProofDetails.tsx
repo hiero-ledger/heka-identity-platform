@@ -2,7 +2,7 @@ import type { StackScreenProps } from '@react-navigation/stack'
 
 import { getConnectionName, Screens, useStore } from '@bifold/core'
 import { ProofRequestsStackParams } from '@bifold/core/src/types/navigators'
-import { useAgent, useConnectionById, useProofById } from '@bifold/react-hooks'
+import { useOptionalAgent, useConnectionById, useProofById } from '@bifold/react-hooks'
 import { ProofCustomMetadata, ProofMetadata, markProofAsViewed } from '@bifold/verifier'
 import { DidCommProofExchangeRecord, DidCommProofState } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
@@ -102,7 +102,7 @@ const ProofDetails: React.FC<ProofDetailsProps> = ({ route }) => {
   const theme = useHekaTheme()
   const styles = useStyles(theme)
 
-  const { agent } = useAgent()
+  const { agent } = useOptionalAgent()
   const proofRecord = useProofById(recordId)
 
   useEffect(() => {

@@ -39,7 +39,8 @@ export class StatusListService {
       owner: authInfo.user,
     })
 
-    await this.em.persistAndFlush(statusList)
+    this.em.persist(statusList)
+    await this.em.flush()
 
     return statusList
   }

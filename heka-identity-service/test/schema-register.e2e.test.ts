@@ -29,11 +29,11 @@ describe('E2E schemas registration', () => {
 
   beforeAll(async () => {
     const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
   })
 
   beforeEach(async () => {
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -48,7 +48,7 @@ describe('E2E schemas registration', () => {
   })
 
   afterAll(async () => {
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
   })
 
   const testRegister = async (testCase: {
@@ -67,7 +67,7 @@ describe('E2E schemas registration', () => {
         credentialFormat: testCase.credentialFormat,
         network: testCase.network,
         did: testCase.did,
-      } as RegisterSchemaRequest)
+      })
     expect(response.status).toBe(201)
     expect(response.body.credentials).toBeDefined()
   }
@@ -99,7 +99,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: AriesCredentialRegistrationFormat.Anoncreds,
           network: DidMethod.Indy,
           did: uuid(),
-        } as RegisterSchemaRequest)
+        })
 
       // Schema shouldn't be found
       expect(response.status).toBe(404)
@@ -119,7 +119,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: AriesCredentialRegistrationFormat.Anoncreds,
           network: DidMethod.Indy,
           did: uuid(),
-        } as RegisterSchemaRequest)
+        })
 
       // Schema shouldn't be found
       expect(response.status).toBe(404)
@@ -142,7 +142,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: OpenId4VCCredentialRegistrationFormat.JwtVcJson,
           network: DidMethod.Indy,
           did: uuid(),
-        } as RegisterSchemaRequest)
+        })
 
       // Should be returned bad request
       expect(response.status).toBe(400)
@@ -157,7 +157,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: OpenId4VCCredentialRegistrationFormat.LdpVc,
           network: DidMethod.Indy,
           did: uuid(),
-        } as RegisterSchemaRequest)
+        })
 
       // Should be returned bad request
       expect(response.status).toBe(400)
@@ -172,7 +172,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: OpenId4VCCredentialRegistrationFormat.SdJwtVc,
           network: DidMethod.Indy,
           did: uuid(),
-        } as RegisterSchemaRequest)
+        })
 
       // Should be returned bad request
       expect(response.status).toBe(400)
@@ -187,7 +187,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: OpenId4VCCredentialRegistrationFormat.JwtVcJsonLd,
           network: DidMethod.Indy,
           did: uuid(),
-        } as RegisterSchemaRequest)
+        })
 
       // Should be returned bad request
       expect(response.status).toBe(400)
@@ -211,7 +211,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: AriesCredentialRegistrationFormat.Anoncreds,
           network: DidMethod.Indy,
           did: uuid(),
-        } as RegisterSchemaRequest)
+        })
 
       // Should be returned bad request
       expect(response.status).toBe(400)
@@ -235,7 +235,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: AriesCredentialRegistrationFormat.Anoncreds,
           network: DidMethod.Key,
           did: uuid(),
-        } as RegisterSchemaRequest)
+        })
 
       // Should be returned bad request
       expect(response.status).toBe(400)
@@ -259,7 +259,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: OpenId4VCCredentialRegistrationFormat.JwtVcJsonLd,
           network: DidMethod.Indy,
           did: uuid(),
-        } as RegisterSchemaRequest)
+        })
 
       // Should be returned bad request
       expect(response.status).toBe(400)
@@ -283,7 +283,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: OpenId4VCCredentialRegistrationFormat.JwtVcJsonLd,
           network: DidMethod.Key,
           did: generateRandomString(1001),
-        } as RegisterSchemaRequest)
+        })
 
       // Should be returned bad request
       expect(response.status).toBe(400)
@@ -307,7 +307,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: AriesCredentialRegistrationFormat.Anoncreds,
           network: DidMethod.Indy,
           did: did!.id,
-        } as RegisterSchemaRequest)
+        })
       expect(response.status).toBe(201)
 
       response = await request(app)
@@ -318,7 +318,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: AriesCredentialRegistrationFormat.Anoncreds,
           network: DidMethod.Indy,
           did: did!.id,
-        } as RegisterSchemaRequest)
+        })
       expect(response.status).toBe(400)
       expect(response.body.message).toContain('Schema is already registered here')
     })
@@ -346,7 +346,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: OpenId4VCCredentialRegistrationFormat.JwtVcJson,
           network: DidMethod.Key,
           did: did!.id,
-        } as RegisterSchemaRequest)
+        })
       expect(response.status).toBe(201)
 
       response = await request(app)
@@ -357,7 +357,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: OpenId4VCCredentialRegistrationFormat.LdpVc,
           network: DidMethod.Key,
           did: did!.id,
-        } as RegisterSchemaRequest)
+        })
       expect(response.status).toBe(201)
 
       response = await request(app)
@@ -368,7 +368,7 @@ describe('E2E schemas registration', () => {
           credentialFormat: OpenId4VCCredentialRegistrationFormat.JwtVcJson,
           network: DidMethod.Key,
           did: did!.id,
-        } as RegisterSchemaRequest)
+        })
       expect(response.status).toBe(400)
       expect(response.body.message).toContain('Schema is already registered here')
     })

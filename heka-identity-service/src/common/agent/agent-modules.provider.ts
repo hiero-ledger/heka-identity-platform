@@ -15,8 +15,13 @@ import {
   DidResolver,
   DidsModule,
   InMemoryLruCache,
+  JwkDidRegistrar,
+  JwkDidResolver,
   KeyDidRegistrar,
   KeyDidResolver,
+  PeerDidRegistrar,
+  PeerDidResolver,
+  WebDidResolver,
 } from '@credo-ts/core'
 import {
   DidCommAutoAcceptCredential,
@@ -35,10 +40,10 @@ import {
 } from '@credo-ts/indy-vdr'
 import { OpenId4VcModule } from '@credo-ts/openid4vc'
 import { TenantsModule } from '@credo-ts/tenants'
-import { anoncreds } from '@hyperledger/anoncreds-nodejs'
+import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
 import { ConfigType } from '@nestjs/config'
-import { askar } from '@openwallet-foundation/askar-nodejs'
+import { NativeAskar } from '@openwallet-foundation/askar-nodejs'
 
 import AgentConfig from 'config/agent'
 import AppConfig from 'config/express'
@@ -55,8 +60,13 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
   const dataIntegrityCredentialFormatService = new DataIntegrityDidCommCredentialFormatService()
   const presentationExchangeProofFormatService = new DidCommDifPresentationExchangeProofFormatService()
 
-  const didResolvers: DidResolver[] = [new KeyDidResolver()]
-  const didRegistrars: DidRegistrar[] = [new KeyDidRegistrar()]
+  const didResolvers: DidResolver[] = [
+    new KeyDidResolver(),
+    new PeerDidResolver(),
+    new JwkDidResolver(),
+    new WebDidResolver(),
+  ]
+  const didRegistrars: DidRegistrar[] = [new KeyDidRegistrar(), new PeerDidRegistrar(), new JwkDidRegistrar()]
   const anoncredsRegistries: AnonCredsRegistry[] = []
 
   if (agencyConfig.didMethods.includes('indy')) {
@@ -115,11 +125,11 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       // @ts-expect-error Credo-ts requires a non-empty tuple but registries
       // are populated conditionally from agent config at runtime.
       registries: anoncredsRegistries,
-      anoncreds,
+      anoncreds: NativeAnoncreds.instance,
       tailsFileService: new TailsService(appConfig),
     }),
     askar: new AskarModule({
-      askar,
+      askar: NativeAskar.instance,
       store: agencyConfig.askarStoreConfig,
     }),
     openid4vc: new OpenId4VcModule({

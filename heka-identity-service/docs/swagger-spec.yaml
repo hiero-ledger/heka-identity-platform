@@ -1533,6 +1533,37 @@ paths:
       security: *a37
       summary: Delete Verification Session
       tags: *a38
+  /openid4vc/verification-session/{verificationSessionId}/verify:
+    post:
+      operationId: OpenId4VcVerificationSessionController_verifyDcApiResponse
+      parameters:
+        - name: verificationSessionId
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenId4VcVerifyDcApiRequestDto"
+      responses:
+        "200":
+          description: Verification session record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenId4VcVerificationSessionRecordDto"
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "422":
+          description: Unprocessable Entity
+      security: *a37
+      summary: Verify DC API authorization response
+      tags: *a38
   /health:
     get:
       operationId: HealthController_check
@@ -3478,6 +3509,8 @@ components:
         credentialsSupported:
           items:
             type: array
+            items:
+              type: openId4VciCredentialConfigurationSupportedWithId
           type: array
         action:
           type: string
@@ -3660,9 +3693,24 @@ components:
             - v1.draft21
             - v1.draft24
           default: v1.draft21
+        responseMode:
+          type: string
+          enum:
+            - direct_post
+            - direct_post.jwt
+            - dc_api
+            - dc_api.jwt
+          description: Response mode for the authorization request. Use dc_api or
+            dc_api.jwt for Digital Credentials API flow.
+        expectedOrigins:
+          description: Expected origins embedded in a signed request (signed DC API binds
+            the calling page here). Ignored for the unsigned DC API flow, where
+            the origin is validated at verification time.
+          type: array
+          items:
+            type: string
       required:
         - publicVerifierId
-        - requestSigner
     OpenId4VcVerificationSessionRecordDto:
       type: object
       properties:
@@ -3705,9 +3753,24 @@ components:
           $ref: "#/components/schemas/OpenId4VcVerificationSessionRecordDto"
         authorizationRequest:
           type: string
+        authorizationRequestObject:
+          type: object
       required:
         - verificationSession
         - authorizationRequest
+    OpenId4VcVerifyDcApiRequestDto:
+      type: object
+      properties:
+        authorizationResponse:
+          type: object
+          description: The authorization response received from navigator.credentials.get()
+        origin:
+          type: string
+          description: The origin of the verifier page that called
+            navigator.credentials.get()
+      required:
+        - authorizationResponse
+        - origin
     CreateRevocationRegistryRequest:
       type: object
       properties:

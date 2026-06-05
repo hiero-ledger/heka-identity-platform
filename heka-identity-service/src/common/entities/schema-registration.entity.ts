@@ -1,4 +1,4 @@
-import { Entity, Enum, ManyToOne, Property, Index } from '@mikro-orm/core'
+import { Entity, Enum, ManyToOne, Property, Index } from '@mikro-orm/decorators/legacy'
 
 import {
   AriesCredentialRegistrationFormat,
@@ -23,7 +23,6 @@ export class SchemaRegistration extends Identified {
   public protocol!: ProtocolType
 
   @Property({ nullable: true, type: 'string' })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   @Enum(() => AriesCredentialRegistrationFormat || OpenId4VCCredentialRegistrationFormat)
   public credentialFormat?: CredentialRegistrationFormat
 

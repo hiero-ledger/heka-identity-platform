@@ -1,5 +1,5 @@
 import { BifoldAgent, BifoldError, EventTypes, TOKENS, useServices, useStore } from '@bifold/core'
-import { useConnections, useAgent } from '@bifold/react-hooks'
+import { useConnections, useOptionalAgent } from '@bifold/react-hooks'
 import {
   DidCommBasicMessageRecord,
   DidCommConnectionRecord,
@@ -73,7 +73,7 @@ export const useContacts = (): ContactsState => {
 
   const [store] = useStore()
 
-  const { agent } = useAgent<BifoldAgent>()
+  const { agent } = useOptionalAgent()
 
   const [{ contactHideList }] = useServices([TOKENS.CONFIG])
 

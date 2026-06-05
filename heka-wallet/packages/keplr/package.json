@@ -6,7 +6,7 @@
   "private": true,
   "main": "src/index.ts",
   "dependencies": {
-    "@bifold/core": "@bifold/core@github:dsrcorporation/aries-mobile-agent-react-native%23tag=1.0.0-alpha-heka.5&workspace=@bifold/core",
+    "@bifold/core": "@bifold/core@github:dsrcorporation/aries-mobile-agent-react-native%23tag=1.0.0-alpha-heka.7&workspace=@bifold/core",
     "@heka-wallet/shared": "*",
     "@keplr-wallet/background": "0.11.52",
     "@keplr-wallet/common": "0.11.52",

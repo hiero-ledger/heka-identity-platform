@@ -22,9 +22,9 @@ describe('E2E verification session', () => {
 
   beforeAll(async () => {
     const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
 
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     agent = createAgent()
     await agent.initialize()
@@ -87,7 +87,7 @@ describe('E2E verification session', () => {
 
     await nestApp.close()
 
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
   })
 
   test('create request with PEX', async () => {

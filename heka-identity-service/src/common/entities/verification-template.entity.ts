@@ -1,4 +1,5 @@
-import { Collection, Entity, Enum, Index, ManyToOne, OneToMany, Property } from '@mikro-orm/core'
+import { Collection } from '@mikro-orm/core'
+import { Entity, Enum, Index, ManyToOne, OneToMany, Property } from '@mikro-orm/decorators/legacy'
 
 import { AriesCredentialFormat, CredentialFormat, DidMethod, OpenId4VcCredentialFormat, ProtocolType } from '../types'
 
@@ -13,7 +14,7 @@ export class VerificationTemplate extends Identified {
   @Index()
   public owner!: User
 
-  @Property({ nullable: false, length: 500 })
+  @Property({ nullable: false, length: 500, type: 'string' })
   public name!: string
 
   @Property({ nullable: false, type: 'string' })

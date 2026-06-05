@@ -22,13 +22,13 @@ describe('OpenId4VcVerifierService', () => {
         verifier: {
           createVerifier: mockCreateVerifier,
         },
-      } as any,
+      },
       dependencyManager: {
         resolve: vi.fn().mockReturnValue({
           findByQuery: mockFindByQuery,
         }),
-      } as any,
-      context: {} as any,
+      },
+      context: {},
     })
   })
 

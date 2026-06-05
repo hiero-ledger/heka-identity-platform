@@ -1,7 +1,5 @@
-import { DispatchAction, Stacks, useAuth, useStore, TOKENS, EventTypes, BifoldError, useServices } from '@bifold/core'
+import { DispatchAction, useAuth, useStore, TOKENS, EventTypes, BifoldError, useServices } from '@bifold/core'
 import { DidCommHttpOutboundTransport, DidCommWsOutboundTransport } from '@credo-ts/didcomm'
-import { useNavigation } from '@react-navigation/core'
-import { CommonActions } from '@react-navigation/native'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
@@ -27,8 +25,6 @@ import {
 export const Splash: React.FC = () => {
   const { t } = useTranslation()
 
-  const navigation = useNavigation()
-
   const [store, dispatch] = useStore()
   const { agent, setAgent, setPublicDid } = useHekaAgent()
   const { getWalletSecret } = useAuth()
@@ -37,11 +33,25 @@ export const Splash: React.FC = () => {
 
   const [mounted, setMounted] = useState(false)
 
-  // navigation calls that occur before the screen is fully mounted will fail
-  // this useEffect prevents that race condition
+  // Defer agent initialization until the screen has mounted to avoid running it
+  // against a half-initialized component tree.
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Heka does not use device attestation (config.enableAttestation = false).
+  // The agent-initialization onboarding step (isAgentInitializationComplete)
+  // requires attestation to be marked complete before the wallet transitions
+  // from Splash to the main stack, so we complete it once the user has
+  // authenticated. Without this the onboarding workflow never finishes and the
+  // app stays on Splash. This mirrors Bifold's setupAttestation() short-circuit.
+  useEffect(() => {
+    if (!store.authentication.didAuthenticate || store.attestation.isAttestationComplete) {
+      return
+    }
+
+    dispatch({ type: DispatchAction.SET_ATTESTATION_COMPLETED, payload: [true] })
+  }, [store.authentication.didAuthenticate, store.attestation.isAttestationComplete, dispatch])
 
   useEffect(() => {
     if (
@@ -67,12 +77,9 @@ export const Splash: React.FC = () => {
           const isAgentRestarted = await tryRestartExistingAgent(agent, walletSecret)
 
           if (isAgentRestarted) {
-            navigation.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: Stacks.TabStack }],
-              })
-            )
+            // The agent is already present in the agent context. The onboarding
+            // workflow transitions from Splash to the main stack on its own once
+            // the agent is set and attestation is complete — no navigation reset.
             return
           }
         }
@@ -123,15 +130,12 @@ export const Splash: React.FC = () => {
           await ensureExampleCredentialCreated(newAgent)
         }
 
+        // Setting the agent satisfies the agent-initialization onboarding step,
+        // which (together with attestation completion above) drives the
+        // BifoldStack transition from OnboardingStack/Splash to MainStack.
+        // No navigation reset is needed in the new conditional-render layout.
         setAgent(newAgent)
         setPublicDid(publicDid)
-
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: Stacks.TabStack }],
-          })
-        )
       } catch (err: unknown) {
         const error = new BifoldError(
           t('Error.Title1045'),
@@ -148,7 +152,6 @@ export const Splash: React.FC = () => {
   }, [
     t,
     logger,
-    navigation,
     agent,
     dispatch,
     indyLedgers,

@@ -27,11 +27,11 @@ describe('E2E schemas management', () => {
 
   beforeAll(async () => {
     const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
   })
 
   beforeEach(async () => {
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -46,7 +46,7 @@ describe('E2E schemas management', () => {
   })
 
   afterAll(async () => {
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
   })
 
   describe('Schema.GetList', () => {
@@ -1043,7 +1043,7 @@ describe('E2E schemas management', () => {
           credentialFormat: format,
           network: DidMethod.Key,
           did: did!.id,
-        } as RegisterSchemaRequest)
+        })
       expect(response.status).toBe(201)
     }
 

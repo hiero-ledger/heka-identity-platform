@@ -19,7 +19,7 @@ describe('SchemaService', () => {
     anoncredsRegistryService = createMock<AnoncredsRegistryService>()
     schemaService = new SchemaService(logger, anoncredsRegistryService)
     tenantAgent = createMock<TenantAgent>({
-      modules: { anoncreds: { getCreatedSchemas: vi.fn() } } as any,
+      modules: { anoncreds: { getCreatedSchemas: vi.fn() } },
     })
   })
 

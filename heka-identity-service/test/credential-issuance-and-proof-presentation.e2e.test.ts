@@ -54,11 +54,11 @@ describe('E2E credential issuance and proof presentation', () => {
 
   beforeAll(async () => {
     const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
   })
 
   beforeEach(async () => {
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -218,7 +218,7 @@ describe('E2E credential issuance and proof presentation', () => {
   })
 
   afterAll(async () => {
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
   })
 
   test.skip('issue credential and present proof', async () => {

@@ -1,16 +1,4 @@
-import {
-  ClaimFormat,
-  CredentialMultiInstanceUseMode,
-  DcqlCredentialsForRequest,
-  DcqlQueryResult,
-  DidJwk,
-  DidKey,
-  JsonObject,
-  JwkDidCreateOptions,
-  KeyDidCreateOptions,
-  Kms,
-  MdocNameSpaces,
-} from '@credo-ts/core'
+import { DidJwk, DidKey, JwkDidCreateOptions, KeyDidCreateOptions, Kms } from '@credo-ts/core'
 import {
   OpenId4VcCredentialHolderBinding,
   OpenId4VciCredentialFormatProfile,
@@ -20,18 +8,16 @@ import {
   OpenId4VciTokenRequestOptions,
   getOfferedCredentials,
 } from '@credo-ts/openid4vc'
-import { getHostNameFromUrl } from '@heka-wallet/shared'
 import { useCallback } from 'react'
-import { Linking } from 'react-native'
 
 import { useHekaAgent } from '../utils/agent'
 
 import { extractOpenId4VcCredentialMetadata, setOpenId4VcCredentialMetadata } from './metadata'
-import { CredentialRecord, OpenId4VcPresentationRequest, OpenIdPresentationSubmissionParams } from './types'
+import { resolvePresentationRequest, acceptPresentationRequest } from './openid4vc'
+import { OpenId4VcPresentationRequest, OpenIdPresentationSubmissionParams } from './types'
 
 export const PRE_AUTH_GRANT_LITERAL = 'urn:ietf:params:oauth:grant-type:pre-authorized_code'
 
-// Credential formats supported by the wallet
 const WALLET_SUPPORTED_CREDENTIAL_FORMATS: ReadonlyArray<string> = [
   OpenId4VciCredentialFormatProfile.SdJwtVc,
   OpenId4VciCredentialFormatProfile.JwtVcJson,
@@ -318,34 +304,7 @@ export const useOpenIdHandlers = () => {
         throw new Error('Credo agent is not initialized')
       }
 
-      const requestToResolve = request.uri ?? request.data
-
-      if (!requestToResolve) {
-        throw new Error('Either supply a uri or requestPayload to get the credentials for a proof request')
-      }
-
-      agent.config.logger.info(`Receiving OID4VP request ${requestToResolve}`, {
-        requestToResolve,
-        data: request.data,
-        uri: request.uri,
-      })
-
-      const resolved = await agent.openid4vc.holder.resolveOpenId4VpAuthorizationRequest(requestToResolve, { origin })
-
-      if (!resolved.presentationExchange && !resolved.dcql) {
-        throw new Error('No presentation exchange or dcql found in authorization request.')
-      }
-
-      return {
-        ...resolved.presentationExchange,
-        ...resolved.dcql,
-        authorizationRequest: resolved.authorizationRequestPayload,
-        verifierHostName: resolved.authorizationRequestPayload.response_uri
-          ? getHostNameFromUrl(resolved.authorizationRequestPayload.response_uri as string)
-          : undefined,
-        origin: resolved.origin,
-        transactionData: resolved.transactionData,
-      }
+      return resolvePresentationRequest(agent, { uri: request.uri, data: request.data, origin })
     },
     [agent]
   )
@@ -362,77 +321,7 @@ export const useOpenIdHandlers = () => {
         throw new Error('Credo agent is not initialized')
       }
 
-      if (
-        !submissionParams.credentialsForRequest?.areRequirementsSatisfied &&
-        !submissionParams.queryResult?.can_be_satisfied
-      ) {
-        throw new Error('Requirements from proof request are not satisfied')
-      }
-
-      // Map all requirements and entries to a credential record. If a credential record for an
-      // input descriptor has been provided in `selectedCredentials` we will use that. Otherwise
-      // it will pick the first available credential.
-      const presentationExchangeCredentials = submissionParams.credentialsForRequest
-        ? Object.fromEntries(
-            await Promise.all(
-              submissionParams.credentialsForRequest.requirements.flatMap((requirement) =>
-                requirement.submissionEntry.slice(0, requirement.needsCount).map(async (entry) => {
-                  const credentialId = selectedCredentials[entry.inputDescriptorId]
-                  const credential =
-                    entry.verifiableCredentials.find((vc) => vc.credentialRecord.id === credentialId) ??
-                    entry.verifiableCredentials[0]
-
-                  // NOTE: we don't support single-use credentials for PEX
-                  return [entry.inputDescriptorId, [credential]]
-                })
-              )
-            )
-          )
-        : undefined
-
-      const dcqlCredentials = submissionParams.queryResult
-        ? Object.fromEntries(
-            await Promise.all(
-              Object.entries(
-                Object.keys(selectedCredentials).length > 0
-                  ? // FIXME: this method should take into account w3c credentials
-                    getSelectedCredentialsForDcqlRequest(submissionParams.queryResult, selectedCredentials)
-                  : agent.openid4vc.holder.selectCredentialsForDcqlRequest(submissionParams.queryResult, {
-                      // FIXME: we currently allow re-sharing if we don't have new instances anymore
-                      // we should make this configurable maybe? Or dependant on credential type?
-                      useMode: CredentialMultiInstanceUseMode.NewOrFirst,
-                    })
-              )
-            )
-          )
-        : undefined
-
-      const result = await agent.openid4vc.holder.acceptOpenId4VpAuthorizationRequest({
-        authorizationRequestPayload: submissionParams.authorizationRequest,
-        origin: submissionParams.origin,
-        presentationExchange: presentationExchangeCredentials
-          ? {
-              credentials: presentationExchangeCredentials,
-            }
-          : undefined,
-        dcql: dcqlCredentials
-          ? {
-              credentials: dcqlCredentials,
-            }
-          : undefined,
-      })
-
-      // If redirect_uri is provided, open it in the browser
-      // Even if the response returned an error, the redirect URI must be opened
-      if (result.redirectUri) {
-        await Linking.openURL(result.redirectUri)
-      }
-
-      if (result.serverResponse && (result.serverResponse.status < 200 || result.serverResponse.status > 299)) {
-        throw new Error(`Error while accepting authorization request. ${JSON.stringify(result.serverResponse?.body)}`)
-      }
-
-      return result
+      return acceptPresentationRequest(agent, { submissionParams, selectedCredentials })
     },
     [agent]
   )
@@ -444,65 +333,4 @@ export const useOpenIdHandlers = () => {
     resolveOpenId4VpPresentationRequest,
     acceptOpenId4VpPresentationRequest,
   }
-}
-
-function getSelectedCredentialsForDcqlRequest(
-  dcqlQueryResult: DcqlQueryResult,
-  selectedCredentials: { [credentialQueryId: string]: string }
-): DcqlCredentialsForRequest {
-  if (!dcqlQueryResult.can_be_satisfied) {
-    throw new Error('Cannot select the credentials for the dcql query presentation if the request cannot be satisfied')
-  }
-
-  const credentials: DcqlCredentialsForRequest = {}
-
-  type WithRecord<T> = T & {
-    record: CredentialRecord
-  }
-
-  for (const [credentialQueryId, credentialRecordId] of Object.entries(selectedCredentials)) {
-    const matchesForCredentialQuery = dcqlQueryResult.credential_matches[credentialQueryId]
-    if (matchesForCredentialQuery.success) {
-      const validCredentialMatch = matchesForCredentialQuery.valid_credentials.find(
-        (credential) => (credential as WithRecord<typeof credential>).record.id === credentialRecordId
-      )
-
-      if (!validCredentialMatch) {
-        throw new Error(
-          `Could not find credential record ${credentialRecordId} in valid credential matches for credentialQueryId ${credentialQueryId}`
-        )
-      }
-
-      // TODO: fix the typing, make selection in Credo easier
-      const matchWithRecord = validCredentialMatch as typeof validCredentialMatch & {
-        record: CredentialRecord
-      }
-
-      if (matchWithRecord.record.type === 'MdocRecord') {
-        credentials[credentialQueryId] = [
-          {
-            claimFormat: ClaimFormat.MsoMdoc,
-            credentialRecord: matchWithRecord.record,
-            disclosedPayload: matchWithRecord.claims.valid_claim_sets[0].output as MdocNameSpaces,
-            // FIXME: we currently allow re-sharing if we don't have new instances anymore
-            // we should make this configurable maybe? Or dependant on credential type?
-            useMode: CredentialMultiInstanceUseMode.NewOrFirst,
-          },
-        ]
-      } else if (matchWithRecord.record.type === 'SdJwtVcRecord') {
-        credentials[credentialQueryId] = [
-          {
-            claimFormat: ClaimFormat.SdJwtDc,
-            credentialRecord: matchWithRecord.record,
-            disclosedPayload: matchWithRecord.claims.valid_claim_sets[0].output as JsonObject,
-            // FIXME: we currently allow re-sharing if we don't have new instances anymore
-            // we should make this configurable maybe? Or dependant on credential type?
-            useMode: CredentialMultiInstanceUseMode.NewOrFirst,
-          },
-        ]
-      }
-    }
-  }
-
-  return credentials
 }

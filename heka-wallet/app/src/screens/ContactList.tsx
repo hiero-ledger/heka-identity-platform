@@ -17,7 +17,7 @@ import { useChatMessagesByConnection } from '@bifold/core/src/hooks/chat-message
 import { RootStackParams } from '@bifold/core/src/types/navigators'
 import { fetchContactsByLatestMessage } from '@bifold/core/src/utils/contacts'
 import { toImageSource } from '@bifold/core/src/utils/credential'
-import { useConnections, useAgent } from '@bifold/react-hooks'
+import { useConnections, useOptionalAgent } from '@bifold/react-hooks'
 import { DidCommConnectionRecord, DidCommConnectionType, DidCommDidExchangeState } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/core'
@@ -144,7 +144,7 @@ export const ContactListItem: React.FC<ConnectionRowProps> = ({ connection }) =>
 
 const ListContacts: React.FC<ListContactsProps> = ({ navigation }) => {
   const { t } = useTranslation()
-  const { agent } = useAgent<BifoldAgent>()
+  const { agent } = useOptionalAgent()
   const [store] = useStore()
   const [{ contactHideList }] = useServices([TOKENS.CONFIG])
 

@@ -328,6 +328,15 @@ const translation = {
     "ProofRequestRejected": "Rejeitou uma solicitação de prova",
     "ProofRequestRejectReceived": "Rejeitou uma solicitação de prova",
     "ProofRequestSatisfied": "Compartilhou informações"
+  },
+  "DigitalCredentials": {
+    "EnterPinToShare": "Insira seu PIN para compartilhar uma credencial",
+    "SharingWith": "Compartilhando com {{origin}}",
+    "IncorrectPin": "PIN incorreto. Tente novamente.",
+    "Cancel": "Cancelar",
+    "CredentialTitleFallback": "Credencial",
+    "IssuedBy": "Emitido por {{issuer}}",
+    "UnknownIssuer": "Emissor desconhecido"
   }
 }
 

@@ -21,18 +21,15 @@ export interface BuildOpenIdPresentationRequestParams {
   doctype?: string;
   /** namespace for mso_mdoc claim paths (e.g. 'org.iso.18013.5.1') */
   namespace?: string;
-  /** When true, adds responseMode: 'dc_api' and expectedOrigins for Digital Credentials API flow */
+  /** When true, builds a signed `dc_api` request for the W3C Digital Credentials API flow */
   useDcApi?: boolean;
+  /** Origins (typically `[window.location.origin]`) bound into a signed `dc_api` request */
+  expectedOrigins?: Array<string>;
 }
 
-const buildDcApiFields = (useDcApi?: boolean) =>
-  useDcApi
-    ? {
-        responseMode: 'dc_api' as const,
-        expectedOrigins: [window.location.origin],
-        version: 'v1' as const,
-      }
-    : {};
+// Non-DC-API ("direct_post") requests are signed with the verifier's DID and use DIF Presentation
+// Exchange. The DC API flow is built separately (see buildDcApiPresentationRequest) — it is also
+// signed with the verifier's DID (a JAR, required by the wallet matcher) but MUST use DCQL, not PEX.
 
 export const buildSdJwtPresentationRequest = ({
   id,
@@ -40,14 +37,10 @@ export const buildSdJwtPresentationRequest = ({
   name,
   attributes,
   purpose,
-  useDcApi,
 }: BuildOpenIdPresentationRequestParams) => {
   return {
     publicVerifierId: id,
-    requestSigner: {
-      method: 'did',
-      did: did,
-    },
+    requestSigner: { method: 'did', did },
     presentationExchange: {
       definition: {
         id: v4(),
@@ -67,7 +60,6 @@ export const buildSdJwtPresentationRequest = ({
         ],
       },
     },
-    ...buildDcApiFields(useDcApi),
   };
 };
 
@@ -76,14 +68,10 @@ export const buildJwtJsonPresentationRequest = ({
   did,
   name,
   purpose,
-  useDcApi,
 }: BuildOpenIdPresentationRequestParams) => {
   return {
     publicVerifierId: id,
-    requestSigner: {
-      method: 'did',
-      did: did,
-    },
+    requestSigner: { method: 'did', did },
     presentationExchange: {
       definition: {
         id: v4(),
@@ -108,7 +96,6 @@ export const buildJwtJsonPresentationRequest = ({
         ],
       },
     },
-    ...buildDcApiFields(useDcApi),
   };
 };
 
@@ -133,14 +120,10 @@ export const buildMsoMdocPresentationRequest = ({
   purpose,
   doctype = MDL_DOCTYPE,
   namespace = MDL_NAMESPACE,
-  useDcApi,
 }: BuildOpenIdPresentationRequestParams) => {
   return {
     publicVerifierId: id,
-    requestSigner: {
-      method: 'did',
-      did: did,
-    },
+    requestSigner: { method: 'did', did },
     presentationExchange: {
       definition: {
         id: v4(),
@@ -166,13 +149,90 @@ export const buildMsoMdocPresentationRequest = ({
         ],
       },
     },
-    ...buildDcApiFields(useDcApi),
   };
 };
+
+// ─── DC API (DCQL) ───────────────────────────────────────────────────────────
+//
+// The W3C Digital Credentials API (`responseMode: 'dc_api'`) forces OpenID4VP `version: 'v1'`,
+// and v1 does not permit DIF Presentation Exchange — so DC API requests MUST use DCQL. Only
+// mso_mdoc and SD-JWT VC are expressible in DCQL here, which are exactly the formats the DC API
+// carries in practice. The backend auto-selects `version: 'v1'` when a `dcql` query is present.
+
+const DCQL_CREDENTIAL_ID = 'requested-credential';
+
+// The W3C Digital Credentials API matches SD-JWT VCs under the newer `dc+sd-jwt` type id — not the
+// legacy `vc+sd-jwt` (Openid4CredentialFormat.SdJwt). Credo signs SD-JWT VCs with ClaimFormat.SdJwtDc
+// and holder wallets register them with the DC API matcher as `dc+sd-jwt`, so the DCQL query MUST
+// request `dc+sd-jwt` or the OS credential picker surfaces nothing. (Issuance still offers
+// `vc+sd-jwt`; only the signed credential — and therefore this verification query — is `dc+sd-jwt`.)
+const DCQL_SD_JWT_FORMAT = 'dc+sd-jwt' as const;
+
+const buildDcqlQuery = ({
+  format,
+  attributes,
+  doctype = MDL_DOCTYPE,
+  namespace = MDL_NAMESPACE,
+}: BuildOpenIdPresentationRequestParams) => {
+  switch (format) {
+    case Openid4CredentialFormat.MsoMdoc:
+      return {
+        credentials: [
+          {
+            id: DCQL_CREDENTIAL_ID,
+            format: Openid4CredentialFormat.MsoMdoc,
+            meta: { doctype_value: doctype },
+            claims: attributes.map((attribute) => ({
+              path: [namespace, attribute],
+              intent_to_retain: false,
+            })),
+          },
+        ],
+      };
+    case Openid4CredentialFormat.SdJwt:
+      return {
+        credentials: [
+          {
+            id: DCQL_CREDENTIAL_ID,
+            format: DCQL_SD_JWT_FORMAT,
+            // No `meta.vct_values`: the SD-JWT PEX path did not constrain the vct either, so we
+            // match on the requested claims alone. Add vct_values here to restrict by type.
+            claims: attributes.map((attribute) => ({ path: [attribute] })),
+          },
+        ],
+      };
+    default:
+      throw new Error(
+        `The Digital Credentials API flow supports only mso_mdoc and SD-JWT VC credentials (received "${format}")`,
+      );
+  }
+};
+
+const buildDcApiPresentationRequest = (
+  params: BuildOpenIdPresentationRequestParams,
+) => ({
+  publicVerifierId: params.id,
+  // The DC API request must be SIGNED (a JAR). The bundled wallet matcher only accepts a signed
+  // request as the `navigator.credentials.get` `data` object — `{ request: <jwt> }`; an unsigned
+  // plain object (top-level `dcql_query`, no `request`) makes the matcher fail with "request object
+  // not found" and surface no credentials. Sign with the verifier's DID — the same signer the
+  // direct_post/PEX flow uses. `expectedOrigins` binds the calling page so the holder accepts it.
+  requestSigner: { method: 'did' as const, did: params.did },
+  dcql: { query: buildDcqlQuery(params) },
+  responseMode: 'dc_api' as const,
+  version: 'v1' as const,
+  ...(params.expectedOrigins?.length
+    ? { expectedOrigins: params.expectedOrigins }
+    : {}),
+});
 
 export const buildOpenIdPresentationRequest = (
   params: BuildOpenIdPresentationRequestParams,
 ) => {
+  if (params.useDcApi) {
+    return buildDcApiPresentationRequest(params);
+  }
+
   switch (params.format) {
     case Openid4CredentialFormat.SdJwt:
       return buildSdJwtPresentationRequest(params);

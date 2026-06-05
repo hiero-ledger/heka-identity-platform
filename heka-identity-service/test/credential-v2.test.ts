@@ -3,8 +3,7 @@ import { Server } from 'net'
 import { DidCommCredentialState, DidCommProofState } from '@credo-ts/didcomm'
 import { OpenId4VcIssuanceSessionState, OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
 import { MikroORM } from '@mikro-orm/core'
-import { PostgreSqlDriver } from '@mikro-orm/postgresql'
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request, { WSChain } from 'superwstest'
 
@@ -48,11 +47,11 @@ describe('Credential V2 tests', () => {
 
   beforeAll(async () => {
     orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
   })
 
   beforeEach(async () => {
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -307,7 +306,7 @@ describe('Credential V2 tests', () => {
         .send({
           templateId,
           fields: ['aaa'],
-        } as ProofByVerificationTemplateRequest)
+        })
       expect(response.status).toBe(404)
       expect(response.body.message).toContain(`Template with id ${templateId} not found.`)
     })

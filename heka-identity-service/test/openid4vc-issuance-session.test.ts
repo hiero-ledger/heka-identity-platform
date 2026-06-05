@@ -24,9 +24,9 @@ describe('E2E issuance session', () => {
 
   beforeAll(async () => {
     const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
 
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     agent = createAgent()
     await agent.initialize()
@@ -42,7 +42,7 @@ describe('E2E issuance session', () => {
 
     await nestApp.close()
 
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
   })
 
   async function testCredentialIssuance(didMethod: string, expectedAlg: string) {
@@ -219,7 +219,7 @@ describe('E2E issuance session', () => {
       claimFormat: 'vc+sd-jwt',
       encoded: expect.any(String),
       compact: expect.any(String),
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
       header: { alg: expectedAlg, kid: `#${issuerDidKey.publicJwk.fingerprint}`, typ: 'vc+sd-jwt' },
       payload: {
         _sd_alg: 'sha-256',

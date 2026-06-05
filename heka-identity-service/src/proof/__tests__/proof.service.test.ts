@@ -26,10 +26,10 @@ describe('ProofService', () => {
           acceptRequest: vi.fn(),
         },
         connections: { findById: vi.fn() },
-      } as any,
+      },
       modules: {
         anoncreds: { getCredentialDefinition: vi.fn(), getSchema: vi.fn() },
-      } as any,
+      },
     })
   })
 
@@ -111,7 +111,7 @@ describe('ProofService', () => {
           name: 'My Proof',
           proofParams,
         },
-      } as any)
+      })
 
       expect(tenantAgent.modules.anoncreds.getSchema).toHaveBeenCalledWith('schema-1')
       expect(result.id).toBe('proof-2')
@@ -154,7 +154,7 @@ describe('ProofService', () => {
           name: 'Cred Def Proof',
           proofParams,
         },
-      } as any)
+      })
 
       expect(tenantAgent.modules.anoncreds.getCredentialDefinition).toHaveBeenCalledWith('creddef-1')
       expect(tenantAgent.modules.anoncreds.getSchema).toHaveBeenCalledWith('schema-1')
@@ -178,7 +178,7 @@ describe('ProofService', () => {
           } as any),
         },
         requestNonRevokedProof: true,
-      } as any)
+      })
 
       expect(result.id).toBe('proof-4')
       expect(tenantAgent.didcomm.proofs.requestProof).toHaveBeenCalledWith(
@@ -220,7 +220,7 @@ describe('ProofService', () => {
 
       const mockRecord = proofExchangeRecordStub({ id: 'proof-5', state: 'done', createdAt: new Date() })
       vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord)
-      vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({ presentation: {} } as any)
+      vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({ presentation: {} })
 
       const result = await proofService.get(tenantAgent, 'proof-5')
       expect(tenantAgent.didcomm.proofs.findById).toHaveBeenCalledWith('proof-5')

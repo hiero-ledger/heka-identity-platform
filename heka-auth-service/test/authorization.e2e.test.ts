@@ -19,9 +19,9 @@ describe('E2E authorization', () => {
 
   beforeAll(async () => {
     const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
 
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -29,7 +29,7 @@ describe('E2E authorization', () => {
 
   afterAll(async () => {
     if (nestApp) await nestApp.close()
-    if (ormSchemaGenerator) await ormSchemaGenerator.clearDatabase()
+    if (ormSchemaGenerator) await ormSchemaGenerator.clear()
   })
 
   const newUser = () => ({

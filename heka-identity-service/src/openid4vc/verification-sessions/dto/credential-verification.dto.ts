@@ -50,10 +50,13 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
   @IsNotEmpty()
   public publicVerifierId!: string
 
-  @ApiProperty({ type: CredentialIssuer })
+  @ApiPropertyOptional({
+    type: CredentialIssuer,
+  })
+  @IsOptional()
   @ValidateNested()
   @Type(() => CredentialIssuer)
-  public requestSigner!: CredentialIssuer
+  public requestSigner?: CredentialIssuer
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -79,7 +82,8 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
 
   @ApiPropertyOptional({
     enum: ['direct_post', 'direct_post.jwt', 'dc_api', 'dc_api.jwt'],
-    description: 'Response mode for the authorization request. Use dc_api or dc_api.jwt for Digital Credentials API flow.',
+    description:
+      'Response mode for the authorization request. Use dc_api or dc_api.jwt for Digital Credentials API flow.',
   })
   @IsOptional()
   @IsString()
@@ -87,7 +91,8 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
 
   @ApiPropertyOptional({
     type: [String],
-    description: 'Expected origins for DC API. Required when responseMode is dc_api or dc_api.jwt.',
+    description:
+      'Expected origins embedded in a signed request (signed DC API binds the calling page here). Ignored for the unsigned DC API flow, where the origin is validated at verification time.',
   })
   @IsOptional()
   public expectedOrigins?: string[]

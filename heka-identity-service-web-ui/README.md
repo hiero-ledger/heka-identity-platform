@@ -51,15 +51,19 @@ steps before running or deploying the application:
 
 The Web UI is configured via environment variables read by webpack at build time. Set them in the `.env` file at the package root.
 
-| Variable                            | Default                 | Description                                                                                                                                                      |
-| ----------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `REACT_APP_AGENCY_ENDPOINT`         | `http://localhost:3000` | Heka Identity Service base URL.                                                                                                                                  |
-| `REACT_APP_AUTH_SERVICE_ENDPOINT`   | `http://localhost:3004` | Heka Auth Service base URL. JWT login and token refresh go here.                                                                                                 |
-| `REACT_APP_DEMO_USER_DID`           | _(empty)_               | DID of the pre-provisioned demo user. Filled in by `scripts/prepare-demo-user.ts` — see [Creation of Pre-Defined Demo User](#creation-of-pre-defined-demo-user). |
-| `REACT_APP_DEMO_USER_ACCESS_TOKEN`  | _(empty)_               | JWT access token for the demo user. Filled in by the script above.                                                                                               |
-| `REACT_APP_DEMO_USER_REFRESH_TOKEN` | _(empty)_               | Refresh token for the demo user. Filled in by the script above.                                                                                                  |
+| Variable                            | Default                 | Description                                                                                                                                                                                                        |
+| ----------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `REACT_APP_AGENCY_ENDPOINT`         | `http://localhost:3000` | Heka Identity Service base URL.                                                                                                                                                                                    |
+| `REACT_APP_AUTH_SERVICE_ENDPOINT`   | `http://localhost:3004` | Heka Auth Service base URL. JWT login and token refresh go here.                                                                                                                                                   |
+| `REACT_APP_DEMO_USER_DID`           | _(empty)_               | DID of the pre-provisioned demo user. Filled in by `scripts/prepare-demo-user.ts` — see [Creation of Pre-Defined Demo User](#creation-of-pre-defined-demo-user).                                                   |
+| `REACT_APP_DEMO_USER_ACCESS_TOKEN`  | _(empty)_               | JWT access token for the demo user. Filled in by the script above.                                                                                                                                                 |
+| `REACT_APP_DEMO_USER_REFRESH_TOKEN` | _(empty)_               | Refresh token for the demo user. Filled in by the script above.                                                                                                                                                    |
 
 The Web UI authenticates against [Heka Auth Service](../heka-auth-service/README.md) for login and token refresh, and calls the [Heka Identity Service](../heka-identity-service/README.md) with the resulting JWT. Both services must be running and reachable from the browser at the configured endpoints.
+
+### Digital Credentials API (DC API)
+
+When the browser supports the W3C Digital Credentials API, the verification flow offers it alongside the QR code option (these correspond to the OpenID4VP `dc_api` and `direct_post` response modes). The same `navigator.credentials.get()` call works **same-device** (the OS picker opens a wallet on this device) and **cross-device** (on desktop, the browser itself shows a QR and runs a Bluetooth handshake to a wallet on a phone) — no app-rendered QR is involved for DC API. Cross-device on desktop Chrome may require the `chrome://flags#web-identity-digital-credentials` flag or a per-origin trial token; see the commented placeholder in [`public/index.html`](./public/index.html).
 
 ## Development
 

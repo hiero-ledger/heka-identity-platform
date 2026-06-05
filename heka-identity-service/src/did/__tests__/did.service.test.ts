@@ -38,7 +38,7 @@ describe('DidService', () => {
         getCreatedDids: vi.fn(),
         resolveDidDocument: vi.fn(),
         resolve: vi.fn(),
-      } as any,
+      },
     })
   })
 
@@ -156,7 +156,7 @@ describe('DidService', () => {
     }
 
     test('throws when wallet already has a publicDid', async () => {
-      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: 'did:indy:existing' })
+      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: 'did:indy:existing' } as any)
 
       const authInfo = { ...baseAuthInfo, role: Role.Admin }
 
@@ -167,7 +167,7 @@ describe('DidService', () => {
     })
 
     test('creates DID via didRegistrarService when no controller wallet is required (Admin role)', async () => {
-      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: null })
+      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: null } as any)
 
       const didDocument = {
         id: 'did:indy:test-ns:newdid',
@@ -178,7 +178,7 @@ describe('DidService', () => {
 
       const authInfo = { ...baseAuthInfo, role: Role.Admin }
 
-      const result = await didService.create(authInfo as any, { method: 'indy' } as any)
+      const result = await didService.create(authInfo, { method: 'indy' })
 
       expect(em.findOneOrFail).toHaveBeenCalledWith(Wallet, { id: 'wallet-1' })
       expect(result.id).toBe('did:indy:test-ns:newdid')
@@ -189,7 +189,7 @@ describe('DidService', () => {
     })
 
     test('throws UnprocessableEntityException when didControllerWallet is not found', async () => {
-      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: null })
+      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: null } as any)
       vi.mocked(em.findOne).mockResolvedValue(null)
 
       const authInfo = { ...baseAuthInfo, role: Role.OrgAdmin, orgId: 'org-1' }
@@ -202,8 +202,8 @@ describe('DidService', () => {
     })
 
     test('throws UnprocessableEntityException when didControllerWallet has no publicDid', async () => {
-      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: null })
-      vi.mocked(em.findOne).mockResolvedValue({ id: 'Administration', publicDid: null })
+      vi.mocked(em.findOneOrFail).mockResolvedValue({ id: 'wallet-1', publicDid: null } as any)
+      vi.mocked(em.findOne).mockResolvedValue({ id: 'Administration', publicDid: null } as any)
 
       const authInfo = { ...baseAuthInfo, role: Role.OrgAdmin, orgId: 'org-1' }
 

@@ -61,7 +61,7 @@ describe('PrepareWalletService', () => {
 
   test('creates DIDs for all methods, initializes OID4VC, and patches user', async () => {
     vi.mocked(didService.find).mockResolvedValue([])
-    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] } as any)
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] })
 
     vi.mocked(didService.create)
       .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
@@ -87,7 +87,7 @@ describe('PrepareWalletService', () => {
 
   test('throws when main DID method (key) fails to create', async () => {
     vi.mocked(didService.find).mockResolvedValue([])
-    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] } as any)
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
     vi.mocked(didService.create).mockRejectedValue(new Error('KMS failure'))
 
     await expect(prepareWalletService.prepareWallet(authInfo, tenantAgent, {})).rejects.toThrow(
@@ -98,7 +98,7 @@ describe('PrepareWalletService', () => {
 
   test('continues when a non-main DID method fails', async () => {
     vi.mocked(didService.find).mockResolvedValue([])
-    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] } as any)
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] })
     vi.mocked(didService.create)
       .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
       .mockRejectedValueOnce(new Error('Indy failure'))
@@ -117,13 +117,13 @@ describe('PrepareWalletService', () => {
 
   test('creates and registers schemas when provided', async () => {
     vi.mocked(didService.find).mockResolvedValue([])
-    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] } as any)
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
     vi.mocked(didService.create).mockResolvedValue({ id: 'did:key:z1' } as any)
     vi.mocked(issuerService.createIssuer).mockResolvedValue({} as any)
     vi.mocked(verifierService.createVerifier).mockResolvedValue({} as any)
 
     vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
-    vi.mocked(schemaV2Service.registration).mockResolvedValue({} as any)
+    vi.mocked(schemaV2Service.registration).mockResolvedValue({})
 
     const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {
       schemas: [

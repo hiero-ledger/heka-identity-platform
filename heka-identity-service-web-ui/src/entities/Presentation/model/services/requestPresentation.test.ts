@@ -1,20 +1,30 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { AxiosInstance } from 'axios';
 
 import { demoUser } from '@/const/user';
 import { OpenIdPresentationState } from '@/entities/Presentation/model/types/presentation';
-import { Openid4CredentialFormat, ProtocolType } from '@/entities/Schema/model/types/schema';
+import {
+  Openid4CredentialFormat,
+  ProtocolType,
+} from '@/entities/Schema/model/types/schema';
 import * as tokenUtils from '@/shared/api/utils/token';
+import { DcApiProtocolIdentifier } from '@/shared/lib/dcApi';
 
-// Pull out the internal DC API function via the thunk's underlying helpers by
-// testing `requestPresentation` with a mocked axios and browser API.
-import { RequestPresentationParams, requestPresentation } from './requestPresentation';
+import {
+  RequestPresentationParams,
+  requestPresentation,
+} from './requestPresentation';
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// `demoUser.did` is sourced from an env var that is empty in tests; mock it so the
+// `useDemo` branch resolves a stable verifier id instead of throwing "User ID is not set".
+jest.mock('@/const/user', () => ({
+  demoUser: { did: 'did:key:z6MkDemoUser', accessToken: '', refreshToken: '' },
+}));
 
 const makeApi = (postResponse: unknown): AxiosInstance =>
   ({
     post: jest.fn().mockResolvedValue({ data: postResponse }),
-  } as unknown as AxiosInstance);
+  }) as unknown as AxiosInstance;
 
 const baseSchema = {
   id: 'schema-1',
@@ -29,11 +39,8 @@ const baseParams: RequestPresentationParams = {
   useDcApi: true,
 };
 
-// ─── navigator.credentials mock setup ───────────────────────────────────────
-
 // The production code checks `credentialResponse.constructor.name !== 'DigitalCredential'`,
 // so the mock class must be named exactly `DigitalCredential`.
-// eslint-disable-next-line @typescript-eslint/naming-convention
 const DigitalCredential = class DigitalCredential {
   public data: string | Record<string, unknown>;
   constructor(data: string | Record<string, unknown>) {
@@ -51,21 +58,25 @@ const mockNavigatorCredentials = (response: unknown) => {
 
 // ─── thunk test harness ──────────────────────────────────────────────────────
 
-const runThunk = async (params: RequestPresentationParams, agencyApi: AxiosInstance) => {
+const runThunk = async (
+  params: RequestPresentationParams,
+  agencyApi: AxiosInstance,
+) => {
   let result: any;
   let error: any;
 
   const dispatch = jest.fn((action: any) => {
-    if (action instanceof Promise || typeof action === 'function') return action;
+    if (action instanceof Promise || typeof action === 'function')
+      return action;
     return action;
   });
 
   const thunk = requestPresentation(params);
-  const returnValue = await thunk(
-    dispatch,
-    () => ({}),
-    { agencyApi, agencyDemoApi: agencyApi, authApi: {} as any },
-  );
+  const returnValue: any = await thunk(dispatch, (() => ({})) as any, {
+    agencyApi,
+    agencyDemoApi: agencyApi,
+    authApi: {} as any,
+  });
 
   if (returnValue?.error) {
     error = returnValue.payload;
@@ -76,8 +87,6 @@ const runThunk = async (params: RequestPresentationParams, agencyApi: AxiosInsta
   return { result, error };
 };
 
-// ─── tests ───────────────────────────────────────────────────────────────────
-
 describe('requestPresentation — DC API flow', () => {
   beforeEach(() => {
     jest.spyOn(tokenUtils, 'getUserId').mockReturnValue('did:key:z6MkTestUser');
@@ -87,14 +96,23 @@ describe('requestPresentation — DC API flow', () => {
     jest.restoreAllMocks();
   });
 
-  it('calls navigator.credentials.get with unsigned protocol when authorizationRequestObject has no payload', async () => {
-    const authorizationRequestObject = { response_mode: 'dc_api', nonce: 'abc', client_id: 'v-1' };
-    const credential = new DigitalCredential(JSON.stringify({ vp_token: 'tok' }));
+  it('uses the v1 unsigned protocol id by default when authorizationRequestObject has no payload', async () => {
+    const authorizationRequestObject = {
+      response_mode: 'dc_api',
+      nonce: 'abc',
+      client_id: 'v-1',
+    };
+    const credential = new DigitalCredential(
+      JSON.stringify({ vp_token: 'tok' }),
+    );
 
     const api = makeApi({
       authorizationRequest: 'openid4vp://...',
       authorizationRequestObject,
-      verificationSession: { id: 'sess-1', state: OpenIdPresentationState.RequestCreated },
+      verificationSession: {
+        id: 'sess-1',
+        state: OpenIdPresentationState.RequestCreated,
+      },
     });
     mockNavigatorCredentials(credential);
 
@@ -103,7 +121,14 @@ describe('requestPresentation — DC API flow', () => {
     expect(navigator.credentials.get).toHaveBeenCalledWith(
       expect.objectContaining({
         digital: expect.objectContaining({
-          requests: [expect.objectContaining({ protocol: 'openid4vp-v1-unsigned' })],
+          requests: [
+            expect.objectContaining({
+              protocol: DcApiProtocolIdentifier.OpenId4VpV1Unsigned,
+              // `data` is the request OBJECT (Chrome requires an object — a string makes get() throw).
+              // This unsigned shape is only a fallback; the production flow signs (see the case below).
+              data: authorizationRequestObject,
+            }),
+          ],
         }),
       }),
     );
@@ -111,14 +136,20 @@ describe('requestPresentation — DC API flow', () => {
     expect(result?.id).toBe('sess-1');
   });
 
-  it('calls navigator.credentials.get with signed protocol when authorizationRequestObject has a payload field', async () => {
-    const authorizationRequestObject = { payload: 'signed.jwt.here', header: {} };
+  it('uses the v1 signed protocol id by default when the request is signed', async () => {
+    const authorizationRequestObject = {
+      payload: 'signed.jwt.here',
+      header: {},
+    };
     const credential = new DigitalCredential({ vp_token: 'tok' });
 
     const api = makeApi({
       authorizationRequest: 'openid4vp://...',
       authorizationRequestObject,
-      verificationSession: { id: 'sess-2', state: OpenIdPresentationState.RequestCreated },
+      verificationSession: {
+        id: 'sess-2',
+        state: OpenIdPresentationState.RequestCreated,
+      },
     });
     mockNavigatorCredentials(credential);
 
@@ -127,27 +158,36 @@ describe('requestPresentation — DC API flow', () => {
     expect(navigator.credentials.get).toHaveBeenCalledWith(
       expect.objectContaining({
         digital: expect.objectContaining({
-          requests: [expect.objectContaining({ protocol: 'openid4vp-v1-signed' })],
+          requests: [
+            expect.objectContaining({
+              protocol: DcApiProtocolIdentifier.OpenId4VpV1Signed,
+            }),
+          ],
         }),
       }),
     );
   });
 
   it('posts the parsed JSON response to the verify endpoint when credential.data is a string', async () => {
-    const authorizationRequestObject = { response_mode: 'dc_api', nonce: 'abc' };
+    const authorizationRequestObject = {
+      response_mode: 'dc_api',
+      nonce: 'abc',
+    };
     const vpToken = { vp_token: 'tok', state: 's1' };
     const credential = new DigitalCredential(JSON.stringify(vpToken));
 
     const api = makeApi({
       authorizationRequest: 'openid4vp://...',
       authorizationRequestObject,
-      verificationSession: { id: 'sess-3', state: OpenIdPresentationState.RequestCreated },
+      verificationSession: {
+        id: 'sess-3',
+        state: OpenIdPresentationState.RequestCreated,
+      },
     });
     mockNavigatorCredentials(credential);
 
     await runThunk(baseParams, api);
 
-    // Second call is the verify POST
     const [, verifyCall] = (api.post as jest.Mock).mock.calls;
     expect(verifyCall[0]).toMatch(/sess-3\/verify/);
     expect(verifyCall[1]).toEqual(
@@ -159,14 +199,20 @@ describe('requestPresentation — DC API flow', () => {
   });
 
   it('posts the raw object when credential.data is already an object', async () => {
-    const authorizationRequestObject = { response_mode: 'dc_api', nonce: 'xyz' };
+    const authorizationRequestObject = {
+      response_mode: 'dc_api',
+      nonce: 'xyz',
+    };
     const vpToken = { vp_token: 'tok2' };
     const credential = new DigitalCredential(vpToken);
 
     const api = makeApi({
       authorizationRequest: 'openid4vp://...',
       authorizationRequestObject,
-      verificationSession: { id: 'sess-4', state: OpenIdPresentationState.RequestCreated },
+      verificationSession: {
+        id: 'sess-4',
+        state: OpenIdPresentationState.RequestCreated,
+      },
     });
     mockNavigatorCredentials(credential);
 
@@ -180,7 +226,10 @@ describe('requestPresentation — DC API flow', () => {
     const api = makeApi({
       authorizationRequest: 'openid4vp://...',
       authorizationRequestObject: { response_mode: 'dc_api', nonce: 'abc' },
-      verificationSession: { id: 'sess-5', state: OpenIdPresentationState.RequestCreated },
+      verificationSession: {
+        id: 'sess-5',
+        state: OpenIdPresentationState.RequestCreated,
+      },
     });
     mockNavigatorCredentials(null);
 
@@ -193,10 +242,15 @@ describe('requestPresentation — DC API flow', () => {
     const api = makeApi({
       authorizationRequest: 'openid4vp://...',
       authorizationRequestObject: { response_mode: 'dc_api', nonce: 'abc' },
-      verificationSession: { id: 'sess-6', state: OpenIdPresentationState.RequestCreated },
+      verificationSession: {
+        id: 'sess-6',
+        state: OpenIdPresentationState.RequestCreated,
+      },
     });
     // Return an object whose constructor is not named DigitalCredential
-    const notADigitalCredential = Object.create({ constructor: { name: 'PublicKeyCredential' } });
+    const notADigitalCredential = Object.create({
+      constructor: { name: 'PublicKeyCredential' },
+    });
     mockNavigatorCredentials(notADigitalCredential);
 
     const { result, error } = await runThunk(baseParams, api);
@@ -205,13 +259,19 @@ describe('requestPresentation — DC API flow', () => {
   });
 
   it('uses demoUser DID when useDemo is true', async () => {
-    const authorizationRequestObject = { response_mode: 'dc_api', nonce: 'abc' };
+    const authorizationRequestObject = {
+      response_mode: 'dc_api',
+      nonce: 'abc',
+    };
     const credential = new DigitalCredential({ vp_token: 'tok' });
 
     const api = makeApi({
       authorizationRequest: 'openid4vp://...',
       authorizationRequestObject,
-      verificationSession: { id: 'sess-7', state: OpenIdPresentationState.RequestCreated },
+      verificationSession: {
+        id: 'sess-7',
+        state: OpenIdPresentationState.RequestCreated,
+      },
     });
     mockNavigatorCredentials(credential);
 
@@ -219,5 +279,40 @@ describe('requestPresentation — DC API flow', () => {
 
     const [firstCall] = (api.post as jest.Mock).mock.calls;
     expect(firstCall[1].publicVerifierId).toBe(demoUser.did);
+  });
+
+  it('maps sharedAttributes from the verify response into the result', async () => {
+    const authorizationRequestObject = {
+      response_mode: 'dc_api',
+      nonce: 'abc',
+    };
+    const credential = new DigitalCredential(
+      JSON.stringify({ vp_token: 'tok' }),
+    );
+
+    const post = jest
+      .fn()
+      .mockResolvedValueOnce({
+        data: {
+          authorizationRequest: 'openid4vp://...',
+          authorizationRequestObject,
+          verificationSession: {
+            id: 'sess-8',
+            state: OpenIdPresentationState.RequestCreated,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: { sharedAttributes: { age_over_18: true, name: 'John' } },
+      });
+    const api = { post } as unknown as AxiosInstance;
+    mockNavigatorCredentials(credential);
+
+    const { result } = await runThunk(baseParams, api);
+
+    expect(result?.sharedAttributes).toEqual([
+      { name: 'age_over_18', value: 'true' },
+      { name: 'name', value: 'John' },
+    ]);
   });
 });

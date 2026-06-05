@@ -95,7 +95,8 @@ export class AuthService {
 
     if (!user) {
       user = new User({ id })
-      await this.em.persistAndFlush(user)
+      this.em.persist(user)
+      await this.em.flush()
       logger.info(`Created user: id=${id}`)
     }
 
@@ -116,7 +117,8 @@ export class AuthService {
 
       wallet = new Wallet({ id, tenantId: tenantRecord.id })
 
-      await this.em.persistAndFlush(wallet)
+      this.em.persist(wallet)
+      await this.em.flush()
       logger.info(`Created wallet: id=${id}, tenantId=${tenantRecord.id}`)
 
       await withTenantAgent(

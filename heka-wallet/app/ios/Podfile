@@ -14,6 +14,10 @@ end
 node_require('react-native/scripts/react_native_pods.rb')
 node_require('react-native-permissions/scripts/setup.rb')
 
+# Expo modules autolinking for CocoaPods. Resolved via `expo/package.json` (exports-safe and
+# monorepo/hoisting-aware) — this is what provides `use_expo_modules!` used in the target below.
+require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
+
 platform :ios, '16.0'
 prepare_react_native_project!
 
@@ -24,6 +28,7 @@ if linkage != nil
 end
 
 target 'HekaWallet' do
+  use_expo_modules!
   config = use_native_modules!
 
   setup_permissions([
