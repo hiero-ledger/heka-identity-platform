@@ -8,8 +8,7 @@ export function getWalletId({ role, userId, orgId }: { role: Role; userId: strin
       if (orgId) {
         throw new UnauthorizedException()
       }
-      // FIXME: In web app demo we create users with `Admin` role
-      return `Administration_${userId}`
+      return 'Administration'
     case Role.OrgAdmin:
     case Role.OrgManager:
     case Role.OrgMember:

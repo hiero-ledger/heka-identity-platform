@@ -59,7 +59,15 @@ describe('Credential V2 tests', () => {
   })
 
   afterEach(async () => {
+    // TODO: Find a way to explicitly await the required condition
+    // Give AFJ event listeners some time to process pending events
+    await sleep(4000)
+
     await nestApp.close()
+  })
+
+  afterAll(async () => {
+    await ormSchemaGenerator.clearDatabase()
   })
 
   const prepareSchemaAndIssuanceTemplate = async (

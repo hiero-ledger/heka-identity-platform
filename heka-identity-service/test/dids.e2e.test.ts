@@ -42,7 +42,7 @@ describe('E2E public DIDs creation', () => {
     await ormSchemaGenerator.clearDatabase()
   })
 
-  test.skip('only one public DID per wallet can be created', async () => {
+  test('only one public DID per wallet can be created', async () => {
     let postDidResponse: request.Response
 
     const firstAdminId = uuid()
@@ -108,7 +108,7 @@ describe('E2E public DIDs creation', () => {
     expect(postDidResponse.status).toBe(201)
   })
 
-  test.skip('public DID cannot be created if DID controller is required but has not been created yet', async () => {
+  test('public DID cannot be created if DID controller is required but has not been created yet', async () => {
     let postDidResponse: request.Response
 
     const firstOrgId = uuid()

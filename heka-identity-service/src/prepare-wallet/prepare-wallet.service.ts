@@ -1,7 +1,10 @@
-import { Injectable } from '@nestjs/common'
+import { ConflictException, Injectable } from '@nestjs/common'
+
+import { EntityManager } from '@mikro-orm/core'
 
 import { TenantAgent } from 'common/agent'
 import { AuthInfo } from 'common/auth'
+import { Wallet } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
 import { credentialFormatToCredentialRegistrationFormat, DidMethod } from 'common/types'
 import { DidService } from 'did/did.service'
@@ -19,6 +22,7 @@ export class PrepareWalletService {
   public constructor(
     @InjectLogger(PrepareWalletService)
     private readonly logger: Logger,
+    private readonly em: EntityManager,
     private readonly didService: DidService,
     private readonly openId4VcIssuerService: OpenId4VcIssuerService,
     private readonly openId4VcVerifierService: OpenId4VcVerifierService,
@@ -47,7 +51,14 @@ export class PrepareWalletService {
       logger.info(`Wallet for user ${authInfo.userName} already prepared`)
       mainDid = didDocuments[0].id
     } else {
-      for (const method of this.didService.getMethods().methods) {
+      // Sort methods to ensure the main method runs first and claims the single publicDid slot
+      const sortedMethods = [...this.didService.getMethods().methods].sort((a, b) => {
+        if (a === PrepareWalletService.mainDidMethod) return -1
+        if (b === PrepareWalletService.mainDidMethod) return 1
+        return 0
+      })
+
+      for (const method of sortedMethods) {
         let did
 
         try {
@@ -57,7 +68,22 @@ export class PrepareWalletService {
             mainDid = did
           }
         } catch (error) {
-          this.logger.error(`Failed to create DID for method ${method}`)
+          if (error instanceof ConflictException) {
+            // wallet.publicDid was already claimed by a previously iterated DID method
+            // (e.g. 'indy' runs before 'key' in the default method order).
+            // The wallet is correctly initialised — reuse the persisted publicDid.
+            if (!mainDid) {
+              const wallet = await this.em.findOne(Wallet, { id: authInfo.walletId })
+              if (wallet?.publicDid) {
+                logger.info(
+                  `wallet.publicDid already set to ${wallet.publicDid}; reusing it as mainDid (method=${method} was skipped)`,
+                )
+                mainDid = wallet.publicDid
+              }
+            }
+          } else {
+            logger.error(`Failed to create DID for method ${method}: ${(error as Error).message}`)
+          }
           continue
         }
 
@@ -68,7 +94,7 @@ export class PrepareWalletService {
           })
           await this.openId4VcVerifierService.createVerifier(tenantAgent, { publicVerifierId: did })
         } catch (error) {
-          this.logger.error(`Failed to initialize OID4VC records for DID ${did}`)
+          logger.error(`Failed to initialize OID4VC records for DID ${did}`)
         }
       }
 

@@ -2,6 +2,7 @@ import { DidDocument, Kms, TypedArrayEncoder } from '@credo-ts/core'
 import { EntityManager } from '@mikro-orm/core'
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -71,7 +72,7 @@ export class DidService {
 
     const wallet = await this.em.findOneOrFail(Wallet, { id: authInfo.walletId })
     if (wallet.publicDid) {
-      throw new Error(`The wallet already contains created public DID: ${wallet.publicDid}`)
+      throw new ConflictException(`The wallet already contains created public DID: ${wallet.publicDid}`)
     }
 
     let didDocument: DidDocument
@@ -164,7 +165,7 @@ export class DidService {
       })
     }
 
-    // wallet.publicDid = didDocument.id
+    wallet.publicDid = didDocument.id
     await this.em.flush()
 
     const res = new DidDocumentDto(didDocument)

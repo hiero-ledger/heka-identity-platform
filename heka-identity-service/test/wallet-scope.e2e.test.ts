@@ -32,7 +32,7 @@ describe('E2E wallet scope', () => {
   afterEach(async () => {
     // TODO: Find a way to explicitly await the required condition
     // Give AFJ event listeners some time to process pending events
-    await sleep(2000)
+    await sleep(4000)
 
     await nestApp.close()
   })
@@ -41,7 +41,7 @@ describe('E2E wallet scope', () => {
     await ormSchemaGenerator.clearDatabase()
   })
 
-  test.skip('users with Admin role share administartion wallet', async () => {
+  test('users with Admin role share administration wallet', async () => {
     const orgId = uuid()
 
     const firstAdminId = uuid()
@@ -84,7 +84,7 @@ describe('E2E wallet scope', () => {
     expect(await getOwnDidsCount(userAuthToken)).toBe(0)
   })
 
-  test.skip('organization administrartion users share organization wallet', async () => {
+  test('organization administration users share organization wallet', async () => {
     const bigOrgId = uuid()
     const smallOrgId = uuid()
 
@@ -139,7 +139,7 @@ describe('E2E wallet scope', () => {
     expect(await getOwnDidsCount(userAuthToken)).toBe(0)
   })
 
-  test.skip('user with Issuer role has individual wallet per each his/her organization', async () => {
+  test('user with Issuer role has individual wallet per each his/her organization', async () => {
     const bigOrgId = uuid()
     const smallOrgId = uuid()
 

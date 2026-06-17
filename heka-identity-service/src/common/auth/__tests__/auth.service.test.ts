@@ -15,7 +15,7 @@ import { AuthService } from '../auth.service'
 
 describe('getWalletId', () => {
   test.each([
-    [{ role: Role.Admin, userId: '11' }, 'Administration_11'],
+    [{ role: Role.Admin, userId: '11' }, 'Administration'],
     [{ role: Role.OrgAdmin, userId: '12', orgId: '1' }, 'Organization_1'],
     [{ role: Role.OrgManager, userId: '13', orgId: '1' }, 'Organization_1'],
     [{ role: Role.OrgMember, userId: '14', orgId: '1' }, 'Organization_1'],
