@@ -1,6 +1,7 @@
 import { Server } from 'net'
 
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
@@ -11,12 +12,13 @@ import { initializeMikroOrm, signJwt, startTestApp } from './helpers'
 
 describe('E2E HTTP authentication', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
+    orm = await initializeMikroOrm()
     ormSchemaGenerator = orm.schema
 
     await ormSchemaGenerator.refresh()
@@ -33,6 +35,7 @@ describe('E2E HTTP authentication', () => {
     await nestApp.close()
 
     await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   test('authenticates for valid bearer token with Admin role', async () => {

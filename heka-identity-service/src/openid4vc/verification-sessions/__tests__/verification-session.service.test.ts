@@ -331,8 +331,6 @@ describe('OpenId4VcVerificationSessionService', () => {
     })
 
     test('should create an unsigned DCQL request for the DC API flow without resolving a DID', async () => {
-      // DC API forces OpenID4VP version v1, and v1 forbids Presentation Exchange, so DC API
-      // requests must carry a DCQL query (not presentationExchange).
       const dcql = { query: { credentials: [{ id: 'requested-credential', format: 'mso_mdoc' }] } }
       const req = {
         publicVerifierId: 'verifier-1',
@@ -365,8 +363,6 @@ describe('OpenId4VcVerificationSessionService', () => {
     })
 
     test('should sign the DC API request with the verifier DID and embed origins when a requestSigner is given', async () => {
-      // Signed DC API: the bundled wallet matcher only accepts a signed (JAR) request object, so a
-      // requestSigner.did produces a signed request and the calling origins are embedded.
       const dcql = { query: { credentials: [{ id: 'requested-credential', format: 'mso_mdoc' }] } }
       const req = {
         publicVerifierId: 'verifier-1',

@@ -40,11 +40,8 @@ export const Splash: React.FC = () => {
   }, [])
 
   // Heka does not use device attestation (config.enableAttestation = false).
-  // The agent-initialization onboarding step (isAgentInitializationComplete)
-  // requires attestation to be marked complete before the wallet transitions
-  // from Splash to the main stack, so we complete it once the user has
-  // authenticated. Without this the onboarding workflow never finishes and the
-  // app stays on Splash. This mirrors Bifold's setupAttestation() short-circuit.
+  // However, the agent-initialization onboarding step (isAgentInitializationComplete)
+  // requires attestation to be marked complete.
   useEffect(() => {
     if (!store.authentication.didAuthenticate || store.attestation.isAttestationComplete) {
       return
@@ -77,9 +74,8 @@ export const Splash: React.FC = () => {
           const isAgentRestarted = await tryRestartExistingAgent(agent, walletSecret)
 
           if (isAgentRestarted) {
-            // The agent is already present in the agent context. The onboarding
-            // workflow transitions from Splash to the main stack on its own once
-            // the agent is set and attestation is complete — no navigation reset.
+            // The onboarding workflow transitions to the main stack automatically once
+            // the agent is set — no navigation needed here.
             return
           }
         }
@@ -130,12 +126,11 @@ export const Splash: React.FC = () => {
           await ensureExampleCredentialCreated(newAgent)
         }
 
-        // Setting the agent satisfies the agent-initialization onboarding step,
-        // which (together with attestation completion above) drives the
-        // BifoldStack transition from OnboardingStack/Splash to MainStack.
-        // No navigation reset is needed in the new conditional-render layout.
         setAgent(newAgent)
         setPublicDid(publicDid)
+
+        // The onboarding workflow transitions to the main stack automatically once
+        // the agent is set — no navigation needed here.
       } catch (err: unknown) {
         const error = new BifoldError(
           t('Error.Title1045'),

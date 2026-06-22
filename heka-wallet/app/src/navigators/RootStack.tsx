@@ -26,7 +26,6 @@ export const RootStack: React.FC = observer(() => {
 
   useBasicMessageInvitations()
 
-  // Keep credentials registered with the OS for the Digital Credentials API (Android only).
   useDcApiRegistration()
 
   if (rootStore.isLoading) return <LoadingModal />

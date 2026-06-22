@@ -25,17 +25,11 @@ import { MikroOrmMiddleware } from './mikro-orm'
       load: config,
     }),
     MikroOrmModule.forRootAsync({
-      // With `useFactory` + `inject`, @mikro-orm/nestjs cannot determine the
-      // driver statically (it would have to call the factory, which needs the
-      // injected providers), so it can't register driver-specific DI providers
-      // such as the PostgreSQL `EntityManager`. The top-level `driver` hint lets
-      // it detect the EM implementation without invoking the factory.
-      // See https://github.com/mikro-orm/nestjs/pull/204
       driver: PostgreSqlDriver,
       useFactory: (mikroOrmConfig: ConfigType<typeof MikroOrmConfig>, loggerProvider: LoggerProvider) => {
         const logger = loggerProvider.getLogger().child('MikroORM')
         return {
-          ...(mikroOrmConfig as any),
+          ...mikroOrmConfig,
           logger: (message: string) => logger.trace(message),
           entities,
           metadataProvider: ReflectMetadataProvider,

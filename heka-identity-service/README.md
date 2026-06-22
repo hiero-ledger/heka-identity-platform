@@ -26,7 +26,7 @@ The service is configured via environment variables. The full reference (~30 var
 **How-To Guides**
 
 - [How to Issue an SD-JWT VC](docs/how-to-issue-sd-jwt-vc.md) — Basic example flow for OID4VCI-based issuance with SD-JWT format
-- [Verification via the Digital Credentials API](docs/dc-api.md) — same-device OpenID4VP `dc_api` verification flow
+- [Verification via the Digital Credentials API](docs/dc-api.md) — browser-mediated OpenID4VP `dc_api` verification, same-device and cross-device
 - [Local Configuration for Heka Wallet Integration](docs/local-config-for-heka-wallet-integration.md) — exposing a local instance to the mobile wallet
 
 **Integration**

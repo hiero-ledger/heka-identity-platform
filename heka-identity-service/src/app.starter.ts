@@ -1,3 +1,5 @@
+import type { Express } from 'express'
+
 import fs from 'fs'
 
 import {
@@ -132,6 +134,15 @@ export async function startApp(app: INestApplication, { withSwaggerUi }: { withS
 
   app.useGlobalFilters(new CredoExceptionFilter())
   app.useGlobalInterceptors(new ClassSerializerInterceptor(new Reflector()), app.get(ExceptionMapperInterceptor))
+
+  // Omit `null`-valued properties from JSON responses so unset/empty DTO
+  // properties serialize as absent — the API contract that existed before MikroORM upgrade to v7.
+  // MikroORM v7 hydrates unset nullable columns as `null`, which `JSON.stringify` keeps.
+  // Mapping them to `undefined` here drops them and preserves current API behavior.
+  // Dates are unaffected (their `toJSON` runs before this replacer).
+  // TODO: Revisit this global null-stripping behavior and decide whether the API should instead expose explicit `null` for empty fields.
+  const expressInstance = app.getHttpAdapter().getInstance() as Express
+  expressInstance.set('json replacer', (_key: string, value: unknown) => (value === null ? undefined : value))
 
   if (expressConfig.prefix) {
     app.setGlobalPrefix(expressConfig.prefix)

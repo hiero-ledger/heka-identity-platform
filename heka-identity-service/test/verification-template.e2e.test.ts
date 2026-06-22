@@ -1,6 +1,7 @@
 import { Server } from 'net'
 
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
@@ -10,12 +11,9 @@ import { Schema } from 'schema-v2/dto/common/schema'
 import { sleep } from 'src/utils/timers'
 import { uuid } from 'utils/misc'
 import {
-  CreateVerificationTemplateFieldRequest,
   CreateVerificationTemplateRequest,
   CreateVerificationTemplateResponse,
   GetVerificationTemplatesListRequest,
-  PatchVerificationTemplateFieldRequest,
-  PatchVerificationTemplateRequest,
 } from 'verification-template/dto'
 
 import { generateRandomString, initializeMikroOrm, SchemaUtilities, startTestApp, UserUtilities } from './helpers'
@@ -23,12 +21,13 @@ import { VerificationTemplateUtilities } from './helpers/verification-template'
 
 describe('E2E verification templates management', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
+    orm = await initializeMikroOrm()
     ormSchemaGenerator = orm.schema
   })
 
@@ -49,6 +48,7 @@ describe('E2E verification templates management', () => {
 
   afterAll(async () => {
     await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   const createTestSchema = async (
@@ -1259,8 +1259,8 @@ describe('E2E verification templates management', () => {
       expect(patchedTemplate.id).toBe(template?.id)
       expect(patchedTemplate.protocol).toBe(template?.protocol)
       expect(patchedTemplate.credentialFormat).toBe(template?.credentialFormat)
-      expect(patchedTemplate.network).toBeNull()
-      expect(patchedTemplate.did).toBeNull()
+      expect(patchedTemplate.network).toBeUndefined()
+      expect(patchedTemplate.did).toBeUndefined()
       expect(patchedTemplate.schema.id).toBe(template?.schema.id)
       expect(patchedTemplate.fields?.length).toBe(1)
       expect(patchedTemplate.fields[0].schemaFieldId).toBe(schema?.fields[1].id)

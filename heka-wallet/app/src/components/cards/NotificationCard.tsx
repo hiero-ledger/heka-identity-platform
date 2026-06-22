@@ -2,6 +2,7 @@ import { useStore, EventTypes, BifoldError, Screens, Stacks } from '@bifold/core
 import { hitSlop } from '@bifold/core/src/constants'
 import { HomeStackParams } from '@bifold/core/src/types/navigators'
 import { CustomNotification } from '@bifold/core/src/types/notification'
+import { useOptionalAgent } from '@bifold/react-hooks'
 import { markProofAsViewed } from '@bifold/verifier'
 import { DidCommCredentialExchangeRecord, DidCommProofExchangeRecord, DidCommProofState } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
@@ -15,7 +16,6 @@ import Icon from 'react-native-vector-icons/MaterialIcons'
 import { NotificationRecord } from '../../utils/useNotifications'
 import { ExchangeRecordDisplay } from '../misc/ExchangeRecordDisplay'
 import ActionWarningModal, { ModalUsage } from '../modals/ActionWarningModal'
-import { useOptionalAgent } from '@bifold/react-hooks'
 
 const CARD_WIDTH = 300
 const CARD_HEIGHT = 120

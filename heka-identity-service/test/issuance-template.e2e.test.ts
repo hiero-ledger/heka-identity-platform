@@ -16,8 +16,6 @@ import {
   CreateIssuanceTemplateRequest,
   CreateIssuanceTemplateResponse,
   GetIssuanceTemplatesListRequest,
-  PatchIssuanceTemplateFieldRequest,
-  PatchIssuanceTemplateRequest,
 } from 'issuance-template/dto'
 import { CreateSchemaRequest, CreateSchemaResponse, GetSchemasListRequest } from 'schema-v2/dto'
 import { Schema } from 'schema-v2/dto/common/schema'
@@ -57,6 +55,7 @@ describe('E2E issuance templates management', () => {
 
   afterAll(async () => {
     await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   const createTestSchema = async (

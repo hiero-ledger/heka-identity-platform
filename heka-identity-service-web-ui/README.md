@@ -63,7 +63,9 @@ The Web UI authenticates against [Heka Auth Service](../heka-auth-service/README
 
 ### Digital Credentials API (DC API)
 
-When the browser supports the W3C Digital Credentials API, the verification flow offers it alongside the QR code option (these correspond to the OpenID4VP `dc_api` and `direct_post` response modes). The same `navigator.credentials.get()` call works **same-device** (the OS picker opens a wallet on this device) and **cross-device** (on desktop, the browser itself shows a QR and runs a Bluetooth handshake to a wallet on a phone) — no app-rendered QR is involved for DC API. Cross-device on desktop Chrome may require the `chrome://flags#web-identity-digital-credentials` flag or a per-origin trial token; see the commented placeholder in [`public/index.html`](./public/index.html).
+When the browser supports the W3C Digital Credentials API, the verification flow offers it alongside the legacy QR code option (these correspond to the OpenID4VP `dc_api` and `direct_post` response modes).
+The same `navigator.credentials.get()` call works **same-device** (the OS picker opens a wallet on this device) and **cross-device** (on desktop, the browser itself shows a QR and runs a Bluetooth handshake to a wallet on a phone) — no app-rendered QR is involved for DC API.
+Cross-device on desktop Chrome may require the `chrome://flags#web-identity-digital-credentials` flag or a per-origin trial token; see the commented placeholder in [`public/index.html`](./public/index.html).
 
 ## Development
 

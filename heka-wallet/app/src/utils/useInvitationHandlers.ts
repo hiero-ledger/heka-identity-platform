@@ -1,4 +1,4 @@
-import { TOKENS, useServices, connectFromScanOrDeepLink, BifoldAgent } from '@bifold/core'
+import { TOKENS, useServices, connectFromScanOrDeepLink } from '@bifold/core'
 import { ParsedInvitation, parseInvitationUrl } from '@bifold/core/src/utils/parsers'
 import { useOptionalAgent } from '@bifold/react-hooks'
 import { useNavigation } from '@react-navigation/core'

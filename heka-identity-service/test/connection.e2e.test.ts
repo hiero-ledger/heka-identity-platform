@@ -1,7 +1,8 @@
 import { Server } from 'net'
 
 import { DidCommConnectionEventTypes, DidCommDidExchangeRole, DidCommDidExchangeState } from '@credo-ts/didcomm'
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request, { WSChain } from 'superwstest'
 
@@ -20,6 +21,7 @@ import { initializeMikroOrm, signJwt, startTestApp } from './helpers'
 
 describe('E2E connection', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
@@ -31,7 +33,7 @@ describe('E2E connection', () => {
   let issuerWebSocket: WSChain
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
+    orm = await initializeMikroOrm()
     ormSchemaGenerator = orm.schema
   })
 
@@ -110,6 +112,7 @@ describe('E2E connection', () => {
 
   afterAll(async () => {
     await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   test('connect', async () => {

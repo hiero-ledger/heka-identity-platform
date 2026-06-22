@@ -4,14 +4,14 @@ import * as path from 'path'
 
 const _testDir = typeof __dirname !== 'undefined' ? __dirname : path.resolve(process.cwd(), 'test')
 
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
 import { Role } from 'common/auth'
 import { DidMethod, OpenId4VCCredentialRegistrationFormat, ProtocolType } from 'common/types'
 import { GetSchemasListRequest } from 'schema-v2/dto'
-import { RegisterSchemaRequest } from 'schema-v2/dto/register-schema'
 import { sleep } from 'src/utils/timers'
 import { uuid } from 'utils/misc'
 
@@ -21,12 +21,13 @@ import { OpenID4VCIssuerUtilities } from './helpers/issuer'
 
 describe('E2E schemas management', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
+    orm = await initializeMikroOrm()
     ormSchemaGenerator = orm.schema
   })
 
@@ -47,6 +48,7 @@ describe('E2E schemas management', () => {
 
   afterAll(async () => {
     await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   describe('Schema.GetList', () => {

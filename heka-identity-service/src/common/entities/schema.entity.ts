@@ -2,9 +2,6 @@ import { Collection } from '@mikro-orm/core'
 import { Entity, ManyToOne, OneToMany, Property, Index } from '@mikro-orm/decorators/legacy'
 
 import { Identified } from './identified.entity'
-// v7 removed string entity references, so @OneToMany takes a `() => Class` callback.
-// The lazy arrow defers the value reference until metadata discovery, which keeps the
-// circular dependency with schema-field / schema-registration TDZ-safe at module load.
 import { SchemaField } from './schema-field.entity'
 import { SchemaRegistration } from './schema-registration.entity'
 import { User } from './user.entity'

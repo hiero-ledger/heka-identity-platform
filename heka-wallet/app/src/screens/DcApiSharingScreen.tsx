@@ -33,7 +33,6 @@ const useStyles = ({ ColorPalette, TextTheme, Spacing, BorderRadius }: HekaTheme
     },
     backdrop: {
       ...StyleSheet.absoluteFillObject,
-      // Dimming scrim — intentionally theme-agnostic.
       backgroundColor: 'rgba(0, 0, 0, 0.4)',
     },
     sheet: {
@@ -103,13 +102,11 @@ function DcApiSharingSheet({ request }: DcApiSharingSheetProps) {
   const [hashPIN] = useServices([TOKENS.FN_PIN_HASH_ALGORITHM])
 
   const [isProcessing, setIsProcessing] = useState(false)
-  // Shown when the entered PIN can't open the wallet store (treated as an incorrect PIN).
   const [pinError, setPinError] = useState(false)
 
   // Guards against sending more than one response (PIN keypad can re-fire; backdrop can be tapped).
   const completedRef = useRef(false)
 
-  // Build the lean DC API agent straight from the entered PIN
   const unlockAgent = useCallback(
     async (pin: string): Promise<HekaWalletAgent | null> => {
       const salt = await loadWalletSalt()
@@ -148,13 +145,14 @@ function DcApiSharingSheet({ request }: DcApiSharingSheetProps) {
         await dcApiSendResponse(agent, resolved)
         return true
       } catch (error) {
+        const errorMessage = error instanceof Error ? (error.stack ?? error.message) : String(error)
         agent.config.logger.error('Failed to build the Digital Credentials API response', {
-          error: error instanceof Error ? (error.stack ?? error.message) : String(error),
+          error: errorMessage,
         })
         dcApiSendErrorResponse(error instanceof Error ? error.message : 'Unable to share the credential')
         return true
       } finally {
-        // Best-effort cleanup; the activity is finishing regardless
+        // Best-effort cleanup, the activity is finishing regardless
         await agent.shutdown().catch(() => undefined)
       }
     },
@@ -178,8 +176,6 @@ function DcApiSharingSheet({ request }: DcApiSharingSheetProps) {
       <View style={[styles.sheet, { paddingBottom: insets.bottom || hekaTheme.Spacing.xl }]}>
         <Text style={styles.title}>{t('DigitalCredentials.EnterPinToShare')}</Text>
         <Text style={styles.origin} numberOfLines={1}>
-          {/* escapeValue:false — RN <Text> has no HTML parser, so i18next's default escaping
-              would render the origin's `/` as the literal `&#x2F;` rather than a slash. */}
           {t('DigitalCredentials.SharingWith', {
             origin: request.origin,
             interpolation: { escapeValue: false },

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- buildOpenIdPresentationRequest returns a PEX|DCQL union; tests narrow with casts */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Openid4CredentialFormat } from '@/entities/Schema/model/types/schema';
 
 import {

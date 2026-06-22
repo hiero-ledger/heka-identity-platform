@@ -22,8 +22,8 @@ import { HekaWalletAgent, TRUSTED_X509_CERTIFICATES } from './agent'
  *
  * The overlay runs in a separate Android activity / React root, so it owns its own agent rather
  * than sharing the main app's Bifold agent.
- * This agent includes only what an OpenID4VP holder needs to present mdoc / SD-JWT VC
- * credentials, and it opens the same Askar store as the main agent.
+ * This agent works with the same Askar store and includes only what an OpenID4VP holder needs to present mdoc / SD-JWT VC
+ * credentials.
  */
 export async function createDcApiAgent(walletSecret: WalletSecret): Promise<HekaWalletAgent> {
   if (!walletSecret.key) {

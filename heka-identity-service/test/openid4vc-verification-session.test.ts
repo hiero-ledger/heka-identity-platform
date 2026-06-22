@@ -1,7 +1,8 @@
 import { Server } from 'net'
 
 import { Agent, DidKey, KeyDidCreateOptions, SdJwtVcRecord } from '@credo-ts/core'
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
@@ -15,13 +16,14 @@ import { createAgent, TestAgentModulesMap } from './helpers/test-agent'
 
 describe('E2E verification session', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
   let agent: Agent<TestAgentModulesMap>
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
+    orm = await initializeMikroOrm()
     ormSchemaGenerator = orm.schema
 
     await ormSchemaGenerator.refresh()
@@ -88,6 +90,7 @@ describe('E2E verification session', () => {
     await nestApp.close()
 
     await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   test('create request with PEX', async () => {

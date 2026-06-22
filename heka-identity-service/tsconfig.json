@@ -7,8 +7,7 @@
     },
     // Register src/types as a typeRoot and load the bitstring shim by name. This
     // guarantees the ambient `declare module '@digitalcredentials/bitstring'` is
-    // in the program for ts-node (`yarn start`) and the editor, which — unlike
-    // tsc with `include` — do not otherwise pick up un-imported `.d.ts` files.
+    // in the program for ts-node (`yarn start`) and the IDE.
     "typeRoots": ["./node_modules/@types", "./src/types"],
     "types": ["node", "vitest/globals", "digitalcredentials-bitstring"]
   }

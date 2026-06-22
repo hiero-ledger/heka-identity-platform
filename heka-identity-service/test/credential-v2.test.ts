@@ -15,7 +15,6 @@ import {
   OpenId4VcCredentialFormat,
   ProtocolType,
 } from 'common/types'
-import { ProofByVerificationTemplateRequest } from 'credential-v2/dto/proof-by-template'
 import { CreateIssuanceTemplateResponse } from 'issuance-template/dto'
 import { CreateSchemaResponse } from 'schema-v2/dto'
 import { RegisterSchemaRequest } from 'schema-v2/dto/register-schema'
@@ -59,6 +58,10 @@ describe('Credential V2 tests', () => {
 
   afterEach(async () => {
     await nestApp.close()
+  })
+
+  afterAll(async () => {
+    await orm.close(true)
   })
 
   const prepareSchemaAndIssuanceTemplate = async (

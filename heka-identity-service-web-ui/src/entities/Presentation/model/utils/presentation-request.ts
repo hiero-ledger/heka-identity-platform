@@ -27,8 +27,8 @@ export interface BuildOpenIdPresentationRequestParams {
   expectedOrigins?: Array<string>;
 }
 
-// Non-DC-API ("direct_post") requests are signed with the verifier's DID and use DIF Presentation
-// Exchange. The DC API flow is built separately (see buildDcApiPresentationRequest) — it is also
+// Non-DC-API ("direct_post") requests are signed with the verifier's DID.
+// The DC API flow is built separately (see buildDcApiPresentationRequest) — it is also
 // signed with the verifier's DID (a JAR, required by the wallet matcher) but MUST use DCQL, not PEX.
 
 export const buildSdJwtPresentationRequest = ({
@@ -152,20 +152,8 @@ export const buildMsoMdocPresentationRequest = ({
   };
 };
 
-// ─── DC API (DCQL) ───────────────────────────────────────────────────────────
-//
-// The W3C Digital Credentials API (`responseMode: 'dc_api'`) forces OpenID4VP `version: 'v1'`,
-// and v1 does not permit DIF Presentation Exchange — so DC API requests MUST use DCQL. Only
-// mso_mdoc and SD-JWT VC are expressible in DCQL here, which are exactly the formats the DC API
-// carries in practice. The backend auto-selects `version: 'v1'` when a `dcql` query is present.
-
 const DCQL_CREDENTIAL_ID = 'requested-credential';
 
-// The W3C Digital Credentials API matches SD-JWT VCs under the newer `dc+sd-jwt` type id — not the
-// legacy `vc+sd-jwt` (Openid4CredentialFormat.SdJwt). Credo signs SD-JWT VCs with ClaimFormat.SdJwtDc
-// and holder wallets register them with the DC API matcher as `dc+sd-jwt`, so the DCQL query MUST
-// request `dc+sd-jwt` or the OS credential picker surfaces nothing. (Issuance still offers
-// `vc+sd-jwt`; only the signed credential — and therefore this verification query — is `dc+sd-jwt`.)
 const DCQL_SD_JWT_FORMAT = 'dc+sd-jwt' as const;
 
 const buildDcqlQuery = ({
@@ -212,11 +200,6 @@ const buildDcApiPresentationRequest = (
   params: BuildOpenIdPresentationRequestParams,
 ) => ({
   publicVerifierId: params.id,
-  // The DC API request must be SIGNED (a JAR). The bundled wallet matcher only accepts a signed
-  // request as the `navigator.credentials.get` `data` object — `{ request: <jwt> }`; an unsigned
-  // plain object (top-level `dcql_query`, no `request`) makes the matcher fail with "request object
-  // not found" and surface no credentials. Sign with the verifier's DID — the same signer the
-  // direct_post/PEX flow uses. `expectedOrigins` binds the calling page so the holder accepts it.
   requestSigner: { method: 'did' as const, did: params.did },
   dcql: { query: buildDcqlQuery(params) },
   responseMode: 'dc_api' as const,

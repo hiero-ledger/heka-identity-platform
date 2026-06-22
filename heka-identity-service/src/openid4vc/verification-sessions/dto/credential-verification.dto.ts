@@ -82,8 +82,6 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
 
   @ApiPropertyOptional({
     enum: ['direct_post', 'direct_post.jwt', 'dc_api', 'dc_api.jwt'],
-    description:
-      'Response mode for the authorization request. Use dc_api or dc_api.jwt for Digital Credentials API flow.',
   })
   @IsOptional()
   @IsString()
@@ -91,19 +89,17 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
 
   @ApiPropertyOptional({
     type: [String],
-    description:
-      'Expected origins embedded in a signed request (signed DC API binds the calling page here). Ignored for the unsigned DC API flow, where the origin is validated at verification time.',
   })
   @IsOptional()
   public expectedOrigins?: string[]
 }
 
 export class OpenId4VcVerifyDcApiRequestDto {
-  @ApiProperty({ description: 'The authorization response received from navigator.credentials.get()' })
+  @ApiProperty()
   @IsObject()
   public authorizationResponse!: Record<string, unknown>
 
-  @ApiProperty({ description: 'The origin of the verifier page that called navigator.credentials.get()' })
+  @ApiProperty()
   @IsString()
   @IsNotEmpty()
   public origin!: string

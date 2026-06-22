@@ -1,7 +1,8 @@
 import { Server } from 'net'
 
 // import { CredentialEventTypes, CredentialState } from '@credo-ts/core'
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication, HttpStatus } from '@nestjs/common'
 // import { CreateRevocationRegistryRequestDto, VerifyRevocationDto } from 'revocation/dto'
 import request, { WSChain } from 'superwstest'
@@ -17,6 +18,7 @@ import { initializeMikroOrm, signJwt, startTestApp } from './helpers'
 
 describe.skip('Revocation E2E Tests', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let revocationRegistryDefinitionId!: string
@@ -34,7 +36,7 @@ describe.skip('Revocation E2E Tests', () => {
   let holderWebSocket: WSChain
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
+    orm = await initializeMikroOrm()
     ormSchemaGenerator = orm.schema
   })
 
@@ -248,6 +250,7 @@ describe.skip('Revocation E2E Tests', () => {
 
   afterAll(async () => {
     await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   // it('should create a revocation registry', async () => {

@@ -6,7 +6,8 @@ import {
   DidCommProofEventTypes,
   DidCommProofState,
 } from '@credo-ts/didcomm'
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request, { WSChain } from 'superwstest'
 
@@ -36,6 +37,7 @@ import { connectUsers, initializeMikroOrm, signJwt, startTestApp } from './helpe
 // The pharmacist requests a drug prescription proof from the patient and the patient presents the proof to her.
 describe('E2E credential issuance and proof presentation', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
@@ -53,7 +55,7 @@ describe('E2E credential issuance and proof presentation', () => {
   let verifierWebSocket: WSChain
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
+    orm = await initializeMikroOrm()
     ormSchemaGenerator = orm.schema
   })
 
@@ -219,6 +221,7 @@ describe('E2E credential issuance and proof presentation', () => {
 
   afterAll(async () => {
     await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   test.skip('issue credential and present proof', async () => {

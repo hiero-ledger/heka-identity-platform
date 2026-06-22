@@ -1,4 +1,5 @@
 import type { W3cJwtVerifiablePresentation } from '@credo-ts/core'
+import type { OpenId4VcJwtIssuerDid } from '@credo-ts/openid4vc'
 
 import { ClaimFormat, MdocDeviceResponse, SdJwtVc, VerifiablePresentation, W3cCredentialSubject } from '@credo-ts/core'
 import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
@@ -24,13 +25,7 @@ export class OpenId4VcVerificationSessionService {
   ): Promise<OpenId4VcVerificationSessionCreateRequestResponse> {
     const isDcApi = req.responseMode === 'dc_api' || req.responseMode === 'dc_api.jwt'
 
-    // DC API requests are sent over the W3C Digital Credentials API. The bundled wallet matcher only
-    // accepts a *signed* request object (a JAR — `{ request: <jwt> }`); an unsigned plain object makes
-    // it fail with "request object not found". So a DC API request is signed with the verifier's DID
-    // when a signer is supplied (the calling origin is also bound via expectedOrigins). With no signer
-    // it falls back to unsigned `web-origin` (origin validated at verification time, see
-    // verifyDcApiResponse). All non-DC-API flows require a DID signer.
-    let requestSigner: { method: 'none' } | { method: 'did'; didUrl: string }
+    let requestSigner: OpenId4VcJwtIssuerDid | { method: 'none' }
     if (isDcApi && !req.requestSigner?.did) {
       requestSigner = { method: 'none' }
     } else {
@@ -52,8 +47,6 @@ export class OpenId4VcVerificationSessionService {
         dcql: req.dcql,
         version: req.version ?? (req.dcql ? 'v1' : 'v1.draft21'),
         responseMode: req.responseMode,
-        // Expected origins are embedded in signed requests (the holder binds them); an unsigned DC
-        // API request relies on the origin supplied at verification time instead.
         expectedOrigins: isDcApi && requestSigner.method === 'none' ? undefined : req.expectedOrigins,
       })
 

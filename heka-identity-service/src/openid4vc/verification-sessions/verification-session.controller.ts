@@ -129,7 +129,6 @@ export class OpenId4VcVerificationSessionController {
 
   /**
    * Verify a DC API authorization response forwarded from the browser.
-   * Called after the wallet returns a VP token to the browser via navigator.credentials.get().
    */
   @ApiOperation({ summary: 'Verify DC API authorization response' })
   @ApiParam({ name: 'verificationSessionId', type: String })

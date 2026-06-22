@@ -56,8 +56,6 @@ const mockNavigatorCredentials = (response: unknown) => {
   });
 };
 
-// ─── thunk test harness ──────────────────────────────────────────────────────
-
 const runThunk = async (
   params: RequestPresentationParams,
   agencyApi: AxiosInstance,

@@ -29,7 +29,7 @@ describe('DcqlQueryDto', () => {
     expect(instance.credentials[0].format).toBe('mso_mdoc')
   })
 
-  it('accepts an SD-JWT VC query using the newer dc+sd-jwt type id', async () => {
+  it('accepts an SD-JWT VC query using the dc+sd-jwt type id', async () => {
     const { instance, errors } = await validateQuery({
       credentials: [
         {
@@ -40,8 +40,6 @@ describe('DcqlQueryDto', () => {
       ],
     })
 
-    // `dc+sd-jwt` is what Credo signs and what holder wallets register for the DC API, so the
-    // DCQL discriminator must route and validate it (regression guard for the DC API matcher fix).
     expect(errors).toHaveLength(0)
     expect(instance.credentials[0].format).toBe('dc+sd-jwt')
   })

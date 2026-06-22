@@ -1,7 +1,8 @@
 import { Server } from 'net'
 
 import { Agent, DidKey, KeyDidCreateOptions, Kms, SdJwtVcRecord } from '@credo-ts/core'
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
@@ -16,6 +17,7 @@ import { createAgent, TestAgentModulesMap } from './helpers/test-agent'
 
 describe('E2E issuance session', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
@@ -23,7 +25,7 @@ describe('E2E issuance session', () => {
   let agent: Agent<TestAgentModulesMap>
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
+    orm = await initializeMikroOrm()
     ormSchemaGenerator = orm.schema
 
     await ormSchemaGenerator.refresh()
@@ -43,6 +45,7 @@ describe('E2E issuance session', () => {
     await nestApp.close()
 
     await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   async function testCredentialIssuance(didMethod: string, expectedAlg: string) {

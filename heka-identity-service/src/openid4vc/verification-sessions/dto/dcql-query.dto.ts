@@ -159,11 +159,7 @@ class DcqlMsoMdocCredentialDto extends DcqlCredentialDto {
   public meta?: DcqlMsoMdocCredentialMetaDto
 }
 
-// Accepts both the legacy `vc+sd-jwt` and the newer `dc+sd-jwt` SD-JWT VC type ids. Credo signs
-// SD-JWT VCs with `ClaimFormat.SdJwtDc` (`dc+sd-jwt`), and holder wallets register them under
-// `dc+sd-jwt` for the W3C Digital Credentials API — so a `dc_api` / DCQL request must be able to ask
-// for `dc+sd-jwt` (the OS picker matches on the format id). `vc+sd-jwt` stays accepted for clients
-// that still use the legacy id; both are forwarded to Credo verbatim.
+// Accepts both the legacy `vc+sd-jwt` and the newer `dc+sd-jwt` SD-JWT formats.
 class DcqlSdJwtVcCredentialDto extends DcqlCredentialDto {
   @ApiProperty({
     enum: [OpenId4VciCredentialFormatProfile.SdJwtVc, OpenId4VciCredentialFormatProfile.SdJwtDc],

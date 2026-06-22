@@ -17,14 +17,6 @@ interface DcApiPresentationProps {
   onBack?: () => void;
 }
 
-/**
- * Presentation via the W3C Digital Credentials API. Unlike the QR flow, the request must be
- * initiated from a user gesture (the button below), since `navigator.credentials.get()` requires
- * transient activation. The browser orchestrates the rest: on this device the OS picker opens; on
- * desktop the browser shows its own QR and runs a cross-device (Bluetooth) handshake to a phone —
- * the same `requestPresentation` thunk (`useDcApi: true`) drives both. While in flight the request
- * can be aborted (Cancel) via the thunk's AbortSignal, which matters for the long cross-device wait.
- */
 export const DcApiPresentation = ({
   context,
   onBack,

@@ -12,8 +12,7 @@ const REGISTER_DEBOUNCE_MS = 500
 /**
  * Keeps the Android Credential Manager registry in sync with the wallet's credentials for the
  * Digital Credentials API. Re-registers whenever the agent becomes available (unlock) or the mdoc /
- * SD-JWT VC record sets change (issuance, deletion). Also re-registers on language change so the
- * picker title/subtitle (registered as a snapshot to the OS) follow the user's locale. No-op on iOS.
+ * SD-JWT VC record sets change (issuance, deletion). No-op on iOS.
  */
 export function useDcApiRegistration(): void {
   const { t } = useTranslation()

@@ -24,12 +24,6 @@ import { handleError } from '@/shared/api/utils/error';
 import { getUserId } from '@/shared/api/utils/token';
 import { DcApiProtocolIdentifier } from '@/shared/lib/dcApi';
 
-/**
- * Error codes for the DC API `navigator.credentials.get()` step, mapped to user-facing messages
- * in the UI (`PresentationOptions.errors.*`). Classified here so cancellations / unsupported-browser cases
- * bypass `handleError` — which toasts a generic message and, when there is no access token (the
- * demo flow), signs the user out.
- */
 export type DcApiErrorCode = 'cancelled' | 'unsupported' | 'failed';
 
 export class DcApiError extends Error {
@@ -45,15 +39,12 @@ export class DcApiError extends Error {
 const toDcApiError = (error: unknown): DcApiError => {
   const name = error instanceof Error ? error.name : '';
   // Picker dismissed, no credential chosen, or the request was aborted (our Cancel button, page
-  // navigation, or the OS cross-device timeout) → a cancellation, not a failure.
+  // navigation, or the OS cross-device timeout).
   if (name === 'NotAllowedError' || name === 'AbortError') {
     return new DcApiError('cancelled');
   }
   // The browser/platform cannot service the request: the protocol/interface is unavailable
   // (`NotSupportedError`) or it was blocked by policy / an insecure context (`SecurityError`).
-  // These names track current Chrome DC API behavior. `TypeError` is intentionally NOT classified
-  // here — it signals a malformed request (a bug on our side), which should surface as a generic
-  // failure rather than be mislabeled an "unsupported browser" (which would hide the bug).
   if (name === 'NotSupportedError' || name === 'SecurityError') {
     return new DcApiError('unsupported');
   }
