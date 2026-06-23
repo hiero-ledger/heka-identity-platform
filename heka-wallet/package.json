@@ -105,7 +105,13 @@
     "@bifold/react-hooks": "patch:@bifold/react-hooks@npm%3A3.0.14#~/.yarn/patches/@bifold-react-hooks-npm-3.0.14-0f32dbfe67.patch",
     "@hiero-did-sdk/zstd@npm:0.1.8": "patch:@hiero-did-sdk/zstd@npm%3A0.1.8#~/.yarn/patches/@hiero-did-sdk-zstd-npm-0.1.8-e30dd925a3.patch",
     "@credo-ts/didcomm@npm:0.7.0": "patch:@credo-ts/didcomm@npm%3A0.7.0#~/.yarn/patches/@credo-ts-didcomm-npm-0.7.0-e7c274e2fd.patch",
-    "@credo-ts/didcomm@npm:0.6.3": "patch:@credo-ts/didcomm@npm%3A0.7.0#~/.yarn/patches/@credo-ts-didcomm-npm-0.7.0-e7c274e2fd.patch"
+    "@credo-ts/didcomm@npm:0.6.3": "patch:@credo-ts/didcomm@npm%3A0.7.0#~/.yarn/patches/@credo-ts-didcomm-npm-0.7.0-e7c274e2fd.patch",
+    "protobufjs@npm:7.5.4": "7.6.4",
+    "protobufjs@npm:8.0.0": "8.6.5",
+    "@grpc/grpc-js@npm:1.12.6": "1.12.7",
+    "bn.js@npm:5.1.1": "5.2.3",
+    "bn.js@npm:5.2.1": "5.2.3",
+    "elliptic@npm:6.5.4": "6.6.1"
   },
   "packageManager": "yarn@4.16.0"
 }
