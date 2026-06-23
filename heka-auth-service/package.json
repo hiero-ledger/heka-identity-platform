@@ -91,7 +91,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.60.1",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^2.1.8"
+    "vitest": "^3.2.6"
   },
   "mikro-orm": {
     "tsLoader": "tsx",
