@@ -121,5 +121,8 @@
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^5.0.4"
   },
+  "resolutions": {
+    "serialize-javascript": "^7.0.5"
+  },
   "packageManager": "yarn@4.16.0"
 }
