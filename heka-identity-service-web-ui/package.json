@@ -108,7 +108,7 @@
     "regenerator-runtime": "^0.14.1",
     "sass": "^1.77.8",
     "sass-loader": "^16.0.0",
-    "storybook": "^8.2.8",
+    "storybook": "^9.0.0",
     "style-loader": "^4.0.0",
     "stylelint": "^16.8.1",
     "stylelint-config-standard-scss": "^13.1.0",
