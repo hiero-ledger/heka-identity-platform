@@ -15,7 +15,7 @@ import { NativeAskar } from '@openwallet-foundation/askar-react-native'
 
 import { CredoLogger } from '../logger'
 
-import { HekaWalletAgent, TRUSTED_X509_CERTIFICATES } from './agent'
+import { HekaWalletAgent, TRUSTED_X509_CERTIFICATES, trustedCertificatesForVerification } from './agent'
 
 /**
  * Creates and initializes a minimal Credo agent for the Digital Credentials API overlay.
@@ -48,6 +48,8 @@ export async function createDcApiAgent(walletSecret: WalletSecret): Promise<Heka
       }),
       x509: new X509Module({
         trustedCertificates: [...TRUSTED_X509_CERTIFICATES],
+        getTrustedCertificatesForVerification: (_agentContext, { verification }) =>
+          trustedCertificatesForVerification(verification.type),
       }),
     },
   })

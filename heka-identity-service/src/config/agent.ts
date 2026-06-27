@@ -75,6 +75,11 @@ export default registerAs('agent', () => {
   // FIXME: Add `indybesu` DID method once we get public network deployed
   const didMethods = parseDidMethods(process.env)
 
+  // x509_san_dns provisioning mode for X.509 request signing: `private_ca` issues leaves under the
+  // service-wide root CA; `self_signed` mints self-signed-with-SAN leaves (stepping stone); `csr`
+  // defers to external-CA issuance via the /x509/signers/csr + /import endpoints.
+  const x509SanDnsMode = (process.env.X509_SAN_DNS_MODE ?? 'private_ca') as 'private_ca' | 'csr' | 'self_signed'
+
   const indyEndorserSeed = process.env.INDY_ENDORSER_SEED ?? INSECURE_DEFAULTS.INDY_ENDORSER_SEED
   //const indyEndorserId = process.env.INDY_ENDORSER_ID ?? ''
   const indyEndorserDid = process.env.INDY_ENDORSER_DID ?? 'did:indy:bcovrin:test:4bbYgjU6JbV4DShPbGoQcA'
@@ -166,6 +171,7 @@ export default registerAs('agent', () => {
     oidConfig,
     didCommConfig,
     didMethods,
+    x509SanDnsMode,
     indyEndorserSeed,
     indyEndorserDid,
     indyBesuChainId,

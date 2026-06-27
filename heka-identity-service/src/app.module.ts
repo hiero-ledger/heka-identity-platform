@@ -11,6 +11,7 @@ import { OpenId4VcStarterModule } from 'openid4vc/starter'
 import { OpenId4VcVerifierModule } from 'openid4vc/verifier/verifier.module'
 import { PrepareWalletModule } from 'prepare-wallet'
 import { VerificationTemplateModule } from 'verification-template/verification-template.module'
+import { X509SigningModule } from 'x509-signing'
 
 import { LoggerModule } from './common/logger'
 import { OCAModule } from './common/oca/oca.module'
@@ -57,6 +58,7 @@ const _appRoot = typeof __dirname !== 'undefined' ? resolve(__dirname, '..') : p
     PrepareWalletModule,
     CredentialV2Module,
     OCAModule,
+    X509SigningModule,
     EventEmitterModule.forRoot(),
     LoggerModule.forRoot(), // must be dynamic and the last initialized module in the app except for AppModule itself
   ],

@@ -22,7 +22,7 @@ import {
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { handleError } from '@/shared/api/utils/error';
 import { getUserId } from '@/shared/api/utils/token';
-import { DcApiProtocolIdentifier } from '@/shared/lib/dcApi';
+import { DcApiProtocolIdentifier, RequestSignerSelection } from '@/shared/lib/dcApi';
 
 export type DcApiErrorCode = 'cancelled' | 'unsupported' | 'failed';
 
@@ -61,6 +61,8 @@ export interface RequestPresentationParams {
   connectionId?: string;
   useDemo?: boolean;
   useDcApi?: boolean;
+  /** Runtime signer choice for the DC API flow (the picker); omit to use the `.env` default. */
+  requestSignerSelection?: RequestSignerSelection;
 }
 
 export interface RequestPresentationResult {
@@ -179,6 +181,7 @@ const requestOpenId4VcPresentationDcApi = async (
     doctype: params.schema.name,
     namespace: params.schema.name,
     useDcApi: true,
+    requestSignerSelection: params.requestSignerSelection,
     // Bind the calling page into the signed request so the holder accepts it.
     expectedOrigins: [window.location.origin],
   });

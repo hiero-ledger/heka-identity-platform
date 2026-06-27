@@ -62,6 +62,30 @@ export const TRUSTED_X509_CERTIFICATES = [
   'MIIBwDCCAWWgAwIBAgIUSMdjaVc1KHI+3o6qJXhSC4sJh+cwCgYIKoZIzj0EAwIwNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMB4XDTI2MDMyNzIxNDA1NloXDTM2MDMyNDIxNDA1NlowNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1nIrm3O9VX8MdPrKWMhqqV0QMS4UtxKj6uUc8IdGE2fSsWyi7XQN3HoE1Ln9TDtOIHvSyW8Eyr98MlWGBBF/vqNTMFEwHQYDVR0OBBYEFNfkrHxd2nwtni96XrrYhaMgUFImMB8GA1UdIwQYMBaAFNfkrHxd2nwtni96XrrYhaMgUFImMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAP0V5EW7j6Pb+lJktzdWrtEqhI3mYs9Fd+qh0p2kNXJPAiEAqK+q7Wk+t5e2yzvO3b6t3P5nIEnoQt3cvDsaUZY1dT0=',
 ] as const
 
+/**
+ * Trusted X.509 certificates for verifying OpenID4VP authorization-request **signers** (the
+ * verifier's `x5c` request signature). This is a DISTINCT trust domain from
+ * `TRUSTED_X509_CERTIFICATES`, which is the mDL **issuer** anchor used to verify credential (MSO)
+ * signatures — do not conflate them.
+ *
+ * Populate with the verifier's request-signing **leaf** cert (base64 DER) for the `x509_hash` trust
+ * model, or its **root/CA** for `x509_san_dns`. Obtain the cert from the verifier's
+ * `/x509/signers` endpoint. Empty by default = no request signer is trusted yet.
+ *
+ * See `x509-context/x509-signing-implementation-plan.md` §8.
+ */
+export const TRUSTED_REQUEST_SIGNER_CERTIFICATES: string[] = []
+
+/**
+ * Resolve trusted certificates per verification context: the request-signer set for the verifier's
+ * signed authorization request, the mDL-issuer anchor for everything else (credential/MSO, issuer
+ * metadata). Used by both the main agent and the lean DC API agent.
+ */
+export const trustedCertificatesForVerification = (verificationType: string): string[] =>
+  verificationType === 'oauth2SecuredAuthorizationRequest'
+    ? [...TRUSTED_REQUEST_SIGNER_CERTIFICATES]
+    : [...TRUSTED_X509_CERTIFICATES]
+
 const EXAMPLE_CREDENTIAL_VCT = 'ExampleCredential'
 const EXAMPLE_CREDENTIAL_METADATA: OpenId4VcCredentialMetadata = {
   issuer: {
@@ -172,6 +196,8 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
       }),
       x509: new X509Module({
         trustedCertificates: [...TRUSTED_X509_CERTIFICATES],
+        getTrustedCertificatesForVerification: (_agentContext, { verification }) =>
+          trustedCertificatesForVerification(verification.type),
       }),
     },
   })

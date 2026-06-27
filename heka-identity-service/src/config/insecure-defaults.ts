@@ -22,7 +22,7 @@ export const INSECURE_DEFAULTS = {
 
 export type InsecureDefaultName = keyof typeof INSECURE_DEFAULTS
 
-export const DEFAULT_DID_METHODS = ['indy', 'key', 'hedera']
+export const DEFAULT_DID_METHODS = ['indy', 'key', 'jwk', 'hedera']
 
 export function parseDidMethods(env: Record<string, unknown>): string[] {
   const value = env.DID_METHODS

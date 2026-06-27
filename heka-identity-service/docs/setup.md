@@ -313,9 +313,9 @@ The `tenantId` is **not** a JWT claim — it is derived internally from `(role, 
 
 ### Ledger / DID methods
 
-| Variable      | Default           | Description                                                                                         |
-| ------------- | ----------------- | --------------------------------------------------------------------------------------------------- |
-| `DID_METHODS` | `indy,key,hedera` | Comma-separated list of enabled DID methods. Supported values: `key`, `indy`, `hedera`, `indybesu`. |
+| Variable      | Default               | Description                                                                                                |
+| ------------- | --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `DID_METHODS` | `indy,key,jwk,hedera` | Comma-separated list of enabled DID methods. Supported values: `key`, `jwk`, `indy`, `hedera`, `indybesu`. |
 
 **Hyperledger Indy** — when `indy` is enabled:
 
