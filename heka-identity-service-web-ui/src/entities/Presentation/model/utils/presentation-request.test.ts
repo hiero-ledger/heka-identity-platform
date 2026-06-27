@@ -205,4 +205,52 @@ describe('buildOpenIdPresentationRequest — DC API (DCQL)', () => {
     });
     expect(req.expectedOrigins).toEqual(['https://verifier.example.com']);
   });
+
+  it('uses an x5c signer with certificateId when the picker selects an X.509 identity', () => {
+    const req: any = buildOpenIdPresentationRequest({
+      ...baseParams,
+      format: Openid4CredentialFormat.MsoMdoc,
+      useDcApi: true,
+      requestSignerSelection: {
+        method: 'x5c',
+        clientIdPrefix: 'x509_hash',
+        certificateId: 'cert-1',
+      },
+    });
+
+    expect(req.requestSigner).toEqual({
+      method: 'x5c',
+      clientIdPrefix: 'x509_hash',
+      certificateId: 'cert-1',
+    });
+  });
+
+  it('omits certificateId for an x5c selection without one (backend resolves the default)', () => {
+    const req: any = buildOpenIdPresentationRequest({
+      ...baseParams,
+      format: Openid4CredentialFormat.MsoMdoc,
+      useDcApi: true,
+      requestSignerSelection: { method: 'x5c', clientIdPrefix: 'x509_san_dns' },
+    });
+
+    expect(req.requestSigner).toEqual({
+      method: 'x5c',
+      clientIdPrefix: 'x509_san_dns',
+    });
+    expect(req.requestSigner.certificateId).toBeUndefined();
+  });
+
+  it('uses the verifier DID when the picker selects the DID signer', () => {
+    const req: any = buildOpenIdPresentationRequest({
+      ...baseParams,
+      format: Openid4CredentialFormat.MsoMdoc,
+      useDcApi: true,
+      requestSignerSelection: { method: 'did' },
+    });
+
+    expect(req.requestSigner).toEqual({
+      method: 'did',
+      did: 'did:key:z6Mk123',
+    });
+  });
 });

@@ -1,4 +1,8 @@
-import { DcApiProtocolIdentifier, isDcApiSupported } from './index';
+import {
+  DcApiProtocolIdentifier,
+  getDcApiRequestSigner,
+  isDcApiSupported,
+} from './index';
 
 describe('isDcApiSupported', () => {
   const originalCredentials = Object.getOwnPropertyDescriptor(
@@ -64,5 +68,46 @@ describe('isDcApiSupported', () => {
     setCredentials();
     setDigitalCredential({ userAgentAllowsProtocol: () => false });
     expect(isDcApiSupported()).toBe(false);
+  });
+});
+
+// DC_API_SIGNER / X509_CLIENT_ID_PREFIX are unset under test, so the build-time default is the DID.
+describe('getDcApiRequestSigner', () => {
+  it('defaults to the verifier DID when no selection is passed', () => {
+    expect(getDcApiRequestSigner('did:key:z6Mk123')).toEqual({
+      method: 'did',
+      did: 'did:key:z6Mk123',
+    });
+  });
+
+  it('returns the verifier DID for an explicit did selection', () => {
+    expect(getDcApiRequestSigner('did:key:z6Mk123', { method: 'did' })).toEqual({
+      method: 'did',
+      did: 'did:key:z6Mk123',
+    });
+  });
+
+  it('returns an x5c signer carrying clientIdPrefix and certificateId', () => {
+    expect(
+      getDcApiRequestSigner('did:key:z6Mk123', {
+        method: 'x5c',
+        clientIdPrefix: 'x509_hash',
+        certificateId: 'cert-1',
+      }),
+    ).toEqual({
+      method: 'x5c',
+      clientIdPrefix: 'x509_hash',
+      certificateId: 'cert-1',
+    });
+  });
+
+  it('omits certificateId from the x5c signer when the selection has none', () => {
+    const signer = getDcApiRequestSigner('did:key:z6Mk123', {
+      method: 'x5c',
+      clientIdPrefix: 'x509_san_dns',
+    });
+
+    expect(signer).toEqual({ method: 'x5c', clientIdPrefix: 'x509_san_dns' });
+    expect('certificateId' in signer).toBe(false);
   });
 });

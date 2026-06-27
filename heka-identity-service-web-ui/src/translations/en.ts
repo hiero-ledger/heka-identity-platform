@@ -120,6 +120,14 @@ export default {
       present: 'Present credential',
       cancel: 'Cancel',
     },
+    signer: {
+      label: 'Request signer',
+      default: 'Verifier default',
+      did: 'Verifier DID',
+      x509: 'X.509 · {{prefix}} · {{label}}',
+      defaultTag: ' (default)',
+      expiredTag: ' (expired)',
+    },
     errors: {
       failed:
         'Could not get a credential via the Digital Credentials API. Make sure a compatible wallet is installed, then try again.',

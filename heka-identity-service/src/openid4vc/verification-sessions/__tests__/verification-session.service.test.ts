@@ -3,6 +3,7 @@ import { createMock } from '@golevelup/ts-vitest'
 import { InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
+import { X509SignerService } from 'x509-signing'
 
 import { didResolutionResultStub, verificationSessionRecordStub } from '../../../../test/helpers/mock-records'
 import { OpenId4VcVerificationSessionService } from '../verification-session.service'
@@ -17,6 +18,7 @@ describe('OpenId4VcVerificationSessionService', () => {
   const mockCreateAuthorizationRequest = vi.fn()
   const mockGetVerifiedAuthorizationResponse = vi.fn()
   const mockVerifyAuthorizationResponse = vi.fn()
+  const mockLoadSigningCertificate = vi.fn()
 
   const makeSessionRecord = (overrides: Record<string, unknown> = {}) =>
     verificationSessionRecordStub({
@@ -29,7 +31,9 @@ describe('OpenId4VcVerificationSessionService', () => {
     })
 
   beforeEach(() => {
-    service = new OpenId4VcVerificationSessionService()
+    service = new OpenId4VcVerificationSessionService(
+      createMock<X509SignerService>({ loadSigningCertificate: mockLoadSigningCertificate }),
+    )
 
     mockFindByQuery.mockReset()
     mockGetById.mockReset()
@@ -37,6 +41,7 @@ describe('OpenId4VcVerificationSessionService', () => {
     mockCreateAuthorizationRequest.mockReset()
     mockGetVerifiedAuthorizationResponse.mockReset()
     mockVerifyAuthorizationResponse.mockReset()
+    mockLoadSigningCertificate.mockReset()
 
     tenantAgent = createMock<TenantAgent>({
       openid4vc: {
@@ -398,6 +403,73 @@ describe('OpenId4VcVerificationSessionService', () => {
           expectedOrigins: ['https://verifier.example.com'],
           presentationExchange: undefined,
           dcql,
+        }),
+      )
+    })
+
+    test('should sign a DC API request with an x5c signer (default x509_hash prefix)', async () => {
+      const certificate = { marker: 'leaf-cert' }
+      mockLoadSigningCertificate.mockResolvedValue(certificate)
+
+      const dcql = { query: { credentials: [{ id: 'requested-credential', format: 'mso_mdoc' }] } }
+      const req = {
+        publicVerifierId: 'verifier-1',
+        requestSigner: { method: 'x5c' },
+        responseMode: 'dc_api',
+        expectedOrigins: ['https://verifier.example.com'],
+        version: 'v1',
+        dcql,
+      } as any
+
+      mockCreateAuthorizationRequest.mockResolvedValue({
+        authorizationRequest: 'openid4vp://?...',
+        authorizationRequestObject: { request: 'eyJ.signed.jar' },
+        verificationSession: makeSessionRecord(),
+      })
+
+      await service.createRequest(tenantAgent, req)
+
+      expect(mockLoadSigningCertificate).toHaveBeenCalledWith(expect.anything(), {
+        clientIdPrefix: 'x509_hash',
+        certificateId: undefined,
+      })
+      expect(tenantAgent.dids.resolve).not.toHaveBeenCalled()
+      expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestSigner: { method: 'x5c', x5c: [certificate], clientIdPrefix: 'x509_hash' },
+          expectedOrigins: ['https://verifier.example.com'],
+        }),
+      )
+    })
+
+    test('should honor an explicit clientIdPrefix and certificateId for x5c signing', async () => {
+      const certificate = { marker: 'leaf-cert' }
+      mockLoadSigningCertificate.mockResolvedValue(certificate)
+
+      const req = {
+        publicVerifierId: 'verifier-1',
+        requestSigner: { method: 'x5c', clientIdPrefix: 'x509_san_dns', certificateId: 'cert-9' },
+        responseMode: 'dc_api',
+        expectedOrigins: ['https://verifier.example.com'],
+        version: 'v1',
+        dcql: { query: {} },
+      } as any
+
+      mockCreateAuthorizationRequest.mockResolvedValue({
+        authorizationRequest: 'openid4vp://?...',
+        authorizationRequestObject: {},
+        verificationSession: makeSessionRecord(),
+      })
+
+      await service.createRequest(tenantAgent, req)
+
+      expect(mockLoadSigningCertificate).toHaveBeenCalledWith(expect.anything(), {
+        clientIdPrefix: 'x509_san_dns',
+        certificateId: 'cert-9',
+      })
+      expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestSigner: { method: 'x5c', x5c: [certificate], clientIdPrefix: 'x509_san_dns' },
         }),
       )
     })

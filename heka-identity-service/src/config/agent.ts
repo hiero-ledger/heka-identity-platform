@@ -66,7 +66,12 @@ export default registerAs('agent', () => {
   const oid4VciEndpoint = process.env.AGENT_OID4VCI_ENDPOINT ?? `http://${host}:${oid4VcPort}`
 
   // FIXME: Add `indybesu` DID method once we get public network deployed
-  const didMethods = process.env.DID_METHODS ? process.env.DID_METHODS.split(',') : ['indy', 'key', 'hedera']
+  const didMethods = process.env.DID_METHODS ? process.env.DID_METHODS.split(',') : ['indy', 'key', 'jwk', 'hedera']
+
+  // x509_san_dns provisioning mode for X.509 request signing: `private_ca` issues leaves under the
+  // service-wide root CA; `self_signed` mints self-signed-with-SAN leaves (stepping stone); `csr`
+  // defers to external-CA issuance via the /x509/signers/csr + /import endpoints.
+  const x509SanDnsMode = (process.env.X509_SAN_DNS_MODE ?? 'private_ca') as 'private_ca' | 'csr' | 'self_signed'
 
   const indyEndorserSeed = process.env.INDY_ENDORSER_SEED ?? 'afjdemoverysecure000000000000002'
   //const indyEndorserId = process.env.INDY_ENDORSER_ID ?? ''
@@ -155,6 +160,7 @@ export default registerAs('agent', () => {
     oidConfig,
     didCommConfig,
     didMethods,
+    x509SanDnsMode,
     indyEndorserSeed,
     indyEndorserDid,
     indyBesuChainId,

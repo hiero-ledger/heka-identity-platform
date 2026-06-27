@@ -1,4 +1,4 @@
-import type { W3cJwtVerifiablePresentation } from '@credo-ts/core'
+import type { W3cJwtVerifiablePresentation, X509Certificate } from '@credo-ts/core'
 import type { OpenId4VcJwtIssuerDid } from '@credo-ts/openid4vc'
 
 import { ClaimFormat, MdocDeviceResponse, SdJwtVc, VerifiablePresentation, W3cCredentialSubject } from '@credo-ts/core'
@@ -6,6 +6,7 @@ import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionSta
 import { Injectable, InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
+import { X509SignerService } from 'x509-signing'
 
 import {
   OpenId4VcVerificationSessionCreateRequestDto,
@@ -16,6 +17,8 @@ import {
 
 @Injectable()
 export class OpenId4VcVerificationSessionService {
+  public constructor(private readonly x509SignerService: X509SignerService) {}
+
   /**
    * Create a Verification Sessions request
    */
@@ -25,16 +28,29 @@ export class OpenId4VcVerificationSessionService {
   ): Promise<OpenId4VcVerificationSessionCreateRequestResponse> {
     const isDcApi = req.responseMode === 'dc_api' || req.responseMode === 'dc_api.jwt'
 
-    let requestSigner: OpenId4VcJwtIssuerDid | { method: 'none' }
-    if (isDcApi && !req.requestSigner?.did) {
+    const signer = req.requestSigner
+    let requestSigner:
+      | OpenId4VcJwtIssuerDid
+      | { method: 'x5c'; x5c: X509Certificate[]; clientIdPrefix: 'x509_hash' | 'x509_san_dns' }
+      | { method: 'none' }
+    if (signer?.method === 'x5c') {
+      // Sign with the tenant's X.509 signer: resolve the explicit certificateId,
+      // else the tenant default for the prefix. Throws if none is provisioned (no silent provisioning).
+      const clientIdPrefix = signer.clientIdPrefix ?? 'x509_hash'
+      const certificate = await this.x509SignerService.loadSigningCertificate(tenantAgent, {
+        clientIdPrefix,
+        certificateId: signer.certificateId,
+      })
+      requestSigner = { method: 'x5c', x5c: [certificate], clientIdPrefix }
+    } else if (signer?.method === 'none' || (isDcApi && !signer?.did)) {
       requestSigner = { method: 'none' }
     } else {
-      if (!req.requestSigner?.did) {
+      if (!signer?.did) {
         throw new UnprocessableEntityException('requestSigner.did is required')
       }
-      const { didDocument } = await tenantAgent.dids.resolve(req.requestSigner.did)
+      const { didDocument } = await tenantAgent.dids.resolve(signer.did)
       if (!didDocument || !didDocument.verificationMethod?.length) {
-        throw new UnprocessableEntityException(`Unable to resolve signing key for DID: ${req.requestSigner.did}`)
+        throw new UnprocessableEntityException(`Unable to resolve signing key for DID: ${signer.did}`)
       }
       requestSigner = { method: 'did', didUrl: didDocument.verificationMethod[0].id }
     }

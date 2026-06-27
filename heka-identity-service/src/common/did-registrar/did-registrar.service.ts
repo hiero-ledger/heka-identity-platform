@@ -14,7 +14,7 @@ import { Agent, AGENT_TOKEN } from '../agent'
 import { Wallet } from '../entities'
 
 import { CreateDidOptions, DidRegistrar } from './did-registrar.types'
-import { DidIndyRegistrar, DidKeyRegistrar, DidIndyBesuRegistrar, DidHederaRegistrar } from './methods'
+import { DidIndyRegistrar, DidKeyRegistrar, DidJwkRegistrar, DidIndyBesuRegistrar, DidHederaRegistrar } from './methods'
 
 const DID_REGISTRAR_WALLET_ID = 'DidRegistrarWallet'
 const DID_REGISTRAR_TENANT_LABEL = 'DidRegistrarTenant'
@@ -40,6 +40,10 @@ export class DidRegistrarService implements OnApplicationBootstrap {
         }
         case DidKeyRegistrar.method: {
           this.registrars[DidKeyRegistrar.method] = new DidKeyRegistrar()
+          break
+        }
+        case DidJwkRegistrar.method: {
+          this.registrars[DidJwkRegistrar.method] = new DidJwkRegistrar()
           break
         }
         case DidIndyBesuRegistrar.method: {
