@@ -146,4 +146,65 @@ describe('PrepareWalletService', () => {
     expect(schemaV2Service.create).toHaveBeenCalledTimes(1)
     expect(schemaV2Service.registration).toHaveBeenCalledTimes(1)
   })
+
+  test('registers schema against the issuer DID matching the registration network', async () => {
+    // wallet check (method 'key') returns []; per-network lookup for 'hedera'
+    // resolves the hedera DID created during preparation
+    vi.mocked(didService.find).mockImplementation((_agent, req: any) =>
+      Promise.resolve(req.method === 'hedera' ? ([{ id: 'did:hedera:zH' }] as any) : []),
+    )
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'] })
+    vi.mocked(didService.create)
+      .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
+      .mockResolvedValueOnce({ id: 'did:hedera:zH' } as any)
+    vi.mocked(issuerService.createIssuer).mockResolvedValue({} as any)
+    vi.mocked(verifierService.createVerifier).mockResolvedValue({} as any)
+    vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
+    vi.mocked(schemaV2Service.registration).mockResolvedValue({})
+
+    await prepareWalletService.prepareWallet(authInfo, tenantAgent, {
+      schemas: [
+        {
+          name: 'TestSchema',
+          fields: [{ name: 'field1' }],
+          registrations: [{ protocol: 'Oid4vc', credentialFormat: 'SdJwtVc', network: 'hedera' }],
+        } as any,
+      ],
+    })
+
+    // the hedera registration must land on the hedera issuer DID, not the main did:key
+    expect(schemaV2Service.registration).toHaveBeenCalledWith(
+      authInfo,
+      tenantAgent,
+      'schema-1',
+      expect.objectContaining({ network: 'hedera', did: 'did:hedera:zH' }),
+    )
+  })
+
+  test('falls back to the main DID when a registration has no network', async () => {
+    vi.mocked(didService.find).mockResolvedValue([])
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+    vi.mocked(didService.create).mockResolvedValue({ id: 'did:key:z1' } as any)
+    vi.mocked(issuerService.createIssuer).mockResolvedValue({} as any)
+    vi.mocked(verifierService.createVerifier).mockResolvedValue({} as any)
+    vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
+    vi.mocked(schemaV2Service.registration).mockResolvedValue({})
+
+    await prepareWalletService.prepareWallet(authInfo, tenantAgent, {
+      schemas: [
+        {
+          name: 'TestSchema',
+          fields: [{ name: 'field1' }],
+          registrations: [{ protocol: 'Oid4vc', credentialFormat: 'SdJwtVc' }],
+        } as any,
+      ],
+    })
+
+    expect(schemaV2Service.registration).toHaveBeenCalledWith(
+      authInfo,
+      tenantAgent,
+      'schema-1',
+      expect.objectContaining({ did: 'did:key:z1' }),
+    )
+  })
 })
