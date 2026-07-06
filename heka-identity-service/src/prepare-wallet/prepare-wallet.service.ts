@@ -95,9 +95,14 @@ export class PrepareWalletService {
       const resolveDidForNetwork = async (network: DidMethod): Promise<string | undefined> => {
         const cached = didByNetwork.get(network)
         if (cached) return cached
-        const [didDoc] = await this.didService.find(tenantAgent, { method: network, own: true })
-        if (didDoc) didByNetwork.set(network, didDoc.id)
-        return didDoc?.id
+        try {
+          const [didDoc] = await this.didService.find(tenantAgent, { method: network, own: true })
+          if (didDoc) didByNetwork.set(network, didDoc.id)
+          return didDoc?.id
+        } catch (error) {
+          logger.error(`Failed to resolve ${network} DID`)
+          return undefined
+        }
       }
 
       for (const schema of req.schemas) {

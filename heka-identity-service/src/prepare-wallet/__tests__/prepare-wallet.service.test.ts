@@ -207,4 +207,60 @@ describe('PrepareWalletService', () => {
       expect.objectContaining({ did: 'did:key:z1' }),
     )
   })
+
+  test('skips registration when no DID exists for the requested network', async () => {
+    // no DID is found for any method, so the hedera lookup yields nothing and
+    // the registration is skipped rather than landing on the wrong issuer
+    vi.mocked(didService.find).mockResolvedValue([])
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+    vi.mocked(didService.create).mockResolvedValue({ id: 'did:key:z1' } as any)
+    vi.mocked(issuerService.createIssuer).mockResolvedValue({} as any)
+    vi.mocked(verifierService.createVerifier).mockResolvedValue({} as any)
+    vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
+
+    await prepareWalletService.prepareWallet(authInfo, tenantAgent, {
+      schemas: [
+        {
+          name: 'TestSchema',
+          fields: [{ name: 'field1' }],
+          registrations: [{ protocol: 'Oid4vc', credentialFormat: 'SdJwtVc', network: 'hedera' }],
+        } as any,
+      ],
+    })
+
+    expect(schemaV2Service.registration).not.toHaveBeenCalled()
+  })
+
+  test('continues with remaining registrations when a DID lookup fails', async () => {
+    // the wallet is already prepared (main 'key' DID resolves); the 'hedera'
+    // lookup throws, which must not abort the still-valid 'key' registration
+    vi.mocked(didService.find).mockImplementation((_agent, req: any) => {
+      if (req.method === 'hedera') return Promise.reject(new Error('wallet lookup failure'))
+      return Promise.resolve([{ id: 'did:key:z1' }] as any)
+    })
+    vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
+    vi.mocked(schemaV2Service.registration).mockResolvedValue({})
+
+    await prepareWalletService.prepareWallet(authInfo, tenantAgent, {
+      schemas: [
+        {
+          name: 'TestSchema',
+          fields: [{ name: 'field1' }],
+          registrations: [
+            { protocol: 'Oid4vc', credentialFormat: 'SdJwtVc', network: 'hedera' },
+            { protocol: 'Oid4vc', credentialFormat: 'SdJwtVc', network: 'key' },
+          ],
+        } as any,
+      ],
+    })
+
+    // hedera skipped (lookup threw), key still registered
+    expect(schemaV2Service.registration).toHaveBeenCalledTimes(1)
+    expect(schemaV2Service.registration).toHaveBeenCalledWith(
+      authInfo,
+      tenantAgent,
+      'schema-1',
+      expect.objectContaining({ network: 'key', did: 'did:key:z1' }),
+    )
+  })
 })
