@@ -15,12 +15,13 @@
 
 ```mermaid
 timeline
-    Q2 2026 : Platform and dependencies updates
-            : Documentation improvements
-            : Heka Identity Platform LFDT Meetup
-            : Hiero Contributor Identity Verification Prototype — LFDT mentorship kick-off
-            : Digital Credentials API (DC API) support
-    Q3 2026 : ERC-8004
+    Q2 2026 : ✅ Platform and dependencies updates
+            : ✅ Documentation improvements
+            : ✅ Heka Identity Platform LFDT Meetup
+            : ✅ Hiero Contributor Identity Verification Prototype — LFDT mentorship kick-off
+            : ✅ Digital Credentials API (DC API) support
+    Q3 2026 : Updates for EUDI / HAIP alignment
+            : ERC-8004
             : AP2 credentials
             : SSO via SSI support + WebUI demo
             : HBAR wallet integration for Heka Wallet
