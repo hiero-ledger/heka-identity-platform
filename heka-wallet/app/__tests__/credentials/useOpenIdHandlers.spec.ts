@@ -231,6 +231,7 @@ describe('useOpenIdHandlers', () => {
         accessToken: fixture.tokenResponse,
       })
 
+
       expect(credentialRecord).toMatchObject({ id: 'mock-record' })
 
       expect(mockAgent.openid4vc.holder.requestCredentials).toHaveBeenCalledWith(
@@ -247,6 +248,64 @@ describe('useOpenIdHandlers', () => {
       )
       expect(mockAgent.openid4vc.holder.requestCredentials).toHaveBeenCalledTimes(1)
     })
+    it('should preserve complete credential configuration metadata on the record', async () => {
+      const credentialConfiguration =
+        fixture.resolvedCredentialOfferPreAuth.offeredCredentialConfigurations['mock-id-2']
+
+      const metadataSetMock = jest.fn()
+
+      mockFunction(mockAgent.openid4vc.holder.requestCredentials).mockResolvedValueOnce({
+        credentials: [
+          { record: { id: 'mock-record', metadata: { set: metadataSetMock } }, credentialConfiguration },
+        ],
+      })
+
+      const { receiveCredentialFromOpenId4VciOffer } = renderOpenIdHandlersHookValue()
+      await receiveCredentialFromOpenId4VciOffer({
+        resolvedCredentialOffer: fixture.resolvedCredentialOfferPreAuth,
+        accessToken: fixture.tokenResponse,
+        credentialConfigurationIdToRequest: 'mock-id-2',
+      })
+
+      expect(metadataSetMock).toHaveBeenCalledWith(
+        '_heka-wallet/openId4VcCredentialMetadata',
+        expect.objectContaining({
+          credentialConfiguration,
+        })
+      )
+    })
+
+       it('should still store existing extracted metadata fields alongside credentialConfiguration', async () => {
+      const credentialConfiguration =
+        fixture.resolvedCredentialOfferPreAuth.offeredCredentialConfigurations['mock-id-2']
+
+      const metadataSetMock = jest.fn()
+
+      mockFunction(mockAgent.openid4vc.holder.requestCredentials).mockResolvedValueOnce({
+        credentials: [
+          { record: { id: 'mock-record', metadata: { set: metadataSetMock } }, credentialConfiguration },
+        ],
+      })
+
+      const { receiveCredentialFromOpenId4VciOffer } = renderOpenIdHandlersHookValue()
+      await receiveCredentialFromOpenId4VciOffer({
+        resolvedCredentialOffer: fixture.resolvedCredentialOfferPreAuth,
+        accessToken: fixture.tokenResponse,
+        credentialConfigurationIdToRequest: 'mock-id-2',
+      })
+
+      expect(metadataSetMock).toHaveBeenCalledWith(
+        '_heka-wallet/openId4VcCredentialMetadata',
+        expect.objectContaining({
+          credential: expect.any(Object),
+          issuer: expect.objectContaining({
+            id: fixture.resolvedCredentialOfferPreAuth.metadata.credentialIssuer.credential_issuer,
+          }),
+        })
+      )
+    })
+
+
 
     it('should throw if explicitly requested credential uses an unsupported format', async () => {
       const { receiveCredentialFromOpenId4VciOffer } = renderOpenIdHandlersHookValue()

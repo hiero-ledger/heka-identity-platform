@@ -1,4 +1,4 @@
-import type {
+impoOpenId4VcCredentialMetadatat type {
   OpenId4VciCredentialConfigurationSupported,
   OpenId4VciCredentialIssuerMetadataDisplay,
 } from '@credo-ts/openid4vc'
@@ -17,8 +17,11 @@ export interface OpenId4VcCredentialMetadata {
   issuer: {
     display?: OpenId4VciCredentialIssuerMetadataDisplay[]
     id: string
+
   }
+  credentialConfiguration?: OpenId4VciCredentialConfigurationSupported
 }
+
 
 const OID4VC_CREDENTIAL_METADATA_KEY = '_heka-wallet/openId4VcCredentialMetadata'
 
