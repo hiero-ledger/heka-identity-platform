@@ -1,5 +1,5 @@
+import { useDefaultStackOptions } from '@bifold/core'
 import { useHekaTheme } from '@heka-wallet/shared'
-import { useDefaultStackOptions } from '@hyperledger/aries-bifold-core/App/navigators/defaultStackOptions'
 import { KeyRingStatus } from '@keplr-wallet/background'
 import { useNavigation } from '@react-navigation/native'
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack'
@@ -12,8 +12,9 @@ import { Unlock } from '../screens'
 
 import { AuthStackParams, KeplrStackParams, Screens, Stacks } from './types'
 
+const Stack = createStackNavigator<AuthStackParams>()
+
 export const AuthStack: React.FC = observer(() => {
-  const Stack = createStackNavigator<AuthStackParams>()
   const theme = useHekaTheme()
   const defaultStackOptions = useDefaultStackOptions(theme)
 

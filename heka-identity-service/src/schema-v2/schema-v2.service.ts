@@ -1,8 +1,4 @@
-import {
-  OpenId4VciCredentialConfigurationsSupportedWithFormats,
-  OpenId4VciCredentialConfigurationSupported,
-  OpenId4VciCredentialFormatProfile,
-} from '@credo-ts/openid4vc'
+import { OpenId4VciCredentialConfigurationSupported, OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { EntityManager } from '@mikro-orm/core'
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common'
 
@@ -23,11 +19,9 @@ import {
   OpenId4VCCredentialRegistrationFormat,
   ProtocolType,
 } from '../common/types'
-import { AriesRegistrationCredentials, OID4VCRegistrationCredentials } from '../common/types/registration-credentials'
-import { IssuerCredentialSubject } from '../openid4vc/issuer/dto/common/credential'
-import { CreateRevocationRegistryRequest } from '../revocation/revocation-registry/dto'
+import { UpdateIssuerSupportedCredentialsAction } from '../openid4vc/issuer/dto/update-issuer.dto'
+import { OpenId4VcIssuerService } from '../openid4vc/issuer/issuer.service'
 import { RevocationRegistryService } from '../revocation/revocation-registry/revocation-registry.service'
-import { CreateStatusListRequest } from '../revocation/status-list/dto'
 import { StatusListService } from '../revocation/status-list/status-list.service'
 import { moveElement } from '../utils/array'
 
@@ -60,6 +54,7 @@ export class SchemaV2Service {
     private readonly revocationRegistryService: RevocationRegistryService,
     private readonly statusListService: StatusListService,
     private readonly ocaService: OCAService,
+    private readonly openId4VcIssuerService: OpenId4VcIssuerService,
   ) {
     this.logger.child('constructor').trace('<>')
   }
@@ -168,7 +163,7 @@ export class SchemaV2Service {
         issuerId: did,
         credentialDefinitionId: resultCredentials.credentialDefinitionId,
         maximumCredentialNumber: undefined,
-      } as CreateRevocationRegistryRequest)
+      })
 
       // save
       const schemaRegistration = new SchemaRegistration({
@@ -180,9 +175,10 @@ export class SchemaV2Service {
         credentials: {
           credentialDefinitionId: resultCredentials.credentialDefinitionId,
           revocationRegistryDefinitionId: revocationRegistry.revocationRegistryDefinitionId,
-        } as AriesRegistrationCredentials,
+        },
       })
-      await this.em.persistAndFlush(schemaRegistration)
+      this.em.persist(schemaRegistration)
+      await this.em.flush()
 
       // update OCA files for Aries registrations
       // TODO: it will be good if will update OCA files for changed schema only.
@@ -201,7 +197,7 @@ export class SchemaV2Service {
       ...schema.fields
         .toArray()
         .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
-        .map((x) => ({ [x.name]: {} }) as IssuerCredentialSubject),
+        .map((x) => ({ [x.name]: {} })),
     )
 
   private makeCredentialDisplay = (schema: Schema) => [
@@ -221,6 +217,7 @@ export class SchemaV2Service {
     format: OpenId4VciCredentialFormatProfile.SdJwtVc,
     id: supportedCredentialId,
     vct: schema.name,
+    cryptographic_binding_methods_supported: ['jwk', 'did:jwk', 'did:key'],
     claims: this.makeCredentialSubject(schema),
     display: this.makeCredentialDisplay(schema),
   })
@@ -231,6 +228,7 @@ export class SchemaV2Service {
   ): OpenId4VciCredentialConfigurationSupportedWithId => ({
     format: OpenId4VciCredentialFormatProfile.JwtVcJson,
     id: supportedCredentialId,
+    cryptographic_binding_methods_supported: ['did:jwk', 'did:key'],
     credential_definition: {
       type: ['VerifiableCredential', `${schema.name}`],
       credentialSubject: this.makeCredentialSubject(schema),
@@ -244,6 +242,7 @@ export class SchemaV2Service {
   ): OpenId4VciCredentialConfigurationSupportedWithId => ({
     format: OpenId4VciCredentialFormatProfile.JwtVcJsonLd,
     id: supportedCredentialId,
+    cryptographic_binding_methods_supported: ['did:jwk', 'did:key'],
     credential_definition: {
       type: ['VerifiableCredential', `${schema.name}`],
       '@context': [this.OID4VC_CREDENTIALS_CONTEXT],
@@ -258,6 +257,7 @@ export class SchemaV2Service {
   ): OpenId4VciCredentialConfigurationSupportedWithId => ({
     format: OpenId4VciCredentialFormatProfile.LdpVc,
     id: supportedCredentialId,
+    cryptographic_binding_methods_supported: ['did:jwk', 'did:key'],
     credential_definition: {
       type: ['VerifiableCredential', `${schema.name}`],
       '@context': [this.OID4VC_CREDENTIALS_CONTEXT],
@@ -273,6 +273,7 @@ export class SchemaV2Service {
     format: OpenId4VciCredentialFormatProfile.MsoMdoc,
     id: supportedCredentialId,
     doctype: schema.name,
+    cryptographic_binding_methods_supported: ['cose_key'],
     claims: schema.fields
       .toArray()
       .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
@@ -323,22 +324,18 @@ export class SchemaV2Service {
       throw new InternalServerErrorException(`Failed to generate CredentialDefinition`)
     }
 
-    // update metadata
-    await tenantAgent.openid4vc.issuer.updateIssuerMetadata({
-      issuerId: issuer.issuerId,
-      credentialConfigurationsSupported: {
-        ...issuer.credentialConfigurationsSupported,
-        // TODO: Fix typechecks
-        [credential.id]: credential as any,
-      },
-      display: issuer.display,
+    // update metadata via the wrapper service so proof_types_supported defaults are applied
+    // TODO: Fix typechecks — credo's union type doesn't line up with the wrapper DTO's discriminated union
+    await this.openId4VcIssuerService.updateIssuerMetadata(tenantAgent, issuer.issuerId, {
+      action: UpdateIssuerSupportedCredentialsAction.Add,
+      credentialsSupported: [credential] as any,
     })
 
     // create revocation status list
     const revocationStatusList = await this.statusListService.create(prop.authInfo, {
       issuer: did,
       purpose: StatusListPurpose.Revocation,
-    } as CreateStatusListRequest)
+    })
 
     // save
     const schemaRegistration = new SchemaRegistration({
@@ -350,9 +347,10 @@ export class SchemaV2Service {
       credentials: {
         supportedCredentialId,
         statusListId: revocationStatusList.id,
-      } as OID4VCRegistrationCredentials,
+      },
     })
-    await this.em.persistAndFlush(schemaRegistration)
+    this.em.persist(schemaRegistration)
+    await this.em.flush()
     return schemaRegistration
   }
 
@@ -369,19 +367,19 @@ export class SchemaV2Service {
       background_color: schema.bgColor,
     }
 
-    const credentialConfigurationsSupported = Object.entries(
-      issuer.credentialConfigurationsSupported,
-    ).reduce<OpenId4VciCredentialConfigurationsSupportedWithFormats>(
-      (result, [configurationId, credentialConfiguration]) => {
-        result[configurationId] = { ...(credentialConfiguration as Record<string, unknown>), display: [display] } as any
-        return result
-      },
-      {},
+    const credentialsSupported = Object.entries(issuer.credentialConfigurationsSupported).map(
+      ([configurationId, credentialConfiguration]) => ({
+        ...(credentialConfiguration as Record<string, unknown>),
+        id: configurationId,
+        display: [display],
+      }),
     )
 
-    await tenantAgent.openid4vc.issuer.updateIssuerMetadata({
-      issuerId: issuer.issuerId,
-      credentialConfigurationsSupported,
+    // update metadata via the wrapper service so proof_types_supported defaults are (re)applied
+    // TODO: Fix typechecks — credo's union type doesn't line up with the wrapper DTO's discriminated union
+    await this.openId4VcIssuerService.updateIssuerMetadata(tenantAgent, issuer.issuerId, {
+      action: UpdateIssuerSupportedCredentialsAction.Replace,
+      credentialsSupported: credentialsSupported as any,
       display: issuer.display,
     })
   }
@@ -549,7 +547,8 @@ export class SchemaV2Service {
       )
     })
 
-    await this.em.persistAndFlush(newSchema)
+    this.em.persist(newSchema)
+    await this.em.flush()
 
     // result
     logger.trace('<')

@@ -45,7 +45,7 @@ export class VerificationTemplateUtilities {
     const response = await request(app)
       .patch(`/verification-templates/${templateId}`)
       .auth(authToken, { type: 'bearer' })
-      .send({ isPinned: pinned } as PatchVerificationTemplateRequest)
+      .send({ isPinned: pinned } satisfies PatchVerificationTemplateRequest)
     return response.status === 200
   }
 

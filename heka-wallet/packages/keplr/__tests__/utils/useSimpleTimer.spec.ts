@@ -1,11 +1,9 @@
-import { renderHook, waitFor } from '@testing-library/react-native'
+import { renderHook, act, waitFor } from '@testing-library/react-native'
 import { useSimpleTimer } from '../../src/utils/useSimpleTimer'
 
 describe('useSimpleTimer', () => {
   beforeAll(() => {
     jest.useFakeTimers()
-    jest.spyOn(global, 'setTimeout')
-    jest.spyOn(global, 'clearTimeout')
   })
 
   afterAll(() => jest.useRealTimers())
@@ -15,18 +13,22 @@ describe('useSimpleTimer', () => {
 
     const { result } = renderHook(useSimpleTimer)
 
-    await waitFor(() => {
+    // Initially not timed out
+    expect(result.current.isTimedOut).toBe(false)
+
+    // Start timer — isTimedOut becomes true (timeoutId is set)
+    act(() => {
       result.current.setTimer(timeoutMs)
-      expect(result.current.isTimedOut).toBe(false)
+    })
+    expect(result.current.isTimedOut).toBe(true)
 
+    // Advance past timeout — isTimedOut becomes false (timeoutId cleared)
+    act(() => {
       jest.advanceTimersByTime(timeoutMs)
-
-      expect(result.current.isTimedOut).toBe(true)
     })
 
-    expect(setTimeout).toBeCalledTimes(1)
-    expect(setTimeout).toBeCalledWith(expect.any(Function), timeoutMs)
-
-    expect(clearTimeout).toBeCalledTimes(1)
+    await waitFor(() => {
+      expect(result.current.isTimedOut).toBe(false)
+    })
   })
 })

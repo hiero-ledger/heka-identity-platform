@@ -1,12 +1,13 @@
-import { useAgent, useCredentialById } from '@credo-ts/react-hooks'
-import { BifoldError, EventTypes } from '@hyperledger/aries-bifold-core'
-import { useNetwork } from '@hyperledger/aries-bifold-core/App/contexts/network'
 import {
+  BifoldError,
+  EventTypes,
   NotificationStackParams,
   Screens,
   Screens as BifoldScreens,
   TabStacks,
-} from '@hyperledger/aries-bifold-core/App/types/navigators'
+  useNetwork,
+} from '@bifold/core'
+import { useCredentialById } from '@bifold/react-hooks'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
 import React, { useEffect, useState } from 'react'
@@ -17,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { CredentialOfferView } from '../components/views'
 import LoadingView from '../components/views/LoadingView'
 import { Credential, mapCredentialRecord } from '../credentials'
+import { useHekaAgent } from '../utils/agent'
 
 type Props = StackScreenProps<NotificationStackParams, BifoldScreens.CredentialOffer>
 
@@ -30,10 +32,10 @@ export const AriesCredentialOffer: React.FC<Props> = ({ route }) => {
   const { credentialId } = route.params
   const credentialExchangeRecord = useCredentialById(credentialId)
 
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const navigation = useNavigation<StackNavigationProp<NotificationStackParams>>()
-  const { assertConnectedNetwork } = useNetwork()
+  const { assertNetworkConnected } = useNetwork()
 
   const [isCredentialLoading, setIsCredentialLoading] = useState(false)
   const [credential, setCredential] = useState<Credential | undefined>()
@@ -69,11 +71,11 @@ export const AriesCredentialOffer: React.FC<Props> = ({ route }) => {
   }, [t, credentialExchangeRecord])
 
   const onAccept = async () => {
-    if (!agent || !credential || !assertConnectedNetwork()) return
+    if (!agent || !credential || !assertNetworkConnected()) return
 
     try {
       setIsAccepted(true)
-      await agent.credentials.acceptOffer({ credentialRecordId: credential.id })
+      await agent.didcomm.credentials.acceptOffer({ credentialExchangeRecordId: credential.id })
     } catch (err: unknown) {
       setIsAccepted(false)
       const error = new BifoldError(t('Error.Title1024'), t('Error.Message1024'), (err as Error)?.message ?? err, 1024)
@@ -86,9 +88,12 @@ export const AriesCredentialOffer: React.FC<Props> = ({ route }) => {
 
     try {
       setIsDeclining(true)
-      await agent.credentials.declineOffer(credential.id, { sendProblemReport: true })
+      await agent.didcomm.credentials.declineOffer({
+        credentialExchangeRecordId: credential.id,
+        sendProblemReport: true,
+      })
     } catch (err: unknown) {
-      await agent.credentials.deleteById(credential.id)
+      await agent.didcomm.credentials.deleteById(credential.id)
     } finally {
       setIsDeclining(false)
       navigation.getParent()?.navigate(TabStacks.HomeStack, { screen: Screens.Home })

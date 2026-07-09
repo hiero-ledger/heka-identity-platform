@@ -1,6 +1,5 @@
 import { JwtConfig } from '@config'
-import { Entity, Enum, Property } from '@mikro-orm/core'
-import { Index } from '@mikro-orm/postgresql'
+import { Entity, Enum, Index, Property } from '@mikro-orm/decorators/legacy'
 
 import { UserRepository } from '../repositories'
 import { CustomBaseEntity } from './custom-base-entity'
@@ -17,14 +16,14 @@ export enum UserRole {
 
 @Entity({ tableName: 'auth_user', repository: () => UserRepository })
 export class User extends CustomBaseEntity {
-  @Property({ unique: true, nullable: false })
+  @Property({ unique: true, nullable: false, type: 'string' })
   @Index()
   public name!: string
 
-  @Property({ nullable: false, columnType: 'text', lazy: true })
+  @Property({ nullable: false, columnType: 'text', lazy: true, type: 'string' })
   public password!: string
 
-  @Property({ nullable: false })
+  @Property({ nullable: false, type: 'string' })
   @Enum(() => UserRole)
   public role!: UserRole
 

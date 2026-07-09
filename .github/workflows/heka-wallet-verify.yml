@@ -37,7 +37,7 @@ jobs:
           checkout-ref: '${{ github.ref }}'
           checkout-token: '${{ secrets.GITHUB_TOKEN }}'
           setup-node: 'true'
-          node-version: '20'
+          node-version: '22'
 
       - name: Enable Corepack
         run: corepack enable

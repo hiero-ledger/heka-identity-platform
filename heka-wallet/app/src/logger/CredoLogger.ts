@@ -5,7 +5,7 @@ export class CredoLogger extends BaseLogger {
   private internalLogger: Logger
 
   public constructor(context: string) {
-    super(LogLevel.trace)
+    super(LogLevel.Trace)
     this.internalLogger = GlobalLogger.createContextLogger(context)
   }
 

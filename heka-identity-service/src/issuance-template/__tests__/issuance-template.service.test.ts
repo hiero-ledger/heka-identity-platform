@@ -56,7 +56,7 @@ describe('IssuanceTemplateService', () => {
           map: vi.fn().mockReturnValue([{ id: 'tf1', schemaFieldId: 'f1', schemaFieldName: 'field1', value: 'val1' }]),
         },
       }
-      vi.mocked(em.findOne).mockResolvedValue(mockTemplate as any)
+      vi.mocked(em.findOne).mockResolvedValue(mockTemplate)
       vi.mocked(fileStorageService.url).mockReturnValue('https://cdn/logo.png')
 
       const result = await service.getTemplateById(authInfo, 'tpl-1')
@@ -96,7 +96,7 @@ describe('IssuanceTemplateService', () => {
         },
         fields: { map: vi.fn().mockReturnValue([]) },
       }
-      vi.mocked(em.findOne).mockResolvedValue(mockTemplate as any)
+      vi.mocked(em.findOne).mockResolvedValue(mockTemplate)
 
       const result = await service.getTemplateById(authInfo, 'tpl-2')
 
@@ -128,7 +128,7 @@ describe('IssuanceTemplateService', () => {
           fields: { map: vi.fn().mockReturnValue([]) },
         },
       ]
-      vi.mocked(em.findAndCount).mockResolvedValue([mockItems as any, 1])
+      vi.mocked(em.findAndCount).mockResolvedValue([mockItems, 1])
 
       const result = await service.getList(authInfo, { offset: 0, limit: 10 })
 
@@ -153,7 +153,7 @@ describe('IssuanceTemplateService', () => {
 
     test('throws NotFoundException when schema not found', async () => {
       // findOne returns null for both template name check and schema lookup
-      vi.mocked(em.findOne).mockResolvedValue(null as any)
+      vi.mocked(em.findOne).mockResolvedValue(null)
 
       await expect(service.create(authInfo, { name: 'New', schemaId: 'bad-schema' } as any)).rejects.toThrow(
         NotFoundException,
@@ -243,7 +243,7 @@ describe('IssuanceTemplateService', () => {
         id: 'tpl-1',
         fields: { removeAll: vi.fn() },
       }
-      vi.mocked(em.findOne).mockResolvedValue(mockTemplate as any)
+      vi.mocked(em.findOne).mockResolvedValue(mockTemplate)
 
       await service.delete(authInfo, 'tpl-1')
 
@@ -299,9 +299,7 @@ describe('IssuanceTemplateService', () => {
         schema: { id: 'schema-1', fields: [] },
         fields: { length: 0, removeAll: vi.fn() },
       }
-      vi.mocked(em.findOne)
-        .mockResolvedValueOnce(mockTemplate as any)
-        .mockResolvedValueOnce({ id: 'other-tpl' } as any)
+      vi.mocked(em.findOne).mockResolvedValueOnce(mockTemplate).mockResolvedValueOnce({ id: 'other-tpl' } as any)
 
       await expect(service.patch(authInfo, 'tpl-1', { name: 'Taken Name' } as any)).rejects.toThrow(BadRequestException)
       expect(em.findOne).toHaveBeenNthCalledWith(
@@ -339,7 +337,7 @@ describe('IssuanceTemplateService', () => {
         },
         fields: { map: vi.fn().mockReturnValue([]) },
       }
-      vi.mocked(em.findOne).mockResolvedValue(mockTemplate as any)
+      vi.mocked(em.findOne).mockResolvedValue(mockTemplate)
 
       const result = await service.getById(authInfo, 'tpl-1')
       expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
@@ -363,7 +361,7 @@ describe('IssuanceTemplateService', () => {
       // setPlace needs em.find
       vi.mocked(em.find).mockResolvedValue([])
 
-      vi.mocked(em.persistAndFlush).mockResolvedValue(undefined as any)
+      vi.mocked(em.flush).mockResolvedValue(undefined)
 
       const createdTemplate = {
         id: 'tpl-new',
@@ -385,10 +383,10 @@ describe('IssuanceTemplateService', () => {
         fields: { map: vi.fn().mockReturnValue([]) },
       }
 
-      // After persistAndFlush, getTemplateById calls findOne — return the created template
-      vi.mocked(em.persistAndFlush).mockImplementation(() => {
-        vi.mocked(em.findOne).mockResolvedValue(createdTemplate as any)
-        return Promise.resolve()
+      // After persist + flush, getTemplateById calls findOne — return the created template
+      vi.mocked(em.persist).mockImplementation(() => {
+        vi.mocked(em.findOne).mockResolvedValue(createdTemplate)
+        return em
       })
 
       const result = await service.create(authInfo, {
@@ -402,7 +400,7 @@ describe('IssuanceTemplateService', () => {
       } as any)
 
       expect(result.name).toBe('New Template')
-      expect(em.persistAndFlush).toHaveBeenCalled()
+      expect(em.flush).toHaveBeenCalled()
     })
 
     test('creates template without fields property', async () => {
@@ -438,9 +436,9 @@ describe('IssuanceTemplateService', () => {
         fields: { map: vi.fn().mockReturnValue([]) },
       }
 
-      vi.mocked(em.persistAndFlush).mockImplementation(() => {
-        vi.mocked(em.findOne).mockResolvedValue(createdTemplate as any)
-        return Promise.resolve()
+      vi.mocked(em.persist).mockImplementation(() => {
+        vi.mocked(em.findOne).mockResolvedValue(createdTemplate)
+        return em
       })
 
       const result = await service.create(authInfo, {
@@ -498,12 +496,10 @@ describe('IssuanceTemplateService', () => {
     test('updates name successfully', async () => {
       const template = buildTemplate()
       // First findOne = initial template lookup; second = duplicate-name check (null = no conflict)
-      vi.mocked(em.findOne)
-        .mockResolvedValueOnce(template as any)
-        .mockResolvedValueOnce(null)
+      vi.mocked(em.findOne).mockResolvedValueOnce(template).mockResolvedValueOnce(null)
       setFlushReturnsView(template)
 
-      await service.patch(authInfo, 'tpl-1', { name: 'Updated Name' } as any)
+      await service.patch(authInfo, 'tpl-1', { name: 'Updated Name' })
 
       expect(template.name).toBe('Updated Name')
       expect(em.flush).toHaveBeenCalled()
@@ -511,17 +507,17 @@ describe('IssuanceTemplateService', () => {
 
     test('updates isPinned successfully', async () => {
       const template = buildTemplate()
-      vi.mocked(em.findOne).mockResolvedValue(template as any)
+      vi.mocked(em.findOne).mockResolvedValue(template)
       setFlushReturnsView(template)
 
-      await service.patch(authInfo, 'tpl-1', { isPinned: true } as any)
+      await service.patch(authInfo, 'tpl-1', { isPinned: true })
 
       expect(template.isPinned).toBe(true)
     })
 
     test('updates protocol, credentialFormat, network, did', async () => {
       const template = buildTemplate()
-      vi.mocked(em.findOne).mockResolvedValue(template as any)
+      vi.mocked(em.findOne).mockResolvedValue(template)
       setFlushReturnsView(template)
 
       await service.patch(authInfo, 'tpl-1', {
@@ -551,7 +547,7 @@ describe('IssuanceTemplateService', () => {
       })
       setFlushReturnsView(template)
 
-      await service.patch(authInfo, 'tpl-1', { schemaId: 'schema-2' } as any)
+      await service.patch(authInfo, 'tpl-1', { schemaId: 'schema-2' })
 
       expect(template.schema).toBe(newSchema)
     })
@@ -583,12 +579,12 @@ describe('IssuanceTemplateService', () => {
 
     test('updates fields successfully', async () => {
       const template = buildTemplate()
-      vi.mocked(em.findOne).mockResolvedValue(template as any)
+      vi.mocked(em.findOne).mockResolvedValue(template)
       setFlushReturnsView(template)
 
       await service.patch(authInfo, 'tpl-1', {
         fields: [{ schemaFieldId: 'f1', value: 'val1' }],
-      } as any)
+      })
 
       expect(template.fields.add).toHaveBeenCalled()
     })
@@ -597,12 +593,12 @@ describe('IssuanceTemplateService', () => {
       const template = buildTemplate({
         fields: { length: 2, removeAll: vi.fn(), add: vi.fn(), map: vi.fn().mockReturnValue([]) },
       })
-      vi.mocked(em.findOne).mockResolvedValue(template as any)
+      vi.mocked(em.findOne).mockResolvedValue(template)
       setFlushReturnsView(template)
 
       await service.patch(authInfo, 'tpl-1', {
         fields: [{ schemaFieldId: 'f1', value: 'new-val' }],
-      } as any)
+      })
 
       expect(template.fields.removeAll).toHaveBeenCalled()
       expect(template.fields.add).toHaveBeenCalled()
@@ -610,11 +606,11 @@ describe('IssuanceTemplateService', () => {
 
     test('handles previousTemplateId = first', async () => {
       const template = buildTemplate()
-      vi.mocked(em.findOne).mockResolvedValue(template as any)
+      vi.mocked(em.findOne).mockResolvedValue(template)
       vi.mocked(em.find).mockResolvedValue([])
       setFlushReturnsView(template)
 
-      await service.patch(authInfo, 'tpl-1', { previousTemplateId: null } as any)
+      await service.patch(authInfo, 'tpl-1', { previousTemplateId: null })
 
       expect(em.flush).toHaveBeenCalled()
     })
@@ -627,10 +623,10 @@ describe('IssuanceTemplateService', () => {
         if (entity === IssuanceTemplate && filter?.id === 'prev-tpl') return Promise.resolve(prevTemplate as any)
         return Promise.resolve(null)
       })
-      vi.mocked(em.find).mockResolvedValue([prevTemplate as any, template as any])
+      vi.mocked(em.find).mockResolvedValue([prevTemplate, template])
       setFlushReturnsView(template)
 
-      await service.patch(authInfo, 'tpl-1', { previousTemplateId: 'prev-tpl' } as any)
+      await service.patch(authInfo, 'tpl-1', { previousTemplateId: 'prev-tpl' })
 
       expect(em.flush).toHaveBeenCalled()
     })
@@ -693,7 +689,7 @@ describe('IssuanceTemplateService', () => {
         },
         fields: { length: 0, removeAll: vi.fn(), add: vi.fn() },
       }
-      vi.mocked(em.findOne).mockResolvedValue(template as any)
+      vi.mocked(em.findOne).mockResolvedValue(template)
 
       await expect(
         service.patch(authInfo, 'tpl-1', {
@@ -715,7 +711,7 @@ describe('IssuanceTemplateService', () => {
         },
         fields: { length: 0, removeAll: vi.fn(), add: vi.fn() },
       }
-      vi.mocked(em.findOne).mockResolvedValue(template as any)
+      vi.mocked(em.findOne).mockResolvedValue(template)
 
       await expect(
         service.patch(authInfo, 'tpl-1', {

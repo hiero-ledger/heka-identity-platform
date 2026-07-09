@@ -35,7 +35,7 @@ A DID is the public identifier the tenant signs with. The Identity Service can c
 
 ### Schema
 
-A schema describes the *shape* of a credential — the set of attribute names a credential of this type contains. Schemas are written to a verifiable data registry (Hyperledger Indy, Hedera, Indy Besu) and referenced by ID from credential definitions and credential offers.
+A schema describes the _shape_ of a credential — the set of attribute names a credential of this type contains. Schemas are written to a verifiable data registry (Hyperledger Indy, Hedera, Indy Besu) and referenced by ID from credential definitions and credential offers.
 
 The service exposes schemas through two API generations: `/schemas` (legacy, AnonCreds-focused) and `/schemas/v2` (newer, format-aware). Use v2 for new integrations.
 
@@ -45,7 +45,7 @@ A credential definition binds a **schema** + **issuer DID** + **signing keys** +
 
 ### Issuance and Verification Templates
 
-Templates are higher-level reusable definitions of a *credential offer* or *proof request*. They encapsulate "what we issue / verify and how" so that callers (e.g. the Web UI) can issue or verify against a template by ID rather than building the offer payload from scratch each time.
+Templates are higher-level reusable definitions of a _credential offer_ or _proof request_. They encapsulate "what we issue / verify and how" so that callers (e.g. the Web UI) can issue or verify against a template by ID rather than building the offer payload from scratch each time.
 
 - `POST /credentials/v2/offer-by-template` — issue a credential using a saved issuance template
 - `POST /credentials/v2/proof-by-template` — request a proof using a saved verification template
@@ -57,7 +57,7 @@ See `src/issuance-template/` and `src/verification-template/`.
 The Identity Service supports multiple credential formats. Pick the one that matches your ecosystem requirement.
 
 | Format                                        | Spec / Profile               | When to use                                                                                  |
-|-----------------------------------------------|------------------------------|----------------------------------------------------------------------------------------------|
+| --------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------- |
 | **SD-JWT VC**                                 | IETF `vc+sd-jwt`             | EUDI Wallet, modern OID4VC ecosystems with selective disclosure as a first-class requirement |
 | **mDoc / mDL**                                | ISO/IEC 18013-5 (`mso_mdoc`) | Mobile driving licences, ISO-aligned government deployments                                  |
 | **W3C VC-JWT (`jwt_vc_json`)**                | OpenID4VCI profile           | Legacy W3C VCDM ecosystems where JSON-LD is not required                                     |
@@ -89,7 +89,7 @@ Two transport stacks coexist. The choice of stack is largely independent of the 
 ### Choosing
 
 | Need                                                          | Use                |
-|---------------------------------------------------------------|--------------------|
+| ------------------------------------------------------------- | ------------------ |
 | AnonCreds credentials with predicate-based claim verification | DIDComm            |
 | Secure peer-to-peer connection between agents                 | DIDComm            |
 | Mobile-driving-licence (mDoc)                                 | OID4VC (mso_mdoc)  |

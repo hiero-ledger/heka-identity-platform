@@ -1,6 +1,6 @@
+import CardWatermark from '@bifold/core/src/components/misc/CardWatermark'
+import { credentialTextColor, toImageSource } from '@bifold/core/src/utils/credential'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import CardWatermark from '@hyperledger/aries-bifold-core/App/components/misc/CardWatermark'
-import { credentialTextColor, toImageSource } from '@hyperledger/aries-bifold-core/App/utils/credential'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -18,7 +18,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons'
 import { CredentialDisplay } from '../../credentials'
 
 const useStyles = (theme: HekaTheme, credentialDisplay?: CredentialDisplay) => {
-  const { ColorPallet, Spacing, BorderRadius, IconSizes, BorderWidth } = theme
+  const { ColorPalette, Spacing, BorderRadius, IconSizes, BorderWidth } = theme
 
   return StyleSheet.create({
     container: {
@@ -40,7 +40,7 @@ const useStyles = (theme: HekaTheme, credentialDisplay?: CredentialDisplay) => {
       paddingHorizontal: Spacing.md,
       borderWidth: BorderWidth.small,
       borderRadius: BorderRadius.big,
-      borderColor: ColorPallet.brand.primaryLight,
+      borderColor: ColorPalette.brand.primaryLight,
     },
     logo: {
       resizeMode: 'cover',
@@ -48,7 +48,7 @@ const useStyles = (theme: HekaTheme, credentialDisplay?: CredentialDisplay) => {
       height: IconSizes.larger,
       borderRadius: BorderRadius.small,
       borderWidth: BorderWidth.small,
-      borderColor: ColorPallet.grayscale.white,
+      borderColor: ColorPalette.grayscale.white,
     },
     logoContainer: {
       width: IconSizes.larger,
@@ -59,7 +59,7 @@ const useStyles = (theme: HekaTheme, credentialDisplay?: CredentialDisplay) => {
       alignItems: 'center',
     },
     textContainer: {
-      color: credentialTextColor(ColorPallet, credentialDisplay?.backgroundColor ?? ColorPallet.grayscale.white),
+      color: credentialTextColor(ColorPalette, credentialDisplay?.backgroundColor ?? ColorPalette.grayscale.white),
     },
   })
 }
@@ -166,17 +166,17 @@ interface MissingCredentialCardProps {
 const MissingCredentialCard: React.FC<MissingCredentialCardProps> = ({ requestedCredentialName }) => {
   const theme = useHekaTheme()
   const styles = useStyles(theme)
-  const { TextTheme, ColorPallet, IconSizes } = theme
+  const { TextTheme, ColorPalette, IconSizes } = theme
 
   return (
     <View
       style={{
         ...styles.container,
-        backgroundColor: ColorPallet.semantic.errorTransparentLight,
+        backgroundColor: ColorPalette.semantic.errorTransparentLight,
       }}
     >
-      <View style={{ ...styles.logoContainer, backgroundColor: ColorPallet.semantic.errorTransparent }}>
-        <MaterialIcon name={'warning'} size={IconSizes.medium} color={ColorPallet.semantic.error} />
+      <View style={{ ...styles.logoContainer, backgroundColor: ColorPalette.semantic.errorTransparent }}>
+        <MaterialIcon name={'warning'} size={IconSizes.medium} color={ColorPalette.semantic.error} />
       </View>
       <Text style={TextTheme.headingFour}>{requestedCredentialName ?? 'Unknown credential'}</Text>
     </View>

@@ -1,5 +1,6 @@
-import { ReflectMetadataProvider } from '@mikro-orm/core'
+import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
 import { MikroOrmModule } from '@mikro-orm/nestjs'
+import { PostgreSqlDriver } from '@mikro-orm/postgresql'
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common'
 import { ConfigModule, ConfigType } from '@nestjs/config'
 
@@ -24,10 +25,11 @@ import { MikroOrmMiddleware } from './mikro-orm'
       load: config,
     }),
     MikroOrmModule.forRootAsync({
+      driver: PostgreSqlDriver,
       useFactory: (mikroOrmConfig: ConfigType<typeof MikroOrmConfig>, loggerProvider: LoggerProvider) => {
         const logger = loggerProvider.getLogger().child('MikroORM')
         return {
-          ...(mikroOrmConfig as any),
+          ...mikroOrmConfig,
           logger: (message: string) => logger.trace(message),
           entities,
           metadataProvider: ReflectMetadataProvider,

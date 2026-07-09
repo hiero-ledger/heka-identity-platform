@@ -180,9 +180,7 @@ export class OAuthService {
       type: TokenType.RefreshToken,
       subject: user.id,
       token: uuidv4(),
-      payload: <AccessTokenPayload>{
-        accessToken,
-      },
+      payload: JSON.stringify(<AccessTokenPayload>{ accessToken }),
       expireIn: expiration,
     })
 

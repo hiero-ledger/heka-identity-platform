@@ -70,7 +70,7 @@ describe('IsValidDynamicObject Validation', () => {
     const dto = new DynamicKeysObjectDto()
     dto.dynamicKeysObject = {
       key1: 'invalid',
-    } as any
+    }
 
     const errors = await validate(dto)
     expect(errors.length).toBeGreaterThan(0)
@@ -81,7 +81,7 @@ describe('IsValidDynamicObject Validation', () => {
     const dto = new DynamicKeysObjectDto()
     dto.dynamicKeysObject = {
       key1: 123,
-    } as any
+    }
 
     const errors = await validate(dto)
     expect(errors.length).toBeGreaterThan(0)
@@ -145,7 +145,7 @@ describe('IsValidDynamicObject Validation', () => {
       key1: true,
       key2: {
         subKey1: false,
-      } as any,
+      },
     }
 
     const errors = await validate(dto)

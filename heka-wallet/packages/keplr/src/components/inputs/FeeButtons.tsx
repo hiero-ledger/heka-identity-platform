@@ -1,5 +1,5 @@
+import { Button, ButtonType } from '@bifold/core'
 import { HekaTheme, useHekaTheme, useGlobalStyles } from '@heka-wallet/shared'
-import { Button, ButtonType } from '@hyperledger/aries-bifold-core'
 import { IFeeConfig, IGasConfig, IGasSimulator, InsufficientFeeError, NotLoadedFeeError } from '@keplr-wallet/hooks'
 import { CoinPretty, PricePretty } from '@keplr-wallet/unit'
 import { observer } from 'mobx-react-lite'
@@ -18,17 +18,17 @@ const useStyles = (theme: HekaTheme) =>
     },
     buttonBorder: {
       borderWidth: theme.BorderWidth.small / 2,
-      borderColor: theme.ColorPallet.grayscale.lightGrey,
-      backgroundColor: theme.ColorPallet.grayscale.lightGrey,
+      borderColor: theme.ColorPalette.grayscale.lightGrey,
+      backgroundColor: theme.ColorPalette.grayscale.lightGrey,
     },
     buttonsContainer: {
       flexDirection: 'row',
       justifyContent: 'space-evenly',
       borderWidth: theme.BorderWidth.small / 2,
       borderRadius: theme.BorderRadius.smaller,
-      borderColor: theme.ColorPallet.grayscale.lightGrey,
+      borderColor: theme.ColorPalette.grayscale.lightGrey,
       overflow: 'hidden',
-      backgroundColor: theme.ColorPallet.grayscale.darkGrey,
+      backgroundColor: theme.ColorPalette.grayscale.darkGrey,
     },
     singleButtonContainer: {
       flex: 1,
@@ -44,7 +44,7 @@ const useStyles = (theme: HekaTheme) =>
       ...theme.TextTheme.caption,
       marginTop: theme.Spacing.xxxxs,
       marginLeft: theme.Spacing.xxxs,
-      color: theme.ColorPallet.semantic.error,
+      color: theme.ColorPalette.semantic.error,
     },
   })
 
@@ -176,7 +176,7 @@ export const FeeButtonsInner: React.FC<FeeButtonsProps> = observer(
         {isLoading ? (
           <View>
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size={theme.IconSizes.extraSmall} color={theme.ColorPallet.grayscale.white} />
+              <ActivityIndicator size={theme.IconSizes.extraSmall} color={theme.ColorPalette.grayscale.white} />
             </View>
           </View>
         ) : null}
@@ -209,7 +209,7 @@ const FeeButton: React.FC<FeeButtonProps> = ({ label, amount, selected, onPress,
     <View
       style={{
         ...styles.singleButtonContainer,
-        backgroundColor: selected ? theme.ColorPallet.grayscale.mediumGrey : theme.ColorPallet.grayscale.darkGrey,
+        backgroundColor: selected ? theme.ColorPalette.grayscale.mediumGrey : theme.ColorPalette.grayscale.darkGrey,
       }}
     >
       <Button
@@ -219,13 +219,13 @@ const FeeButton: React.FC<FeeButtonProps> = ({ label, amount, selected, onPress,
         disabled={disabled}
       >
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ ...theme.TextTheme.label, color: theme.ColorPallet.grayscale.white }}>{label}</Text>
+          <Text style={{ ...theme.TextTheme.label, color: theme.ColorPalette.grayscale.white }}>{label}</Text>
           {/* TODO: Uncomment this after Mainnet launch */}
           {/*{price ? (*/}
           {/*  <Text*/}
           {/*    style={{*/}
           {/*      ...theme.TextTheme.labelSubtitle,*/}
-          {/*      color: theme.ColorPallet.grayscale.white,*/}
+          {/*      color: theme.ColorPalette.grayscale.white,*/}
           {/*    }}*/}
           {/*  >*/}
           {/*    {price.toString()}*/}
@@ -235,7 +235,7 @@ const FeeButton: React.FC<FeeButtonProps> = ({ label, amount, selected, onPress,
             numberOfLines={1}
             style={{
               ...theme.TextTheme.labelText,
-              color: theme.ColorPallet.grayscale.white,
+              color: theme.ColorPalette.grayscale.white,
             }}
           >
             {feeAmount}

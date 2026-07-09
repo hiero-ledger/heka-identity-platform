@@ -37,7 +37,7 @@ export class PrepareWalletService {
     logger.trace('>')
 
     const didDocuments = await this.didService.find(tenantAgent, {
-      method: PrepareWalletService.mainDidMethod as string,
+      method: PrepareWalletService.mainDidMethod,
       own: true,
     })
 

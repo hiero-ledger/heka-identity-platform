@@ -1,6 +1,7 @@
 import { IncomingMessage } from 'http'
 
-import { MikroORM, UseRequestContext } from '@mikro-orm/core'
+import { MikroORM } from '@mikro-orm/core'
+import { CreateRequestContext } from '@mikro-orm/decorators/legacy'
 import { OnGatewayConnection, WebSocketGateway } from '@nestjs/websockets'
 import WebSocket from 'ws'
 
@@ -16,8 +17,8 @@ export class NotificationGateway implements OnGatewayConnection {
 
   public constructor(
     private readonly authService: AuthService,
-    // @ts-ignore: The property is used by @UseRequestContext
-    // See https://mikro-orm.io/docs/identity-map#userequestcontext-decorator
+    // @ts-ignore: The property is used by @CreateRequestContext
+    // See https://mikro-orm.io/docs/identity-map#createrequestcontext-decorator
     private readonly orm: MikroORM,
     @InjectLogger(NotificationGateway)
     private readonly logger: Logger,
@@ -25,7 +26,7 @@ export class NotificationGateway implements OnGatewayConnection {
     this.logger.child('constructor').trace('<>')
   }
 
-  @UseRequestContext()
+  @CreateRequestContext()
   public async handleConnection(socket: WebSocket, request: IncomingMessage): Promise<void> {
     const logger = this.logger.child('handleConnection', { request })
     logger.trace('>')

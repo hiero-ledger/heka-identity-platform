@@ -22,7 +22,7 @@ describe('CredentialDefinitionService', () => {
     anoncredsRegistryService = createMock<AnoncredsRegistryService>()
     credDefService = new CredentialDefinitionService(logger, anoncredsRegistryService)
     tenantAgent = createMock<TenantAgent>({
-      modules: { anoncreds: { getCreatedCredentialDefinitions: vi.fn() } } as any,
+      modules: { anoncreds: { getCreatedCredentialDefinitions: vi.fn() } },
     })
   })
 

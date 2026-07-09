@@ -56,7 +56,7 @@ describe('VerificationTemplateService', () => {
           map: vi.fn().mockReturnValue([{ id: 'tf1', schemaFieldId: 'f1', schemaFieldName: 'field1' }]),
         },
       }
-      vi.mocked(em.findOne).mockResolvedValue(mockTemplate as any)
+      vi.mocked(em.findOne).mockResolvedValue(mockTemplate)
       vi.mocked(fileStorageService.url).mockReturnValue('https://cdn/logo.png')
 
       const result = await service.getTemplateById(authInfo, 'tpl-1')
@@ -103,7 +103,7 @@ describe('VerificationTemplateService', () => {
           fields: { map: vi.fn().mockReturnValue([]) },
         },
       ]
-      vi.mocked(em.findAndCount).mockResolvedValue([mockItems as any, 1])
+      vi.mocked(em.findAndCount).mockResolvedValue([mockItems, 1])
 
       const result = await service.getList(authInfo, { offset: 0, limit: 10 })
 
@@ -145,7 +145,7 @@ describe('VerificationTemplateService', () => {
 
     test('throws NotFoundException when schema not found', async () => {
       // findOne returns null for both template name check and schema lookup
-      vi.mocked(em.findOne).mockResolvedValue(null as any)
+      vi.mocked(em.findOne).mockResolvedValue(null)
 
       await expect(
         service.create(authInfo, {
@@ -200,11 +200,11 @@ describe('VerificationTemplateService', () => {
 
       vi.mocked(em.find).mockResolvedValue([])
 
-      vi.mocked(em.persistAndFlush).mockImplementation((entity: any) => {
+      vi.mocked(em.persist).mockImplementation((entity: any) => {
         persisted = true
         // Simulate ORM assigning id to the new entity
         entity.id = 'tpl-new'
-        return Promise.resolve()
+        return em
       })
 
       const result = await service.create(authInfo, {
@@ -217,7 +217,7 @@ describe('VerificationTemplateService', () => {
       } as any)
 
       expect(result.name).toBe('New Template')
-      expect(em.persistAndFlush).toHaveBeenCalled()
+      expect(em.flush).toHaveBeenCalled()
     })
 
     test('throws BadRequestException when field IDs are not unique', async () => {
@@ -251,7 +251,7 @@ describe('VerificationTemplateService', () => {
         id: 'tpl-1',
         fields: { removeAll: vi.fn() },
       }
-      vi.mocked(em.findOne).mockResolvedValue(mockTemplate as any)
+      vi.mocked(em.findOne).mockResolvedValue(mockTemplate)
 
       await service.delete(authInfo, 'tpl-1')
 
@@ -332,7 +332,7 @@ describe('VerificationTemplateService', () => {
         return Promise.resolve()
       })
 
-      await service.patch(authInfo, 'tpl-1', { name: 'Updated Name' } as any)
+      await service.patch(authInfo, 'tpl-1', { name: 'Updated Name' })
 
       expect(mockTemplate.name).toBe('Updated Name')
       expect(em.flush).toHaveBeenCalled()

@@ -48,7 +48,8 @@ export const credentialFormatToCredentialRegistrationFormat = (
     [Openid4CredentialFormat.JwtJsonLd]:
       Openid4CredentialRegistrationFormat.JwtJsonLd,
     [Openid4CredentialFormat.LdpVc]: Openid4CredentialRegistrationFormat.LdpVc,
-    [Openid4CredentialFormat.MsoMdoc]: Openid4CredentialRegistrationFormat.MsoMdoc,
+    [Openid4CredentialFormat.MsoMdoc]:
+      Openid4CredentialRegistrationFormat.MsoMdoc,
   };
   return map[format];
 };

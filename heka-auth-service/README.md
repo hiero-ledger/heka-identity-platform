@@ -16,9 +16,10 @@ Authentication service for the [Heka Identity Service](https://github.com/hiero-
      -p 5433:5432 -d postgres
    ```
 
-2. Install dependencies:
+2. Enable Corepack so the pinned Yarn 4 runs, then install dependencies. The repo pins `yarn@4.16.0` in `package.json`; without Corepack the system Yarn 1.x may run instead and produce unexpected lockfile behavior:
 
    ```bash
+   corepack enable
    yarn install
    ```
 
@@ -160,4 +161,36 @@ To run the service in Docker:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d
+```
+
+## Testing
+
+### Unit tests
+
+```bash
+yarn test
+```
+
+### E2E tests
+
+E2E tests require a running Postgres instance. The quickest way is to reuse the container from [Quick Start](#quick-start):
+
+```bash
+docker run --name heka-auth-service-postgres \
+  -e POSTGRES_DB=heka-auth-service \
+  -e POSTGRES_USER=heka \
+  -e POSTGRES_PASSWORD=heka1 \
+  -p 5433:5432 -d postgres
+```
+
+Since the Quick Start container maps to host port `5433`, override the default when running tests locally:
+
+```bash
+MIKRO_ORM_HOST=127.0.0.1 MIKRO_ORM_PORT=5433 yarn test
+```
+
+If your Postgres is on the standard port `5432`, no override is needed:
+
+```bash
+yarn test
 ```

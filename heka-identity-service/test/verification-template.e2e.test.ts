@@ -1,6 +1,7 @@
 import { Server } from 'net'
 
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
@@ -10,12 +11,9 @@ import { Schema } from 'schema-v2/dto/common/schema'
 import { sleep } from 'src/utils/timers'
 import { uuid } from 'utils/misc'
 import {
-  CreateVerificationTemplateFieldRequest,
   CreateVerificationTemplateRequest,
   CreateVerificationTemplateResponse,
   GetVerificationTemplatesListRequest,
-  PatchVerificationTemplateFieldRequest,
-  PatchVerificationTemplateRequest,
 } from 'verification-template/dto'
 
 import { generateRandomString, initializeMikroOrm, SchemaUtilities, startTestApp, UserUtilities } from './helpers'
@@ -23,17 +21,18 @@ import { VerificationTemplateUtilities } from './helpers/verification-template'
 
 describe('E2E verification templates management', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    orm = await initializeMikroOrm()
+    ormSchemaGenerator = orm.schema
   })
 
   beforeEach(async () => {
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -48,7 +47,8 @@ describe('E2E verification templates management', () => {
   })
 
   afterAll(async () => {
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   const createTestSchema = async (
@@ -80,7 +80,7 @@ describe('E2E verification templates management', () => {
     const template = await VerificationTemplateUtilities.create(app, authToken, {
       ...templateReq,
       schemaId: schema?.id,
-      fields: schema?.fields.map((f) => ({ schemaFieldId: f.id }) as CreateVerificationTemplateFieldRequest),
+      fields: schema?.fields.map((f) => ({ schemaFieldId: f.id })),
     })
     expect(template).toBeDefined()
 
@@ -341,7 +341,7 @@ describe('E2E verification templates management', () => {
         const response = await request(app)
           .post('/verification-templates')
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ name: '' } as CreateVerificationTemplateRequest)
+          .send({ name: '' })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('name must be longer than or equal to 1 characters')
@@ -354,7 +354,7 @@ describe('E2E verification templates management', () => {
         const response = await request(app)
           .post('/verification-templates')
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ name: generateRandomString(501) } as CreateVerificationTemplateRequest)
+          .send({ name: generateRandomString(501) })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('name must be shorter than or equal to 500 characters')
@@ -379,7 +379,7 @@ describe('E2E verification templates management', () => {
             did: uuid(),
             schemaId: template?.schema.id,
             fields: [{ schemaFieldId: template?.fields[0].schemaFieldId }],
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(`Template with name ${templateName} already exists.`)
@@ -397,7 +397,7 @@ describe('E2E verification templates management', () => {
           .send({
             name: uuid(),
             protocol: uuid(),
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('protocol must be one of the following values: Aries, OpenId4VC')
@@ -416,67 +416,52 @@ describe('E2E verification templates management', () => {
             name: uuid(),
             protocol: ProtocolType.Aries,
             credentialFormat: OpenId4VcCredentialFormat.JwtVcJsonLd,
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/verification-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Aries,
-            credentialFormat: OpenId4VcCredentialFormat.SdJwtVc,
-          } as CreateVerificationTemplateRequest)
+        response = await request(app).post('/verification-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Aries,
+          credentialFormat: OpenId4VcCredentialFormat.SdJwtVc,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/verification-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Aries,
-            credentialFormat: OpenId4VcCredentialFormat.JwtVcJson,
-          } as CreateVerificationTemplateRequest)
+        response = await request(app).post('/verification-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Aries,
+          credentialFormat: OpenId4VcCredentialFormat.JwtVcJson,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/verification-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Aries,
-            credentialFormat: OpenId4VcCredentialFormat.LdpVc,
-          } as CreateVerificationTemplateRequest)
+        response = await request(app).post('/verification-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Aries,
+          credentialFormat: OpenId4VcCredentialFormat.LdpVc,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/verification-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Oid4vc,
-            credentialFormat: AriesCredentialFormat.AnoncredsIndy,
-          } as CreateVerificationTemplateRequest)
+        response = await request(app).post('/verification-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Oid4vc,
+          credentialFormat: AriesCredentialFormat.AnoncredsIndy,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/verification-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Oid4vc,
-            credentialFormat: AriesCredentialFormat.AnoncredsW3c,
-          } as CreateVerificationTemplateRequest)
+        response = await request(app).post('/verification-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Oid4vc,
+          credentialFormat: AriesCredentialFormat.AnoncredsW3c,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
@@ -495,19 +480,16 @@ describe('E2E verification templates management', () => {
             name: uuid(),
             protocol: ProtocolType.Aries,
             network: DidMethod.Key,
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('DidMethod is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/verification-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Oid4vc,
-            network: DidMethod.Indy,
-          } as CreateVerificationTemplateRequest)
+        response = await request(app).post('/verification-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Oid4vc,
+          network: DidMethod.Indy,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('DidMethod is not compatible with the protocol')
@@ -530,7 +512,7 @@ describe('E2E verification templates management', () => {
             credentialFormat: AriesCredentialFormat.AnoncredsIndy,
             schemaId: schema?.id,
             fields: [{ schemaFieldId: schema?.fields[0].id }],
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(`Network should be defined for the ${ProtocolType.Aries} protocol.`)
@@ -548,7 +530,7 @@ describe('E2E verification templates management', () => {
           .send({
             name: uuid(),
             did: generateRandomString(1001),
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('did must be shorter than or equal to 1000 characters')
@@ -572,7 +554,7 @@ describe('E2E verification templates management', () => {
             did: uuid(),
             fields: [{ schemaFieldId: uuid() }],
             schemaId: uuid(),
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(404)
       })
@@ -598,7 +580,7 @@ describe('E2E verification templates management', () => {
             did: uuid(),
             fields: [{ schemaFieldId: uuid() }],
             schemaId: schema?.id,
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(404)
         expect(response.body.message).toContain(`Schema ${schema?.id} not exists.`)
@@ -624,7 +606,7 @@ describe('E2E verification templates management', () => {
             did: uuid(),
             schemaId: schema?.id,
             fields: [{ schemaFieldId }, { schemaFieldId }],
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain("All fields's elements must be unique")
@@ -648,7 +630,7 @@ describe('E2E verification templates management', () => {
             did: uuid(),
             schemaId: schema?.id,
             fields: [{ schemaFieldId }],
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(`Some requests fields ids weren't present in the template schema`)
@@ -671,7 +653,7 @@ describe('E2E verification templates management', () => {
             did: uuid(),
             schemaId: schema?.id,
             fields: [{ schemaFieldId: schema?.fields[0].id }, { schemaFieldId: schema?.fields[1].id }],
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(
@@ -689,7 +671,7 @@ describe('E2E verification templates management', () => {
             did: uuid(),
             schemaId: schema?.id,
             fields: [{ schemaFieldId: schema?.fields[0].id }, { schemaFieldId: schema?.fields[1].id }],
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(
@@ -707,7 +689,7 @@ describe('E2E verification templates management', () => {
             did: uuid(),
             schemaId: schema?.id,
             fields: [{ schemaFieldId: schema?.fields[0].id }, { schemaFieldId: schema?.fields[1].id }],
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(
@@ -736,7 +718,7 @@ describe('E2E verification templates management', () => {
           did: templateDid,
           schemaId: schema?.id,
           fields: [{ schemaFieldId: schema?.fields[0].id }],
-        } as CreateVerificationTemplateRequest)
+        })
 
       expect(response.status).toBe(201)
       expect(response.body.id).toBeDefined()
@@ -767,7 +749,7 @@ describe('E2E verification templates management', () => {
           credentialFormat: OpenId4VcCredentialFormat.SdJwtVc,
           schemaId: schema?.id,
           fields: [{ schemaFieldId: schema?.fields[0].id }],
-        } as CreateVerificationTemplateRequest)
+        })
 
       expect(response.status).toBe(201)
       expect(response.body.id).toBeDefined()
@@ -914,7 +896,7 @@ describe('E2E verification templates management', () => {
         const response = await request(app)
           .patch(`/verification-templates/${template3?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: '' } as PatchVerificationTemplateRequest)
+          .send({ previousTemplateId: '' })
 
         expect(response.status).toBe(200)
 
@@ -947,7 +929,7 @@ describe('E2E verification templates management', () => {
         const response = await request(app)
           .patch(`/verification-templates/${template3?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: template1?.id } as PatchVerificationTemplateRequest)
+          .send({ previousTemplateId: template1?.id })
 
         expect(response.status).toBe(200)
 
@@ -1000,7 +982,7 @@ describe('E2E verification templates management', () => {
         let response = await request(app)
           .patch(`/verification-templates/${template3?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: template1?.id } as PatchVerificationTemplateRequest)
+          .send({ previousTemplateId: template1?.id })
 
         expect(response.status).toBe(200)
 
@@ -1024,7 +1006,7 @@ describe('E2E verification templates management', () => {
         response = await request(app)
           .patch(`/verification-templates/${template6?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: template7?.id } as PatchVerificationTemplateRequest)
+          .send({ previousTemplateId: template7?.id })
 
         expect(response.status).toBe(200)
 
@@ -1048,7 +1030,7 @@ describe('E2E verification templates management', () => {
         response = await request(app)
           .patch(`/verification-templates/${template7?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: template3?.id } as PatchVerificationTemplateRequest)
+          .send({ previousTemplateId: template3?.id })
 
         expect(response.status).toBe(200)
 
@@ -1078,7 +1060,7 @@ describe('E2E verification templates management', () => {
         response = await request(app)
           .patch(`/verification-templates/${template1?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: template5?.id } as PatchVerificationTemplateRequest)
+          .send({ previousTemplateId: template5?.id })
 
         expect(response.status).toBe(200)
 
@@ -1107,7 +1089,7 @@ describe('E2E verification templates management', () => {
         const response = await request(app)
           .patch(`/verification-templates/${template?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ name: '' } as CreateVerificationTemplateRequest)
+          .send({ name: '' })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('name must be longer than or equal to 1 characters')
@@ -1122,7 +1104,7 @@ describe('E2E verification templates management', () => {
         const response = await request(app)
           .patch(`/verification-templates/${template?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ name: generateRandomString(501) } as CreateVerificationTemplateRequest)
+          .send({ name: generateRandomString(501) })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('name must be shorter than or equal to 500 characters')
@@ -1140,7 +1122,7 @@ describe('E2E verification templates management', () => {
         const response = await request(app)
           .patch(`/verification-templates/${template2?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ name: templateName } as CreateVerificationTemplateRequest)
+          .send({ name: templateName })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(`Template with name ${templateName} already exists.`)
@@ -1162,7 +1144,7 @@ describe('E2E verification templates management', () => {
           .auth(userAuthToken!, { type: 'bearer' })
           .send({
             fields: [{ schemaFieldId }, { schemaFieldId }],
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain("All fields's elements must be unique")
@@ -1182,7 +1164,7 @@ describe('E2E verification templates management', () => {
           .auth(userAuthToken!, { type: 'bearer' })
           .send({
             fields: [{ schemaFieldId }],
-          } as PatchVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(`Some requests fields ids weren't present in the template schema`)
@@ -1210,7 +1192,7 @@ describe('E2E verification templates management', () => {
           .auth(userAuthToken!, { type: 'bearer' })
           .send({
             fields: [{ schemaFieldId: schema?.fields[0].id }, { schemaFieldId: schema?.fields[1].id }],
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(
@@ -1228,7 +1210,7 @@ describe('E2E verification templates management', () => {
             did: uuid(),
             schemaId: schema?.id,
             fields: [{ schemaFieldId: schema?.fields[0].id }, { schemaFieldId: schema?.fields[1].id }],
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(
@@ -1246,7 +1228,7 @@ describe('E2E verification templates management', () => {
             did: uuid(),
             schemaId: schema?.id,
             fields: [{ schemaFieldId: schema?.fields[0].id }, { schemaFieldId: schema?.fields[1].id }],
-          } as CreateVerificationTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(
@@ -1263,12 +1245,12 @@ describe('E2E verification templates management', () => {
       const template = await createTestVerificationTemplate(userAuthToken!, {}, { schemaId: schema?.id })
 
       const name = uuid()
-      const fields = [{ schemaFieldId: schema!.fields[1].id } as PatchVerificationTemplateFieldRequest]
+      const fields = [{ schemaFieldId: schema!.fields[1].id }]
 
       const response = await request(app)
         .patch(`/verification-templates/${template?.id}`)
         .auth(userAuthToken!, { type: 'bearer' })
-        .send({ name, fields } as PatchVerificationTemplateRequest)
+        .send({ name, fields })
 
       expect(response.status).toBe(200)
 
@@ -1277,8 +1259,8 @@ describe('E2E verification templates management', () => {
       expect(patchedTemplate.id).toBe(template?.id)
       expect(patchedTemplate.protocol).toBe(template?.protocol)
       expect(patchedTemplate.credentialFormat).toBe(template?.credentialFormat)
-      expect(patchedTemplate.network).toBeNull()
-      expect(patchedTemplate.did).toBeNull()
+      expect(patchedTemplate.network).toBeUndefined()
+      expect(patchedTemplate.did).toBeUndefined()
       expect(patchedTemplate.schema.id).toBe(template?.schema.id)
       expect(patchedTemplate.fields?.length).toBe(1)
       expect(patchedTemplate.fields[0].schemaFieldId).toBe(schema?.fields[1].id)

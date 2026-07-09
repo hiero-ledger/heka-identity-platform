@@ -9,7 +9,7 @@
 - Foundational support for modern AI & agentic economy use cases and protocols (AP2 + x402, ERC-8004, etc.)
 - Continued prototyping and integration of identity solutions in Hiero ecosystem (Contributor Identity Verification mentorship program, Hiero-specific identity features and cross-project integrations)
 - Support for enterprise adoption and use cases
-- Advanced ZKP support (Longfellow ZKP, etc.)
+- Advanced ZKP support (Longfellow ZK, etc.)
 
 ## Timeline
 
@@ -17,7 +17,7 @@
 timeline
     Q2 2026 : Platform and dependencies updates
             : Documentation improvements
-            : Heka Identity Platform LFDT workshop
+            : Heka Identity Platform LFDT Meetup
             : Hiero Contributor Identity Verification Prototype — LFDT mentorship kick-off
             : Digital Credentials API (DC API) support
     Q3 2026 : ERC-8004

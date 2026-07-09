@@ -1,27 +1,31 @@
-import { BasicMessageEventTypes, BasicMessageRole, BasicMessageStateChangedEvent } from '@credo-ts/core'
-import { useAgent } from '@credo-ts/react-hooks'
+import {
+  DidCommBasicMessageEventTypes,
+  DidCommBasicMessageRole,
+  DidCommBasicMessageStateChangedEvent,
+} from '@credo-ts/didcomm'
 import { useEffect } from 'react'
 
+import { useHekaAgent } from './agent'
 import { useInvitationHandlers } from './useInvitationHandlers'
 
 export const useBasicMessageInvitations = () => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const { handleInvitationUrl } = useInvitationHandlers()
 
   useEffect(() => {
     if (!agent) return
 
-    const listener = async (event: BasicMessageStateChangedEvent) => {
+    const listener = async (event: DidCommBasicMessageStateChangedEvent) => {
       const { basicMessageRecord } = event.payload
 
-      if (basicMessageRecord.role === BasicMessageRole.Receiver) {
+      if (basicMessageRecord.role === DidCommBasicMessageRole.Receiver) {
         await handleInvitationUrl(basicMessageRecord.content)
       }
     }
 
-    agent.events.on(BasicMessageEventTypes.BasicMessageStateChanged, listener)
+    agent.events.on(DidCommBasicMessageEventTypes.DidCommBasicMessageStateChanged, listener)
 
-    return () => agent.events.off(BasicMessageEventTypes.BasicMessageStateChanged, listener)
+    return () => agent.events.off(DidCommBasicMessageEventTypes.DidCommBasicMessageStateChanged, listener)
   }, [agent, handleInvitationUrl])
 }

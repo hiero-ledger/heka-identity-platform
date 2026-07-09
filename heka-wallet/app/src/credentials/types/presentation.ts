@@ -1,7 +1,8 @@
+import { Attribute } from '@bifold/oca/build/legacy'
 import { AnonCredsRequestedPredicateMatch } from '@credo-ts/anoncreds'
-import { DifPexCredentialsForRequest, DifPresentationExchangeDefinition, ProofExchangeRecord } from '@credo-ts/core'
-import { OpenId4VcSiopVerifiedAuthorizationRequest } from '@credo-ts/openid4vc'
-import { Attribute } from '@hyperledger/aries-oca/build/legacy'
+import { DcqlQueryResult, DifPexCredentialsForRequest, DifPresentationExchangeDefinition } from '@credo-ts/core'
+import { DidCommProofExchangeRecord } from '@credo-ts/didcomm'
+import { OpenId4VpAuthorizationRequestPayload, ParsedTransactionDataEntry } from '@credo-ts/openid4vc'
 
 import { Credential } from './credential'
 
@@ -18,7 +19,7 @@ export enum ProofExchangeFormatKeys {
 
 export interface AnoncredsPresentationSubmission extends PresentationSubmission {
   type: PresentationSubmissionType.ProofExchange
-  proofExchangeRecord: ProofExchangeRecord
+  proofExchangeRecord: DidCommProofExchangeRecord
   formatKey: ProofExchangeFormatKeys
   entriesWithAnoncredsMatches: Map<string, AnoncredsSubmissionEntryWithMatches>
   outOfBandGoalCode?: string
@@ -32,10 +33,15 @@ interface AnoncredsSubmissionEntryWithMatches {
 
 export interface OpenIdPresentationSubmission extends PresentationSubmission {
   type: PresentationSubmissionType.OpenId4VP
-  submissionParams: {
-    credentialsForRequest: DifPexCredentialsForRequest
-    authorizationRequest: OpenId4VcSiopVerifiedAuthorizationRequest
-  }
+  submissionParams: OpenIdPresentationSubmissionParams
+}
+
+export interface OpenIdPresentationSubmissionParams {
+  authorizationRequest: OpenId4VpAuthorizationRequestPayload
+  credentialsForRequest?: DifPexCredentialsForRequest
+  queryResult?: DcqlQueryResult
+  origin?: string
+  transactionData?: any
 }
 
 interface PresentationSubmission {
@@ -48,10 +54,16 @@ interface PresentationSubmission {
 }
 
 export interface PresentationSubmissionEntry {
+  /**
+   * can be either:
+   *  - AnonCreds groupName
+   *  - PEX inputDescriptorId
+   *  - DCQL credential query id
+   */
   inputDescriptorId: string
-  isSatisfied: boolean
   name: string
   description?: string
+  isSatisfied: boolean
   selectedOption: CredentialSubmissionOption | null
   submissionOptions: CredentialSubmissionOption[]
 }
@@ -62,8 +74,16 @@ export interface CredentialSubmissionOption {
 }
 
 export interface OpenId4VcPresentationRequest {
-  definition: DifPresentationExchangeDefinition
-  credentialsForRequest: DifPexCredentialsForRequest
-  authorizationRequest: OpenId4VcSiopVerifiedAuthorizationRequest
+  authorizationRequest: OpenId4VpAuthorizationRequestPayload
+  definition?: DifPresentationExchangeDefinition
+  credentialsForRequest?: DifPexCredentialsForRequest
+  queryResult?: DcqlQueryResult
   verifierHostName?: string
+  origin?: string
+  transactionData?: OpenId4VpTransactionDataEntry[]
+}
+
+interface OpenId4VpTransactionDataEntry {
+  entry: ParsedTransactionDataEntry
+  matchedCredentialIds: string[]
 }

@@ -1,16 +1,23 @@
 import { registerAs } from '@nestjs/config'
 
+const DEFAULT_CORS_OPTIONS = {
+  origin: '*',
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+}
+
 export default registerAs('express', () => {
   const port = process.env.EXPRESS_PORT || 3000
   const host = process.env.EXPRESS_HOST || 'localhost'
   const prefix = process.env.EXPRESS_PREFIX
   const appEndpoint = process.env.APP_ENDPOINT ?? `http://${host}:${port}${prefix ? `/${prefix}` : ''}`
 
-  const enableCors = process.env.EXPRESS_ENABLE_CORS === 'true'
+  const enableCors = process.env.EXPRESS_ENABLE_CORS ? process.env.EXPRESS_ENABLE_CORS === 'true' : true
 
   const corsOptions: Record<string, unknown> = process.env.EXPRESS_CORS_OPTIONS
     ? (JSON.parse(process.env.EXPRESS_CORS_OPTIONS) as Record<string, unknown>)
-    : {}
+    : DEFAULT_CORS_OPTIONS
 
   return {
     port,

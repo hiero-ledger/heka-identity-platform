@@ -1,8 +1,7 @@
 import { Server } from 'net'
 
 import { MikroORM } from '@mikro-orm/core'
-import { PostgreSqlDriver } from '@mikro-orm/postgresql'
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
@@ -17,8 +16,6 @@ import {
   CreateIssuanceTemplateRequest,
   CreateIssuanceTemplateResponse,
   GetIssuanceTemplatesListRequest,
-  PatchIssuanceTemplateFieldRequest,
-  PatchIssuanceTemplateRequest,
 } from 'issuance-template/dto'
 import { CreateSchemaRequest, CreateSchemaResponse, GetSchemasListRequest } from 'schema-v2/dto'
 import { Schema } from 'schema-v2/dto/common/schema'
@@ -38,11 +35,11 @@ describe('E2E issuance templates management', () => {
 
   beforeAll(async () => {
     orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
   })
 
   beforeEach(async () => {
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -57,7 +54,8 @@ describe('E2E issuance templates management', () => {
   })
 
   afterAll(async () => {
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   const createTestSchema = async (
@@ -364,7 +362,7 @@ describe('E2E issuance templates management', () => {
         const response = await request(app)
           .post('/issuance-templates')
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ name: '' } as CreateIssuanceTemplateRequest)
+          .send({ name: '' })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('name must be longer than or equal to 1 characters')
@@ -377,7 +375,7 @@ describe('E2E issuance templates management', () => {
         const response = await request(app)
           .post('/issuance-templates')
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ name: generateRandomString(501) } as CreateIssuanceTemplateRequest)
+          .send({ name: generateRandomString(501) })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('name must be shorter than or equal to 500 characters')
@@ -408,13 +406,10 @@ describe('E2E issuance templates management', () => {
         const userAuthToken = await UserUtilities.register(app)
         expect(userAuthToken).not.toBeUndefined()
 
-        const response = await request(app)
-          .post('/issuance-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: uuid(),
-          } as CreateIssuanceTemplateRequest)
+        const response = await request(app).post('/issuance-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: uuid(),
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('protocol must be one of the following values: Aries, OpenId4VC')
@@ -426,74 +421,56 @@ describe('E2E issuance templates management', () => {
         const userAuthToken = await UserUtilities.register(app)
         expect(userAuthToken).not.toBeUndefined()
 
-        let response = await request(app)
-          .post('/issuance-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Aries,
-            credentialFormat: OpenId4VcCredentialFormat.JwtVcJsonLd,
-          } as CreateIssuanceTemplateRequest)
+        let response = await request(app).post('/issuance-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Aries,
+          credentialFormat: OpenId4VcCredentialFormat.JwtVcJsonLd,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/issuance-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Aries,
-            credentialFormat: OpenId4VcCredentialFormat.SdJwtVc,
-          } as CreateIssuanceTemplateRequest)
+        response = await request(app).post('/issuance-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Aries,
+          credentialFormat: OpenId4VcCredentialFormat.SdJwtVc,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/issuance-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Aries,
-            credentialFormat: OpenId4VcCredentialFormat.JwtVcJson,
-          } as CreateIssuanceTemplateRequest)
+        response = await request(app).post('/issuance-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Aries,
+          credentialFormat: OpenId4VcCredentialFormat.JwtVcJson,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/issuance-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Aries,
-            credentialFormat: OpenId4VcCredentialFormat.LdpVc,
-          } as CreateIssuanceTemplateRequest)
+        response = await request(app).post('/issuance-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Aries,
+          credentialFormat: OpenId4VcCredentialFormat.LdpVc,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/issuance-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Oid4vc,
-            credentialFormat: AriesCredentialFormat.AnoncredsIndy,
-          } as CreateIssuanceTemplateRequest)
+        response = await request(app).post('/issuance-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Oid4vc,
+          credentialFormat: AriesCredentialFormat.AnoncredsIndy,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/issuance-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Oid4vc,
-            credentialFormat: AriesCredentialFormat.AnoncredsW3c,
-          } as CreateIssuanceTemplateRequest)
+        response = await request(app).post('/issuance-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Oid4vc,
+          credentialFormat: AriesCredentialFormat.AnoncredsW3c,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('CredentialFormat is not compatible with the protocol')
@@ -505,26 +482,20 @@ describe('E2E issuance templates management', () => {
         const userAuthToken = await UserUtilities.register(app)
         expect(userAuthToken).not.toBeUndefined()
 
-        let response = await request(app)
-          .post('/issuance-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Aries,
-            network: DidMethod.Key,
-          } as CreateIssuanceTemplateRequest)
+        let response = await request(app).post('/issuance-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Aries,
+          network: DidMethod.Key,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('DidMethod is not compatible with the protocol')
 
-        response = await request(app)
-          .post('/issuance-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Oid4vc,
-            network: DidMethod.Indy,
-          } as CreateIssuanceTemplateRequest)
+        response = await request(app).post('/issuance-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Oid4vc,
+          network: DidMethod.Indy,
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('DidMethod is not compatible with the protocol')
@@ -542,7 +513,7 @@ describe('E2E issuance templates management', () => {
           .send({
             name: uuid(),
             did: generateRandomString(1001),
-          } as CreateIssuanceTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('did must be shorter than or equal to 1000 characters')
@@ -555,18 +526,15 @@ describe('E2E issuance templates management', () => {
         expect(userAuthToken).not.toBeUndefined()
 
         const templateName = uuid()
-        const response = await request(app)
-          .post('/issuance-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: templateName,
-            protocol: ProtocolType.Oid4vc,
-            credentialFormat: OpenId4VcCredentialFormat.SdJwtVc,
-            network: DidMethod.Key,
-            did: uuid(),
-            schemaId: uuid(),
-            fields: [],
-          } as CreateIssuanceTemplateRequest)
+        const response = await request(app).post('/issuance-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: templateName,
+          protocol: ProtocolType.Oid4vc,
+          credentialFormat: OpenId4VcCredentialFormat.SdJwtVc,
+          network: DidMethod.Key,
+          did: uuid(),
+          schemaId: uuid(),
+          fields: [],
+        })
 
         expect(response.status).toBe(404)
       })
@@ -592,7 +560,7 @@ describe('E2E issuance templates management', () => {
             did: uuid(),
             schemaId: schema?.id,
             fields: [],
-          } as CreateIssuanceTemplateRequest)
+          })
 
         expect(response.status).toBe(404)
         expect(response.body.message).toContain(`Schema ${schema?.id} not exists.`)
@@ -605,18 +573,15 @@ describe('E2E issuance templates management', () => {
         const schema = await SchemaUtilities.create(app, userAuthToken!)
         expect(schema).toBeDefined()
 
-        const response = await request(app)
-          .post('/issuance-templates')
-          .auth(userAuthToken!, { type: 'bearer' })
-          .send({
-            name: uuid(),
-            protocol: ProtocolType.Oid4vc,
-            credentialFormat: OpenId4VcCredentialFormat.SdJwtVc,
-            network: DidMethod.Key,
-            did: uuid(),
-            schemaId: schema?.id,
-            fields: [],
-          } as CreateIssuanceTemplateRequest)
+        const response = await request(app).post('/issuance-templates').auth(userAuthToken!, { type: 'bearer' }).send({
+          name: uuid(),
+          protocol: ProtocolType.Oid4vc,
+          credentialFormat: OpenId4VcCredentialFormat.SdJwtVc,
+          network: DidMethod.Key,
+          did: uuid(),
+          schemaId: schema?.id,
+          fields: [],
+        })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(`Schema ${schema?.id} is not registered.`)
@@ -654,7 +619,7 @@ describe('E2E issuance templates management', () => {
               { schemaFieldId, value },
               { schemaFieldId, value },
             ],
-          } as CreateIssuanceTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('Template field ids must be unique')
@@ -687,7 +652,7 @@ describe('E2E issuance templates management', () => {
             name: uuid(),
             schemaId: schema?.id,
             fields: [{ schemaFieldId, value }],
-          } as CreateIssuanceTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(`Some requests fields ids weren't present in the template schema`)
@@ -721,7 +686,7 @@ describe('E2E issuance templates management', () => {
           name: templateName,
           schemaId: schema?.id,
           fields: [{ schemaFieldId: schema!.fields[0].id, value: templateValueF1 }],
-        } as CreateIssuanceTemplateRequest)
+        })
 
       expect(response.status).toBe(201)
       expect(response.body.id).toBeDefined()
@@ -864,7 +829,7 @@ describe('E2E issuance templates management', () => {
         const response = await request(app)
           .patch(`/issuance-templates/${template3?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: '' } as PatchIssuanceTemplateRequest)
+          .send({ previousTemplateId: '' })
 
         expect(response.status).toBe(200)
 
@@ -897,7 +862,7 @@ describe('E2E issuance templates management', () => {
         const response = await request(app)
           .patch(`/issuance-templates/${template3?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: template1?.id } as PatchIssuanceTemplateRequest)
+          .send({ previousTemplateId: template1?.id })
 
         expect(response.status).toBe(200)
 
@@ -950,7 +915,7 @@ describe('E2E issuance templates management', () => {
         let response = await request(app)
           .patch(`/issuance-templates/${template3?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: template1?.id } as PatchIssuanceTemplateRequest)
+          .send({ previousTemplateId: template1?.id })
 
         expect(response.status).toBe(200)
 
@@ -974,7 +939,7 @@ describe('E2E issuance templates management', () => {
         response = await request(app)
           .patch(`/issuance-templates/${template6?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: template7?.id } as PatchIssuanceTemplateRequest)
+          .send({ previousTemplateId: template7?.id })
 
         expect(response.status).toBe(200)
 
@@ -998,7 +963,7 @@ describe('E2E issuance templates management', () => {
         response = await request(app)
           .patch(`/issuance-templates/${template7?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: template3?.id } as PatchIssuanceTemplateRequest)
+          .send({ previousTemplateId: template3?.id })
 
         expect(response.status).toBe(200)
 
@@ -1028,7 +993,7 @@ describe('E2E issuance templates management', () => {
         response = await request(app)
           .patch(`/issuance-templates/${template1?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ previousTemplateId: template5?.id } as PatchIssuanceTemplateRequest)
+          .send({ previousTemplateId: template5?.id })
 
         expect(response.status).toBe(200)
 
@@ -1057,7 +1022,7 @@ describe('E2E issuance templates management', () => {
         const response = await request(app)
           .patch(`/issuance-templates/${template?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ name: '' } as CreateIssuanceTemplateRequest)
+          .send({ name: '' })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('name must be longer than or equal to 1 characters')
@@ -1072,7 +1037,7 @@ describe('E2E issuance templates management', () => {
         const response = await request(app)
           .patch(`/issuance-templates/${template?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ name: generateRandomString(501) } as CreateIssuanceTemplateRequest)
+          .send({ name: generateRandomString(501) })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain('name must be shorter than or equal to 500 characters')
@@ -1090,7 +1055,7 @@ describe('E2E issuance templates management', () => {
         const response = await request(app)
           .patch(`/issuance-templates/${template2?.id}`)
           .auth(userAuthToken!, { type: 'bearer' })
-          .send({ name: templateName } as CreateIssuanceTemplateRequest)
+          .send({ name: templateName })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(`Template with name ${templateName} already exists.`)
@@ -1115,7 +1080,7 @@ describe('E2E issuance templates management', () => {
               { schemaFieldId, value },
               { schemaFieldId, value },
             ],
-          } as PatchIssuanceTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain("All fields's elements must be unique")
@@ -1135,7 +1100,7 @@ describe('E2E issuance templates management', () => {
           .auth(userAuthToken!, { type: 'bearer' })
           .send({
             fields: [{ schemaFieldId, value }],
-          } as PatchIssuanceTemplateRequest)
+          })
 
         expect(response.status).toBe(400)
         expect(response.body.message).toContain(`Some requests fields ids weren't present in the template schema`)
@@ -1150,7 +1115,7 @@ describe('E2E issuance templates management', () => {
       const template = await createTestIssuanceTemplate(userAuthToken!, {}, { schemaId: schema?.id })
 
       const name = uuid()
-      const fields = [{ schemaFieldId: schema!.fields[0].id, value: 'freeValue' } as PatchIssuanceTemplateFieldRequest]
+      const fields = [{ schemaFieldId: schema!.fields[0].id, value: 'freeValue' }]
 
       const response = await request(app)
         .patch(`/issuance-templates/${template?.id}`)
@@ -1158,7 +1123,7 @@ describe('E2E issuance templates management', () => {
         .send({
           name,
           fields,
-        } as PatchIssuanceTemplateRequest)
+        })
 
       expect(response.status).toBe(200)
 

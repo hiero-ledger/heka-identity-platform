@@ -1,6 +1,6 @@
-import { Button, ButtonLocation, ButtonType, HeaderButton, testIdWithKey } from '@hyperledger/aries-bifold-core'
-import ButtonLoading from '@hyperledger/aries-bifold-core/App/components/animated/ButtonLoading'
-import { minPINLength as walletPinLength } from '@hyperledger/aries-bifold-core/App/constants'
+import { Button, ButtonLocation, ButtonType, IconButton, testIdWithKey } from '@bifold/core'
+import ButtonLoading from '@bifold/core/src/components/animated/ButtonLoading'
+import { minPINLength as walletPinLength } from '@bifold/core/src/constants'
 import React, { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput as TextInputClass, View } from 'react-native'
@@ -10,7 +10,7 @@ import { platformBackIconConfig } from '../../utils/platform'
 import { PINInput, TextInput } from '../inputs'
 import { Numpad } from '../misc'
 
-const useStyles = ({ TextTheme, Spacing, ColorPallet }: HekaTheme) =>
+const useStyles = ({ TextTheme, Spacing, ColorPalette }: HekaTheme) =>
   StyleSheet.create({
     title: {
       ...TextTheme.headingFour,
@@ -20,7 +20,7 @@ const useStyles = ({ TextTheme, Spacing, ColorPallet }: HekaTheme) =>
     container: {
       flex: 1,
       paddingTop: Spacing.xxxl,
-      backgroundColor: ColorPallet.brand.primaryBackground,
+      backgroundColor: ColorPalette.brand.primaryBackground,
     },
     inputContainer: {
       flex: 1,
@@ -31,7 +31,7 @@ const useStyles = ({ TextTheme, Spacing, ColorPallet }: HekaTheme) =>
     },
     headerButtonContainer: {
       paddingTop: Spacing.md,
-      backgroundColor: ColorPallet.brand.primaryBackground,
+      backgroundColor: ColorPalette.brand.primaryBackground,
     },
     numpadContainer: {
       justifyContent: 'flex-end',
@@ -40,7 +40,7 @@ const useStyles = ({ TextTheme, Spacing, ColorPallet }: HekaTheme) =>
       marginHorizontal: -Spacing.xl,
     },
     pinErrorText: {
-      color: ColorPallet.semantic.error,
+      color: ColorPalette.semantic.error,
       marginTop: Spacing.xs,
       paddingHorizontal: Spacing.md,
     },
@@ -118,7 +118,7 @@ export const ConfirmationInputModal: React.FC<ConfirmationInputModalProps> = ({
   return (
     <Modal visible={isVisible} animationType="fade" onShow={onShow} onRequestClose={onCancel}>
       <SafeAreaView style={styles.headerButtonContainer}>
-        <HeaderButton
+        <IconButton
           onPress={onCancel}
           icon={platformBackIconConfig.name}
           buttonLocation={ButtonLocation.Left}
@@ -171,7 +171,7 @@ interface ConfirmationInputProps {
   onChange: (value: string) => void
   onConfirm: (value: string) => Promise<void>
   inputLabel?: string
-  ref?: React.RefObject<TextInputClass>
+  ref?: React.RefObject<TextInputClass | null>
   errorState?: boolean
 }
 

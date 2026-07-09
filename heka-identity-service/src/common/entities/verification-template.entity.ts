@@ -1,7 +1,7 @@
-import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
-import { Collection, Entity, Enum, ManyToOne, OneToMany, Property, Index } from '@mikro-orm/core'
+import { Collection } from '@mikro-orm/core'
+import { Entity, Enum, Index, ManyToOne, OneToMany, Property } from '@mikro-orm/decorators/legacy'
 
-import { AriesCredentialFormat, CredentialFormat, DidMethod, ProtocolType } from '../types'
+import { AriesCredentialFormat, CredentialFormat, DidMethod, OpenId4VcCredentialFormat, ProtocolType } from '../types'
 
 import { Identified } from './identified.entity'
 import { Schema } from './schema.entity'
@@ -14,7 +14,7 @@ export class VerificationTemplate extends Identified {
   @Index()
   public owner!: User
 
-  @Property({ nullable: false, length: 500 })
+  @Property({ nullable: false, length: 500, type: 'string' })
   public name!: string
 
   @Property({ nullable: false, type: 'string' })
@@ -22,7 +22,7 @@ export class VerificationTemplate extends Identified {
   public protocol!: ProtocolType
 
   @Property({ nullable: false, type: 'string' })
-  @Enum(() => AriesCredentialFormat || OpenId4VciCredentialFormatProfile)
+  @Enum(() => AriesCredentialFormat || OpenId4VcCredentialFormat)
   public credentialFormat!: CredentialFormat
 
   @Property({ nullable: true, type: 'string' })

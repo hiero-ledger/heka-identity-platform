@@ -31,7 +31,10 @@ node_modules
 
 # Optional npm/yarn cache directory
 .npm
-.yarn
+
+# Yarn Berry (keep .yarn/releases tracked)
+.yarn/cache
+.yarn/install-state.gz
 
 # Optional REPL history
 .node_repl_history

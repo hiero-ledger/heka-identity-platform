@@ -1,6 +1,7 @@
 import { Server } from 'net'
 
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
@@ -14,17 +15,18 @@ import { createAuthToken } from './helpers/jwt'
 
 describe('OpenId4VcVerifierController', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    orm = await initializeMikroOrm()
+    ormSchemaGenerator = orm.schema
   })
 
   beforeEach(async () => {
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -39,7 +41,8 @@ describe('OpenId4VcVerifierController', () => {
   })
 
   afterAll(async () => {
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   test('create verifier', async () => {

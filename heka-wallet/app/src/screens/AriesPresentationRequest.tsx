@@ -1,18 +1,15 @@
-import { AnonCredsRequestedAttributeMatch, AnonCredsRequestedPredicateMatch } from '@credo-ts/anoncreds'
 import {
-  DifPexInputDescriptorToCredentials,
-  ProofFormatPayload,
-  SdJwtVcRecord,
-  W3cCredentialRecord,
-} from '@credo-ts/core'
-import { useAgent, useProofById } from '@credo-ts/react-hooks'
-import { BifoldError, EventTypes } from '@hyperledger/aries-bifold-core'
-import { useNetwork } from '@hyperledger/aries-bifold-core/App/contexts/network'
-import {
+  BifoldError,
+  EventTypes,
   NotificationStackParams,
   Screens as BifoldScreens,
   TabStacks,
-} from '@hyperledger/aries-bifold-core/App/types/navigators'
+  useNetwork,
+} from '@bifold/core'
+import { useProofById } from '@bifold/react-hooks'
+import { AnonCredsRequestedAttributeMatch, AnonCredsRequestedPredicateMatch } from '@credo-ts/anoncreds'
+import { ClaimFormat, DifPexInputDescriptorToCredentials, W3cCredentialRecord } from '@credo-ts/core'
+import { DidCommProofFormatPayload } from '@credo-ts/didcomm'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
 import React, { useCallback, useEffect, useState } from 'react'
@@ -28,6 +25,7 @@ import {
   PresentationSubmissionEntry,
   ProofExchangeFormatKeys,
 } from '../credentials'
+import { useHekaAgent } from '../utils/agent'
 
 type Props = StackScreenProps<NotificationStackParams, BifoldScreens.ProofRequest>
 
@@ -41,10 +39,10 @@ export const AriesPresentationRequest: React.FC<Props> = ({ route }) => {
   const { proofId } = route.params
   const proofRequestRecord = useProofById(proofId)
 
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const navigation = useNavigation<StackNavigationProp<NotificationStackParams>>()
-  const { assertConnectedNetwork } = useNetwork()
+  const { assertNetworkConnected } = useNetwork()
 
   const [isPresentationSubmissionLoading, setIsPresentationSubmissionLoading] = useState(false)
   const [isShared, setIsShared] = useState(false)
@@ -84,25 +82,28 @@ export const AriesPresentationRequest: React.FC<Props> = ({ route }) => {
     const { connectionId } = presentationSubmission.proofExchangeRecord
 
     if (connectionId && presentationSubmission.outOfBandGoalCode?.endsWith('verify.once')) {
-      await agent.connections.deleteById(connectionId)
+      await agent.didcomm.connections.deleteById(connectionId)
     }
   }
 
   const onAccept = async () => {
-    if (!agent || !presentationSubmission || !assertConnectedNetwork()) {
+    if (!agent || !presentationSubmission || !assertNetworkConnected()) {
       return
     }
 
     try {
       setIsShared(true)
 
-      let formatInput: ProofFormatPayload<[], 'acceptRequest'>
+      let formatInput: DidCommProofFormatPayload<[], 'acceptRequest'>
 
       if (presentationSubmission.formatKey === ProofExchangeFormatKeys.PresentationExchange) {
         const selectedCredentials = presentationSubmission.entries.reduce<DifPexInputDescriptorToCredentials>(
           (result, entry) => {
             result[entry.inputDescriptorId] = [
-              entry.selectedOption!.credential.record as W3cCredentialRecord | SdJwtVcRecord,
+              {
+                claimFormat: ClaimFormat.LdpVc,
+                credentialRecord: entry.selectedOption!.credential.record as W3cCredentialRecord,
+              },
             ]
             return result
           },
@@ -150,8 +151,8 @@ export const AriesPresentationRequest: React.FC<Props> = ({ route }) => {
         }
       }
 
-      await agent.proofs.acceptRequest({
-        proofRecordId: presentationSubmission.proofExchangeRecord.id,
+      await agent.didcomm.proofs.acceptRequest({
+        proofExchangeRecordId: presentationSubmission.proofExchangeRecord.id,
         proofFormats: formatInput,
       })
 
@@ -168,13 +169,16 @@ export const AriesPresentationRequest: React.FC<Props> = ({ route }) => {
 
     try {
       setIsDeclining(true)
-      await agent.proofs.declineRequest({ proofRecordId: proofRequestRecord.id, sendProblemReport: true })
+      await agent.didcomm.proofs.declineRequest({
+        proofExchangeRecordId: proofRequestRecord.id,
+        sendProblemReport: true,
+      })
 
       removeOneTimeConnectionIfNeeded()
 
       navigation.getParent()?.navigate(TabStacks.HomeStack, { screen: BifoldScreens.Home })
     } catch (err: unknown) {
-      await agent.proofs.deleteById(proofRequestRecord.id)
+      await agent.didcomm.proofs.deleteById(proofRequestRecord.id)
     } finally {
       setIsDeclining(false)
     }

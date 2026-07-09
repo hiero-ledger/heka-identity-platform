@@ -53,7 +53,7 @@ export const AddressCopyable: React.FC<Props> = ({ style: propStyle, address, ma
         onPress={copyToClipboard}
         containerStyle={theme.Buttons.primary}
         textStyle={{ fontWeight: FontWeights.regular }}
-        iconColor={theme.ColorPallet.grayscale.white}
+        iconColor={theme.ColorPalette.grayscale.white}
       />
     </View>
   )
