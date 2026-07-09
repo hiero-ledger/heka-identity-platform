@@ -1,3 +1,5 @@
+import type { OpenId4VpAuthorizationResponsePayload } from '@credo-ts/openid4vc'
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import { IsOptional, IsString, IsArray, IsNumber, ValidateNested, IsObject, IsDateString } from 'class-validator'
@@ -316,9 +318,7 @@ class AuthorizationResponsePayloadDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @ValidateNested({ each: true })
-  // TODO: remove any and specify proper types
-  public vp_token?: any
+  public vp_token?: OpenId4VpAuthorizationResponsePayload['vp_token']
 
   @ApiPropertyOptional({ type: () => PresentationSubmissionDto })
   @IsOptional()

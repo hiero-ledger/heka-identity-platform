@@ -1,4 +1,4 @@
-import { Buffer, TypedArrayEncoder, Kms } from '@credo-ts/core'
+import { TypedArrayEncoder, Kms } from '@credo-ts/core'
 import { BytesLike, computeAddress, getBytes } from 'ethers'
 import { Transaction, TransactionEndorsingData } from 'indybesu-vdr'
 
@@ -9,7 +9,7 @@ export class IndyBesuSigner {
 
   private constructor(keyId: string, publicKey: string, kms: Kms.KeyManagementApi) {
     this.keyId = keyId
-    this.address = computeAddress(`0x${TypedArrayEncoder.toHex(Buffer.from(publicKey))}`)
+    this.address = computeAddress(`0x${TypedArrayEncoder.toHex(TypedArrayEncoder.fromUtf8String(publicKey))}`)
     this.kms = kms
   }
 

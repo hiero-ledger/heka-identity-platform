@@ -1,10 +1,11 @@
 import type { PropsWithChildren } from 'react'
 import type * as React from 'react'
 
+import { recordsAddedByType, recordsRemovedByType, recordsUpdatedByType } from '@bifold/react-hooks/build/recordUtils'
 import { SdJwtVcRecord } from '@credo-ts/core'
-import { useAgent } from '@credo-ts/react-hooks'
-import { recordsAddedByType, recordsRemovedByType, recordsUpdatedByType } from '@credo-ts/react-hooks/build/recordUtils'
 import { createContext, useContext, useEffect, useState } from 'react'
+
+import { useHekaAgent } from '../utils/agent'
 
 type SdJwtVcRecordState = {
   sdJwtVcRecords: Array<SdJwtVcRecord>
@@ -57,7 +58,7 @@ export const useSdJwtVcRecordById = (id: string): SdJwtVcRecord | undefined => {
 }
 
 export const SdJwtVcRecordProvider: React.FC<PropsWithChildren> = ({ children }) => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const [state, setState] = useState<SdJwtVcRecordState>({
     sdJwtVcRecords: [],

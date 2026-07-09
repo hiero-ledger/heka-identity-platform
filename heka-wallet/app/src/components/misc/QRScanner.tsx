@@ -1,7 +1,6 @@
+import { QrCodeScanError, ScanCamera } from '@bifold/core'
+import { hitSlop } from '@bifold/core/src/constants'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import ScanCamera from '@hyperledger/aries-bifold-core/App/components/misc/ScanCamera'
-import { hitSlop } from '@hyperledger/aries-bifold-core/App/constants'
-import { QrCodeScanError } from '@hyperledger/aries-bifold-core/App/types/error'
 import { useNavigation } from '@react-navigation/native'
 import React, { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -18,7 +17,7 @@ interface Props {
 }
 
 const useStyles = (theme: HekaTheme) => {
-  const { ColorPallet, TextTheme } = theme
+  const { ColorPalette, TextTheme } = theme
 
   return StyleSheet.create({
     container: {
@@ -34,7 +33,7 @@ const useStyles = (theme: HekaTheme) => {
       height: 250,
       borderRadius: 24,
       borderWidth: 2,
-      borderColor: ColorPallet.grayscale.white,
+      borderColor: ColorPalette.grayscale.white,
     },
     errorMessageContainer: {
       marginHorizontal: 40,
@@ -44,7 +43,7 @@ const useStyles = (theme: HekaTheme) => {
       paddingBottom: 30,
     },
     icon: {
-      color: ColorPallet.grayscale.white,
+      color: ColorPalette.grayscale.white,
       padding: 4,
     },
     closeIcon: {

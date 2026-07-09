@@ -1,6 +1,6 @@
-import { fixupPluginRules } from '@eslint/compat';
-import pluginJs from '@eslint/js';
-import pluginImport from 'eslint-plugin-import';
+import { fixupConfigRules, fixupPluginRules } from '@eslint/compat';
+import js from '@eslint/js';
+import importX from 'eslint-plugin-import-x';
 import pluginJsxA11y from 'eslint-plugin-jsx-a11y';
 import pluginReact from 'eslint-plugin-react';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
@@ -9,6 +9,9 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default [
+  {
+    ignores: ['dist/**', 'build/**', '.yarn/**', 'eslint.config.mjs'],
+  },
   { files: ['**/*.{js,mjs,cjs,ts,jsx,tsx}'] },
   {
     languageOptions: {
@@ -27,24 +30,27 @@ export default [
       },
     },
   },
-  pluginJs.configs.recommended,
+  js.configs.recommended,
   ...tseslint.configs.recommended,
-  pluginReact.configs.flat.recommended,
-  pluginJsxA11y.flatConfigs.recommended,
+  // eslint-plugin-react and jsx-a11y still call ESLint <10 context APIs
+  // (e.g. context.getFilename); fixup shims them onto the ESLint 10 API.
+  ...fixupConfigRules(pluginReact.configs.flat.recommended),
+  ...fixupConfigRules(pluginJsxA11y.flatConfigs.recommended),
   {
     plugins: {
-      'react-hooks': fixupPluginRules(pluginReactHooks),
+      'react-hooks': pluginReactHooks,
     },
     rules: {
-      ...pluginReactHooks.configs.recommended.rules,
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
   {
     plugins: {
-      import: fixupPluginRules(pluginImport),
+      'import-x': importX,
     },
     rules: {
-      'import/order': [
+      'import-x/order': [
         'error',
         {
           groups: [
@@ -95,10 +101,10 @@ export default [
       'react/function-component-definition': 0,
       'react/no-unstable-nested-components': 1,
       '@typescript-eslint/ban-ts-comment': 0,
-      '@typescript-eslint/no-unused-vars': [
-        'warn',
-        { argsIgnorePattern: '^_' },
-      ],
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      // New in ESLint 10's recommended set; kept as a warning so the version bump
+      // does not introduce a new blocking rule. Tracked for incremental cleanup.
+      'preserve-caught-error': 'warn',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'no-undef': 0,
       'no-unused-vars': 0,
@@ -122,7 +128,7 @@ export default [
     ],
     rules: {
       'react-hooks/rules-of-hooks': 'off',
-      'import/no-anonymous-default-export': 'off',
+      'import-x/no-anonymous-default-export': 'off',
       'storybook/await-interactions': 'error',
       'storybook/context-in-play-function': 'error',
       'storybook/default-exports': 'error',

@@ -1,17 +1,18 @@
-import { ConnectionRecord, CredentialState } from '@credo-ts/core'
-import { useAgent, useCredentialByState } from '@credo-ts/react-hooks'
 import {
   BifoldError,
   ButtonLocation,
+  ContactStackParams,
   EventTypes,
-  HeaderButton,
+  IconButton,
   Screens,
   Stacks,
   TabStacks,
   ToastType,
-  useTheme,
-} from '@hyperledger/aries-bifold-core'
-import { ContactStackParams, RootStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
+} from '@bifold/core'
+import { RootStackParams } from '@bifold/core/src/types/navigators'
+import { useCredentialByState } from '@bifold/react-hooks'
+import { DidCommConnectionRecord, DidCommCredentialState } from '@credo-ts/didcomm'
+import { useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useCallback, useState } from 'react'
@@ -21,21 +22,22 @@ import Toast from 'react-native-toast-message'
 
 import DeleteIcon from '../../assets/bin.svg'
 import EditIcon from '../../assets/edit.svg'
+import { useHekaAgent } from '../../utils/agent'
 import ActionWarningModal, { ModalUsage } from '../modals/ActionWarningModal'
 import { ContextMenuModal } from '../modals/ContextMenuModal'
 import { LoaderModal } from '../views/LoadingView'
 
 interface ConnectionContextMenuProps {
-  connection: ConnectionRecord
+  connection: DidCommConnectionRecord
 }
 
 const ConnectionContextMenu: React.FC<ConnectionContextMenuProps> = ({ connection }) => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const { t } = useTranslation()
   const navigation = useNavigation<StackNavigationProp<ContactStackParams & RootStackParams>>()
 
-  const theme = useTheme()
+  const theme = useHekaTheme()
 
   const [showContextMenu, setShowContextMenu] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -44,8 +46,8 @@ const ConnectionContextMenu: React.FC<ConnectionContextMenuProps> = ({ connectio
 
   // FIXME: This should be exposed via a react hook that allows to filter credentials by connection id
   const connectionCredentials = [
-    ...useCredentialByState(CredentialState.CredentialReceived),
-    ...useCredentialByState(CredentialState.Done),
+    ...useCredentialByState(DidCommCredentialState.CredentialReceived),
+    ...useCredentialByState(DidCommCredentialState.Done),
   ].filter((credential) => credential.connectionId === connection?.id)
 
   const openContextMenu = useCallback(() => setShowContextMenu(true), [])
@@ -75,7 +77,7 @@ const ConnectionContextMenu: React.FC<ConnectionContextMenuProps> = ({ connectio
       setIsRemoveModalDisplayed(false)
       setShowContextMenu(false)
 
-      await agent.connections.deleteById(connection.id)
+      await agent.didcomm.connections.deleteById(connection.id)
 
       navigation.navigate(Stacks.TabStack, { screen: TabStacks.HomeStack, params: { screen: Screens.Home } })
 
@@ -113,7 +115,7 @@ const ConnectionContextMenu: React.FC<ConnectionContextMenuProps> = ({ connectio
 
   return (
     <View>
-      <HeaderButton
+      <IconButton
         buttonLocation={ButtonLocation.Right}
         testID={'ConnectionMenu'}
         accessibilityLabel={'ConnectionMenu'}
@@ -133,7 +135,7 @@ const ConnectionContextMenu: React.FC<ConnectionContextMenuProps> = ({ connectio
             title: t('ConnectionDetails.Delete'),
             icon: () => <DeleteIcon height={24} width={24} />,
             callback: onRemove,
-            color: theme.ColorPallet.semantic.error,
+            color: theme.ColorPalette.semantic.error,
           },
         ]}
       />

@@ -1,4 +1,5 @@
-import { MikroORM, ReflectMetadataProvider } from '@mikro-orm/core'
+import { MikroORM } from '@mikro-orm/core'
+import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
 import { PostgreSqlDriver } from '@mikro-orm/postgresql'
 
 import { testLogger } from 'src/__tests__/helpers'
@@ -11,6 +12,7 @@ export async function initializeMikroOrm(): Promise<MikroORM<PostgreSqlDriver>> 
 
   return await MikroORM.init<PostgreSqlDriver>({
     ...TestMikroOrmConfig(),
+    driver: PostgreSqlDriver,
     logger: (message: string) => logger.trace(message),
     entities,
     metadataProvider: ReflectMetadataProvider,

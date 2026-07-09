@@ -3,10 +3,12 @@ import { IsString, Length } from 'class-validator'
 
 export class RequestChangePasswordRequest {
   @ApiProperty()
+  @IsString()
   @Length(1, 255)
   public readonly name!: string
 
   @ApiProperty()
+  @IsString()
   @Length(1, 255)
   public readonly oldPassword!: string
 }

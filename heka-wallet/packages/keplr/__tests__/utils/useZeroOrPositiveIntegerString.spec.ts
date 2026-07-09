@@ -2,10 +2,12 @@ import { act, renderHook } from '@testing-library/react-native'
 import { useZeroOrPositiveIntegerString } from '../../src/utils/useZeroOrPositiveIntegerString'
 
 // Workaround to resolve errors related to leaking imports from shared package
-// TODO: Find a good way to handle this (proper mocking of shared package, update for export approach)
-jest.mock('@hyperledger/aries-bifold-core', () => jest.fn())
-jest.mock('@hyperledger/aries-bifold-core/App/utils/crypto', () => jest.fn())
-jest.mock('@react-navigation/elements', () => jest.fn())
+jest.mock('@bifold/core', () => ({
+  __esModule: true,
+  ImageAssets: { svg: {} },
+  useTheme: jest.fn(() => ({})),
+}))
+jest.mock('@react-navigation/elements', () => ({ __esModule: true }))
 
 interface TestData {
   input: string

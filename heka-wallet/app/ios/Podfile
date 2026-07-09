@@ -2,19 +2,23 @@ source 'https://cdn.cocoapods.org'
 require_relative '../../node_modules/react-native/scripts/react_native_pods'
 require_relative '../../node_modules/react-native-permissions/scripts/setup'
 
+# prevents location usage from react-native-vision-camera
+$VCEnableLocation = false
+
+# From RNP docs here: https://www.npmjs.com/package/react-native-permissions/v/4.0.1
+def node_require(script)
+  # Resolve script with node to allow for hoisting
+  require `node -p "require.resolve('#{script}', {paths: [process.argv[1]]})" #{__dir__}`.strip
+end
+
+node_require('react-native/scripts/react_native_pods.rb')
+node_require('react-native-permissions/scripts/setup.rb')
+
+# Expo modules autolinking for CocoaPods
+require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
+
 platform :ios, '16.0'
 prepare_react_native_project!
-
-# If you are using a `react-native-flipper` your iOS build will fail when `NO_FLIPPER=1` is set.
-# because `react-native-flipper` depends on (FlipperKit,...) that will be excluded
-#
-# To fix this you can also exclude `react-native-flipper` using a `react-native.config.js`
-# ```js
-# module.exports = {
-#   dependencies: {
-#     ...(process.env.NO_FLIPPER ? { 'react-native-flipper': { platforms: { ios: null } } } : {}),
-# ```
-flipper_config = FlipperConfiguration.disabled
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
@@ -23,6 +27,7 @@ if linkage != nil
 end
 
 target 'HekaWallet' do
+  use_expo_modules!
   config = use_native_modules!
 
   setup_permissions([
@@ -36,11 +41,6 @@ target 'HekaWallet' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
-  target 'HekaWalletTests' do
-    inherit! :complete
-    # Pods for testing
-  end
-
   post_install do |installer|
 
     installer.pods_project.targets.each do |target|
@@ -52,26 +52,6 @@ target 'HekaWallet' do
             end
         end
     end
-
-    bitcode_strip_path = `xcrun --find bitcode_strip`.chop!
-      def strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
-         framework_path = File.join(Dir.pwd, framework_relative_path)
-         command = "#{bitcode_strip_path} #{framework_path} -r -o #{framework_path}"
-         puts "Stripping bitcode: #{command}"
-         system(command)
-      end
-
-      framework_paths = [
-         "Pods/LogRocket/LogRocket.xcframework/ios-arm64/LogRocket.framework/LogRocket",
-         "Pods/hermes-engine/destroot/Library/Frameworks/macosx/hermes.framework/hermes",
-         "Pods/hermes-engine/destroot/Library/Frameworks/macosx/hermes.framework/Versions/Current/hermes",
-         "Pods/hermes-engine/destroot/Library/Frameworks/universal/hermes.xcframework/ios-arm64/hermes.framework/hermes",
-         "Pods/hermes-engine/destroot/Library/Frameworks/universal/hermes.xcframework/ios-arm64_x86_64-maccatalyst/hermes.framework/hermes"
-      ]
-
-      framework_paths.each do |framework_relative_path|
-         strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
-      end
 
       # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
       react_native_post_install(

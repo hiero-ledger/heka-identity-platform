@@ -8,7 +8,7 @@ import {
   isDidIndyCredentialDefinitionId,
   isDidIndySchemaId,
   isUnqualifiedCredentialDefinitionId,
-} from '@credo-ts/anoncreds/build/utils/indyIdentifiers'
+} from '@credo-ts/anoncreds/build/utils/indyIdentifiers.mjs'
 
 import {
   isIndyBesuCredDefId,

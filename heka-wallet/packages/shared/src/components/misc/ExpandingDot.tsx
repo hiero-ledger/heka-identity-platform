@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import { Animated, StyleSheet, useWindowDimensions, View, ViewStyle } from 'react-native'
 
-import { ColorPallet } from '../../theme'
+import { ColorPalette } from '../../theme'
 
 const styles = StyleSheet.create({
   containerStyle: {
@@ -38,9 +38,9 @@ export const ExpandingDot: React.FC<Props> = ({
   containerStyle,
   inactiveDotOpacity = 1,
   expandingDotWidth = 20,
-  previousDotColor = ColorPallet.grayscale.darkGrey,
-  activeDotColor = ColorPallet.grayscale.white,
-  nextDotColor = ColorPallet.grayscale.darkGrey,
+  previousDotColor = ColorPalette.grayscale.darkGrey,
+  activeDotColor = ColorPalette.grayscale.white,
+  nextDotColor = ColorPalette.grayscale.darkGrey,
 }) => {
   const { width } = useWindowDimensions()
 

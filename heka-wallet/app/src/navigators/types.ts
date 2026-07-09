@@ -1,5 +1,5 @@
+import { SettingStackParams as BifoldSettingStackParams } from '@bifold/core/src/types/navigators'
 import { KeplrStackParams } from '@heka-wallet/keplr'
-import { SettingStackParams as BifoldSettingStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
 import { NavigatorScreenParams } from '@react-navigation/core'
 
 import { CredentialSubmissionOption } from '../credentials'

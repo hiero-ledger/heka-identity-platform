@@ -9,13 +9,14 @@ export class TokenRepository extends EntityRepository<Token> {
     token: string
     expireIn?: Date
     subject?: string
-    payload?: any
+    payload?: string
   }): Promise<Token> {
     const newToken = new Token({
       ...data,
       isRevoked: false,
     })
-    await this.em.persistAndFlush(newToken)
+    this.em.persist(newToken)
+    await this.em.flush()
     return newToken
   }
 

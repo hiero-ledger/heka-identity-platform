@@ -49,7 +49,7 @@ export class AnoncredsHederaRegistrar extends AnoncredsRegistry {
     tenantAgent: TenantAgent,
     issuerId: string,
     credentialDefinitionId: string,
-    maximumCredentialNumber?: number | undefined,
+    maximumCredentialNumber?: number,
   ): Promise<RegisterRevocationRegistryDefinitionReturn> {
     return tenantAgent.modules.anoncreds.registerRevocationRegistryDefinition({
       revocationRegistryDefinition: {

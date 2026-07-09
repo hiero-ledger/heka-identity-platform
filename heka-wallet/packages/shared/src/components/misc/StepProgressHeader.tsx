@@ -11,9 +11,9 @@ const useStyles = (theme: HekaTheme) =>
   StyleSheet.create({
     dot: {
       height: 5,
-      color: theme.ColorPallet.grayscale.white,
+      color: theme.ColorPalette.grayscale.white,
       borderRadius: theme.BorderRadius.extraSmall,
-      borderColor: theme.ColorPallet.grayscale.white,
+      borderColor: theme.ColorPalette.grayscale.white,
     },
   })
 
@@ -40,9 +40,9 @@ export const StepProgressHeader: React.FC<StepProgressHeaderState> = ({ stepsCou
     <ExpandingDot
       dotsCount={stepsCount}
       scrollX={scrollX}
-      previousDotColor={theme.ColorPallet.grayscale.white}
-      activeDotColor={theme.ColorPallet.grayscale.white}
-      nextDotColor={theme.ColorPallet.grayscale.darkGrey}
+      previousDotColor={theme.ColorPalette.grayscale.white}
+      activeDotColor={theme.ColorPalette.grayscale.white}
+      nextDotColor={theme.ColorPalette.grayscale.darkGrey}
       dotStyle={{ ...styles.dot, width: dotWidth }}
       expandingDotWidth={expandedDotWidth}
     />

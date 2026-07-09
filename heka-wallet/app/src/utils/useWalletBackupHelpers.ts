@@ -1,11 +1,8 @@
-import { AskarWallet } from '@credo-ts/askar'
-import { AskarModuleConfig } from '@credo-ts/askar/build/AskarModuleConfig'
-import { ConsoleLogger, LogLevel, SigningProviderRegistry, WalletConfig } from '@credo-ts/core'
-import { useAgent } from '@credo-ts/react-hooks'
+import { useAuth } from '@bifold/core'
+import { storeWalletSecret } from '@bifold/core/src/services/keychain'
+import { AskarModuleConfig, AskarStoreManager } from '@credo-ts/askar'
 import { agentDependencies } from '@credo-ts/react-native'
-import { ariesAskar } from '@hyperledger/aries-askar-react-native'
-import { useAuth } from '@hyperledger/aries-bifold-core'
-import { storeWalletSecret } from '@hyperledger/aries-bifold-core/App/services/keychain'
+import { askar } from '@openwallet-foundation/askar-react-native'
 import axios from 'axios'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +13,7 @@ import { unzipWithPassword, zipWithPassword } from 'react-native-zip-archive'
 import { walletProviderURL } from '../config'
 import { useRootStore } from '../contexts'
 
+import { useHekaAgent } from './agent'
 import { generatePbkdf2Key } from './crypto'
 
 const IOS_PASSWORD_LENGTH = 32
@@ -24,15 +22,15 @@ const BACKUP_NAME = `heka-wallet-backup`
 const BACKUP_FILE_NAME = `heka-wallet-backup.zip`
 
 interface WalletBackupMetadata {
-  walletConfig: WalletConfig
+  walletConfig: { id: string; key: string }
   walletKeySalt: string
 }
 
 export const useWalletBackupHelpers = () => {
   const { t } = useTranslation()
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
-  const { getWalletCredentials } = useAuth()
+  const { getWalletSecret } = useAuth()
   const { passkeysStore } = useRootStore()
 
   const [remoteBackupPath, setRemoteBackupPath] = useState<string | null>()
@@ -84,7 +82,7 @@ export const useWalletBackupHelpers = () => {
         throw new Error('Agent is not initialized yet')
       }
 
-      const walletCredentials = await getWalletCredentials()
+      const walletCredentials = await getWalletSecret()
       if (!walletCredentials) {
         throw new Error('Cannot get wallet credentials')
       }
@@ -92,6 +90,9 @@ export const useWalletBackupHelpers = () => {
       if (!passkeysStore.isAuthenticated) {
         await authenticateOrRegisterPasskey(user)
       }
+
+      const askarConfig = agent.dependencyManager.resolve(AskarModuleConfig)
+      const storeOptions = askarConfig.store
 
       const backupDirPath = `${DocumentDirectoryPath}/backupDir`
       const backupFilePath = `${backupDirPath}/${BACKUP_NAME}.wallet`
@@ -101,13 +102,15 @@ export const useWalletBackupHelpers = () => {
         await unlink(backupDirPath)
       }
 
-      await agent.wallet.export({
-        path: backupFilePath,
-        key: agent.wallet.walletConfig!.key,
+      await agent.modules.askar.exportStore({
+        exportToStore: {
+          id: backupFilePath,
+          key: storeOptions.key,
+        },
       })
 
       const backupMetadata: WalletBackupMetadata = {
-        walletConfig: agent.wallet.walletConfig!,
+        walletConfig: { id: storeOptions.id, key: storeOptions.key },
         walletKeySalt: walletCredentials.salt,
       }
       await writeFile(metadataFilePath, JSON.stringify(backupMetadata))
@@ -139,7 +142,7 @@ export const useWalletBackupHelpers = () => {
 
       await unlink(zipFilePath)
     },
-    [agent, getWalletCredentials, passkeysStore, authenticateOrRegisterPasskey]
+    [agent, getWalletSecret, passkeysStore, authenticateOrRegisterPasskey]
   )
 
   const restoreWallet = useCallback(async () => {
@@ -170,17 +173,23 @@ export const useWalletBackupHelpers = () => {
       salt: backupMetadata.walletKeySalt,
     }
 
-    // We use Askar Wallet instance here as we don't need higher level API of Credo Agent for import
-    const askarWallet = new AskarWallet(
-      new ConsoleLogger(LogLevel.off),
-      new agentDependencies.FileSystem(),
-      new SigningProviderRegistry([]),
-      new AskarModuleConfig({ ariesAskar })
-    )
+    // We use AskarStoreManager directly here as we want restore functionality to be available without agent initialization
+    const askarModuleConfig = new AskarModuleConfig({
+      // TODO: Resolve type issues with askar-shared definitions duplication
+      askar: askar as any,
+      store: { id: backupMetadata.walletConfig.id, key: backupMetadata.walletConfig.key },
+    })
+    const storeManager = new AskarStoreManager(new agentDependencies.FileSystem(), askarModuleConfig)
+    const agentContext = {
+      isRootAgentContext: true,
+      config: { logger: console },
+    } as any
 
-    await askarWallet.import(backupMetadata.walletConfig, {
-      path: backupFilePath,
-      key: backupMetadata.walletConfig.key,
+    await storeManager.importStore(agentContext, {
+      importFromStore: {
+        id: backupFilePath,
+        key: backupMetadata.walletConfig.key,
+      },
     })
 
     await unlink(backupDirPath)

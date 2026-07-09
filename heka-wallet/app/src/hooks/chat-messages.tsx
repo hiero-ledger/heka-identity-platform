@@ -1,20 +1,21 @@
-import {
-  BasicMessageRecord,
-  ConnectionRecord,
-  CredentialExchangeRecord,
-  CredentialState,
-  ProofExchangeRecord,
-  ProofState,
-} from '@credo-ts/core'
+import type { RootStackParams } from '@bifold/core/src/types/navigators'
+
+import { ContactStackParams, getConnectionName, Screens, Stacks, useStore } from '@bifold/core'
+import { getMessageEventRole } from '@bifold/core/src/utils/helpers'
 import {
   useBasicMessagesByConnectionId,
   useCredentialsByConnectionId,
   useProofsByConnectionId,
-} from '@credo-ts/react-hooks'
-import { useHekaTheme, ColorPallet } from '@heka-wallet/shared'
-import { Screens, Stacks, useStore } from '@hyperledger/aries-bifold-core'
-import { ContactStackParams, RootStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
-import { getConnectionName, getMessageEventRole } from '@hyperledger/aries-bifold-core/App/utils/helpers'
+} from '@bifold/react-hooks'
+import {
+  DidCommBasicMessageRecord,
+  DidCommConnectionRecord,
+  DidCommCredentialExchangeRecord,
+  DidCommCredentialState,
+  DidCommProofExchangeRecord,
+  DidCommProofState,
+} from '@credo-ts/didcomm'
+import { useHekaTheme, ColorPalette } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { Fragment, useCallback, useEffect, useState } from 'react'
@@ -27,29 +28,29 @@ import { Role } from '../components/chat/types'
 import { resolveOverlay } from '../credentials'
 
 const pendingEventStyles = {
-  backgroundColor: ColorPallet.brand.primaryBackground,
-  fontColor: ColorPallet.grayscale.black,
+  backgroundColor: ColorPalette.brand.primaryBackground,
+  fontColor: ColorPalette.grayscale.black,
 }
 
 const successEventStyles = {
-  backgroundColor: ColorPallet.semantic.successTransparent,
-  fontColor: ColorPallet.grayscale.black,
+  backgroundColor: ColorPalette.semantic.successTransparent,
+  fontColor: ColorPalette.grayscale.black,
 }
 
 const errorEventStyles = {
-  backgroundColor: ColorPallet.semantic.errorTransparent,
-  fontColor: ColorPallet.grayscale.black,
+  backgroundColor: ColorPalette.semantic.errorTransparent,
+  fontColor: ColorPalette.grayscale.black,
 }
 
 const getRecordEventDetails = async (
-  record: CredentialExchangeRecord | ProofExchangeRecord,
-  connection: ConnectionRecord
+  record: DidCommCredentialExchangeRecord | DidCommProofExchangeRecord,
+  connection: DidCommConnectionRecord
 ): Promise<EventDetails> => {
-  if (record instanceof CredentialExchangeRecord) {
+  if (record instanceof DidCommCredentialExchangeRecord) {
     const bundleOverlay = await resolveOverlay(record, connection)
     const image = bundleOverlay.brandingOverlay?.logo || connection.imageUrl
 
-    if (record.state === CredentialState.Done || record.state === CredentialState.CredentialReceived) {
+    if (record.state === DidCommCredentialState.Done || record.state === DidCommCredentialState.CredentialReceived) {
       return {
         role: Role.me,
         type: EventTypes.Credential,
@@ -58,7 +59,7 @@ const getRecordEventDetails = async (
         styles: successEventStyles,
       }
     }
-    if (record.state === CredentialState.RequestSent) {
+    if (record.state === DidCommCredentialState.RequestSent) {
       return {
         role: Role.me,
         type: EventTypes.Credential,
@@ -67,7 +68,7 @@ const getRecordEventDetails = async (
         styles: successEventStyles,
       }
     }
-    if (record.state === CredentialState.OfferReceived) {
+    if (record.state === DidCommCredentialState.OfferReceived) {
       return {
         role: Role.them,
         type: EventTypes.CredentialOffer,
@@ -75,7 +76,7 @@ const getRecordEventDetails = async (
         styles: pendingEventStyles,
       }
     }
-    if (record.state === CredentialState.Declined || record.state === CredentialState.Abandoned) {
+    if (record.state === DidCommCredentialState.Declined || record.state === DidCommCredentialState.Abandoned) {
       return {
         role: Role.me,
         type: EventTypes.CredentialOffer,
@@ -86,10 +87,10 @@ const getRecordEventDetails = async (
     }
   }
 
-  if (record instanceof ProofExchangeRecord) {
+  if (record instanceof DidCommProofExchangeRecord) {
     const image = connection.imageUrl
 
-    if (record.state === ProofState.RequestReceived) {
+    if (record.state === DidCommProofState.RequestReceived) {
       return {
         role: Role.me,
         type: EventTypes.PresentationRequest,
@@ -97,7 +98,7 @@ const getRecordEventDetails = async (
         styles: pendingEventStyles,
       }
     }
-    if (record.state === ProofState.PresentationSent || record.state === ProofState.Done) {
+    if (record.state === DidCommProofState.PresentationSent || record.state === DidCommProofState.Done) {
       return {
         role: Role.me,
         type: EventTypes.Presentation,
@@ -106,7 +107,7 @@ const getRecordEventDetails = async (
         styles: successEventStyles,
       }
     }
-    if (record.state === ProofState.Declined) {
+    if (record.state === DidCommProofState.Declined) {
       return {
         role: Role.me,
         type: EventTypes.PresentationRequest,
@@ -115,7 +116,7 @@ const getRecordEventDetails = async (
         styles: errorEventStyles,
       }
     }
-    if (record.state === ProofState.Abandoned) {
+    if (record.state === DidCommProofState.Abandoned) {
       return {
         role: Role.them,
         type: EventTypes.PresentationRequest,
@@ -136,14 +137,14 @@ const getRecordEventDetails = async (
  * Custom hook for retrieving chat messages for a given connection. This hook includes some of
  * the JSX for rendering the chat messages, including the logic for handling links in messages.
  *
- * @param {ConnectionRecord} connection - The connection to retrieve chat messages for.
+ * @param {DidCommConnectionRecord} connection - The connection to retrieve chat messages for.
  * @returns {ExtendedChatMessage[]} The chat messages for the given connection.
  */
-export const useChatMessagesByConnection = (connection: ConnectionRecord): ExtendedChatMessage[] => {
+export const useChatMessagesByConnection = (connection: DidCommConnectionRecord): ExtendedChatMessage[] => {
   const [messages, setMessages] = useState<Array<ExtendedChatMessage>>([])
   const [store] = useStore()
   const { t } = useTranslation()
-  const { ChatTheme: theme, ColorPallet } = useHekaTheme()
+  const { ChatTheme: theme, ColorPalette } = useHekaTheme()
   const navigation = useNavigation<StackNavigationProp<RootStackParams | ContactStackParams>>()
   const basicMessages = useBasicMessagesByConnectionId(connection?.id)
   const credentials = useCredentialsByConnectionId(connection?.id)
@@ -157,7 +158,7 @@ export const useChatMessagesByConnection = (connection: ConnectionRecord): Exten
 
   const prepareChatMessages = useCallback(
     async () => {
-      const transformedMessages: Array<ExtendedChatMessage> = basicMessages.map((record: BasicMessageRecord) => {
+      const transformedMessages: Array<ExtendedChatMessage> = basicMessages.map((record: DidCommBasicMessageRecord) => {
         const role = getMessageEventRole(record)
         // eslint-disable-next-line
         const linkRegex = /(?:https?\:\/\/\w+(?:\.\w+)+\S*)|(?:[\w\d\.\_\-]+@\w+(?:\.\w+)+)/gim
@@ -180,7 +181,7 @@ export const useChatMessagesByConnection = (connection: ConnectionRecord): Exten
                     <Text>{split}</Text>
                     <Text
                       onPress={() => handleLinkPress(link)}
-                      style={{ color: ColorPallet.brand.link, textDecorationLine: 'underline' }}
+                      style={{ color: ColorPalette.brand.link, textDecorationLine: 'underline' }}
                       accessibilityRole={'link'}
                     >
                       {link}
@@ -205,14 +206,14 @@ export const useChatMessagesByConnection = (connection: ConnectionRecord): Exten
       for (const record of credentials) {
         const event = await getRecordEventDetails(record, connection)
         const onPressEvent = () => {
-          if (record.state === CredentialState.Done) {
+          if (record.state === DidCommCredentialState.Done) {
             navigation.navigate(Stacks.ContactStack as any, {
               screen: Screens.CredentialDetails,
               params: { credential: record },
             })
           }
-          if (record.state === CredentialState.OfferReceived) {
-            navigation.navigate(Stacks.ContactStack as any, {
+          if (record.state === DidCommCredentialState.OfferReceived) {
+            navigation.navigate(Stacks.NotificationStack as any, {
               screen: Screens.CredentialOffer,
               params: { credentialId: record.id },
             })
@@ -233,9 +234,9 @@ export const useChatMessagesByConnection = (connection: ConnectionRecord): Exten
         const event = await getRecordEventDetails(record, connection)
         const onPressEvent = () => {
           if (
-            record.state === ProofState.Done ||
-            record.state === ProofState.PresentationSent ||
-            record.state === ProofState.PresentationReceived
+            record.state === DidCommProofState.Done ||
+            record.state === DidCommProofState.PresentationSent ||
+            record.state === DidCommProofState.PresentationReceived
           ) {
             navigation.navigate(Stacks.ContactStack as any, {
               screen: Screens.ProofDetails,
@@ -243,13 +244,13 @@ export const useChatMessagesByConnection = (connection: ConnectionRecord): Exten
                 recordId: record.id,
                 isHistory: true,
                 senderReview:
-                  record.state === ProofState.PresentationSent ||
-                  (record.state === ProofState.Done && record.isVerified === undefined),
+                  record.state === DidCommProofState.PresentationSent ||
+                  (record.state === DidCommProofState.Done && record.isVerified === undefined),
               },
             })
           }
-          if (record.state === ProofState.RequestReceived) {
-            navigation.navigate(Stacks.ContactStack as any, {
+          if (record.state === DidCommProofState.RequestReceived) {
+            navigation.navigate(Stacks.NotificationStack as any, {
               screen: Screens.ProofRequest,
               params: { proofId: record.id },
             })

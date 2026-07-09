@@ -2,7 +2,7 @@ import { getKeychainAccessOptions, resetKeychainData, useIOSKeychainResetOnFirst
 import Keychain from 'react-native-keychain'
 import { KeychainServicesList } from '../../src/types/keychain'
 import { Platform } from 'react-native'
-import { KeychainServices } from '@hyperledger/aries-bifold-core/App/constants'
+import { KeychainServices } from '@bifold/core/src/constants'
 import { renderHook, waitFor } from '@testing-library/react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { APP_LAUNCHED_KEY } from '../../src/utils/keychain'
@@ -81,7 +81,7 @@ describe('Keychain Utils', () => {
 
       if (platform === 'android') {
         expect(options.securityLevel).toBe(Keychain.SECURITY_LEVEL.ANY)
-        expect(options.storage).toBe(Keychain.STORAGE_TYPE.AES)
+        expect(options.storage).toBe(Keychain.STORAGE_TYPE.AES_GCM)
       }
 
       const optionsWithBiometry = getKeychainAccessOptions(testKeychainServiceName, true)

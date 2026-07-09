@@ -1,13 +1,12 @@
-import { CredentialState } from '@credo-ts/core'
-import { useCredentialById } from '@credo-ts/react-hooks'
-import { ColorPallet, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Button, ButtonType, TabStacks as BifoldTabStacks } from '@hyperledger/aries-bifold-core'
-import { Stacks as BifoldStacks } from '@hyperledger/aries-bifold-core/App/types/navigators'
+import { Button, ButtonType, TabStacks as BifoldTabStacks, Stacks as BifoldStacks, SafeAreaModal } from '@bifold/core'
+import { useCredentialById } from '@bifold/react-hooks'
+import { DidCommCredentialState } from '@credo-ts/didcomm'
+import { ColorPalette, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Modal, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import CarImage from '../../assets/car.svg'
@@ -17,15 +16,17 @@ import { Loader } from '../views/LoadingView'
 const useStyles = ({ TextTheme, Spacing }: HekaTheme) =>
   StyleSheet.create({
     container: {
-      height: '100%',
+      flex: 1,
       padding: Spacing.lg,
       paddingTop: 100,
     },
     pendingOfferBackground: {
-      backgroundColor: ColorPallet.brand.modalPrimaryBackground,
+      flex: 1,
+      backgroundColor: ColorPalette.brand.modalPrimaryBackground,
     },
     completedOfferBackground: {
-      backgroundColor: ColorPallet.brand.brandedSecondary,
+      flex: 1,
+      backgroundColor: ColorPalette.brand.brandedSecondary,
     },
     image: {
       minHeight: 240,
@@ -80,8 +81,8 @@ export const CredentialOfferAcceptModal: React.FC<Props> = ({
     if (!credentialRecord) return
 
     if (
-      credentialRecord.state === CredentialState.CredentialReceived ||
-      credentialRecord.state === CredentialState.Done
+      credentialRecord.state === DidCommCredentialState.CredentialReceived ||
+      credentialRecord.state === DidCommCredentialState.Done
     ) {
       setIsCompleted(true)
     }
@@ -95,10 +96,10 @@ export const CredentialOfferAcceptModal: React.FC<Props> = ({
   }, [navigation])
 
   return (
-    <Modal visible={visible} transparent={true} animationType={'none'}>
+    <SafeAreaModal visible={visible} transparent={true} animationType={'none'}>
       {isCompleted ? (
-        <SafeAreaView style={styles.completedOfferBackground}>
-          <StatusBar backgroundColor={theme.ColorPallet.brand.brandedSecondary} />
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.completedOfferBackground}>
+          <StatusBar backgroundColor={theme.ColorPalette.brand.brandedSecondary} />
           <ScrollView style={styles.container}>
             <View style={styles.image}>
               <CarImage />
@@ -120,7 +121,7 @@ export const CredentialOfferAcceptModal: React.FC<Props> = ({
           </View>
         </SafeAreaView>
       ) : (
-        <SafeAreaView style={styles.pendingOfferBackground}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.pendingOfferBackground}>
           <ScrollView style={styles.container}>
             <View style={styles.image}>
               <Loader />
@@ -139,6 +140,6 @@ export const CredentialOfferAcceptModal: React.FC<Props> = ({
           </View>
         </SafeAreaView>
       )}
-    </Modal>
+    </SafeAreaModal>
   )
 }

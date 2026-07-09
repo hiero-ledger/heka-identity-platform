@@ -1,11 +1,11 @@
+import { minPINLength } from '@bifold/core/src/constants'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { minPINLength } from '@hyperledger/aries-bifold-core/App/constants'
 import React, { useCallback, useEffect, useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 import DeleteIcon from '../../assets/delete.svg'
 
-export const useStyles = ({ ColorPallet, TextTheme, Spacing, BorderRadius }: HekaTheme) => {
+const useStyles = ({ ColorPalette, TextTheme, Spacing, BorderRadius }: HekaTheme) => {
   return StyleSheet.create({
     container: {
       alignItems: 'center',
@@ -22,7 +22,7 @@ export const useStyles = ({ ColorPallet, TextTheme, Spacing, BorderRadius }: Hek
       width: Spacing.sm,
       height: Spacing.sm,
       borderRadius: BorderRadius.medium,
-      backgroundColor: ColorPallet.brand.secondary,
+      backgroundColor: ColorPalette.brand.secondary,
     },
     itemContainer: {
       justifyContent: 'center',
@@ -75,7 +75,7 @@ const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
             style={{
               ...styles.dot,
               backgroundColor:
-                index < PIN.length ? theme.ColorPallet.brand.primary : theme.ColorPallet.brand.primaryDisabled,
+                index < PIN.length ? theme.ColorPalette.brand.primary : theme.ColorPalette.brand.primaryDisabled,
             }}
           />
         ))}

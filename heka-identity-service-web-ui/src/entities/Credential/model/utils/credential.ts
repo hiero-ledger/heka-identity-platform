@@ -123,7 +123,9 @@ export interface BuildCredentialParams {
   namespace?: string;
 }
 
-export const buildCredential = (params: BuildCredentialParams): OpenIdCredential => {
+export const buildCredential = (
+  params: BuildCredentialParams,
+): OpenIdCredential => {
   switch (params.format) {
     case Openid4CredentialFormat.SdJwt:
       return buildSdJwtCredential(params);

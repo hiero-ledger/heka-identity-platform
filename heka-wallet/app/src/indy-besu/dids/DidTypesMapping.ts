@@ -1,5 +1,4 @@
-import { DidDocument, DidDocumentService, VerificationMethod } from '@credo-ts/core'
-import { SingleOrArray } from '@credo-ts/core/build/utils'
+import { DidDocument, DidDocumentService, VerificationMethod, SingleOrArray } from '@credo-ts/core'
 
 export type IndyBesuService = {
   id: string

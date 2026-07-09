@@ -39,7 +39,7 @@ export const CredentialSent = <T extends object>({
         <Row className={cls.title}>{t('Flow.titles.credentialSent')}</Row>
         <Column className={cls.buttonGroup}>
           <Button
-            buttonType="outlined"
+            buttonType="filled"
             onPress={() => onChangeStep(stepDetails.next?.name)}
           >
             {stepDetails.next?.title}
@@ -47,6 +47,7 @@ export const CredentialSent = <T extends object>({
           {!context.useDemo && (
             <Button
               buttonType="text"
+              className={cls.textButton}
               onPress={() => setTemplateModalOpen(true)}
             >
               {t('Template.titles.main')}
