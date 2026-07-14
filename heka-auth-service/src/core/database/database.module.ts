@@ -1,6 +1,6 @@
 import { ConfigModule, ConfigService } from '@config'
 import { MikroOrmModule } from '@mikro-orm/nestjs'
-import { defineConfig } from '@mikro-orm/postgresql'
+import { defineConfig, PostgreSqlDriver } from '@mikro-orm/postgresql'
 import { Global, Module } from '@nestjs/common'
 
 import { databaseOptions } from './database.options'
@@ -9,6 +9,7 @@ import { databaseOptions } from './database.options'
 @Module({
   imports: [
     MikroOrmModule.forRootAsync({
+      driver: PostgreSqlDriver,
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) =>
@@ -18,6 +19,5 @@ import { databaseOptions } from './database.options'
     }),
   ],
   providers: [ConfigService],
-  exports: [MikroOrmModule],
 })
 export class DatabaseModule {}

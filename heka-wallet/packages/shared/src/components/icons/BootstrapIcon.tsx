@@ -2,7 +2,7 @@ import React from 'react'
 import { StyleSheet, TextStyle, ViewStyle } from 'react-native'
 import { createIconSet } from 'react-native-vector-icons'
 
-import { ColorPallet, IconSizes } from '../../theme'
+import { ColorPalette, IconSizes } from '../../theme'
 
 import bootstrapIconsMap from './BootstrapIcons.json'
 const Icon = createIconSet(bootstrapIconsMap, 'bootstrap-icons')
@@ -26,7 +26,7 @@ interface Props {
 
 export const BootstrapIcon: React.FC<Props> = ({
   name,
-  color = ColorPallet.grayscale.white,
+  color = ColorPalette.grayscale.white,
   size = IconSizes.medium,
   onPress,
   style,

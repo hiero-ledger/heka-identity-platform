@@ -59,8 +59,8 @@ sequenceDiagram
 
 ### 1. Install prerequisites
 
-- Node.js (v18 or higher)
-- yarn v4.9.4
+- Node.js (v22 LTS recommended)
+- yarn v4.16.0
 - Docker
 - An OpenAI API key
 

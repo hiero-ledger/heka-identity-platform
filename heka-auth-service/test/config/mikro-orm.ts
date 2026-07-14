@@ -8,12 +8,8 @@ export default () =>
     password: process.env.MIKRO_ORM_PASSWORD || 'heka1',
     user: process.env.MIKRO_ORM_USER || 'heka',
     port: parseInt(process.env.MIKRO_ORM_PORT || '5432'),
-    driverOptions: {
-      connection: {
-        timezone: 'Z',
-      },
-    },
-    cache: {
+    forceUtcTimezone: true,
+    metadataCache: {
       enabled: false,
     },
     debug: false,

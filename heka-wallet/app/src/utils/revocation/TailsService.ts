@@ -6,7 +6,6 @@ import { AgentContext, FileSystem, TypedArrayEncoder, InjectionSymbols } from '@
 export class TailsService extends BasicTailsFileService {
   private tailsFilePaths: Record<string, string> = {}
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   public async uploadTailsFile(
     agentContext: AgentContext,
     options: {

@@ -1,35 +1,28 @@
 import { DifPexCredentialsForRequest } from '@credo-ts/core'
-import { OpenId4VciResolvedCredentialOffer, OpenId4VcSiopVerifiedAuthorizationRequest } from '@credo-ts/openid4vc'
+import { OpenId4VciAuthorizationFlow, OpenId4VciResolvedCredentialOffer, OpenId4VciVersion } from '@credo-ts/openid4vc'
 
 export const hekaIdentityServiceSdJwtVc = {
   credentialOfferUrl:
     'openid-credential-offer://?credential_offer_uri=https%3A%2F%2F70ff-195-98-90-134.ngrok-free.app%2FopenId%2Foid4vci%2Fdid%3Akey%3Az6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae%2Foffers%2F48cacb0f-1c9a-4340-91d7-85649db26766',
   resolvedCredentialOfferPreAuth: {
     metadata: {
-      issuer:
-        'https://70ff-195-98-90-134.ngrok-free.app/openId/oid4vci/did:key:z6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae',
-      token_endpoint:
-        'https://70ff-195-98-90-134.ngrok-free.app/openId/oid4vci/did:key:z6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae/token',
-      credential_endpoint:
-        'https://70ff-195-98-90-134.ngrok-free.app/openId/oid4vci/did:key:z6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae/credential',
-      authorization_server:
-        'https://70ff-195-98-90-134.ngrok-free.app/openId/oid4vci/did:key:z6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae',
-      authorizationServerType: 'OID4VCI',
-      credentialIssuerMetadata: {
+      originalDraftVersion: 1011,
+      credentialIssuer: {
         credential_issuer:
           'https://70ff-195-98-90-134.ngrok-free.app/openId/oid4vci/did:key:z6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae',
-        token_endpoint:
-          'https://70ff-195-98-90-134.ngrok-free.app/openId/oid4vci/did:key:z6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae/token',
         credential_endpoint:
           'https://70ff-195-98-90-134.ngrok-free.app/openId/oid4vci/did:key:z6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae/credential',
-        credentials_supported: [
-          {
-            id: '635ba519cd19764e84ea67dd',
-            format: 'vc+sd-jwt',
-            vct: 'empl:pda1',
-          },
-        ],
+        credential_configurations_supported: {},
       },
+      authorizationServers: [
+        {
+          issuer:
+            'https://70ff-195-98-90-134.ngrok-free.app/openId/oid4vci/did:key:z6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae',
+          token_endpoint:
+            'https://70ff-195-98-90-134.ngrok-free.app/openId/oid4vci/did:key:z6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae/token',
+        },
+      ],
+      knownCredentialConfigurations: {},
     },
     offeredCredentials: [
       {
@@ -71,6 +64,7 @@ export const hekaIdentityServiceSdJwtVc = {
         },
       },
       credentials: ['635ba519cd19764e84ea67dd'],
+      credential_configuration_ids: ['mock-id-1', 'mock-id-2'],
       credential_issuer:
         'https://70ff-195-98-90-134.ngrok-free.app/openId/oid4vci/did:key:z6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae',
     },
@@ -107,7 +101,8 @@ export const hekaIdentityServiceSdJwtVc = {
       userPinRequired: false,
     },
     version: 1011,
-  } as OpenId4VciResolvedCredentialOffer,
+    // TODO: Remove type assertion and resolve typecheck issues
+  } as unknown as OpenId4VciResolvedCredentialOffer,
   resolvedCredentialOfferAuthorizationCode: {
     metadata: {
       issuer: 'https://api-conformance.ebsi.eu/conformance/v3/issuer-mock',
@@ -117,6 +112,9 @@ export const hekaIdentityServiceSdJwtVc = {
       authorization_server: 'https://api-conformance.ebsi.eu/conformance/v3/auth-mock',
       authorization_endpoint: 'https://api-conformance.ebsi.eu/conformance/v3/auth-mock/authorize',
       authorizationServerType: 'OIDC',
+      credentialIssuer: {
+        credential_issuer: 'https://api-conformance.ebsi.eu/conformance/v3/issuer-mock',
+      },
       credentialIssuerMetadata: {
         credential_issuer: 'https://api-conformance.ebsi.eu/conformance/v3/issuer-mock',
         authorization_server: 'https://api-conformance.ebsi.eu/conformance/v3/auth-mock',
@@ -257,6 +255,7 @@ export const hekaIdentityServiceSdJwtVc = {
     },
     credentialOfferPayload: {
       credential_issuer: 'https://api-conformance.ebsi.eu/conformance/v3/issuer-mock',
+      credential_configuration_ids: ['4cc81f2eE04d-4f28B071-780ecd92ab00'],
       credentials: [
         {
           format: 'jwt_vc_json',
@@ -366,12 +365,9 @@ export const hekaIdentityServiceSdJwtVc = {
     },
   ],
   resolvedIssuanceAuthorizationRequest: {
-    scope: [],
-    redirectUri: 'openid:',
-    clientId:
-      'did:key:z2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9KbshKLJqgChtaZsdJoHURhcHvV6xUHHsa58rjBq2zJ9CEoogzX5wX8V9F4vqKcnXt4nnbCnknByHHxUZwxNf6P7cVsFMS2CJ7uZRAnDLS1dqWDruSgJB5wj4Skpcze7c2zRr',
+    authorizationFlow: OpenId4VciAuthorizationFlow.Oauth2Redirect as const,
     codeVerifier: '594585732332256629581141844468371187764242967805',
-    authorizationRequestUri:
+    authorizationRequestUrl:
       'https://api-conformance.ebsi.eu/conformance/v3/auth-mock/authorize?response_type=code&code_challenge_method=S256&code_challenge=Xjw8b3Ma8gyFCyNaHbR0vPhSUQK4A2oXZjhZDNp_Q-0&authorization_details=%5B%7B%22type%22%3A%22openid_credential%22%2C%22format%22%3A%22jwt_vc_json%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22VerifiableAttestation%22%2C%22CTWalletCrossAuthorisedInTime%22%5D%2C%22locations%22%3A%5B%22https%3A%2F%2Fapi-conformance%2Eebsi%2Eeu%2Fconformance%2Fv3%2Fauth-mock%22%2C%22https%3A%2F%2Fapi-conformance%2Eebsi%2Eeu%2Fconformance%2Fv3%2Fissuer-mock%22%5D%7D%5D&redirect_uri=openid%3A&client_id=did%3Akey%3Az2dmzD81cgPx8Vki7JbuuMmFYrWPgYoytykUZ3eyqht1j9KbshKLJqgChtaZsdJoHURhcHvV6xUHHsa58rjBq2zJ9CEoogzX5wX8V9F4vqKcnXt4nnbCnknByHHxUZwxNf6P7cVsFMS2CJ7uZRAnDLS1dqWDruSgJB5wj4Skpcze7c2zRr&issuer_state=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImRpZDplYnNpOnpqSFpqSjRTeTdyOTJCeFh6RkdzN3FEI1Q2aVBNVy1rOE80dXdaaWQyOUd3TGUtTmpnNDBFNmpOVDdoZExwSjNaU2cifQ%2EeyJpYXQiOjE3MjY0OTQ5MDQsImV4cCI6MTcyNjQ5NTIwNCwiY2xpZW50X2lkIjoiZGlkOmtleTp6MmRtekQ4MWNnUHg4VmtpN0pidXVNbUZZcldQZ1lveXR5a1VaM2V5cWh0MWo5S2JzaEtMSnFnQ2h0YVpzZEpvSFVSaGNIdlY2eFVISHNhNThyakJxMnpKOUNFb29nelg1d1g4VjlGNHZxS2NuWHQ0bm5iQ25rbkJ5SEh4VVp3eE5mNlA3Y1ZzRk1TMkNKN3VaUkFuRExTMWRxV0RydVNnSkI1d2o0U2twY3plN2MyelJyIiwiY3JlZGVudGlhbF90eXBlcyI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlZlcmlmaWFibGVBdHRlc3RhdGlvbiIsIkNUV2FsbGV0Q3Jvc3NBdXRob3Jpc2VkSW5UaW1lIl0sImlzcyI6Imh0dHBzOi8vYXBpLWNvbmZvcm1hbmNlLmVic2kuZXUvY29uZm9ybWFuY2UvdjMvaXNzdWVyLW1vY2siLCJhdWQiOiJodHRwczovL2FwaS1jb25mb3JtYW5jZS5lYnNpLmV1L2NvbmZvcm1hbmNlL3YzL2F1dGgtbW9jayIsInN1YiI6ImRpZDprZXk6ejJkbXpEODFjZ1B4OFZraTdKYnV1TW1GWXJXUGdZb3l0eWtVWjNleXFodDFqOUtic2hLTEpxZ0NodGFac2RKb0hVUmhjSHZWNnhVSEhzYTU4cmpCcTJ6SjlDRW9vZ3pYNXdYOFY5RjR2cUtjblh0NG5uYkNua25CeUhIeFVad3hOZjZQN2NWc0ZNUzJDSjd1WlJBbkRMUzFkcVdEcnVTZ0pCNXdqNFNrcGN6ZTdjMnpSciJ9%2EvMBX3xeTY5MV29lnWoX-hlSV20wAjSx0QPW1MWaq8nuh1uB22DxUAEDQtk4sjiLVNtNaNBgUV2doSXk3n9ambQ&scope=openid',
   },
   presentationRequestUrl:
@@ -513,7 +509,7 @@ export const hekaIdentityServiceSdJwtVc = {
           'https://70ff-195-98-90-134.ngrok-free.app/openId/oid4vp/did:key:z6MkooobRCrvQ1N2fYFNVmvTUCVZhreUqXp69TPLjk7nNgae/authorization-requests/411e9a8a-22f0-49dc-8ad5-d9d5c5b7333e',
       },
       versions: [110],
-    } as unknown as OpenId4VcSiopVerifiedAuthorizationRequest,
+    } as any,
     presentationExchange: {
       definition: {
         id: '73797b0c-dae6-46a7-9700-7850855fee22',
@@ -588,7 +584,7 @@ export const hekaIdentityServiceSdJwtVc = {
         name: 'Example Presentation Definition',
       } as unknown as DifPexCredentialsForRequest,
     },
-  },
+  } as any,
   presentationSubmissionParams: {
     selectedCredentials: { '635ba519cd19764e84ea67dd': '351c4c33-7f3f-4b32-91d5-81132459e16b' },
   },
@@ -600,5 +596,11 @@ export const hekaIdentityServiceSdJwtVc = {
     accessToken:
       'eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSIsImp3ayI6eyJrdHkiOiJPS1AiLCJjcnYiOiJFZDI1NTE5IiwieCI6Ijl3QlZ4Rk40b0xSTTM1eFI3OXh3NkViMVZzbEYxcWlqenJZUmNWM3ZXMUEifX0.eyJwcmVBdXRob3JpemVkQ29kZSI6IjIzMzIzODk3Nzk5MzI2NTM3OTUzNjY4MiIsImlzcyI6Imh0dHBzOi8vNzBmZi0xOTUtOTgtOTAtMTM0Lm5ncm9rLWZyZWUuYXBwL29wZW5JZC9vaWQ0dmNpL2RpZDprZXk6ejZNa29vb2JSQ3J2UTFOMmZZRk5WbXZUVUNWWmhyZVVxWHA2OVRQTGprN25OZ2FlIiwiZXhwIjoxNzI2NDk3NDcyLCJpYXQiOjE3MjY0OTcyOTJ9.ySTbX5eLPYPAS160Z9AAZbDOIV3SON32kT6aPRvB1avmsouETFsGwOppw0_cswBnA1L85t3D7Z-oXVHtUTSSAQ',
     cNonce: '259654279754362217821710',
+    accessTokenResponse: {
+      access_token:
+        'eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSIsImp3ayI6eyJrdHkiOiJPS1AiLCJjcnYiOiJFZDI1NTE5IiwieCI6Ijl3QlZ4Rk40b0xSTTM1eFI3OXh3NkViMVZzbEYxcWlqenJZUmNWM3ZXMUEifX0.eyJwcmVBdXRob3JpemVkQ29kZSI6IjIzMzIzODk3Nzk5MzI2NTM3OTUzNjY4MiIsImlzcyI6Imh0dHBzOi8vNzBmZi0xOTUtOTgtOTAtMTM0Lm5ncm9rLWZyZWUuYXBwL29wZW5JZC9vaWQ0dmNpL2RpZDprZXk6ejZNa29vb2JSQ3J2UTFOMmZZRk5WbXZUVUNWWmhyZVVxWHA2OVRQTGprN25OZ2FlIiwiZXhwIjoxNzI2NDk3NDcyLCJpYXQiOjE3MjY0OTcyOTJ9.ySTbX5eLPYPAS160Z9AAZbDOIV3SON32kT6aPRvB1avmsouETFsGwOppw0_cswBnA1L85t3D7Z-oXVHtUTSSAQ',
+      token_type: 'bearer',
+      c_nonce: '259654279754362217821710',
+    },
   },
 }

@@ -60,7 +60,7 @@ export class AnoncredsIndyBesuRegistrar extends AnoncredsRegistry {
     tenantAgent: TenantAgent,
     issuerId: string,
     credentialDefinitionId: string,
-    maximumCredentialNumber?: number | undefined,
+    maximumCredentialNumber?: number,
   ): Promise<RegisterRevocationRegistryDefinitionReturn> {
     throw new Error('Method not implemented.')
   }

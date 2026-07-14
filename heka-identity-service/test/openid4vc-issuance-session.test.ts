@@ -1,7 +1,8 @@
 import { Server } from 'net'
 
 import { Agent, DidKey, KeyDidCreateOptions, Kms, SdJwtVcRecord } from '@credo-ts/core'
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
@@ -16,6 +17,7 @@ import { createAgent, TestAgentModulesMap } from './helpers/test-agent'
 
 describe('E2E issuance session', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
@@ -23,10 +25,10 @@ describe('E2E issuance session', () => {
   let agent: Agent<TestAgentModulesMap>
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    orm = await initializeMikroOrm()
+    ormSchemaGenerator = orm.schema
 
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     agent = createAgent()
     await agent.initialize()
@@ -42,7 +44,8 @@ describe('E2E issuance session', () => {
 
     await nestApp.close()
 
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   async function testCredentialIssuance(didMethod: string, expectedAlg: string) {
@@ -219,7 +222,7 @@ describe('E2E issuance session', () => {
       claimFormat: 'vc+sd-jwt',
       encoded: expect.any(String),
       compact: expect.any(String),
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
       header: { alg: expectedAlg, kid: `#${issuerDidKey.publicJwk.fingerprint}`, typ: 'vc+sd-jwt' },
       payload: {
         _sd_alg: 'sha-256',

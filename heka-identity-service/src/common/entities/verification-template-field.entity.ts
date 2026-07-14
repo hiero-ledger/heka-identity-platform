@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, Index } from '@mikro-orm/core'
+import { Entity, ManyToOne, Index } from '@mikro-orm/decorators/legacy'
 
 import { Identified } from './identified.entity'
 import { SchemaField } from './schema-field.entity'

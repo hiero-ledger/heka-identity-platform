@@ -1,6 +1,7 @@
 import { DidCommConnectionEventTypes, DidCommCredentialEventTypes, DidCommProofEventTypes } from '@credo-ts/didcomm'
 import { OpenId4VcVerifierEvents, OpenId4VcIssuerEvents } from '@credo-ts/openid4vc'
-import { EntityManager, MikroORM, UseRequestContext } from '@mikro-orm/core'
+import { EntityManager, MikroORM } from '@mikro-orm/core'
+import { CreateRequestContext } from '@mikro-orm/decorators/legacy'
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
 
 import { Agent, AGENT_TOKEN } from 'common/agent'
@@ -28,12 +29,15 @@ const NOTIFICATION_EVENT_TYPES: NotificationEventType[] = [
 
 @Injectable()
 export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy {
+  private readonly eventNotificationHandler = this.sendEventNotification.bind(this)
+  private isSubscribed = false
+
   public constructor(
     @Inject(AGENT_TOKEN)
     private readonly agent: Agent,
     private readonly notificationService: NotificationService,
-    // @ts-expect-error: The property is used by @UseRequestContext
-    // See https://mikro-orm.io/docs/identity-map#userequestcontext-decorator
+    // @ts-expect-error: The property is used by @CreateRequestContext
+    // See https://mikro-orm.io/docs/identity-map#createrequestcontext-decorator
     private readonly orm: MikroORM,
     private readonly em: EntityManager,
     @InjectLogger(NotificationEventsListener)
@@ -43,18 +47,29 @@ export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy
   }
 
   public onModuleInit() {
-    for (const eventType of NOTIFICATION_EVENT_TYPES) {
-      this.agent.events.on(eventType, this.sendEventNotification.bind(this))
+    if (this.isSubscribed) {
+      this.logger.warn('Notification event listeners are already registered, skipping duplicate registration')
+      return
     }
+
+    for (const eventType of NOTIFICATION_EVENT_TYPES) {
+      this.agent.events.on(eventType, this.eventNotificationHandler)
+    }
+    this.isSubscribed = true
   }
 
   public onModuleDestroy() {
-    for (const eventType of NOTIFICATION_EVENT_TYPES) {
-      this.agent.events.off(eventType, this.sendEventNotification.bind(this))
+    if (!this.isSubscribed) {
+      return
     }
+
+    for (const eventType of NOTIFICATION_EVENT_TYPES) {
+      this.agent.events.off(eventType, this.eventNotificationHandler)
+    }
+    this.isSubscribed = false
   }
 
-  @UseRequestContext()
+  @CreateRequestContext()
   private async sendEventNotification(event: NotificationEvent) {
     const logger = this.logger.child('sendEventNotification', { event })
     logger.trace('>')

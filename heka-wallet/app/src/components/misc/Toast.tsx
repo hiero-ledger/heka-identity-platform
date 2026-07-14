@@ -20,7 +20,7 @@ interface BaseToastProps {
   toastType: string
 }
 
-const useStyles = ({ TextTheme, ColorPallet, Spacing, BorderRadius }: HekaTheme) => {
+const useStyles = ({ TextTheme, ColorPalette, Spacing, BorderRadius }: HekaTheme) => {
   return StyleSheet.create({
     container: {
       width: '90%',
@@ -33,7 +33,7 @@ const useStyles = ({ TextTheme, ColorPallet, Spacing, BorderRadius }: HekaTheme)
     },
     text: {
       ...TextTheme.normal,
-      color: ColorPallet.grayscale.white,
+      color: ColorPalette.grayscale.white,
     },
   })
 }
@@ -52,13 +52,13 @@ const BaseToast: React.FC<BaseToastProps> = ({ text1, text2, toastType }) => {
   const backgroundColor = useMemo(() => {
     switch (toastType) {
       case ToastType.Success:
-        return theme.ColorPallet.grayscale.black
+        return theme.ColorPalette.grayscale.black
       case ToastType.Info:
-        return theme.ColorPallet.notification.info
+        return theme.ColorPalette.notification.info
       case ToastType.Warn:
-        return theme.ColorPallet.notification.warn
+        return theme.ColorPalette.notification.warn
       case ToastType.Error:
-        return theme.ColorPallet.semantic.error
+        return theme.ColorPalette.semantic.error
       default:
         throw new Error('ToastType was not set correctly.')
     }

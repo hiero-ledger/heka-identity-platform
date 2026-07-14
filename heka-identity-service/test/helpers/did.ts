@@ -10,7 +10,7 @@ export class DidUtilities {
     const response = await request(app)
       .post('/dids')
       .auth(authToken, { type: 'bearer' })
-      .send({ method } as CreateDidRequestDto)
+      .send({ method } satisfies CreateDidRequestDto)
 
     if (response.status === 201) {
       return { ...response.body } as DidDocumentDto

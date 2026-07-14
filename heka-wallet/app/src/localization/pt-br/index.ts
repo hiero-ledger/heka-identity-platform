@@ -193,14 +193,14 @@ const translation = {
   },
   "CredentialOffer": {
     "EnterCredentialPIN": "Por favor, insira o PIN da credencial",
-    "CredentialAddedToYourWallet": "Sua credencial está pronta para uso!",
+    "CredentialAddedToYourWallet": "Sua credencial está pronta para uso.",
     "CredentialOnTheWay": "Sua credencial está a caminho.",
     "IssuedBy": "Emitido por"
   },
   "ProofRequest": {
     "RequestedInformation": "Informações solicitadas",
     "PresentationOnTheWay": "Sua apresentação está a caminho.",
-    "PresentationAccepted": "Você está dentro! \nSua apresentação foi aceita."
+    "PresentationAccepted": "Você está dentro! \nSua prova de apresentação foi aceita."
   },
   "Notifications": {
     "CredentialOffer": "Oferta de credencial",
@@ -328,6 +328,15 @@ const translation = {
     "ProofRequestRejected": "Rejeitou uma solicitação de prova",
     "ProofRequestRejectReceived": "Rejeitou uma solicitação de prova",
     "ProofRequestSatisfied": "Compartilhou informações"
+  },
+  "DigitalCredentials": {
+    "EnterPinToShare": "Insira seu PIN para compartilhar uma credencial",
+    "SharingWith": "Compartilhando com {{origin}}",
+    "IncorrectPin": "PIN incorreto. Tente novamente.",
+    "Cancel": "Cancelar",
+    "CredentialTitleFallback": "Credencial",
+    "IssuedBy": "Emitido por {{issuer}}",
+    "UnknownIssuer": "Emissor desconhecido"
   }
 }
 

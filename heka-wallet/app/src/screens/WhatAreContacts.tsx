@@ -1,10 +1,12 @@
+import { Link, Screens, Stacks } from '@bifold/core'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Link, Screens, Stacks } from '@hyperledger/aries-bifold-core'
-import UnorderedList from '@hyperledger/aries-bifold-core/App/components/misc/UnorderedList'
 import { NavigationProp, ParamListBase } from '@react-navigation/native'
 import React, { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+
+import { UnorderedList } from '../components/misc/UnorderedList'
 
 interface WhatAreContactsProps {
   navigation: NavigationProp<ParamListBase>

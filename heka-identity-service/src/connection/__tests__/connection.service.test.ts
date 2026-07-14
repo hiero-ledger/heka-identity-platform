@@ -20,8 +20,8 @@ describe('ConnectionService', () => {
       didcomm: {
         connections: { getAll: vi.fn(), findById: vi.fn(), findAllByOutOfBandId: vi.fn() },
         oob: { createInvitation: vi.fn(), receiveInvitationFromUrl: vi.fn() },
-      } as any,
-      dependencyManager: { resolve: vi.fn() } as any,
+      },
+      dependencyManager: { resolve: vi.fn() },
     })
   })
 
@@ -68,7 +68,7 @@ describe('ConnectionService', () => {
     }
 
     test('creates invitation with request label and imageUrl', async () => {
-      vi.mocked(userService.getMe).mockResolvedValue({ name: 'Alice', logo: 'https://logo.png' } as any)
+      vi.mocked(userService.getMe).mockResolvedValue({ name: 'Alice', logo: 'https://logo.png' })
 
       const mockOobRecord = oobRecordStub({
         id: 'oob-1',
@@ -102,7 +102,7 @@ describe('ConnectionService', () => {
     })
 
     test('falls back to user name and logo when not provided in request', async () => {
-      vi.mocked(userService.getMe).mockResolvedValue({ name: 'Alice', logo: 'https://alice-logo.png' } as any)
+      vi.mocked(userService.getMe).mockResolvedValue({ name: 'Alice', logo: 'https://alice-logo.png' })
 
       const mockOobRecord = oobRecordStub({
         id: 'oob-2',

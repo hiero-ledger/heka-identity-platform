@@ -1,35 +1,23 @@
+import { DidJwk, DidKey, JwkDidCreateOptions, KeyDidCreateOptions, Kms } from '@credo-ts/core'
 import {
-  DidJwk,
-  DidKey,
-  DifPexCredentialsForRequest,
-  getJwkFromKey,
-  JwaSignatureAlgorithm,
-  JwkDidCreateOptions,
-  KeyDidCreateOptions,
-  Mdoc,
-  MdocRecord,
-  SdJwtVcRecord,
-  W3cCredentialRecord,
-} from '@credo-ts/core'
-import {
+  OpenId4VcCredentialHolderBinding,
   OpenId4VciCredentialFormatProfile,
   OpenId4VciRequestTokenResponse,
   OpenId4VciResolvedAuthorizationRequest,
-  OpenId4VciResolvedAuthorizationRequestWithCode,
   OpenId4VciResolvedCredentialOffer,
   OpenId4VciTokenRequestOptions,
-  OpenId4VcSiopVerifiedAuthorizationRequest,
+  getOfferedCredentials,
 } from '@credo-ts/openid4vc'
-import { useAgent } from '@credo-ts/react-hooks'
-import { getHostNameFromUrl } from '@heka-wallet/shared'
-import { BifoldAgent } from '@hyperledger/aries-bifold-core'
-import { PRE_AUTH_GRANT_LITERAL } from '@sphereon/oid4vci-common'
 import { useCallback } from 'react'
 
-import { extractOpenId4VcCredentialMetadata, setOpenId4VcCredentialMetadata } from './metadata'
-import { OpenId4VcPresentationRequest } from './types'
+import { useHekaAgent } from '../utils/agent'
 
-// Credential formats supported by the wallet
+import { extractOpenId4VcCredentialMetadata, setOpenId4VcCredentialMetadata } from './metadata'
+import { resolvePresentationRequest, acceptPresentationRequest } from './openid4vc'
+import { OpenId4VcPresentationRequest, OpenIdPresentationSubmissionParams } from './types'
+
+export const PRE_AUTH_GRANT_LITERAL = 'urn:ietf:params:oauth:grant-type:pre-authorized_code'
+
 const WALLET_SUPPORTED_CREDENTIAL_FORMATS: ReadonlyArray<string> = [
   OpenId4VciCredentialFormatProfile.SdJwtVc,
   OpenId4VciCredentialFormatProfile.JwtVcJson,
@@ -41,11 +29,14 @@ const walletSupportsCredentialFormat = (format?: string) =>
   format !== undefined && WALLET_SUPPORTED_CREDENTIAL_FORMATS.includes(format)
 
 const formatOfferedCredentialDescriptions = (
-  offeredCredentials: OpenId4VciResolvedCredentialOffer['offeredCredentials']
-) => offeredCredentials.map((credential) => `${credential.id}: ${credential.format ?? '<missing format>'}`).join(', ')
+  offeredCredentials: OpenId4VciResolvedCredentialOffer['offeredCredentialConfigurations']
+) =>
+  Object.keys(offeredCredentials)
+    .map((credentialId) => `${credentialId}: ${offeredCredentials[credentialId].format ?? '<missing format>'}`)
+    .join(', ')
 
 export const useOpenIdHandlers = () => {
-  const { agent, publicDid } = useAgent<BifoldAgent>()
+  const { agent, publicDid } = useHekaAgent()
 
   const resolveOpenId4VciOffer = useCallback(
     async ({
@@ -74,7 +65,7 @@ export const useOpenIdHandlers = () => {
         uri: offer.uri,
       })
 
-      const resolvedCredentialOffer = await agent.modules.openId4VcHolder.resolveCredentialOffer(offerUri)
+      const resolvedCredentialOffer = await agent.openid4vc.holder.resolveCredentialOffer(offerUri)
       let resolvedAuthorizationRequest: OpenId4VciResolvedAuthorizationRequest | undefined = undefined
 
       // NOTE: we always assume scopes are used at the moment
@@ -87,16 +78,9 @@ export const useOpenIdHandlers = () => {
         }
 
         if (authorization) {
-          const uniqueScopes = Array.from(
-            new Set(
-              resolvedCredentialOffer.offeredCredentials.map((o) => o.scope).filter((s): s is string => s !== undefined)
-            )
-          )
-
-          resolvedAuthorizationRequest = await agent.modules.openId4VcHolder.resolveIssuanceAuthorizationRequest(
+          resolvedAuthorizationRequest = await agent.openid4vc.holder.resolveOpenId4VciAuthorizationRequest(
             resolvedCredentialOffer,
             {
-              scope: uniqueScopes,
               redirectUri: authorization.redirectUri,
               clientId: authorization.clientId,
             }
@@ -119,7 +103,7 @@ export const useOpenIdHandlers = () => {
       userPin,
     }: {
       resolvedCredentialOffer: OpenId4VciResolvedCredentialOffer
-      resolvedAuthorizationRequest?: OpenId4VciResolvedAuthorizationRequestWithCode
+      resolvedAuthorizationRequest?: OpenId4VciResolvedAuthorizationRequest
       userPin?: string
     }) => {
       if (!agent) {
@@ -132,10 +116,21 @@ export const useOpenIdHandlers = () => {
       }
 
       if (resolvedAuthorizationRequest) {
-        tokenOptions = { ...tokenOptions, resolvedAuthorizationRequest, code: resolvedAuthorizationRequest.code }
+        tokenOptions = {
+          ...tokenOptions,
+          dpop: resolvedAuthorizationRequest.dpop
+            ? {
+                alg: resolvedAuthorizationRequest.dpop.jwk.supportedSignatureAlgorithms[0],
+                jwk: resolvedAuthorizationRequest.dpop.jwk,
+              }
+            : undefined,
+          // @ts-expect-error - TODO: Fix typecheck here
+          codeVerifier:
+            'codeVerifier' in resolvedAuthorizationRequest ? resolvedAuthorizationRequest.codeVerifier : undefined,
+        }
       }
 
-      return await agent.modules.openId4VcHolder.requestToken(tokenOptions)
+      return await agent.openid4vc.holder.requestToken(tokenOptions)
     },
     [agent]
   )
@@ -158,15 +153,19 @@ export const useOpenIdHandlers = () => {
         throw new Error('Credo agent is not initialized')
       }
 
-      // By default request the first offered credential with a supported format
-      const offeredCredentialToRequest = credentialConfigurationIdToRequest
-        ? resolvedCredentialOffer.offeredCredentials.find(
-            (offered) => offered.id === credentialConfigurationIdToRequest
-          )
-        : resolvedCredentialOffer.offeredCredentials.find((offered) => walletSupportsCredentialFormat(offered.format))
-      if (!offeredCredentialToRequest) {
+      // TODO: Support batch issuance
+      const credentialIdsToRequest = credentialConfigurationIdToRequest
+        ? [credentialConfigurationIdToRequest]
+        : [resolvedCredentialOffer.credentialOfferPayload.credential_configuration_ids[0]]
+
+      const offeredCredentialsToRequest = getOfferedCredentials(
+        credentialIdsToRequest,
+        resolvedCredentialOffer.offeredCredentialConfigurations
+      )
+
+      if (!offeredCredentialsToRequest) {
         const offeredCredentialDescriptions = formatOfferedCredentialDescriptions(
-          resolvedCredentialOffer.offeredCredentials
+          resolvedCredentialOffer.offeredCredentialConfigurations
         )
         const errorMessage = credentialConfigurationIdToRequest
           ? `Parameter 'credentialConfigurationIdToRequest' with value ${credentialConfigurationIdToRequest} is not a credential_configuration_id in the credential offer.`
@@ -174,30 +173,35 @@ export const useOpenIdHandlers = () => {
         throw new Error(errorMessage)
       }
 
-      if (credentialConfigurationIdToRequest && !walletSupportsCredentialFormat(offeredCredentialToRequest.format)) {
+      if (
+        credentialConfigurationIdToRequest &&
+        !walletSupportsCredentialFormat(offeredCredentialsToRequest[credentialConfigurationIdToRequest].format)
+      ) {
         const offeredCredentialDescriptions = formatOfferedCredentialDescriptions(
-          resolvedCredentialOffer.offeredCredentials
+          resolvedCredentialOffer.offeredCredentialConfigurations
         )
         throw new Error(
-          `Credential configuration '${credentialConfigurationIdToRequest}' uses unsupported format '${offeredCredentialToRequest.format}'. Supported formats: ${WALLET_SUPPORTED_CREDENTIAL_FORMATS.join(', ')}. Offered credentials: ${offeredCredentialDescriptions}`
+          `Credential configuration '${credentialConfigurationIdToRequest}' uses unsupported format '${offeredCredentialsToRequest[credentialConfigurationIdToRequest].format}'. Supported formats: ${WALLET_SUPPORTED_CREDENTIAL_FORMATS.join(', ')}. Offered credentials: ${offeredCredentialDescriptions}`
         )
       }
 
-      // FIXME: Return credential_supported entry for credential so it's easy to store metadata
-      const credentials = await agent.modules.openId4VcHolder.requestCredentials({
+      const { credentials } = await agent.openid4vc.holder.requestCredentials({
         resolvedCredentialOffer,
         ...accessToken,
         clientId,
-        credentialsToRequest: [offeredCredentialToRequest.id],
+        credentialConfigurationIds: Object.keys(offeredCredentialsToRequest),
         verifyCredentialStatus: false,
-        allowedProofOfPossessionSignatureAlgorithms: [JwaSignatureAlgorithm.EdDSA, JwaSignatureAlgorithm.ES256],
+        allowedProofOfPossessionSignatureAlgorithms: [
+          Kms.KnownJwaSignatureAlgorithms.EdDSA,
+          Kms.KnownJwaSignatureAlgorithms.ES256,
+        ],
         credentialBindingResolver: async ({
           supportedDidMethods,
-          keyType,
+          proofTypes,
           supportsAllDidMethods,
           supportsJwk,
           credentialFormat,
-        }) => {
+        }): Promise<OpenId4VcCredentialHolderBinding> => {
           // Prefer did:jwk, otherwise use did:key, otherwise use undefined
           let didMethod: 'key' | 'jwk' | undefined =
             supportsAllDidMethods || supportedDidMethods?.includes('did:jwk')
@@ -211,15 +215,24 @@ export const useOpenIdHandlers = () => {
             didMethod = 'key'
           }
 
-          const key = await agent.wallet.createKey({
-            keyType,
-          })
+          // TODO: support key attestations
+          if (!proofTypes.jwt || proofTypes.jwt.keyAttestationsRequired) {
+            throw new Error('Unable to request credentials. Only jwt proof type without key attestations supported')
+          }
+
+          const signatureAlgorithm = proofTypes.jwt.supportedSignatureAlgorithms[0]
+
+          const key = await agent.kms
+            .createKeyForSignatureAlgorithm({
+              algorithm: signatureAlgorithm,
+            })
+            .then((key) => Kms.PublicJwk.fromUnknown(key.publicJwk))
 
           if (didMethod) {
             const didResult = await agent.dids.create<JwkDidCreateOptions | KeyDidCreateOptions>({
               method: didMethod,
               options: {
-                key,
+                keyId: key.keyId,
               },
             })
 
@@ -233,25 +246,30 @@ export const useOpenIdHandlers = () => {
               verificationMethodId = didJwk.verificationMethodId
             } else {
               const didKey = DidKey.fromDid(didResult.didState.did)
-              verificationMethodId = `${didKey.did}#${didKey.key.fingerprint}`
+              verificationMethodId = `${didKey.did}#${didKey.publicJwk.fingerprint}`
             }
 
             return {
-              didUrl: verificationMethodId,
+              didUrls: [verificationMethodId],
               method: 'did',
             }
           }
 
-          // Support plain jwk for sd-jwt only
-          if (supportsJwk && credentialFormat === OpenId4VciCredentialFormatProfile.SdJwtVc) {
+          // Support plain jwk for sd-jwt and mdoc
+          if (
+            supportsJwk &&
+            (credentialFormat === OpenId4VciCredentialFormatProfile.SdJwtVc ||
+              credentialFormat === OpenId4VciCredentialFormatProfile.SdJwtDc ||
+              credentialFormat === OpenId4VciCredentialFormatProfile.MsoMdoc)
+          ) {
             return {
               method: 'jwk',
-              jwk: getJwkFromKey(key),
+              keys: [key],
             }
           }
 
           throw new Error(
-            `No supported binding method could be found. Supported methods are did:key and did:jwk, or plain jwk for sd-jwt. Issuer supports ${
+            `No supported binding method could be found. Supported methods are did:key and did:jwk, or plain jwk for sd-jwt/mdoc. Issuer supports ${
               supportsJwk ? 'jwk, ' : ''
             }${supportedDidMethods?.join(', ') ?? 'Unknown'}`
           )
@@ -261,30 +279,15 @@ export const useOpenIdHandlers = () => {
       const [firstCredential] = credentials
       if (!firstCredential) throw new Error('Error retrieving credential.')
 
-      let record: SdJwtVcRecord | W3cCredentialRecord | MdocRecord
+      const { record, credentialConfiguration } = firstCredential
 
-      // TODO: Add claimFormat to SdJwtVc
-      if ('compact' in firstCredential.credential) {
-        record = new SdJwtVcRecord({
-          compactSdJwtVc: firstCredential.credential.compact,
-        })
-      } else if (firstCredential.credential instanceof Mdoc) {
-        record = new MdocRecord({ mdoc: firstCredential.credential })
-      } else {
-        record = new W3cCredentialRecord({
-          credential: firstCredential.credential,
-          // FIXME: We don't support expanded types right now, it would become problem for JSON-LD support
-          tags: {},
-        })
-      }
-
-      const openId4VcMetadata = extractOpenId4VcCredentialMetadata(offeredCredentialToRequest, {
-        id: resolvedCredentialOffer.metadata.issuer,
-        display: resolvedCredentialOffer.metadata.credentialIssuerMetadata.display,
+      const openId4VcMetadata = extractOpenId4VcCredentialMetadata(credentialConfiguration, {
+        id: resolvedCredentialOffer.metadata.credentialIssuer.credential_issuer,
+        display: resolvedCredentialOffer.metadata.credentialIssuer.display,
       })
 
       agent.config.logger.info('Resolved openid issuer metadata', {
-        display: resolvedCredentialOffer.metadata.credentialIssuerMetadata?.display,
+        display: resolvedCredentialOffer.metadata.credentialIssuer.display,
         issuerId: openId4VcMetadata.issuer.id,
       })
 
@@ -296,89 +299,29 @@ export const useOpenIdHandlers = () => {
   )
 
   const resolveOpenId4VpPresentationRequest = useCallback(
-    async (request: { data?: string; uri?: string }): Promise<OpenId4VcPresentationRequest> => {
+    async (request: { data?: string; uri?: string }, origin?: string): Promise<OpenId4VcPresentationRequest> => {
       if (!agent) {
         throw new Error('Credo agent is not initialized')
       }
 
-      let requestUri = request.uri
-
-      if (!requestUri && request.data) {
-        // FIXME: Credo only support request string, but we already parsed it before. So we construct an request here
-        // but in the future we need to support the parsed request in Credo directly
-        requestUri = `openid://request=${encodeURIComponent(request.data)}`
-      } else if (!requestUri) {
-        throw new Error('Either data or uri must be provided')
-      }
-
-      agent.config.logger.info(`Receiving openid uri ${requestUri}`, {
-        requestUri,
-        data: request.data,
-        uri: request.uri,
-      })
-
-      const resolved = await agent.modules.openId4VcHolder.resolveSiopAuthorizationRequest(requestUri)
-
-      if (!resolved.presentationExchange) {
-        throw new Error('No presentation exchange found in authorization request.')
-      }
-
-      return {
-        ...resolved.presentationExchange,
-        authorizationRequest: resolved.authorizationRequest,
-        verifierHostName: resolved.authorizationRequest.responseURI
-          ? getHostNameFromUrl(resolved.authorizationRequest.responseURI)
-          : undefined,
-      }
+      return resolvePresentationRequest(agent, { uri: request.uri, data: request.data, origin })
     },
     [agent]
   )
 
   const acceptOpenId4VpPresentationRequest = useCallback(
     async ({
-      authorizationRequest,
-      credentialsForRequest,
+      submissionParams,
       selectedCredentials,
     }: {
-      authorizationRequest: OpenId4VcSiopVerifiedAuthorizationRequest
-      credentialsForRequest: DifPexCredentialsForRequest
+      submissionParams: OpenIdPresentationSubmissionParams
       selectedCredentials: { [inputDescriptorId: string]: string }
     }) => {
       if (!agent) {
         throw new Error('Credo agent is not initialized')
       }
 
-      if (!credentialsForRequest.areRequirementsSatisfied) {
-        throw new Error('Requirements from proof request are not satisfied')
-      }
-
-      const credentials = Object.fromEntries(
-        credentialsForRequest.requirements.flatMap((requirement) =>
-          requirement.submissionEntry.map((entry) => {
-            const credentialId = selectedCredentials[entry.inputDescriptorId]
-
-            // Use first available credential if not found in 'selectedCredentials'
-            const credential =
-              entry.verifiableCredentials.find((vc) => vc.credentialRecord.id === credentialId) ??
-              entry.verifiableCredentials[0]
-
-            return [entry.inputDescriptorId, [credential.credentialRecord]]
-          })
-        )
-      )
-
-      const result = await agent.modules.openId4VcHolder.acceptSiopAuthorizationRequest({
-        authorizationRequest,
-        presentationExchange: {
-          credentials,
-        },
-      })
-
-      if (result.serverResponse.status < 200 || result.serverResponse.status > 299) {
-        throw new Error(`Error while accepting authorization request. ${result.serverResponse.body as string}`)
-      }
-
-      return result
+      return acceptPresentationRequest(agent, { submissionParams, selectedCredentials })
     },
     [agent]
   )

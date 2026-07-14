@@ -1,647 +1,45 @@
 {
+  "name": "public",
   "namespaces": [
     "public"
   ],
-  "name": "public",
   "tables": [
     {
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "message_delivery_type": {
-          "name": "message_delivery_type",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "enumItems": [
-            "WebHook",
-            "WebSocket"
-          ],
-          "mappedType": "enum"
-        },
-        "web_hook": {
-          "name": "web_hook",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "string"
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "string"
-        },
-        "logo": {
-          "name": "logo",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "string"
-        },
-        "background_color": {
-          "name": "background_color",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "string"
-        },
-        "registered_at": {
-          "name": "registered_at",
-          "type": "timestamptz(0)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "length": 0,
-          "mappedType": "datetime"
-        }
-      },
-      "name": "user",
+      "name": "credential_status_list",
       "schema": "public",
-      "indexes": [
-        {
-          "keyName": "user_pkey",
-          "columnNames": [
-            "id"
-          ],
-          "composite": false,
-          "primary": true,
-          "unique": true
-        }
-      ],
-      "checks": [],
-      "foreignKeys": {}
-    },
-    {
       "columns": {
+        "encoded_list": {
+          "name": "encoded_list",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
         "id": {
           "name": "id",
           "type": "varchar(255)",
           "unsigned": false,
           "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "owner_id": {
-          "name": "owner_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(500)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 500,
-          "mappedType": "string"
-        },
-        "logo": {
-          "name": "logo",
-          "type": "varchar(4000)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "length": 4000,
-          "mappedType": "string"
-        },
-        "bg_color": {
-          "name": "bg_color",
-          "type": "varchar(8)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "length": 8,
-          "mappedType": "string"
-        },
-        "order_index": {
-          "name": "order_index",
-          "type": "int",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "integer"
-        },
-        "is_hidden": {
-          "name": "is_hidden",
-          "type": "boolean",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "default": "false",
-          "mappedType": "boolean"
-        }
-      },
-      "name": "schema",
-      "schema": "public",
-      "indexes": [
-        {
-          "columnNames": [
-            "owner_id"
-          ],
-          "composite": false,
-          "keyName": "schema_owner_id_index",
-          "primary": false,
-          "unique": false
-        },
-        {
-          "keyName": "schema_pkey",
-          "columnNames": [
-            "id"
-          ],
-          "composite": false,
           "primary": true,
-          "unique": true
-        }
-      ],
-      "checks": [],
-      "foreignKeys": {
-        "schema_owner_id_foreign": {
-          "constraintName": "schema_owner_id_foreign",
-          "columnNames": [
-            "owner_id"
-          ],
-          "localTableName": "public.schema",
-          "referencedColumnNames": [
-            "id"
-          ],
-          "referencedTableName": "public.user",
-          "updateRule": "cascade"
-        }
-      }
-    },
-    {
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
           "nullable": false,
-          "mappedType": "string"
-        },
-        "schema_id": {
-          "name": "schema_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "protocol": {
-          "name": "protocol",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "credential_format": {
-          "name": "credential_format",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "string"
-        },
-        "network": {
-          "name": "network",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "string"
-        },
-        "did": {
-          "name": "did",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "credentials": {
-          "name": "credentials",
-          "type": "jsonb",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "json"
-        }
-      },
-      "name": "schema_registration",
-      "schema": "public",
-      "indexes": [
-        {
-          "columnNames": [
-            "schema_id"
-          ],
-          "composite": false,
-          "keyName": "schema_registration_schema_id_index",
-          "primary": false,
-          "unique": false
-        },
-        {
-          "keyName": "schema_registration_pkey",
-          "columnNames": [
-            "id"
-          ],
-          "composite": false,
-          "primary": true,
-          "unique": true
-        }
-      ],
-      "checks": [],
-      "foreignKeys": {
-        "schema_registration_schema_id_foreign": {
-          "constraintName": "schema_registration_schema_id_foreign",
-          "columnNames": [
-            "schema_id"
-          ],
-          "localTableName": "public.schema_registration",
-          "referencedColumnNames": [
-            "id"
-          ],
-          "referencedTableName": "public.schema",
-          "updateRule": "cascade"
-        }
-      }
-    },
-    {
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "schema_id": {
-          "name": "schema_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(250)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 250,
-          "mappedType": "string"
-        },
-        "order_index": {
-          "name": "order_index",
-          "type": "int",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "integer"
-        }
-      },
-      "name": "schema_field",
-      "schema": "public",
-      "indexes": [
-        {
-          "columnNames": [
-            "schema_id"
-          ],
-          "composite": false,
-          "keyName": "schema_field_schema_id_index",
-          "primary": false,
-          "unique": false
-        },
-        {
-          "keyName": "schema_field_pkey",
-          "columnNames": [
-            "id"
-          ],
-          "composite": false,
-          "primary": true,
-          "unique": true
-        }
-      ],
-      "checks": [],
-      "foreignKeys": {
-        "schema_field_schema_id_foreign": {
-          "constraintName": "schema_field_schema_id_foreign",
-          "columnNames": [
-            "schema_id"
-          ],
-          "localTableName": "public.schema_field",
-          "referencedColumnNames": [
-            "id"
-          ],
-          "referencedTableName": "public.schema",
-          "updateRule": "cascade"
-        }
-      }
-    },
-    {
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "owner_id": {
-          "name": "owner_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(500)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 500,
-          "mappedType": "string"
-        },
-        "protocol": {
-          "name": "protocol",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "credential_format": {
-          "name": "credential_format",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "network": {
-          "name": "network",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "did": {
-          "name": "did",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "schema_id": {
-          "name": "schema_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "is_pinned": {
-          "name": "is_pinned",
-          "type": "boolean",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "default": "false",
-          "mappedType": "boolean"
-        },
-        "order_index": {
-          "name": "order_index",
-          "type": "int",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "integer"
-        }
-      },
-      "name": "issuance_template",
-      "schema": "public",
-      "indexes": [
-        {
-          "columnNames": [
-            "owner_id"
-          ],
-          "composite": false,
-          "keyName": "issuance_template_owner_id_index",
-          "primary": false,
-          "unique": false
-        },
-        {
-          "columnNames": [
-            "schema_id"
-          ],
-          "composite": false,
-          "keyName": "issuance_template_schema_id_index",
-          "primary": false,
-          "unique": false
-        },
-        {
-          "keyName": "issuance_template_pkey",
-          "columnNames": [
-            "id"
-          ],
-          "composite": false,
-          "primary": true,
-          "unique": true
-        }
-      ],
-      "checks": [],
-      "foreignKeys": {
-        "issuance_template_owner_id_foreign": {
-          "constraintName": "issuance_template_owner_id_foreign",
-          "columnNames": [
-            "owner_id"
-          ],
-          "localTableName": "public.issuance_template",
-          "referencedColumnNames": [
-            "id"
-          ],
-          "referencedTableName": "public.user",
-          "updateRule": "cascade"
-        },
-        "issuance_template_schema_id_foreign": {
-          "constraintName": "issuance_template_schema_id_foreign",
-          "columnNames": [
-            "schema_id"
-          ],
-          "localTableName": "public.issuance_template",
-          "referencedColumnNames": [
-            "id"
-          ],
-          "referencedTableName": "public.schema",
-          "updateRule": "cascade"
-        }
-      }
-    },
-    {
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "template_id": {
-          "name": "template_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "schema_field_id": {
-          "name": "schema_field_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "value": {
-          "name": "value",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "mappedType": "string"
-        }
-      },
-      "name": "issuance_template_field",
-      "schema": "public",
-      "indexes": [
-        {
-          "columnNames": [
-            "template_id"
-          ],
-          "composite": false,
-          "keyName": "issuance_template_field_template_id_index",
-          "primary": false,
-          "unique": false
-        },
-        {
-          "columnNames": [
-            "schema_field_id"
-          ],
-          "composite": false,
-          "keyName": "issuance_template_field_schema_field_id_index",
-          "primary": false,
-          "unique": false
-        },
-        {
-          "keyName": "issuance_template_field_pkey",
-          "columnNames": [
-            "id"
-          ],
-          "composite": false,
-          "primary": true,
-          "unique": true
-        }
-      ],
-      "checks": [],
-      "foreignKeys": {
-        "issuance_template_field_template_id_foreign": {
-          "constraintName": "issuance_template_field_template_id_foreign",
-          "columnNames": [
-            "template_id"
-          ],
-          "localTableName": "public.issuance_template_field",
-          "referencedColumnNames": [
-            "id"
-          ],
-          "referencedTableName": "public.issuance_template",
-          "updateRule": "cascade"
-        },
-        "issuance_template_field_schema_field_id_foreign": {
-          "constraintName": "issuance_template_field_schema_field_id_foreign",
-          "columnNames": [
-            "schema_field_id"
-          ],
-          "localTableName": "public.issuance_template_field",
-          "referencedColumnNames": [
-            "id"
-          ],
-          "referencedTableName": "public.schema_field",
-          "updateRule": "cascade"
-        }
-      }
-    },
-    {
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "string"
         },
         "issuer": {
@@ -651,15 +49,65 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "string"
         },
-        "encoded_list": {
-          "name": "encoded_list",
+        "last_index": {
+          "name": "last_index",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "owner_id": {
+          "name": "owner_id",
           "type": "varchar(255)",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
           "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "string"
         },
         "size": {
@@ -669,56 +117,37 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "integer"
-        },
-        "last_index": {
-          "name": "last_index",
-          "type": "int",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "integer"
-        },
-        "purpose": {
-          "name": "purpose",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "owner_id": {
-          "name": "owner_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
         }
       },
-      "name": "credential_status_list",
-      "schema": "public",
       "indexes": [
         {
-          "keyName": "credential_status_list_pkey",
           "columnNames": [
             "id"
           ],
           "composite": false,
+          "constraint": true,
+          "keyName": "credential_status_list_pkey",
           "primary": true,
           "unique": true
         }
       ],
       "checks": [],
+      "triggers": [],
       "foreignKeys": {
         "credential_status_list_owner_id_foreign": {
-          "constraintName": "credential_status_list_owner_id_foreign",
           "columnNames": [
             "owner_id"
           ],
+          "constraintName": "credential_status_list_owner_id_foreign",
           "localTableName": "public.credential_status_list",
           "referencedColumnNames": [
             "id"
@@ -726,47 +155,13 @@
           "referencedTableName": "public.user",
           "updateRule": "cascade"
         }
-      }
+      },
+      "comment": null
     },
     {
+      "name": "issuance_template",
+      "schema": "public",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "owner_id": {
-          "name": "owner_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(500)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 500,
-          "mappedType": "string"
-        },
-        "protocol": {
-          "name": "protocol",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        },
         "credential_format": {
           "name": "credential_format",
           "type": "varchar(255)",
@@ -774,15 +169,14 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "mappedType": "string"
-        },
-        "network": {
-          "name": "network",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "string"
         },
         "did": {
@@ -791,16 +185,32 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": true,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "string"
         },
-        "schema_id": {
-          "name": "schema_id",
+        "id": {
+          "name": "id",
           "type": "varchar(255)",
           "unsigned": false,
           "autoincrement": false,
-          "primary": false,
+          "primary": true,
           "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "string"
         },
         "is_pinned": {
@@ -810,8 +220,49 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
           "default": "false",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "boolean"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(500)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 500,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "network": {
+          "name": "network",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
         },
         "order_index": {
           "name": "order_index",
@@ -820,86 +271,149 @@
           "autoincrement": false,
           "primary": false,
           "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "integer"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "protocol": {
+          "name": "protocol",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "schema_id": {
+          "name": "schema_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
         }
       },
-      "name": "verification_template",
-      "schema": "public",
       "indexes": [
         {
           "columnNames": [
             "owner_id"
           ],
           "composite": false,
-          "keyName": "verification_template_owner_id_index",
+          "constraint": false,
+          "keyName": "issuance_template_owner_id_index",
           "primary": false,
           "unique": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "issuance_template_pkey",
+          "primary": true,
+          "unique": true
         },
         {
           "columnNames": [
             "schema_id"
           ],
           "composite": false,
-          "keyName": "verification_template_schema_id_index",
+          "constraint": false,
+          "keyName": "issuance_template_schema_id_index",
           "primary": false,
           "unique": false
-        },
-        {
-          "keyName": "verification_template_pkey",
-          "columnNames": [
-            "id"
-          ],
-          "composite": false,
-          "primary": true,
-          "unique": true
         }
       ],
       "checks": [],
+      "triggers": [],
       "foreignKeys": {
-        "verification_template_owner_id_foreign": {
-          "constraintName": "verification_template_owner_id_foreign",
+        "issuance_template_owner_id_foreign": {
           "columnNames": [
             "owner_id"
           ],
-          "localTableName": "public.verification_template",
+          "constraintName": "issuance_template_owner_id_foreign",
+          "localTableName": "public.issuance_template",
           "referencedColumnNames": [
             "id"
           ],
           "referencedTableName": "public.user",
           "updateRule": "cascade"
         },
-        "verification_template_schema_id_foreign": {
-          "constraintName": "verification_template_schema_id_foreign",
+        "issuance_template_schema_id_foreign": {
           "columnNames": [
             "schema_id"
           ],
-          "localTableName": "public.verification_template",
+          "constraintName": "issuance_template_schema_id_foreign",
+          "localTableName": "public.issuance_template",
           "referencedColumnNames": [
             "id"
           ],
           "referencedTableName": "public.schema",
           "updateRule": "cascade"
         }
-      }
+      },
+      "comment": null
     },
     {
+      "name": "issuance_template_field",
+      "schema": "public",
       "columns": {
         "id": {
           "name": "id",
           "type": "varchar(255)",
           "unsigned": false,
           "autoincrement": false,
-          "primary": false,
+          "primary": true,
           "nullable": false,
-          "mappedType": "string"
-        },
-        "template_id": {
-          "name": "template_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "string"
         },
         "schema_field_id": {
@@ -909,86 +423,1163 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "template_id": {
+          "name": "template_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "value": {
+          "name": "value",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "string"
         }
       },
-      "name": "verification_template_field",
-      "schema": "public",
       "indexes": [
         {
           "columnNames": [
-            "template_id"
+            "id"
           ],
           "composite": false,
-          "keyName": "verification_template_field_template_id_index",
-          "primary": false,
-          "unique": false
+          "constraint": true,
+          "keyName": "issuance_template_field_pkey",
+          "primary": true,
+          "unique": true
         },
         {
           "columnNames": [
             "schema_field_id"
           ],
           "composite": false,
-          "keyName": "verification_template_field_schema_field_id_index",
+          "constraint": false,
+          "keyName": "issuance_template_field_schema_field_id_index",
           "primary": false,
           "unique": false
         },
         {
-          "keyName": "verification_template_field_pkey",
           "columnNames": [
-            "id"
+            "template_id"
           ],
           "composite": false,
-          "primary": true,
-          "unique": true
+          "constraint": false,
+          "keyName": "issuance_template_field_template_id_index",
+          "primary": false,
+          "unique": false
         }
       ],
       "checks": [],
+      "triggers": [],
       "foreignKeys": {
-        "verification_template_field_template_id_foreign": {
-          "constraintName": "verification_template_field_template_id_foreign",
-          "columnNames": [
-            "template_id"
-          ],
-          "localTableName": "public.verification_template_field",
-          "referencedColumnNames": [
-            "id"
-          ],
-          "referencedTableName": "public.verification_template",
-          "updateRule": "cascade"
-        },
-        "verification_template_field_schema_field_id_foreign": {
-          "constraintName": "verification_template_field_schema_field_id_foreign",
+        "issuance_template_field_schema_field_id_foreign": {
           "columnNames": [
             "schema_field_id"
           ],
-          "localTableName": "public.verification_template_field",
+          "constraintName": "issuance_template_field_schema_field_id_foreign",
+          "localTableName": "public.issuance_template_field",
           "referencedColumnNames": [
             "id"
           ],
           "referencedTableName": "public.schema_field",
           "updateRule": "cascade"
+        },
+        "issuance_template_field_template_id_foreign": {
+          "columnNames": [
+            "template_id"
+          ],
+          "constraintName": "issuance_template_field_template_id_foreign",
+          "localTableName": "public.issuance_template_field",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.issuance_template",
+          "updateRule": "cascade"
         }
-      }
+      },
+      "comment": null
     },
     {
+      "name": "schema",
+      "schema": "public",
+      "columns": {
+        "bg_color": {
+          "name": "bg_color",
+          "type": "varchar(8)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 8,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "is_hidden": {
+          "name": "is_hidden",
+          "type": "boolean",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "false",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "boolean"
+        },
+        "logo": {
+          "name": "logo",
+          "type": "varchar(4000)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 4000,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(500)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 500,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "order_index": {
+          "name": "order_index",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "owner_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "schema_owner_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "schema_pkey",
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "triggers": [],
+      "foreignKeys": {
+        "schema_owner_id_foreign": {
+          "columnNames": [
+            "owner_id"
+          ],
+          "constraintName": "schema_owner_id_foreign",
+          "localTableName": "public.schema",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user",
+          "updateRule": "cascade"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "schema_field",
+      "schema": "public",
       "columns": {
         "id": {
           "name": "id",
           "type": "varchar(255)",
           "unsigned": false,
           "autoincrement": false,
-          "primary": false,
+          "primary": true,
           "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "string"
         },
-        "tenant_id": {
-          "name": "tenant_id",
+        "name": {
+          "name": "name",
+          "type": "varchar(250)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 250,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "order_index": {
+          "name": "order_index",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "schema_id": {
+          "name": "schema_id",
           "type": "varchar(255)",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
           "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "schema_field_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "schema_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "schema_field_schema_id_index",
+          "primary": false,
+          "unique": false
+        }
+      ],
+      "checks": [],
+      "triggers": [],
+      "foreignKeys": {
+        "schema_field_schema_id_foreign": {
+          "columnNames": [
+            "schema_id"
+          ],
+          "constraintName": "schema_field_schema_id_foreign",
+          "localTableName": "public.schema_field",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.schema",
+          "updateRule": "cascade"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "schema_registration",
+      "schema": "public",
+      "columns": {
+        "credential_format": {
+          "name": "credential_format",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "credentials": {
+          "name": "credentials",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "json"
+        },
+        "did": {
+          "name": "did",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "network": {
+          "name": "network",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "protocol": {
+          "name": "protocol",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "schema_id": {
+          "name": "schema_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "schema_registration_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "schema_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "schema_registration_schema_id_index",
+          "primary": false,
+          "unique": false
+        }
+      ],
+      "checks": [],
+      "triggers": [],
+      "foreignKeys": {
+        "schema_registration_schema_id_foreign": {
+          "columnNames": [
+            "schema_id"
+          ],
+          "constraintName": "schema_registration_schema_id_foreign",
+          "localTableName": "public.schema_registration",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.schema",
+          "updateRule": "cascade"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "user",
+      "schema": "public",
+      "columns": {
+        "background_color": {
+          "name": "background_color",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "logo": {
+          "name": "logo",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "message_delivery_type": {
+          "name": "message_delivery_type",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "WebHook",
+            "WebSocket"
+          ],
+          "mappedType": "enum"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "registered_at": {
+          "name": "registered_at",
+          "type": "timestamptz(0)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "web_hook": {
+          "name": "web_hook",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "user_pkey",
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "user_message_delivery_type_check",
+          "expression": "\"message_delivery_type\" in ('WebHook', 'WebSocket')",
+          "definition": "check (\"message_delivery_type\" in ('WebHook', 'WebSocket'))",
+          "columnName": "message_delivery_type"
+        }
+      ],
+      "triggers": [],
+      "foreignKeys": {},
+      "comment": null
+    },
+    {
+      "name": "user_wallets",
+      "schema": "public",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "wallet_id": {
+          "name": "wallet_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "user_id",
+            "wallet_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "user_wallets_pkey",
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "triggers": [],
+      "foreignKeys": {
+        "user_wallets_user_id_foreign": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "user_wallets_user_id_foreign",
+          "localTableName": "public.user_wallets",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user",
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "user_wallets_wallet_id_foreign": {
+          "columnNames": [
+            "wallet_id"
+          ],
+          "constraintName": "user_wallets_wallet_id_foreign",
+          "localTableName": "public.user_wallets",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.wallet",
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "verification_template",
+      "schema": "public",
+      "columns": {
+        "credential_format": {
+          "name": "credential_format",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "did": {
+          "name": "did",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "is_pinned": {
+          "name": "is_pinned",
+          "type": "boolean",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "false",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "boolean"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(500)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 500,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "network": {
+          "name": "network",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "order_index": {
+          "name": "order_index",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "protocol": {
+          "name": "protocol",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "schema_id": {
+          "name": "schema_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "owner_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "verification_template_owner_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "verification_template_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "schema_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "verification_template_schema_id_index",
+          "primary": false,
+          "unique": false
+        }
+      ],
+      "checks": [],
+      "triggers": [],
+      "foreignKeys": {
+        "verification_template_owner_id_foreign": {
+          "columnNames": [
+            "owner_id"
+          ],
+          "constraintName": "verification_template_owner_id_foreign",
+          "localTableName": "public.verification_template",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user",
+          "updateRule": "cascade"
+        },
+        "verification_template_schema_id_foreign": {
+          "columnNames": [
+            "schema_id"
+          ],
+          "constraintName": "verification_template_schema_id_foreign",
+          "localTableName": "public.verification_template",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.schema",
+          "updateRule": "cascade"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "verification_template_field",
+      "schema": "public",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "schema_field_id": {
+          "name": "schema_field_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "template_id": {
+          "name": "template_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "verification_template_field_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "schema_field_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "verification_template_field_schema_field_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "template_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "verification_template_field_template_id_index",
+          "primary": false,
+          "unique": false
+        }
+      ],
+      "checks": [],
+      "triggers": [],
+      "foreignKeys": {
+        "verification_template_field_schema_field_id_foreign": {
+          "columnNames": [
+            "schema_field_id"
+          ],
+          "constraintName": "verification_template_field_schema_field_id_foreign",
+          "localTableName": "public.verification_template_field",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.schema_field",
+          "updateRule": "cascade"
+        },
+        "verification_template_field_template_id_foreign": {
+          "columnNames": [
+            "template_id"
+          ],
+          "constraintName": "verification_template_field_template_id_foreign",
+          "localTableName": "public.verification_template_field",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.verification_template",
+          "updateRule": "cascade"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "wallet",
+      "schema": "public",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "string"
         },
         "public_did": {
@@ -998,89 +1589,72 @@
           "autoincrement": false,
           "primary": false,
           "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
           "mappedType": "string"
         }
       },
-      "name": "wallet",
-      "schema": "public",
       "indexes": [
         {
-          "keyName": "wallet_pkey",
           "columnNames": [
             "id"
           ],
           "composite": false,
+          "constraint": true,
+          "keyName": "wallet_pkey",
           "primary": true,
           "unique": true
-        }
-      ],
-      "checks": [],
-      "foreignKeys": {}
-    },
-    {
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
         },
-        "wallet_id": {
-          "name": "wallet_id",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "mappedType": "string"
-        }
-      },
-      "name": "user_wallets",
-      "schema": "public",
-      "indexes": [
         {
-          "keyName": "user_wallets_pkey",
           "columnNames": [
-            "user_id",
-            "wallet_id"
+            "public_did"
           ],
-          "composite": true,
-          "primary": true,
-          "unique": true
+          "composite": false,
+          "constraint": false,
+          "keyName": "wallet_public_did_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "tenant_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "wallet_tenant_id_index",
+          "primary": false,
+          "unique": false
         }
       ],
       "checks": [],
-      "foreignKeys": {
-        "user_wallets_user_id_foreign": {
-          "constraintName": "user_wallets_user_id_foreign",
-          "columnNames": [
-            "user_id"
-          ],
-          "localTableName": "public.user_wallets",
-          "referencedColumnNames": [
-            "id"
-          ],
-          "referencedTableName": "public.user",
-          "deleteRule": "cascade",
-          "updateRule": "cascade"
-        },
-        "user_wallets_wallet_id_foreign": {
-          "constraintName": "user_wallets_wallet_id_foreign",
-          "columnNames": [
-            "wallet_id"
-          ],
-          "localTableName": "public.user_wallets",
-          "referencedColumnNames": [
-            "id"
-          ],
-          "referencedTableName": "public.wallet",
-          "deleteRule": "cascade",
-          "updateRule": "cascade"
-        }
-      }
+      "triggers": [],
+      "foreignKeys": {},
+      "comment": null
     }
-  ]
+  ],
+  "views": [],
+  "nativeEnums": {}
 }

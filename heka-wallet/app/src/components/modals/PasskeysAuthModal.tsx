@@ -1,5 +1,5 @@
+import { Button, ButtonLocation, ButtonType, IconButton } from '@bifold/core'
 import { HekaTheme, platformBackIconConfig, useHekaTheme } from '@heka-wallet/shared'
-import { Button, ButtonLocation, ButtonType, HeaderButton } from '@hyperledger/aries-bifold-core'
 import { useIsFocused } from '@react-navigation/native'
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -95,9 +95,9 @@ export const PasskeysAuthModal: React.FC<Props> = ({
 
   return (
     <Modal visible={isVisible} animationType="fade" onRequestClose={onCancel}>
-      <StatusBar backgroundColor={theme.ColorPallet.brand.primaryBackground} />
+      <StatusBar backgroundColor={theme.ColorPalette.brand.primaryBackground} />
       <SafeAreaView style={{ paddingTop: theme.Spacing.md }}>
-        <HeaderButton
+        <IconButton
           onPress={onCancel}
           icon={platformBackIconConfig.name}
           buttonLocation={ButtonLocation.Left}

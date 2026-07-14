@@ -44,7 +44,7 @@ export class DidIndyRegistrar extends DidRegistrar {
   private async importEndorserDid(tenantAgent: TenantAgent): Promise<void> {
     const { keyId } = await tenantAgent.kms.importKey({
       privateJwk: transformPrivateKeyToPrivateJwk({
-        privateKey: TypedArrayEncoder.fromString(this.endorserSeed),
+        privateKey: TypedArrayEncoder.fromUtf8String(this.endorserSeed),
         type: {
           crv: 'Ed25519',
           kty: 'OKP',

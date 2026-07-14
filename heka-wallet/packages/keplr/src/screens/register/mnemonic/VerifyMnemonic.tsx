@@ -1,6 +1,6 @@
+import { Button, ButtonType } from '@bifold/core'
+import ButtonLoading from '@bifold/core/src/components/animated/ButtonLoading'
 import { HekaTheme, useHekaTheme, useGlobalStyles, ScreenInfoText, randomSort } from '@heka-wallet/shared'
-import { Button, ButtonType } from '@hyperledger/aries-bifold-core'
-import ButtonLoading from '@hyperledger/aries-bifold-core/App/components/animated/ButtonLoading'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
 import { observer } from 'mobx-react-lite'

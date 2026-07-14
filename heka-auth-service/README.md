@@ -16,9 +16,10 @@ Authentication service for the [Heka Identity Service](https://github.com/hiero-
      -p 5433:5432 -d postgres
    ```
 
-2. Install dependencies:
+2. Enable Corepack so the pinned Yarn 4 runs, then install dependencies. The repo pins `yarn@4.16.0` in `package.json`; without Corepack the system Yarn 1.x may run instead and produce unexpected lockfile behavior:
 
    ```bash
+   corepack enable
    yarn install
    ```
 
