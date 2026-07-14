@@ -1,8 +1,8 @@
 import { SdJwtVcPayload } from '@credo-ts/core'
 import {
   OpenId4VciCredentialFormatProfile,
-  OpenId4VcIssuerService,
   OpenId4VcIssuanceSessionRepository,
+  OpenId4VcIssuerService,
 } from '@credo-ts/openid4vc'
 import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
@@ -84,12 +84,14 @@ export class OpenId4VcIssuanceSessionService {
         credential.format === OpenId4VciCredentialFormatProfile.JwtVcJsonLd ||
         credential.format === OpenId4VciCredentialFormatProfile.LdpVc
       ) {
-        credentialIndex += 1
+        // Assign the current free index (0-based), then advance
+        // This keeps issued indexes within [0, size), consistent with capacity guard and per-index bound in StatusListService
         credentialIndexes.push(credentialIndex)
         credentialStatus = {
           location: this.statusListService.location(statusList.id),
           index: credentialIndex,
         }
+        credentialIndex += 1
       }
 
       let type: string | string[]
@@ -104,21 +106,19 @@ export class OpenId4VcIssuanceSessionService {
       let credentialIssuanceMeta: CredentialIssuanceMetadata
 
       if (credential.format === OpenId4VciCredentialFormatProfile.MsoMdoc) {
-        const mdocCredential = credential
         credentialIssuanceMeta = {
           format: credential.format,
           credentialSupportedId: credential.credentialSupportedId,
           type,
           issuer: {},
-          namespaces: mdocCredential.namespaces,
+          namespaces: credential.namespaces,
         }
       } else {
-        const didCredential = credential as { issuer: { did: string; name?: string; image?: string; url?: string } }
         credentialIssuanceMeta = {
           ...credential,
           type,
           issuer: {
-            ...didCredential.issuer,
+            ...credential.issuer,
             didUrl: issuerDidUrl,
           },
           credentialStatus,

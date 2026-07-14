@@ -347,7 +347,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
         expect.objectContaining({ issuerId: 'issuer-1' }),
       )
       expect(result.credentialOffer).toBe('openid-credential-offer://jwt')
-      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-1', [6])
+      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-1', [5])
     })
 
     test('should create issuance session for JwtVcJsonLd format WITH credentialStatus', async () => {
@@ -401,7 +401,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       await service.offer(authInfo, tenantAgent, req)
 
-      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-2', [11])
+      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-2', [10])
     })
 
     test('should create issuance session for LdpVc format WITH credentialStatus', async () => {
@@ -455,7 +455,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       await service.offer(authInfo, tenantAgent, req)
 
-      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-3', [1])
+      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-3', [0])
     })
 
     test('should create issuance session for MsoMdoc format without DID resolution or credentialStatus', async () => {

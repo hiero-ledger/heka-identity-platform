@@ -13,7 +13,8 @@ import { StatusListService } from '../status-list.service'
 const { mockEncodeBits, mockSet, MockBitstring } = vi.hoisted(() => {
   const mockEncodeBits = vi.fn().mockResolvedValue('encoded-bitstring')
   const mockSet = vi.fn()
-  const mockDecodeBits = vi.fn().mockResolvedValue(Buffer.alloc(100))
+  // Placeholder decoded buffer (a size-100 list gzip-decodes to ceil(100 / 8) = 13 bytes)
+  const mockDecodeBits = vi.fn().mockResolvedValue(Buffer.alloc(13))
 
   const MockBitstring = Object.assign(
     vi.fn().mockImplementation(() => ({
@@ -70,8 +71,8 @@ describe('StatusListService', () => {
 
       expect(result).toBeInstanceOf(CredentialStatusList)
       expect(result.issuer).toBe('did:example:issuer')
-      expect(result.encodedList).toBe('encoded-bitstring')
-      expect(result.size).toBe(100)
+      expect(result.encodedList).toBe('uencoded-bitstring')
+      expect(result.size).toBe(131072)
       expect(result.purpose).toBe(StatusListPurpose.Revocation)
       expect(result.owner).toBe(mockUser)
       expect(em.persist).toHaveBeenCalledWith(result)
@@ -222,7 +223,7 @@ describe('StatusListService', () => {
       const id = 'status-list-1'
       const statusListEntity = entityStub<CredentialStatusList>({
         id,
-        encodedList: 'original-encoded',
+        encodedList: 'uoriginal-encoded',
         lastIndex: 5,
         size: 100,
         owner: mockUser,
@@ -235,7 +236,7 @@ describe('StatusListService', () => {
       await service.addItems(authInfo, id, [5, 6, 7])
 
       expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id, owner: mockUser })
-      expect(statusListEntity.encodedList).toBe('updated-encoded')
+      expect(statusListEntity.encodedList).toBe('uupdated-encoded')
       expect(statusListEntity.lastIndex).toBe(8) // 5 + 3
       expect(em.flush).toHaveBeenCalled()
     })
@@ -246,6 +247,24 @@ describe('StatusListService', () => {
       await expect(service.addItems(authInfo, 'bad-id', [0])).rejects.toThrow('Entity not found')
       expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id: 'bad-id', owner: mockUser })
     })
+
+    test('should throw BadRequestException when there are not enough free indexes', async () => {
+      const id = 'status-list-1'
+      const statusListEntity = entityStub<CredentialStatusList>({
+        id,
+        encodedList: 'uoriginal-encoded',
+        lastIndex: 99,
+        size: 100,
+        owner: mockUser,
+      })
+
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
+
+      // Only 1 free slot remains (lastIndex 99 of size 100), so adding 2 items must be rejected
+      await expect(service.addItems(authInfo, id, [100, 101])).rejects.toThrow(BadRequestException)
+      expect(mockSet).not.toHaveBeenCalled()
+      expect(em.flush).not.toHaveBeenCalled()
+    })
   })
 
   describe('updateItems', () => {
@@ -253,7 +272,7 @@ describe('StatusListService', () => {
       const id = 'status-list-1'
       const statusListEntity = entityStub<CredentialStatusList>({
         id,
-        encodedList: 'original-encoded',
+        encodedList: 'uoriginal-encoded',
         lastIndex: 10,
         size: 100,
         owner: mockUser,
@@ -265,7 +284,7 @@ describe('StatusListService', () => {
 
       await service.updateItems(authInfo, id, { indexes: [2, 5], revoked: true })
 
-      expect(statusListEntity.encodedList).toBe('revoked-encoded')
+      expect(statusListEntity.encodedList).toBe('urevoked-encoded')
       expect(mockSet).toHaveBeenCalledWith(2, true)
       expect(mockSet).toHaveBeenCalledWith(5, true)
       expect(em.flush).toHaveBeenCalled()
@@ -275,7 +294,7 @@ describe('StatusListService', () => {
       const id = 'status-list-1'
       const statusListEntity = entityStub<CredentialStatusList>({
         id,
-        encodedList: 'original-encoded',
+        encodedList: 'uoriginal-encoded',
         lastIndex: 10,
         size: 100,
         owner: mockUser,
@@ -287,15 +306,36 @@ describe('StatusListService', () => {
 
       await service.updateItems(authInfo, id, { indexes: [2], revoked: false })
 
-      expect(statusListEntity.encodedList).toBe('unrevoked-encoded')
+      expect(statusListEntity.encodedList).toBe('uunrevoked-encoded')
       expect(mockSet).toHaveBeenCalledWith(2, false)
     })
 
-    test('should throw BadRequestException when index is out of bounds', async () => {
+    test('should set the highest in-bounds index without rejecting it', async () => {
       const id = 'status-list-1'
       const statusListEntity = entityStub<CredentialStatusList>({
         id,
-        encodedList: 'original-encoded',
+        encodedList: 'uoriginal-encoded',
+        lastIndex: 10,
+        size: 100,
+        owner: mockUser,
+      })
+
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
+      mockEncodeBits.mockResolvedValue('revoked-encoded')
+
+      // size is 100, so index 99 is the highest valid entry (0..99) and must be accepted.
+      // The previous byte-length check (`index > 13`) wrongly rejected it.
+      await service.updateItems(authInfo, id, { indexes: [99], revoked: true })
+
+      expect(mockSet).toHaveBeenCalledWith(99, true)
+      expect(em.flush).toHaveBeenCalled()
+    })
+
+    test('should throw BadRequestException for an index at the capacity boundary', async () => {
+      const id = 'status-list-1'
+      const statusListEntity = entityStub<CredentialStatusList>({
+        id,
+        encodedList: 'uoriginal-encoded',
         lastIndex: 10,
         size: 100,
         owner: mockUser,
@@ -303,12 +343,29 @@ describe('StatusListService', () => {
 
       vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
 
-      // decodeBits returns a buffer of length 100, so index 200 is out of bounds
-      // The service checks `index > decodedList.length`
-      // Buffer.alloc(100) has length 100, so index 200 > 100
-      await expect(service.updateItems(authInfo, id, { indexes: [200], revoked: true })).rejects.toThrow(
+      // index 100 == size, one past the last valid entry (0..99)
+      await expect(service.updateItems(authInfo, id, { indexes: [100], revoked: true })).rejects.toThrow(
         BadRequestException,
       )
+      expect(mockSet).not.toHaveBeenCalled()
+    })
+
+    test('should throw BadRequestException for a negative index', async () => {
+      const id = 'status-list-1'
+      const statusListEntity = entityStub<CredentialStatusList>({
+        id,
+        encodedList: 'uoriginal-encoded',
+        lastIndex: 10,
+        size: 100,
+        owner: mockUser,
+      })
+
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
+
+      await expect(service.updateItems(authInfo, id, { indexes: [-1], revoked: true })).rejects.toThrow(
+        BadRequestException,
+      )
+      expect(mockSet).not.toHaveBeenCalled()
     })
   })
 

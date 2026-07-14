@@ -18,7 +18,8 @@ interface CredentialStatusListProps {
   owner: User
 }
 
-export const defaultCredentialStatusListSize = 100
+// W3C Bitstring Status List v1.0 sets a 16KB = 131,072-bit minimum for herd privacy (§2.2, §3.3)
+export const defaultCredentialStatusListSize = 131072
 
 @Entity()
 export class CredentialStatusList extends Identified {
