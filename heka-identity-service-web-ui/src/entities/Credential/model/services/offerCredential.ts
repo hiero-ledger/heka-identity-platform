@@ -2,7 +2,6 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { AxiosInstance } from 'axios';
 
 import { ThunkConfig } from '@/app/providers/StoreProvider';
-import { demoUser } from '@/const/user';
 import {
   buildCredential,
   BuildCredentialParams,
@@ -22,7 +21,6 @@ import {
 } from '@/entities/Schema/model/types/schema';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { handleError } from '@/shared/api/utils/error';
-import { getUserId } from '@/shared/api/utils/token';
 
 import {
   AnoncredsCredentialState,
@@ -79,11 +77,6 @@ const offerOpenId4VcCredential = async (
   api: AxiosInstance,
   params: OfferCredentialParams,
 ): Promise<OfferCredentialResult> => {
-  const userId = params.useDemo ? demoUser.did : getUserId();
-  if (!userId) {
-    throw new Error('User ID is not set');
-  }
-
   const schemaRegistration = await getSchemaRegistration(api, {
     ...params,
     credentialFormat: credentialFormatToCredentialRegistrationFormat(
@@ -101,7 +94,7 @@ const offerOpenId4VcCredential = async (
     namespace: params.schema.name,
   } as BuildCredentialParams);
   const body = buildOpenIdCredentialOffer({
-    id: userId,
+    id: params.did,
     credentials: [credential],
   });
   const response = await api.post<OfferOpenId4VcCredentialResponse>(

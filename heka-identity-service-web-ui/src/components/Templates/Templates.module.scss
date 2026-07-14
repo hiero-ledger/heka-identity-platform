@@ -5,13 +5,34 @@
   overflow-y: auto;
 }
 
+@import '@/shared/styles/mixins';
+
 .templatesHeaderWrapper {
   justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xxxxl);
 }
 
 .templatesHeaderLeft {
   gap: var(--space-md);
-  margin-bottom: var(--space-xxxxl);
+  align-items: center;
+}
+
+@include mobile {
+  .TemplatesWrapper {
+    padding: var(--space-xl);
+  }
+
+  .templatesHeaderWrapper {
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .templatesHeaderLeft {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 .schemaTitle {

@@ -1,5 +1,5 @@
+import { Button, ButtonType } from '@bifold/core'
 import { HekaTheme, useHekaTheme, useGlobalStyles } from '@heka-wallet/shared'
-import { Button, ButtonType } from '@hyperledger/aries-bifold-core'
 import { Dec } from '@keplr-wallet/unit'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
@@ -91,7 +91,7 @@ export const Account = observer(() => {
           <Text style={theme.TextTheme.labelTitle}>{totalBalance}</Text>
           {queryStakable.isFetching ? (
             <View style={styles.balanceLoadingContainer}>
-              <ActivityIndicator size={theme.IconSizes.medium} color={theme.ColorPallet.brand.primary} />
+              <ActivityIndicator size={theme.IconSizes.medium} color={theme.ColorPalette.brand.primary} />
             </View>
           ) : null}
         </View>

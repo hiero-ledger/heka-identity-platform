@@ -1,12 +1,12 @@
-import { CredentialExchangeRecord, ProofExchangeRecord } from '@credo-ts/core'
-import { useConnectionById } from '@credo-ts/react-hooks'
+import { useConnectionById } from '@bifold/react-hooks'
+import { DidCommCredentialExchangeRecord, DidCommProofExchangeRecord } from '@credo-ts/didcomm'
 import React from 'react'
 import { ViewStyle } from 'react-native'
 
 import { ExternalPartyDisplay } from './ExternalPartyDisplay'
 
 interface Props {
-  record: CredentialExchangeRecord | ProofExchangeRecord
+  record: DidCommCredentialExchangeRecord | DidCommProofExchangeRecord
   containerStyle?: ViewStyle
   withBorder?: boolean
 }

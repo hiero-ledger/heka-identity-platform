@@ -27,6 +27,22 @@ import {
 } from './dto/proof-params.dto'
 import { ProofRequestFormat } from './dto/proof-request.dto'
 
+/**
+ * Safely serializes a credential attribute value to a string.
+ * Objects and arrays are JSON-stringified; primitives use String().
+ */
+function serializeAttributeValue(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return String(value)
+    }
+  }
+  return String(value)
+}
+
 @Injectable()
 export class ProofService {
   public async find(tenantAgent: TenantAgent, threadId?: string): Promise<ProofRecordDto[]> {
@@ -63,7 +79,6 @@ export class ProofService {
     const formatData = await tenantAgent.didcomm.proofs.getFormatData(id)
 
     if (formatData.presentation?.anoncreds) {
-      // @ts-ignore
       const revealedAttrs = formatData.presentation.anoncreds.requested_proof.revealed_attrs
 
       if (revealedAttrs) {
@@ -88,8 +103,7 @@ export class ProofService {
             for (const [attribute, value] of Object.entries(verifiableCredential.credentialSubject)) {
               proofRecordDto.revealedAttributes.push({
                 name: attribute,
-                // FIXME: Support all types
-                value: value?.toString() ?? '',
+                value: serializeAttributeValue(value),
               })
             }
           }

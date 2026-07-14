@@ -1,19 +1,18 @@
+import { getCredentialIdentifiers } from '@bifold/core'
+import { i18n } from '@bifold/core/src/localization'
+import { BrandingOverlay } from '@bifold/oca'
+import { Attribute, BrandingOverlayType, CredentialOverlay, RemoteOCABundleResolver } from '@bifold/oca/build/legacy'
 import { AnonCredsCredentialMetadataKey } from '@credo-ts/anoncreds'
-import { ConnectionRecord, CredentialExchangeRecord, CredentialPreviewAttribute, Mdoc } from '@credo-ts/core'
-import { getHostNameFromUrl, sanitizeString } from '@heka-wallet/shared'
-import { BifoldAgent } from '@hyperledger/aries-bifold-core'
-import { i18n } from '@hyperledger/aries-bifold-core/App/localization'
-import { getCredentialIdentifiers } from '@hyperledger/aries-bifold-core/App/utils/credential'
-import { BrandingOverlay } from '@hyperledger/aries-oca'
+import { Mdoc } from '@credo-ts/core'
 import {
-  Attribute,
-  BrandingOverlayType,
-  CredentialOverlay,
-  RemoteOCABundleResolver,
-} from '@hyperledger/aries-oca/build/legacy'
-import { ImageInfo } from '@sphereon/oid4vci-common'
+  DidCommConnectionRecord,
+  DidCommCredentialExchangeRecord,
+  DidCommCredentialPreviewAttribute,
+} from '@credo-ts/didcomm'
+import { getHostNameFromUrl, sanitizeString } from '@heka-wallet/shared'
 
 import { agencyProviderURL, fallbackDisplay } from '../../config'
+import { HekaWalletAgent } from '../../utils/agent'
 import { OpenId4VcCredentialMetadata } from '../metadata'
 import {
   CredentialDisplay,
@@ -23,8 +22,9 @@ import {
   W3cCredentialJson,
 } from '../types'
 
+import { humanizeAttributeName } from './humanize'
 import { getAttributesAndMetadataForMdocPayload } from './mdoc'
-import { filterAndMapSdJwtKeys } from './sd-jwt'
+import { getAttributesAndMetadataForSdJwtPayload } from './sd-jwt'
 import { parseCredentialName } from './utils'
 
 const UNKNOWN_CREDENTIAL_LABEL = 'Unknown credential'
@@ -87,7 +87,7 @@ export function getSdJwtCredentialDisplay(
     ...credentialDisplay,
     // Last fallback, if there's really no name for the credential, we use a generic name
     name: credentialDisplay.name ?? UNKNOWN_CREDENTIAL_LABEL,
-    attributes: filterAndMapSdJwtKeys(credentialPayload).attributes,
+    attributes: getAttributesAndMetadataForSdJwtPayload(credentialPayload).attributes,
     issuer: issuerDisplay,
   }
 }
@@ -159,7 +159,7 @@ export function getW3cCredentialDisplay(
 
   // FIXME: Support credential with multiple subjects
   const credentialSubject = Array.isArray(credential.credentialSubject)
-    ? credential.credentialSubject[0] ?? {}
+    ? (credential.credentialSubject[0] ?? {})
     : credential.credentialSubject
 
   const attributes = Object.keys(credentialSubject).map((key) => {
@@ -169,7 +169,7 @@ export function getW3cCredentialDisplay(
       value = JSON.stringify(value)
     }
 
-    return new Attribute({ name: key, value })
+    return new Attribute({ name: humanizeAttributeName(key), value })
   })
 
   return {
@@ -198,7 +198,7 @@ export function getMdocCredentialDisplay(
       if (openidCredentialDisplay.background_image) {
         credentialDisplay.backgroundImage = {
           url: getImageInfoLogoUrl(openidCredentialDisplay.background_image),
-          altText: openidCredentialDisplay.background_image.alt_text,
+          altText: openidCredentialDisplay.background_image.alt_text as string,
         }
       }
 
@@ -239,7 +239,10 @@ export function getMdocCredentialDisplay(
   }
 }
 
-export async function resolveOverlay(credentialRecord: CredentialExchangeRecord, connection?: ConnectionRecord | null) {
+export async function resolveOverlay(
+  credentialRecord: DidCommCredentialExchangeRecord,
+  connection?: DidCommConnectionRecord | null
+) {
   const credentialIdentifiers = getCredentialIdentifiers(credentialRecord)
 
   const resolverParams = {
@@ -263,17 +266,17 @@ export async function resolveOverlay(credentialRecord: CredentialExchangeRecord,
 }
 
 export async function getAnoncredsCredentialDisplay(
-  credentialRecord: CredentialExchangeRecord,
-  agent: BifoldAgent
+  credentialRecord: DidCommCredentialExchangeRecord,
+  agent: HekaWalletAgent
 ): Promise<CredentialDisplay> {
-  const issuerConnection = await agent.connections.findById(credentialRecord.connectionId ?? '')
+  const issuerConnection = await agent.didcomm.connections.findById(credentialRecord.connectionId ?? '')
 
-  const offerMessage = await agent.credentials.findOfferMessage(credentialRecord.id)
+  const offerMessage = await agent.didcomm.credentials.findOfferMessage(credentialRecord.id)
   const comment = offerMessage?.comment
 
   // Metadata is empty for not yet accepted credentials - need to populate manually
   if (!credentialRecord.metadata.get(AnonCredsCredentialMetadataKey) || !credentialRecord.credentialAttributes) {
-    const formatData = await agent.credentials.getFormatData(credentialRecord.id)
+    const formatData = await agent.didcomm.credentials.getFormatData(credentialRecord.id)
     const { offer, offerAttributes } = formatData
 
     const anoncredsOfferData = offer?.anoncreds ?? offer?.indy
@@ -293,7 +296,9 @@ export async function getAnoncredsCredentialDisplay(
     }
 
     if (offerAttributes) {
-      credentialRecord.credentialAttributes = [...offerAttributes.map((item) => new CredentialPreviewAttribute(item))]
+      credentialRecord.credentialAttributes = [
+        ...offerAttributes.map((item) => new DidCommCredentialPreviewAttribute(item)),
+      ]
     }
   }
 
@@ -345,8 +350,8 @@ function findDisplay<Display extends { locale?: string }>(display?: Display[]): 
   return item
 }
 
-function getImageInfoLogoUrl(logo: ImageInfo): string | undefined {
-  return logo.url ?? (logo.uri as string | undefined)
+function getImageInfoLogoUrl(logo: { url?: string; uri?: string | URL; alt_text?: string }): string | undefined {
+  return logo.url ?? (logo.uri != null ? String(logo.uri) : undefined)
 }
 
 function getW3cIssuerDisplay(
@@ -399,7 +404,7 @@ export function getOpenId4VcIssuerDisplay(
 
     if (openidIssuerDisplay) {
       issuerDisplay.name = openidIssuerDisplay.name
-      issuerDisplay.backgroundColor = openidIssuerDisplay.background_color
+      issuerDisplay.backgroundColor = openidIssuerDisplay.background_color as string
 
       if (openidIssuerDisplay.logo) {
         issuerDisplay.logo = {

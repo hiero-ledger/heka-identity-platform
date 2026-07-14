@@ -1,7 +1,8 @@
 import { DbConfig } from '@core/config/configs/db.config'
 import { Token, User } from '@core/database/entities'
+import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
 import { Migrator } from '@mikro-orm/migrations'
-import { LoadStrategy, ReflectMetadataProvider } from '@mikro-orm/postgresql'
+import { LoadStrategy } from '@mikro-orm/postgresql'
 import { SqlHighlighter } from '@mikro-orm/sql-highlighter'
 import { Logger, NotFoundException } from '@nestjs/common'
 

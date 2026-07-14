@@ -12,6 +12,7 @@ import { VerificationTemplate } from '@/entities/VerificationTemplate';
 import useConfirmDialog from '@/shared/ui/ConfirmDialog';
 import { Column, Row } from '@/shared/ui/Grid';
 import { LoaderView } from '@/shared/ui/Loader';
+import { Search } from '@/shared/ui/Search/Search';
 
 import { TemplatesProps, TemplateType } from './types';
 import { PlusButton } from '../PlusButton';
@@ -33,6 +34,7 @@ export const Templates = ({
   const { templates, isLoading, error } = templatesState;
 
   const [localTemplates, setLocalTemplates] = useState(templates ?? []);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [deletingTemplateId, setDeletingTemplateId] = useState<
     string | undefined
@@ -55,6 +57,13 @@ export const Templates = ({
   useEffect(() => {
     if (templates) setLocalTemplates(templates);
   }, [templates]);
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredTemplates = normalizedQuery
+    ? localTemplates.filter((t) =>
+        (t.name ?? '').toLowerCase().includes(normalizedQuery),
+      )
+    : localTemplates;
 
   const { ConfirmDialog, confirm } = useConfirmDialog({
     text: t('Template.confirmation.deleteTemplate'),
@@ -132,6 +141,7 @@ export const Templates = ({
             onPress={() => navigate(navigateOnCreateTemplate)}
           />
         </Row>
+        <Search onSearch={setSearchQuery} />
       </Row>
       {isLoading && <LoaderView />}
       {!!error && !isLoading && <h2>{t('Common.titles.smthWentWrong')}</h2>}
@@ -151,10 +161,10 @@ export const Templates = ({
               />
             </DesktopView>
           )}
-          {localTemplates.length > 0 && (
+          {filteredTemplates.length > 0 && (
             <DndContext onDragEnd={handleDragEnd}>
-              <SortableContext items={localTemplates}>
-                {localTemplates.map((template) => (
+              <SortableContext items={filteredTemplates}>
+                {filteredTemplates.map((template) => (
                   <Template
                     key={template.id}
                     id={template.id}

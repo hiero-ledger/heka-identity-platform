@@ -1,6 +1,5 @@
+import { ButtonLocation, IconButton, testIdWithKey, useDefaultStackOptions } from '@bifold/core'
 import { useHekaTheme, StepProgressHeader, useStepsProgressHeader, platformBackIconConfig } from '@heka-wallet/shared'
-import { ButtonLocation, HeaderButton, testIdWithKey } from '@hyperledger/aries-bifold-core'
-import { useDefaultStackOptions } from '@hyperledger/aries-bifold-core/App/navigators/defaultStackOptions'
 import { useNavigation } from '@react-navigation/native'
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack'
 import React from 'react'
@@ -17,8 +16,9 @@ import { NewLedgerScreen } from '../screens/register/NewLedger'
 
 import { KeplrStackParams, RegisterStackParams, Screens } from './types'
 
+const Stack = createStackNavigator<RegisterStackParams>()
+
 export const RegisterStack = () => {
-  const Stack = createStackNavigator<RegisterStackParams>()
   const theme = useHekaTheme()
   const defaultStackOptions = useDefaultStackOptions(theme)
 
@@ -42,7 +42,7 @@ export const RegisterStack = () => {
         component={RegisterIntroScreen}
         options={() => ({
           headerLeft: () => (
-            <HeaderButton
+            <IconButton
               buttonLocation={ButtonLocation.Left}
               onPress={navigation.goBack}
               icon={platformBackIconConfig.name}

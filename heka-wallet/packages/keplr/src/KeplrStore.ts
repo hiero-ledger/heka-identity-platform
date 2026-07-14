@@ -1,4 +1,4 @@
-import { ToastType } from '@hyperledger/aries-bifold-core'
+import { ToastType } from '@bifold/core'
 import { ChainInfoWithCoreTypes, init, ScryptParams } from '@keplr-wallet/background'
 import { Keplr } from '@keplr-wallet/provider'
 import { APP_PORT, BACKGROUND_PORT } from '@keplr-wallet/router'
@@ -217,6 +217,7 @@ export class KeplrStore {
       {
         //@ts-ignore
         rng: crypto.getRandomValues,
+        //@ts-expect-error - TODO: check if there is an actual problem caused by `Buffer' type mispatch (probably just Node 'buffer' module resolution?)
         scrypt: async (text: string, params: ScryptParams) => {
           const result = await scrypt(
             Buffer.from(text).toString('hex'),

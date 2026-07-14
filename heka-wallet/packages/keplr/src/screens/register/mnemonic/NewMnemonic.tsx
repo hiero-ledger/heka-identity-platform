@@ -1,5 +1,5 @@
+import { KeyboardView } from '@bifold/core'
 import { useGlobalStyles, ScreenInfoText } from '@heka-wallet/shared'
-import KeyboardView from '@hyperledger/aries-bifold-core/App/components/views/KeyboardView'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
 import { observer } from 'mobx-react-lite'

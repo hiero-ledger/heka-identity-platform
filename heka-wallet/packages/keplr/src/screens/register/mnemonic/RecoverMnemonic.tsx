@@ -1,5 +1,5 @@
+import { KeyboardView } from '@bifold/core'
 import { useHekaTheme, useGlobalStyles, ScreenInfoText } from '@heka-wallet/shared'
-import KeyboardView from '@hyperledger/aries-bifold-core/App/components/views/KeyboardView'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
 import { observer } from 'mobx-react-lite'
@@ -34,6 +34,7 @@ export const RecoverMnemonicScreen: React.FC<RecoverMnemonicScreenProps> = obser
       await registerConfig.createMnemonic(name, mnemonic, password, bip44Option.bip44HDPath)
     } else {
       const privateKey = getPrivateKey(mnemonic)
+      //@ts-expect-error - TODO: check if there is an actual problem caused by `Buffer' type mispatch (probably just Node 'buffer' module resolution?)
       await registerConfig.createPrivateKey(name, privateKey, password)
     }
 

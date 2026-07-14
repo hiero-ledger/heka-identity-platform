@@ -18,7 +18,7 @@ export class OpenID4VCIssuerUtilities {
         ...req,
         publicIssuerId: req?.publicIssuerId ? req.publicIssuerId : uuid(),
         credentialsSupported: req?.credentialsSupported ? req.credentialsSupported : [],
-      } as OpenId4VcIssuersCreateDto)
+      } satisfies OpenId4VcIssuersCreateDto)
 
     if (response.status === 200) {
       return { ...response.body } as OpenId4VcIssuerRecordDto
@@ -35,7 +35,7 @@ export class OpenID4VCIssuerUtilities {
     const response = await request(app)
       .get(`/openid4vc/issuer`)
       .auth(authToken, { type: 'bearer' })
-      .query({ publicIssuerId } as FindIssuerDto)
+      .query({ publicIssuerId } satisfies FindIssuerDto)
     return { ...response.body } as OpenId4VcIssuerRecordDto[]
   }
 }

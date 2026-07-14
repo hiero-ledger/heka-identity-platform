@@ -158,11 +158,7 @@ export const PanelWithMenu = ({
 
   return (
     <Column className={cls.LeftPanel}>
-      <p
-        className={cls.titleWrapper}
-      >
-        {title}
-      </p>
+      <p className={cls.titleWrapper}>{title}</p>
 
       <MobileView>
         <Row

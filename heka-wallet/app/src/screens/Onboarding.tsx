@@ -1,13 +1,6 @@
+import { Button, ButtonType, OnboardingStackParams, useStore, DispatchAction } from '@bifold/core'
 import KeplrLogo from '@heka-wallet/keplr/assets/logo.svg'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import {
-  AuthenticateStackParams,
-  Button,
-  ButtonType,
-  OnboardingStackParams,
-  useStore,
-} from '@hyperledger/aries-bifold-core'
-import { TOKENS, useServices } from '@hyperledger/aries-bifold-core/App/container-api'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { Ref, useCallback, useMemo, useRef, useState } from 'react'
@@ -33,13 +26,13 @@ interface OnboardingProps {
 }
 
 export const useStyles = (theme: HekaTheme) => {
-  const { OnboardingTheme, ColorPallet, Spacing } = theme
+  const { OnboardingTheme, ColorPalette, Spacing } = theme
 
   return StyleSheet.create({
     container: {
       height: '100%',
       alignItems: 'center',
-      backgroundColor: ColorPallet.brand.brandedSecondary,
+      backgroundColor: ColorPalette.brand.brandedSecondary,
       paddingHorizontal: Spacing.xxl,
       paddingVertical: Spacing.sm,
     },
@@ -76,10 +69,7 @@ const Onboarding: React.FC<OnboardingProps> = () => {
 
   const theme = useHekaTheme()
   const styles = useStyles(theme)
-  const onbordingNavigation = useNavigation<StackNavigationProp<RootStackParams & OnboardingStackParams>>()
-  const authNavigation = useNavigation<StackNavigationProp<AuthenticateStackParams>>()
-
-  const [onTutorialCompletedCurried] = useServices([TOKENS.FN_ONBOARDING_DONE])
+  const navigation = useNavigation<StackNavigationProp<RootStackParams & OnboardingStackParams>>()
 
   const [activeIndex, setActiveIndex] = useState(0)
   const flatList: Ref<FlatList> = useRef(null)
@@ -111,7 +101,7 @@ const Onboarding: React.FC<OnboardingProps> = () => {
         image: SafeImage,
         title: 'Onboarding.PrivacyConfidentiality',
         body: 'Onboarding.PrivacyParagraph',
-        buttonTitle: store.onboarding.didCompleteOnboarding ? 'Global.Done' : 'Onboarding.GetStarted',
+        buttonTitle: store.onboarding.didCompleteTutorial ? 'Global.Done' : 'Onboarding.GetStarted',
         showBackupButton: true,
       },
     ]
@@ -126,7 +116,7 @@ const Onboarding: React.FC<OnboardingProps> = () => {
       steps.push(keplrIntegrationGuide)
     }
     return steps
-  }, [store.onboarding.didCompleteOnboarding])
+  }, [store.onboarding.didCompleteTutorial])
 
   const onViewableItemsChangedRef = useRef(({ viewableItems }: any) => {
     if (!viewableItems[0]) {
@@ -151,20 +141,15 @@ const Onboarding: React.FC<OnboardingProps> = () => {
         animated: true,
       })
     } else {
-      if (!store.onboarding.didCompleteOnboarding) {
-        onTutorialCompletedCurried(dispatch, authNavigation)()
+      if (!store.onboarding.didCompleteTutorial) {
+        dispatch({
+          type: DispatchAction.DID_COMPLETE_TUTORIAL,
+        })
       } else {
-        authNavigation.goBack()
+        navigation.goBack()
       }
     }
-  }, [
-    activeIndex,
-    steps.length,
-    store.onboarding.didCompleteOnboarding,
-    onTutorialCompletedCurried,
-    dispatch,
-    authNavigation,
-  ])
+  }, [activeIndex, steps.length, store.onboarding.didCompleteTutorial, dispatch, navigation])
 
   const renderItem = useCallback(
     ({ item, index }: { item: Element; index: number }) => (
@@ -178,23 +163,21 @@ const Onboarding: React.FC<OnboardingProps> = () => {
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
-        if (!store.onboarding.didCompleteOnboarding) {
+        if (!store.onboarding.didCompleteTutorial) {
           BackHandler.exitApp()
         } else {
-          authNavigation.goBack()
+          navigation.goBack()
         }
         return true
       }
 
       BackHandler.addEventListener('hardwareBackPress', onBackPress)
-
-      return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress)
-    }, [authNavigation, store.onboarding.didCompleteOnboarding])
+    }, [navigation, store.onboarding.didCompleteTutorial])
   )
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor={theme.ColorPallet.brand.brandedSecondary} />
+      <StatusBar backgroundColor={theme.ColorPalette.brand.brandedSecondary} />
       <FlatList
         ref={flatList}
         horizontal
@@ -219,12 +202,12 @@ const Onboarding: React.FC<OnboardingProps> = () => {
         containerStyle={styles.pagerPosition}
       />
       <View style={styles.controlsContainer}>
-        {!store.onboarding.didCompleteOnboarding && isWalletBackupEnabled && steps[activeIndex].showBackupButton && (
+        {!store.onboarding.didCompleteTutorial && isWalletBackupEnabled && steps[activeIndex].showBackupButton && (
           <View style={{ marginBottom: 10 }}>
             <Button
               title={t('Onboarding.RestoreWallet')}
               accessibilityLabel={t('Onboarding.RestoreWallet')}
-              onPress={() => onbordingNavigation.navigate(Stacks.BackupStack, { screen: Screens.WalletRestore })}
+              onPress={() => navigation.navigate(Stacks.BackupStack, { screen: Screens.WalletRestore })}
               buttonType={ButtonType.Secondary}
             />
           </View>

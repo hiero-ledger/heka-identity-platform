@@ -1,4 +1,4 @@
-import { PrimaryKey } from '@mikro-orm/core'
+import { PrimaryKey } from '@mikro-orm/decorators/legacy'
 
 import { uuid } from 'utils/misc'
 
@@ -7,7 +7,7 @@ interface IdentifiedProps {
 }
 
 export class Identified {
-  @PrimaryKey()
+  @PrimaryKey({ type: 'string' })
   public id: string
 
   public constructor(props?: IdentifiedProps) {

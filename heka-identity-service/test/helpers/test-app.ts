@@ -1,6 +1,15 @@
 import { AnonCredsModule } from '@credo-ts/anoncreds'
 import { AskarModule } from '@credo-ts/askar'
-import { DidsModule, KeyDidRegistrar, KeyDidResolver } from '@credo-ts/core'
+import {
+  DidsModule,
+  KeyDidRegistrar,
+  KeyDidResolver,
+  WebDidResolver,
+  JwkDidResolver,
+  PeerDidResolver,
+  PeerDidRegistrar,
+  JwkDidRegistrar,
+} from '@credo-ts/core'
 import { DidCommMessagePickupModule } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import {
@@ -10,12 +19,12 @@ import {
   IndyVdrModule,
 } from '@credo-ts/indy-vdr'
 import { OpenId4VcIssuerModule, OpenId4VcVerifierModule } from '@credo-ts/openid4vc'
-import { anoncreds } from '@hyperledger/anoncreds-nodejs'
+import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
 import { INestApplication } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 import { Test } from '@nestjs/testing'
-import { askar } from '@openwallet-foundation/askar-nodejs'
+import { NativeAskar } from '@openwallet-foundation/askar-nodejs'
 
 import { IndyBesuDidRegistrar, IndyBesuDidResolver } from 'common/indy-besu-vdr'
 import { IndyBesuAnonCredsRegistry } from 'common/indy-besu-vdr/anoncreds/IndyBesuAnonCredsRegistry'
@@ -53,7 +62,7 @@ export async function startTestApp(): Promise<INestApplication> {
         return {
           ...getAgencyModulesMap(appConfig, agencyConfig),
           askar: new AskarModule({
-            askar,
+            askar: NativeAskar.instance,
             store: {
               id: `tenant-${uuid()}`,
               key: `tenant-${uuid()}`,
@@ -72,12 +81,17 @@ export async function startTestApp(): Promise<INestApplication> {
           dids: new DidsModule({
             resolvers: [
               new KeyDidResolver(),
+              new PeerDidResolver(),
+              new JwkDidResolver(),
+              new WebDidResolver(),
               new IndyVdrIndyDidResolver(),
               new IndyBesuDidResolver(),
               new HederaDidResolver(),
             ],
             registrars: [
               new KeyDidRegistrar(),
+              new PeerDidRegistrar(),
+              new JwkDidRegistrar(),
               new IndyVdrIndyDidRegistrar(),
               new IndyBesuDidRegistrar(),
               new HederaDidRegistrar(),
@@ -91,7 +105,7 @@ export async function startTestApp(): Promise<INestApplication> {
               new IndyBesuAnonCredsRegistry(),
               new HederaAnonCredsRegistry(),
             ],
-            anoncreds,
+            anoncreds: NativeAnoncreds.instance,
             tailsFileService: new TailsService(appConfig),
           }),
           ledgerSdk: new IndyVdrModule({

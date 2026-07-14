@@ -1,10 +1,11 @@
 import type { PropsWithChildren } from 'react'
 import type * as React from 'react'
 
+import { recordsAddedByType, recordsRemovedByType, recordsUpdatedByType } from '@bifold/react-hooks/build/recordUtils'
 import { MdocRecord } from '@credo-ts/core'
-import { useAgent } from '@credo-ts/react-hooks'
-import { recordsAddedByType, recordsRemovedByType, recordsUpdatedByType } from '@credo-ts/react-hooks/build/recordUtils'
 import { createContext, useContext, useEffect, useState } from 'react'
+
+import { useHekaAgent } from '../utils/agent'
 
 export { Mdoc, MdocRecord } from '@credo-ts/core'
 
@@ -59,7 +60,7 @@ export const useMdocRecordById = (id: string): MdocRecord | undefined => {
 }
 
 export const MdocRecordProvider: React.FC<PropsWithChildren> = ({ children }) => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const [state, setState] = useState<MdocRecordState>({
     mdocCredentialRecords: [],

@@ -84,8 +84,8 @@ const mockAuthResult = {
 
 jest.mock('react-native-passkey', () => ({
   Passkey: {
-    register: jest.fn(() => Promise.resolve(mockAuthResult)),
-    authenticate: jest.fn(() => Promise.resolve(mockAuthResult)),
+    create: jest.fn(() => Promise.resolve(mockAuthResult)),
+    get: jest.fn(() => Promise.resolve(mockAuthResult)),
     isSupported: jest.fn(() => Promise.resolve(true)),
   },
 }))
@@ -143,8 +143,8 @@ describe('PasskeysStore', () => {
 
     expect(passkeysStore.isAuthenticated).toBe(true)
 
-    expect(Passkey.register).toHaveBeenCalledTimes(1)
-    expect(Passkey.register).toHaveBeenCalledWith(mockRegistrationRequest)
+    expect(Passkey.create).toHaveBeenCalledTimes(1)
+    expect(Passkey.create).toHaveBeenCalledWith(mockRegistrationRequest)
 
     expect(axios.post).toHaveBeenCalledTimes(2)
     expect(axios.post).toHaveBeenCalledWith(`${mockAuthApiUrl}/registration/challenge`, {
@@ -181,8 +181,8 @@ describe('PasskeysStore', () => {
 
     expect(passkeysStore.isAuthenticated).toBe(true)
 
-    expect(Passkey.authenticate).toHaveBeenCalledTimes(1)
-    expect(Passkey.authenticate).toHaveBeenCalledWith(mockAuthRequest)
+    expect(Passkey.get).toHaveBeenCalledTimes(1)
+    expect(Passkey.get).toHaveBeenCalledWith(mockAuthRequest)
 
     expect(axios.post).toHaveBeenCalledTimes(2)
     expect(axios.post).toHaveBeenCalledWith(`${mockAuthApiUrl}/authentication/challenge`, {
@@ -240,9 +240,9 @@ describe('PasskeysStore', () => {
       .mockResolvedValueOnce({ data: { verified: false } })
 
     // Type cast is needed to apply right promise return type
-    mockFunction(Passkey.authenticate as () => Promise<PasskeyAuthResult>).mockResolvedValueOnce({
+    mockFunction(Passkey.get as () => Promise<PasskeyAuthResult>).mockResolvedValueOnce({
       ...mockAuthResult,
-      clientExtensionResults: {},
+      clientExtensionResults: undefined,
     })
 
     const passkeysStore = await createAndInitializeStore()

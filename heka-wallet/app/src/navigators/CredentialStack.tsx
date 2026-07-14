@@ -1,13 +1,14 @@
-import { TOKENS, useServices, useTheme, Screens as BifoldScreens } from '@hyperledger/aries-bifold-core'
-import { useDefaultStackOptions } from '@hyperledger/aries-bifold-core/App/navigators/defaultStackOptions'
-import { CredentialStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
+import { TOKENS, useServices, Screens as BifoldScreens, useDefaultStackOptions } from '@bifold/core'
+import { CredentialStackParams } from '@bifold/core/src/types/navigators'
+import { useHekaTheme } from '@heka-wallet/shared'
 import { createStackNavigator } from '@react-navigation/stack'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 
+const Stack = createStackNavigator<CredentialStackParams>()
+
 export const CredentialStack: React.FC = () => {
-  const Stack = createStackNavigator<CredentialStackParams>()
-  const theme = useTheme()
+  const theme = useHekaTheme()
   const { t } = useTranslation()
   const defaultStackOptions = useDefaultStackOptions(theme)
 

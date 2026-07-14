@@ -1,6 +1,6 @@
-import { CredentialExchangeRecord } from '@credo-ts/core'
+import { Button, ButtonType } from '@bifold/core'
+import { DidCommCredentialExchangeRecord } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Button, ButtonType } from '@hyperledger/aries-bifold-core'
 import { useNavigation } from '@react-navigation/native'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -46,7 +46,7 @@ export const CredentialOfferView: React.FC<Props> = ({
 
   const [isDeclineModalVisible, setIsDeclineModalVisible] = useState(false)
 
-  const isCredentialExchange = credential.record instanceof CredentialExchangeRecord
+  const isCredentialExchange = credential.record instanceof DidCommCredentialExchangeRecord
 
   const navigation = useNavigation()
 

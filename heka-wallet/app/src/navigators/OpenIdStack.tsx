@@ -1,11 +1,12 @@
-import { useHekaTheme } from '@heka-wallet/shared'
-import { useStore as useBifoldStore } from '@hyperledger/aries-bifold-core'
-import HeaderButton, { ButtonLocation } from '@hyperledger/aries-bifold-core/App/components/buttons/HeaderButton'
-import { useDefaultStackOptions } from '@hyperledger/aries-bifold-core/App/navigators/defaultStackOptions'
 import {
+  useStore as useBifoldStore,
+  IconButton,
+  ButtonLocation,
+  useDefaultStackOptions,
   TabStacks as BifoldTabStacks,
   Stacks as BifoldStacks,
-} from '@hyperledger/aries-bifold-core/App/types/navigators'
+} from '@bifold/core'
+import { useHekaTheme } from '@heka-wallet/shared'
 import { createStackNavigator, StackScreenProps } from '@react-navigation/stack'
 import React, { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -16,10 +17,11 @@ import { OpenIdStackParams, RootStackParams, Screens, Stacks } from './types'
 
 type Props = StackScreenProps<RootStackParams, Stacks.OpenIdStack>
 
+const Stack = createStackNavigator<OpenIdStackParams>()
+
 export const OpenIdStack: React.FC<Props> = ({ navigation }) => {
   const { t } = useTranslation()
 
-  const Stack = createStackNavigator<OpenIdStackParams>()
   const theme = useHekaTheme()
   const defaultStackOptions = useDefaultStackOptions(theme)
 
@@ -47,7 +49,7 @@ export const OpenIdStack: React.FC<Props> = ({ navigation }) => {
         options={() => ({
           title: t('Screens.CredentialOffer'),
           headerLeft: () => (
-            <HeaderButton
+            <IconButton
               buttonLocation={ButtonLocation.Left}
               testID={t('Global.Back')}
               accessibilityLabel={t('Global.Back')}
@@ -63,7 +65,7 @@ export const OpenIdStack: React.FC<Props> = ({ navigation }) => {
         options={() => ({
           title: t('Screens.ProofRequest'),
           headerLeft: () => (
-            <HeaderButton
+            <IconButton
               buttonLocation={ButtonLocation.Left}
               testID={t('Global.Back')}
               accessibilityLabel={t('Global.Back')}

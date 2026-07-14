@@ -1,4 +1,4 @@
-import { KeychainServices as BifoldKeychainServices } from '@hyperledger/aries-bifold-core/App/constants'
+import { KeychainServices as BifoldKeychainServices } from '@bifold/core/src/constants'
 
 export enum WalletKeychainServices {
   OAuth = 'secret.heka-wallet.oauth',

@@ -1,11 +1,11 @@
-import { ProofExchangeRecord } from '@credo-ts/core'
-import { useAgent } from '@credo-ts/react-hooks'
+import { DidCommProofExchangeRecord } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FlatList, StyleSheet, View } from 'react-native'
 
 import { preparePresentationData, PresentationDetails, useCredentials } from '../../credentials'
+import { useHekaAgent } from '../../utils/agent'
 import { CredentialCard, SectionCard } from '../cards'
 import { Loader } from '../views/LoadingView'
 
@@ -28,11 +28,11 @@ const useStyles = ({ Spacing }: HekaTheme) => {
 }
 
 interface SharedProofDataProps {
-  record: ProofExchangeRecord
+  record: DidCommProofExchangeRecord
 }
 
 const SharedProofData: React.FC<SharedProofDataProps> = ({ record }) => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
   if (!agent) {
     throw new Error('Unable to fetch agent from Credo')
   }

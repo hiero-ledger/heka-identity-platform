@@ -1,5 +1,3 @@
-import { KeplrStoreProvider } from '@heka-wallet/keplr'
-import { theme } from '@heka-wallet/shared'
 import {
   AgentProvider,
   animatedComponents,
@@ -12,7 +10,9 @@ import {
   ThemeProvider,
   MainContainer,
   ContainerProvider,
-} from '@hyperledger/aries-bifold-core'
+} from '@bifold/core'
+import { KeplrStoreProvider } from '@heka-wallet/keplr'
+import { theme } from '@heka-wallet/shared'
 import React, { useEffect } from 'react'
 import { StatusBar } from 'react-native'
 import { PaperProvider } from 'react-native-paper'
@@ -66,7 +66,7 @@ const App = () => {
               <W3cCredentialRecordProvider>
                 <SdJwtVcRecordProvider>
                   <MdocRecordProvider>
-                    <ThemeProvider value={theme}>
+                    <ThemeProvider themes={[theme]} defaultThemeName={theme.themeName}>
                       <PaperProvider theme={theme.PaperTheme}>
                         <AnimatedComponentsProvider value={animatedComponents}>
                           <AuthProvider>
@@ -74,7 +74,7 @@ const App = () => {
                               <StatusBar
                                 hidden={false}
                                 barStyle="dark-content"
-                                backgroundColor={theme.ColorPallet.brand.primaryBackground}
+                                backgroundColor={theme.ColorPalette.brand.primaryBackground}
                                 translucent={false}
                               />
                               <RootStack />

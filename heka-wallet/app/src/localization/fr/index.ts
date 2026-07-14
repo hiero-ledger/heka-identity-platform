@@ -193,14 +193,14 @@ const translation = {
   },
   "CredentialOffer": {
     "EnterCredentialPIN": "Veuillez saisir le code PIN du certificat",
-    "CredentialAddedToYourWallet": "Votre certificat est prêt à l'emploi !",
+    "CredentialAddedToYourWallet": "Votre certificat est prête à être utilisée.",
     "CredentialOnTheWay": "Votre certificat est en route.",
     "IssuedBy": "Émis par"
   },
   "ProofRequest": {
     "RequestedInformation": "Informations demandées",
     "PresentationOnTheWay": "Votre présentation est en route.",
-    "PresentationAccepted": "Vous êtes dans ! \nVotre présentation a été acceptée."
+    "PresentationAccepted": "Vous êtes dans ! \nVotre preuve de présentation a été acceptée."
   },
   "Notifications": {
     "CredentialOffer": "Offre de certificat",
@@ -328,6 +328,15 @@ const translation = {
     "ProofRequestRejected": "A rejeté une demande de preuve",
     "ProofRequestRejectReceived": "A rejeté une demande de preuve",
     "ProofRequestSatisfied": "A partagé des informations"
+  },
+  "DigitalCredentials": {
+    "EnterPinToShare": "Saisissez votre code PIN pour partager un certificat",
+    "SharingWith": "Partage avec {{origin}}",
+    "IncorrectPin": "Code PIN incorrect. Veuillez réessayer.",
+    "Cancel": "Annuler",
+    "CredentialTitleFallback": "Certificat",
+    "IssuedBy": "Émis par {{issuer}}",
+    "UnknownIssuer": "Émetteur inconnu"
   }
 }
 
