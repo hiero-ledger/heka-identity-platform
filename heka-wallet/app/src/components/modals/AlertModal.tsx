@@ -1,6 +1,6 @@
+import { Button, ButtonType, GenericFn } from '@bifold/core'
+import { hitSlop } from '@bifold/core/src/constants'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Button, ButtonType, GenericFn } from '@hyperledger/aries-bifold-core'
-import { hitSlop } from '@hyperledger/aries-bifold-core/App/constants'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
@@ -17,10 +17,10 @@ interface ModalProps {
   visible: boolean
 }
 
-const useStyles = ({ ColorPallet, TextTheme, BorderRadius, Spacing, IconSizes }: HekaTheme) =>
+const useStyles = ({ ColorPalette, TextTheme, BorderRadius, Spacing, IconSizes }: HekaTheme) =>
   StyleSheet.create({
     dialog: {
-      backgroundColor: ColorPallet.brand.modalPrimaryBackground,
+      backgroundColor: ColorPalette.brand.modalPrimaryBackground,
       borderRadius: BorderRadius.bigger,
       paddingHorizontal: Spacing.lg,
     },
@@ -34,12 +34,12 @@ const useStyles = ({ ColorPallet, TextTheme, BorderRadius, Spacing, IconSizes }:
       height: IconSizes.large,
       width: IconSizes.large,
       borderRadius: BorderRadius.medium,
-      backgroundColor: ColorPallet.brand.primaryBackground,
+      backgroundColor: ColorPalette.brand.primaryBackground,
       alignItems: 'center',
       justifyContent: 'center',
     },
     closeIcon: {
-      color: ColorPallet.brand.modalIcon,
+      color: ColorPalette.brand.modalIcon,
     },
     titleContainer: {
       paddingRight: Spacing.xxxl,

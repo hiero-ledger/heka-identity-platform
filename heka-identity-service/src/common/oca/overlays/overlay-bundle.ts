@@ -1,14 +1,14 @@
 import { Expose } from 'class-transformer'
 
 import { BaseOverlay, IBaseOverlayData } from './base-overlay'
-import { BrandingOverlay, IBrandingOverlayData } from './branding-overlay'
+import { BrandingOverlay } from './branding-overlay'
 import { CaptureBase, ICaptureBaseData } from './capture-base'
 import { CharacterEncodingOverlay } from './charaster-encoding-overlay'
 import { OverlayType } from './consts'
 import { FormatOverlay } from './format-overlay'
 import { InformationOverlay } from './information-overlay'
 import { LabelOverlay } from './label-overlay'
-import { ILegacyBrandingOverlayData, LegacyBrandingOverlay } from './legacy-branding-overlay'
+import { LegacyBrandingOverlay } from './legacy-branding-overlay'
 import { MetaOverlay } from './meta-overlay'
 import { OverlayTypeMap } from './overlay-mapper'
 import { StandardOverlay } from './standard-overlay'
@@ -127,17 +127,16 @@ export class OverlayBundle {
       ...bundle.overlays
         .filter((overlay) => overlay.type === OverlayType.LegacyBrandingOverlay)
         .map((overlay) => {
-          const OverlayClass = (OverlayTypeMap.get(overlay.type) ||
-            LegacyBrandingOverlay) as typeof LegacyBrandingOverlay
-          return new OverlayClass(overlay as ILegacyBrandingOverlayData)
+          const OverlayClass = OverlayTypeMap.get(overlay.type) || LegacyBrandingOverlay
+          return new OverlayClass(overlay)
         }),
     )
     this.overlays.push(
       ...bundle.overlays
         .filter((overlay) => overlay.type === OverlayType.BrandingOverlay)
         .map((overlay) => {
-          const OverlayClass = (OverlayTypeMap.get(overlay.type) || BrandingOverlay) as typeof BrandingOverlay
-          return new OverlayClass(overlay as IBrandingOverlayData)
+          const OverlayClass = OverlayTypeMap.get(overlay.type) || BrandingOverlay
+          return new OverlayClass(overlay)
         }),
     )
     this.languages = this.processLanguages()

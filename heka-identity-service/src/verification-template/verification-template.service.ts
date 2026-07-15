@@ -324,7 +324,8 @@ export class VerificationTemplateService {
 
     this.applyFields(newTemplate, request.fields)
 
-    await this.em.persistAndFlush(newTemplate)
+    this.em.persist(newTemplate)
+    await this.em.flush()
 
     const data = await this.getTemplateById(authInfo, newTemplate.id)
     logger.trace('<')

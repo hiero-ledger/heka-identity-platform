@@ -1,6 +1,11 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    // MikroORM v7 ships ESM-only packages whose type declarations reference
+    // subpath exports (e.g. `@mikro-orm/core/schema`). Resolving those requires
+    // an exports-map-aware moduleResolution, so the project uses nodenext.
+    // Emit stays CommonJS (package.json has no "type": "module").
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "declaration": true,
     "noImplicitAny": true,
     "removeComments": true,

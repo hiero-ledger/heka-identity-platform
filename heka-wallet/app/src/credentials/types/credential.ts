@@ -1,7 +1,13 @@
-import { CredentialExchangeRecord, MdocRecord, SdJwtVcRecord, W3cCredentialRecord } from '@credo-ts/core'
-import { Field } from '@hyperledger/aries-oca/build/legacy'
+import { Field } from '@bifold/oca/build/legacy'
+import { MdocRecord, SdJwtVcRecord, W3cCredentialRecord, W3cV2CredentialRecord } from '@credo-ts/core'
+import { DidCommCredentialExchangeRecord } from '@credo-ts/didcomm'
 
-export type CredentialRecord = SdJwtVcRecord | W3cCredentialRecord | MdocRecord | CredentialExchangeRecord
+export type CredentialRecord =
+  | SdJwtVcRecord
+  | W3cCredentialRecord
+  | W3cV2CredentialRecord
+  | MdocRecord
+  | DidCommCredentialExchangeRecord
 
 export enum CredentialType {
   W3c = 'w3c-credential',

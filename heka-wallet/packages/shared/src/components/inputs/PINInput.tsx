@@ -1,5 +1,5 @@
-import { testIdWithKey } from '@hyperledger/aries-bifold-core'
-import { minPINLength } from '@hyperledger/aries-bifold-core/App/constants'
+import { testIdWithKey } from '@bifold/core'
+import { minPINLength } from '@bifold/core/src/constants'
 import React, { forwardRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native'
@@ -12,7 +12,7 @@ const PIN_CELL_SIZE = 30
 
 const HIT_SLOP = { top: 22, bottom: 22, left: 22, right: 22 }
 
-const useStyles = ({ TextTheme, ColorPallet, Spacing, BorderWidth }: HekaTheme) =>
+const useStyles = ({ TextTheme, ColorPalette, Spacing, BorderWidth }: HekaTheme) =>
   StyleSheet.create({
     container: {
       flexDirection: 'row',
@@ -24,9 +24,9 @@ const useStyles = ({ TextTheme, ColorPallet, Spacing, BorderWidth }: HekaTheme) 
       width: PIN_CELL_SIZE,
       height: PIN_CELL_SIZE,
       marginRight: Spacing.md,
-      backgroundColor: ColorPallet.brand.primaryBackground,
+      backgroundColor: ColorPalette.brand.primaryBackground,
       borderWidth: BorderWidth.medium,
-      borderColor: ColorPallet.grayscale.inactiveGray,
+      borderColor: ColorPalette.grayscale.inactiveGray,
       borderRadius: PIN_CELL_SIZE / 2,
     },
     showPINCell: {
@@ -62,7 +62,7 @@ export const PINInput: React.FC<Props & React.RefAttributes<TextInput>> = forwar
 
     const theme = useHekaTheme()
     const styles = useStyles(theme)
-    const { TextTheme, ColorPallet, Spacing } = theme
+    const { TextTheme, ColorPalette, Spacing } = theme
 
     const [showPIN, setShowPIN] = useState(false)
 
@@ -98,11 +98,11 @@ export const PINInput: React.FC<Props & React.RefAttributes<TextInput>> = forwar
               if (hideBorder) {
                 cellStyle = { ...cellStyle, borderColor: 'transparent' }
               } else if (activeBorder) {
-                cellStyle = { ...cellStyle, borderColor: theme.ColorPallet.brand.primary }
+                cellStyle = { ...cellStyle, borderColor: theme.ColorPalette.brand.primary }
               }
 
               if (fillBackground) {
-                cellStyle = { ...cellStyle, backgroundColor: theme.ColorPallet.brand.primary }
+                cellStyle = { ...cellStyle, backgroundColor: theme.ColorPalette.brand.primary }
               }
 
               return (
@@ -124,7 +124,7 @@ export const PINInput: React.FC<Props & React.RefAttributes<TextInput>> = forwar
           testId={showPIN ? testIdWithKey('Hide') : testIdWithKey('Show')}
           onPress={() => setShowPIN(!showPIN)}
           iconName={showPIN ? 'eye-slash' : 'eye'}
-          iconColor={ColorPallet.brand.primary}
+          iconColor={ColorPalette.brand.primary}
           iconSize={PIN_CELL_SIZE}
           hitSlop={HIT_SLOP}
         />

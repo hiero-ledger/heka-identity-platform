@@ -1,7 +1,7 @@
+import { ButtonLocation, DispatchAction, IconButton, useStore } from '@bifold/core'
+import { SettingStackParams } from '@bifold/core/src/types/navigators'
+import { SettingIcon } from '@bifold/core/src/types/settings'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { ButtonLocation, DispatchAction, HeaderButton, useStore } from '@hyperledger/aries-bifold-core'
-import { SettingStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
-import { SettingIcon } from '@hyperledger/aries-bifold-core/App/types/settings'
 import { StackScreenProps } from '@react-navigation/stack'
 import React, { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -197,7 +197,7 @@ const SettingSectionHeader: React.FC<SettingSectionHeaderProps> = ({ iconRight, 
         )}
       </View>
       {iconRight && (
-        <HeaderButton
+        <IconButton
           buttonLocation={ButtonLocation.Right}
           accessibilityLabel={iconRight.accessibilityLabel!}
           testID={iconRight.testID!}
@@ -239,7 +239,7 @@ const SettingSectionRow: React.FC<SettingSectionRowProps> = ({
 }) => {
   const theme = useHekaTheme()
   const styles = useStyles(theme)
-  const { TextTheme, ColorPallet, IconSizes } = theme
+  const { TextTheme, ColorPalette, IconSizes } = theme
 
   const [isActionPending, setIsActionPending] = useState(false)
   const executeAction = useCallback(async () => {
@@ -270,9 +270,9 @@ const SettingSectionRow: React.FC<SettingSectionRowProps> = ({
         <View style={styles.sectionRowIconContainer}>
           <Text style={TextTheme.normal}>{value}</Text>
           {!isActionPending && (
-            <MaterialIcon name={'chevron-right'} color={ColorPallet.brand.label} size={IconSizes.medium} />
+            <MaterialIcon name={'chevron-right'} color={ColorPalette.brand.label} size={IconSizes.medium} />
           )}
-          {isActionPending && <ActivityIndicator color={ColorPallet.brand.label} size={IconSizes.medium} />}
+          {isActionPending && <ActivityIndicator color={ColorPalette.brand.label} size={IconSizes.medium} />}
         </View>
       </TouchableOpacity>
     </ScrollView>

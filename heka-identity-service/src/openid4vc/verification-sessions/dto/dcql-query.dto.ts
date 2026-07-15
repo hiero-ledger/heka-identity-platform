@@ -99,7 +99,10 @@ abstract class DcqlCredentialDto {
   @ApiProperty({ description: 'The format of the requested Verifiable Credential.' })
   @IsString()
   @IsNotEmpty()
-  public abstract format: OpenId4VciCredentialFormatProfile.MsoMdoc | OpenId4VciCredentialFormatProfile.SdJwtVc
+  public abstract format:
+    | OpenId4VciCredentialFormatProfile.MsoMdoc
+    | OpenId4VciCredentialFormatProfile.SdJwtVc
+    | OpenId4VciCredentialFormatProfile.SdJwtDc
 
   @ApiPropertyOptional({ description: 'An array specifying combinations of claims requested.' })
   @IsOptional()
@@ -156,10 +159,14 @@ class DcqlMsoMdocCredentialDto extends DcqlCredentialDto {
   public meta?: DcqlMsoMdocCredentialMetaDto
 }
 
+// Accepts both the legacy `vc+sd-jwt` and the newer `dc+sd-jwt` SD-JWT formats.
 class DcqlSdJwtVcCredentialDto extends DcqlCredentialDto {
-  @ApiProperty({ enum: [OpenId4VciCredentialFormatProfile.SdJwtVc] })
+  @ApiProperty({
+    enum: [OpenId4VciCredentialFormatProfile.SdJwtVc, OpenId4VciCredentialFormatProfile.SdJwtDc],
+  })
   @IsString()
-  public format = OpenId4VciCredentialFormatProfile.SdJwtVc as const
+  public format: OpenId4VciCredentialFormatProfile.SdJwtVc | OpenId4VciCredentialFormatProfile.SdJwtDc =
+    OpenId4VciCredentialFormatProfile.SdJwtVc
 
   @ApiPropertyOptional({ type: [DcqlSdJwtVcClaimDto], description: 'A non-empty array of objects specifying claims.' })
   @IsOptional()
@@ -205,6 +212,7 @@ export class DcqlQueryDto {
       subTypes: [
         { value: DcqlMsoMdocCredentialDto, name: OpenId4VciCredentialFormatProfile.MsoMdoc },
         { value: DcqlSdJwtVcCredentialDto, name: OpenId4VciCredentialFormatProfile.SdJwtVc },
+        { value: DcqlSdJwtVcCredentialDto, name: OpenId4VciCredentialFormatProfile.SdJwtDc },
       ],
     },
   })

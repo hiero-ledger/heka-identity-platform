@@ -17,7 +17,7 @@ services:
       - APP_ENABLE_CORS=true
       - ORG_ID=633890ba-ceff-4989-ad44-44f1d003d809
       - LOG_LEVEL=info
-      - LOG_EXCLUDE_URLS=/version,/healthz
+      - LOG_EXCLUDE_URLS=/version,/health
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_NAME=heka-auth-service

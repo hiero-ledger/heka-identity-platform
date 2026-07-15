@@ -21,7 +21,7 @@ export class Agent extends CredoAgent<AgencyModulesMap> implements OnApplication
     super({
       config: {
         ...agencyConfig.initConfig,
-        logger: new CredoLogger(loggerProvider.getLogger().child('CredoFramework'), LogLevel.trace),
+        logger: new CredoLogger(loggerProvider.getLogger().child('CredoFramework'), LogLevel.Trace),
       },
       dependencies: agentDependencies,
       modules: agentModules,
@@ -58,15 +58,34 @@ export class Agent extends CredoAgent<AgencyModulesMap> implements OnApplication
 
     if (this.agencyConfig.mdlIssuerPrivateKeyJwk) {
       const kms = this.context.resolve(Kms.KeyManagementApi)
-      try {
-        await kms.importKey({ privateJwk: this.agencyConfig.mdlIssuerPrivateKeyJwk as unknown as Kms.KmsJwkPrivate })
-        logger.info('MDL issuer private key imported into KMS')
-      } catch (e) {
-        const isDuplicateEntry = e instanceof Error && e.message === 'Duplicate entry'
-        if (e instanceof Kms.KeyManagementKeyExistsError || isDuplicateEntry) {
-          logger.debug('MDL issuer private key already present in KMS')
-        } else {
-          throw e
+      const mdlIssuerPrivateJwk = this.agencyConfig.mdlIssuerPrivateKeyJwk as unknown as Kms.KmsJwkPrivate
+
+      // Re-importing a key that already exists makes Credo's AskarStoreManager
+      // log "Error occurred during transaction, rollback" at ERROR level (askar
+      // Duplicate) on every restart, so we're doing a pre-check.
+      let existingMdlIssuerKey
+      if (mdlIssuerPrivateJwk.kid) {
+        try {
+          existingMdlIssuerKey = await kms.getPublicKey({ keyId: mdlIssuerPrivateJwk.kid })
+        } catch (error) {
+          if (!(error instanceof Kms.KeyManagementKeyNotFoundError)) throw error
+        }
+      }
+
+      if (existingMdlIssuerKey) {
+        logger.debug('MDL issuer private key already present in KMS')
+      } else {
+        try {
+          await kms.importKey({ privateJwk: mdlIssuerPrivateJwk })
+          logger.info('MDL issuer private key imported into KMS')
+        } catch (error) {
+          // Safety check for concurrent startups or keys configured without a kid.
+          const isDuplicateEntry = error instanceof Error && error.message === 'Duplicate entry'
+          if (error instanceof Kms.KeyManagementKeyExistsError || isDuplicateEntry) {
+            logger.debug('MDL issuer private key already present in KMS')
+          } else {
+            throw error
+          }
         }
       }
     }

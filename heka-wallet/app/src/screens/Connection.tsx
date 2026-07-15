@@ -1,8 +1,12 @@
-import { BasicMessageRecord, CredentialExchangeRecord, ProofExchangeRecord } from '@credo-ts/core'
-import { ColorPallet, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Button, ButtonType, Screens, Stacks, TOKENS, useServices } from '@hyperledger/aries-bifold-core'
-import { useConnectionByOutOfBandId, useOutOfBandById } from '@hyperledger/aries-bifold-core/App/hooks/connections'
-import { TabStacks, DeliveryStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
+import { Button, ButtonType, Screens, Stacks, TabStacks, TOKENS, useServices } from '@bifold/core'
+import { useConnectionByOutOfBandId, useOutOfBandById } from '@bifold/core/src/hooks/connections'
+import { DeliveryStackParams } from '@bifold/core/src/types/navigators'
+import {
+  DidCommBasicMessageRecord,
+  DidCommCredentialExchangeRecord,
+  DidCommProofExchangeRecord,
+} from '@credo-ts/didcomm'
+import { ColorPalette, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { CommonActions } from '@react-navigation/native'
 import { StackScreenProps } from '@react-navigation/stack'
 import React, { useCallback, useEffect, useReducer } from 'react'
@@ -28,15 +32,17 @@ const GoalCodes = {
   credentialOffer: 'aries.vc.issue',
 } as const
 
+const NOTIFICATION_OPTIONS = { openIDUri: '' }
+
 const useStyles = ({ TextTheme }: HekaTheme) =>
   StyleSheet.create({
     container: {
       height: '100%',
-      backgroundColor: ColorPallet.brand.modalPrimaryBackground,
+      backgroundColor: ColorPalette.brand.modalPrimaryBackground,
       padding: 20,
     },
     pendingBackground: {
-      backgroundColor: ColorPallet.brand.modalPrimaryBackground,
+      backgroundColor: ColorPalette.brand.modalPrimaryBackground,
     },
     image: {
       marginTop: 20,
@@ -61,9 +67,9 @@ const Connection: React.FC<ConnectionProps> = ({ navigation, route }) => {
 
   const [logger, { useNotifications }] = useServices([TOKENS.UTIL_LOGGER, TOKENS.NOTIFICATIONS, TOKENS.CONFIG])
 
-  const notifications = useNotifications()
-  const oobRecord = useOutOfBandById(oobRecordId)
-  const connection = useConnectionByOutOfBandId(oobRecordId)
+  const notifications = useNotifications(NOTIFICATION_OPTIONS)
+  const oobRecord = useOutOfBandById(oobRecordId ?? '')
+  const connection = useConnectionByOutOfBandId(oobRecordId ?? '')
 
   const merge: MergeFunction = (current, next) => ({ ...current, ...next })
   const [state, dispatch] = useReducer(merge, {
@@ -164,10 +170,13 @@ const Connection: React.FC<ConnectionProps> = ({ navigation, route }) => {
     if (!state.inProgress || state.notificationRecord) {
       return
     }
-    type notCustomNotification = BasicMessageRecord | CredentialExchangeRecord | ProofExchangeRecord
+    type notCustomNotification =
+      | DidCommBasicMessageRecord
+      | DidCommCredentialExchangeRecord
+      | DidCommProofExchangeRecord
     for (const notification of notifications) {
       // no action taken for BasicMessageRecords
-      if ((notification as BasicMessageRecord).type === 'BasicMessageRecord') {
+      if ((notification as DidCommBasicMessageRecord).type === 'BasicMessageRecord') {
         logger?.info('Connection: BasicMessageRecord, skipping')
         continue
       }
@@ -187,7 +196,7 @@ const Connection: React.FC<ConnectionProps> = ({ navigation, route }) => {
   }, [connection, logger, notifications, oobRecord, state])
 
   return (
-    <SafeAreaView style={{ backgroundColor: ColorPallet.brand.modalPrimaryBackground }}>
+    <SafeAreaView style={{ backgroundColor: ColorPalette.brand.modalPrimaryBackground }}>
       <SafeAreaView style={styles.pendingBackground}>
         <ScrollView style={styles.container}>
           <View style={styles.image}>

@@ -45,7 +45,7 @@ export class IssuanceTemplateUtilities {
     const response = await request(app)
       .patch(`/issuance-templates/${templateId}`)
       .auth(authToken, { type: 'bearer' })
-      .send({ isPinned: pinned } as PatchIssuanceTemplateRequest)
+      .send({ isPinned: pinned } satisfies PatchIssuanceTemplateRequest)
     return response.status === 200
   }
 

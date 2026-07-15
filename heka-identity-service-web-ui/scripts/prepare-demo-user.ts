@@ -83,7 +83,14 @@ async function main() {
   const mdlSchema = {
     name: 'mDL',
     bgColor: '#1a3a5c',
-    fields: ['given_name', 'family_name', 'birth_date', 'age_over_18', 'document_number', 'expiry_date'],
+    fields: [
+      'given_name',
+      'family_name',
+      'birth_date',
+      'age_over_18',
+      'document_number',
+      'expiry_date',
+    ],
     registrations: [
       {
         network: 'key',

@@ -60,7 +60,7 @@ describe('CredentialV2Service', () => {
     tenantAgent = createMock<TenantAgent>({
       didcomm: {
         connections: { findById: vi.fn() },
-      } as any,
+      },
     })
   })
 
@@ -95,7 +95,7 @@ describe('CredentialV2Service', () => {
         templateId: 'template-1',
         connectionId: 'conn-1',
         credentials: [{ name: 'field1', value: 'val1' }],
-      } as any)
+      })
 
       expect(issuanceTemplateService.getTemplateById).toHaveBeenCalledWith(authInfo, 'template-1')
       expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('conn-1')
@@ -133,7 +133,7 @@ describe('CredentialV2Service', () => {
       const result = await credentialV2Service.offerByTemplate(tenantAgent, authInfo, {
         templateId: 'template-2',
         credentials: [{ name: 'f1', value: 'v1' }],
-      } as any)
+      })
 
       expect(issuanceTemplateService.getTemplateById).toHaveBeenCalledWith(authInfo, 'template-2')
       expect(issuanceSessionService.offer).toHaveBeenCalledWith(authInfo, tenantAgent, expect.anything())
@@ -231,7 +231,7 @@ describe('CredentialV2Service', () => {
         templateId: 'vtemplate-1',
         connectionId: 'conn-1',
         fields: ['name', 'age'],
-      } as any)
+      })
 
       expect(verificationTemplateService.getTemplateById).toHaveBeenCalledWith(authInfo, 'vtemplate-1')
       expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('conn-1')
@@ -263,7 +263,7 @@ describe('CredentialV2Service', () => {
       const result = await credentialV2Service.proofByTemplate(tenantAgent, authInfo, {
         templateId: 'vtemplate-2',
         fields: ['name'],
-      } as any)
+      })
 
       expect(verificationTemplateService.getTemplateById).toHaveBeenCalledWith(authInfo, 'vtemplate-2')
       expect(verificationSessionService.createRequest).toHaveBeenCalledWith(tenantAgent, expect.anything())

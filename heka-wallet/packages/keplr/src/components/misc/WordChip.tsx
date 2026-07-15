@@ -45,9 +45,9 @@ export const WordChip: React.FC<Props> = ({
         alignItems: isEmpty ? 'flex-start' : 'center',
         borderColor:
           highlightBorder || highlightContent
-            ? theme.ColorPallet.grayscale.lightGrey
-            : theme.ColorPallet.grayscale.mediumGrey,
-        backgroundColor: highlightContent ? theme.ColorPallet.grayscale.white : theme.ColorPallet.grayscale.darkGrey,
+            ? theme.ColorPalette.grayscale.lightGrey
+            : theme.ColorPalette.grayscale.mediumGrey,
+        backgroundColor: highlightContent ? theme.ColorPalette.grayscale.white : theme.ColorPalette.grayscale.darkGrey,
         ...containerStyle,
       }}
       disabled={!onPress}
@@ -55,7 +55,7 @@ export const WordChip: React.FC<Props> = ({
     >
       <Text
         style={{
-          color: highlightContent ? theme.ColorPallet.grayscale.black : theme.ColorPallet.grayscale.white,
+          color: highlightContent ? theme.ColorPalette.grayscale.black : theme.ColorPalette.grayscale.white,
           opacity: hideWord ? 1 : undefined,
         }}
       >

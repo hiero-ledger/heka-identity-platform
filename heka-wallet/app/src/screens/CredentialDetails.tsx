@@ -1,9 +1,7 @@
 import type { StackScreenProps } from '@react-navigation/stack'
 
-import { CredentialExchangeRecord } from '@credo-ts/core'
-import { useAgent } from '@credo-ts/react-hooks'
+import { BifoldError, EventTypes, Screens } from '@bifold/core'
 import { useHekaTheme } from '@heka-wallet/shared'
-import { BifoldError, EventTypes, Screens } from '@hyperledger/aries-bifold-core'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter, View } from 'react-native'
@@ -14,9 +12,10 @@ import { Record } from '../components/misc'
 import CredentialContextMenu from '../components/misc/CredentialContextMenu'
 import LoadingView from '../components/views/LoadingView'
 import { mapCredentialRecord, Credential } from '../credentials'
+import { useHekaAgent } from '../utils/agent'
 
 type CredentialStackParams = {
-  [Screens.CredentialDetails]: { credential: CredentialExchangeRecord | Credential }
+  [Screens.CredentialDetails]: { credentialId: string | Credential }
 }
 
 type Props = StackScreenProps<CredentialStackParams, Screens.CredentialDetails>
@@ -27,19 +26,19 @@ export const CredentialDetails: React.FC<Props> = ({ navigation, route }) => {
     throw new Error('CredentialDetails route prams were not set properly')
   }
 
-  const { credential: routeCredential } = route.params
-  const routeWithCredentialRecord = routeCredential instanceof CredentialExchangeRecord
+  const { credentialId: routeCredential } = route.params
+  const routeWithCredentialId = typeof routeCredential === 'string'
 
   const { t } = useTranslation()
 
   const theme = useHekaTheme()
   const { Spacing } = theme
 
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const [isCredentialLoading, setIsCredentialLoading] = useState(false)
   const [credential, setCredential] = useState<Credential | undefined>(
-    !routeWithCredentialRecord ? routeCredential : undefined
+    !routeWithCredentialId ? routeCredential : undefined
   )
 
   const [shown, setShown] = useState<boolean[]>([])
@@ -80,13 +79,17 @@ export const CredentialDetails: React.FC<Props> = ({ navigation, route }) => {
   }, [credential]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (credential || !routeWithCredentialRecord || !agent) return
+    if (credential || !routeWithCredentialId || !agent) return
 
     setIsCredentialLoading(true)
-    mapCredentialRecord(routeCredential, agent)
+
+    // TODO: Refactor to avoid chained promise calls
+    agent.didcomm.credentials
+      .getById(routeCredential)
+      .then((record) => mapCredentialRecord(record, agent))
       .then((credential) => setCredential(credential))
       .finally(() => setIsCredentialLoading(false))
-  }, [agent, routeCredential, credential, routeWithCredentialRecord])
+  }, [agent, routeCredential, credential, routeWithCredentialId])
 
   useEffect(() => {
     if (!agent) {

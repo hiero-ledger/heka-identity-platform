@@ -173,16 +173,14 @@ export class OAuthService {
     user: User,
     accessToken: string,
   ): Promise<{ token: string; expiresIn: number }> => {
-    const expiresIn = 1000 * this.configService.jwtConfig.refreshExpiry
+    const expiresIn = this.configService.jwtConfig.refreshExpiry
     const expiration = ExpiresInToDate(this.configService.jwtConfig.refreshExpiry)
 
     const storedToken = await this.tokenRepository.put({
       type: TokenType.RefreshToken,
       subject: user.id,
       token: uuidv4(),
-      payload: <AccessTokenPayload>{
-        accessToken,
-      },
+      payload: JSON.stringify(<AccessTokenPayload>{ accessToken }),
       expireIn: expiration,
     })
 

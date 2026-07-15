@@ -1,10 +1,11 @@
 import type { PropsWithChildren } from 'react'
 import type * as React from 'react'
 
+import { recordsAddedByType, recordsRemovedByType, recordsUpdatedByType } from '@bifold/react-hooks/build/recordUtils'
 import { W3cCredentialRecord } from '@credo-ts/core'
-import { useAgent } from '@credo-ts/react-hooks'
-import { recordsAddedByType, recordsRemovedByType, recordsUpdatedByType } from '@credo-ts/react-hooks/build/recordUtils'
 import { createContext, useContext, useEffect, useState } from 'react'
+
+import { useHekaAgent } from '../utils/agent'
 
 type W3cCredentialRecordState = {
   w3cCredentialRecords: Array<W3cCredentialRecord>
@@ -57,7 +58,7 @@ export const useW3cCredentialRecordById = (id: string): W3cCredentialRecord | un
 }
 
 export const W3cCredentialRecordProvider: React.FC<PropsWithChildren> = ({ children }) => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
 
   const [state, setState] = useState<W3cCredentialRecordState>({
     w3cCredentialRecords: [],
@@ -66,9 +67,7 @@ export const W3cCredentialRecordProvider: React.FC<PropsWithChildren> = ({ child
 
   useEffect(() => {
     if (!agent) return
-    agent.w3cCredentials
-      .getAllCredentialRecords()
-      .then((w3cCredentialRecords) => setState({ w3cCredentialRecords, isLoading: false }))
+    agent.w3cCredentials.getAll().then((w3cCredentialRecords) => setState({ w3cCredentialRecords, isLoading: false }))
   }, [agent])
 
   useEffect(() => {

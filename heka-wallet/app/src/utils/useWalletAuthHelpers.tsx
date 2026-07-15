@@ -1,9 +1,10 @@
-import { useAgent } from '@credo-ts/react-hooks'
-import { DispatchAction, useAuth, useStore } from '@hyperledger/aries-bifold-core'
+import { DispatchAction, useAuth, useStore } from '@bifold/core'
 import { useCallback } from 'react'
 
+import { useHekaAgent } from './agent'
+
 export const useWalletAuthHelpers = () => {
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
   const [state, dispatch] = useStore()
   const { removeSavedWalletSecret } = useAuth()
 
@@ -11,7 +12,6 @@ export const useWalletAuthHelpers = () => {
     if (!agent || !state.authentication.didAuthenticate) return
 
     removeSavedWalletSecret()
-    await agent.wallet.close()
     await agent.shutdown()
 
     dispatch({

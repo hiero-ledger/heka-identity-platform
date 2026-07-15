@@ -20,15 +20,15 @@ describe('RevocationRegistryService', () => {
           registerRevocationStatusList: vi.fn(),
           getRevocationStatusList: vi.fn(),
         },
-      } as any,
+      },
       dids: {
         getCreatedDids: vi.fn(),
-      } as any,
+      },
       genericRecords: {
         save: vi.fn(),
         findAllByQuery: vi.fn(),
         update: vi.fn(),
-      } as any,
+      },
     })
 
     service = new RevocationRegistryService(anoncredsRegistryService)

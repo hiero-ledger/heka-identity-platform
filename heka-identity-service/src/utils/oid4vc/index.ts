@@ -80,6 +80,11 @@ export const createCredentialRequestToCredentialMapper =
       const holderKey = holderBinding.keys[0]?.jwk
       if (!holderKey) throw new Error('No holder key found for mdoc binding')
 
+      const validUntil = new Date()
+
+      // TODO: Implement actual validity period & VC refresh logic
+      validUntil.setFullYear(validUntil.getFullYear() + 1)
+
       return {
         type: 'credentials' as const,
         format: ClaimFormat.MsoMdoc,
@@ -87,6 +92,7 @@ export const createCredentialRequestToCredentialMapper =
           {
             docType: issuanceMetadata.type as string,
             namespaces: issuanceMetadata.namespaces,
+            validityInfo: { validUntil },
             issuerCertificate,
             holderKey,
           },

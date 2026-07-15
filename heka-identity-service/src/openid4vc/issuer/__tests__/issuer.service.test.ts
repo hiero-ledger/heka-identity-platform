@@ -21,15 +21,15 @@ describe('OpenId4VcIssuerService', () => {
           getIssuerByIssuerId: vi.fn(),
           updateIssuerMetadata: vi.fn(),
         },
-      } as any,
+      },
       context: {
         resolve: vi.fn().mockReturnValue({
           supportedBackendsForOperation: vi.fn().mockReturnValue([]),
         }),
-      } as any,
+      },
       dids: {
         getCreatedDids: vi.fn(),
-      } as any,
+      },
     })
   })
 
@@ -148,7 +148,7 @@ describe('OpenId4VcIssuerService', () => {
 
       const result = await service.updateIssuerMetadata(tenantAgent, 'issuer-1', {
         action: UpdateIssuerSupportedCredentialsAction.Add,
-        credentialsSupported: [{ id: 'cred-2', format: 'vc+sd-jwt' as any, vct: 'https://example.com/vct2' }] as any,
+        credentialsSupported: [{ id: 'cred-2', format: 'vc+sd-jwt' as any, vct: 'https://example.com/vct2' }],
       })
 
       expect(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).toHaveBeenCalledWith('issuer-1')
@@ -238,7 +238,7 @@ describe('OpenId4VcIssuerService', () => {
     test('should do nothing if no DIDs exist', async () => {
       vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([])
 
-      await service.applyUserDisplay(tenantAgent, { name: 'Display' } as any)
+      await service.applyUserDisplay(tenantAgent, { name: 'Display' })
 
       expect(tenantAgent.dids.getCreatedDids).toHaveBeenCalledWith()
       expect(tenantAgent.openid4vc.issuer.updateIssuerMetadata).not.toHaveBeenCalled()

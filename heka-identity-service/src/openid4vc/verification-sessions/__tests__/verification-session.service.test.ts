@@ -16,6 +16,7 @@ describe('OpenId4VcVerificationSessionService', () => {
   const mockDeleteById = vi.fn()
   const mockCreateAuthorizationRequest = vi.fn()
   const mockGetVerifiedAuthorizationResponse = vi.fn()
+  const mockVerifyAuthorizationResponse = vi.fn()
 
   const makeSessionRecord = (overrides: Record<string, unknown> = {}) =>
     verificationSessionRecordStub({
@@ -35,25 +36,27 @@ describe('OpenId4VcVerificationSessionService', () => {
     mockDeleteById.mockReset()
     mockCreateAuthorizationRequest.mockReset()
     mockGetVerifiedAuthorizationResponse.mockReset()
+    mockVerifyAuthorizationResponse.mockReset()
 
     tenantAgent = createMock<TenantAgent>({
       openid4vc: {
         verifier: {
           createAuthorizationRequest: mockCreateAuthorizationRequest,
           getVerifiedAuthorizationResponse: mockGetVerifiedAuthorizationResponse,
+          verifyAuthorizationResponse: mockVerifyAuthorizationResponse,
         },
-      } as any,
+      },
       dependencyManager: {
         resolve: vi.fn().mockReturnValue({
           findByQuery: mockFindByQuery,
           getById: mockGetById,
           deleteById: mockDeleteById,
         }),
-      } as any,
-      context: {} as any,
+      },
+      context: {},
       dids: {
         resolve: vi.fn(),
-      } as any,
+      },
     })
   })
 
@@ -93,6 +96,7 @@ describe('OpenId4VcVerificationSessionService', () => {
         presentationExchange: {
           presentations: [
             {
+              claimFormat: 'dc+sd-jwt',
               header: { typ: 'vc+sd-jwt' },
               prettyClaims: {
                 vct: 'https://example.com/vct',
@@ -151,13 +155,12 @@ describe('OpenId4VcVerificationSessionService', () => {
         presentationExchange: {
           presentations: [
             {
-              documents: [
-                {
-                  issuerSignedNamespaces: {
-                    'org.iso.18013.5.1': { given_name: 'Alice', family_name: 'Smith' },
-                  },
+              claimFormat: 'mso_mdoc',
+              issuerClaims: {
+                'org.iso.18013.5.1.mDL': {
+                  'org.iso.18013.5.1': { given_name: 'Alice', family_name: 'Smith' },
                 },
-              ],
+              },
             },
           ],
         },
@@ -179,6 +182,7 @@ describe('OpenId4VcVerificationSessionService', () => {
           presentations: {
             credentialQuery1: [
               {
+                claimFormat: 'dc+sd-jwt',
                 header: { typ: 'vc+sd-jwt' },
                 prettyClaims: {
                   vct: 'https://example.com/vct',
@@ -324,6 +328,160 @@ describe('OpenId4VcVerificationSessionService', () => {
           version: 'v1',
         }),
       )
+    })
+
+    test('should create an unsigned DCQL request for the DC API flow without resolving a DID', async () => {
+      const dcql = { query: { credentials: [{ id: 'requested-credential', format: 'mso_mdoc' }] } }
+      const req = {
+        publicVerifierId: 'verifier-1',
+        responseMode: 'dc_api',
+        expectedOrigins: ['https://verifier.example.com'],
+        version: 'v1',
+        dcql,
+      } as any
+
+      mockCreateAuthorizationRequest.mockResolvedValue({
+        authorizationRequest: 'openid4vp://?...',
+        authorizationRequestObject: { response_mode: 'dc_api', nonce: 'abc' },
+        verificationSession: makeSessionRecord(),
+      })
+
+      const result = await service.createRequest(tenantAgent, req)
+
+      expect(tenantAgent.dids.resolve).not.toHaveBeenCalled()
+      expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestSigner: { method: 'none' },
+          responseMode: 'dc_api',
+          version: 'v1',
+          expectedOrigins: undefined,
+          presentationExchange: undefined,
+          dcql,
+        }),
+      )
+      expect(result.authorizationRequestObject).toEqual({ response_mode: 'dc_api', nonce: 'abc' })
+    })
+
+    test('should sign the DC API request with the verifier DID and embed origins when a requestSigner is given', async () => {
+      const dcql = { query: { credentials: [{ id: 'requested-credential', format: 'mso_mdoc' }] } }
+      const req = {
+        publicVerifierId: 'verifier-1',
+        requestSigner: { did: 'did:key:z6Mk1234' },
+        responseMode: 'dc_api',
+        expectedOrigins: ['https://verifier.example.com'],
+        version: 'v1',
+        dcql,
+      } as any
+
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+          },
+        }),
+      )
+
+      mockCreateAuthorizationRequest.mockResolvedValue({
+        authorizationRequest: 'openid4vp://?...',
+        authorizationRequestObject: { request: 'eyJ.signed.jar' },
+        verificationSession: makeSessionRecord(),
+      })
+
+      await service.createRequest(tenantAgent, req)
+
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6Mk1234')
+      expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestSigner: { method: 'did', didUrl: 'did:key:z6Mk1234#z6Mk1234' },
+          responseMode: 'dc_api',
+          version: 'v1',
+          expectedOrigins: ['https://verifier.example.com'],
+          presentationExchange: undefined,
+          dcql,
+        }),
+      )
+    })
+
+    test('should not return authorizationRequestObject for a non-DC API request', async () => {
+      const req = {
+        publicVerifierId: 'verifier-1',
+        requestSigner: { did: 'did:key:z6Mk1234' },
+        presentationExchange: { definition: { id: 'def-1', input_descriptors: [] } },
+      } as any
+
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: { verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }] },
+        }),
+      )
+
+      mockCreateAuthorizationRequest.mockResolvedValue({
+        authorizationRequest: 'openid://?request_uri=https://example.com/auth',
+        authorizationRequestObject: { response_mode: 'dc_api' },
+        verificationSession: makeSessionRecord(),
+      })
+
+      const result = await service.createRequest(tenantAgent, req)
+
+      expect(result.authorizationRequestObject).toBeUndefined()
+    })
+  })
+
+  describe('verifyDcApiResponse', () => {
+    test('should verify the response and return the shared attributes when verified', async () => {
+      mockVerifyAuthorizationResponse.mockResolvedValue({
+        verificationSession: makeSessionRecord({ state: OpenId4VcVerificationSessionState.ResponseVerified }),
+      })
+
+      mockGetVerifiedAuthorizationResponse.mockResolvedValue({
+        presentationExchange: {
+          presentations: [
+            {
+              claimFormat: 'dc+sd-jwt',
+              header: { typ: 'vc+sd-jwt' },
+              prettyClaims: {
+                vct: 'https://example.com/vct',
+                cnf: {},
+                iss: 'did:key:z6Mk1234',
+                iat: 123456,
+                age_over_18: true,
+              },
+            },
+          ],
+        },
+      })
+
+      const result = await service.verifyDcApiResponse(
+        tenantAgent,
+        'vs-1',
+        { vp_token: 'tok' },
+        'https://verifier.example.com',
+      )
+
+      expect(mockVerifyAuthorizationResponse).toHaveBeenCalledWith({
+        verificationSessionId: 'vs-1',
+        authorizationResponse: { vp_token: 'tok' },
+        origin: 'https://verifier.example.com',
+      })
+      expect(mockGetVerifiedAuthorizationResponse).toHaveBeenCalledWith('vs-1')
+      expect(result.state).toBe(OpenId4VcVerificationSessionState.ResponseVerified)
+      expect(result.sharedAttributes).toEqual({ age_over_18: true })
+    })
+
+    test('should not resolve attributes when the response is not yet verified', async () => {
+      mockVerifyAuthorizationResponse.mockResolvedValue({
+        verificationSession: makeSessionRecord({ state: OpenId4VcVerificationSessionState.RequestCreated }),
+      })
+
+      const result = await service.verifyDcApiResponse(
+        tenantAgent,
+        'vs-1',
+        { vp_token: 'tok' },
+        'https://verifier.example.com',
+      )
+
+      expect(mockGetVerifiedAuthorizationResponse).not.toHaveBeenCalled()
+      expect(result.sharedAttributes).toBeUndefined()
     })
   })
 })

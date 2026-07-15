@@ -1,5 +1,5 @@
+import { Button, ButtonType } from '@bifold/core'
 import { HekaTheme, useHekaTheme, useGlobalStyles } from '@heka-wallet/shared'
-import { Button, ButtonType } from '@hyperledger/aries-bifold-core'
 import { observer } from 'mobx-react-lite'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
@@ -14,7 +14,7 @@ const useStyles = (theme: HekaTheme) =>
       marginVertical: theme.Spacing.md,
     },
     modal: {
-      backgroundColor: theme.ColorPallet.brand.primaryBackground,
+      backgroundColor: theme.ColorPalette.brand.primaryBackground,
     },
     bodyContainer: {
       flexDirection: 'row',

@@ -13,7 +13,7 @@ export class IndyBesuModule implements Module {
 
   public register(dependencyManager: DependencyManager) {
     const contracts = [DidRegistry.config, SchemaRegistry.config, CredentialDefinitionRegistry.config]
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
     const client = new LedgerClient(this.config.chainId, this.config.nodeAddress, contracts, undefined, undefined)
 
     dependencyManager.registerInstance(LedgerClient, client)
@@ -24,7 +24,7 @@ export class IndyBesuModule implements Module {
 
   public async initialize(agentContext: AgentContext): Promise<void> {
     const client = agentContext.dependencyManager.resolve(LedgerClient)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
     await client.ping()
   }
 }

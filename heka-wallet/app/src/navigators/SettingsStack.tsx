@@ -1,6 +1,5 @@
+import { ButtonLocation, IconButton, ToastType, useDefaultStackOptions } from '@bifold/core'
 import { useHekaTheme } from '@heka-wallet/shared'
-import { ButtonLocation, HeaderButton, ToastType } from '@hyperledger/aries-bifold-core'
-import { useDefaultStackOptions } from '@hyperledger/aries-bifold-core/App/navigators/defaultStackOptions'
 import { createStackNavigator } from '@react-navigation/stack'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
@@ -13,8 +12,9 @@ import { useWalletAuthHelpers } from '../utils/useWalletAuthHelpers'
 
 import { Screens, SettingsStackParams } from './types'
 
+const Stack = createStackNavigator<SettingsStackParams>()
+
 export const SettingsStack: React.FC = () => {
-  const Stack = createStackNavigator<SettingsStackParams>()
   const theme = useHekaTheme()
   const defaultStackOptions = useDefaultStackOptions(theme)
 
@@ -45,7 +45,7 @@ export const SettingsStack: React.FC = () => {
           options={{
             title: t('Settings.UserProfile'),
             headerRight: () => (
-              <HeaderButton
+              <IconButton
                 buttonLocation={ButtonLocation.Right}
                 onPress={onLogOut}
                 icon={'logout'}

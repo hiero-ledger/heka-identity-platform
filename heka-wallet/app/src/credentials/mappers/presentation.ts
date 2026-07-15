@@ -1,3 +1,5 @@
+import { Attribute } from '@bifold/oca/build/legacy'
+import { groupSharedProofDataByCredential, parseAnonCredsProof, ParsedAnonCredsProof } from '@bifold/verifier'
 import {
   AnonCredsCredentialMetadataKey,
   AnonCredsPredicateType,
@@ -10,33 +12,31 @@ import {
   AnonCredsRequestedPredicateMatch,
 } from '@credo-ts/anoncreds'
 import {
-  DifPexCredentialsForRequestSubmissionEntry,
-  ProofExchangeRecord,
   ClaimFormat,
-  Agent,
-  GetProofFormatDataReturn,
-  CredentialRepository,
+  DcqlMatchWithRecord,
+  DcqlQueryResult,
+  DifPexCredentialsForRequest,
+  DifPexCredentialsForRequestSubmissionEntry,
   DifPresentationExchangeService,
+  MdocNameSpaces,
 } from '@credo-ts/core'
-import { BifoldAgent } from '@hyperledger/aries-bifold-core'
-import { groupSharedProofDataByCredential } from '@hyperledger/aries-bifold-verifier'
-import { ParsedAnonCredsProof } from '@hyperledger/aries-bifold-verifier/src/types/proof'
-import { parseAnonCredsProof } from '@hyperledger/aries-bifold-verifier/src/utils/proof'
-import { Attribute } from '@hyperledger/aries-oca/build/legacy'
+import { DidCommCredentialExchangeRepository, DidCommProofExchangeRecord } from '@credo-ts/didcomm'
 
+import { HekaWalletAgent } from '../../utils/agent'
 import {
+  AnoncredsPresentationSubmission,
   Credential,
+  CredentialSubmissionOption,
   OpenId4VcPresentationRequest,
   OpenIdPresentationSubmission,
   PresentationSubmissionEntry,
   PresentationSubmissionType,
-  AnoncredsPresentationSubmission,
-  CredentialSubmissionOption,
   ProofExchangeFormatKeys,
 } from '../types'
 
 import { mapCredentialRecord } from './credential'
-import { filterAndMapSdJwtKeys } from './sd-jwt'
+import { getAttributesAndMetadataForMdocPayload } from './mdoc'
+import { getAttributesAndMetadataForSdJwtPayload } from './sd-jwt'
 import { parseCredentialName } from './utils'
 
 const ANONCREDS_PREDICATE_MAP: Record<AnonCredsPredicateType, string> = {
@@ -72,46 +72,119 @@ function getAnoncredsCredentialNameFromRestrictions(restrictions?: AnonCredsProo
 
 export async function mapOpenId4VcPresentationRequest(
   presentationRequest: OpenId4VcPresentationRequest,
-  agent: BifoldAgent
+  agent: HekaWalletAgent
 ): Promise<OpenIdPresentationSubmission> {
-  const { credentialsForRequest, authorizationRequest, verifierHostName } = presentationRequest
+  const { credentialsForRequest, queryResult, authorizationRequest, verifierHostName, origin, transactionData } =
+    presentationRequest
 
-  const entries: PresentationSubmissionEntry[] = []
+  let entries: PresentationSubmissionEntry[] = []
 
-  for (const requirement of credentialsForRequest.requirements) {
-    const requirementEntries = await Promise.all(
-      requirement.submissionEntry.map((entry) => formatSubmissionEntry(entry, agent))
-    )
-    entries.push(...requirementEntries)
+  if (credentialsForRequest) {
+    entries = await mapDifPexCredentialsForRequest(credentialsForRequest, agent)
+  } else if (queryResult) {
+    entries = await mapDcqlQueryResult(queryResult, agent)
+  } else {
+    throw new Error('No presentation exchange or dcql found in presentation request.')
   }
 
   return {
     type: PresentationSubmissionType.OpenId4VP,
-    name: credentialsForRequest.name ?? 'Unknown',
+    name: credentialsForRequest?.name ?? 'Unknown',
     areAllSatisfied: entries.every((entry) => entry.isSatisfied),
-    purpose: credentialsForRequest.purpose,
+    purpose: credentialsForRequest?.purpose,
     submissionParams: {
       credentialsForRequest,
+      queryResult,
       authorizationRequest,
+      origin,
+      transactionData,
     },
     verifierName: verifierHostName,
     entries,
   }
 }
 
-async function formatSubmissionEntry(
+export async function mapDifPexCredentialsForRequest(
+  credentialsForRequest: DifPexCredentialsForRequest,
+  agent: HekaWalletAgent
+): Promise<PresentationSubmissionEntry[]> {
+  const entries: PresentationSubmissionEntry[] = []
+
+  for (const requirement of credentialsForRequest.requirements) {
+    const requirementEntries = await Promise.all(
+      requirement.submissionEntry.map((entry) => formatDifPexSubmissionEntry(entry, agent))
+    )
+    entries.push(...requirementEntries)
+  }
+
+  return entries
+}
+
+export async function mapDcqlQueryResult(
+  dcqlQueryResult: DcqlQueryResult,
+  agent: HekaWalletAgent
+): Promise<PresentationSubmissionEntry[]> {
+  const credentialSets: NonNullable<DcqlQueryResult['credential_sets']> = dcqlQueryResult.credential_sets ?? [
+    // If no credential sets are defined we create a default one with just all the credential options
+    {
+      required: true,
+      options: [dcqlQueryResult.credentials.map((c) => c.id)],
+      matching_options: dcqlQueryResult.can_be_satisfied ? [dcqlQueryResult.credentials.map((c) => c.id)] : undefined,
+    },
+  ]
+
+  const entries: PresentationSubmissionEntry[] = []
+
+  for (const credentialSet of credentialSets) {
+    // Take first matching option, otherwise take first option
+    const credentialSetOptions = credentialSet.matching_options?.[0] ?? credentialSet.options[0]
+    for (const credentialId of credentialSetOptions) {
+      const match = dcqlQueryResult.credential_matches[credentialId]
+      const queryCredential = dcqlQueryResult.credentials.find((c) => c.id === credentialId)
+      if (!queryCredential) {
+        throw new Error(`Credential '${credentialId}' not found in dcql query`)
+      }
+
+      if (!match?.success) {
+        entries.push({
+          isSatisfied: false,
+          inputDescriptorId: credentialId,
+          name: tryExtractPlaceholderNameFromQueryCredential(queryCredential) ?? 'Unknown',
+          submissionOptions: [],
+          selectedOption: null,
+        })
+        continue
+      }
+
+      const matchSubmissionEntry = await formatDcqlQueryMatch(match, agent)
+
+      entries.push(matchSubmissionEntry)
+    }
+  }
+
+  return entries
+}
+
+async function formatDifPexSubmissionEntry(
   submissionEntry: DifPexCredentialsForRequestSubmissionEntry,
-  agent: BifoldAgent
+  agent: HekaWalletAgent
 ): Promise<PresentationSubmissionEntry> {
   const submissionOptions = await Promise.all(
     submissionEntry.verifiableCredentials.map(async (verifiableCredential) => {
       const credential = await mapCredentialRecord(verifiableCredential.credentialRecord, agent)
 
       // TODO: Nesting support
-      const requestedAttributes =
-        verifiableCredential.type === ClaimFormat.SdJwtVc
-          ? filterAndMapSdJwtKeys(verifiableCredential.disclosedPayload).attributes
-          : (credential.display.attributes as Attribute[])
+      let requestedAttributes: Attribute[]
+      if (verifiableCredential.claimFormat === ClaimFormat.SdJwtDc) {
+        requestedAttributes = getAttributesAndMetadataForSdJwtPayload(verifiableCredential.disclosedPayload).attributes
+      } else if (verifiableCredential.claimFormat === ClaimFormat.MsoMdoc) {
+        requestedAttributes = getAttributesAndMetadataForMdocPayload(
+          verifiableCredential.disclosedPayload,
+          verifiableCredential.credentialRecord.firstCredential
+        ).attributes
+      } else {
+        requestedAttributes = credential.display.attributes as Attribute[]
+      }
 
       return {
         credential,
@@ -131,12 +204,74 @@ async function formatSubmissionEntry(
   }
 }
 
+async function formatDcqlQueryMatch(
+  match: DcqlMatchWithRecord & { success: true },
+  agent: HekaWalletAgent
+): Promise<PresentationSubmissionEntry> {
+  const submissionOptions: CredentialSubmissionOption[] = []
+
+  for (const validMatch of match.valid_credentials) {
+    const credential = await mapCredentialRecord(validMatch.record, agent)
+    let requestedAttributes: Attribute[]
+
+    if (validMatch.record.type === 'SdJwtVcRecord') {
+      // Credo already applied selective disclosure on payload
+      const { attributes: sdJwtAttributes } = getAttributesAndMetadataForSdJwtPayload(
+        validMatch.claims.valid_claim_sets[0].output
+      )
+
+      requestedAttributes = sdJwtAttributes
+    } else if (validMatch.record.type === 'MdocRecord') {
+      const namespaces = validMatch.claims.valid_claim_sets[0].output as MdocNameSpaces
+      const { attributes: mdocAttributes } = getAttributesAndMetadataForMdocPayload(
+        namespaces,
+        validMatch.record.firstCredential
+      )
+
+      requestedAttributes = mdocAttributes
+    } else {
+      // All attributes are disclosed for W3C
+      requestedAttributes = credential.display.attributes as Attribute[]
+    }
+
+    submissionOptions.push({
+      credential,
+      requestedAttributes,
+    })
+  }
+
+  return {
+    inputDescriptorId: match.credential_query_id,
+    name: submissionOptions[0].credential.display.name,
+    isSatisfied: true,
+    selectedOption: submissionOptions[0],
+    submissionOptions,
+  }
+}
+
+function tryExtractPlaceholderNameFromQueryCredential(
+  credential: DcqlQueryResult['credentials'][number]
+): string | undefined {
+  if (credential.format === 'mso_mdoc') {
+    return credential.meta?.doctype_value
+  }
+
+  if (
+    (credential.format === 'vc+sd-jwt' && credential.meta && 'vct_values' in credential.meta) ||
+    credential.format === 'dc+sd-jwt'
+  ) {
+    return credential.meta && 'vct_values' in credential.meta
+      ? credential.meta.vct_values?.[0].replace('https://', '')
+      : undefined
+  }
+}
+
 export async function mapAnoncredsProofExchangeRecord(
-  proofExchangeRecord: ProofExchangeRecord,
-  agent: BifoldAgent
+  proofExchangeRecord: DidCommProofExchangeRecord,
+  agent: HekaWalletAgent
 ): Promise<AnoncredsPresentationSubmission> {
-  const repository = agent.dependencyManager.resolve(CredentialRepository)
-  const formatData = await agent.proofs.getFormatData(proofExchangeRecord.id)
+  const repository = agent.dependencyManager.resolve(DidCommCredentialExchangeRepository)
+  const formatData = await agent.didcomm.proofs.getFormatData(proofExchangeRecord.id)
 
   let formatKey: ProofExchangeFormatKeys
   let submissionName: string
@@ -169,15 +304,15 @@ export async function mapAnoncredsProofExchangeRecord(
 
     for (const requirement of credentialsForRequest.requirements) {
       const requirementEntries = await Promise.all(
-        requirement.submissionEntry.map((entry) => formatSubmissionEntry(entry, agent))
+        requirement.submissionEntry.map((entry) => formatDifPexSubmissionEntry(entry, agent))
       )
       entriesArray.push(...requirementEntries)
     }
   } else {
     const proofRequest = formatData.request?.anoncreds ?? formatData.request?.indy
 
-    const credentialsForRequest = await agent.proofs.getCredentialsForRequest({
-      proofRecordId: proofExchangeRecord.id,
+    const credentialsForRequest = await agent.didcomm.proofs.getCredentialsForRequest({
+      proofExchangeRecordId: proofExchangeRecord.id,
     })
 
     formatKey =
@@ -211,7 +346,7 @@ export async function mapAnoncredsProofExchangeRecord(
 
       const requestedAttributeNames =
         type === 'attribute'
-          ? (requestedValue as AnonCredsRequestedAttribute).names ?? [requestedValue.name as string]
+          ? ((requestedValue as AnonCredsRequestedAttribute).names ?? [requestedValue.name as string])
           : formatAnoncredsPredicate(requestedValue as AnonCredsRequestedPredicate)
 
       const entry = entriesMap.get(entryHash)
@@ -310,10 +445,10 @@ export async function mapAnoncredsProofExchangeRecord(
   }
 
   const verifierConnection = proofExchangeRecord.connectionId
-    ? await agent.connections.getById(proofExchangeRecord.connectionId)
+    ? await agent.didcomm.connections.getById(proofExchangeRecord.connectionId)
     : null
   const outOfBandRecord = verifierConnection?.outOfBandId
-    ? await agent.oob.getById(verifierConnection.outOfBandId)
+    ? await agent.didcomm.oob.getById(verifierConnection.outOfBandId)
     : null
 
   return {
@@ -412,11 +547,11 @@ export function prepareW3CPresentationData(
 }
 
 export async function preparePresentationData(
-  record: ProofExchangeRecord,
-  agent: Agent,
+  record: DidCommProofExchangeRecord,
+  agent: HekaWalletAgent,
   credentials: Credential[]
 ): Promise<Array<PresentationDetails>> {
-  const formatData: GetProofFormatDataReturn = await agent.proofs.getFormatData(record.id)
+  const formatData = await agent.didcomm.proofs.getFormatData(record.id)
 
   if (formatData.request?.anoncreds && formatData.presentation?.anoncreds) {
     const presentation = parseAnonCredsProof(

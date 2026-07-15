@@ -38,7 +38,7 @@ export const FillCredentialData = ({
   context,
   onPrev,
   onNext,
-  onSkip
+  onSkip,
 }: FillCredentialDataProps) => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
@@ -206,7 +206,7 @@ export const FillCredentialData = ({
           </Button>
         )}
 
-        {(context.wizardType === 'demo') && (
+        {context.wizardType === 'demo' && (
           <Button
             buttonType="outlined"
             onPress={onSkip}
@@ -214,7 +214,6 @@ export const FillCredentialData = ({
             {t('Common.buttons.skip')}
           </Button>
         )}
-
 
         {(context.wizardType === 'issue' || context.wizardType === 'demo') && (
           <Button
