@@ -291,10 +291,10 @@ export const useOpenIdHandlers = () => {
         issuerId: openId4VcMetadata.issuer.id,
       })
 
-    setOpenId4VcCredentialMetadata(record, {
-  ...openId4VcMetadata,
-  credentialConfiguration,
-})
+   setOpenId4VcCredentialMetadata(record, {
+        ...openId4VcMetadata,
+        credentialConfiguration,
+      })
 
       return record
     },

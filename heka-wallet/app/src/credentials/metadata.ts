@@ -1,4 +1,4 @@
-impoOpenId4VcCredentialMetadatat type {
+import OpenId4VcCredentialMetadatat type {
   OpenId4VciCredentialConfigurationSupported,
   OpenId4VciCredentialIssuerMetadataDisplay,
 } from '@credo-ts/openid4vc'

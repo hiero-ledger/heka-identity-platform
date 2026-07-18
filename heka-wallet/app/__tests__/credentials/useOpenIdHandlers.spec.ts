@@ -275,7 +275,7 @@ describe('useOpenIdHandlers', () => {
       )
     })
 
-       it('should still store existing extracted metadata fields alongside credentialConfiguration', async () => {
+    it('should still store existing extracted metadata fields alongside credentialConfiguration', async () => {
       const credentialConfiguration =
         fixture.resolvedCredentialOfferPreAuth.offeredCredentialConfigurations['mock-id-2']
 
