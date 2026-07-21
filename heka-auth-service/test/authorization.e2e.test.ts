@@ -34,8 +34,9 @@ describe('E2E authorization', () => {
     if (orm) await orm.close(true)
   })
 
+  let userSeq = 0
   const newUser = () => ({
-    name: 'user' + Date.now().toString(),
+    name: 'user' + Date.now().toString() + '-' + userSeq++,
     password: 'Password1234!',
   })
 
@@ -122,5 +123,41 @@ describe('E2E authorization', () => {
     const response = await request(app).get('/api/v1/user/profile')
 
     expect(response.status).toBe(401)
+  })
+
+  test('logout rejects revoking a refresh token owned by another user', async () => {
+    const register = (u: LoginRequest) =>
+      request(app)
+        .post('/api/v1/user/register')
+        .send({ name: u.name, password: u.password, role: UserRole.Issuer } satisfies RegisterUserRequest)
+
+    const login = (u: LoginRequest) => request(app).post('/api/v1/oauth/token').send(u)
+
+    const alice = newUser()
+    const bob = newUser()
+
+    expect((await register(alice)).status).toBe(201)
+    expect((await register(bob)).status).toBe(201)
+
+    const aliceLogin = await login(alice)
+    const bobLogin = await login(bob)
+    expect(aliceLogin.status).toBe(200)
+    expect(bobLogin.status).toBe(200)
+
+    // Bob authenticates with his own (valid) access token but targets Alice's refresh token → rejected.
+    const crossRevoke = await request(app)
+      .post('/api/v1/oauth/revoke')
+      .auth(bobLogin.body.access, { type: 'bearer' })
+      .send({ refresh: aliceLogin.body.refresh } satisfies LogoutRequest)
+
+    expect(crossRevoke.status).toBe(401)
+
+    // Alice's session is untouched: she can still revoke it herself.
+    const selfRevoke = await request(app)
+      .post('/api/v1/oauth/revoke')
+      .auth(aliceLogin.body.access, { type: 'bearer' })
+      .send({ refresh: aliceLogin.body.refresh } satisfies LogoutRequest)
+
+    expect(selfRevoke.status).toBe(205)
   })
 })

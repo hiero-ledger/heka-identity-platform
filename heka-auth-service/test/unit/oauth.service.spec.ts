@@ -40,12 +40,14 @@ function storedRefreshToken(accessToken: string, subject = 'user-1') {
 
 function createMocks() {
   const userRepository = { findOne: vi.fn() } satisfies Partial<UserRepository>
+  const transactionEm = { transactional: vi.fn((cb: () => Promise<unknown>) => cb()) }
   const tokenRepository = {
     put: vi.fn().mockResolvedValue({ id: 'token-id', token: 'stored-token' }),
     updateToken: vi.fn(),
     revoke: vi.fn(),
     get: vi.fn(),
     getById: vi.fn(),
+    getEntityManager: vi.fn().mockReturnValue(transactionEm),
   } satisfies Partial<TokenRepository>
   const jwtService = {
     signAsync: vi.fn().mockResolvedValue('signed-jwt'),
@@ -71,7 +73,7 @@ function createMocks() {
     tokenRepository as unknown as TokenRepository,
   )
 
-  return { service, userRepository, tokenRepository, jwtService }
+  return { service, userRepository, tokenRepository, jwtService, transactionEm }
 }
 
 describe('OAuthService', () => {
@@ -79,10 +81,11 @@ describe('OAuthService', () => {
   let userRepository: ReturnType<typeof createMocks>['userRepository']
   let tokenRepository: ReturnType<typeof createMocks>['tokenRepository']
   let jwtService: ReturnType<typeof createMocks>['jwtService']
+  let transactionEm: ReturnType<typeof createMocks>['transactionEm']
 
   beforeEach(() => {
     vi.clearAllMocks()
-    ;({ service, userRepository, tokenRepository, jwtService } = createMocks())
+    ;({ service, userRepository, tokenRepository, jwtService, transactionEm } = createMocks())
   })
 
   describe('login', () => {
@@ -301,21 +304,46 @@ describe('OAuthService', () => {
   })
 
   describe('logout', () => {
-    it('should revoke both the access and refresh tokens', async () => {
+    it('should revoke both the access and refresh tokens inside a transaction when the caller owns them', async () => {
       tokenRepository.get.mockResolvedValue(storedRefreshToken('stored-access'))
       userRepository.findOne.mockResolvedValue(createMockUser())
 
-      await service.logout({ refresh: 'refresh-token' })
+      await service.logout('stored-access', { refresh: 'refresh-token' })
 
+      expect(transactionEm.transactional).toHaveBeenCalledTimes(1)
       expect(tokenRepository.revoke).toHaveBeenCalledWith('stored-access')
       expect(tokenRepository.revoke).toHaveBeenCalledWith('refresh-token')
+    })
+
+    it('should abort the transaction and surface the error when revoking a token fails', async () => {
+      tokenRepository.get.mockResolvedValue(storedRefreshToken('stored-access'))
+      userRepository.findOne.mockResolvedValue(createMockUser())
+      const failure = new Error('db unavailable')
+      tokenRepository.revoke.mockRejectedValueOnce(failure)
+
+      await expect(service.logout('stored-access', { refresh: 'refresh-token' })).rejects.toThrow(failure)
+
+      // the first revoke rejected inside the transactional callback, so the second never ran
+      expect(tokenRepository.revoke).toHaveBeenCalledTimes(1)
+    })
+
+    it('should reject revoking a refresh token the caller does not own', async () => {
+      tokenRepository.get.mockResolvedValue(storedRefreshToken('stored-access'))
+
+      await expect(service.logout('another-users-access', { refresh: 'refresh-token' })).rejects.toThrow(
+        UnauthorizedException,
+      )
+
+      // ownership is checked before any user lookup or revocation
+      expect(userRepository.findOne).not.toHaveBeenCalled()
+      expect(tokenRepository.revoke).not.toHaveBeenCalled()
     })
 
     it('should skip revocation for a demo user', async () => {
       tokenRepository.get.mockResolvedValue(storedRefreshToken('stored-access'))
       userRepository.findOne.mockResolvedValue(createMockUser({ isDemoUser: vi.fn().mockReturnValue(true) }))
 
-      await service.logout({ refresh: 'refresh-token' })
+      await service.logout('stored-access', { refresh: 'refresh-token' })
 
       expect(tokenRepository.revoke).not.toHaveBeenCalled()
     })
@@ -323,7 +351,7 @@ describe('OAuthService', () => {
     it('should be a no-op when the refresh token is unknown', async () => {
       tokenRepository.get.mockResolvedValue(null)
 
-      await expect(service.logout({ refresh: 'unknown' })).resolves.toBeUndefined()
+      await expect(service.logout('any-access', { refresh: 'unknown' })).resolves.toBeUndefined()
 
       expect(userRepository.findOne).not.toHaveBeenCalled()
       expect(tokenRepository.revoke).not.toHaveBeenCalled()

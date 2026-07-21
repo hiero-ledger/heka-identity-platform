@@ -63,13 +63,8 @@ export class OAuthService {
       throw new UnauthorizedException('Refresh token is incorrect.')
     }
 
-    // get access token
-    const tokenPayload = classFromJson(storedRefreshToken.payload, AccessTokenPayload).accessToken
-
-    // check dependencies between tokens
-    if (accessToken != tokenPayload) {
-      throw new UnauthorizedException('Refresh token is incorrect.')
-    }
+    // ensure the caller owns this refresh token (the bound access token must match)
+    this.assertCallerOwnsRefreshToken(accessToken, storedRefreshToken.payload)
 
     // ensure user exists
     const user = await this.userRepository.findOne({ id: storedRefreshToken.subject })
@@ -95,28 +90,40 @@ export class OAuthService {
     return await this.generateTokens(user)
   }
 
-  public async logout(data: LogoutRequest): Promise<void> {
-    // resolve access token by refresh token
+  public async logout(accessToken: string, data: LogoutRequest): Promise<void> {
+    // An unknown or already-revoked refresh token is a silent no-op (HTTP 205),
+    // whereas a token that exists but belongs to another caller is an explicit 401.
     const storedRefreshToken = await this.tokenRepository.get(data.refresh)
     if (!storedRefreshToken || !storedRefreshToken.payload) {
       return
     }
+
+    // ensure the caller owns the refresh token being revoked (prevents cross-user session revocation)
+    const pairedAccessToken = this.assertCallerOwnsRefreshToken(accessToken, storedRefreshToken.payload)
 
     const user = await this.userRepository.findOne({ id: storedRefreshToken.subject })
     if (!user) {
       return
     }
 
-    const accessToken = classFromJson(storedRefreshToken.payload, AccessTokenPayload).accessToken
-
     // skip token invalidation for demo user
     if (user.isDemoUser(this.configService.jwtConfig)) {
       return
     }
 
-    // revoke old tokens
-    await this.tokenRepository.revoke(accessToken)
-    await this.tokenRepository.revoke(data.refresh)
+    const em = this.tokenRepository.getEntityManager()
+    await em.transactional(async () => {
+      await this.tokenRepository.revoke(pairedAccessToken)
+      await this.tokenRepository.revoke(data.refresh)
+    })
+  }
+
+  private assertCallerOwnsRefreshToken(accessToken: string, refreshTokenPayload: string): string {
+    const pairedAccessToken = classFromJson(refreshTokenPayload, AccessTokenPayload).accessToken
+    if (accessToken !== pairedAccessToken) {
+      throw new UnauthorizedException('Refresh token is incorrect.')
+    }
+    return pairedAccessToken
   }
 
   private getOrgId(role: UserRole) {
