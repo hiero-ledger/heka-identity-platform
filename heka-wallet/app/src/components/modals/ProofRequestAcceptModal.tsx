@@ -1,30 +1,32 @@
-import { ProofState } from '@credo-ts/core'
-import { useProofById } from '@credo-ts/react-hooks'
+import { Button, ButtonType, Screens as BifoldScreens, Stacks as BifoldStacks, SafeAreaModal } from '@bifold/core'
+import { useProofById } from '@bifold/react-hooks'
+import { DidCommProofState } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Button, ButtonType, Screens as BifoldScreens, Stacks as BifoldStacks } from '@hyperledger/aries-bifold-core'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Modal, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import TrainImage from '../../assets/train.svg'
 import { RootStackParams, Stacks } from '../../navigators/types'
 import { Loader } from '../views/LoadingView'
 
-const useStyles = ({ ColorPallet, TextTheme, Spacing }: HekaTheme) =>
+const useStyles = ({ ColorPalette, TextTheme, Spacing }: HekaTheme) =>
   StyleSheet.create({
     container: {
-      height: '100%',
+      flex: 1,
       padding: Spacing.lg,
       paddingTop: 100,
     },
     pendingBackground: {
-      backgroundColor: ColorPallet.brand.modalPrimaryBackground,
+      flex: 1,
+      backgroundColor: ColorPalette.brand.modalPrimaryBackground,
     },
     completedBackground: {
-      backgroundColor: ColorPallet.brand.brandedSecondary,
+      flex: 1,
+      backgroundColor: ColorPalette.brand.brandedSecondary,
     },
     image: {
       minHeight: 240,
@@ -73,16 +75,16 @@ export const ProofRequestAcceptModal: React.FC<Props> = ({ visible, proofId }) =
   useEffect(() => {
     if (!proofRecord) return
 
-    if (proofRecord.state === ProofState.Done || proofRecord.state === ProofState.PresentationSent) {
+    if (proofRecord.state === DidCommProofState.Done || proofRecord.state === DidCommProofState.PresentationSent) {
       setIsCompleted(true)
     }
   }, [proofRecord])
 
   return (
-    <Modal visible={visible} transparent={true} animationType={'slide'}>
+    <SafeAreaModal visible={visible} transparent={true} animationType={'slide'}>
       {isCompleted ? (
-        <SafeAreaView style={styles.completedBackground}>
-          <StatusBar backgroundColor={theme.ColorPallet.brand.brandedSecondary} />
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.completedBackground}>
+          <StatusBar backgroundColor={theme.ColorPalette.brand.brandedSecondary} />
           <ScrollView style={styles.container}>
             <View style={styles.image}>
               <TrainImage />
@@ -101,7 +103,7 @@ export const ProofRequestAcceptModal: React.FC<Props> = ({ visible, proofId }) =
           </View>
         </SafeAreaView>
       ) : (
-        <SafeAreaView style={styles.pendingBackground}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.pendingBackground}>
           <ScrollView style={styles.container}>
             <View style={styles.image}>
               <Loader />
@@ -120,6 +122,6 @@ export const ProofRequestAcceptModal: React.FC<Props> = ({ visible, proofId }) =
           </View>
         </SafeAreaView>
       )}
-    </Modal>
+    </SafeAreaModal>
   )
 }

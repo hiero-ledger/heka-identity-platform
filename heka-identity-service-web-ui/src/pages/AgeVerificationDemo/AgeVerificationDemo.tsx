@@ -46,7 +46,6 @@ const MDL_DEFAULT_VALUES: Record<string, string> = {
   expiry_date: '2030-12-31',
 };
 
-
 interface AgeVerificationFieldsProps {
   schema?: Schema;
   onPrev: () => void;
@@ -59,20 +58,34 @@ const AgeVerificationResultView = () => {
 
   return (
     <div className={cls.resultView}>
-      <h2 className={cls.resultTitle}>{t('Flow.titles.presentationReceived')}</h2>
+      <h2 className={cls.resultTitle}>
+        {t('Flow.titles.presentationReceived')}
+      </h2>
       <Column className={cls.resultAttributes}>
         {revealedAttributes?.map((attr) => {
-          const displayValue = String(attr.value) === 'true' ? 'Yes' : String(attr.value) === 'false' ? 'No' : String(attr.value);
+          const displayValue =
+            String(attr.value) === 'true'
+              ? 'Yes'
+              : String(attr.value) === 'false'
+                ? 'No'
+                : String(attr.value);
           const isAgeField = attr.name === AGE_FIELD;
           const isVerified = isAgeField && String(attr.value) === 'true';
 
           return (
-            <Row key={attr.name} className={cls.resultRow}>
+            <Row
+              key={attr.name}
+              className={cls.resultRow}
+            >
               <span className={cls.resultLabel}>{attr.name}</span>
               <span className={cls.resultValue}>
                 {displayValue}
                 {isAgeField && (
-                  <span className={isVerified ? cls.ageBadgeSuccess : cls.ageBadgeFail}>
+                  <span
+                    className={
+                      isVerified ? cls.ageBadgeSuccess : cls.ageBadgeFail
+                    }
+                  >
                     {isVerified
                       ? t('AgeVerificationDemo.result.verified')
                       : t('AgeVerificationDemo.result.notVerified')}
@@ -96,9 +109,8 @@ const AgeVerificationFields = ({
 
   const regularFields = useMemo(
     () =>
-      schema?.fields
-        ?.filter((f) => f.name !== AGE_FIELD)
-        .map((f) => f.name) ?? [],
+      schema?.fields?.filter((f) => f.name !== AGE_FIELD).map((f) => f.name) ??
+      [],
     [schema?.fields],
   );
 
@@ -245,7 +257,10 @@ const AgeVerificationDemo = () => {
     if (isPresentationCompleted) {
       return (
         <Row className={cls.AgeDemo}>
-          <BasicPanel title="Age Verification Demo" icon="car" />
+          <BasicPanel
+            title="Age Verification Demo"
+            icon="car"
+          />
           <AgeVerificationResultView />
         </Row>
       );

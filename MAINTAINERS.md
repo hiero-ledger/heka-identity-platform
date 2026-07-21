@@ -15,10 +15,12 @@ Maintainers are assigned the following scopes in this repository:
 
 ## Active Maintainers
 
-| Name               | GitHub ID         | Scope | LFID | Discord ID | Email | Company Affiliation |
-|--------------------|-------------------|-------|------|------------|-------|---------------------|
-| Alexander Shenshin | AlexanderShenshin |       |      |            |       | DSR                 |
-| Renata Toktar      | Toktar            |       |      |            |       | DSR                 |
+| Name                  | GitHub ID         | Scope | LFID | Discord ID | Email | Company Affiliation |
+|-----------------------|-------------------|-------|------|------------|-------|---------------------|
+| Alexander Shenshin    | AlexanderShenshin |       |      |            |       | DSR                 |
+| Renata Toktar         | Toktar            |       |      |            |       |                     |
+| Alexander Shcherbakov | ashcherbakov      |       |      |            |       | DSR                 |
+| Artem Ivanov          | Artemkaaas        |       |      |            |       | DSR                 |
 
 ## Emeritus Maintainers
 

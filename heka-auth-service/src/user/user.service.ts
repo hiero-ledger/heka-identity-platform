@@ -76,7 +76,7 @@ export class UserService {
 
     const user = await this.userRepository.findOne({ id: storedToken.subject })
     if (!user) {
-      throw new ForbiddenException(`User ${storedToken.subject} not found!`)
+      throw new ForbiddenException('User not found.')
     }
 
     // Change password for user account and fabric identity

@@ -1,16 +1,17 @@
+import { Screens as BifoldScreens, Stacks as BifoldStacks, useDefaultStackOptions } from '@bifold/core'
+import { HomeStackParams } from '@bifold/core/src/types/navigators'
 import { useHekaTheme } from '@heka-wallet/shared'
-import { Screens as BifoldScreens } from '@hyperledger/aries-bifold-core'
-import { useDefaultStackOptions } from '@hyperledger/aries-bifold-core/App/navigators/defaultStackOptions'
-import { HomeStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
 import { createStackNavigator } from '@react-navigation/stack'
 import React from 'react'
 
 import { Home } from '../screens'
 
+import { CredentialStack } from './CredentialStack'
+
+const Stack = createStackNavigator<HomeStackParams & { [BifoldStacks.CredentialStack]: undefined }>()
+
 export const HomeStack: React.FC = () => {
   const theme = useHekaTheme()
-
-  const Stack = createStackNavigator<HomeStackParams>()
 
   const defaultStackOptions = useDefaultStackOptions(theme)
 
@@ -23,6 +24,7 @@ export const HomeStack: React.FC = () => {
           headerShown: false,
         })}
       />
+      <Stack.Screen name={BifoldStacks.CredentialStack} component={CredentialStack} options={{ headerShown: false }} />
     </Stack.Navigator>
   )
 }

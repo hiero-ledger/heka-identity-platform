@@ -1,0 +1,225 @@
+language: "en-US" # USA English
+
+# Keep reviews terse and technical; defer prose polish to humans.
+tone_instructions: |
+  Be concise, technical, and specific. Prioritise correctness and security over
+  style. Do not rewrite hand-authored documentation prose.
+
+knowledge_base:
+  web_search:
+    enabled: true # Allow web search for up-to-date context (standards, libraries)
+
+reviews:
+  profile: "assertive" # More thorough feedback; may be nitpicky on code (not prose).
+
+  # --- Walkthrough / summary noise control ---------------------------------
+  # We keep the walkthrough (useful for reviewers) but suppress the chatty,
+  # low-signal extras CodeRabbit emits by default.
+  high_level_summary: false       # The walkthrough already summarises the PR.
+  collapse_walkthrough: false     # Show the walkthrough expanded for reviewers.
+  review_status: false            # Don't post "what kind of review" preamble (spammy).
+  commit_status: false            # Don't set per-commit "review in progress" status.
+  sequence_diagrams: false        # Skip auto-generated diagrams for an MVP.
+  poem: false                     # No poem.
+  in_progress_fortune: false      # No stalling "fortune" message.
+  related_issues: false           # Don't speculatively link issues (spammy).
+  related_prs: false              # Don't speculatively link PRs (spammy).
+  suggested_labels: false         # Don't suggest labels.
+  suggested_reviewers: false      # Don't suggest reviewers.
+  enable_prompt_for_ai_agents: false # Don't append AI-agent prompts to findings.
+
+  # Verify the PR actually delivers what its linked issue asks for.
+  assess_linked_issues: true
+
+  # --- Global review instructions (apply to every file) --------------------
+  instructions: |
+    You are reviewing pull requests for the Heka Identity Platform — an
+    open-source decentralized identity (SSI) platform for the Hiero/Hedera
+    ecosystem, built on the Credo (@credo-ts) and Bifold (@bifold/core)
+    frameworks. It is a monorepo of independently-built TypeScript/JavaScript
+    apps (a React Native wallet, two NestJS services, a React web UI, and demos).
+
+    SCOPE CONTROL
+    - Anchor feedback to what the PR description / linked issue says it changes.
+      Do NOT propose unrelated refactors, rewrites, or enhancements.
+    - If you spot real issues outside the PR's stated scope, do not block on them
+      and do not inline them. Aggregate them into a single comment listing
+      suggested follow-ups.
+
+    WHAT TO PRIORITISE (all apps)
+    - Correctness and security over style. ESLint, Prettier and Stylelint already
+      run in CI — do not repeat what linters/formatters catch.
+    - Secrets & credentials: flag hardcoded secrets, private keys, seeds,
+      mnemonics, API tokens, or tenant credentials in source. Committed `.env`
+      files hold dev/test values only — flag any real-looking secret added to
+      them or to code.
+    - Identity-domain safety: verifiable-credential / DID / key material must not
+      be logged, leaked in error messages, or exposed over the wire
+      unintentionally. Validate untrusted input from credential-exchange flows
+      (OID4VC, DIDComm, proof presentation) before trusting or persisting it.
+    - Error handling: don't swallow errors silently; surface actionable messages
+      without leaking sensitive data.
+
+  # --- Per-area instructions -----------------------------------------------
+  path_instructions:
+    # NestJS backend services (shared guidance via YAML anchor).
+    - path: "heka-identity-service/src/**"
+      instructions: &nestjs_service_instructions |
+        This is a NestJS (TypeScript) backend service.
+
+        Focus on:
+        - DI & modules: correct provider wiring and module exports; no circular
+          dependencies; request/tenant-scoped services where state demands it.
+        - Input validation: request bodies, params and query strings are validated
+          via DTOs (class-validator) or zod/nestjs-zod before reaching business
+          logic — no unvalidated external input.
+        - AuthN/AuthZ: guards/strategies (passport-jwt) protect non-public routes;
+          no endpoint is unintentionally left open; tenant isolation is preserved.
+        - Data layer (MikroORM): no injection via raw queries; schema/entity
+          changes are accompanied by a migration; use transactions where
+          consistency matters.
+        - Config & secrets: read via @nestjs/config / env, never hardcoded; nothing
+          sensitive logged (pino) — especially keys, tokens, and credential data.
+        - Async correctness: promises awaited, errors propagated, no unhandled
+          rejections.
+    - path: "heka-auth-service/src/**"
+      instructions: *nestjs_service_instructions
+
+    # React web client.
+    - path: "heka-identity-service-web-ui/src/**"
+      instructions: |
+        This is a React + Redux Toolkit web client (webpack, TypeScript, SCSS).
+
+        Focus on:
+        - React correctness: hook dependency arrays, no direct state mutation,
+          stable list keys, no obvious needless re-renders in hot paths.
+        - State: Redux Toolkit slices/selectors used correctly; business logic not
+          duplicated across components.
+        - Security: this is a PUBLIC client — never embed secrets and never rely on
+          it for authorization. Escape/sanitize user-controlled content; avoid
+          dangerouslySetInnerHTML without clear justification.
+        - Accessibility: honour jsx-a11y expectations for interactive elements
+          (labels, roles, keyboard handlers).
+        - API calls: handle loading/error states; keep tokens out of logs and URLs.
+
+    # React Native wallet (holder).
+    - path: "heka-wallet/app/src/**"
+      instructions: &wallet_instructions |
+        This is the Heka Wallet — a React Native credential holder built on Credo
+        (@credo-ts) and Bifold (@bifold/core).
+
+        Focus on:
+        - Sensitive material: private keys, seeds, link secrets and stored
+          credentials must use secure storage (Askar / secure-store / keychain),
+          never AsyncStorage or plain files, and must never be logged.
+        - Credential exchange (OID4VC / DIDComm / proof presentation): validate
+          data received from issuers/verifiers before trusting or storing it;
+          handle decline / error / timeout paths.
+        - React Native correctness: hook rules, cleanup of subscriptions and
+          listeners, typed navigation params, no blocking work on the UI thread.
+        - No hardcoded endpoints or secrets — use app config / env.
+    - path: "heka-wallet/packages/**"
+      instructions: *wallet_instructions
+
+    # Runnable demos — copied by users to learn the platform.
+    - path: "demo/**"
+      instructions: |
+        These are runnable demos that users copy to learn the platform. Prioritise
+        copy-paste correctness over brevity.
+        - Verify referenced APIs/imports actually exist in @credo-ts and the demo's
+          declared dependencies.
+        - Required env vars must be documented in a committed `.env.example`; ensure
+          no real secrets land in a committed `.env`.
+        - Show an explicit setup -> run -> cleanup flow with basic error handling;
+          keep examples self-contained and clear.
+
+    # Tests (shared guidance via anchor; matches multiple layouts).
+    - path: "**/*.spec.ts"
+      instructions: &test_instructions |
+        Review tests for value, not style.
+        - Tests should assert real, observable behavior — not merely that code runs.
+        - Cover happy and unhappy paths; avoid network/timing flakiness in unit
+          tests.
+        - No committed `.only` / `.skip` without a tracked reason; no leftover
+          `console.log`.
+        - Mocks should stand in for external dependencies, not the unit under test.
+    - path: "**/*.test.ts"
+      instructions: *test_instructions
+    - path: "**/*.test.tsx"
+      instructions: *test_instructions
+    - path: "**/__tests__/**"
+      instructions: *test_instructions
+    - path: "**/test/**"
+      instructions: *test_instructions
+
+    # Documentation — correctness over prose.
+    - path: "**/*.md"
+      instructions: |
+        Review documentation for correctness and navigation, not prose style.
+        - Verify code snippets, commands, env vars and links match the current code.
+        - Flag outdated references to scripts, paths, or configuration.
+        - Do NOT rewrite hand-authored introductory/explanatory prose or impose
+          wording changes; limit feedback to structure, headings, lists, and
+          technical accuracy.
+        - Avoid Markdown formatting nitpicks.
+
+    # GitHub Actions workflows — security-sensitive.
+    - path: ".github/workflows/**"
+      instructions: |
+        Review GitHub Actions workflows as a security-conscious engineer.
+        - Third-party actions must be pinned to a full commit SHA (consistent with
+          the existing workflows), not a mutable tag.
+        - `permissions:` must be explicitly declared and minimally scoped; flag
+          broad/default permissions and any unjustified `contents: write`.
+        - Treat event data (titles, branch names, comments) as untrusted; never
+          interpolate it directly into `run:` shell.
+        - Keep non-trivial logic in scripts, not inline YAML.
+        - Block only on security/correctness; suggest (don't block) style.
+
+  # --- Exclude generated / vendored / lock content -------------------------
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/coverage/**"
+    - "!**/.yarn/**"
+    - "!**/*.lock"
+    - "!**/yarn.lock"
+    - "!**/*.min.js"
+    - "!heka-identity-service/indy-besu-vdr-pkg/**" # vendored native package
+    - "!**/patches/**"                              # third-party dependency patches
+    - "!**/.yarn/patches/**"
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true # Re-review each new push, not just the first.
+    drafts: false                 # Skip draft PRs until marked ready.
+    base_branches:
+      - "main"
+      - "feature/.*" # Long-lived integration branches (e.g. feature/heka-wallet-credo-0.6.0).
+
+  # --- Static-analysis tools -----------------------------------------------
+  # Most CodeRabbit tools default to enabled. We explicitly affirm the
+  # high-value ones for this stack and silence prose-oriented ones for the MVP.
+  tools:
+    eslint:
+      enabled: true        # Every TS/JS app ships its own ESLint config.
+    stylelint:
+      enabled: true        # SCSS in heka-identity-service-web-ui.
+    gitleaks:
+      enabled: true        # Secret scanning — repo commits dev-only `.env` files.
+    hadolint:
+      enabled: true        # Dockerfiles in the two backend services.
+    actionlint:
+      enabled: true        # GitHub Actions workflows under .github/workflows.
+    github-checks:
+      enabled: true        # Wait for CI (typecheck/lint/test) before concluding.
+      timeout_ms: 120000
+    markdownlint:
+      enabled: false       # Avoid Markdown lint noise on WIP docs (see follow-ups).
+    languagetool:
+      enabled: false       # Avoid prose/grammar nitpicks on hand-authored docs.
+
+chat:
+  art: false        # No ASCII art.
+  auto_reply: false # Don't let the bot hold open-ended conversations (spammy).

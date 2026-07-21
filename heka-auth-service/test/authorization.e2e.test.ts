@@ -1,34 +1,37 @@
-import { Server } from 'net'
-
-import { SchemaGenerator } from '@mikro-orm/sqlite'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
+import { Server } from 'net'
 import request from 'supertest'
 
-import { initializeMikroOrm, startTestApp } from './helpers'
+import { AuthorizationTokenType } from '../src/common/const'
+import { jwtConfigDefaults } from '../src/core/config/configs/jwt.config'
+import { UserRole } from '../src/core/database'
 import { LoginRequest, LogoutRequest, RefreshRequest } from '../src/oauth/dto'
 import { RegisterUserRequest } from '../src/user/dto'
-import { UserRole } from '../src/core/database'
-import { AuthorizationTokenType } from '../src/common/const'
+import { initializeMikroOrm, startTestApp } from './helpers'
 
 describe('E2E authorization', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    orm = await initializeMikroOrm()
+    ormSchemaGenerator = orm.schema
 
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
   })
 
   afterAll(async () => {
-    await nestApp.close()
-    await ormSchemaGenerator.clearDatabase()
+    if (nestApp) await nestApp.close()
+    if (ormSchemaGenerator) await ormSchemaGenerator.clear()
+    if (orm) await orm.close(true)
   })
 
   const newUser = () => ({
@@ -78,6 +81,11 @@ describe('E2E authorization', () => {
     expect(refreshTokenResponse.body.access).not.toBe(loginUserResponse.body.access)
     expect(refreshTokenResponse.body.refresh).not.toBe(loginUserResponse.body.refresh)
 
+    const refreshPayload = JSON.parse(
+      Buffer.from(refreshTokenResponse.body.refresh.split('.')[1], 'base64').toString('utf8'),
+    ) as { iat: number; exp: number }
+    expect(refreshPayload.exp - refreshPayload.iat).toBe(jwtConfigDefaults.refreshExpiry)
+
     const revokeTokenResponse = await request(app)
       .post('/api/v1/oauth/revoke')
       .auth(refreshTokenResponse.body.access, { type: 'bearer' })
@@ -86,5 +94,33 @@ describe('E2E authorization', () => {
       } satisfies LogoutRequest)
 
     expect(revokeTokenResponse.status).toBe(205)
+  })
+
+  test('login fails with wrong password', async () => {
+    const user = newUser()
+    const createUserResponse = await request(app)
+      .post('/api/v1/user/register')
+      .send({
+        name: user.name,
+        password: user.password,
+        role: UserRole.Issuer,
+      } satisfies RegisterUserRequest)
+
+    expect(createUserResponse.status).toBe(201)
+
+    const loginUserResponse = await request(app)
+      .post('/api/v1/oauth/token')
+      .send({
+        name: user.name,
+        password: 'WrongPassword123!',
+      } satisfies LoginRequest)
+
+    expect(loginUserResponse.status).toBe(401)
+  })
+
+  test('profile endpoint requires authentication', async () => {
+    const response = await request(app).get('/api/v1/user/profile')
+
+    expect(response.status).toBe(401)
   })
 })

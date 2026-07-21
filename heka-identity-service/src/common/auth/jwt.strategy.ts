@@ -20,7 +20,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     jwtConfig: ConfigType<typeof JwtConfig>,
   ) {
     const strategyOptions: StrategyOptions = {
-      secretOrKey: jwtConfig.secret,
+      // JwtConfig always resolves `secret` to a string (env var or fallback).
+      // passport-jwt expects `string | Buffer`, while `jwt.Secret` also includes KeyObject.
+      // Narrowing to `string` is safe and avoids TS2322.
+      secretOrKey: jwtConfig.secret as string,
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       jsonWebTokenOptions: jwtConfig.verifyOptions,
     }

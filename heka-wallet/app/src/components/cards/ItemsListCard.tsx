@@ -7,7 +7,7 @@ import { SectionCard } from './SectionCard'
 
 const LIST_EMPTY_ICON_PADDING = 96
 
-const useStyles = ({ ColorPallet, Spacing, TextTheme }: HekaTheme) =>
+const useStyles = ({ ColorPalette, Spacing, TextTheme }: HekaTheme) =>
   StyleSheet.create({
     listEmptyViewContainer: {
       flexDirection: 'column',
@@ -19,7 +19,7 @@ const useStyles = ({ ColorPallet, Spacing, TextTheme }: HekaTheme) =>
     },
     listEmptyText: {
       ...TextTheme.caption,
-      color: ColorPallet.brand.label,
+      color: ColorPalette.brand.label,
       textAlign: 'center',
     },
   })
@@ -60,7 +60,7 @@ export const ItemsListCard = <TItem,>({
   const flatListRef = useRef<FlatList>(null)
 
   const theme = useHekaTheme()
-  const { ColorPallet } = theme
+  const { ColorPalette } = theme
 
   useEffect(() => {
     if (items?.length) flatListRef?.current?.scrollToIndex({ index: 0, viewPosition: 0.5 })
@@ -78,7 +78,7 @@ export const ItemsListCard = <TItem,>({
       headerRightComponent={headerRightComponent}
     >
       {isLoading ? (
-        <ActivityIndicator color={ColorPallet.brand.highlight} />
+        <ActivityIndicator color={ColorPalette.brand.highlight} />
       ) : (
         <FlatList
           ref={flatListRef}

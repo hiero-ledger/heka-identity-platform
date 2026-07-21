@@ -1,6 +1,10 @@
 import 'react-native-get-random-values'
 import '@ethersproject/shims'
 import EventEmitter from 'eventemitter3'
+import { TextDecoder, TextEncoder } from 'text-encoding-polyfill'
+
+global.TextEncoder = TextEncoder
+global.TextDecoder = TextDecoder
 
 if (typeof __dirname === 'undefined') global.__dirname = '/'
 if (typeof __filename === 'undefined') global.__filename = ''

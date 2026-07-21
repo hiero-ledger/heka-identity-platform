@@ -1,6 +1,5 @@
+import { Link, Screens, Stacks, ContactStackParams } from '@bifold/core'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Link, Screens, Stacks } from '@hyperledger/aries-bifold-core'
-import { ContactStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React from 'react'
 import { useTranslation } from 'react-i18next'

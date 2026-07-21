@@ -1,5 +1,5 @@
+import { Button, ButtonType } from '@bifold/core'
 import { HekaTheme, useHekaTheme, BootstrapIcon } from '@heka-wallet/shared'
-import { Button, ButtonType } from '@hyperledger/aries-bifold-core'
 import { KeyRingStatus } from '@keplr-wallet/background'
 import { Bech32Address } from '@keplr-wallet/cosmos'
 import { Dec } from '@keplr-wallet/unit'
@@ -16,12 +16,12 @@ const useStyles = (theme: HekaTheme) =>
       padding: theme.Spacing.xl,
       borderRadius: theme.BorderRadius.small,
       borderWidth: theme.BorderWidth.small,
-      borderColor: theme.ColorPallet.grayscale.mediumGrey,
+      borderColor: theme.ColorPalette.grayscale.mediumGrey,
       marginBottom: theme.Spacing.xs,
     },
     separator: {
       height: 1,
-      backgroundColor: theme.ColorPallet.grayscale.mediumGrey,
+      backgroundColor: theme.ColorPalette.grayscale.mediumGrey,
       marginVertical: theme.Spacing.md,
     },
     sectionContainer: {
@@ -169,7 +169,7 @@ const CoinTypeSelectModal: React.FC<BIP44SelectableModalProps> = observer(() => 
                 <View style={{ marginRight: theme.Spacing.md }}>
                   <BootstrapIcon
                     name={'wallet'}
-                    color={theme.ColorPallet.grayscale.black}
+                    color={theme.ColorPalette.grayscale.black}
                     size={theme.IconSizes.large}
                   />
                 </View>

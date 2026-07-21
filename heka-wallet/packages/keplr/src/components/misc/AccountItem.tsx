@@ -8,7 +8,7 @@ const useStyles = (theme: HekaTheme) =>
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: theme.Spacing.md,
-      backgroundColor: theme.ColorPallet.brand.primaryBackground,
+      backgroundColor: theme.ColorPalette.brand.primaryBackground,
     },
     labelContainer: {
       flex: 3,
@@ -47,7 +47,9 @@ export const AccountItem: React.FC<Props> = ({ containerStyle, label, paragraph,
   return (
     <TouchableOpacity style={{ ...styles.container, ...containerStyle }} onPress={onPress} disabled={disabled}>
       <View style={styles.left}>
-        {left ?? <BootstrapIcon name={'wallet'} color={theme.ColorPallet.brand.primary} size={theme.IconSizes.large} />}
+        {left ?? (
+          <BootstrapIcon name={'wallet'} color={theme.ColorPalette.brand.primary} size={theme.IconSizes.large} />
+        )}
       </View>
       <View style={styles.labelContainer}>
         <Text numberOfLines={1} style={theme.TextTheme.labelTitle}>

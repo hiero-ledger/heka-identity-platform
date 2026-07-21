@@ -1,7 +1,7 @@
-import { ConnectionRecord } from '@credo-ts/core'
+import { Screens as BifoldScreens, Stacks as BifoldStacks, TOKENS, useServices } from '@bifold/core'
+import { HomeStackParams, RootStackParams } from '@bifold/core/src/types/navigators'
+import { DidCommConnectionRecord } from '@credo-ts/didcomm'
 import { HekaTheme, IconButton, useHekaTheme } from '@heka-wallet/shared'
-import { Screens as BifoldScreens, Stacks as BifoldStacks, TOKENS, useServices } from '@hyperledger/aries-bifold-core'
-import { HomeStackParams, RootStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
 import Badge from '@react-navigation/bottom-tabs/src/views/Badge'
 import { useNavigation } from '@react-navigation/core'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
@@ -26,7 +26,15 @@ const CREDENTIALS_ICON_SIZE = 120
 const CREDENTIAL_CARD_WIDTH = 144
 const CREDENTIAL_CARD_HEIGHT = 200
 
-const useStyles = ({ Spacing, TextTheme, ColorPallet, FontWeights, IconSizes, BorderWidth, BorderRadius }: HekaTheme) =>
+const useStyles = ({
+  Spacing,
+  TextTheme,
+  ColorPalette,
+  FontWeights,
+  IconSizes,
+  BorderWidth,
+  BorderRadius,
+}: HekaTheme) =>
   StyleSheet.create({
     container: {
       gap: Spacing.xs,
@@ -38,7 +46,7 @@ const useStyles = ({ Spacing, TextTheme, ColorPallet, FontWeights, IconSizes, Bo
     },
     notificationsBadgeText: {
       ...TextTheme.caption,
-      color: ColorPallet.grayscale.white,
+      color: ColorPalette.grayscale.white,
       fontWeight: FontWeights.medium,
     },
     credentialCard: {
@@ -58,15 +66,15 @@ const useStyles = ({ Spacing, TextTheme, ColorPallet, FontWeights, IconSizes, Bo
       height: CREDENTIAL_CARD_HEIGHT,
       borderWidth: BorderWidth.small,
       borderRadius: BorderRadius.big,
-      borderColor: ColorPallet.grayscale.lightGrey,
-      backgroundColor: ColorPallet.grayscale.white,
+      borderColor: ColorPalette.grayscale.lightGrey,
+      backgroundColor: ColorPalette.grayscale.white,
       justifyContent: 'space-between',
     },
     allCredentialsIconContainer: {
       margin: Spacing.md,
       width: IconSizes.larger,
       height: IconSizes.larger,
-      backgroundColor: ColorPallet.brand.primaryBackground,
+      backgroundColor: ColorPalette.brand.primaryBackground,
       borderRadius: BorderRadius.small,
       justifyContent: 'center',
       alignItems: 'center',
@@ -85,7 +93,7 @@ export const Home: React.FC<HomeProps> = () => {
   const theme = useHekaTheme()
   const styles = useStyles(theme)
 
-  const { ColorPallet, TextTheme } = theme
+  const { ColorPalette, TextTheme } = theme
 
   const [notificationObj] = useServices([TOKENS.NOTIFICATIONS])
 
@@ -107,9 +115,9 @@ export const Home: React.FC<HomeProps> = () => {
         credentialNameStyle={TextTheme.bold}
         shortIssuerLabel
         onPress={() =>
-          navigation.navigate(BifoldStacks.CredentialStack, {
+          navigation.navigate(BifoldStacks.NotificationStack, {
             screen: BifoldScreens.CredentialDetails,
-            params: { credential: credential as any },
+            params: { credentialId: credential as any },
           })
         }
       />
@@ -135,7 +143,7 @@ export const Home: React.FC<HomeProps> = () => {
     }
   }
 
-  const renderContactChat = ({ item: connection }: ListRenderItemInfo<ConnectionRecord>) => {
+  const renderContactChat = ({ item: connection }: ListRenderItemInfo<DidCommConnectionRecord>) => {
     return <ContactListItem connection={connection} />
   }
 
@@ -155,7 +163,7 @@ export const Home: React.FC<HomeProps> = () => {
             iconName={'qr-code-scan'}
             label={t('Common.Scan')}
             onPress={() => navigation.navigate(BifoldStacks.ConnectStack, { screen: BifoldScreens.Scan })}
-            iconColor={ColorPallet.brand.text}
+            iconColor={ColorPalette.brand.text}
             textStyle={TextTheme.labelTitle}
             containerStyle={{ paddingHorizontal: 0 }}
           />
@@ -171,7 +179,7 @@ export const Home: React.FC<HomeProps> = () => {
           <Badge
             visible={!!notifications.length}
             size={NOTIFICATIONS_BADGE_SIZE}
-            style={{ backgroundColor: ColorPallet.brand.highlight }}
+            style={{ backgroundColor: ColorPalette.brand.highlight }}
           >
             {/* TODO: Find a way to pass styled text here without @ts-ignore */}
             {/* @ts-ignore */}
@@ -199,7 +207,7 @@ const AllCredentialsCard = () => {
   const theme = useHekaTheme()
   const styles = useStyles(theme)
 
-  const { ColorPallet, IconSizes } = theme
+  const { ColorPalette, IconSizes } = theme
 
   const navigation = useNavigation<StackNavigationProp<RootStackParams>>()
 
@@ -209,7 +217,7 @@ const AllCredentialsCard = () => {
       onPress={() => navigation.navigate(BifoldStacks.CredentialStack, { screen: BifoldScreens.Credentials })}
     >
       <View style={styles.allCredentialsIconContainer}>
-        <MaterialCommunityIcon name={'chevron-right'} size={IconSizes.medium} color={ColorPallet.brand.label} />
+        <MaterialCommunityIcon name={'chevron-right'} size={IconSizes.medium} color={ColorPalette.brand.label} />
       </View>
       <Text style={styles.allCredentialsText}>{t('Home.AllCredentials')}</Text>
     </TouchableOpacity>

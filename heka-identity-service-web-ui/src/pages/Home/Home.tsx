@@ -82,7 +82,6 @@ const Home = () => {
             {t('Home.buttons.start')}
           </Button>
           <Button
-            buttonType="outlined"
             onPress={() => navigate(ROUTES.AGE_DEMO)}
             isDisabled={isPreparingUser && !isUserFetching}
           >

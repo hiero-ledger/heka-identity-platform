@@ -130,6 +130,13 @@ export default defineConfig({
   test: {
     globals: true,
     include: ['src/**/*.{test,spec}.ts', 'test/**/*.{test,spec}.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'text-summary', 'lcov', 'json', 'json-summary'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.service.ts'],
+      exclude: ['src/**/__tests__/**', 'src/**/*.test.ts', 'src/**/*.spec.ts'],
+    },
     testTimeout: 1_200_000,
     hookTimeout: 1_200_000,
     // `@mikro-orm/core` (and class-validator) maintain module-level singleton

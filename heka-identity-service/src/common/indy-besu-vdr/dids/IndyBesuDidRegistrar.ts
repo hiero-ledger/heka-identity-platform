@@ -11,7 +11,6 @@ import {
   DidUpdateResult,
   getEcdsaSecp256k1VerificationKey2019,
   DidsApi,
-  Buffer,
   Kms,
 } from '@credo-ts/core'
 
@@ -96,7 +95,7 @@ export class IndyBesuDidRegistrar implements DidRegistrar {
   }
 
   private buildDidDocument(publicJwk: Kms.PublicJwk<Kms.Secp256k1PublicJwk>, options: BuildDidDocumentOptions) {
-    const did = buildDid(options.method, options.network, Buffer.from(publicJwk.publicKey.publicKey))
+    const did = buildDid(options.method, options.network, publicJwk.publicKey.publicKey)
 
     const verificationMethod = getEcdsaSecp256k1VerificationKey2019({
       id: `${did}#KEY-1`,

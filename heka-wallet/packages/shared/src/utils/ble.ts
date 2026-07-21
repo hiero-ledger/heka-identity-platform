@@ -1,4 +1,4 @@
-// eslint-disable-next-line import/default
+// eslint-disable-next-line import-x/default
 import BluetoothStateManager from 'react-native-bluetooth-state-manager'
 import { getSystemName, getSystemVersion } from 'react-native-device-info'
 import {

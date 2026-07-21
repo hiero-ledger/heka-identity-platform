@@ -2,10 +2,10 @@ import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import React, { PropsWithChildren, ReactElement } from 'react'
 import { StyleSheet, Text, View, ViewStyle } from 'react-native'
 
-const useStyles = ({ ColorPallet, BorderRadius, Spacing }: HekaTheme) =>
+const useStyles = ({ ColorPalette, BorderRadius, Spacing }: HekaTheme) =>
   StyleSheet.create({
     container: {
-      backgroundColor: ColorPallet.grayscale.white,
+      backgroundColor: ColorPalette.grayscale.white,
       borderRadius: BorderRadius.bigger,
       paddingVertical: Spacing.xs,
       width: '100%',

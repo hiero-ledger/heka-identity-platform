@@ -103,6 +103,31 @@ export default {
       notVerified: 'Age Not Verified',
     },
   },
+  PresentationOptions: {
+    titles: {
+      chooseMethod: 'How would you like to present?',
+      dcApi: 'Present with a digital wallet',
+    },
+    descriptions: {
+      chooseMethod:
+        'Present with the Digital Credentials API, or scan a QR code with mobile wallet.',
+      dcApi:
+        'Your browser will request the credential from a digital wallet — either on this device, or on your phone by scanning a QR code shown by the browser.',
+    },
+    buttons: {
+      dcApi: 'Digital Credentials API',
+      qr: 'Legacy QR code',
+      present: 'Present credential',
+      cancel: 'Cancel',
+    },
+    errors: {
+      failed:
+        'Could not get a credential via the Digital Credentials API. Make sure a compatible wallet is installed, then try again.',
+      cancelled: 'Presentation cancelled. No credential was shared.',
+      unsupported:
+        'This browser cannot present credentials with the Digital Credentials API. Try the QR code option instead.',
+    },
+  },
   IssueCredential: {
     titles: {
       main: 'Issue credential',

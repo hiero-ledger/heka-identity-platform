@@ -1,6 +1,6 @@
+import { Button, ButtonType } from '@bifold/core'
+import ButtonLoading from '@bifold/core/src/components/animated/ButtonLoading'
 import { useGlobalStyles } from '@heka-wallet/shared'
-import { Button, ButtonType } from '@hyperledger/aries-bifold-core'
-import ButtonLoading from '@hyperledger/aries-bifold-core/App/components/animated/ButtonLoading'
 import { useIsFocused } from '@react-navigation/native'
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
