@@ -9,7 +9,7 @@ import { CredentialCard } from '../components/cards'
 import { Record } from '../components/misc'
 import { OpenIdStackParams, Screens } from '../navigators/types'
 
-const useStyles = ({ ColorPallet, Spacing, BorderWidth, BorderRadius }: HekaTheme) =>
+const useStyles = ({ ColorPalette, Spacing, BorderWidth, BorderRadius }: HekaTheme) =>
   StyleSheet.create({
     pageContainer: {
       flex: 1,
@@ -20,7 +20,7 @@ const useStyles = ({ ColorPallet, Spacing, BorderWidth, BorderRadius }: HekaThem
     selectedCred: {
       borderWidth: BorderWidth.large,
       borderRadius: BorderRadius.big,
-      borderColor: ColorPallet.semantic.focus,
+      borderColor: ColorPalette.semantic.focus,
     },
   })
 

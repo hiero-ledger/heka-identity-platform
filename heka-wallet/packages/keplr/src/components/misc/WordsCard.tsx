@@ -101,7 +101,7 @@ export const WordsCard: React.FC<Props> = ({ wordSet, showCopyButton }) => {
           label={t('Common.CopyToClipboard')}
           onPress={copyToClipboard}
           iconSize={IconSizes.small}
-          iconColor={theme.ColorPallet.grayscale.darkGrey}
+          iconColor={theme.ColorPalette.grayscale.darkGrey}
           containerStyle={styles.copyButtonContainer}
           textStyle={theme.TextTheme.labelText}
         />

@@ -53,7 +53,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
           getIssuanceSessionById: vi.fn(),
           createCredentialOffer: vi.fn(),
         },
-      } as any,
+      },
       dependencyManager: {
         resolve: vi.fn().mockImplementation((token: any) => {
           // Return different mocks depending on which class is being resolved
@@ -62,11 +62,11 @@ describe('OpenId4VcIssuanceSessionService', () => {
           }
           return { deleteById: mockDeleteById }
         }),
-      } as any,
-      context: {} as any,
+      },
+      context: {},
       dids: {
         resolve: vi.fn(),
-      } as any,
+      },
     })
 
     authInfo = {
@@ -262,7 +262,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
         credentialOffer: 'openid-credential-offer://...',
         issuanceSession: mockSession,
-      } as any)
+      })
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -326,7 +326,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
         credentialOffer: 'openid-credential-offer://jwt',
         issuanceSession: mockSession,
-      } as any)
+      })
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -385,7 +385,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
         credentialOffer: 'openid-credential-offer://ld',
         issuanceSession: mockSession,
-      } as any)
+      })
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -439,7 +439,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
         credentialOffer: 'openid-credential-offer://ldp',
         issuanceSession: mockSession,
-      } as any)
+      })
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -484,7 +484,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
         credentialOffer: 'openid-credential-offer://mdoc',
         issuanceSession: mockSession,
-      } as any)
+      })
 
       const req = {
         publicIssuerId: 'issuer-1',

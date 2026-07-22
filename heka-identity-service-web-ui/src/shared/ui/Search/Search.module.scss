@@ -1,12 +1,28 @@
+@import '@/shared/styles/mixins';
+
 .SearchWrapper {
   position: relative;
   height: var(--space-xxxxl);
 }
 
 .searchInput {
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--space-sm);
-  border: 1px solid #00000061;
+  min-width: 260px;
+  max-width: 100%;
+
+  &::placeholder {
+    opacity: 1;
+  }
+}
+
+@include mobile {
+  .SearchWrapper {
+    width: 100%;
+  }
+
+  .searchInput {
+    min-width: 0;
+    width: 100%;
+  }
 }
 
 // .searchIcon {

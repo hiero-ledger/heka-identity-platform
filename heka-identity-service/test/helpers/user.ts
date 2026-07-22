@@ -25,7 +25,7 @@ export class UserUtilities {
     const response = await request(app)
       .post('/prepare-wallet')
       .auth(authToken, { type: 'bearer' })
-      .send({} as PrepareWalletRequestDto)
+      .send({} satisfies PrepareWalletRequestDto)
     if (response.status === 201) {
       return response.body.did
     } else {

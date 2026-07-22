@@ -1,11 +1,17 @@
-import { BasicMessageRepository, ConnectionRecord } from '@credo-ts/core'
-import { useAgent, useBasicMessagesByConnectionId, useConnectionById } from '@credo-ts/react-hooks'
+import {
+  BasicMessageMetadata,
+  basicMessageCustomMetadata,
+  ContactStackParams,
+  getConnectionName,
+  Screens,
+  Stacks,
+  useNetwork,
+  useStore,
+} from '@bifold/core'
+import { RootStackParams } from '@bifold/core/src/types/navigators'
+import { useBasicMessagesByConnectionId, useConnectionById } from '@bifold/react-hooks'
+import { DidCommBasicMessageRepository, DidCommConnectionRecord } from '@credo-ts/didcomm'
 import { useHekaTheme } from '@heka-wallet/shared'
-import { Stacks, useStore } from '@hyperledger/aries-bifold-core'
-import { useNetwork } from '@hyperledger/aries-bifold-core/App/contexts/network'
-import { BasicMessageMetadata, basicMessageCustomMetadata } from '@hyperledger/aries-bifold-core/App/types/metadata'
-import { ContactStackParams, RootStackParams, Screens } from '@hyperledger/aries-bifold-core/App/types/navigators'
-import { getConnectionName } from '@hyperledger/aries-bifold-core/App/utils/helpers'
 import { useIsFocused, useNavigation } from '@react-navigation/native'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
@@ -21,6 +27,7 @@ import { ChatMessage } from '../components/chat/ChatMessage'
 import { Role } from '../components/chat/types'
 import ConnectionContextMenu from '../components/misc/ConnectionContextMenu'
 import { useChatMessagesByConnection } from '../hooks/chat-messages'
+import { useHekaAgent } from '../utils/agent'
 
 type ChatProps = StackScreenProps<ContactStackParams, Screens.Chat> | StackScreenProps<RootStackParams, Screens.Chat>
 
@@ -32,17 +39,17 @@ const Chat: React.FC<ChatProps> = ({ route }) => {
   const { connectionId } = route.params
   const [store] = useStore()
   const { t } = useTranslation()
-  const { agent } = useAgent()
+  const { agent } = useHekaAgent()
   const navigation = useNavigation<StackNavigationProp<RootStackParams | ContactStackParams>>()
-  const connection = useConnectionById(connectionId) as ConnectionRecord
+  const connection = useConnectionById(connectionId) as DidCommConnectionRecord
   const basicMessages = useBasicMessagesByConnectionId(connectionId)
   const chatMessages = useChatMessagesByConnection(connection)
   const isFocused = useIsFocused()
-  const { assertConnectedNetwork, silentAssertConnectedNetwork } = useNetwork()
+  const { assertNetworkConnected, silentAssertConnectedNetwork } = useNetwork()
   const [showActionSlider, setShowActionSlider] = useState(false)
 
   const theme = useHekaTheme()
-  const { ColorPallet, ChatTheme, Assets } = theme
+  const { ColorPalette, ChatTheme, Assets } = theme
 
   const [theirLabel, setTheirLabel] = useState(getConnectionName(connection, store.preferences.alternateContactNames))
 
@@ -52,8 +59,8 @@ const Chat: React.FC<ChatProps> = ({ route }) => {
   }, [isFocused, connection, store.preferences.alternateContactNames])
 
   useMemo(() => {
-    assertConnectedNetwork()
-  }, [assertConnectedNetwork])
+    assertNetworkConnected()
+  }, [assertNetworkConnected])
 
   useEffect(() => {
     navigation.setOptions({
@@ -72,7 +79,7 @@ const Chat: React.FC<ChatProps> = ({ route }) => {
       const meta = msg.metadata.get(BasicMessageMetadata.customMetadata) as basicMessageCustomMetadata
       if (agent && !meta?.seen) {
         msg.metadata.set(BasicMessageMetadata.customMetadata, { ...meta, seen: true })
-        const basicMessageRepository = agent.context.dependencyManager.resolve(BasicMessageRepository)
+        const basicMessageRepository = agent.context.dependencyManager.resolve(DidCommBasicMessageRepository)
         basicMessageRepository.update(agent.context, msg)
       }
     })
@@ -85,7 +92,7 @@ const Chat: React.FC<ChatProps> = ({ route }) => {
         ?.join('\n')
         .replace(/(\n)+/g, '\n')
         .trim()
-      await agent?.basicMessages.sendMessage(connectionId, message)
+      await agent?.didcomm.basicMessages.sendMessage(connectionId, message)
     },
     [agent, connectionId]
   )
@@ -119,7 +126,7 @@ const Chat: React.FC<ChatProps> = ({ route }) => {
   return (
     <SafeAreaView
       edges={['bottom', 'left', 'right']}
-      style={{ flex: 1, backgroundColor: ColorPallet.grayscale.white, borderRadius: 24 }}
+      style={{ flex: 1, backgroundColor: ColorPalette.grayscale.white, borderRadius: 24 }}
     >
       <GiftedChat
         messages={chatMessages}

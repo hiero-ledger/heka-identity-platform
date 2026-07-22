@@ -1,5 +1,5 @@
+import { useDefaultStackOptions } from '@bifold/core'
 import { useHekaTheme } from '@heka-wallet/shared'
-import { useDefaultStackOptions } from '@hyperledger/aries-bifold-core/App/navigators/defaultStackOptions'
 import { createStackNavigator } from '@react-navigation/stack'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
@@ -8,8 +8,9 @@ import { WalletRestore } from '../screens'
 
 import { BackupStackParams, Screens } from './types'
 
+const Stack = createStackNavigator<BackupStackParams>()
+
 export const BackupStack: React.FC = () => {
-  const Stack = createStackNavigator<BackupStackParams>()
   const theme = useHekaTheme()
   const defaultStackOptions = useDefaultStackOptions(theme)
 

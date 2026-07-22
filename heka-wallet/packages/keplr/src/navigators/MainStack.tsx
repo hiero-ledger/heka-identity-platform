@@ -1,6 +1,5 @@
+import { ButtonLocation, IconButton, testIdWithKey, useDefaultStackOptions } from '@bifold/core'
 import { useHekaTheme } from '@heka-wallet/shared'
-import { ButtonLocation, HeaderButton, testIdWithKey } from '@hyperledger/aries-bifold-core'
-import { useDefaultStackOptions } from '@hyperledger/aries-bifold-core/App/navigators/defaultStackOptions'
 import { useNavigation } from '@react-navigation/native'
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack'
 import React from 'react'
@@ -10,8 +9,9 @@ import { Home, SelectAccount, Send } from '../screens'
 
 import { KeplrStackParams, MainStackParams, Screens, Stacks } from './types'
 
+const Stack = createStackNavigator<MainStackParams>()
+
 export const MainStack: React.FC = () => {
-  const Stack = createStackNavigator<MainStackParams>()
   const theme = useHekaTheme()
   const defaultStackOptions = useDefaultStackOptions(theme)
 
@@ -32,7 +32,7 @@ export const MainStack: React.FC = () => {
         component={Home}
         options={() => ({
           headerRight: () => (
-            <HeaderButton
+            <IconButton
               buttonLocation={ButtonLocation.Right}
               onPress={() => navigation.navigate(Screens.SelectAccount)}
               icon={'account'}
@@ -48,7 +48,7 @@ export const MainStack: React.FC = () => {
         options={() => ({
           title: t('Crypto.Account.SelectAccount'),
           headerRight: () => (
-            <HeaderButton
+            <IconButton
               buttonLocation={ButtonLocation.Right}
               onPress={() => navigation.navigate(Stacks.RegisterStack)}
               icon={'plus'}

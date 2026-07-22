@@ -1,0 +1,13 @@
+diff --git a/dist/react-native-zstd.js b/dist/react-native-zstd.js
+index 37922c3d106cf635f699183abb4f210f97ee9487..b81dd83720e1f6a979c7cd8c1476521039242e10 100644
+--- a/dist/react-native-zstd.js
++++ b/dist/react-native-zstd.js
+@@ -28,7 +28,7 @@ try {
+     rnZstd = {
+       // Additional data conversion is needed due to inconsistent API between Node and RN implementations
+       compress: (data) => rnZstdModule.compress(import_buffer.Buffer.from(data).toString()),
+-      decompress: (data) => Uint8Array.from(import_buffer.Buffer.from(rnZstdModule.decompress([...data])))
++      decompress: (data) => Uint8Array.from(import_buffer.Buffer.from(rnZstdModule.decompress(data.buffer)))
+     };
+   }
+ } catch {

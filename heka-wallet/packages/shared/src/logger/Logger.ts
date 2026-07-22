@@ -1,6 +1,14 @@
 import _ from 'lodash'
 import { getManufacturerSync, getModel, getSystemName, getSystemVersion, getVersion } from 'react-native-device-info'
-import RNFS, { copyFile, DocumentDirectoryPath, mkdir, stat, unlink } from 'react-native-fs'
+import RNFS, {
+  CachesDirectoryPath,
+  copyFile,
+  DocumentDirectoryPath,
+  exists,
+  mkdir,
+  stat,
+  unlink,
+} from 'react-native-fs'
 import { consoleTransport, fileAsyncTransport, logger } from 'react-native-logs'
 import Share from 'react-native-share'
 import { zip } from 'react-native-zip-archive'
@@ -168,21 +176,28 @@ export async function exportLogs() {
     info.manufacturer
   }-${info.model}-${timestamp.replace(/:/g, '')}`
 
+  if (!(await exists(filePath))) {
+    GlobalLogger.warn('No log file to export yet')
+    return
+  }
+
   let resultPath = ''
 
   const logStat = await stat(filePath)
   if (logStat.size > 1024 * 1024 * LOG_SIZE_IN_MB) {
-    const zipFolderPath = `${DocumentDirectoryPath}/${LOG_ZIP_FOLDER_NAME}`
+    const zipFolderPath = `${CachesDirectoryPath}/${LOG_ZIP_FOLDER_NAME}`
+    if (await exists(zipFolderPath)) await unlink(zipFolderPath)
     await mkdir(zipFolderPath)
     await copyFile(filePath, `${zipFolderPath}/${exportedFileNameWithoutExtension}.txt`)
-    resultPath = await zip(zipFolderPath, `${DocumentDirectoryPath}/${exportedFileNameWithoutExtension}.zip`)
+    resultPath = await zip(zipFolderPath, `${CachesDirectoryPath}/${exportedFileNameWithoutExtension}.zip`)
     await unlink(zipFolderPath)
   } else {
-    const txtFolderPath = `${DocumentDirectoryPath}/${exportedFileNameWithoutExtension}.txt`
+    const txtFolderPath = `${CachesDirectoryPath}/${exportedFileNameWithoutExtension}.txt`
+    if (await exists(txtFolderPath)) await unlink(txtFolderPath)
     await copyFile(filePath, txtFolderPath)
     resultPath = txtFolderPath
   }
 
   GlobalLogger.info('Exported log file name', { exportedFileNameWithoutExtension })
-  return Share.open({ url: `file://${resultPath}` })
+  return Share.open({ url: `file://${resultPath}`, failOnCancel: false })
 }

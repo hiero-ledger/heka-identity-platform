@@ -25,7 +25,7 @@ You can receive this token from a local deployment of [Heka Auth Service](https:
 
 Once you have the token, follow these steps to authenticate:
 
-1. Open the Heka Identity Service Swagger page (To access the Swagger page, simple append `/docs` to the URL of the Heka Identity Service).
+1. Open the Heka Identity Service Swagger page (To access the Swagger page, simply append `/docs` to the URL of the Heka Identity Service).
 2. Click the `Authorize` button in the top right corner of the page and enter the received token, then click `Authorize`.
 
 ## Creating a connection
@@ -48,12 +48,15 @@ To offer a credential to the Holder, we need a `Public DID`, a `Schema`, and a `
 To create a Public Issuer DID, follow these steps:
 
 1. On the Swagger page, expand the `POST: /dids` endpoint section and click the `Try it out` button.
-2. This endpoint has no parameters, so you can just click the `Execute` button.
-3. If the execution result returns a success code (201), a new Public DID and DID Document will be returned in the response body.
+2. In the request body, specify the DID method — for AnonCreds-compatible DIDs, use `{"method": "hedera"}` or `{"method": "indy"}`. Omitting the body falls back to `did:key`, which can't anchor schemas or credential definitions and will block the later steps of this demo.
+3. Click the `Execute` button. If the execution result returns a success code (201), a new Public DID and DID Document will be returned in the response body.
 
 ### Schema
 
-At the moment, we cannot create schemas. Instead, we can use one of the already predefined schema from the ledger (e.g., `did:partisia:testnet:7345c1c7-7ed6-4921-bc61-16d47eda590d/resources/8fcfc649-b7d8-4e87-8ed2-24a3f60a3538`). You can use the `GET: /schemas/{schemaId}` endpoint to view the attributes of the schema.
+You can either create a new schema or use an existing one from the ledger:
+
+- **Create a new schema:** expand the `POST: /schemas` endpoint section on the Swagger page and click `Try it out`. Fill in the schema name, version, attribute names, and the issuer DID created above, then click `Execute`. On success (201), the response contains the new schema ID.
+- **Use an existing schema:** call `GET: /schemas/{schemaId}` with a known schema ID — for example one previously published on the same Hedera testnet (e.g. `did:hedera:testnet:zFAeKMsqnNc2bwEsC8oqENBvGqjpGu9tpUi3VWaFEBXBo_0.0.5896419/anoncreds/v1/SCHEMA/0.0.7121291`) by another issuer — to view its attributes before issuing against it.
 
 ### Credential Definition
 
@@ -61,7 +64,7 @@ To create a credential definition, follow these steps:
 
 1. On the Swagger page, expand the `POST: /credential-definitions` endpoint section and click the `Try it out` button.
 2. Fill the `issuerId`, `schemaId`, and `tag` fields, and click the "Execute" button.
-3. If the execution result returns a success code (201), you will receive credential defenition ID in the response body.
+3. If the execution result returns a success code (201), you will receive credential definition ID in the response body.
 
 ### Offer a credential
 

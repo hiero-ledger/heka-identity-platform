@@ -61,7 +61,7 @@ describe('PrepareWalletService', () => {
 
   test('creates DIDs for all methods, initializes OID4VC, and patches user', async () => {
     vi.mocked(didService.find).mockResolvedValue([])
-    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] } as any)
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] })
 
     vi.mocked(didService.create)
       .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
@@ -87,7 +87,7 @@ describe('PrepareWalletService', () => {
 
   test('throws when main DID method (key) fails to create', async () => {
     vi.mocked(didService.find).mockResolvedValue([])
-    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] } as any)
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
     vi.mocked(didService.create).mockRejectedValue(new Error('KMS failure'))
 
     await expect(prepareWalletService.prepareWallet(authInfo, tenantAgent, {})).rejects.toThrow(
@@ -98,7 +98,7 @@ describe('PrepareWalletService', () => {
 
   test('continues when a non-main DID method fails', async () => {
     vi.mocked(didService.find).mockResolvedValue([])
-    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] } as any)
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] })
     vi.mocked(didService.create)
       .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
       .mockRejectedValueOnce(new Error('Indy failure'))
@@ -117,13 +117,13 @@ describe('PrepareWalletService', () => {
 
   test('creates and registers schemas when provided', async () => {
     vi.mocked(didService.find).mockResolvedValue([])
-    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] } as any)
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
     vi.mocked(didService.create).mockResolvedValue({ id: 'did:key:z1' } as any)
     vi.mocked(issuerService.createIssuer).mockResolvedValue({} as any)
     vi.mocked(verifierService.createVerifier).mockResolvedValue({} as any)
 
     vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
-    vi.mocked(schemaV2Service.registration).mockResolvedValue({} as any)
+    vi.mocked(schemaV2Service.registration).mockResolvedValue({})
 
     const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {
       schemas: [
@@ -145,5 +145,122 @@ describe('PrepareWalletService', () => {
     expect(result.did).toBe('did:key:z1')
     expect(schemaV2Service.create).toHaveBeenCalledTimes(1)
     expect(schemaV2Service.registration).toHaveBeenCalledTimes(1)
+  })
+
+  test('registers schema against the issuer DID matching the registration network', async () => {
+    // wallet check (method 'key') returns []; per-network lookup for 'hedera'
+    // resolves the hedera DID created during preparation
+    vi.mocked(didService.find).mockImplementation((_agent, req: any) =>
+      Promise.resolve(req.method === 'hedera' ? ([{ id: 'did:hedera:zH' }] as any) : []),
+    )
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'] })
+    vi.mocked(didService.create)
+      .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
+      .mockResolvedValueOnce({ id: 'did:hedera:zH' } as any)
+    vi.mocked(issuerService.createIssuer).mockResolvedValue({} as any)
+    vi.mocked(verifierService.createVerifier).mockResolvedValue({} as any)
+    vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
+    vi.mocked(schemaV2Service.registration).mockResolvedValue({})
+
+    await prepareWalletService.prepareWallet(authInfo, tenantAgent, {
+      schemas: [
+        {
+          name: 'TestSchema',
+          fields: [{ name: 'field1' }],
+          registrations: [{ protocol: 'Oid4vc', credentialFormat: 'SdJwtVc', network: 'hedera' }],
+        } as any,
+      ],
+    })
+
+    // the hedera registration must land on the hedera issuer DID, not the main did:key
+    expect(schemaV2Service.registration).toHaveBeenCalledWith(
+      authInfo,
+      tenantAgent,
+      'schema-1',
+      expect.objectContaining({ network: 'hedera', did: 'did:hedera:zH' }),
+    )
+  })
+
+  test('falls back to the main DID when a registration has no network', async () => {
+    vi.mocked(didService.find).mockResolvedValue([])
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+    vi.mocked(didService.create).mockResolvedValue({ id: 'did:key:z1' } as any)
+    vi.mocked(issuerService.createIssuer).mockResolvedValue({} as any)
+    vi.mocked(verifierService.createVerifier).mockResolvedValue({} as any)
+    vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
+    vi.mocked(schemaV2Service.registration).mockResolvedValue({})
+
+    await prepareWalletService.prepareWallet(authInfo, tenantAgent, {
+      schemas: [
+        {
+          name: 'TestSchema',
+          fields: [{ name: 'field1' }],
+          registrations: [{ protocol: 'Oid4vc', credentialFormat: 'SdJwtVc' }],
+        } as any,
+      ],
+    })
+
+    expect(schemaV2Service.registration).toHaveBeenCalledWith(
+      authInfo,
+      tenantAgent,
+      'schema-1',
+      expect.objectContaining({ did: 'did:key:z1' }),
+    )
+  })
+
+  test('skips registration when no DID exists for the requested network', async () => {
+    // no DID is found for any method, so the hedera lookup yields nothing and
+    // the registration is skipped rather than landing on the wrong issuer
+    vi.mocked(didService.find).mockResolvedValue([])
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+    vi.mocked(didService.create).mockResolvedValue({ id: 'did:key:z1' } as any)
+    vi.mocked(issuerService.createIssuer).mockResolvedValue({} as any)
+    vi.mocked(verifierService.createVerifier).mockResolvedValue({} as any)
+    vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
+
+    await prepareWalletService.prepareWallet(authInfo, tenantAgent, {
+      schemas: [
+        {
+          name: 'TestSchema',
+          fields: [{ name: 'field1' }],
+          registrations: [{ protocol: 'Oid4vc', credentialFormat: 'SdJwtVc', network: 'hedera' }],
+        } as any,
+      ],
+    })
+
+    expect(schemaV2Service.registration).not.toHaveBeenCalled()
+  })
+
+  test('continues with remaining registrations when a DID lookup fails', async () => {
+    // the wallet is already prepared (main 'key' DID resolves); the 'hedera'
+    // lookup throws, which must not abort the still-valid 'key' registration
+    vi.mocked(didService.find).mockImplementation((_agent, req: any) => {
+      if (req.method === 'hedera') return Promise.reject(new Error('wallet lookup failure'))
+      return Promise.resolve([{ id: 'did:key:z1' }] as any)
+    })
+    vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
+    vi.mocked(schemaV2Service.registration).mockResolvedValue({})
+
+    await prepareWalletService.prepareWallet(authInfo, tenantAgent, {
+      schemas: [
+        {
+          name: 'TestSchema',
+          fields: [{ name: 'field1' }],
+          registrations: [
+            { protocol: 'Oid4vc', credentialFormat: 'SdJwtVc', network: 'hedera' },
+            { protocol: 'Oid4vc', credentialFormat: 'SdJwtVc', network: 'key' },
+          ],
+        } as any,
+      ],
+    })
+
+    // hedera skipped (lookup threw), key still registered
+    expect(schemaV2Service.registration).toHaveBeenCalledTimes(1)
+    expect(schemaV2Service.registration).toHaveBeenCalledWith(
+      authInfo,
+      tenantAgent,
+      'schema-1',
+      expect.objectContaining({ network: 'key', did: 'did:key:z1' }),
+    )
   })
 })

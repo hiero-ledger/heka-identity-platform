@@ -1,5 +1,5 @@
 import 'react-i18next'
-import BifoldTranslation from '@hyperledger/aries-bifold-core/App/localization/en'
+import BifoldTranslation from '@bifold/core/src/localization/en'
 
 import HekaWalletTranslation from '../localization/en'
 

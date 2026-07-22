@@ -26,10 +26,10 @@ describe('ProofService', () => {
           acceptRequest: vi.fn(),
         },
         connections: { findById: vi.fn() },
-      } as any,
+      },
       modules: {
         anoncreds: { getCredentialDefinition: vi.fn(), getSchema: vi.fn() },
-      } as any,
+      },
     })
   })
 
@@ -111,7 +111,7 @@ describe('ProofService', () => {
           name: 'My Proof',
           proofParams,
         },
-      } as any)
+      })
 
       expect(tenantAgent.modules.anoncreds.getSchema).toHaveBeenCalledWith('schema-1')
       expect(result.id).toBe('proof-2')
@@ -154,7 +154,7 @@ describe('ProofService', () => {
           name: 'Cred Def Proof',
           proofParams,
         },
-      } as any)
+      })
 
       expect(tenantAgent.modules.anoncreds.getCredentialDefinition).toHaveBeenCalledWith('creddef-1')
       expect(tenantAgent.modules.anoncreds.getSchema).toHaveBeenCalledWith('schema-1')
@@ -178,7 +178,7 @@ describe('ProofService', () => {
           } as any),
         },
         requestNonRevokedProof: true,
-      } as any)
+      })
 
       expect(result.id).toBe('proof-4')
       expect(tenantAgent.didcomm.proofs.requestProof).toHaveBeenCalledWith(
@@ -220,7 +220,7 @@ describe('ProofService', () => {
 
       const mockRecord = proofExchangeRecordStub({ id: 'proof-5', state: 'done', createdAt: new Date() })
       vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord)
-      vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({ presentation: {} } as any)
+      vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({ presentation: {} })
 
       const result = await proofService.get(tenantAgent, 'proof-5')
       expect(tenantAgent.didcomm.proofs.findById).toHaveBeenCalledWith('proof-5')
@@ -272,6 +272,38 @@ describe('ProofService', () => {
       expect(result.revealedAttributes).toHaveLength(2)
       expect(result.revealedAttributes).toContainEqual({ name: 'email', value: 'alice@example.com' })
       expect(result.revealedAttributes).toContainEqual({ name: 'role', value: 'admin' })
+    })
+
+    test('serializes complex credential attributes as JSON instead of [object Object]', async () => {
+      const mockRecord = proofExchangeRecordStub({ id: 'proof-3', state: 'done', createdAt: new Date() })
+      vi.mocked(tenantAgent.didcomm.proofs.findById).mockResolvedValue(mockRecord)
+      vi.mocked(tenantAgent.didcomm.proofs.getFormatData).mockResolvedValue({
+        presentation: {
+          presentationExchange: {
+            verifiableCredential: [
+              {
+                credentialSubject: {
+                  name: 'Alice',
+                  address: { street: '123 Main St', city: 'Springfield' },
+                  tags: ['verified', 'premium'],
+                },
+              },
+            ],
+          },
+        },
+      } as any)
+
+      const result = await proofService.get(tenantAgent, 'proof-3')
+
+      expect(result.revealedAttributes).toContainEqual({ name: 'name', value: 'Alice' })
+      expect(result.revealedAttributes).toContainEqual({
+        name: 'address',
+        value: JSON.stringify({ street: '123 Main St', city: 'Springfield' }),
+      })
+      expect(result.revealedAttributes).toContainEqual({
+        name: 'tags',
+        value: JSON.stringify(['verified', 'premium']),
+      })
     })
 
     test('throws NotFoundException when proof not found', async () => {

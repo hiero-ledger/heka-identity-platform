@@ -40,4 +40,8 @@ export class ConfigService {
   public get healthConfig() {
     return this.config.health
   }
+
+  public get throttleConfig() {
+    return this.config.throttle
+  }
 }

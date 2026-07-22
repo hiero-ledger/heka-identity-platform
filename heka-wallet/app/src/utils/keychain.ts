@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useState } from 'react'
 import { Platform } from 'react-native'
-import Keychain from 'react-native-keychain'
+import * as Keychain from 'react-native-keychain'
 
 import { KeychainServices, KeychainServicesList } from '../types/keychain'
 
@@ -36,8 +36,8 @@ export async function resetKeychainData(): Promise<void> {
   }
 }
 
-export function getKeychainAccessOptions(service: KeychainServices, useBiometrics = false): Keychain.Options {
-  const options: Keychain.Options = {
+export function getKeychainAccessOptions(service: KeychainServices, useBiometrics = false): Keychain.SetOptions {
+  const options: Keychain.SetOptions = {
     service,
     accessible: useBiometrics ? Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY : Keychain.ACCESSIBLE.ALWAYS,
     accessControl: useBiometrics ? Keychain.ACCESS_CONTROL.BIOMETRY_ANY : undefined,
@@ -45,7 +45,7 @@ export function getKeychainAccessOptions(service: KeychainServices, useBiometric
 
   if (Platform.OS === 'android') {
     options.securityLevel = Keychain.SECURITY_LEVEL.ANY
-    options.storage = useBiometrics ? Keychain.STORAGE_TYPE.RSA : Keychain.STORAGE_TYPE.AES
+    options.storage = useBiometrics ? Keychain.STORAGE_TYPE.RSA : Keychain.STORAGE_TYPE.AES_GCM
   }
 
   return options

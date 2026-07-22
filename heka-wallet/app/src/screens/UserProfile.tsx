@@ -1,5 +1,5 @@
+import { InfoTextBox, ToastType } from '@bifold/core'
 import { HekaTheme, useHekaTheme, useGlobalStyles } from '@heka-wallet/shared'
-import { InfoTextBox, ToastType } from '@hyperledger/aries-bifold-core'
 import { useNetInfo } from '@react-native-community/netinfo'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'

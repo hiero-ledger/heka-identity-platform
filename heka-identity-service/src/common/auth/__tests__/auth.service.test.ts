@@ -75,7 +75,7 @@ describe('AuthService', () => {
             await cb({ modules: { anoncreds: { createLinkSecret: vi.fn() } } })
           }),
         },
-      } as any,
+      },
     })
     jwtService = createMock<JwtService>()
     em = createMock<EntityManager>()
@@ -100,7 +100,7 @@ describe('AuthService', () => {
       const request = { headers: { authorization: 'Bearer my-jwt' } } as IncomingMessage
       const payload = { sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer] }
 
-      vi.mocked(jwtService.verifyAsync).mockResolvedValue(payload as any)
+      vi.mocked(jwtService.verifyAsync).mockResolvedValue(payload)
 
       const user = makeUser({ id: '11' })
       const wallet = makeWallet()
@@ -178,7 +178,7 @@ describe('AuthService', () => {
 
       // The new User created inside the service has real Collection internals; replace findOne
       // behavior so the second path (wallets.init / contains / add) works via a post-create hook.
-      vi.mocked(em.persistAndFlush).mockImplementation((entity: any) => {
+      vi.mocked(em.persist).mockImplementation((entity: any) => {
         if (entity instanceof User) {
           entity.wallets = {
             init: vi.fn().mockResolvedValue(undefined),
@@ -186,14 +186,14 @@ describe('AuthService', () => {
             add: vi.fn(),
           } as any
         }
-        return Promise.resolve()
+        return em
       })
 
       const result = await service.validateTokenPayload(payload)
 
       expect(em.findOne).toHaveBeenNthCalledWith(1, User, { id: 'new-user' })
       expect(em.findOne).toHaveBeenNthCalledWith(2, Wallet, { id: 'Issuer_new-user_in_Organization_7' })
-      expect(em.persistAndFlush).toHaveBeenCalled()
+      expect(em.flush).toHaveBeenCalled()
       expect(result.userId).toBe('new-user')
     })
 

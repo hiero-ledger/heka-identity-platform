@@ -1,14 +1,24 @@
+import {
+  Container,
+  TokenMapping,
+  TOKENS,
+  defaultConfig,
+  Config,
+  Screens as BifoldScreens,
+  DefaultScreenOptionsDictionary,
+} from '@bifold/core'
+import { i18n } from '@bifold/core/src/localization'
 import { BaseLogger } from '@credo-ts/core'
-import { ColorPallet } from '@heka-wallet/shared'
-import { Container, TokenMapping, TOKENS } from '@hyperledger/aries-bifold-core'
-import HeaderTitle from '@hyperledger/aries-bifold-core/App/components/texts/HeaderTitle'
-import { defaultConfig } from '@hyperledger/aries-bifold-core/App/container-impl'
-import i18n from 'i18next'
+import { ColorPalette } from '@heka-wallet/shared'
+import { HeaderTitle } from '@react-navigation/elements'
+import { StackNavigationOptions } from '@react-navigation/stack'
 import React from 'react'
+import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { DependencyContainer } from 'tsyringe'
 
 import { CredentialStack } from './src/navigators/CredentialStack'
 import { HomeStack } from './src/navigators/HomeStack'
+import { OnboardingStack } from './src/navigators/OnboardingStack'
 import { TabStack } from './src/navigators/TabStack'
 import {
   CredentialDetails,
@@ -34,14 +44,15 @@ import UseBiometry from './src/screens/UseBiometry'
 import WhatAreContacts from './src/screens/WhatAreContacts'
 import { useDeeplinks } from './src/utils/useDeeplinks'
 
-const configuration = {
+const configuration: Config = {
   ...defaultConfig,
   autoRedirectConnectionToHome: true,
   connectionTimerDelay: 5000,
   showScanHelp: false,
   showPreface: false,
+  enableTours: false,
   globalScreenOptions: {
-    headerTintColor: ColorPallet.brand.headerIcon,
+    headerTintColor: ColorPalette.brand.headerIcon,
     headerShown: true,
     headerBackTitleVisible: false,
     headerTitleContainerStyle: {
@@ -52,15 +63,34 @@ const configuration = {
       elevation: 0,
       shadowOffset: { width: 0, height: 6 },
       shadowRadius: 6,
-      shadowColor: ColorPallet.grayscale.black,
+      shadowColor: ColorPalette.grayscale.black,
       shadowOpacity: 0,
       borderBottomWidth: 0,
-      backgroundColor: ColorPallet.brand.primaryBackground,
+      backgroundColor: ColorPalette.brand.primaryBackground,
     },
     headerTitleAlign: 'left',
     headerTitle: (props: { children: React.ReactNode }) => <HeaderTitle {...props} />,
-    headerBackAccessibilityLabel: i18n.t('Global.Back'),
+    headerBackAccessibilityLabel: i18n.t('Global.Back') as string,
+    // Replace React Navigation's default back-icon.png (fails to resolve from a yarn-workspace
+    // node_modules path) with a vector glyph that uses the already-bundled MaterialCommunityIcons font.
+    headerBackImage: ({ tintColor }: { tintColor?: string }) => (
+      <MaterialCommunityIcon name="arrow-left" size={26} color={tintColor ?? ColorPalette.brand.headerIcon} />
+    ),
   },
+}
+
+// Bifold's DefaultScreenOptionsDictionary sets headerTintColor to white (designed for dark
+// onboarding backgrounds). Override all entries to use our headerIcon color for light backgrounds.
+const screenOptionsDictionary: Partial<Record<BifoldScreens, StackNavigationOptions>> = Object.fromEntries(
+  Object.entries(DefaultScreenOptionsDictionary).map(([screen, options]) => [
+    screen,
+    options.headerTintColor ? { ...options, headerTintColor: ColorPalette.brand.headerIcon } : options,
+  ])
+) as Partial<Record<BifoldScreens, StackNavigationOptions>>
+
+screenOptionsDictionary[BifoldScreens.Onboarding] = {
+  ...screenOptionsDictionary[BifoldScreens.Onboarding],
+  headerShown: false,
 }
 
 export class AppContainer implements Container {
@@ -81,11 +111,12 @@ export class AppContainer implements Container {
 
     // Here you can register any component to override components in Bifold package
     // Example: Replacing button in core with custom button
-    // this.container.registerInstance(TOKENS.COMP_BUTTON, Button)
+    // this.container.registerInstance(TOKENS.COMPONENT_BUTTON, Button)
 
     this._container.registerInstance(TOKENS.STACK_TAB, TabStack)
     this._container.registerInstance(TOKENS.STACK_HOME, HomeStack)
     this._container.registerInstance(TOKENS.STACK_CREDENTIAL, CredentialStack)
+    this._container.registerInstance(TOKENS.STACK_ONBOARDING, OnboardingStack)
 
     this._container.registerInstance(TOKENS.SCREEN_SPLASH, Splash)
     this._container.registerInstance(TOKENS.SCREEN_SCAN, Scan)
@@ -100,7 +131,8 @@ export class AppContainer implements Container {
     this._container.registerInstance(TOKENS.SCREEN_PROOF_REQUEST, AriesPresentationRequest)
     this._container.registerInstance(TOKENS.SCREEN_PIN_CREATE, PINCreate)
     this._container.registerInstance(TOKENS.SCREEN_PIN_ENTER, PINEnter)
-    this._container.registerInstance(TOKENS.SCREEN_USE_BIOMETRY, UseBiometry)
+    this._container.registerInstance(TOKENS.SCREEN_BIOMETRY, UseBiometry)
+    this._container.registerInstance(TOKENS.SCREEN_TOGGLE_BIOMETRY, UseBiometry)
     this._container.registerInstance(TOKENS.SCREEN_ATTEMPT_LOCKOUT, AttemptLockout)
     this._container.registerInstance(TOKENS.SCREEN_LANGUAGE, Language)
     this._container.registerInstance(TOKENS.SCREEN_PROOF_DETAILS, ProofDetails)
@@ -110,6 +142,7 @@ export class AppContainer implements Container {
     this._container.registerInstance(TOKENS.HOOK_USE_DEEPLINKS, useDeeplinks)
 
     this._container.registerInstance(TOKENS.CONFIG, configuration)
+    this._container.registerInstance(TOKENS.OBJECT_SCREEN_CONFIG, screenOptionsDictionary)
 
     return this
   }

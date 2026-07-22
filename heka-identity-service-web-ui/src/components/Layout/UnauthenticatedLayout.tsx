@@ -37,14 +37,12 @@ const UnauthenticatedLayout = () => {
           />
         </DesktopView>
         <Column className={cls.content}>
-          <Row
-            alignItems="center"
-          >
+          <Row alignItems="center">
             <Button
               onPress={onNavigateBack}
               buttonType="text"
               leftIcon="arrow-back"
-              alignment={"left"}
+              alignment={'left'}
             >
               <p>{t('Common.buttons.back')}</p>
             </Button>
@@ -55,7 +53,6 @@ const UnauthenticatedLayout = () => {
               onClick={() => navigate(ROUTES.MAIN)}
             />
           </Row>
-
 
           <MobileView>
             <TopPanel

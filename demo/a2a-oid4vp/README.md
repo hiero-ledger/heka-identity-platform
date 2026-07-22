@@ -16,7 +16,7 @@ The agent is configured to require the user to present a verifiable credential v
 The following mapping applies for roles/parties described in [OID4VP In-Task Authentication extension spec](https://github.com/DSRCorporation/a2a-oid4vp-in-task-auth-extension/blob/main/v1/spec.md):
 - A2A Client → [CLI client](src/cli.ts)
 - A2A Server → [Demo Agent Server](src/agent/index.ts)
-- OID4VP Wallet → [Heka Mobile Wallet](../../heka-wallet)
+- OID4VP Wallet → [Heka Wallet](../../heka-wallet)
 - OID4VP Verifier → [Heka Identity Service](../../heka-identity-service)
 
 **High-level demo flow:**
@@ -34,7 +34,7 @@ sequenceDiagram
     Agent->>HIS: (2.1) Create Verification Session (OID4VP)
     HIS-->>Agent: (2.2) Authorization Request Metadata
     Agent->>CLI: (2.3) Status Update (state: auth-required + metadata)
-    CLI->>Wallet: (3) Invoke Wallet (Out-of-band / DidComm)
+    CLI->>Wallet: (3) Invoke Wallet (Out-of-band / DIDComm)
     Wallet->>User: (4.1) Display Authorization Request
     User->>Wallet: (4.2) Confirm Presentation
     Wallet->>HIS: (4.3) Submit Verifiable Presentation (OID4VP direct_post)
@@ -59,8 +59,8 @@ sequenceDiagram
 
 ### 1. Install prerequisites
 
-- Node.js (v18 or higher)
-- yarn v4.9.4
+- Node.js (v22 LTS recommended)
+- yarn v4.16.0
 - Docker
 - An OpenAI API key
 
@@ -81,7 +81,7 @@ However, there are values that need to be manually set up:
 
 Other supported values:
 - `DEMO_AGENT_PORT` - Port to be used by the Demo Agent server, defaults to `10003`
-- `CLI_CLIENT_PORT` - Port to be used by CLI Client inbound transport (DidComm inbound transport, used for Mobile Wallet invocation), defaults to `3010`
+- `CLI_CLIENT_PORT` - Port to be used by CLI Client inbound transport (DIDComm inbound transport, used for Heka Wallet invocation), defaults to `3010`
 - `IDENTITY_SERVICE_URL` - URL of local instance of Heka Identity Service, defaults to `http://localhost:3000`. Must be changed if host, port, or API prefix configuration of the instance differs from default values
 - `IDENTITY_SERVICE_ACCESS_TOKEN` - Heka Identity Service API token, default value is a demo token with extremely long validity period. Must be changed if JWT configuration for Heka Identity Service instance was changed
 
@@ -168,7 +168,7 @@ In a second terminal, start the CLI Client:
 yarn client
 ```
 
-The CLI Client will start an inbound DidComm transport that will use port 3010 (can be changed using `CLI_CLIENT_PORT` env variable).
+The CLI Client will start an inbound DIDComm transport that will use port 3010 (can be changed using `CLI_CLIENT_PORT` env variable).
 
 ### 7. Try out integration with the Agent
 
@@ -181,7 +181,7 @@ mechanics of leveraging Heka Identity Platform for Agent-to-Agent (A2A) protocol
 it is critical to treat any agent operating outside of your direct control as a
 potentially untrusted entity.
 
-The demonstrated flow involves usage of OID4VP Response Mode `direct_post` that is vulnerable to Session Fixation attacks ([Ref](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-session-fixation)). Production deployments must provide an additonal security mechanism to prevent such attacks.
+The demonstrated flow involves usage of OID4VP Response Mode `direct_post` that is vulnerable to Session Fixation attacks ([Ref](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-session-fixation)). Production deployments must provide an additional security mechanism to prevent such attacks.
 
 All data received from an external agent—including but not limited to its AgentCard,
 messages, artifacts, and task statuses—should be handled as untrusted input. For

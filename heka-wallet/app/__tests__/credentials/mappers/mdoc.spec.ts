@@ -1,12 +1,12 @@
 import { Mdoc, MdocNameSpaces } from '@credo-ts/core'
 
 // Mock the Attribute constructor before importing
-jest.mock('@hyperledger/aries-oca/build/legacy', () => ({
+jest.mock('@bifold/oca/build/legacy', () => ({
   Attribute: jest.fn().mockImplementation(({ name, value }) => ({ name, value })),
 }))
 
 // Import the mocked Attribute and the function to test
-import { Attribute } from '@hyperledger/aries-oca/build/legacy'
+import { Attribute } from '@bifold/oca/build/legacy'
 import { getAttributesAndMetadataForMdocPayload } from '../../../src/credentials/mappers/mdoc'
 
 const mockAttribute = Attribute as jest.MockedFunction<any>
@@ -37,8 +37,8 @@ describe('getAttributesAndMetadataForMdocPayload', () => {
       const result = getAttributesAndMetadataForMdocPayload(namespaces, mockMdocInstance)
 
       expect(result.attributes).toHaveLength(2)
-      expect(mockAttribute).toHaveBeenCalledWith({ name: 'given_name', value: 'John' })
-      expect(mockAttribute).toHaveBeenCalledWith({ name: 'family_name', value: 'Doe' })
+      expect(mockAttribute).toHaveBeenCalledWith({ name: 'given name', value: 'John' })
+      expect(mockAttribute).toHaveBeenCalledWith({ name: 'family name', value: 'Doe' })
     })
 
     it('should handle number values correctly', () => {
@@ -52,8 +52,8 @@ describe('getAttributesAndMetadataForMdocPayload', () => {
       const result = getAttributesAndMetadataForMdocPayload(namespaces, mockMdocInstance)
 
       expect(result.attributes).toHaveLength(2)
-      expect(mockAttribute).toHaveBeenCalledWith({ name: 'age_over_18', value: 1 })
-      expect(mockAttribute).toHaveBeenCalledWith({ name: 'birth_year', value: 1990 })
+      expect(mockAttribute).toHaveBeenCalledWith({ name: 'age over 18', value: 1 })
+      expect(mockAttribute).toHaveBeenCalledWith({ name: 'birth year', value: 1990 })
     })
 
     it('should handle complex values by converting to JSON', () => {
@@ -72,15 +72,16 @@ describe('getAttributesAndMetadataForMdocPayload', () => {
 
       expect(result.attributes).toHaveLength(3)
       expect(mockAttribute).toHaveBeenCalledWith({
-        name: 'birth_date',
+        name: 'birth date',
         value: '{"year":1990,"month":5,"day":15}',
       })
       expect(mockAttribute).toHaveBeenCalledWith({
-        name: 'driving_privileges',
-        value: '[{"vehicle_category_code":"A","issue_date":"2020-01-01"},{"vehicle_category_code":"B","issue_date":"2020-01-01"}]',
+        name: 'driving privileges',
+        value:
+          '[{"vehicle_category_code":"A","issue_date":"2020-01-01"},{"vehicle_category_code":"B","issue_date":"2020-01-01"}]',
       })
       expect(mockAttribute).toHaveBeenCalledWith({
-        name: 'is_verified',
+        name: 'is verified',
         value: 'true',
       })
     })
@@ -100,9 +101,9 @@ describe('getAttributesAndMetadataForMdocPayload', () => {
       const result = getAttributesAndMetadataForMdocPayload(namespaces, mockMdocInstance)
 
       expect(result.attributes).toHaveLength(4)
-      expect(mockAttribute).toHaveBeenCalledWith({ name: 'given_name', value: 'John' })
-      expect(mockAttribute).toHaveBeenCalledWith({ name: 'family_name', value: 'Doe' })
-      expect(mockAttribute).toHaveBeenCalledWith({ name: 'employee_id', value: 'EMP123' })
+      expect(mockAttribute).toHaveBeenCalledWith({ name: 'given name', value: 'John' })
+      expect(mockAttribute).toHaveBeenCalledWith({ name: 'family name', value: 'Doe' })
+      expect(mockAttribute).toHaveBeenCalledWith({ name: 'employee id', value: 'EMP123' })
       expect(mockAttribute).toHaveBeenCalledWith({ name: 'department', value: 'Engineering' })
     })
 
@@ -125,8 +126,8 @@ describe('getAttributesAndMetadataForMdocPayload', () => {
       const result = getAttributesAndMetadataForMdocPayload(namespaces, mockMdocInstance)
 
       expect(result.attributes).toHaveLength(2)
-      expect(mockAttribute).toHaveBeenCalledWith({ name: 'optional_field', value: 'null' })
-      expect(mockAttribute).toHaveBeenCalledWith({ name: 'undefined_field', value: undefined })
+      expect(mockAttribute).toHaveBeenCalledWith({ name: 'optional field', value: 'null' })
+      expect(mockAttribute).toHaveBeenCalledWith({ name: 'undefined field', value: undefined })
     })
   })
 

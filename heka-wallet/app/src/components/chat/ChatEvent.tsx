@@ -1,12 +1,12 @@
+import { toImageSource } from '@bifold/core/src/utils/credential'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { toImageSource } from '@hyperledger/aries-bifold-core/App/utils/credential'
 import React, { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Image, StyleSheet, Text, TouchableOpacity } from 'react-native'
 
 import { Role } from './types'
 
-const useStyles = ({ TextTheme, FontWeights, Spacing, BorderRadius, ColorPallet }: HekaTheme) =>
+const useStyles = ({ TextTheme, FontWeights, Spacing, BorderRadius, ColorPalette }: HekaTheme) =>
   StyleSheet.create({
     container: {
       gap: 8,
@@ -23,8 +23,8 @@ const useStyles = ({ TextTheme, FontWeights, Spacing, BorderRadius, ColorPallet 
       borderRadius: BorderRadius.small,
       paddingVertical: Spacing.xxxs,
       paddingHorizontal: Spacing.xs,
-      backgroundColor: ColorPallet.semantic.success,
-      color: ColorPallet.grayscale.white,
+      backgroundColor: ColorPalette.semantic.success,
+      color: ColorPalette.grayscale.white,
     },
     image: {
       resizeMode: 'cover',
@@ -109,14 +109,14 @@ export const ChatEvent: React.FC<ChatEventProps> = ({ event, onPress }) => {
     switch (event.state) {
       case EventStates.Received:
       case EventStates.Requested:
-        return theme.ColorPallet.brand.highlight
+        return theme.ColorPalette.brand.highlight
       case EventStates.Sent:
       case EventStates.Accepted:
-        return theme.ColorPallet.semantic.success
+        return theme.ColorPalette.semantic.success
       case EventStates.Declined:
-        return theme.ColorPallet.notification.errorText
+        return theme.ColorPalette.notification.errorText
       default:
-        return theme.ColorPallet.notification.error
+        return theme.ColorPalette.notification.error
     }
   }, [event.state, theme])
 

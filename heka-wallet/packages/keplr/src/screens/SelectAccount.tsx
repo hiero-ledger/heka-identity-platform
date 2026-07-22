@@ -18,7 +18,7 @@ const useStyles = (theme: HekaTheme) =>
   StyleSheet.create({
     group: {
       marginBottom: theme.Spacing.md,
-      backgroundColor: theme.ColorPallet.brand.primaryBackground,
+      backgroundColor: theme.ColorPalette.brand.primaryBackground,
     },
     groupTitle: {
       ...theme.TextTheme.headingFour,
@@ -26,7 +26,7 @@ const useStyles = (theme: HekaTheme) =>
     },
     accountItem: {
       borderTopWidth: theme.BorderWidth.small,
-      borderColor: theme.ColorPallet.grayscale.lightGrey,
+      borderColor: theme.ColorPalette.grayscale.lightGrey,
     },
   })
 
@@ -128,7 +128,7 @@ const AccountGroup: React.FC<AccountGroupProps> = ({ data, onSelectAccount, onAc
               <IconButton
                 onPress={() => onAccountDelete(keyStore)}
                 iconName={'trash3'}
-                iconColor={theme.ColorPallet.semantic.error}
+                iconColor={theme.ColorPalette.semantic.error}
               />
             }
             onPress={() => onSelectAccount(keyStore)}

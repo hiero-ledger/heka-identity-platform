@@ -21,7 +21,15 @@ export interface BuildOpenIdPresentationRequestParams {
   doctype?: string;
   /** namespace for mso_mdoc claim paths (e.g. 'org.iso.18013.5.1') */
   namespace?: string;
+  /** When true, builds a signed `dc_api` request for the W3C Digital Credentials API flow */
+  useDcApi?: boolean;
+  /** Origins (typically `[window.location.origin]`) bound into a signed `dc_api` request */
+  expectedOrigins?: Array<string>;
 }
+
+// Non-DC-API ("direct_post") requests are signed with the verifier's DID.
+// The DC API flow is built separately (see buildDcApiPresentationRequest) — it is also
+// signed with the verifier's DID (a JAR, required by the wallet matcher) but MUST use DCQL, not PEX.
 
 export const buildSdJwtPresentationRequest = ({
   id,
@@ -32,10 +40,7 @@ export const buildSdJwtPresentationRequest = ({
 }: BuildOpenIdPresentationRequestParams) => {
   return {
     publicVerifierId: id,
-    requestSigner: {
-      method: 'did',
-      did: did,
-    },
+    requestSigner: { method: 'did', did },
     presentationExchange: {
       definition: {
         id: v4(),
@@ -66,10 +71,7 @@ export const buildJwtJsonPresentationRequest = ({
 }: BuildOpenIdPresentationRequestParams) => {
   return {
     publicVerifierId: id,
-    requestSigner: {
-      method: 'did',
-      did: did,
-    },
+    requestSigner: { method: 'did', did },
     presentationExchange: {
       definition: {
         id: v4(),
@@ -97,9 +99,18 @@ export const buildJwtJsonPresentationRequest = ({
   };
 };
 
-const MDL_DOCTYPE = 'org.iso.18013.5.1.mDL'
-const MDL_NAMESPACE = 'org.iso.18013.5.1'
-const MDL_ALG = ['ES256', 'ES384', 'ES512', 'EdDSA', 'ESB256', 'ESB320', 'ESB384', 'ESB512']
+const MDL_DOCTYPE = 'org.iso.18013.5.1.mDL';
+const MDL_NAMESPACE = 'org.iso.18013.5.1';
+const MDL_ALG = [
+  'ES256',
+  'ES384',
+  'ES512',
+  'EdDSA',
+  'ESB256',
+  'ESB320',
+  'ESB384',
+  'ESB512',
+];
 
 export const buildMsoMdocPresentationRequest = ({
   id,
@@ -112,10 +123,7 @@ export const buildMsoMdocPresentationRequest = ({
 }: BuildOpenIdPresentationRequestParams) => {
   return {
     publicVerifierId: id,
-    requestSigner: {
-      method: 'did',
-      did: did,
-    },
+    requestSigner: { method: 'did', did },
     presentationExchange: {
       definition: {
         id: v4(),
@@ -144,9 +152,70 @@ export const buildMsoMdocPresentationRequest = ({
   };
 };
 
+const DCQL_CREDENTIAL_ID = 'requested-credential';
+
+const DCQL_SD_JWT_FORMAT = 'dc+sd-jwt' as const;
+
+const buildDcqlQuery = ({
+  format,
+  attributes,
+  doctype = MDL_DOCTYPE,
+  namespace = MDL_NAMESPACE,
+}: BuildOpenIdPresentationRequestParams) => {
+  switch (format) {
+    case Openid4CredentialFormat.MsoMdoc:
+      return {
+        credentials: [
+          {
+            id: DCQL_CREDENTIAL_ID,
+            format: Openid4CredentialFormat.MsoMdoc,
+            meta: { doctype_value: doctype },
+            claims: attributes.map((attribute) => ({
+              path: [namespace, attribute],
+              intent_to_retain: false,
+            })),
+          },
+        ],
+      };
+    case Openid4CredentialFormat.SdJwt:
+      return {
+        credentials: [
+          {
+            id: DCQL_CREDENTIAL_ID,
+            format: DCQL_SD_JWT_FORMAT,
+            // No `meta.vct_values`: the SD-JWT PEX path did not constrain the vct either, so we
+            // match on the requested claims alone. Add vct_values here to restrict by type.
+            claims: attributes.map((attribute) => ({ path: [attribute] })),
+          },
+        ],
+      };
+    default:
+      throw new Error(
+        `The Digital Credentials API flow supports only mso_mdoc and SD-JWT VC credentials (received "${format}")`,
+      );
+  }
+};
+
+const buildDcApiPresentationRequest = (
+  params: BuildOpenIdPresentationRequestParams,
+) => ({
+  publicVerifierId: params.id,
+  requestSigner: { method: 'did' as const, did: params.did },
+  dcql: { query: buildDcqlQuery(params) },
+  responseMode: 'dc_api' as const,
+  version: 'v1' as const,
+  ...(params.expectedOrigins?.length
+    ? { expectedOrigins: params.expectedOrigins }
+    : {}),
+});
+
 export const buildOpenIdPresentationRequest = (
   params: BuildOpenIdPresentationRequestParams,
 ) => {
+  if (params.useDcApi) {
+    return buildDcApiPresentationRequest(params);
+  }
+
   switch (params.format) {
     case Openid4CredentialFormat.SdJwt:
       return buildSdJwtPresentationRequest(params);

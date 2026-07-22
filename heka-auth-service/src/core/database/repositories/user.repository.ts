@@ -4,6 +4,7 @@ import { User } from '../entities'
 
 export class UserRepository extends EntityRepository<User> {
   public async persistAndFlush(users: User | User[]) {
-    return await this.em.persistAndFlush(users)
+    this.em.persist(users)
+    await this.em.flush()
   }
 }

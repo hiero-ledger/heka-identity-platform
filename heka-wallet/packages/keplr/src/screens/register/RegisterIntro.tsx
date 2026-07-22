@@ -1,5 +1,5 @@
+import { Button, ButtonType } from '@bifold/core'
 import { HekaTheme, useHekaTheme, useGlobalStyles } from '@heka-wallet/shared'
-import { Button, ButtonType } from '@hyperledger/aries-bifold-core'
 import { useRegisterConfig } from '@keplr-wallet/hooks'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'

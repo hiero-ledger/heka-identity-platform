@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import { IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator'
+import { IsBoolean, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator'
 
 import { CredentialIssuer } from '../../issuance-sessions/dto/credential-offer.dto'
 
@@ -56,10 +56,13 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
   @IsNotEmpty()
   public publicVerifierId!: string
 
-  @ApiProperty({ type: CredentialIssuer })
+  @ApiPropertyOptional({
+    type: CredentialIssuer,
+  })
+  @IsOptional()
   @ValidateNested()
   @Type(() => CredentialIssuer)
-  public requestSigner!: CredentialIssuer
+  public requestSigner?: CredentialIssuer
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -82,6 +85,30 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
   @IsOptional()
   @IsEnum(VerificationSessionVersion)
   public version?: VerificationSessionVersion
+
+  @ApiPropertyOptional({
+    enum: ['direct_post', 'direct_post.jwt', 'dc_api', 'dc_api.jwt'],
+  })
+  @IsOptional()
+  @IsString()
+  public responseMode?: 'direct_post' | 'direct_post.jwt' | 'dc_api' | 'dc_api.jwt'
+
+  @ApiPropertyOptional({
+    type: [String],
+  })
+  @IsOptional()
+  public expectedOrigins?: string[]
+}
+
+export class OpenId4VcVerifyDcApiRequestDto {
+  @ApiProperty()
+  @IsObject()
+  public authorizationResponse!: Record<string, unknown>
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  public origin!: string
 }
 
 export class OpenId4VcVerificationSessionCreateRequestResponse {
@@ -93,4 +120,11 @@ export class OpenId4VcVerificationSessionCreateRequestResponse {
    */
   @ApiProperty()
   public authorizationRequest!: string
+
+  /**
+   * The authorization request object to pass to the Digital Credentials API (navigator.credentials.get).
+   * Only present when responseMode is dc_api or dc_api.jwt.
+   */
+  @ApiPropertyOptional()
+  public authorizationRequestObject?: Record<string, unknown>
 }
