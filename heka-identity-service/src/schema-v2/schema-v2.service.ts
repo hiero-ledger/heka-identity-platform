@@ -40,6 +40,9 @@ import { RegisterSchemaRequest, RegisterSchemaResponse } from './dto/register-sc
 
 type OpenId4VciCredentialConfigurationSupportedWithId = OpenId4VciCredentialConfigurationSupported & { id: string }
 
+const compareByOrderIndex = (a: { orderIndex?: number }, b: { orderIndex?: number }): number =>
+  (a.orderIndex ?? 0) - (b.orderIndex ?? 0)
+
 @Injectable()
 export class SchemaV2Service {
   private LOGO_STORAGE_ROOT_PATH = 'logo'
@@ -147,7 +150,7 @@ export class SchemaV2Service {
         version: '1.0.0',
         attrNames: schema.fields
           .toArray()
-          .sort((x) => x.orderIndex ?? 0)
+          .sort(compareByOrderIndex)
           .map((x) => x.name),
       })
 
@@ -196,7 +199,7 @@ export class SchemaV2Service {
       {},
       ...schema.fields
         .toArray()
-        .sort((s) => s.orderIndex ?? 0)
+        .sort(compareByOrderIndex)
         .map((x) => ({ [x.name]: {} })),
     )
 
@@ -276,7 +279,7 @@ export class SchemaV2Service {
     cryptographic_binding_methods_supported: ['cose_key'],
     claims: schema.fields
       .toArray()
-      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+      .sort(compareByOrderIndex)
       .map((field) => ({ path: [schema.name, field.name] as [string, string] })),
     display: this.makeCredentialDisplay(schema),
   })
@@ -447,7 +450,7 @@ export class SchemaV2Service {
         registrationsCount: item.registrations.count(),
         fields: item.fields
           .toArray()
-          .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+          .sort(compareByOrderIndex)
           .map((f) => ({
             id: f.id,
             name: f.name,
@@ -488,7 +491,7 @@ export class SchemaV2Service {
       orderIndex: schema.orderIndex,
       fields: schema.fields
         .toArray()
-        .sort((s) => s.orderIndex ?? 0)
+        .sort(compareByOrderIndex)
         .map((f) => ({
           id: f.id,
           name: f.name,

@@ -149,6 +149,34 @@ describe('SchemaV2Service', () => {
       await expect(schemaV2Service.getById(authInfo, 'missing')).rejects.toThrow(NotFoundException)
       expect(em.findOne).toHaveBeenCalledWith(Schema, { owner: mockUser, id: 'missing' }, expect.anything())
     })
+
+    test('returns fields sorted by orderIndex when stored out of order', async () => {
+      const mockSchema = {
+        id: 'schema-1',
+        name: 'My Schema',
+        logo: null,
+        bgColor: '#eee',
+        isHidden: false,
+        orderIndex: 0,
+        owner: mockUser,
+        fields: {
+          toArray: () => [
+            { id: 'f2', name: 'second', orderIndex: 2 },
+            { id: 'f0', name: 'zeroth', orderIndex: 0 },
+            { id: 'f1', name: 'first', orderIndex: 1 },
+          ],
+        },
+        registrations: {
+          map: vi.fn().mockReturnValue([]),
+          count: () => 0,
+        },
+      }
+      vi.mocked(em.findOne).mockResolvedValue(mockSchema)
+
+      const result = await schemaV2Service.getById(authInfo, 'schema-1')
+
+      expect(result.fields.map((f) => f.name)).toEqual(['zeroth', 'first', 'second'])
+    })
   })
 
   describe('create', () => {
@@ -205,6 +233,44 @@ describe('SchemaV2Service', () => {
           did: 'did:key:z1',
         } as any),
       ).rejects.toThrow(BadRequestException)
+    })
+
+    test('registers AnonCreds attrNames sorted by orderIndex when stored out of order', async () => {
+      const mockSchema = {
+        id: 'schema-1',
+        name: 'Test',
+        owner: mockUser,
+        registrations: { map: vi.fn().mockReturnValue([]), count: () => 0 },
+        fields: {
+          toArray: () => [
+            { id: 'f2', name: 'second', orderIndex: 2 },
+            { id: 'f0', name: 'zeroth', orderIndex: 0 },
+            { id: 'f1', name: 'first', orderIndex: 1 },
+          ],
+        },
+      }
+      // Schema lookups resolve to our schema; the existing-registration check resolves to null.
+      vi.mocked(em.findOne).mockImplementation((entity: any) =>
+        Promise.resolve(entity === Schema ? (mockSchema as any) : null),
+      )
+      vi.mocked(anoncredsRegistryService.registerSchema).mockResolvedValue({ schemaId: 'schema-id' } as any)
+      vi.mocked(anoncredsRegistryService.registerCredentialDefinition).mockResolvedValue({
+        credentialDefinitionId: 'cred-def-id',
+      } as any)
+      vi.mocked(revocationRegistryService.create).mockResolvedValue({
+        revocationRegistryDefinitionId: 'rev-reg-id',
+      } as any)
+
+      await schemaV2Service.registration(authInfo, tenantAgent, 'schema-1', {
+        protocol: ProtocolType.Aries,
+        credentialFormat: AriesCredentialRegistrationFormat.Anoncreds,
+        did: 'did:key:z1',
+      } as any)
+
+      expect(anoncredsRegistryService.registerSchema).toHaveBeenCalledWith(
+        tenantAgent,
+        expect.objectContaining({ attrNames: ['zeroth', 'first', 'second'] }),
+      )
     })
   })
 
