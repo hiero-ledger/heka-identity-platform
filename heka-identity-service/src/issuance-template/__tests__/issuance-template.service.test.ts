@@ -299,7 +299,9 @@ describe('IssuanceTemplateService', () => {
         schema: { id: 'schema-1', fields: [] },
         fields: { length: 0, removeAll: vi.fn() },
       }
-      vi.mocked(em.findOne).mockResolvedValueOnce(mockTemplate).mockResolvedValueOnce({ id: 'other-tpl' } as any)
+      vi.mocked(em.findOne)
+        .mockResolvedValueOnce(mockTemplate)
+        .mockResolvedValueOnce({ id: 'other-tpl' } as any)
 
       await expect(service.patch(authInfo, 'tpl-1', { name: 'Taken Name' } as any)).rejects.toThrow(BadRequestException)
       expect(em.findOne).toHaveBeenNthCalledWith(

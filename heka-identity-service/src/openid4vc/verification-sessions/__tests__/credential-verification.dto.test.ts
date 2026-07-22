@@ -51,4 +51,3 @@ describe('OpenId4VcVerificationSessionCreateRequestDto', () => {
     expect(errors[0]?.constraints?.isEnum).toBeDefined()
   })
 })
-

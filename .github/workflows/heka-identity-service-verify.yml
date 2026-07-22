@@ -68,7 +68,7 @@ jobs:
         run: yarn check-types
 
       - name: Run ESLint
-        run: yarn lint
+        run: yarn lint-check
 
       - name: Run tests
         env:
