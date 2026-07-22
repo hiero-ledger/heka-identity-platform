@@ -152,11 +152,22 @@ describe('E2E authorization', () => {
 
     expect(crossRevoke.status).toBe(401)
 
-    // Alice's session is untouched: she can still revoke it herself.
+    // Alice's session is provably untouched - it's still refreshes successfully.
+    // Delay so the rotated access JWT does not collide with the original within the same second.
+    await new Promise((res) => setTimeout(res, 1000))
+
+    const aliceRefresh = await request(app)
+      .post('/api/v1/oauth/refresh')
+      .auth(aliceLogin.body.access, { type: 'bearer' })
+      .send({ refresh: aliceLogin.body.refresh } satisfies RefreshRequest)
+
+    expect(aliceRefresh.status).toBe(200)
+
+    // Alice can still revoke her (now rotated) session herself.
     const selfRevoke = await request(app)
       .post('/api/v1/oauth/revoke')
-      .auth(aliceLogin.body.access, { type: 'bearer' })
-      .send({ refresh: aliceLogin.body.refresh } satisfies LogoutRequest)
+      .auth(aliceRefresh.body.access, { type: 'bearer' })
+      .send({ refresh: aliceRefresh.body.refresh } satisfies LogoutRequest)
 
     expect(selfRevoke.status).toBe(205)
   })
