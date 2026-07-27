@@ -1,5 +1,4 @@
 import { configureStore, ReducersMapObject } from '@reduxjs/toolkit';
-import { Reducer } from 'redux';
 
 import { connectionReducer } from '@/entities/Connection';
 import { credentialReducer } from '@/entities/Credential';
