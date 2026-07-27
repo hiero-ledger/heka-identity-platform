@@ -171,11 +171,9 @@ export const Home: React.FC<HomeProps> = () => {
           <Badge
             visible={!!notifications.length}
             size={NOTIFICATIONS_BADGE_SIZE}
-            style={{ backgroundColor: ColorPallet.brand.highlight }}
+            style={[styles.notificationsBadgeText, { backgroundColor: ColorPallet.brand.highlight }]}
           >
-            {/* TODO: Find a way to pass styled text here without @ts-ignore */}
-            {/* @ts-ignore */}
-            <Text style={styles.notificationsBadgeText}>{notifications.length}</Text>
+            {notifications.length}
           </Badge>
         }
         emptyListText={t('Home.NotificationsEmpty')}

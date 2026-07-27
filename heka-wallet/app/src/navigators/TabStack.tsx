@@ -134,16 +134,14 @@ export const TabStack: React.FC = () => {
             ),
             tabBarShowLabel: false,
             tabBarAccessibilityLabel: `${t('TabStack.Credentials')} (${notifications.length ?? 0})`,
-            // TODO: Find a way to pass styled text here without cast to any
-            tabBarBadge: notifications.length
-              ? ((<Text style={styles.notificationsBadgeText}>{notifications.length}</Text>) as any)
-              : null,
+            tabBarBadge: notifications.length || undefined,
             tabBarBadgeStyle: {
               height: IconSizes.small,
               minWidth: IconSizes.small,
               marginLeft: leftMarginForDevice(),
               textAlign: 'center',
               backgroundColor: ColorPallet.brand.highlight,
+              ...styles.notificationsBadgeText,
             },
           }}
         />
