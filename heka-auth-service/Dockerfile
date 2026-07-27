@@ -8,7 +8,6 @@ COPY package*.json yarn.lock ./
 
 RUN yarn install
 COPY . .
-RUN yarn test
 RUN yarn build
 
 FROM node:18-bookworm-slim

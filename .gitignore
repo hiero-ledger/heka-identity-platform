@@ -54,3 +54,6 @@ node_modules/
 
 # Intellij IDEs
 .idea
+
+# Auto-generated files
+.yarn/install-state.gz

@@ -1,16 +1,42 @@
-# Heka Identity Service - API
+# Heka Identity Service — API
 
-The Identity Service provides a REST API (by default, it is available at <http://localhost:3000> for the locally running application). This API can be explored and accessed via Swagger UI which is available at `/docs` path (<http://localhost:3000/docs> for the case above).
-Since API methods often initiate asynchronous processes, the Generic Agency server provides notification events to inform clients of any updates to the process. These notifications can be received through a webhook URL or a WebSocket connection, you can choose your preferred method for receiving notification using `/user` endpoint.
+The Identity Service exposes a REST API and a notification subsystem (webhook / WebSocket) for asynchronous events.
 
-There are three types of notification events that the server can send:
+## REST API
 
-1. Connection State Change
+By default, the API is available at <http://localhost:3000> when the service is running locally. The complete endpoint reference — including request / response shapes and try-it-out functionality — is exposed via Swagger UI at `/docs` (e.g. <http://localhost:3000/docs>).
 
-- `id`: the unique identifier of connection record
-- `type`: ConnectionStateChanged (Credo event type)
-- `state`: start / invitation / abandoned / completed
-- `details` (data from connection record)
+Endpoints are grouped by domain:
+
+- **Connections** (`/connections/*`) — DIDComm connection invitations and lifecycle.
+- **DIDs** (`/dids/*`) — public DID creation and lookup.
+- **Schemas** (`/schemas/*`, `/schemas/v2/*`) — credential schema management. Use v2 for new integrations.
+- **Credential Definitions** (`/credential-definitions/*`) — AnonCreds credential definitions.
+- **Credentials** (`/credentials/*`, `/credentials/v2/*`) — DIDComm-flavored issuance (v1) and template-based / OID4VC-flavored issuance (v2).
+- **Proofs** (`/proofs/*`) — DIDComm proof requests and presentations.
+- **Issuance / Verification Templates** (`/issuance-templates/*`, `/verification-templates/*`) — reusable issuance and verification definitions referenced by `credentials/v2`.
+- **OpenID4VC**:
+  - `/openid4vc/issuer/*` — Issuer record management.
+  - `/openid4vc/issuance-session/*` — credential offer creation, lookup, revocation.
+  - `/openid4vc/verifier/*` — Verifier record management.
+  - `/openid4vc/verification-session/*` — proof request creation and status.
+- **Revocation** (`/revocation-registries/*`, `/revocation/tails/*`, `/credentials/status/*`, `/status-lists/*`) — revocation registries, tails files, and status-list management.
+- **User** (`/user/*`) — webhook / WebSocket subscription for notification events (see below).
+- **Prepare Wallet** (`/prepare-wallet`) — bootstrap a tenant wallet with default state.
+- **Health** (`/health`) — memory + database health probe.
+
+## Notifications
+
+Many API methods initiate asynchronous processes. The Identity Service emits notification events so clients can track state changes without polling. Subscribe via a webhook URL or a WebSocket connection through the `/user` endpoint — pick whichever suits your client.
+
+Three notification event types are emitted:
+
+### 1. Connection State Change
+
+- `id`: the unique identifier of the connection record
+- `type`: `ConnectionStateChanged` (Credo event type)
+- `state`: `start` / `invitation` / `abandoned` / `completed`
+- `details` (data from connection record):
 
   ```json
   {
@@ -25,12 +51,12 @@ There are three types of notification events that the server can send:
   }
   ```
 
-2. Credential State Change
+### 2. Credential State Change
 
-- `id`: the unique identifier of credential record
-- `type`: CredentialStateChanged / RevocationNotificationReceived (Credo event type)
-- `state`: offer-sent / credential-issued / declined / done
-- `details` (data from credential record)
+- `id`: the unique identifier of the credential record
+- `type`: `CredentialStateChanged` / `RevocationNotificationReceived` (Credo event type)
+- `state`: `offer-sent` / `credential-issued` / `declined` / `done`
+- `details` (data from credential record):
 
   ```json
   {
@@ -46,12 +72,12 @@ There are three types of notification events that the server can send:
   }
   ```
 
-3. Proof State Change
+### 3. Proof State Change
 
-- `id`: the unique identifier of proof record
-- `type`: ProofStateChanged (Credo event type)
-- `state`: request-sent / presentation-received / declined / done
-- `details` (data from proof record)
+- `id`: the unique identifier of the proof record
+- `type`: `ProofStateChanged` (Credo event type)
+- `state`: `request-sent` / `presentation-received` / `declined` / `done`
+- `details` (data from proof record):
 
   ```json
   {
@@ -61,3 +87,10 @@ There are three types of notification events that the server can send:
     "errorMessage": "string"
   }
   ```
+
+## See Also
+
+- [Setup and Configuration](setup.md) — service setup, env vars, and how to expose the API
+- [Concepts and Glossary](concepts.md) — roles, multi-tenancy, core abstractions
+- [Demo flow](demo-flow.md) — end-to-end AnonCreds issuance and verification example
+- [How to Issue an SD-JWT VC](how-to-issue-sd-jwt-vc.md) — OID4VCI-based issuance walkthrough

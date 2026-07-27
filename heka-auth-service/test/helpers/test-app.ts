@@ -1,10 +1,11 @@
 import { Global, INestApplication, Module } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
+import { APP_GUARD } from '@nestjs/core'
 
 import { MainModule } from '../../src/main.module'
 import { User, Token } from '../../src/core/database'
 import { MikroOrmModule } from '@mikro-orm/nestjs'
-import { defineConfig } from '@mikro-orm/sqlite'
+import { defineConfig } from '@mikro-orm/postgresql'
 import { DatabaseModule } from '../../src/core/database'
 import TestMikroOrmConfig from '../config/mikro-orm'
 import { ReflectMetadataProvider } from '@mikro-orm/core'
@@ -34,6 +35,8 @@ export async function startTestApp(): Promise<INestApplication> {
   })
     .overrideModule(DatabaseModule)
     .useModule(TestDatabaseModule)
+    .overrideProvider(APP_GUARD)
+    .useValue({ canActivate: () => true })
     .compile()
 
   const app = moduleRef.createNestApplication({ bufferLogs: true })

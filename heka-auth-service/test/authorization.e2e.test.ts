@@ -1,6 +1,6 @@
 import { Server } from 'net'
 
-import { SchemaGenerator } from '@mikro-orm/sqlite'
+import { SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
@@ -9,6 +9,7 @@ import { LoginRequest, LogoutRequest, RefreshRequest } from '../src/oauth/dto'
 import { RegisterUserRequest } from '../src/user/dto'
 import { UserRole } from '../src/core/database'
 import { AuthorizationTokenType } from '../src/common/const'
+import { jwtConfigDefaults } from '../src/core/config/configs/jwt.config'
 
 describe('E2E authorization', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -27,8 +28,8 @@ describe('E2E authorization', () => {
   })
 
   afterAll(async () => {
-    await nestApp.close()
-    await ormSchemaGenerator.clearDatabase()
+    if (nestApp) await nestApp.close()
+    if (ormSchemaGenerator) await ormSchemaGenerator.clearDatabase()
   })
 
   const newUser = () => ({
@@ -77,6 +78,11 @@ describe('E2E authorization', () => {
 
     expect(refreshTokenResponse.body.access).not.toBe(loginUserResponse.body.access)
     expect(refreshTokenResponse.body.refresh).not.toBe(loginUserResponse.body.refresh)
+
+    const refreshPayload = JSON.parse(
+      Buffer.from(refreshTokenResponse.body.refresh.split('.')[1], 'base64').toString('utf8'),
+    ) as { iat: number; exp: number }
+    expect(refreshPayload.exp - refreshPayload.iat).toBe(jwtConfigDefaults.refreshExpiry)
 
     const revokeTokenResponse = await request(app)
       .post('/api/v1/oauth/revoke')
