@@ -1,13 +1,25 @@
 import { AnonCredsModule } from '@credo-ts/anoncreds'
 import { AskarModule } from '@credo-ts/askar'
-import { Agent, ConsoleLogger, DidsModule, KeyDidRegistrar, KeyDidResolver, LogLevel } from '@credo-ts/core'
+import {
+  Agent,
+  ConsoleLogger,
+  DidsModule,
+  JwkDidRegistrar,
+  JwkDidResolver,
+  KeyDidRegistrar,
+  KeyDidResolver,
+  LogLevel,
+  PeerDidRegistrar,
+  PeerDidResolver,
+  WebDidResolver,
+} from '@credo-ts/core'
 import { DidCommModule } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import { IndyVdrAnonCredsRegistry, IndyVdrIndyDidRegistrar, IndyVdrIndyDidResolver } from '@credo-ts/indy-vdr'
 import { agentDependencies } from '@credo-ts/node'
 import { OpenId4VcModule } from '@credo-ts/openid4vc'
-import { anoncreds } from '@hyperledger/anoncreds-nodejs'
-import { askar } from '@openwallet-foundation/askar-nodejs'
+import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
+import { NativeAskar } from '@openwallet-foundation/askar-nodejs'
 
 import { IndyBesuDidRegistrar, IndyBesuDidResolver, IndyBesuModule } from 'common/indy-besu-vdr'
 import { IndyBesuAnonCredsRegistry } from 'common/indy-besu-vdr/anoncreds/IndyBesuAnonCredsRegistry'
@@ -23,7 +35,7 @@ function getTestModulesMap() {
 
   return {
     askar: new AskarModule({
-      askar,
+      askar: NativeAskar.instance,
       store: {
         id: rootWalletId,
         key: rootWalletKey,
@@ -60,13 +72,17 @@ function getTestModulesMap() {
     dids: new DidsModule({
       resolvers: [
         new KeyDidResolver(),
+        new PeerDidResolver(),
+        new JwkDidResolver(),
+        new WebDidResolver(),
         new IndyVdrIndyDidResolver(),
         new IndyBesuDidResolver(),
         new HederaDidResolver(),
-        // new PeerDidResolver(),
       ],
       registrars: [
         new KeyDidRegistrar(),
+        new PeerDidRegistrar(),
+        new JwkDidRegistrar(),
         new IndyVdrIndyDidRegistrar(),
         new IndyBesuDidRegistrar(),
         new HederaDidRegistrar(),
@@ -74,7 +90,7 @@ function getTestModulesMap() {
     }),
     anoncreds: new AnonCredsModule({
       registries: [new IndyVdrAnonCredsRegistry(), new IndyBesuAnonCredsRegistry(), new HederaAnonCredsRegistry()],
-      anoncreds,
+      anoncreds: NativeAnoncreds.instance,
       tailsFileService: new TailsService({
         corsOptions: {},
         enableCors: false,
@@ -94,7 +110,7 @@ export function createAgent(): Agent<TestAgentModulesMap> {
     config: {
       autoUpdateStorageOnStartup: true,
       allowInsecureHttpUrls: true,
-      logger: new ConsoleLogger(LogLevel.error),
+      logger: new ConsoleLogger(LogLevel.Error),
     },
     dependencies: agentDependencies,
     modules: getTestModulesMap(),

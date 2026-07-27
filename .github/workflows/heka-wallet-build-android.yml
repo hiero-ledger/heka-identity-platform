@@ -39,7 +39,7 @@ jobs:
           java-distribution: 'zulu'
           java-cache: 'gradle'
           setup-node: 'true'
-          node-version: '20'
+          node-version: '22'
 
       - name: Enable Corepack
         run: corepack enable

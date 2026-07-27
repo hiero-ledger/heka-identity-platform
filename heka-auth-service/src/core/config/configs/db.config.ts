@@ -36,8 +36,8 @@ export class DbConfig {
 
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
-    ;(this.host = env[OrmConfigKeys.host] || dbConfigDefaults.host),
-      (this.port = env[OrmConfigKeys.port] ? parseInt(env[OrmConfigKeys.port]) : dbConfigDefaults.port)
+    this.host = env[OrmConfigKeys.host] || dbConfigDefaults.host
+    this.port = env[OrmConfigKeys.port] ? parseInt(env[OrmConfigKeys.port]) : dbConfigDefaults.port
     this.name = env[OrmConfigKeys.dbName] || dbConfigDefaults.name
     this.user = env[OrmConfigKeys.user] || dbConfigDefaults.user
     this.password = env[OrmConfigKeys.password] || dbConfigDefaults.password

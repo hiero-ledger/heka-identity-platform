@@ -164,7 +164,7 @@ Example: with the body above, the holder can present a proof revealing only `age
 ## Useful Endpoints
 
 | Endpoint                                       | Purpose                                                                        |
-|------------------------------------------------|--------------------------------------------------------------------------------|
+| ---------------------------------------------- | ------------------------------------------------------------------------------ |
 | `POST /prepare-wallet`                         | Bootstrap a tenant (Step 1).                                                   |
 | `GET /dids`                                    | List the tenant's DIDs.                                                        |
 | `POST /openid4vc/issuer`                       | Create an Issuer record (Step 2).                                              |

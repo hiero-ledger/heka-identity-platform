@@ -1,4 +1,5 @@
-import { MikroORM, ReflectMetadataProvider } from '@mikro-orm/core'
+import { MikroORM } from '@mikro-orm/core'
+import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
 import { PostgreSqlDriver } from '@mikro-orm/postgresql'
 
 import { User, Token } from '../../src/core/database'

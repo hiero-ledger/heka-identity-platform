@@ -37,7 +37,7 @@ export class PrepareWalletService {
     logger.trace('>')
 
     const didDocuments = await this.didService.find(tenantAgent, {
-      method: PrepareWalletService.mainDidMethod as string,
+      method: PrepareWalletService.mainDidMethod,
       own: true,
     })
 
@@ -90,6 +90,21 @@ export class PrepareWalletService {
     if (req.schemas) {
       logger.info(`Create ${req.schemas.length} schemas`)
 
+      const didByNetwork = new Map<DidMethod, string>([[PrepareWalletService.mainDidMethod, mainDid]])
+
+      const resolveDidForNetwork = async (network: DidMethod): Promise<string | undefined> => {
+        const cached = didByNetwork.get(network)
+        if (cached) return cached
+        try {
+          const [didDoc] = await this.didService.find(tenantAgent, { method: network, own: true })
+          if (didDoc) didByNetwork.set(network, didDoc.id)
+          return didDoc?.id
+        } catch (error) {
+          logger.error(`Failed to resolve ${network} DID`)
+          return undefined
+        }
+      }
+
       for (const schema of req.schemas) {
         let schemaId: string
         try {
@@ -102,11 +117,17 @@ export class PrepareWalletService {
         if (schema.registrations) {
           logger.info(`Register ${schema.registrations.length} types for schema ${schema.name}`)
           for (const reg of schema.registrations) {
+            const network = reg.network ?? PrepareWalletService.mainDidMethod
+            const did = await resolveDidForNetwork(network)
+            if (!did) {
+              logger.error(`No ${network} DID available to register schema "${schema.name}", skipping`)
+              continue
+            }
             try {
               await this.schemaV2Service.registration(authInfo, tenantAgent, schemaId, {
                 ...reg,
                 credentialFormat: credentialFormatToCredentialRegistrationFormat(reg.credentialFormat),
-                did: mainDid,
+                did,
               })
             } catch (error) {
               logger.info(`Registration for schema "${schema.name}" already exists, skipping`)

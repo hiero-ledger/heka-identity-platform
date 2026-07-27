@@ -1,5 +1,5 @@
+import { hitSlop } from '@bifold/core/src/constants'
 import { useHekaTheme } from '@heka-wallet/shared'
-import { hitSlop } from '@hyperledger/aries-bifold-core/App/constants'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
@@ -17,7 +17,7 @@ interface Props {
 }
 
 const ActionSlider: React.FC<Props> = ({ actions, onDismiss }) => {
-  const { ColorPallet, TextTheme } = useHekaTheme()
+  const { ColorPalette, TextTheme } = useHekaTheme()
   const { t } = useTranslation()
 
   const styles = StyleSheet.create({
@@ -29,7 +29,7 @@ const ActionSlider: React.FC<Props> = ({ actions, onDismiss }) => {
       height: '100%',
     },
     modalView: {
-      backgroundColor: ColorPallet.grayscale.white,
+      backgroundColor: ColorPalette.grayscale.white,
       borderTopStartRadius: 20,
       borderTopEndRadius: 20,
       shadowColor: '#000',
@@ -57,7 +57,7 @@ const ActionSlider: React.FC<Props> = ({ actions, onDismiss }) => {
       marginVertical: 12,
     },
     drawerRowItem: {
-      color: ColorPallet.grayscale.black,
+      color: ColorPalette.grayscale.black,
     },
   })
 

@@ -1,0 +1,35 @@
+diff --git a/build/AgentProvider.d.ts b/build/AgentProvider.d.ts
+index b0906ce6d71c26b1c737e3e59e96f4cf6f874f5c..01087c2a12e99ef45bf2d7c6a5170b512ff38de9 100644
+--- a/build/AgentProvider.d.ts
++++ b/build/AgentProvider.d.ts
+@@ -4,6 +4,9 @@ import * as React from 'react';
+ interface AgentContextInterface<AppAgent extends Agent = Agent> {
+     loading: boolean;
+     agent: AppAgent | undefined;
++    publicDid?: string;
++    setAgent(agent: AppAgent | null): void;
++    setPublicDid(did: string): void;
+ }
+ export declare const useAgent: <AppAgent extends Agent<any>>() => AgentContextInterface<AppAgent> & {
+     agent: AppAgent;
+diff --git a/build/AgentProvider.js b/build/AgentProvider.js
+index 267d50461a9b13ed87a9040193b56e115075e9b5..a33b09ab9aff098b81d13090594085b8da186d22 100644
+--- a/build/AgentProvider.js
++++ b/build/AgentProvider.js
+@@ -56,8 +56,14 @@ const useOptionalAgent = () => {
+     return agentContext;
+ };
+ exports.useOptionalAgent = useOptionalAgent;
+-const AgentProvider = ({ agent, children }) => {
+-    const value = (0, react_1.useMemo)(() => ({ loading: agent == null, agent }), [agent]);
++const AgentProvider = ({ agent: initialAgent, children }) => {
++    // Heka: stateful agent context so the app can inject its custom-built agent after
++    // bootstrap (setAgent) and expose the wallet's public DID (setPublicDid/publicDid).
++    const [agent, setAgentState] = (0, react_1.useState)(initialAgent);
++    const [publicDid, setPublicDidState] = (0, react_1.useState)(undefined);
++    const setAgent = (0, react_1.useCallback)((newAgent) => setAgentState(newAgent !== null && newAgent !== void 0 ? newAgent : undefined), []);
++    const setPublicDid = (0, react_1.useCallback)((did) => setPublicDidState(did), []);
++    const value = (0, react_1.useMemo)(() => ({ loading: agent == null, agent, publicDid, setAgent, setPublicDid }), [agent, publicDid, setAgent, setPublicDid]);
+     return (React.createElement(AgentContext.Provider, { value: value },
+         React.createElement(ConnectionProvider_1.default, { agent: agent },
+             React.createElement(CredentialProvider_1.default, { agent: agent },

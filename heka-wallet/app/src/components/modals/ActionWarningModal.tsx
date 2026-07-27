@@ -1,7 +1,6 @@
+import { BulletPoint, Button, ButtonType, GenericFn } from '@bifold/core'
+import { hitSlop } from '@bifold/core/src/constants'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { BulletPoint, Button, ButtonType, GenericFn } from '@hyperledger/aries-bifold-core'
-import UnorderedList from '@hyperledger/aries-bifold-core/App/components/misc/UnorderedList'
-import { hitSlop } from '@hyperledger/aries-bifold-core/App/constants'
 import * as React from 'react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -10,6 +9,8 @@ import Collapsible from 'react-native-collapsible'
 import { Dialog, Portal } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialIcons'
+
+import { UnorderedList } from '../misc/UnorderedList'
 
 export enum ModalUsage {
   CredentialRemove = 1,
@@ -33,10 +34,10 @@ interface RemoveProps {
   content: string[]
 }
 
-const useStyles = ({ ColorPallet, TextTheme, Spacing, IconSizes, BorderRadius, BorderWidth }: HekaTheme) =>
+const useStyles = ({ ColorPalette, TextTheme, Spacing, IconSizes, BorderRadius, BorderWidth }: HekaTheme) =>
   StyleSheet.create({
     dialog: {
-      backgroundColor: ColorPallet.brand.modalPrimaryBackground,
+      backgroundColor: ColorPalette.brand.modalPrimaryBackground,
       borderRadius: Spacing.xl,
       paddingHorizontal: Spacing.lg,
     },
@@ -44,7 +45,7 @@ const useStyles = ({ ColorPallet, TextTheme, Spacing, IconSizes, BorderRadius, B
       flexDirection: 'row',
     },
     closeIcon: {
-      color: ColorPallet.brand.modalIcon,
+      color: ColorPalette.brand.modalIcon,
     },
     contentContainer: {
       gap: Spacing.lg,
@@ -61,7 +62,7 @@ const useStyles = ({ ColorPallet, TextTheme, Spacing, IconSizes, BorderRadius, B
       height: IconSizes.large,
       width: IconSizes.large,
       borderRadius: BorderRadius.medium,
-      backgroundColor: ColorPallet.brand.primaryBackground,
+      backgroundColor: ColorPalette.brand.primaryBackground,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -78,7 +79,7 @@ const useStyles = ({ ColorPallet, TextTheme, Spacing, IconSizes, BorderRadius, B
     },
     dropdownListItem: {
       paddingBottom: Spacing.xxxs,
-      borderBottomColor: ColorPallet.brand.modalSecondaryBackground,
+      borderBottomColor: ColorPalette.brand.modalSecondaryBackground,
       borderBottomWidth: BorderWidth.small,
       borderRadius: BorderRadius.smaller,
       flexDirection: 'row',

@@ -26,7 +26,8 @@
       android:allowBackup="false"
       android:resizeableActivity="false"
       android:theme="@style/AppTheme"
-      android:usesCleartextTraffic="true">
+      android:usesCleartextTraffic="true"
+      android:supportsRtl="true">
 
       <activity
         android:name=".MainActivity"

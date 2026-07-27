@@ -1,12 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import { IsBoolean, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator'
+import { IsBoolean, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator'
 
 import { CredentialIssuer } from '../../issuance-sessions/dto/credential-offer.dto'
 
 import { DcqlQueryDto } from './dcql-query.dto'
 import { DifPresentationExchangeDefinitionV2 } from './presentation-exchange-definition.dto'
 import { OpenId4VcVerificationSessionRecordDto } from './verification-session.dto'
+
+export enum VerificationSessionVersion {
+  V1 = 'v1',
+  V1Draft21 = 'v1.draft21',
+  V1Draft24 = 'v1.draft24',
+}
 
 /**
  * @example
@@ -50,10 +56,13 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
   @IsNotEmpty()
   public publicVerifierId!: string
 
-  @ApiProperty({ type: CredentialIssuer })
+  @ApiPropertyOptional({
+    type: CredentialIssuer,
+  })
+  @IsOptional()
   @ValidateNested()
   @Type(() => CredentialIssuer)
-  public requestSigner!: CredentialIssuer
+  public requestSigner?: CredentialIssuer
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -74,8 +83,32 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
 
   @ApiPropertyOptional({ enum: ['v1', 'v1.draft21', 'v1.draft24'], default: 'v1.draft21' })
   @IsOptional()
+  @IsEnum(VerificationSessionVersion)
+  public version?: VerificationSessionVersion
+
+  @ApiPropertyOptional({
+    enum: ['direct_post', 'direct_post.jwt', 'dc_api', 'dc_api.jwt'],
+  })
+  @IsOptional()
   @IsString()
-  public version?: 'v1' | 'v1.draft21' | 'v1.draft24'
+  public responseMode?: 'direct_post' | 'direct_post.jwt' | 'dc_api' | 'dc_api.jwt'
+
+  @ApiPropertyOptional({
+    type: [String],
+  })
+  @IsOptional()
+  public expectedOrigins?: string[]
+}
+
+export class OpenId4VcVerifyDcApiRequestDto {
+  @ApiProperty()
+  @IsObject()
+  public authorizationResponse!: Record<string, unknown>
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  public origin!: string
 }
 
 export class OpenId4VcVerificationSessionCreateRequestResponse {
@@ -87,4 +120,11 @@ export class OpenId4VcVerificationSessionCreateRequestResponse {
    */
   @ApiProperty()
   public authorizationRequest!: string
+
+  /**
+   * The authorization request object to pass to the Digital Credentials API (navigator.credentials.get).
+   * Only present when responseMode is dc_api or dc_api.jwt.
+   */
+  @ApiPropertyOptional()
+  public authorizationRequestObject?: Record<string, unknown>
 }

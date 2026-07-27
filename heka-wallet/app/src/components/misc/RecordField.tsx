@@ -1,10 +1,10 @@
+import RecordBinaryField from '@bifold/core/src/components/record/RecordBinaryField'
+import RecordDateIntField from '@bifold/core/src/components/record/RecordDateIntField'
+import { hiddenFieldValue } from '@bifold/core/src/constants'
+import { isDataUrl } from '@bifold/core/src/utils/helpers'
+import { CaptureBaseAttributeType } from '@bifold/oca'
+import { Attribute, Field } from '@bifold/oca/build/legacy'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import RecordBinaryField from '@hyperledger/aries-bifold-core/App/components/record/RecordBinaryField'
-import RecordDateIntField from '@hyperledger/aries-bifold-core/App/components/record/RecordDateIntField'
-import { hiddenFieldValue } from '@hyperledger/aries-bifold-core/App/constants'
-import { isDataUrl } from '@hyperledger/aries-bifold-core/App/utils/helpers'
-import { CaptureBaseAttributeType } from '@hyperledger/aries-oca'
-import { Attribute, Field } from '@hyperledger/aries-oca/build/legacy'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
@@ -60,13 +60,13 @@ export const RecordField: React.FC<Props> = ({
 
   const theme = useHekaTheme()
   const styles = useStyles(theme)
-  const { ColorPallet, TextTheme, IconSizes } = theme
+  const { ColorPalette, TextTheme, IconSizes } = theme
 
   return (
     <View
       style={{
         ...styles.container,
-        backgroundColor: error ? ColorPallet.semantic.errorTransparentLight : ColorPallet.brand.recordBackground,
+        backgroundColor: error ? ColorPalette.semantic.errorTransparentLight : ColorPalette.brand.recordBackground,
       }}
     >
       <View style={styles.valueContainer}>
@@ -89,7 +89,7 @@ export const RecordField: React.FC<Props> = ({
             style={{ alignSelf: 'center' }}
             name={'warning'}
             size={IconSizes.medium}
-            color={ColorPallet.semantic.error}
+            color={ColorPalette.semantic.error}
           />
         )}
         {hideFieldValue ? (

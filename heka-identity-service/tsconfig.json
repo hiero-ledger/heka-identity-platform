@@ -4,6 +4,11 @@
     "baseUrl": ".",
     "paths": {
       "*": ["*", "src/*"]
-    }
+    },
+    // Register src/types as a typeRoot and load the bitstring shim by name. This
+    // guarantees the ambient `declare module '@digitalcredentials/bitstring'` is
+    // in the program for ts-node (`yarn start`) and the IDE.
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "types": ["node", "vitest/globals", "digitalcredentials-bitstring"]
   }
 }

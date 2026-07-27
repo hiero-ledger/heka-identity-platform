@@ -1,6 +1,6 @@
+import { Button, ButtonType, ToastType } from '@bifold/core'
+import ButtonLoading from '@bifold/core/src/components/animated/ButtonLoading'
 import { HekaTheme, useHekaTheme, useGlobalStyles, TextInput } from '@heka-wallet/shared'
-import { Button, ButtonType, ToastType } from '@hyperledger/aries-bifold-core'
-import ButtonLoading from '@hyperledger/aries-bifold-core/App/components/animated/ButtonLoading'
 import { Mnemonic } from '@keplr-wallet/crypto'
 import { RegisterConfig } from '@keplr-wallet/hooks'
 import { Buffer } from 'buffer'

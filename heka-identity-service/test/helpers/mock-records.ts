@@ -4,7 +4,7 @@ import type {
   AnonCredsSchema,
   AnonCredsSchemaRecord,
 } from '@credo-ts/anoncreds'
-import type { DidRecord, DidResolutionResult } from '@credo-ts/core'
+import type { DidDocument, DidRecord, DidResolutionResult } from '@credo-ts/core'
 import type {
   DidCommConnectionRecord,
   DidCommCredentialExchangeRecord,
@@ -51,6 +51,8 @@ export const didResolutionResultStub = (overrides: LooseStub<DidResolutionResult
   ({ didResolutionMetadata: {}, didDocumentMetadata: {}, ...overrides }) as DidResolutionResult
 
 export const didRecordStub = (overrides: LooseStub<DidRecord> = {}) => stub<DidRecord>(overrides)
+
+export const didDocumentStub = (overrides: LooseStub<DidDocument> = {}) => stub<DidDocument>(overrides)
 
 export const anonCredsSchemaStub = (overrides: LooseStub<AnonCredsSchema> = {}) => stub<AnonCredsSchema>(overrides)
 

@@ -3,8 +3,7 @@ import { Server } from 'net'
 import { DidCommCredentialState, DidCommProofState } from '@credo-ts/didcomm'
 import { OpenId4VcIssuanceSessionState, OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
 import { MikroORM } from '@mikro-orm/core'
-import { PostgreSqlDriver } from '@mikro-orm/postgresql'
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request, { WSChain } from 'superwstest'
 
@@ -16,7 +15,6 @@ import {
   OpenId4VcCredentialFormat,
   ProtocolType,
 } from 'common/types'
-import { ProofByVerificationTemplateRequest } from 'credential-v2/dto/proof-by-template'
 import { CreateIssuanceTemplateResponse } from 'issuance-template/dto'
 import { CreateSchemaResponse } from 'schema-v2/dto'
 import { RegisterSchemaRequest } from 'schema-v2/dto/register-schema'
@@ -48,11 +46,11 @@ describe('Credential V2 tests', () => {
 
   beforeAll(async () => {
     orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    ormSchemaGenerator = orm.schema
   })
 
   beforeEach(async () => {
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -60,6 +58,10 @@ describe('Credential V2 tests', () => {
 
   afterEach(async () => {
     await nestApp.close()
+  })
+
+  afterAll(async () => {
+    await orm.close(true)
   })
 
   const prepareSchemaAndIssuanceTemplate = async (
@@ -307,7 +309,7 @@ describe('Credential V2 tests', () => {
         .send({
           templateId,
           fields: ['aaa'],
-        } as ProofByVerificationTemplateRequest)
+        })
       expect(response.status).toBe(404)
       expect(response.body.message).toContain(`Template with id ${templateId} not found.`)
     })

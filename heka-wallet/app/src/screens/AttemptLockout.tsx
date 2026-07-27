@@ -1,6 +1,6 @@
+import { Button, ButtonType, DispatchAction, Screens, useStore } from '@bifold/core'
+import { hour, minute, second } from '@bifold/core/src/constants'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Button, ButtonType, DispatchAction, Screens, useStore } from '@hyperledger/aries-bifold-core'
-import { hour, minute, second } from '@hyperledger/aries-bifold-core/App/constants'
 import { useNavigation, CommonActions } from '@react-navigation/native'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -15,11 +15,11 @@ interface Timer {
   seconds: number
 }
 
-const useStyles = ({ TextTheme, ColorPallet, Spacing }: HekaTheme) => {
+const useStyles = ({ TextTheme, ColorPalette, Spacing }: HekaTheme) => {
   return StyleSheet.create({
     screenContainer: {
       height: '100%',
-      backgroundColor: ColorPallet.brand.primaryBackground,
+      backgroundColor: ColorPalette.brand.primaryBackground,
       padding: Spacing.lg,
       justifyContent: 'space-between',
     },

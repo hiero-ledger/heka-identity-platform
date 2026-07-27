@@ -1,27 +1,28 @@
-import { Server } from 'net'
-
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
+import { Server } from 'net'
 import request from 'supertest'
 
-import { initializeMikroOrm, startTestApp } from './helpers'
-import { LoginRequest, LogoutRequest, RefreshRequest } from '../src/oauth/dto'
-import { RegisterUserRequest } from '../src/user/dto'
-import { UserRole } from '../src/core/database'
 import { AuthorizationTokenType } from '../src/common/const'
 import { jwtConfigDefaults } from '../src/core/config/configs/jwt.config'
+import { UserRole } from '../src/core/database'
+import { LoginRequest, LogoutRequest, RefreshRequest } from '../src/oauth/dto'
+import { RegisterUserRequest } from '../src/user/dto'
+import { initializeMikroOrm, startTestApp } from './helpers'
 
 describe('E2E authorization', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    orm = await initializeMikroOrm()
+    ormSchemaGenerator = orm.schema
 
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     nestApp = await startTestApp()
     app = nestApp.getHttpServer() as Server
@@ -29,7 +30,8 @@ describe('E2E authorization', () => {
 
   afterAll(async () => {
     if (nestApp) await nestApp.close()
-    if (ormSchemaGenerator) await ormSchemaGenerator.clearDatabase()
+    if (ormSchemaGenerator) await ormSchemaGenerator.clear()
+    if (orm) await orm.close(true)
   })
 
   const newUser = () => ({

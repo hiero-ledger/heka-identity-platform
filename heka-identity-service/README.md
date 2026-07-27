@@ -18,15 +18,19 @@ The service is configured via environment variables. The full reference (~30 var
 ## Documentation
 
 **Getting Started**
+
 - [Setup and Configuration](docs/setup.md) — install, configure, and run the service locally or in Docker
 - [Concepts and Glossary](docs/concepts.md) — roles, multi-tenancy, core abstractions, credential formats
 - [Demo flow](docs/demo-flow.md) — end-to-end AnonCreds issuance and verification example
 
 **How-To Guides**
+
 - [How to Issue an SD-JWT VC](docs/how-to-issue-sd-jwt-vc.md) — Basic example flow for OID4VCI-based issuance with SD-JWT format
+- [Verification via the Digital Credentials API](docs/dc-api.md) — browser-mediated OpenID4VP `dc_api` verification, same-device and cross-device
 - [Local Configuration for Heka Wallet Integration](docs/local-config-for-heka-wallet-integration.md) — exposing a local instance to the mobile wallet
 
 **Integration**
+
 - [Hedera Integration](docs/hedera.md) — operator credentials, network selection, what gets written on-chain
 - [Heka Identity Service API](docs/api.md) — REST API and webhook / WebSocket notifications
 

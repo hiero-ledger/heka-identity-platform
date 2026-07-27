@@ -1,11 +1,16 @@
 package com.heka.wallet
 
+import expo.modules.ReactActivityDelegateWrapper
+
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Bundle
+
+import com.swmansion.rnscreens.fragment.restoration.RNScreensFragmentFactory
 
 class MainActivity : ReactActivity() {
 
@@ -29,9 +34,16 @@ class MainActivity : ReactActivity() {
      * Returns the instance of the ReactActivityDelegate.
      */
     override fun createReactActivityDelegate(): ReactActivityDelegate =
-        DefaultReactActivityDelegate(
+        ReactActivityDelegateWrapper(this, BuildConfig.IS_NEW_ARCHITECTURE_ENABLED, DefaultReactActivityDelegate(
             this,
             mainComponentName,
             DefaultNewArchitectureEntryPoint.fabricEnabled
-        )
+        ))
+
+    // react-native-screens override
+    // See https://github.com/software-mansion/react-native-screens?tab=readme-ov-file#android
+    override fun onCreate(savedInstanceState: Bundle?) {
+      supportFragmentManager.fragmentFactory = RNScreensFragmentFactory()
+      super.onCreate(savedInstanceState);
+    }
 }

@@ -1,7 +1,8 @@
 import { Server } from 'net'
 
 import { Agent, DidKey, KeyDidCreateOptions, SdJwtVcRecord } from '@credo-ts/core'
-import { SchemaGenerator } from '@mikro-orm/postgresql'
+import { MikroORM } from '@mikro-orm/core'
+import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
@@ -15,16 +16,17 @@ import { createAgent, TestAgentModulesMap } from './helpers/test-agent'
 
 describe('E2E verification session', () => {
   let ormSchemaGenerator: SchemaGenerator
+  let orm: MikroORM<PostgreSqlDriver>
 
   let nestApp: INestApplication
   let app: Server
   let agent: Agent<TestAgentModulesMap>
 
   beforeAll(async () => {
-    const orm = await initializeMikroOrm()
-    ormSchemaGenerator = orm.getSchemaGenerator()
+    orm = await initializeMikroOrm()
+    ormSchemaGenerator = orm.schema
 
-    await ormSchemaGenerator.refreshDatabase()
+    await ormSchemaGenerator.refresh()
 
     agent = createAgent()
     await agent.initialize()
@@ -87,7 +89,8 @@ describe('E2E verification session', () => {
 
     await nestApp.close()
 
-    await ormSchemaGenerator.clearDatabase()
+    await ormSchemaGenerator.clear()
+    await orm.close(true)
   })
 
   test('create request with PEX', async () => {
@@ -186,12 +189,7 @@ describe('E2E verification session', () => {
     expect(res.serverResponse?.status).toEqual(200)
   })
 
-  // TODO: re-enable when we increase test coverage. `sharedAttributes` is
-  // undefined for the DCQL flow (only populated for the PEX flow); needs
-  // either an impl fix in the verification session response or a corrected
-  // assertion. Pre-existing failure surfaced when CI tests were re-enabled —
-  // see migrate-from-jest-to-vitest.
-  test.skip('create request with DCQL', async () => {
+  test('create request with DCQL', async () => {
     const firstAdminId = uuid()
     const firstAdminAuthToken = await createAuthToken(firstAdminId, Role.Admin)
 

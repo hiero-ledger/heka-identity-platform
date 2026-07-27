@@ -3,6 +3,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <!--
+    Digital Credentials API — cross-device (desktop) origin trial.
+    The same-device flow ships by default in recent Chrome, but cross-device on desktop may still
+    require a per-origin trial token (or the chrome://flags#web-identity-digital-credentials flag)
+    depending on the Chrome version. To enable it for real users without the flag, we may need to register the
+    deployment origin at https://developer.chrome.com/origintrials and uncomment:
+    <meta http-equiv="origin-trial" content="REPLACE_WITH_ORIGIN_TRIAL_TOKEN">
+  -->
   <link rel="icon" type="image/svg+xml" href="/hiero-icon.svg">
   <title>Heka Identity Service</title>
 </head>

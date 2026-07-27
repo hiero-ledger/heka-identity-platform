@@ -1,5 +1,7 @@
+import { Attribute } from '@bifold/oca/build/legacy'
 import { Mdoc, MdocNameSpaces } from '@credo-ts/core'
-import { Attribute } from '@hyperledger/aries-oca/build/legacy'
+
+import { humanizeAttributeName } from './humanize'
 
 export function getAttributesAndMetadataForMdocPayload(namespaces: MdocNameSpaces, mdocInstance: Mdoc) {
   const attributes = Object.values(namespaces).flatMap((namespaceMap) =>
@@ -14,7 +16,7 @@ export function getAttributesAndMetadataForMdocPayload(namespaces: MdocNameSpace
         value = JSON.stringify(rawValue)
       }
 
-      return new Attribute({ name: key, value })
+      return new Attribute({ name: humanizeAttributeName(key), value })
     })
   )
 

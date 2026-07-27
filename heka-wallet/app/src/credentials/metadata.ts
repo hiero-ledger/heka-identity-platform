@@ -1,14 +1,21 @@
-import type { MdocRecord, SdJwtVcRecord, W3cCredentialRecord } from '@credo-ts/core'
-import type { OpenId4VciCredentialSupported, OpenId4VciIssuerMetadataDisplay } from '@credo-ts/openid4vc'
-import type { MetadataDisplay } from '@sphereon/oid4vci-common'
+import type {
+  OpenId4VciCredentialConfigurationSupported,
+  OpenId4VciCredentialIssuerMetadataDisplay,
+} from '@credo-ts/openid4vc'
+
+import { CredentialRecord } from './types'
+
+type CredentialMetadataDisplay = NonNullable<
+  NonNullable<OpenId4VciCredentialConfigurationSupported['credential_metadata']>['display']
+>
 
 export interface OpenId4VcCredentialMetadata {
   credential: {
-    display?: OpenId4VciCredentialSupported['display']
-    order?: OpenId4VciCredentialSupported['order']
+    display?: CredentialMetadataDisplay
+    order?: OpenId4VciCredentialConfigurationSupported['order']
   }
   issuer: {
-    display?: OpenId4VciIssuerMetadataDisplay[]
+    display?: OpenId4VciCredentialIssuerMetadataDisplay[]
     id: string
   }
 }
@@ -16,12 +23,12 @@ export interface OpenId4VcCredentialMetadata {
 const OID4VC_CREDENTIAL_METADATA_KEY = '_heka-wallet/openId4VcCredentialMetadata'
 
 export function extractOpenId4VcCredentialMetadata(
-  credentialMetadata: OpenId4VciCredentialSupported,
-  serverMetadata: { display?: MetadataDisplay[]; id: string }
+  credentialMetadata: OpenId4VciCredentialConfigurationSupported,
+  serverMetadata: { display?: any[]; id: string }
 ): OpenId4VcCredentialMetadata {
   return {
     credential: {
-      display: credentialMetadata.display,
+      display: credentialMetadata.credential_metadata?.display,
       order: credentialMetadata.order,
     },
     issuer: {
@@ -34,9 +41,7 @@ export function extractOpenId4VcCredentialMetadata(
 /**
  * Gets the OpenId4Vc credential metadata from the given W3C credential record.
  */
-export function getOpenId4VcCredentialMetadata(
-  credentialRecord: W3cCredentialRecord | SdJwtVcRecord | MdocRecord
-): OpenId4VcCredentialMetadata | null {
+export function getOpenId4VcCredentialMetadata(credentialRecord: CredentialRecord): OpenId4VcCredentialMetadata | null {
   return credentialRecord.metadata.get(OID4VC_CREDENTIAL_METADATA_KEY)
 }
 
@@ -46,7 +51,7 @@ export function getOpenId4VcCredentialMetadata(
  * NOTE: this does not save the record.
  */
 export function setOpenId4VcCredentialMetadata(
-  credentialRecord: W3cCredentialRecord | SdJwtVcRecord | MdocRecord,
+  credentialRecord: CredentialRecord,
   metadata: OpenId4VcCredentialMetadata
 ) {
   credentialRecord.metadata.set(OID4VC_CREDENTIAL_METADATA_KEY, metadata)

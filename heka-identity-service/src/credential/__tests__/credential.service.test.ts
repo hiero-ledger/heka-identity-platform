@@ -39,10 +39,10 @@ describe('CredentialService', () => {
           acceptOffer: vi.fn(),
         },
         connections: { findById: vi.fn() },
-      } as any,
+      },
       modules: {
         anoncreds: { updateRevocationStatusList: vi.fn() },
-      } as any,
+      },
     })
   })
 
@@ -185,7 +185,7 @@ describe('CredentialService', () => {
           { name: 'name', value: 'Alice' },
           { name: 'age', value: '30' },
         ],
-      } as any)
+      })
 
       expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('conn-1')
       expect(anoncredsRegistryService.getCredentialDefinition).toHaveBeenCalledWith(tenantAgent, 'creddef-1')
@@ -229,7 +229,7 @@ describe('CredentialService', () => {
         connectionId: 'conn-1',
         credentialDefinitionId: 'creddef-1',
         attributes: [{ name: 'name', value: 'Alice' }],
-      } as any)
+      })
 
       expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('conn-1')
       expect(anoncredsRegistryService.getCredentialDefinition).toHaveBeenCalledWith(tenantAgent, 'creddef-1')

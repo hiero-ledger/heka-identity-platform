@@ -1,7 +1,6 @@
+import { Button, ButtonType, DismissiblePopupModal, Screens, TabStacks } from '@bifold/core'
+import { HomeStackParams } from '@bifold/core/src/types/navigators'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { Button, ButtonType, Screens, TabStacks } from '@hyperledger/aries-bifold-core'
-import DismissiblePopupModal from '@hyperledger/aries-bifold-core/App/components/modals/DismissiblePopupModal'
-import { HomeStackParams } from '@hyperledger/aries-bifold-core/App/types/navigators'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useState } from 'react'
@@ -9,16 +8,16 @@ import { useTranslation } from 'react-i18next'
 import { Modal, ScrollView, StyleSheet, Text, View, Linking } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-const useStyles = ({ ColorPallet, Spacing }: HekaTheme) =>
+const useStyles = ({ ColorPalette, Spacing }: HekaTheme) =>
   StyleSheet.create({
     container: {
       height: '100%',
-      backgroundColor: ColorPallet.brand.modalPrimaryBackground,
+      backgroundColor: ColorPalette.brand.modalPrimaryBackground,
       padding: Spacing.lg,
       gap: Spacing.xxl,
     },
     controlsContainer: {
-      backgroundColor: ColorPallet.brand.modalPrimaryBackground,
+      backgroundColor: ColorPalette.brand.modalPrimaryBackground,
       marginTop: 'auto',
       margin: Spacing.lg,
       gap: Spacing.sm,
@@ -74,7 +73,7 @@ const CameraDisclosureModal: React.FC<CameraDisclosureModalProps> = ({ requestCa
           onDismissPressed={onOpenSettingsDismissed}
         />
       )}
-      <SafeAreaView>
+      <SafeAreaView style={{ backgroundColor: theme.ColorPalette.brand.modalPrimaryBackground, flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container}>
           <Text style={theme.TextTheme.modalHeadingOne}>{t('CameraDisclosure.AllowCameraUse')}</Text>
           <Text style={theme.TextTheme.modalNormal}>{t('CameraDisclosure.CameraDisclosure')}</Text>
