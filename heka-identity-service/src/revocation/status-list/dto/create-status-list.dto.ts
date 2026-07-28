@@ -1,8 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator'
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator'
 
 import {
   defaultCredentialStatusListSize,
+  maxCredentialStatusListSize,
   StatusListPurpose,
 } from '../../../common/entities/credential-status-list.entity'
 
@@ -11,9 +12,11 @@ export class CreateStatusListRequest {
   @IsString()
   public issuer!: string
 
-  @ApiProperty({ default: defaultCredentialStatusListSize })
+  @ApiProperty({ default: defaultCredentialStatusListSize, minimum: 1, maximum: maxCredentialStatusListSize })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(maxCredentialStatusListSize)
   public size?: number
 
   @ApiProperty({ enum: StatusListPurpose })

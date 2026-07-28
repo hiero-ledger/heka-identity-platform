@@ -97,7 +97,7 @@ export class StatusListService {
       throw new BadRequestException('Status list does not have enough free indexes')
     }
 
-    statusList.encodedList = await this.updatedBistring(statusList.encodedList, statusList.size, indexes, false)
+    statusList.encodedList = await this.updatedBitstring(statusList.encodedList, statusList.size, indexes, false)
     statusList.lastIndex += indexes.length
 
     await this.em.flush()
@@ -106,7 +106,7 @@ export class StatusListService {
   public async updateItems(authInfo: AuthInfo, id: string, data: UpdateStatusListRequest): Promise<void> {
     const statusList = await this.em.findOneOrFail(CredentialStatusList, { id, owner: authInfo.user })
 
-    statusList.encodedList = await this.updatedBistring(
+    statusList.encodedList = await this.updatedBitstring(
       statusList.encodedList,
       statusList.size,
       data.indexes,
@@ -134,7 +134,7 @@ export class StatusListService {
     return `${this.appConfig.appEndpoint}/credentials/status/${id}`
   }
 
-  private async updatedBistring(
+  private async updatedBitstring(
     encodedList: string,
     size: number,
     indexes: Array<number>,
