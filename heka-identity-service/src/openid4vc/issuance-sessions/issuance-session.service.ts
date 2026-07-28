@@ -129,6 +129,11 @@ export class OpenId4VcIssuanceSessionService {
       mappedCredentials.push(credentialIssuanceMeta)
     }
 
+    // Preflight status list capacity check before the offer is created
+    if (credentialIndexes.length) {
+      this.statusListService.assertHasFreeIndexes(statusList, credentialIndexes.length)
+    }
+
     const { credentialOffer, issuanceSession } = await tenantAgent.openid4vc.issuer.createCredentialOffer({
       baseUri: req.baseUri,
       credentialConfigurationIds: req.credentials.map((c) => c.credentialSupportedId),

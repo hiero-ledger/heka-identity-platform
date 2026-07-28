@@ -1,6 +1,6 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
-import { BadRequestException } from '@nestjs/common'
+import { BadRequestException, InternalServerErrorException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
 import { entityStub } from '../../../../test/helpers/mock-records'
@@ -260,8 +260,27 @@ describe('StatusListService', () => {
 
       vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
 
-      // Only 1 free slot remains (lastIndex 99 of size 100), so adding 2 items must be rejected
-      await expect(service.addItems(authInfo, id, [100, 101])).rejects.toThrow(BadRequestException)
+      // Only 1 free slot remains (lastIndex 99 of size 100), so adding 2 items must be rejected.
+      // The indexes are deliberately in-range so that only the capacity guard can reject them —
+      // out-of-range indexes would also trip the per-index bound and mask its removal.
+      await expect(service.addItems(authInfo, id, [0, 99])).rejects.toThrow(BadRequestException)
+      expect(mockSet).not.toHaveBeenCalled()
+      expect(em.flush).not.toHaveBeenCalled()
+    })
+
+    test('should fail as a server error when the stored list is not Multibase-encoded', async () => {
+      const id = 'status-list-1'
+      const statusListEntity = entityStub<CredentialStatusList>({
+        id,
+        encodedList: 'H4sIunprefixed-legacy-value',
+        lastIndex: 5,
+        size: 100,
+        owner: mockUser,
+      })
+
+      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
+
+      await expect(service.addItems(authInfo, id, [10])).rejects.toThrow(InternalServerErrorException)
       expect(mockSet).not.toHaveBeenCalled()
       expect(em.flush).not.toHaveBeenCalled()
     })

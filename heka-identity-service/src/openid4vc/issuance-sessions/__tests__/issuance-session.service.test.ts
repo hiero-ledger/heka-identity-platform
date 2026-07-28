@@ -1,6 +1,6 @@
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
-import { UnprocessableEntityException } from '@nestjs/common'
+import { BadRequestException, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
 import { TenantAgent } from 'common/agent'
@@ -348,6 +348,15 @@ describe('OpenId4VcIssuanceSessionService', () => {
       )
       expect(result.credentialOffer).toBe('openid-credential-offer://jwt')
       expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-1', [5])
+      // The index reserved in the status list must be the one the issued credential carries,
+      // otherwise the credential points at a bit that is never set on revocation.
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issuanceMetadata: expect.objectContaining({
+            credentials: [expect.objectContaining({ credentialStatus: expect.objectContaining({ index: 5 }) })],
+          }),
+        }),
+      )
     })
 
     test('should create issuance session for JwtVcJsonLd format WITH credentialStatus', async () => {
@@ -402,6 +411,13 @@ describe('OpenId4VcIssuanceSessionService', () => {
       await service.offer(authInfo, tenantAgent, req)
 
       expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-2', [10])
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issuanceMetadata: expect.objectContaining({
+            credentials: [expect.objectContaining({ credentialStatus: expect.objectContaining({ index: 10 }) })],
+          }),
+        }),
+      )
     })
 
     test('should create issuance session for LdpVc format WITH credentialStatus', async () => {
@@ -456,6 +472,61 @@ describe('OpenId4VcIssuanceSessionService', () => {
       await service.offer(authInfo, tenantAgent, req)
 
       expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-3', [0])
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issuanceMetadata: expect.objectContaining({
+            credentials: [expect.objectContaining({ credentialStatus: expect.objectContaining({ index: 0 }) })],
+          }),
+        }),
+      )
+    })
+
+    test('should reject an over-capacity batch before creating the credential offer', async () => {
+      const mockIssuer = issuerRecordStub({
+        issuerId: 'issuer-1',
+        credentialConfigurationsSupported: {
+          'cred-jwt-1': {
+            format: 'jwt_vc_json',
+            credential_definition: { type: ['VerifiableCredential'] },
+          },
+        },
+      })
+
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
+      // One free slot (lastIndex 99 of size 100) but two revocable credentials requested
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-4', lastIndex: 99, size: 100 } as any)
+      vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-4')
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: { verificationMethod: [{ id: 'did:key:z6MkJwt#key-1' }] },
+        }),
+      )
+      vi.mocked(statusListService.assertHasFreeIndexes).mockImplementation(() => {
+        throw new BadRequestException('Status list does not have enough free indexes')
+      })
+
+      const req = {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          {
+            credentialSupportedId: 'cred-jwt-1',
+            format: OpenId4VciCredentialFormatProfile.JwtVcJson,
+            issuer: { did: 'did:key:z6MkJwt' },
+          },
+          {
+            credentialSupportedId: 'cred-jwt-1',
+            format: OpenId4VciCredentialFormatProfile.JwtVcJson,
+            issuer: { did: 'did:key:z6MkJwt' },
+          },
+        ],
+        baseUri: 'https://example.com',
+      } as any
+
+      await expect(service.offer(authInfo, tenantAgent, req)).rejects.toThrow(BadRequestException)
+
+      // The point of the preflight: nothing irreversible may happen once capacity is known to be short
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).not.toHaveBeenCalled()
+      expect(statusListService.addItems).not.toHaveBeenCalled()
     })
 
     test('should create issuance session for MsoMdoc format without DID resolution or credentialStatus', async () => {

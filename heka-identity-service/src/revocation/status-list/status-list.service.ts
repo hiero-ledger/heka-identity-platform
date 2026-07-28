@@ -1,6 +1,6 @@
 import { Bitstring } from '@digitalcredentials/bitstring'
 import { EntityManager } from '@mikro-orm/core'
-import { BadRequestException, Inject, Injectable } from '@nestjs/common'
+import { BadRequestException, Inject, Injectable, InternalServerErrorException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
 import { CredentialStatusList } from 'common/entities'
@@ -26,7 +26,7 @@ function toMultibaseBase64url(base64url: string): string {
 
 function fromMultibaseBase64url(encodedList: string): string {
   if (!encodedList.startsWith(MULTIBASE_BASE64URL_PREFIX)) {
-    throw new BadRequestException('Status list encodedList is not Multibase base64url-encoded')
+    throw new InternalServerErrorException('Stored status list is not Multibase base64url-encoded')
   }
   return encodedList.slice(MULTIBASE_BASE64URL_PREFIX.length)
 }
@@ -90,12 +90,16 @@ export class StatusListService {
     return list ?? (await this.create(authInfo, { issuer }))
   }
 
+  public assertHasFreeIndexes(statusList: CredentialStatusList, count: number): void {
+    if (statusList.lastIndex + count > statusList.size) {
+      throw new BadRequestException('Status list does not have enough free indexes')
+    }
+  }
+
   public async addItems(authInfo: AuthInfo, id: string, indexes: Array<number>): Promise<void> {
     const statusList = await this.em.findOneOrFail(CredentialStatusList, { id, owner: authInfo.user })
 
-    if (statusList.lastIndex + indexes.length > statusList.size) {
-      throw new BadRequestException('Status list does not have enough free indexes')
-    }
+    this.assertHasFreeIndexes(statusList, indexes.length)
 
     statusList.encodedList = await this.updatedBitstring(statusList.encodedList, statusList.size, indexes, false)
     statusList.lastIndex += indexes.length
