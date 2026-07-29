@@ -56,7 +56,7 @@ describe('extractTokenFromRequest', () => {
     expect(() => extractTokenFromRequest(request)).toThrow(UnauthorizedException)
   })
   it('should throw UnauthorizedException when Authorization header is an array', () => {
-  const request = { headers: { authorization: ['Bearer token1', 'Bearer token2'] } } as unknown as IncomingMessage
-  expect(() => extractTokenFromRequest(request)).toThrow(UnauthorizedException)
-})
+    const request = { headers: { authorization: ['Bearer token1', 'Bearer token2'] } } as unknown as IncomingMessage
+    expect(() => extractTokenFromRequest(request)).toThrow(UnauthorizedException)
+  })
 })
