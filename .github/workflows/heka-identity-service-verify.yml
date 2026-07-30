@@ -24,7 +24,7 @@ jobs:
       run:
         working-directory: ./heka-identity-service
     name: Build and check
-    runs-on: ubuntu-latest
+    runs-on: hl-heka-lin-md
 
     services:
       postgres:

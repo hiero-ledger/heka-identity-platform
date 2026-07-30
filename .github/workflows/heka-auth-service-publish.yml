@@ -30,7 +30,7 @@ jobs:
     defaults:
       run:
         working-directory: ./heka-auth-service
-    runs-on: ubuntu-latest
+    runs-on: hl-heka-lin-md
     permissions:
       contents: read
       packages: write
