@@ -1,0 +1,68 @@
+name: Verify Heka SSO Service changes
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'heka-sso-service/**'
+      - '.github/workflows/heka-sso-service-verify.yml'
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    defaults:
+      run:
+        working-directory: ./heka-sso-service
+    name: Build and check
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: heka-sso-service
+          POSTGRES_USER: heka
+          POSTGRES_PASSWORD: heka1
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        with:
+          egress-policy: audit
+
+      - name: Prepare Github Runner
+        uses: pandaswhocode/initialize-github-job@ffb7446339e8e6007b942312ac95457d1a20b6cf # v1.0.4
+        with:
+          checkout: 'true'
+          checkout-ref: '${{ github.ref }}'
+          checkout-token: '${{ secrets.GITHUB_TOKEN }}'
+          setup-node: 'true'
+          node-version: '22'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+        shell: bash
+
+      - name: Run typecheck
+        run: yarn check-types
+
+      - name: Run ESLint
+        run: yarn lint-check
+
+      - name: Run tests
+        run: env FORCE_COLOR=1 yarn test

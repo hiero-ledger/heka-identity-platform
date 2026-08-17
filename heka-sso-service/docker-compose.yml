@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:15
+    ports:
+      - '5434:5432'
+    environment:
+      - POSTGRES_USER=heka
+      - POSTGRES_PASSWORD=heka1
+      - POSTGRES_DB=heka-sso-service
+  heka-sso-service:
+    image: heka-sso-service:latest
+    ports:
+      - '3005:3005'
+    environment:
+      - APP_VERSION=${APP_VERSION:0.0.1}
+      - APP_PORT=${APP_PORT:3005}
+      - APP_ENABLE_CORS=true
+      - LOG_LEVEL=info
+      - LOG_EXCLUDE_URLS=/version,/health
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=heka-sso-service
+      - DB_USER=heka
+      - DB_PASSWORD=heka1
+    depends_on:
+      - postgres
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3005/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

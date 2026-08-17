@@ -100,7 +100,11 @@ async function main() {
     ],
   };
 
-  params.append('userLogo', new Blob([fs.readFileSync(imagePath)]), 'user.png');
+  params.append(
+    'userLogo',
+    new Blob([new Uint8Array(fs.readFileSync(imagePath))]),
+    'user.png',
+  );
   params.append('schemaLogo', schemaLogoBlob, 'schema.jpg');
   params.append('schemas', JSON.stringify([schema, mdlSchema]));
 

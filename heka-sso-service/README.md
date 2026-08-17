@@ -1,0 +1,173 @@
+# Heka SSO Service
+
+## Description
+
+"Sign in with wallet" OIDC bridge for the Heka Identity Platform. The service will act as a standard OIDC provider (built on `node-oidc-provider`) whose sole authentication method is a verifiable-credential presentation (OID4VP), verified by the [Heka Identity Service](../heka-identity-service). Customer IdPs (Keycloak first) broker logins to it via standard OIDC.
+
+See [INTEGRATION.md](INTEGRATION.md) for the design, platform decisions, and the phased implementation plan. The current state is the **Phase 0 scaffold**: platform component skeleton (config, logging, health, database/migrations, Docker, CI) — the OP core, adapter, and wallet-login interaction land in Phase 1.
+
+This service is deliberately separate from [heka-auth-service](../heka-auth-service) (login/password JWT issuance, unchanged): no shared code, database tables, or keys — see INTEGRATION.md §4.5.
+
+## Quick Start
+
+1. Start a local Postgres compatible with the service defaults:
+
+   ```bash
+   docker run --name heka-sso-service-postgres \
+     -e POSTGRES_DB=heka-sso-service \
+     -e POSTGRES_USER=heka \
+     -e POSTGRES_PASSWORD=heka1 \
+     -p 5434:5432 -d postgres
+   ```
+
+2. Enable Corepack so the pinned Yarn 4 runs, then install dependencies. The repo pins `yarn@4.16.0` in `package.json`; without Corepack the system Yarn 1.x may run instead and produce unexpected lockfile behavior:
+
+   ```bash
+   corepack enable
+   yarn install
+   ```
+
+3. (Optional) Create a `.env` file in `env/` to override any defaults — see [Configuration](#configuration) for the available variables.
+
+4. Run database migrations:
+
+   ```bash
+   yarn migration:up
+   ```
+
+5. Start the service:
+
+   ```bash
+   yarn start
+   ```
+
+6. Verify by opening Swagger UI at <http://localhost:3005/api/docs>.
+
+## API
+
+The service listens on port `3005` by default. Swagger UI is available at `/api/docs` (e.g. <http://localhost:3005/api/docs>).
+
+- **Health** (`/health`) — memory + database health probe for use as a Kubernetes readiness/liveness check or a Compose healthcheck.
+
+The OIDC provider surface (discovery, `/authorize`, `/token`, `/jwks`, `/userinfo`) and the wallet-login interaction routes are added in Phase 1 — see [INTEGRATION.md](INTEGRATION.md) §6.
+
+## Configuration
+
+The service is configured via environment variables. Values can be set in `env/.env` (or `env/.env.<NODE_ENV>`).
+
+### Application
+
+| Variable            | Default                       | Description                                   |
+|---------------------|-------------------------------|-----------------------------------------------|
+| `APP_NAME`          | `Heka SSO Service`            | Application name surfaced in metadata.        |
+| `APP_VERSION`       | _(reads from `package.json`)_ | Application version surfaced in metadata.     |
+| `APP_PORT`          | `3005`                        | HTTP port the service binds to.               |
+| `APP_PREFIX`        | `api`                         | URL prefix for the REST API.                  |
+| `APP_ENABLE_CORS`   | `false`                       | Set to `true` to enable CORS handling.        |
+| `APP_ALLOW_ORIGINS` | `*`                           | Comma-separated list of allowed CORS origins. |
+
+### Database (PostgreSQL)
+
+| Variable      | Default            | Description                                                   |
+|---------------|--------------------|---------------------------------------------------------------|
+| `DB_HOST`     | `localhost`        | Database host.                                                |
+| `DB_PORT`     | `5434`             | Database port.                                                |
+| `DB_NAME`     | `heka-sso-service` | Database name.                                                |
+| `DB_USER`     | `heka`             | Database user.                                                |
+| `DB_PASSWORD` | `heka1`            | Database password. **Replace in any non-trivial deployment.** |
+
+### Logging
+
+| Variable            | Default                       | Description                                                           |
+|---------------------|-------------------------------|-----------------------------------------------------------------------|
+| `LOG_LEVEL`         | `info`                        | Log level. One of `trace`, `debug`, `info`, `warn`, `error`, `fatal`. |
+| `LOG_EXCLUDE_URLS`  | _(unset — none excluded)_     | Comma-separated list of URL paths to exclude from request logging.    |
+| `LOG_REDACT_FIELDS` | `db.host,db.user,db.password` | Comma-separated list of dotted field paths redacted from log output.  |
+
+### Throttling
+
+Applies to Nest controllers only (see INTEGRATION.md §5 — provider endpoints get rate limits at the reverse proxy):
+
+| Variable         | Default | Description                                 |
+|------------------|---------|---------------------------------------------|
+| `THROTTLE_TTL`   | `60000` | Throttle window in milliseconds.            |
+| `THROTTLE_LIMIT` | `100`   | Maximum number of requests per window.      |
+
+### Health
+
+`GET /health` checks memory usage and database connectivity. The thresholds below define when memory health is reported as unhealthy:
+
+| Variable                          | Default | Description                                                       |
+|-----------------------------------|---------|-------------------------------------------------------------------|
+| `HEALTH_MEMORY_HEAP_THRESHOLD_MB` | `2048`  | Heap usage threshold above which `memory_heap` reports unhealthy. |
+| `HEALTH_MEMORY_RSS_THRESHOLD_MB`  | `2048`  | RSS usage threshold above which `memory_rss` reports unhealthy.   |
+
+### Runtime
+
+| Variable   | Default   | Description                                                              |
+|------------|-----------|--------------------------------------------------------------------------|
+| `NODE_ENV` | _(unset)_ | When set to `production`, switches the logger to non-pretty JSON output. |
+
+## Migrations
+
+Database schema is managed via migrations stored in `./migrations`. There are none yet — the first entities land in Phase 1. Run `yarn migration:up` before the first start and after pulling changes that include new migrations.
+
+```bash
+# Migrate database to the latest version
+yarn migration:up
+
+# List applied migrations
+yarn migration:list
+
+# List pending migrations
+yarn migration:pending
+
+# Generate a new migration as a diff between current DB and updated model
+yarn migration:create
+```
+
+## Docker
+
+To build the image locally:
+
+```bash
+docker compose -f docker-compose.dev.yml build
+```
+
+To run the service in Docker:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+## Testing
+
+### Unit tests
+
+```bash
+yarn test
+```
+
+### E2E tests
+
+E2E tests require a running Postgres instance. The quickest way is to reuse the container from [Quick Start](#quick-start):
+
+```bash
+docker run --name heka-sso-service-postgres \
+  -e POSTGRES_DB=heka-sso-service \
+  -e POSTGRES_USER=heka \
+  -e POSTGRES_PASSWORD=heka1 \
+  -p 5434:5432 -d postgres
+```
+
+Since the Quick Start container maps to host port `5434`, override the default when running tests locally:
+
+```bash
+MIKRO_ORM_HOST=127.0.0.1 MIKRO_ORM_PORT=5434 yarn test
+```
+
+If your Postgres is on the standard port `5432`, no override is needed:
+
+```bash
+yarn test
+```
