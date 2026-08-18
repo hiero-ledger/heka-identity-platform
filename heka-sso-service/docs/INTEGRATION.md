@@ -1,6 +1,6 @@
 # Integration Notes — heka-sso-service on node-oidc-provider
 
-Companion to [ARCHITECTURE.md](../docs/ARCHITECTURE.md) (library internals) and [Feasibility & High-Level Design.md](<../docs/Feasibility & High-Level Design.md>) (product design, "the feasibility doc"). This document maps that design onto the platform and carries the implementation plan for the new service.
+Companion to [Architecture of oidc-provider.md](<Architecture of oidc-provider.md>) (library internals) and [Feasibility & High-Level Design.md](<../../docs/Feasibility & High-Level Design.md>) (product design, "the feasibility doc"). This document maps that design onto the platform and carries the implementation plan for the new service.
 
 > **Platform decisions**
 >
@@ -8,7 +8,7 @@ Companion to [ARCHITECTURE.md](../docs/ARCHITECTURE.md) (library internals) and 
 > 2. **Clean separation of duties.** `heka-auth-service` stays what it is — **simple login/password** JWT issuance for its existing consumers (heka-identity-service API auth) — and is not modified by this plan. `heka-sso-service` handles **VC (wallet) login only**: a standard OIDC provider facade whose sole authentication method is OID4VP presentation. The two services share no code, no database tables, and no keys.
 > 3. **No SSI logic in heka-sso-service.** All verification and issuance stays in heka-identity-service (Credo); the bridge orchestrates its **existing** verification-session API. `features.openid4vci` stays disabled — heka-identity-service is the platform's sole OID4VCI issuer and wallets interact with it directly.
 >
-> This document lives in `heka-sso-service/` (moved here as part of the Phase 0 scaffold); its companion documents remain in `docs/`.
+> This document lives in `heka-sso-service/docs/` (moved here as part of the Phase 0 scaffold), together with the library architecture notes; the feasibility doc remains in the repo-root `docs/`.
 
 Target topology:
 
@@ -228,8 +228,8 @@ Phases mirror the feasibility doc's implementation plan (§4 there). Each phase 
 *Why:* creates the new component and de-risks the foundations everything else builds on — module-system choice, config/secrets posture, and key material. Cheap now, expensive to retrofit.
 
 - [x] Scaffold `heka-sso-service/` from the platform component pattern (skeleton per §5-Inherit: config/logger/health/migrations/Docker/CI; port `3005`); move this document into the new project.
-- [ ] Decide the module system (§5-Decide-1): **ESM-native recommended**; if CJS, spike `require('oidc-provider')` on Node 22 first — gate for everything below.
-- [ ] Add `oidc-provider@^9.11.3` (no experimental features — `~` pinning only becomes mandatory if one is ever enabled) + `@types/oidc-provider`.
+- [x] Decide the module system (§5-Decide-1): **ESM-native recommended**; if CJS, spike `require('oidc-provider')` on Node 22 first — gate for everything below. → **Decided: CommonJS** (platform consistency with heka-auth-service; no `"type": "module"`, `module: nodenext` emits CJS). The `require('oidc-provider')` spike **passed**: TypeScript 5.9 under `nodenext` compiles the ESM-only import to `require()`, and Node ≥ 22.12 loads it via `require(esm)` (engines pins `22.17.0`; the constraint holds as long as the library ships no top-level await). Guarded by `test/unit/oidc-provider.spec.ts`, which exercises the `require(esm)` path explicitly. The platform's tsconfig path-alias import pattern (`@config`, `@core/*`, …) is kept, as in heka-auth-service.
+- [x] Add `oidc-provider@^9.11.3` (no experimental features — `~` pinning only becomes mandatory if one is ever enabled) + `@types/oidc-provider`. → Added as **exact-pinned** `oidc-provider@9.11.3` + `@types/oidc-provider@9.11.1` (the project pins all dependency versions).
 - [ ] `OidcConfig` (class-validator pattern): issuer URL, cookie keys, `sub` HMAC salt, identity-service base URL/credentials, TTLs, static client + login config (MVP). **No compiled-in defaults for secrets; fail-fast in production** (§5-Decide-4).
 - [ ] Signing JWKS (RS256 + ES256): generate on first start and persist — key material lives in Postgres per the feasibility component architecture (§3.2 there; env/file override for dev) — refuse known-default keys in production; document rotation.
 

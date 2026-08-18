@@ -4,7 +4,7 @@
 
 "Sign in with wallet" OIDC bridge for the Heka Identity Platform. The service will act as a standard OIDC provider (built on `node-oidc-provider`) whose sole authentication method is a verifiable-credential presentation (OID4VP), verified by the [Heka Identity Service](../heka-identity-service). Customer IdPs (Keycloak first) broker logins to it via standard OIDC.
 
-See [INTEGRATION.md](INTEGRATION.md) for the design, platform decisions, and the phased implementation plan. The current state is the **Phase 0 scaffold**: platform component skeleton (config, logging, health, database/migrations, Docker, CI) — the OP core, adapter, and wallet-login interaction land in Phase 1.
+See [INTEGRATION.md](docs/INTEGRATION.md) for the design, platform decisions, and the phased implementation plan. The current state is the **Phase 0 scaffold**: platform component skeleton (config, logging, health, database/migrations, Docker, CI) — the OP core, adapter, and wallet-login interaction land in Phase 1.
 
 This service is deliberately separate from [heka-auth-service](../heka-auth-service) (login/password JWT issuance, unchanged): no shared code, database tables, or keys — see INTEGRATION.md §4.5.
 
@@ -49,7 +49,7 @@ The service listens on port `3005` by default. Swagger UI is available at `/api/
 
 - **Health** (`/health`) — memory + database health probe for use as a Kubernetes readiness/liveness check or a Compose healthcheck.
 
-The OIDC provider surface (discovery, `/authorize`, `/token`, `/jwks`, `/userinfo`) and the wallet-login interaction routes are added in Phase 1 — see [INTEGRATION.md](INTEGRATION.md) §6.
+The OIDC provider surface (discovery, `/authorize`, `/token`, `/jwks`, `/userinfo`) and the wallet-login interaction routes are added in Phase 1 — see [INTEGRATION.md](docs/INTEGRATION.md) §6.
 
 ## Configuration
 
