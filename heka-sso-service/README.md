@@ -45,11 +45,13 @@ This service is deliberately separate from [heka-auth-service](../heka-auth-serv
 
 ## API
 
-The service listens on port `3005` by default. Swagger UI is available at `/api/docs` (e.g. <http://localhost:3005/api/docs>).
+The service listens on port `3005` by default. The whole service is the OIDC provider: the `node-oidc-provider` instance is mounted at the app root and owns every path except the Nest-served ones below.
 
-- **Health** (`/health`) — memory + database health probe for use as a Kubernetes readiness/liveness check or a Compose healthcheck.
+- **OIDC provider** (app root) — discovery at `/.well-known/openid-configuration`, `/authorize`, `/token`, `/jwks` (public halves of the persisted signing keys), `/userinfo`. Client registration and the wallet-login interaction land with the remaining Phase 1 PRs — see [INTEGRATION.md](docs/INTEGRATION.md) §6. Until the MikroORM adapter PR, provider state (sessions, codes) is in-memory.
+- **Health** (`/health`, Nest/Terminus) — memory + database health probe for use as a Kubernetes readiness/liveness check or a Compose healthcheck.
+- **Swagger UI** (`/api/docs`, Nest).
 
-The OIDC provider surface (discovery, `/authorize`, `/token`, `/jwks`, `/userinfo`) and the wallet-login interaction routes are added in Phase 1 — see [INTEGRATION.md](docs/INTEGRATION.md) §6.
+Behind a reverse proxy the public `Host` header must be forwarded (`provider.proxy = true` trusts `X-Forwarded-*`): discovery endpoint URLs are derived from it.
 
 ## Configuration
 

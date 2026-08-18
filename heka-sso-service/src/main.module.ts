@@ -8,9 +8,11 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import chalk from 'chalk'
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino'
+import type Provider from 'oidc-provider'
 
 import { HealthModule } from './health'
 import { OidcModule } from './oidc'
+import { OIDC_PROVIDER } from './oidc/provider.factory'
 
 @Module({
   imports: [
@@ -45,9 +47,19 @@ export class MainModule {
 
     app.use(CorrelationIdMiddleware())
 
-    // Deliberately no global body-parser middleware here: the oidc-provider
-    // instance (Phase 1, INTEGRATION.md §5) parses its own request bodies from
-    // the raw stream; interaction routes parse selectively.
+    // The whole service is the OP (INTEGRATION.md §5-Decide-2): the provider
+    // is mounted at the app root and owns every path except the Nest surface.
+    // This middleware is registered before Nest's init-time body parsers, so
+    // no body parser sits in front of the provider (§5-Decide-3) — it parses
+    // its own request bodies from the raw stream; requests that fall through
+    // to Nest still get the standard parsers.
+    const nestPrefixes = ['/health', `/${config.app.prefix}`]
+    const oidcCallback = app.get<Provider>(OIDC_PROVIDER).callback()
+    app.use((req: { path?: string; url: string }, res: any, next: () => void) => {
+      const path = req.path ?? req.url.split('?')[0]
+      if (nestPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) return next()
+      return oidcCallback(req as any, res)
+    })
 
     app.enableShutdownHooks()
 
