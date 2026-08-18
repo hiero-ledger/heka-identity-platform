@@ -17,7 +17,15 @@ export enum LogLevel {
 
 const loggerConfigDefaults = {
   excludeUrls: [],
-  redactFields: ['db.host', 'db.user', 'db.password'],
+  redactFields: [
+    'db.host',
+    'db.user',
+    'db.password',
+    'oidc.cookieKeys',
+    'oidc.subHmacSalt',
+    'oidc.identityService.authToken',
+    'oidc.clients[*].clientSecret',
+  ],
 }
 
 export class LoggerConfig {

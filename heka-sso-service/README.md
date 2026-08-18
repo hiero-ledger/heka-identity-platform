@@ -76,13 +76,56 @@ The service is configured via environment variables. Values can be set in `env/.
 | `DB_USER`     | `heka`             | Database user.                                                |
 | `DB_PASSWORD` | `heka1`            | Database password. **Replace in any non-trivial deployment.** |
 
+### OIDC provider
+
+Secrets in this section have **no compiled-in defaults** (see [INTEGRATION.md](docs/INTEGRATION.md) §5-Decide-4). In **production** (`NODE_ENV=production`) the service **fails fast at startup** when they are unset, too weak, or equal to one of the known dev-default values shipped in `env/.env` / docker-compose. Outside production, unset secrets are generated fresh on every start (sessions and derived `sub` values then do not survive a restart — set explicit dev values when that matters).
+
+| Variable                       | Default                       | Description                                                                                 |
+|--------------------------------|-------------------------------|---------------------------------------------------------------------------------------------|
+| `OIDC_ISSUER_URL`              | `http://localhost:3005` (dev) | Public issuer URL of the OP. **Required in production.**                                    |
+| `OIDC_COOKIE_KEYS`             | _(generated in dev)_          | Comma-separated cookie signing keys (≥ 16 chars each). **Secret — required in production.** |
+| `OIDC_SUB_HMAC_SALT`           | _(generated in dev)_          | Salt for the `derived` pairwise `sub` strategy (≥ 32 chars). **Secret — required in production.** |
+| `IDENTITY_SERVICE_BASE_URL`    | `http://localhost:3000` (dev) | Base URL of heka-identity-service's verification-session API. **Required in production.**   |
+| `IDENTITY_SERVICE_AUTH_TOKEN`  | _(unset)_                     | Credential for the identity-service API. **Secret.**                                        |
+| `OIDC_TTL_ACCESS_TOKEN`        | `3600`                        | Access-token lifetime in seconds.                                                           |
+| `OIDC_TTL_AUTHORIZATION_CODE`  | `60`                          | Authorization-code lifetime in seconds.                                                     |
+| `OIDC_TTL_ID_TOKEN`            | `3600`                        | ID-token lifetime in seconds.                                                               |
+| `OIDC_TTL_INTERACTION`         | `600`                         | Interaction (wallet-login page) lifetime in seconds.                                        |
+| `OIDC_TTL_SESSION`             | `86400`                       | OP session lifetime in seconds.                                                             |
+| `OIDC_TTL_GRANT`               | `86400`                       | Grant lifetime in seconds.                                                                  |
+| `OIDC_CLIENTS`                 | `[]`                          | Static OIDC clients (MVP), JSON array — see below.                                          |
+| `OIDC_LOGIN_CONFIGS`           | `[]`                          | Static login configurations (MVP), JSON array — see below.                                  |
+
+`OIDC_CLIENTS` — JSON array of static clients (IdP brokers). `grantTypes`, `responseTypes`, and `tokenEndpointAuthMethod` (`client_secret_basic` or `client_secret_post`) are optional; client secrets must be ≥ 16 chars in production:
+
+```json
+[{
+  "clientId": "keycloak-broker",
+  "clientSecret": "<strong secret>",
+  "redirectUris": ["https://kc.example.com/realms/myrealm/broker/heka-sso/endpoint"],
+  "loginConfigId": "default"
+}]
+```
+
+`OIDC_LOGIN_CONFIGS` — JSON array of declarative login configurations (INTEGRATION.md §4.2): which credentials to ask for, how disclosed claims map to OIDC claims, the `sub` strategy (`derived` default, `credential-claim`, `ephemeral`), and the trusted credential issuers:
+
+```json
+[{
+  "id": "default",
+  "verificationTemplate": "default",
+  "claimMapping": { "pid.given_name": "given_name", "pid.family_name": "family_name" },
+  "subStrategy": "derived",
+  "issuerAllowlist": []
+}]
+```
+
 ### Logging
 
-| Variable            | Default                       | Description                                                           |
-|---------------------|-------------------------------|-----------------------------------------------------------------------|
-| `LOG_LEVEL`         | `info`                        | Log level. One of `trace`, `debug`, `info`, `warn`, `error`, `fatal`. |
-| `LOG_EXCLUDE_URLS`  | _(unset — none excluded)_     | Comma-separated list of URL paths to exclude from request logging.    |
-| `LOG_REDACT_FIELDS` | `db.host,db.user,db.password` | Comma-separated list of dotted field paths redacted from log output.  |
+| Variable            | Default                                                                                                            | Description                                                           |
+|---------------------|--------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| `LOG_LEVEL`         | `info`                                                                                                             | Log level. One of `trace`, `debug`, `info`, `warn`, `error`, `fatal`. |
+| `LOG_EXCLUDE_URLS`  | _(unset — none excluded)_                                                                                          | Comma-separated list of URL paths to exclude from request logging.    |
+| `LOG_REDACT_FIELDS` | `db.host,db.user,db.password,oidc.cookieKeys,oidc.subHmacSalt,oidc.identityService.authToken,oidc.clients[*].clientSecret` | Comma-separated list of dotted field paths redacted from log output.  |
 
 ### Throttling
 

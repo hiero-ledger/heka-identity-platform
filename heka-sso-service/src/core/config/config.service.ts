@@ -33,6 +33,10 @@ export class ConfigService {
     return this.config.health
   }
 
+  public get oidcConfig() {
+    return this.config.oidc
+  }
+
   public get throttleConfig() {
     return this.config.throttle
   }
