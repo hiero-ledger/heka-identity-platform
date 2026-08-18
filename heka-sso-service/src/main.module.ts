@@ -10,6 +10,7 @@ import chalk from 'chalk'
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino'
 
 import { HealthModule } from './health'
+import { OidcModule } from './oidc'
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { HealthModule } from './health'
         ],
       }),
     }),
+    OidcModule,
     HealthModule,
   ],
   providers: [

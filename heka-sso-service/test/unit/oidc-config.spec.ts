@@ -1,3 +1,8 @@
+import { generateKeyPairSync } from 'node:crypto'
+import { rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { OidcConfig, SubStrategy, validate } from '../../src/core/config'
 
 const strongProductionEnv = {
@@ -142,5 +147,57 @@ describe('OidcConfig', () => {
 
     expect(config.oidc.issuerUrl).toBe('https://sso.example.com')
     expect(config.oidc.cookieKeys).toHaveLength(2)
+  })
+
+  describe('signing JWKS override', () => {
+    const strongRsaJwk = (): Record<string, any> => {
+      const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+      return { ...(privateKey.export({ format: 'jwk' }) as Record<string, any>), kid: 'prod-key-1', alg: 'RS256' }
+    }
+
+    test('is undefined by default and parsed from OIDC_JWKS when set', () => {
+      expect(new OidcConfig({}).jwks).toBeUndefined()
+
+      const config = new OidcConfig({ OIDC_JWKS: JSON.stringify({ keys: [{ kty: 'RSA', kid: 'dev-key' }] }) })
+      expect(config.jwks?.keys[0].kid).toBe('dev-key')
+    })
+
+    test('is read from OIDC_JWKS_FILE when set', () => {
+      const file = join(tmpdir(), `jwks-${Date.now()}.json`)
+      writeFileSync(file, JSON.stringify({ keys: [{ kty: 'RSA', kid: 'file-key' }] }))
+      try {
+        expect(new OidcConfig({ OIDC_JWKS_FILE: file }).jwks?.keys[0].kid).toBe('file-key')
+      } finally {
+        rmSync(file)
+      }
+      expect(() => new OidcConfig({ OIDC_JWKS_FILE: file })).toThrow(/could not be read/)
+    })
+
+    test('rejects malformed overrides in any environment', () => {
+      expect(() => new OidcConfig({ OIDC_JWKS: 'not-json' })).toThrow(/invalid JSON/)
+      expect(() => new OidcConfig({ OIDC_JWKS: '{"keys":[]}' })).toThrow(/non-empty "keys" array/)
+    })
+
+    test('refuses known-default, public-only, and weak keys in production', () => {
+      const jwks = (keys: Record<string, any>[]) => ({
+        ...strongProductionEnv,
+        OIDC_JWKS: JSON.stringify({ keys }),
+      })
+
+      expect(() => new OidcConfig(jwks([{ ...strongRsaJwk(), kid: 'keystore-CHANGE-ME' }]))).toThrow(
+        /known default key/,
+      )
+      const publicOnly = strongRsaJwk()
+      delete publicOnly.d
+      expect(() => new OidcConfig(jwks([publicOnly]))).toThrow(/no private material/)
+      expect(() => new OidcConfig(jwks([{ ...strongRsaJwk(), n: Buffer.alloc(128).toString('base64url') }]))).toThrow(
+        /below 2048 bits/,
+      )
+      expect(() => new OidcConfig(jwks([{ kty: 'EC', crv: 'secp256k1', kid: 'k', d: 'x', x: 'x', y: 'y' }]))).toThrow(
+        /unsupported EC curve/,
+      )
+
+      expect(new OidcConfig(jwks([strongRsaJwk()])).jwks?.keys).toHaveLength(1)
+    })
   })
 })

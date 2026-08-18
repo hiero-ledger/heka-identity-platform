@@ -95,6 +95,8 @@ Secrets in this section have **no compiled-in defaults** (see [INTEGRATION.md](d
 | `OIDC_TTL_GRANT`               | `86400`                       | Grant lifetime in seconds.                                                                  |
 | `OIDC_CLIENTS`                 | `[]`                          | Static OIDC clients (MVP), JSON array — see below.                                          |
 | `OIDC_LOGIN_CONFIGS`           | `[]`                          | Static login configurations (MVP), JSON array — see below.                                  |
+| `OIDC_JWKS`                    | _(unset — keys from Postgres)_ | Inline JWKS override (JSON), intended for dev/test. **Secret.**                            |
+| `OIDC_JWKS_FILE`               | _(unset)_                     | Path to a JWKS file override, intended for dev/test. **Secret.**                            |
 
 `OIDC_CLIENTS` — JSON array of static clients (IdP brokers). `grantTypes`, `responseTypes`, and `tokenEndpointAuthMethod` (`client_secret_basic` or `client_secret_post`) are optional; client secrets must be ≥ 16 chars in production:
 
@@ -118,6 +120,22 @@ Secrets in this section have **no compiled-in defaults** (see [INTEGRATION.md](d
   "issuerAllowlist": []
 }]
 ```
+
+#### Signing keys (JWKS)
+
+The OP signs tokens with asymmetric keys (**RS256 + ES256**). Key material lives in the `oidc_signing_key` Postgres table: on first start the service generates one 2048-bit RSA key and one P-256 EC key and persists them (`kid` = RFC 7638 JWK thumbprint). The published JWKS contains all non-retired keys, **newest first per algorithm — the newest key signs**.
+
+For dev/test, `OIDC_JWKS` (inline JSON) or `OIDC_JWKS_FILE` (path) overrides the database entirely. In production an override is refused when any key is a known default (e.g. node-oidc-provider's `keystore-CHANGE-ME` dev keystore), lacks private material, uses an RSA modulus below 2048 bits, or a non-NIST EC curve. Never commit key material to the repository.
+
+#### Key rotation
+
+IdPs cache the JWKS, so rotation must overlap — never swap keys abruptly (an abrupt swap invalidates in-flight logins until the IdP refreshes its cache):
+
+1. **Publish a new key** (`SigningKeysService.rotateKey(alg)`): the new key is added and immediately becomes the signing key; the old key stays published so cached tokens still verify.
+2. **Wait out the IdP JWKS cache window** (Keycloak's default public-key cache TTL is ~24 h; check your IdP).
+3. **Retire the old key** (`SigningKeysService.retireKey(kid)`, or SQL: `update oidc_signing_key set retired_at = now() where kid = '<old-kid>'`): it disappears from the JWKS.
+
+Until the Phase 2 admin API exposes these operations, rotation is performed via the service methods or SQL. Retired keys stay in the table for audit; they are never republished.
 
 ### Logging
 
@@ -153,7 +171,7 @@ Applies to Nest controllers only (see INTEGRATION.md §5 — provider endpoints 
 
 ## Migrations
 
-Database schema is managed via migrations stored in `./migrations`. There are none yet — the first entities land in Phase 1. Run `yarn migration:up` before the first start and after pulling changes that include new migrations.
+Database schema is managed via migrations stored in `./migrations`. Run `yarn migration:up` before the first start and after pulling changes that include new migrations.
 
 ```bash
 # Migrate database to the latest version
