@@ -7,7 +7,7 @@ export default () =>
     logging: process.env.MIKRO_ORM_LOGGING || 'all',
     password: process.env.MIKRO_ORM_PASSWORD || 'heka1',
     user: process.env.MIKRO_ORM_USER || 'heka',
-    port: parseInt(process.env.MIKRO_ORM_PORT || '5432'),
+    port: parseInt(process.env.MIKRO_ORM_PORT || '5434'),
     forceUtcTimezone: true,
     metadataCache: {
       enabled: false,

@@ -1,4 +1,5 @@
-import { Global, INestApplication, Module } from '@nestjs/common'
+import { MikroORM } from '@mikro-orm/core'
+import { Global, INestApplication, Module, OnModuleInit } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import { APP_GUARD } from '@nestjs/core'
 
@@ -27,7 +28,15 @@ import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
   ],
   providers: [],
 })
-export class TestDatabaseModule {}
+export class TestDatabaseModule implements OnModuleInit {
+  public constructor(private readonly orm: MikroORM) {}
+
+  // MikroORM v7 connects lazily on first query; the health check's
+  // isConnected() reports "down" until a connection is established
+  public async onModuleInit(): Promise<void> {
+    await this.orm.connect()
+  }
+}
 
 export async function startTestApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({
