@@ -31,8 +31,6 @@ import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
 export class TestDatabaseModule implements OnModuleInit {
   public constructor(private readonly orm: MikroORM) {}
 
-  // MikroORM v7 connects lazily on first query; the health check's
-  // isConnected() reports "down" until a connection is established
   public async onModuleInit(): Promise<void> {
     await this.orm.connect()
   }
