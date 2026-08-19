@@ -275,6 +275,37 @@ Exit criteria: full broker loop — protected app → Keycloak → wallet presen
 - [ ] **OIDF conformance**: OP certification + OID4VP conformance (via identity-service sessions).
 - [ ] Brokering guides for Auth0 / Entra External ID / Okta / Cognito; multi-tenant bridge (per-tenant issuers) if demanded.
 
+### Test RP UI — `heka-sso-web-ui` (Phase 1 demo companion)
+
+*Why:* §1 step 9 ("test the loop") needs a protected application in front of Keycloak — the **App / RP** box of the target topology. `heka-sso-web-ui` is that app: a deliberately minimal OIDC relying party against Keycloak, used to exercise the full broker chain (RP → Keycloak → heka-sso-service → wallet). It contains **no wallet or bridge logic** — from its perspective the setup is plain "log in with Keycloak"; everything interesting happens upstream.
+
+**Stack (already scaffolded):** Vite + React 19 + TypeScript, `react-oidc-context` (wrapping `oidc-client-ts`) — both installed. No further dependencies planned: with only two screens gated by authentication state, conditional rendering replaces a router.
+
+**The login page is Keycloak's** — the UI renders no login screen of its own. An unauthenticated visit is **redirected automatically** to Keycloak's stock login page (with the `heka-sso` "Sign in with wallet" IdP button); no Keycloak theming/customization. In code: an effect in `App.tsx` calls `auth.signinRedirect()` whenever `!auth.isAuthenticated && !auth.isLoading && !auth.activeNavigator && !auth.error` (the guards prevent redirect loops during the callback exchange and on failures).
+
+**States** (switched in `App.tsx` on `useAuth()` state):
+
+| State | Screen |
+|---|---|
+| unauthenticated | Nothing rendered — immediate `signinRedirect()` to Keycloak (see above) |
+| `isLoading` (incl. redirect callback processing) | Minimal "Signing in…" indicator |
+| `error` | Error message + "Try again" (restarts sign-in) — the only UI shown outside the dashboard, so a broken flow can't loop forever |
+| `isAuthenticated` | **Dashboard**: signed-in confirmation; claims table from `auth.user.profile` (`sub`, `given_name`, `family_name`, `email`, and — once Keycloak mappers propagate them — `amr` / `vc_presented_attributes`); collapsible raw ID-token payload for debugging mapper config; "Sign out" button → `auth.signoutRedirect()` (RP-initiated logout at Keycloak, returning to the app, which redirects back to Keycloak login). |
+
+**Planned changes:**
+
+1. `.env` (+ `.env.example`) — Vite vars: `VITE_KC_URL=http://localhost:8080`, `VITE_KC_REALM=master`, `VITE_KC_CLIENT_ID=heka-sso-web-ui` (matching the realm/alias already assumed by the service's dev `OIDC_CLIENTS`).
+2. `src/auth.ts` — the `AuthProviderProps` config built from those vars: `authority = <KC_URL>/realms/<realm>` (endpoints via Keycloak discovery), `response_type: 'code'` (PKCE is automatic in `oidc-client-ts`), `scope: 'openid profile email'`, `redirect_uri`/`post_logout_redirect_uri = window.location.origin`, and `onSigninCallback` stripping `code`/`state` from the URL after the redirect returns.
+3. `src/main.tsx` — wrap `<App />` in `<AuthProvider {...authConfig}>`.
+4. `src/pages/DashboardPage.tsx` — the dashboard screen; `App.tsx` becomes the auto-redirect effect + state switch above (template counter demo removed).
+5. `README.md` — run instructions + the Keycloak client setup below.
+
+**Keycloak prerequisite** (manual until the Phase 1 demo compose lands): in realm `master`, create client `heka-sso-web-ui` — public (no secret), Standard Flow only, PKCE `S256`, valid redirect URIs `http://localhost:5173/*` (Vite dev port), valid post-logout redirect URIs `http://localhost:5173/*`, web origins `http://localhost:5173`.
+
+**Test loop delivered:** `yarn dev` (:5173) → open the app → automatic redirect to the Keycloak login page → "heka-sso" IdP button → bridge wallet interaction → back through Keycloak (first-broker-login creates the federated user) → dashboard shows the brokered claims. Sign-out ends the Keycloak session and lands back on the Keycloak login page (via the auto-redirect).
+
+Out of scope (per the §"Interaction UI scope creep" risk, applied here too): styling beyond the Vite defaults, routing, state management, token refresh tuning (library defaults), and any direct calls to heka-sso-service or heka-identity-service.
+
 ### heka-auth-service boundary (no work planned)
 
 *Why this is here:* to record explicitly that the legacy service is out of scope. It keeps serving simple login/password for its existing consumers, unchanged. The only rule the bridge imposes is the §4.5 separation (no shared code, tables, or secrets). Any future migration of its consumers to standard OIDC is a separate platform decision.
