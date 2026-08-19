@@ -14,8 +14,5 @@ export const authConfig: AuthProviderProps = {
   onSigninCallback: () => {
     // Strip code/state from the URL after the redirect returns
     window.history.replaceState({}, document.title, window.location.pathname)
-  },
-  extraQueryParams: {
-    kc_idp_hint: "heka-sso",
-  },
+  }
 }
