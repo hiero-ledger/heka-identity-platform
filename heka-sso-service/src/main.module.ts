@@ -4,6 +4,7 @@ import { LoggerModule } from '@core/logger'
 import { CorrelationIdMiddleware } from '@eropple/nestjs-correlation-id'
 import { ClassSerializerInterceptor, INestApplication, Module, ValidationPipe, VersioningType } from '@nestjs/common'
 import { APP_GUARD, Reflector } from '@nestjs/core'
+import { ScheduleModule } from '@nestjs/schedule'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import chalk from 'chalk'
@@ -19,6 +20,7 @@ import { OIDC_PROVIDER } from './oidc/provider.factory'
     ConfigModule,
     LoggerModule,
     DatabaseModule,
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

@@ -85,14 +85,19 @@ const toClientMetadata = (client: OidcClientConfig): ClientMetadata => ({
  * `accountClaims` (P1.4) resolves the claim set the interaction stored under
  * the computed `sub` (§4.4 — there is no user table); when omitted (some unit
  * tests), the library's default sub-only `findAccount` applies.
+ *
+ * `adapter` (P1.5) is the storage factory — `MikroOrmAdapter` over Postgres in
+ * the app; when omitted (unit tests), the library's in-memory adapter applies.
  */
 export function createOidcProvider(
   config: OidcConfig,
   jwks: { keys: Record<string, any>[] },
   accountClaims?: AccountClaimsResolver,
+  adapter?: Configuration['adapter'],
 ): Provider {
   const provider = new Provider(config.issuerUrl, {
     jwks: jwks as Configuration['jwks'],
+    ...(adapter && { adapter }),
     clients: config.clients.map(toClientMetadata),
     // findAccount over the stored claim set (P1.4): `accountId` *is* the
     // computed `sub`; an unknown `sub` (e.g. the in-memory store died with a
