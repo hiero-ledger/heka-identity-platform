@@ -71,8 +71,8 @@ const buildApp = (identityAcquirer: IdentityAcquirer | null) => {
     ]),
   })
   const configService = { oidcConfig: config } as unknown as ConfigService
-  const provider = createOidcProvider(config, testJwks())
   const accountClaims = new AccountClaimsStore(configService)
+  const provider = createOidcProvider(config, testJwks(), accountClaims)
   const controller = new InteractionController(provider, identityAcquirer, configService, accountClaims)
 
   const app = express()
@@ -154,20 +154,26 @@ describe('wallet-login interaction (P1.3, stub login)', () => {
       expect(idToken.amr).toEqual(['stub'])
 
       // the mapped claim set is stored under the computed sub for findAccount (§4.4)
-      expect(accountClaims.get(idToken.sub)).toEqual({
+      const storedClaims = {
         given_name: 'Stub',
         family_name: 'User',
         email: 'stub.user@example.com',
         department: 'QA',
         login_config_id: 'default',
-      })
+      }
+      expect(accountClaims.get(idToken.sub)).toEqual(storedClaims)
 
-      // userinfo serves the same sub as the id_token (broker matrix, §1)
+      // findAccount (P1.4) releases the claim set into the id_token — every
+      // claim must be there because Auth0 never calls userinfo (§1 step 4)
+      expect(idToken).toMatchObject(storedClaims)
+
+      // … and userinfo serves the same claims with an identical sub (broker matrix, §1)
       const userinfo = await request(app)
         .get('/userinfo')
         .set('Authorization', `Bearer ${tokens.body.access_token}`)
         .expect(200)
       expect(userinfo.body.sub).toBe(idToken.sub)
+      expect(userinfo.body).toMatchObject(storedClaims)
     })
 
     test('derived sub is stable across logins (§4.3)', async () => {

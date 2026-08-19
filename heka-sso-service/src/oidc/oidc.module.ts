@@ -23,9 +23,12 @@ import { SigningKeysService } from './signing-keys.service'
     AccountClaimsStore,
     {
       provide: OIDC_PROVIDER,
-      inject: [ConfigService, SigningKeysService],
-      useFactory: async (configService: ConfigService, signingKeys: SigningKeysService) =>
-        createOidcProvider(configService.oidcConfig, await signingKeys.getJwks()),
+      inject: [ConfigService, SigningKeysService, AccountClaimsStore],
+      useFactory: async (
+        configService: ConfigService,
+        signingKeys: SigningKeysService,
+        accountClaims: AccountClaimsStore,
+      ) => createOidcProvider(configService.oidcConfig, await signingKeys.getJwks(), accountClaims),
     },
     {
       // Pluggable identity-acquisition step (P1.3): the dev stub when
