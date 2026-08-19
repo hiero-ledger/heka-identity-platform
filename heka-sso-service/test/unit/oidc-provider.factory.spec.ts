@@ -1,32 +1,8 @@
-import { createHash, generateKeyPairSync } from 'node:crypto'
-
 import request from 'supertest'
 
 import { OidcConfig } from '../../src/core/config'
 import { createOidcProvider } from '../../src/oidc'
-
-const thumbprint = (jwk: Record<string, any>) => {
-  const members =
-    jwk.kty === 'RSA' ? { e: jwk.e, kty: jwk.kty, n: jwk.n } : { crv: jwk.crv, kty: jwk.kty, x: jwk.x, y: jwk.y }
-  return createHash('sha256').update(JSON.stringify(members)).digest('base64url')
-}
-
-const testJwks = () => {
-  const rsa = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ format: 'jwk' }) as Record<
-    string,
-    any
-  >
-  const ec = generateKeyPairSync('ec', { namedCurve: 'P-256' }).privateKey.export({ format: 'jwk' }) as Record<
-    string,
-    any
-  >
-  return {
-    keys: [
-      { ...rsa, kid: thumbprint(rsa), alg: 'RS256', use: 'sig' },
-      { ...ec, kid: thumbprint(ec), alg: 'ES256', use: 'sig' },
-    ],
-  }
-}
+import { testJwks } from '../helpers/jwks'
 
 describe('createOidcProvider', () => {
   const issuer = 'http://localhost:3005'

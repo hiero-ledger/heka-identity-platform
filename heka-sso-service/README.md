@@ -95,10 +95,19 @@ Secrets in this section have **no compiled-in defaults** (see [INTEGRATION.md](d
 | `OIDC_TTL_INTERACTION`         | `600`                         | Interaction (wallet-login page) lifetime in seconds.                                        |
 | `OIDC_TTL_SESSION`             | `86400`                       | OP session lifetime in seconds.                                                             |
 | `OIDC_TTL_GRANT`               | `86400`                       | Grant lifetime in seconds.                                                                  |
+| `OIDC_CLOCK_TOLERANCE`         | `15`                          | Accepted clock skew (seconds) when validating incoming JWTs — brokering IdPs like Keycloak default to 0s tolerance on their side, so the bridge carries the slack. |
 | `OIDC_CLIENTS`                 | `[]`                          | Static OIDC clients (MVP), JSON array — see below.                                          |
 | `OIDC_LOGIN_CONFIGS`           | `[]`                          | Static login configurations (MVP), JSON array — see below.                                  |
 | `OIDC_JWKS`                    | _(unset — keys from Postgres)_ | Inline JWKS override (JSON), intended for dev/test. **Secret.**                            |
 | `OIDC_JWKS_FILE`               | _(unset)_                     | Path to a JWKS file override, intended for dev/test. **Secret.**                            |
+
+#### Protocol policy
+
+The OP speaks the IdP-broker common denominator (INTEGRATION.md §1) and nothing more:
+
+- **Authorization code flow only** — `response_types_supported` is `["code"]`; no implicit or hybrid flows.
+- **PKCE is mandatory for every client** (confidential ones included) and **S256 is the only accepted `code_challenge_method`**.
+- **Client authentication**: `client_secret_basic` and `client_secret_post`. The two are interchangeable presentations of the same registered secret (the Cognito/Entra floor); no JWT-based or unauthenticated clients.
 
 `OIDC_CLIENTS` — JSON array of static clients (IdP brokers). `grantTypes`, `responseTypes`, and `tokenEndpointAuthMethod` (`client_secret_basic` or `client_secret_post`) are optional; client secrets must be ≥ 16 chars in production:
 

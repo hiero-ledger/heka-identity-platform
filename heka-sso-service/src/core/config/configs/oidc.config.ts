@@ -30,6 +30,7 @@ export enum OidcConfigKeys {
   ttlInteraction = 'OIDC_TTL_INTERACTION',
   ttlSession = 'OIDC_TTL_SESSION',
   ttlGrant = 'OIDC_TTL_GRANT',
+  clockTolerance = 'OIDC_CLOCK_TOLERANCE',
   clients = 'OIDC_CLIENTS',
   loginConfigs = 'OIDC_LOGIN_CONFIGS',
   jwks = 'OIDC_JWKS',
@@ -54,6 +55,7 @@ const oidcConfigDefaults = {
     session: 86400,
     grant: 86400,
   },
+  clockTolerance: 15,
 }
 
 /**
@@ -259,6 +261,15 @@ export class OidcConfig {
   @Type(() => OidcTtlConfig)
   public ttl: OidcTtlConfig
 
+  /**
+   * Accepted clock skew in seconds when validating incoming JWTs (request
+   * objects, client assertions). Brokering IdPs — Keycloak most prominently —
+   * default to 0s tolerance on their side, so the bridge carries the slack.
+   */
+  @IsInt()
+  @Min(0)
+  public clockTolerance: number
+
   @ValidateNested({ each: true })
   @Type(() => OidcClientConfig)
   public clients: OidcClientConfig[]
@@ -324,6 +335,10 @@ export class OidcConfig {
     refuseKnownDefault(OidcConfigKeys.identityServiceAuthToken, [this.identityService.authToken])
 
     this.ttl = new OidcTtlConfig(configuration)
+
+    this.clockTolerance = env[OidcConfigKeys.clockTolerance]
+      ? parseInt(env[OidcConfigKeys.clockTolerance])
+      : oidcConfigDefaults.clockTolerance
 
     this.clients = OidcConfig.parseJsonArray(env, OidcConfigKeys.clients, problems).map(
       (client) => new OidcClientConfig(client),
