@@ -3821,6 +3821,9 @@ components:
           type: string
         size:
           type: number
+          default: 131072
+          minimum: 1
+          maximum: 8388608
         purpose:
           type: string
           enum:

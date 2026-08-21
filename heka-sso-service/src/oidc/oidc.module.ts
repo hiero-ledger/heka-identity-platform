@@ -11,6 +11,7 @@ import { MikroOrmAdapter } from './mikro-orm.adapter'
 import { OidcCleanupService } from './oidc-cleanup.service'
 import { createOidcProvider, OIDC_PROVIDER } from './provider.factory'
 import { SigningKeysService } from './signing-keys.service'
+import { VerificationSessionClient } from './verification-session.client'
 
 /**
  * OP core module (INTEGRATION.md §4.1): the `node-oidc-provider` instance, its
@@ -25,6 +26,7 @@ import { SigningKeysService } from './signing-keys.service'
     SigningKeysService,
     AccountClaimsStore,
     OidcCleanupService,
+    VerificationSessionClient,
     {
       provide: OIDC_PROVIDER,
       inject: [ConfigService, SigningKeysService, AccountClaimsStore, EntityManager],

@@ -89,6 +89,8 @@ Secrets in this section have **no compiled-in defaults** (see [INTEGRATION.md](d
 | `OIDC_SUB_HMAC_SALT`           | _(generated in dev)_          | Salt for the `derived` pairwise `sub` strategy (≥ 32 chars). **Secret — required in production.** |
 | `IDENTITY_SERVICE_BASE_URL`    | `http://localhost:3000` (dev) | Base URL of heka-identity-service's verification-session API. **Required in production.**   |
 | `IDENTITY_SERVICE_AUTH_TOKEN`  | _(unset)_                     | Credential for the identity-service API. **Secret.**                                        |
+| `IDENTITY_SERVICE_PUBLIC_VERIFIER_ID` | _(unset)_              | Identity-service verifier the bridge creates verification sessions under (wallet login, P1.6). |
+| `IDENTITY_SERVICE_REQUEST_SIGNER_DID` | _(unset)_              | DID whose key signs authorization requests (JAR, P1.6.1). Required for wallet login — no unsigned fallback. |
 | `OIDC_TTL_ACCESS_TOKEN`        | `3600`                        | Access-token lifetime in seconds.                                                           |
 | `OIDC_TTL_AUTHORIZATION_CODE`  | `60`                          | Authorization-code lifetime in seconds.                                                     |
 | `OIDC_TTL_ID_TOKEN`            | `3600`                        | ID-token lifetime in seconds.                                                               |
@@ -128,11 +130,14 @@ The OP speaks the IdP-broker common denominator (INTEGRATION.md §1) and nothing
 [{
   "id": "default",
   "verificationTemplate": "default",
+  "dcqlQuery": { "credentials": [{ "id": "pid", "format": "dc+sd-jwt", "meta": { "vct_values": ["urn:eudi:pid:1"] }, "claims": [{ "path": ["given_name"] }, { "path": ["family_name"] }] }] },
   "claimMapping": { "pid.given_name": "given_name", "pid.family_name": "family_name" },
   "subStrategy": "derived",
   "issuerAllowlist": []
 }]
 ```
+
+`dcqlQuery` is the inline DCQL query sent to heka-identity-service when creating the verification session (wallet login); `claimMapping` keys follow `<credential-query id>.<claim path>`. Authorization requests are always created **signed** (JAR) with `IDENTITY_SERVICE_REQUEST_SIGNER_DID` — there is no unsigned fallback.
 
 #### Stub login (dev only)
 

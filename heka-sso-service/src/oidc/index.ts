@@ -7,3 +7,9 @@ export { OidcModule } from './oidc.module'
 export { OidcCleanupService } from './oidc-cleanup.service'
 export { AccountClaimsResolver, createOidcProvider, OIDC_PROVIDER } from './provider.factory'
 export { SIGNING_ALGS, SigningAlg, SigningKeysService } from './signing-keys.service'
+export {
+  CreatedVerificationSession,
+  VerificationSessionClient,
+  VerificationSessionRecord,
+  VerificationSessionState,
+} from './verification-session.client'
