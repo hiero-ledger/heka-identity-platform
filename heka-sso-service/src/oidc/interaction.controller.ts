@@ -6,22 +6,25 @@ import type Provider from 'oidc-provider'
 
 import { AccountClaimsStore } from './account-claims.store'
 import { computeSub, mapClaims } from './claims.util'
-import { IDENTITY_ACQUIRER, IdentityAcquirer } from './identity-acquirer'
+import { AcquiredIdentity, IDENTITY_ACQUIRER, IdentityAcquirer } from './identity-acquirer'
 import { OIDC_PROVIDER } from './provider.factory'
 
 type InteractionDetails = Awaited<ReturnType<Provider['interactionDetails']>>
 
 /**
- * Wallet-login interaction (INTEGRATION.md P1.3): the provider redirects here
- * from `/authorize` and this controller finishes the interaction —
+ * Wallet-login interaction (INTEGRATION.md P1.3/P1.6): the provider redirects
+ * here from `/authorize` and this controller finishes the interaction —
  * `interactionDetails`/`interactionFinished` over the raw `(req, res)`
  * (§5-Inherit-3). Identity acquisition is pluggable (`IDENTITY_ACQUIRER`):
- * the dev stub in this PR, the OID4VP wallet presentation in P1.6.
+ * the dev stub completes the login prompt immediately; the OID4VP wallet
+ * acquirer renders a login page that polls `:uid/status` (P1.6.3) and, once
+ * the presentation is verified, navigates to `:uid/complete`.
  *
  * The binding rule (§3.3) is enforced by construction: `interactionDetails`
  * only resolves when the browser presents the `_interaction` cookie set on the
- * initiating `/authorize` request, so the authorization code is released only
- * into that browser session.
+ * initiating `/authorize` request (its path covers the sub-routes), so the
+ * authorization code is released only into that browser session — never into
+ * the wallet's return channel.
  */
 @ApiExcludeController()
 @Controller('interaction')
@@ -57,10 +60,54 @@ export class InteractionController {
     }
   }
 
+  /** Login progress for the polling login page (P1.6.3). Cookie-bound like every interaction route. */
+  @Get(':uid/status')
+  public async status(@Req() req: Request, @Res() res: Response): Promise<void> {
+    try {
+      const details = await this.provider.interactionDetails(req, res)
+      if (!this.identityAcquirer) {
+        res.json({ status: 'error', message: 'no identity acquisition method is enabled' })
+        return
+      }
+      res.json(await this.identityAcquirer.checkLogin(details.uid))
+    } catch (error) {
+      this.logger.warn(`Interaction status check failed: ${error}`)
+      res.status(400).json({ status: 'error', message: 'The sign-in attempt is no longer valid.' })
+    }
+  }
+
+  /** Completion route the login page navigates to once the presentation is verified (§3.3 step 12). */
+  @Get(':uid/complete')
+  public async complete(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const details = await this.provider.interactionDetails(req, res)
+    if (details.prompt.name !== 'login') {
+      return await this.provider.interactionFinished(
+        req,
+        res,
+        { error: 'invalid_request', error_description: 'interaction is not awaiting login' },
+        { mergeWithLastSubmission: false },
+      )
+    }
+
+    const loginConfig = this.resolveLoginConfig(details.params.client_id as string)
+    if (!loginConfig || !this.identityAcquirer) {
+      return await this.failLogin(req, res, details, 'server_error', 'login is not available')
+    }
+
+    try {
+      const identity = await this.identityAcquirer.completeLogin(loginConfig, details.uid)
+      return await this.finishLogin(req, res, details, loginConfig, identity)
+    } catch (error) {
+      this.logger.error(`Interaction ${details.uid}: completion failed: ${error}`)
+      return await this.failLogin(req, res, details, 'access_denied', 'the wallet presentation was not verified')
+    }
+  }
+
   /**
-   * Login prompt: resolve the client's login configuration, run the pluggable
-   * identity-acquisition step, then the claims pipeline — map/merge claims,
-   * compute `sub`, store the claim set for `findAccount` (§4.4) — and finish.
+   * Login prompt: resolve the client's login configuration and start the
+   * pluggable identity-acquisition step — an immediate identity (stub)
+   * finishes the interaction; a login page (wallet) is rendered and the
+   * browser drives the rest via `:uid/status` / `:uid/complete`.
    */
   private async login(req: Request, res: Response, details: InteractionDetails): Promise<void> {
     const clientId = details.params.client_id as string
@@ -68,29 +115,45 @@ export class InteractionController {
     const loginConfig = this.resolveLoginConfig(clientId)
     if (!loginConfig) {
       this.logger.error(`Interaction ${details.uid}: no login configuration for client '${clientId}'`)
-      return await this.provider.interactionFinished(
-        req,
-        res,
-        { error: 'server_error', error_description: 'no login configuration for client' },
-        { mergeWithLastSubmission: false },
-      )
+      return await this.failLogin(req, res, details, 'server_error', 'no login configuration for client')
     }
 
     if (!this.identityAcquirer) {
-      return await this.provider.interactionFinished(
-        req,
-        res,
-        {
-          error: 'access_denied',
-          error_description: 'no identity acquisition method is enabled',
-        },
-        { mergeWithLastSubmission: false },
-      )
+      return await this.failLogin(req, res, details, 'access_denied', 'no identity acquisition method is enabled')
     }
 
-    const identity = await this.identityAcquirer.acquire(loginConfig, details.uid)
+    try {
+      const result = await this.identityAcquirer.beginLogin(loginConfig, details.uid)
+      if (result.kind === 'identity') {
+        return await this.finishLogin(req, res, details, loginConfig, result.identity)
+      }
+      res.status(200).type('html').send(result.html)
+    } catch (error) {
+      this.logger.error(`Interaction ${details.uid}: login start failed: ${error}`)
+      return await this.failLogin(req, res, details, 'server_error', 'login could not be started')
+    }
+  }
+
+  /**
+   * The claims pipeline (P1.3/P1.4): map/merge claims, compute `sub` over the
+   * **mapped** claim set (§4.3 — the full disclosed set may carry volatile
+   * values and must not destabilize the derived `sub`), attach the full
+   * disclosed set as `vc_presented_attributes` (feasibility §3.5), store for
+   * `findAccount` (§4.4), and finish the interaction.
+   */
+  private async finishLogin(
+    req: Request,
+    res: Response,
+    details: InteractionDetails,
+    loginConfig: OidcLoginConfig,
+    identity: AcquiredIdentity,
+  ): Promise<void> {
+    const clientId = details.params.client_id as string
     const claims = mapClaims(loginConfig, identity.attributes)
     const sub = computeSub(loginConfig, clientId, claims, this.configService.oidcConfig.subHmacSalt)
+    if (identity.presentedAttributes) {
+      claims.vc_presented_attributes = identity.presentedAttributes
+    }
     this.accountClaims.set(sub, claims)
 
     this.logger.log(`Interaction ${details.uid}: login for client '${clientId}' (amr: ${identity.amr.join(',')})`)
@@ -98,6 +161,22 @@ export class InteractionController {
       req,
       res,
       { login: { accountId: sub, amr: identity.amr } },
+      { mergeWithLastSubmission: false },
+    )
+  }
+
+  private async failLogin(
+    req: Request,
+    res: Response,
+    details: InteractionDetails,
+    error: string,
+    description: string,
+  ): Promise<void> {
+    this.logger.warn(`Interaction ${details.uid}: ${error} — ${description}`)
+    return await this.provider.interactionFinished(
+      req,
+      res,
+      { error, error_description: description },
       { mergeWithLastSubmission: false },
     )
   }
