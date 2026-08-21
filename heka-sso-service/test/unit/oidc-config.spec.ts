@@ -139,6 +139,50 @@ describe('OidcConfig', () => {
     expect(new OidcConfig({ ...strongProductionEnv, OIDC_STUB_LOGIN: 'false' }).stubLogin).toBe(false)
   })
 
+  test('identity-service service account (P1.6.7): reads credentials and the auth-service base URL', () => {
+    const config = new OidcConfig({
+      IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
+      IDENTITY_SERVICE_AUTH_PASSWORD: 'service-account-password',
+    })
+
+    expect(config.identityService.authName).toBe('sso-bridge')
+    expect(config.identityService.authPassword).toBe('service-account-password')
+    expect(config.identityService.authServiceBaseUrl).toBe('http://localhost:3004')
+
+    expect(
+      new OidcConfig({ AUTH_SERVICE_BASE_URL: 'http://auth.internal:3004' }).identityService.authServiceBaseUrl,
+    ).toBe('http://auth.internal:3004')
+  })
+
+  test('service account in production: refuses the demo password and requires an explicit auth-service URL', () => {
+    expect(
+      () =>
+        new OidcConfig({
+          ...strongProductionEnv,
+          AUTH_SERVICE_BASE_URL: 'https://auth.example.com',
+          IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
+          IDENTITY_SERVICE_AUTH_PASSWORD: 'Password1234!',
+        }),
+    ).toThrow(/known default secret/)
+
+    expect(
+      () =>
+        new OidcConfig({
+          ...strongProductionEnv,
+          IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
+          IDENTITY_SERVICE_AUTH_PASSWORD: 'strong-production-password',
+        }),
+    ).toThrow(/AUTH_SERVICE_BASE_URL must be set in production/)
+
+    const config = new OidcConfig({
+      ...strongProductionEnv,
+      AUTH_SERVICE_BASE_URL: 'https://auth.example.com',
+      IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
+      IDENTITY_SERVICE_AUTH_PASSWORD: 'strong-production-password',
+    })
+    expect(config.identityService.authServiceBaseUrl).toBe('https://auth.example.com')
+  })
+
   test('rejects too-short client secrets in production', () => {
     expect(
       () =>

@@ -1,6 +1,9 @@
 import { ConfigService, IdentityServiceConfig, OidcLoginConfig } from '@config'
 import { Injectable, Logger } from '@nestjs/common'
 
+import { describeFetchError } from './fetch-error.util'
+import { IdentityServiceTokenProvider } from './identity-service-token.provider'
+
 /** Mirror of Credo's `OpenId4VcVerificationSessionState` (heka-identity-service session records). */
 export enum VerificationSessionState {
   RequestCreated = 'RequestCreated',
@@ -40,13 +43,22 @@ export interface VerificationSessionRecord {
  *
  * Response mode is plain `direct_post` in Phase 1 (P1.6.2); `direct_post.jwt`
  * lands with HAIP (P3.1).
+ *
+ * Authentication (P1.6.7): the bearer token comes from
+ * `IdentityServiceTokenProvider` — a self-refreshing service-account login
+ * against heka-auth-service, with `IDENTITY_SERVICE_AUTH_TOKEN` as a static
+ * override for tests/dev. An unexpected 401 on a service-account token drops
+ * the cache and retries the call once with a freshly acquired token.
  */
 @Injectable()
 export class VerificationSessionClient {
   private readonly logger = new Logger(VerificationSessionClient.name)
   private readonly config: IdentityServiceConfig
 
-  public constructor(configService: ConfigService) {
+  public constructor(
+    configService: ConfigService,
+    private readonly tokens: IdentityServiceTokenProvider,
+  ) {
     this.config = configService.oidcConfig.identityService
   }
 
@@ -93,20 +105,38 @@ export class VerificationSessionClient {
   }
 
   private async request<T>(method: 'GET' | 'POST', path: string, body?: Record<string, unknown>): Promise<T> {
-    const response = await fetch(`${this.config.baseUrl}${path}`, {
-      method,
-      headers: {
-        accept: 'application/json',
-        ...(body && { 'content-type': 'application/json' }),
-        ...(this.config.authToken && { authorization: `Bearer ${this.config.authToken}` }),
-      },
-      ...(body && { body: JSON.stringify(body) }),
-    })
+    let response = await this.send(method, path, body)
+
+    // P1.6.7: a service-account token may have been revoked or expired early —
+    // re-acquire once and retry; a second 401 surfaces as a normal failure
+    if (response.status === 401 && this.tokens.usesLogin) {
+      this.logger.warn(`identity-service ${method} ${path} returned 401 — re-acquiring the service-account token`)
+      this.tokens.invalidate()
+      response = await this.send(method, path, body)
+    }
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
       throw new Error(`identity-service ${method} ${path} failed: ${response.status} ${detail.slice(0, 500)}`)
     }
     return (await response.json()) as T
+  }
+
+  private async send(method: 'GET' | 'POST', path: string, body?: Record<string, unknown>): Promise<Response> {
+    const token = await this.tokens.getToken()
+    try {
+      return await fetch(`${this.config.baseUrl}${path}`, {
+        method,
+        headers: {
+          accept: 'application/json',
+          ...(body && { 'content-type': 'application/json' }),
+          ...(token && { authorization: `Bearer ${token}` }),
+        },
+        ...(body && { body: JSON.stringify(body) }),
+      })
+    } catch (error) {
+      // undici reports network failures as a bare "TypeError: fetch failed" — name the target and the cause
+      throw new Error(`identity-service at ${this.config.baseUrl} is unreachable: ${describeFetchError(error)}`)
+    }
   }
 }

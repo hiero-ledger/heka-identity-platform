@@ -8,6 +8,7 @@ export {
   LoginStatus,
   StubIdentityAcquirer,
 } from './identity-acquirer'
+export { IdentityServiceTokenProvider } from './identity-service-token.provider'
 export { InteractionController } from './interaction.controller'
 export { MikroOrmAdapter } from './mikro-orm.adapter'
 export { OidcModule } from './oidc.module'
