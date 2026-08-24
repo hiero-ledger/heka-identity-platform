@@ -99,8 +99,12 @@ const authorizeQuery = (codeVerifier: string, clientId = 'keycloak-broker') => (
  * resume → redirect back to the client, carrying cookies like a browser, and
  * returns the final redirect back to the client's redirect_uri.
  */
-const runAuthorizationFlow = async (app: express.Express, codeVerifier: string, clientId?: string) => {
-  const jar = new CookieJar()
+const runAuthorizationFlow = async (
+  app: express.Express,
+  codeVerifier: string,
+  clientId?: string,
+  jar = new CookieJar(),
+) => {
   let response = await request(app).get('/authorize').query(authorizeQuery(codeVerifier, clientId)).expect(303)
   jar.store(response)
 
@@ -174,6 +178,41 @@ describe('wallet-login interaction (P1.3, stub login)', () => {
         .expect(200)
       expect(userinfo.body.sub).toBe(idToken.sub)
       expect(userinfo.body).toMatchObject(storedClaims)
+    })
+
+    test('re-logins instead of crashing when the claim store dies under a live session (restart scenario)', async () => {
+      // login once — the browser keeps the provider session cookie (24h TTL)
+      const jar = new CookieJar()
+      const firstVerifier = randomBytes(32).toString('base64url')
+      const firstCallback = await runAuthorizationFlow(app, firstVerifier, undefined, jar)
+      expect(firstCallback.searchParams.get('code')).toBeTruthy()
+
+      // simulate a bridge restart: the in-memory claim store dies while the
+      // provider session (adapter-backed) survives
+      ;(accountClaims as unknown as { entries: Map<string, unknown> }).entries.clear()
+
+      // same browser session logs in again: the `claims_unresolvable` login
+      // check must force a fresh login (not crash the no-interaction path
+      // with server_error) — the flow completes end-to-end
+      const secondVerifier = randomBytes(32).toString('base64url')
+      const secondCallback = await runAuthorizationFlow(app, secondVerifier, undefined, jar)
+      expect(secondCallback.searchParams.get('error')).toBeNull()
+      const code = secondCallback.searchParams.get('code')
+      expect(code).toBeTruthy()
+
+      const tokens = await request(app)
+        .post('/token')
+        .auth('keycloak-broker', brokerSecret)
+        .type('form')
+        .send({
+          grant_type: 'authorization_code',
+          code,
+          code_verifier: secondVerifier,
+          redirect_uri: brokerRedirectUri,
+        })
+        .expect(200)
+      // the re-login restored the claim set for findAccount
+      expect(decodeJwtPayload(tokens.body.id_token).given_name).toBe('Stub')
     })
 
     test('derived sub is stable across logins (§4.3)', async () => {

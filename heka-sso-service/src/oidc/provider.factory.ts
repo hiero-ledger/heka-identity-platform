@@ -1,5 +1,6 @@
 import { OidcClientConfig, OidcConfig } from '@config'
-import Provider, { ClientMetadata, Configuration } from 'oidc-provider'
+import { Logger } from '@nestjs/common'
+import Provider, { ClientMetadata, Configuration, interactionPolicy } from 'oidc-provider'
 
 import { ClaimSet } from './claims.util'
 
@@ -58,6 +59,28 @@ ${Object.entries(out)
 }
 
 /**
+ * Interaction policy = the library default plus one login check: when the
+ * session claims an `accountId` whose claim set is no longer resolvable —
+ * the store is in-memory (P1.3/P1.5), so a restart wipes it while provider
+ * sessions persist in Postgres for up to a day — a fresh wallet login is
+ * required. Without this check the no-interaction fast path crashes: an
+ * unresolvable account skips grant loading and the consent checks then
+ * dereference the missing grant (`server_error` / "oops! something went
+ * wrong" on every login until the browser's session cookie dies).
+ */
+const buildInteractionPolicy = (accountClaims: AccountClaimsResolver) => {
+  const policy = interactionPolicy.base()
+  policy.get('login')!.checks.add(
+    new interactionPolicy.Check('claims_unresolvable', 'session account claims are no longer resolvable', (ctx) => {
+      const accountId = ctx.oidc.session?.accountId
+      if (accountId && !accountClaims.get(accountId)) return interactionPolicy.Check.REQUEST_PROMPT
+      return interactionPolicy.Check.NO_NEED_TO_PROMPT
+    }),
+  )
+  return policy
+}
+
+/**
  * Maps a validated static client config onto the provider's client metadata.
  * `login_config_id` rides along as extra metadata (declared below via
  * `extraClientMetadata`) for the interaction layer to resolve the login
@@ -112,6 +135,9 @@ export function createOidcProvider(
           claims: () => ({ ...claims, sub }),
         }
       },
+      interactions: {
+        policy: buildInteractionPolicy(accountClaims),
+      },
     }),
     extraClientMetadata: {
       properties: ['login_config_id'],
@@ -165,6 +191,13 @@ export function createOidcProvider(
 
   // TLS terminates at the reverse proxy — trust X-Forwarded-* (INTEGRATION.md §1).
   provider.proxy = true
+
+  // Uncaught provider exceptions render a generic "server_error" page and are
+  // otherwise invisible — surface the stack in the service log.
+  const logger = new Logger('OidcProvider')
+  provider.on('server_error', (ctx: { method?: string; path?: string }, err: Error) => {
+    logger.error(`server_error at ${ctx?.method} ${ctx?.path}: ${err?.message}`, err?.stack)
+  })
 
   return provider
 }
