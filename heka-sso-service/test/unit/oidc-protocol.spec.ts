@@ -108,16 +108,15 @@ describe('OIDC protocol policy', () => {
       expect(response.text).toContain('Sign-in error')
     })
 
-    test('accepts a missing PKCE challenge (requirement relaxed for Keycloak broker defaults)', async () => {
-      // pkce.required was relaxed to `() => false` (commit e7ef715): Keycloak's
-      // identity-provider config does not send PKCE unless explicitly enabled.
-      // Revisit once the demo realm (P1.7) pins PKCE S256 on the IdP side.
+    test('rejects a missing PKCE challenge — required for all clients (restored with the P1.7 demo realm)', async () => {
       const withoutPkce: Partial<typeof validAuthorizeQuery> = { ...validAuthorizeQuery }
       delete withoutPkce.code_challenge
       delete withoutPkce.code_challenge_method
       const response = await request(callback).get('/authorize').query(withoutPkce).expect(303)
 
-      expect(response.headers.location).toMatch(/\/interaction\/[^/]+$/)
+      const error = redirectError(response.headers.location)
+      expect(error.error).toBe('invalid_request')
+      expect(error.error_description).toContain('PKCE')
     })
 
     test('rejects the plain code_challenge_method — S256 only', async () => {
