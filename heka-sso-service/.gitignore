@@ -33,6 +33,7 @@ typings/
 lib/*.js
 test/*.js
 *.map
+.env
 
 .vscode
 .idea
