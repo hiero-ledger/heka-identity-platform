@@ -24,7 +24,8 @@
     "migration:pending": "npx mikro-orm migration:pending",
     "migration:fresh": "npx mikro-orm migration:fresh",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "vitest run --config vitest.e2e.config.mts"
   },
   "engines": {
     "node": "22.17.0"
@@ -67,9 +68,9 @@
     "@types/express": "5.0.0",
     "@types/node": "22.0.2",
     "@types/oidc-provider": "9.11.1",
+    "@types/qrcode": "1.5.5",
     "@types/supertest": "6.0.2",
     "@types/uuid": "9.0.8",
-    "@types/qrcode": "1.5.5",
     "eslint": "10.4.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.6",
