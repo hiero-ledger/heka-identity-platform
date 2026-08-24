@@ -92,7 +92,7 @@
         "tokenUrl": "http://host.docker.internal:3005/token",
         "jwksUrl": "http://host.docker.internal:3005/jwks",
         "userInfoUrl": "http://host.docker.internal:3005/userinfo",
-        "logoutUrl": "",
+        "logoutUrl": "http://host.docker.internal:3005/session/end",
         "issuer": "http://localhost:3005",
         "validateSignature": "true",
         "useJwksUrl": "true",
