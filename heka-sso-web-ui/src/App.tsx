@@ -1,5 +1,8 @@
 import { useEffect } from 'react'
 import { useAuth } from 'react-oidc-context'
+
+import styles from './App.module.scss'
+import Button from './components/Button/Button'
 import DashboardPage from './pages/DashboardPage'
 
 function App() {
@@ -17,24 +20,32 @@ function App() {
     }
   }, [shouldRedirect, auth])
 
-  if (auth.error) {
-    return (
-      <main>
-        <h1>Sign-in failed</h1>
-        <p>{auth.error.message}</p>
-        <button onClick={() => void auth.signinRedirect()}>Try again</button>
-      </main>
-    )
-  }
-
-  if (auth.isAuthenticated) {
-    return <DashboardPage />
-  }
-
+  // P2.9: presentation only — the auth flow and state switch are unchanged;
+  // the "Sign out" button moved out of the dashboard body into the top bar.
   return (
-    <main>
-      <p>Signing in…</p>
-    </main>
+    <div className={styles.app}>
+      <header className={styles.topBar}>
+        <span className={styles.title}>Heka SSO Web UI</span>
+        {auth.isAuthenticated && (
+          <Button buttonType="outlined" onPress={() => void auth.signoutRedirect()}>
+            Sign out
+          </Button>
+        )}
+      </header>
+      <main className={styles.main}>
+        {auth.error ? (
+          <div className={styles.error}>
+            <h1 className={styles.errorTitle}>Sign-in failed</h1>
+            <p className={styles.errorMessage}>{auth.error.message}</p>
+            <Button onPress={() => void auth.signinRedirect()}>Try again</Button>
+          </div>
+        ) : auth.isAuthenticated ? (
+          <DashboardPage />
+        ) : (
+          <p className={styles.status}>Signing in…</p>
+        )}
+      </main>
+    </div>
   )
 }
 

@@ -1,5 +1,7 @@
 import { useAuth } from 'react-oidc-context'
 
+import styles from './DashboardPage.module.scss'
+
 const KNOWN_CLAIMS = [
   'sub',
   'given_name',
@@ -20,35 +22,34 @@ function DashboardPage() {
   const profile: Record<string, unknown> = auth.user?.profile ?? {}
 
   return (
-    <main>
-      <h1>Dashboard</h1>
-      <p>You are signed in via Keycloak.</p>
-      <table>
+    <section className={styles.card}>
+      <div>
+        <h1 className={styles.heading}>Dashboard</h1>
+        <p className={styles.subheading}>You are signed in via Keycloak.</p>
+      </div>
+      <table className={styles.claims}>
         <thead>
           <tr>
-            <th style={{ textAlign: 'left' }}>Claim</th>
-            <th style={{ textAlign: 'left' }}>Value</th>
+            <th>Claim</th>
+            <th>Value</th>
           </tr>
         </thead>
         <tbody>
           {KNOWN_CLAIMS.map((claim) => (
             <tr key={claim}>
-              <td style={{ textAlign: 'left' }}>
+              <td>
                 <code>{claim}</code>
               </td>
-              <td style={{ textAlign: 'left' }}>{formatClaim(profile[claim])}</td>
+              <td>{formatClaim(profile[claim])}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <details>
+      <details className={styles.debug}>
         <summary>Raw ID token claims</summary>
-        <pre style={{ textAlign: 'left' }}>{JSON.stringify(profile, null, 2)}</pre>
+        <pre>{JSON.stringify(profile, null, 2)}</pre>
       </details>
-      <p>
-        <button onClick={() => void auth.signoutRedirect()}>Sign out</button>
-      </p>
-    </main>
+    </section>
   )
 }
 
