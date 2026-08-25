@@ -26,6 +26,22 @@ export type BeginLoginResult = { kind: 'identity'; identity: AcquiredIdentity } 
 /** Progress of a pending login, as reported to the polling login page (P1.6.3). */
 export type LoginStatus = { status: 'pending' } | { status: 'verified' } | { status: 'error'; message?: string }
 
+/** JSON payload for the static login page's QR path (P2.1.1: `GET /interaction/:uid/data`). */
+export interface LoginPageData {
+  /** Wallet-facing authorization request URI (`openid4vp://?request_uri=…`) — the deep-link target. */
+  authorizationRequest: string
+  /** Server-rendered QR of `authorizationRequest`, as a `data:image/png` URL. */
+  qrDataUrl: string
+}
+
+/** A DC API request for `navigator.credentials.get()` (P2.1: `POST /interaction/:uid/dc-api/start`). */
+export interface DcApiLoginRequest {
+  /** DC API protocol identifier (`openid4vp-v1-signed` / `openid4vp-v1-unsigned`). */
+  protocol: string
+  /** The authorization request object, passed as the DC API request's `data`. */
+  request: Record<string, unknown>
+}
+
 /**
  * How the interaction establishes who the user is. The flow is two-phase to
  * fit the target flow's asynchronous wallet presentation (feasibility §3.3):
@@ -33,11 +49,22 @@ export type LoginStatus = { status: 'pending' } | { status: 'verified' } | { sta
  * whose browser then polls `checkLogin` and, once verified, navigates to the
  * completion route, which calls `completeLogin` — in the same cookie-bound
  * browser session (the §3.3 binding rule).
+ *
+ * The optional methods are the static login page's JSON API (P2.1/P2.1.1) —
+ * only the wallet acquirer implements them (the stub never renders a page):
+ * `getLoginData` starts the cross-device QR path, `beginDcApiLogin` /
+ * `verifyDcApiLogin` the DC API same-device path.
  */
 export interface IdentityAcquirer {
   beginLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<BeginLoginResult>
   checkLogin(interactionUid: string): Promise<LoginStatus>
   completeLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<AcquiredIdentity>
+  /** P2.1.1: create the cross-device verification session and return the QR/deep-link data. */
+  getLoginData?(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData>
+  /** P2.1: create a DC API verification session and return the `navigator.credentials.get()` request. */
+  beginDcApiLogin?(loginConfig: OidcLoginConfig, interactionUid: string): Promise<DcApiLoginRequest>
+  /** P2.1: verify the wallet's DC API response (the parsed `DigitalCredential.data`). */
+  verifyDcApiLogin?(interactionUid: string, authorizationResponse: Record<string, unknown>): Promise<LoginStatus>
 }
 
 /** Fixed dev identity the stub discloses, keyed by OIDC claim name. */

@@ -1,5 +1,5 @@
 import { ConfigService, OidcLoginConfig } from '@config'
-import { Controller, Get, Inject, Logger, Optional, Req, Res } from '@nestjs/common'
+import { Body, Controller, Get, Inject, Logger, Optional, Post, Req, Res } from '@nestjs/common'
 import { ApiExcludeController } from '@nestjs/swagger'
 import { Request, Response } from 'express'
 import type Provider from 'oidc-provider'
@@ -17,8 +17,11 @@ type InteractionDetails = Awaited<ReturnType<Provider['interactionDetails']>>
  * `interactionDetails`/`interactionFinished` over the raw `(req, res)`
  * (§5-Inherit-3). Identity acquisition is pluggable (`IDENTITY_ACQUIRER`):
  * the dev stub completes the login prompt immediately; the OID4VP wallet
- * acquirer renders a login page that polls `:uid/status` (P1.6.3) and, once
- * the presentation is verified, navigates to `:uid/complete`.
+ * acquirer serves a static login page (P2.1.1) driven by the JSON routes here
+ * — `:uid/data` (QR/deep-link, cross-device), `:uid/dc-api/start` +
+ * `:uid/dc-api/verify` (Digital Credentials API, same-device — P2.1),
+ * `:uid/status` polling (P1.6.3) — and, once the presentation is verified,
+ * the page navigates to `:uid/complete`.
  *
  * The binding rule (§3.3) is enforced by construction: `interactionDetails`
  * only resolves when the browser presents the `_interaction` cookie set on the
@@ -57,6 +60,95 @@ export class InteractionController {
           { error: 'interaction_required', error_description: `unsupported prompt '${details.prompt.name}'` },
           { mergeWithLastSubmission: false },
         )
+    }
+  }
+
+  /**
+   * The static login page's data (P2.1.1): creates the cross-device
+   * verification session and returns the QR + deep-link payload. Cookie-bound
+   * like every interaction route (§3.3).
+   */
+  @Get(':uid/data')
+  public async data(@Req() req: Request, @Res() res: Response): Promise<void> {
+    await this.pageApi(req, res, async (details, loginConfig) => {
+      if (!this.identityAcquirer?.getLoginData) {
+        res.status(400).json({ status: 'error', message: 'wallet login is not enabled' })
+        return
+      }
+      res.json(await this.identityAcquirer.getLoginData(loginConfig, details.uid))
+    })
+  }
+
+  /** DC API same-device login, step 1 (P2.1): create the `dc_api` session and return the request object. */
+  @Post(':uid/dc-api/start')
+  public async dcApiStart(@Req() req: Request, @Res() res: Response): Promise<void> {
+    await this.pageApi(req, res, async (details, loginConfig) => {
+      if (!this.identityAcquirer?.beginDcApiLogin) {
+        res.status(400).json({ status: 'error', message: 'wallet login is not enabled' })
+        return
+      }
+      // Nest defaults POST routes to 201 by pre-setting res.statusCode — this is a plain JSON read
+      res.status(200).json(await this.identityAcquirer.beginDcApiLogin(loginConfig, details.uid))
+    })
+  }
+
+  /**
+   * DC API same-device login, step 2 (P2.1): the browser forwards the wallet's
+   * response (the parsed `DigitalCredential.data`); the bridge submits it to
+   * the identity service's origin-bound verify endpoint. The origin is the
+   * bridge's own — never taken from the request.
+   */
+  @Post(':uid/dc-api/verify')
+  public async dcApiVerify(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Body() body: { authorizationResponse?: Record<string, unknown> },
+  ): Promise<void> {
+    await this.pageApi(req, res, async (details) => {
+      if (!this.identityAcquirer?.verifyDcApiLogin) {
+        res.status(400).json({ status: 'error', message: 'wallet login is not enabled' })
+        return
+      }
+      if (!body?.authorizationResponse || typeof body.authorizationResponse !== 'object') {
+        res.status(400).json({ status: 'error', message: 'authorizationResponse is required' })
+        return
+      }
+      res.status(200).json(await this.identityAcquirer.verifyDcApiLogin(details.uid, body.authorizationResponse))
+    })
+  }
+
+  /**
+   * Shared wrapper for the login page's JSON API (P2.1/P2.1.1): resolves the
+   * interaction from the `_interaction` cookie (§3.3 binding — requests
+   * without it get a 400 and no session state), resolves the client's login
+   * configuration, and turns failures into JSON errors instead of HTML.
+   */
+  private async pageApi(
+    req: Request,
+    res: Response,
+    handler: (details: InteractionDetails, loginConfig: OidcLoginConfig) => Promise<void>,
+  ): Promise<void> {
+    let details: InteractionDetails
+    try {
+      details = await this.provider.interactionDetails(req, res)
+    } catch (error) {
+      this.logger.warn(`Interaction lookup failed: ${error}`)
+      res.status(400).json({ status: 'error', message: 'The sign-in attempt is no longer valid.' })
+      return
+    }
+
+    const loginConfig = this.resolveLoginConfig(details.params.client_id as string)
+    if (!loginConfig) {
+      this.logger.error(`Interaction ${details.uid}: no login configuration for client '${details.params.client_id}'`)
+      res.status(400).json({ status: 'error', message: 'login is not available' })
+      return
+    }
+
+    try {
+      await handler(details, loginConfig)
+    } catch (error) {
+      this.logger.error(`Interaction ${details.uid}: page API call failed: ${error}`)
+      res.status(400).json({ status: 'error', message: 'The sign-in attempt could not be started.' })
     }
   }
 

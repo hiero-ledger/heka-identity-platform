@@ -3,8 +3,10 @@ export { ClaimSet, computeSub, mapClaims } from './claims.util'
 export {
   AcquiredIdentity,
   BeginLoginResult,
+  DcApiLoginRequest,
   IDENTITY_ACQUIRER,
   IdentityAcquirer,
+  LoginPageData,
   LoginStatus,
   StubIdentityAcquirer,
 } from './identity-acquirer'
@@ -16,6 +18,7 @@ export { OidcCleanupService } from './oidc-cleanup.service'
 export { AccountClaimsResolver, createOidcProvider, OIDC_PROVIDER } from './provider.factory'
 export { SIGNING_ALGS, SigningAlg, SigningKeysService } from './signing-keys.service'
 export {
+  CreatedDcApiVerificationSession,
   CreatedVerificationSession,
   VerificationSessionClient,
   VerificationSessionRecord,
