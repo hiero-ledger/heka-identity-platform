@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!--
+  RP-initiated logout - interactive confirmation dialog (P2.5.1/P2.10.1).
+  Served for hint-less requests always, and for id_token_hint requests unless
+  OIDC_LOGOUT_AUTO_CONFIRM enables the auto-confirm page (logout-auto.html).
+  {{form}} is the library's XSRF form, embedded verbatim (it carries the XSRF
+  secret - the CSRF protection this dialog exists for); {{host}} is escaped by
+  the server.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign out</title>
+<link rel="stylesheet" href="/interaction/assets/styles.css">
+</head>
+<body>
+<main class="card">
+<header class="brand">
+  <img src="/interaction/assets/logo.svg" alt="">
+  <span class="brand-name">Heka</span>
+</header>
+<h1>Sign out</h1>
+{{form}}
+<p>Do you want to sign out from {{host}}?</p>
+<div class="actions">
+  <button autofocus type="submit" form="op.logoutForm" value="yes" name="logout">Yes, sign me out</button>
+  <button class="secondary" type="submit" form="op.logoutForm">No, stay signed in</button>
+</div>
+</main>
+</body>
+</html>

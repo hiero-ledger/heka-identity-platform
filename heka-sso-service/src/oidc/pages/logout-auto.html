@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!--
+  RP-initiated logout - auto-confirm page (P2.5.1/P2.10.1). Served only when
+  OIDC_LOGOUT_AUTO_CONFIRM is enabled AND the request carries a valid
+  id_token_hint: in the broker chain the user already chose to sign out at the
+  IdP, so this page submits the confirmation itself. The interactive buttons
+  remain as the noscript fallback. {{form}} is the library's XSRF form,
+  embedded verbatim.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign out</title>
+<link rel="stylesheet" href="/interaction/assets/styles.css">
+</head>
+<body>
+<main class="card">
+<header class="brand">
+  <img src="/interaction/assets/logo.svg" alt="">
+  <span class="brand-name">Heka</span>
+</header>
+<h1>Sign out</h1>
+{{form}}
+<p role="status">Signing you out&hellip;</p>
+<noscript>
+<div class="actions">
+  <button autofocus type="submit" form="op.logoutForm" value="yes" name="logout">Yes, sign me out</button>
+  <button class="secondary" type="submit" form="op.logoutForm">No, stay signed in</button>
+</div>
+</noscript>
+<script>
+  (function () {
+    var form = document.getElementById('op.logoutForm');
+    var confirm = document.createElement('input');
+    confirm.type = 'hidden';
+    confirm.name = 'logout';
+    confirm.value = 'yes';
+    form.appendChild(confirm);
+    form.submit();
+  })();
+</script>
+</main>
+</body>
+</html>

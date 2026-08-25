@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common'
 import Provider, { ClientMetadata, Configuration, interactionPolicy } from 'oidc-provider'
 
 import { ClaimSet } from './claims.util'
+import { renderPage } from './pages'
 
 /** DI token for the configured `oidc-provider` instance. */
 export const OIDC_PROVIDER = 'OIDC_PROVIDER'
@@ -37,25 +38,17 @@ const openidScopeClaims = (config: OidcConfig): string[] => {
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`)
 
 /**
- * Minimal branded error page (Phase 1 — the wallet-login interaction PR owns
- * the real UI). Never leaks stack traces; `out` carries only the OAuth error
- * fields the library deems safe to show.
+ * Error page (P2.10.1: pixels live in `pages/error.html`). Never leaks stack
+ * traces; `out` carries only the OAuth error fields the library deems safe to
+ * show.
  */
 const renderError: NonNullable<Configuration['renderError']> = async (ctx, out) => {
   ctx.type = 'html'
-  ctx.body = `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Sign-in error</title></head>
-<body>
-<h1>Sign-in error</h1>
-<p>The sign-in request could not be processed.</p>
-<dl>
-${Object.entries(out)
-  .map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(String(value))}</dd>`)
-  .join('\n')}
-</dl>
-</body>
-</html>`
+  ctx.body = renderPage('error.html', {
+    details: Object.entries(out)
+      .map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(String(value))}</dd>`)
+      .join('\n'),
+  })
 }
 
 /**
@@ -104,18 +97,19 @@ const toClientMetadata = (client: OidcClientConfig): ClientMetadata => ({
 })
 
 /**
- * RP-initiated logout confirmation page (P2.5.1). The pre-built `form`
- * argument must be embedded verbatim — it carries the XSRF secret — and the
- * confirm button submits `name="logout"`.
+ * RP-initiated logout confirmation page (P2.5.1; pixels live in
+ * `pages/logout-confirm.html` / `pages/logout-auto.html` since P2.10.1). The
+ * pre-built `form` argument must be embedded verbatim — it carries the XSRF
+ * secret — and the confirm button submits `name="logout"`.
  *
  * The confirmation dialog is shown by default on every request. With
  * `OIDC_LOGOUT_AUTO_CONFIRM=true`, requests carrying a valid `id_token_hint`
  * skip it: in the broker chain, logout arrives from the IdP (Keycloak) after
  * the user already chose to sign out there, so the bridge's own dialog is
- * redundant — the page injects `logout=yes` and self-submits. The interactive
- * dialog always remains for hint-less requests, where it serves its
- * CSRF-protection purpose (and as the noscript fallback of the auto-confirm
- * path).
+ * redundant — the auto page injects `logout=yes` and self-submits. The
+ * interactive dialog always remains for hint-less requests, where it serves
+ * its CSRF-protection purpose (and as the noscript fallback of the
+ * auto-confirm page).
  */
 const buildLogoutSource =
   (
@@ -124,36 +118,9 @@ const buildLogoutSource =
   async (ctx, form) => {
     const autoConfirm = autoConfirmWithHint && Boolean(ctx.oidc.entities.IdTokenHint)
     ctx.type = 'html'
-    ctx.body = `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign out</title></head>
-<body>
-<h1>Sign out</h1>
-${form}
-${
-  autoConfirm
-    ? `<p role="status">Signing you out&hellip;</p>
-<noscript>
-<button autofocus type="submit" form="op.logoutForm" value="yes" name="logout">Yes, sign me out</button>
-<button type="submit" form="op.logoutForm">No, stay signed in</button>
-</noscript>
-<script>
-  (function () {
-    var form = document.getElementById('op.logoutForm');
-    var confirm = document.createElement('input');
-    confirm.type = 'hidden';
-    confirm.name = 'logout';
-    confirm.value = 'yes';
-    form.appendChild(confirm);
-    form.submit();
-  })();
-</script>`
-    : `<p>Do you want to sign out from ${escapeHtml(ctx.host)}?</p>
-<button autofocus type="submit" form="op.logoutForm" value="yes" name="logout">Yes, sign me out</button>
-<button type="submit" form="op.logoutForm">No, stay signed in</button>`
-}
-</body>
-</html>`
+    ctx.body = autoConfirm
+      ? renderPage('logout-auto.html', { form })
+      : renderPage('logout-confirm.html', { form, host: escapeHtml(ctx.host) })
   }
 
 /** Post-logout page (P2.5.1) — shown only when the RP registered no `post_logout_redirect_uri`. */
@@ -161,14 +128,7 @@ const postLogoutSuccessSource: NonNullable<
   NonNullable<NonNullable<Configuration['features']>['rpInitiatedLogout']>['postLogoutSuccessSource']
 > = async (ctx) => {
   ctx.type = 'html'
-  ctx.body = `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Signed out</title></head>
-<body>
-<h1>Signed out</h1>
-<p>You have been signed out.</p>
-</body>
-</html>`
+  ctx.body = renderPage('logout-success.html')
 }
 
 /**

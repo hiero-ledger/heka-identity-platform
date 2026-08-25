@@ -1,0 +1,181 @@
+/*
+ * Shared bridge-page stylesheet (INTEGRATION.md P2.10.1) — the platform's
+ * visual language (tokens from heka-identity-service-web-ui: colors,
+ * typography scale, spacing; the P2.1.1 reuse rule — shared pixels, not
+ * semantics). Self-contained on purpose: no CDN/font imports on a login page.
+ *
+ * Per-deployment branding: edit this file (or volume-mount over
+ * dist/oidc/pages in Docker). Per-client branding: the login configuration's
+ * `branding` block (P2.10.3) overrides the --brand-* variables at runtime.
+ */
+
+:root {
+  /* brand-overridable (branding.colors, P2.10.3) */
+  --brand-primary: #2e2721; /* --color-primary */
+  --brand-primary-hover: #27211c;
+  --brand-primary-pressed: #201b17;
+  --brand-page-background: #f7f4f1; /* --color-surface-2 */
+  --brand-card-background: #fff; /* --color-surface-deep */
+  --brand-muted-background: #f1ece7; /* --color-surface-4 */
+  --brand-text: rgb(0 0 0 / 90%); /* --color-dark-high-emphasis */
+  --brand-text-muted: rgb(0 0 0 / 65%); /* --color-dark-medium-emphasis */
+  --brand-border: #edeff1; /* --color-surface-grey-2 */
+
+  /* platform pixels */
+  --brand-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --shadow-small:
+    0 0 8px 0 rgb(0 0 0 / 7%), 0 2px 4px 0 rgb(0 0 0 / 7%), 0 1px 2px 0 rgb(0 0 0 / 7%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* author display rules below (e.g. `section { display: flex }`) would defeat
+   the UA's [hidden] { display: none } — the login page toggles its sections
+   with the hidden attribute, so restore its authority */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--brand-page-background);
+  color: var(--brand-text);
+  font: 400 14px / 20px var(--brand-font);
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 32px;
+  background: var(--brand-card-background);
+  border-radius: 24px;
+  box-shadow: var(--shadow-small);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand img {
+  height: 32px;
+  width: auto;
+}
+
+.brand-name {
+  font: 600 16px / 24px var(--brand-font);
+}
+
+h1 {
+  margin: 0;
+  font: 600 20px / 28px var(--brand-font);
+}
+
+p {
+  margin: 0;
+}
+
+.muted,
+[role='status'] {
+  color: var(--brand-text-muted);
+}
+
+a {
+  color: var(--brand-primary);
+  font-weight: 500;
+}
+
+section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+button {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 12px;
+  background: var(--brand-primary);
+  color: rgb(255 255 255 / 90%);
+  font: 500 15px / 24px var(--brand-font);
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--brand-primary-hover);
+}
+
+button:active {
+  background: var(--brand-primary-pressed);
+}
+
+button:disabled {
+  background: rgb(0 0 0 / 5%);
+  color: rgb(0 0 0 / 38%);
+  cursor: default;
+}
+
+button:focus-visible {
+  outline: var(--brand-primary) solid 2px;
+  outline-offset: 2px;
+}
+
+button.secondary {
+  background: none;
+  border: 1px solid var(--brand-text);
+  color: var(--brand-text);
+}
+
+button.secondary:hover {
+  background: rgb(0 0 0 / 5%);
+}
+
+button.secondary:active {
+  background: rgb(0 0 0 / 8%);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#qr-image {
+  border-radius: 12px;
+  border: 1px solid var(--brand-border);
+  align-self: center;
+}
+
+dl {
+  margin: 0;
+  padding: 16px;
+  background: var(--brand-muted-background);
+  border-radius: 12px;
+}
+
+dt {
+  font: 500 11px / 16px var(--brand-font);
+  color: var(--brand-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+dd {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+
+dd:last-child {
+  margin-bottom: 0;
+}

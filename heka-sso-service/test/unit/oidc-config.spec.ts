@@ -83,6 +83,41 @@ describe('OidcConfig', () => {
     expect(config.loginConfigs).toHaveLength(1)
     expect(config.loginConfigs[0].subStrategy).toBe(SubStrategy.derived)
     expect(config.loginConfigs[0].issuerAllowlist).toEqual([])
+    expect(config.loginConfigs[0].branding).toBeUndefined()
+  })
+
+  test('login-config branding (P2.10.3): parsed when present, validated', () => {
+    const config = new OidcConfig({
+      OIDC_LOGIN_CONFIGS: JSON.stringify([
+        {
+          id: 'branded',
+          verificationTemplate: 'pid-template',
+          claimMapping: {},
+          branding: {
+            productName: 'Acme ID',
+            logoUrl: '/interaction/assets/acme.svg',
+            colors: { 'brand-primary': '#123456', '--brand-page-background': '#fafafa' },
+            customCss: '.card { border-top: 4px solid #123456; }',
+          },
+        },
+      ]),
+    })
+
+    expect(config.loginConfigs[0].branding).toMatchObject({
+      productName: 'Acme ID',
+      logoUrl: '/interaction/assets/acme.svg',
+      colors: { 'brand-primary': '#123456', '--brand-page-background': '#fafafa' },
+      customCss: '.card { border-top: 4px solid #123456; }',
+    })
+
+    // malformed branding is rejected by validation
+    expect(() =>
+      validate({
+        OIDC_LOGIN_CONFIGS: JSON.stringify([
+          { id: 'bad', verificationTemplate: 't', claimMapping: {}, branding: { productName: 42 } },
+        ]),
+      }),
+    ).toThrow()
   })
 
   test('rejects malformed configuration in any environment', () => {

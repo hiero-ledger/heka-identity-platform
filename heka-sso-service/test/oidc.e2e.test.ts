@@ -70,6 +70,8 @@ const e2eEnv: Record<string, string> = {
       },
       subStrategy: 'derived',
       issuerAllowlist: [],
+      // P2.10.3: per-client login-page branding
+      branding: { productName: 'E2E Corp ID', colors: { 'brand-primary': '#0a5c36' } },
     },
   ]),
   // wiped/overridden per app below
@@ -815,6 +817,29 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       const callbackUrl = await follow303Chain(app, jar, complete.headers.location)
       expect(callbackUrl.searchParams.get('error')).toBe('access_denied')
       expect(callbackUrl.searchParams.get('code')).toBeNull()
+    })
+
+    test('bridge-page branding (P2.10): shared assets served, per-client branding cookie-bound', async () => {
+      const codeVerifier = randomBytes(32).toString('base64url')
+      const jar = jarFactory()
+
+      const authorize = await request(app).get('/authorize').query(authorizeQuery(codeVerifier)).expect(303)
+      jar.store(authorize)
+      const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
+
+      // the login page links the shared stylesheet (P2.10.1) …
+      const page = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+      expect(page.text).toContain('/interaction/assets/styles.css')
+
+      // … which the bridge serves from its own origin
+      const css = await request(app).get('/interaction/assets/styles.css').expect(200)
+      expect(css.headers['content-type']).toContain('text/css')
+      expect(css.text).toContain('--brand-primary')
+
+      // per-client branding (P2.10.3), cookie-bound like every interaction route
+      const branding = await request(app).get(`${interactionPath}/branding`).set('Cookie', jar.header()).expect(200)
+      expect(branding.body).toEqual({ productName: 'E2E Corp ID', colors: { 'brand-primary': '#0a5c36' } })
+      await request(app).get(`${interactionPath}/branding`).expect(400)
     })
 
     /** P2.7/AT.5 — the proof request is built server-side from the login config; the browser supplies nothing. */

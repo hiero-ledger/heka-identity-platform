@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<!--
+  Provider error page (P2.10.1) - rendered by the library's renderError hook.
+  {{details}} is the pre-escaped list of OAuth error fields the library deems
+  safe to show; stack traces never reach this page.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign-in error</title>
+<link rel="stylesheet" href="/interaction/assets/styles.css">
+</head>
+<body>
+<main class="card">
+<header class="brand">
+  <img src="/interaction/assets/logo.svg" alt="">
+  <span class="brand-name">Heka</span>
+</header>
+<h1>Sign-in error</h1>
+<p class="muted">The sign-in request could not be processed.</p>
+<dl>
+{{details}}
+</dl>
+</main>
+</body>
+</html>

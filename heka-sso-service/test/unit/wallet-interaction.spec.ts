@@ -73,6 +73,12 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
         claimMapping: { 'pid.given_name': 'given_name', 'pid.family_name': 'family_name' },
         subStrategy: 'derived',
         issuerAllowlist: [],
+        // P2.10.3: per-client login-page branding, served via GET :uid/branding
+        branding: {
+          productName: 'Acme ID',
+          logoUrl: '/interaction/assets/acme.svg',
+          colors: { 'brand-primary': '#123456' },
+        },
       },
     ]),
   })
@@ -92,6 +98,9 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
   })
   app.get('/interaction/:uid/data', (req, res, next) => {
     controller.data(req, res).catch(next)
+  })
+  app.get('/interaction/:uid/branding', (req, res, next) => {
+    controller.branding(req, res).catch(next)
   })
   app.post('/interaction/:uid/dc-api/start', (req, res, next) => {
     controller.dcApiStart(req, res).catch(next)
@@ -174,6 +183,30 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     expect(page.text).not.toContain(interactionPath)
     expect(sessionsMock.createSignedRequest).not.toHaveBeenCalled()
     expect(sessionsMock.createDcApiRequest).not.toHaveBeenCalled()
+  })
+
+  test('branding (P2.10.3): the login config branding is served to the page, cookie-bound (§3.3)', async () => {
+    const codeVerifier = randomBytes(32).toString('base64url')
+    const { jar, interactionPath } = await startFlow(codeVerifier)
+
+    // the static page links the shared assets and the branding hooks (P2.10.1)
+    const page = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+    expect(page.text).toContain('/interaction/assets/styles.css')
+    expect(page.text).toContain("base + '/branding'") // the page fetches :uid/branding client-side
+
+    const branding = await request(app).get(`${interactionPath}/branding`).set('Cookie', jar.header()).expect(200)
+    expect(branding.body).toEqual({
+      productName: 'Acme ID',
+      logoUrl: '/interaction/assets/acme.svg',
+      colors: { 'brand-primary': '#123456' },
+    })
+    // cosmetic read only — no verification session was created
+    expect(sessionsMock.createSignedRequest).not.toHaveBeenCalled()
+    expect(sessionsMock.createDcApiRequest).not.toHaveBeenCalled()
+
+    // §3.3: without the interaction cookie the branding (like every route) is refused
+    const uncookied = await request(app).get(`${interactionPath}/branding`).expect(400)
+    expect(uncookied.body.status).toBe('error')
   })
 
   test('QR fallback: data → poll → complete → tokens with amr vc (P1.6.3/P2.1.1)', async () => {
