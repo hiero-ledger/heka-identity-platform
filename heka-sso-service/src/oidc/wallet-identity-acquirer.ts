@@ -35,7 +35,7 @@ interface PendingLogin {
  *   the bridge's own (from the issuer URL) — never client-supplied.
  * - **QR fallback (P1.6)**: `getLoginData` creates a `direct_post` session
  *   (signed JAR — P1.6.1) and returns QR + deep link; the page **polls**
- *   `checkLogin` (P1.6.3 — the WebSocket push lands in P2.2).
+ *   `checkLogin` (P1.6.3 — the WebSocket push is postponed to P3.7).
  *
  * Either way the page navigates to the completion route in the same
  * cookie-bound browser session (§3.3 binding rule); `completeLogin` accepts

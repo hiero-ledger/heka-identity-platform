@@ -30,6 +30,10 @@ const e2eEnv: Record<string, string> = {
       clientId: brokerClientId,
       clientSecret: brokerSecret,
       redirectUris: [brokerRedirectUri],
+      postLogoutRedirectUris: [`${brokerRedirectUri}/logout_response`],
+      // makes the provider mint `sid` (P2.5); unreachable on purpose — a failed
+      // back-channel POST must never break the RP-initiated logout itself
+      backchannelLogoutUri: 'http://localhost:9/backchannel-logout',
       loginConfigId: 'default',
     },
   ]),
@@ -317,6 +321,52 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         const replay = await exchangeCode(app, code, codeVerifier)
         expect(replay.status).toBe(400)
         expect(replay.body.error).toBe('invalid_grant')
+      })
+
+      test('RP-initiated logout (P2.5): confirmation dialog → session ended → redirect to the broker logout return (P2.5.1)', async () => {
+        // sign in, keeping the session cookies
+        const codeVerifier = randomBytes(32).toString('base64url')
+        const jar = jarFactory()
+        const authorize = await request(app).get('/authorize').query(authorizeQuery(codeVerifier)).expect(303)
+        jar.store(authorize)
+        const callbackUrl = await follow303Chain(app, jar, authorize.headers.location)
+        const tokens = await exchangeCode(app, callbackUrl.searchParams.get('code'), codeVerifier)
+        const idToken = tokens.body.id_token as string
+        expect(decodeJwtPayload(idToken).sid).toEqual(expect.any(String)) // sid-matched logout reference
+
+        // default behavior: the confirmation dialog is shown (auto-confirm is opt-in via OIDC_LOGOUT_AUTO_CONFIRM)
+        const confirmPage = await request(app)
+          .get('/session/end')
+          .query({
+            id_token_hint: idToken,
+            post_logout_redirect_uri: `${brokerRedirectUri}/logout_response`,
+            state: 'kc-logout-state',
+          })
+          .set('Cookie', jar.header())
+          .expect(200)
+        expect(confirmPage.text).toContain('Do you want to sign out')
+        jar.store(confirmPage)
+
+        const xsrf = /name="xsrf" value="([^"]+)"/.exec(confirmPage.text)![1]
+        const confirmed = await request(app)
+          .post('/session/end/confirm')
+          .type('form')
+          .set('Cookie', jar.header())
+          .send({ xsrf, logout: 'yes' })
+          .expect(303)
+        jar.store(confirmed)
+        const redirect = new URL(confirmed.headers.location)
+        expect(`${redirect.origin}${redirect.pathname}`).toBe(`${brokerRedirectUri}/logout_response`)
+        expect(redirect.searchParams.get('state')).toBe('kc-logout-state')
+
+        // the session is really gone — silent re-auth must fail
+        const silentVerifier = randomBytes(32).toString('base64url')
+        const silent = await request(app)
+          .get('/authorize')
+          .query({ ...authorizeQuery(silentVerifier), prompt: 'none' })
+          .set('Cookie', jar.header())
+          .expect(303)
+        expect(new URL(silent.headers.location).searchParams.get('error')).toBe('login_required')
       })
 
       test('stable sub across logins (derived strategy)', async () => {

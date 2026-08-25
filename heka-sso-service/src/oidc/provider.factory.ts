@@ -94,8 +94,82 @@ const toClientMetadata = (client: OidcClientConfig): ClientMetadata => ({
   response_types: client.responseTypes as ClientMetadata['response_types'],
   token_endpoint_auth_method: client.tokenEndpointAuthMethod as ClientMetadata['token_endpoint_auth_method'],
   ...(client.postLogoutRedirectUris !== undefined && { post_logout_redirect_uris: client.postLogoutRedirectUris }),
+  // P2.5: back-channel logout receiver; session_required puts `sid` into
+  // id_tokens and logout_tokens so the receiver can match the exact session.
+  ...(client.backchannelLogoutUri !== undefined && {
+    backchannel_logout_uri: client.backchannelLogoutUri,
+    backchannel_logout_session_required: client.backchannelLogoutSessionRequired ?? true,
+  }),
   ...(client.loginConfigId !== undefined && { login_config_id: client.loginConfigId }),
 })
+
+/**
+ * RP-initiated logout confirmation page (P2.5.1). The pre-built `form`
+ * argument must be embedded verbatim — it carries the XSRF secret — and the
+ * confirm button submits `name="logout"`.
+ *
+ * The confirmation dialog is shown by default on every request. With
+ * `OIDC_LOGOUT_AUTO_CONFIRM=true`, requests carrying a valid `id_token_hint`
+ * skip it: in the broker chain, logout arrives from the IdP (Keycloak) after
+ * the user already chose to sign out there, so the bridge's own dialog is
+ * redundant — the page injects `logout=yes` and self-submits. The interactive
+ * dialog always remains for hint-less requests, where it serves its
+ * CSRF-protection purpose (and as the noscript fallback of the auto-confirm
+ * path).
+ */
+const buildLogoutSource =
+  (
+    autoConfirmWithHint: boolean,
+  ): NonNullable<NonNullable<NonNullable<Configuration['features']>['rpInitiatedLogout']>['logoutSource']> =>
+  async (ctx, form) => {
+    const autoConfirm = autoConfirmWithHint && Boolean(ctx.oidc.entities.IdTokenHint)
+    ctx.type = 'html'
+    ctx.body = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign out</title></head>
+<body>
+<h1>Sign out</h1>
+${form}
+${
+  autoConfirm
+    ? `<p role="status">Signing you out&hellip;</p>
+<noscript>
+<button autofocus type="submit" form="op.logoutForm" value="yes" name="logout">Yes, sign me out</button>
+<button type="submit" form="op.logoutForm">No, stay signed in</button>
+</noscript>
+<script>
+  (function () {
+    var form = document.getElementById('op.logoutForm');
+    var confirm = document.createElement('input');
+    confirm.type = 'hidden';
+    confirm.name = 'logout';
+    confirm.value = 'yes';
+    form.appendChild(confirm);
+    form.submit();
+  })();
+</script>`
+    : `<p>Do you want to sign out from ${escapeHtml(ctx.host)}?</p>
+<button autofocus type="submit" form="op.logoutForm" value="yes" name="logout">Yes, sign me out</button>
+<button type="submit" form="op.logoutForm">No, stay signed in</button>`
+}
+</body>
+</html>`
+  }
+
+/** Post-logout page (P2.5.1) — shown only when the RP registered no `post_logout_redirect_uri`. */
+const postLogoutSuccessSource: NonNullable<
+  NonNullable<NonNullable<Configuration['features']>['rpInitiatedLogout']>['postLogoutSuccessSource']
+> = async (ctx) => {
+  ctx.type = 'html'
+  ctx.body = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Signed out</title></head>
+<body>
+<h1>Signed out</h1>
+<p>You have been signed out.</p>
+</body>
+</html>`
+}
 
 /**
  * OP core (INTEGRATION.md Phase 1, PR 1 + PR 2): builds the `node-oidc-provider`
@@ -177,14 +251,36 @@ export function createOidcProvider(
     },
     features: {
       devInteractions: { enabled: false },
+      // P2.5 — logout, wired to Keycloak (§1 step 8): RP-initiated logout with
+      // the custom confirmation page (auto-confirmed on a valid id_token_hint,
+      // P2.5.1), and back-channel logout_tokens (`sid`-matched) POSTed to
+      // clients that registered a backchannel_logout_uri.
+      rpInitiatedLogout: {
+        enabled: true,
+        logoutSource: buildLogoutSource(config.logoutAutoConfirm),
+        postLogoutSuccessSource,
+      },
+      backchannelLogout: { enabled: true },
     },
+    // Dev-only, refused in production (OIDC_ALLOW_PRIVATE_NETWORK_CALLS): the
+    // library's outbound fetch destroys connections to special-use IPs (SSRF
+    // protection) — in dev the back-channel logout receiver (Keycloak) lives
+    // on localhost, so the protective dispatcher must be dropped there.
+    ...(config.allowPrivateNetworkCalls && {
+      fetch: ((url, options) => {
+        delete (options as RequestInit & { dispatcher?: unknown }).dispatcher
+        return globalThis.fetch(url, options)
+      }) as NonNullable<Configuration['fetch']>,
+    }),
     // Defaults, made explicit where the integration docs reference the paths
-    // (the userinfo default would otherwise be `/me`).
+    // (the userinfo default would otherwise be `/me`; end_session is what the
+    // Keycloak realm's IdP `logoutUrl` points at).
     routes: {
       authorization: '/authorize',
       token: '/token',
       jwks: '/jwks',
       userinfo: '/userinfo',
+      end_session: '/session/end',
     },
     renderError,
   })
@@ -197,6 +293,12 @@ export function createOidcProvider(
   const logger = new Logger('OidcProvider')
   provider.on('server_error', (ctx: { method?: string; path?: string }, err: Error) => {
     logger.error(`server_error at ${ctx?.method} ${ctx?.path}: ${err?.message}`, err?.stack)
+  })
+
+  // Back-channel logout failures are otherwise swallowed (P2.5) — the SSRF
+  // protection destroying a private-network connection lands here too.
+  provider.on('backchannel.error', (_ctx, err: Error, client: { clientId?: string }) => {
+    logger.warn(`back-channel logout to client '${client?.clientId}' failed: ${err?.message}`)
   })
 
   return provider

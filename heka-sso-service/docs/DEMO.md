@@ -107,7 +107,16 @@ then `yarn dev` and open `http://localhost:5173`.
 5. The dashboard shows the brokered claims: `given_name`/`family_name` (as first/last
    name), `age_over_18`, and `amr` containing `vc`.
 
-Sign out ends the Keycloak session and the auto-redirect starts the loop again.
+Sign out ends the Keycloak session **and the bridge session** (P2.5): Keycloak
+redirects the browser through the bridge's `end_session` endpoint with an
+`id_token_hint`; the bridge shows its **confirmation dialog** ("Do you want to
+sign out…") — set `OIDC_LOGOUT_AUTO_CONFIRM=true` to skip it in the broker
+chain (P2.5.1) — then destroys the OP session, and the browser returns to
+Keycloak's broker logout endpoint and on to the app, where the auto-redirect
+starts the loop again. The bridge also POSTs a `sid`-matched back-channel
+`logout_token` to the realm's receiver
+(`OIDC_ALLOW_PRIVATE_NETWORK_CALLS=true` in `env/.env` lets it reach
+`localhost:8080` in dev).
 
 ## Troubleshooting
 
@@ -119,4 +128,5 @@ Sign out ends the Keycloak session and the auto-redirect starts the loop again.
 | `login start failed … identity-service … is unreachable` | heka-identity-service (:3000) is down. |
 | Keycloak: "Invalid token" / signature errors at code exchange | Keycloak container cannot reach the bridge — check `host.docker.internal` resolves (the compose adds `host-gateway`), and that the bridge runs on the host at :3005. |
 | First-broker-login prompts to fill the profile | The realm import (optional email) was not applied — the realm existed before the import. Delete the `heka` realm and restart the Keycloak container, or make `email` optional in Realm settings → User profile. |
+| Sign-out shows a browser error at `host.docker.internal:3005`, or the bridge session survives sign-out | The realm predates the P2.5 logout fix: the IdP's Logout URL must be the **browser-facing** `http://localhost:3005/session/end` (the bridge's session cookie lives on `localhost`, so a `host.docker.internal` redirect can never end it). Re-import the realm or fix the IdP's Logout URL by hand. |
 | Wallet cannot fetch the `request_uri` (`localhost:3003`) | The phone must reach heka-identity-service's public router — on a real device use `adb reverse tcp:3003 tcp:3003` (Android) or expose `:3003` on a LAN address and set it as the identity service's public verification endpoint. |
