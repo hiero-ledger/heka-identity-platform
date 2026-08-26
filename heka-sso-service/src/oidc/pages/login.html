@@ -22,11 +22,14 @@
 <link rel="stylesheet" href="/interaction/assets/styles.css">
 </head>
 <body>
-<main class="card">
-<header class="brand">
-  <img id="brand-logo" src="/interaction/assets/logo.svg" alt="">
-  <span id="brand-name" class="brand-name">Heka</span>
+<header class="top-bar">
+  <div class="brand">
+    <img id="brand-logo" src="/interaction/assets/logo.svg" alt="">
+    <span id="brand-name" class="brand-name">Heka</span>
+  </div>
 </header>
+<main>
+<div class="card">
 <h1>Sign in with your wallet</h1>
 <section id="dc-api" hidden>
   <button id="dc-api-button" type="button">Sign in with the wallet on this device</button>
@@ -39,6 +42,7 @@
   <p><a id="deep-link" hidden>Open wallet on this device</a></p>
   <p id="qr-status" role="status">Loading&hellip;</p>
 </section>
+</div>
 </main>
 <script>
   (function () {
