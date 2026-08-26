@@ -6,12 +6,20 @@ import { loadPage, renderPage } from '../../src/oidc'
  * are rendered with `{{key}}` placeholder substitution.
  */
 describe('bridge-page templates (P2.10.1)', () => {
-  test('all templates load and link the shared stylesheet', () => {
-    for (const name of ['login.html', 'logout-auto.html', 'logout-confirm.html', 'logout-success.html', 'error.html']) {
+  test('all hook templates load and link the shared (built) stylesheet', () => {
+    for (const name of ['logout-auto.html', 'logout-confirm.html', 'logout-success.html', 'error.html']) {
       const html = loadPage(name)
       expect(html).toContain('<!DOCTYPE html>')
       expect(html).toContain('/interaction/assets/styles.css')
     }
+  })
+
+  test('the built login page (P2.10.2) loads and references its bundle', () => {
+    // requires `yarn ui:build` — loadPage errors with that hint when missing
+    const html = loadPage('ui/login.html')
+    expect(html).toContain('<!DOCTYPE html>')
+    expect(html).toContain('/interaction/assets/login.js')
+    expect(html).toContain('/interaction/assets/styles.css')
   })
 
   test('renderPage inserts values verbatim — no $-pattern mangling, no re-scanning', () => {

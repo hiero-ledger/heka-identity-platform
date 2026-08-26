@@ -177,8 +177,10 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
 
     const page = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
     expect(page.text).toContain('Sign in with your wallet')
-    expect(page.text).toContain('navigator.credentials') // DC API feature detection lives client-side
-    expect(page.text).toContain('/dc-api/start')
+    // the page logic is a built artifact (P2.10.2) — the page links the bundle,
+    // whose DC API/branding behavior is asserted in assets.controller.spec.ts
+    expect(page.text).toContain('/interaction/assets/login.js')
+    expect(page.text).toContain('/interaction/assets/styles.css')
     // static page: nothing interaction-specific baked in, no session created yet
     expect(page.text).not.toContain(interactionPath)
     expect(sessionsMock.createSignedRequest).not.toHaveBeenCalled()
@@ -192,7 +194,7 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     // the static page links the shared assets and the branding hooks (P2.10.1)
     const page = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
     expect(page.text).toContain('/interaction/assets/styles.css')
-    expect(page.text).toContain("base + '/branding'") // the page fetches :uid/branding client-side
+    expect(page.text).toContain('id="brand-name"') // the branding hooks live in the markup
 
     const branding = await request(app).get(`${interactionPath}/branding`).set('Cookie', jar.header()).expect(200)
     expect(branding.body).toEqual({

@@ -7,10 +7,14 @@ WORKDIR /opt/heka-sso-service
 
 COPY package*.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
+# ui is a yarn workspace (P2.10.2) — its manifest must be present at install time
+COPY ui/package.json ./ui/
 
 RUN yarn install --immutable
 
 COPY . .
+# `yarn build` chains the login-page UI build (vite → src/oidc/pages/ui) and the
+# nest build, which copies the built pages into dist/oidc/pages
 RUN yarn build
 
 FROM node:22-bookworm-slim

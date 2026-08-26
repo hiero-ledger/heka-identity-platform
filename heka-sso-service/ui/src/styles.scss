@@ -1,0 +1,213 @@
+/*
+ * Shared bridge-page stylesheet (INTEGRATION.md P2.10.1/P2.10.2) — built by
+ * Vite to `/interaction/assets/styles.css`; the three provider-hook templates
+ * (`logout-*.html`, `error.html`) link the same built file (thin branded
+ * shells, per the P2.10 framing).
+ *
+ * Laid out like the heka-sso-web-ui dashboard (P2.9) for consistency: a white
+ * top bar with the brand on the left, the surface-2 page background, and a
+ * centered white card as the focal point. Design tokens and mixins are copied
+ * from heka-identity-service-web-ui in `styles/` (the P2.1.1 reuse rule —
+ * shared pixels, not semantics); the `--brand-*` layer maps onto them and is
+ * what the login configuration's `branding.colors` (P2.10.3) overrides at
+ * runtime.
+ */
+@import './styles/colors';
+@import './styles/pixel-system';
+@import './styles/global';
+@import './styles/typography';
+@import './styles/mixins';
+
+:root {
+  /* brand-overridable (branding.colors, P2.10.3), mapped onto the platform tokens */
+  --brand-primary: var(--color-primary);
+  --brand-primary-hover: var(--color-primary-hover);
+  --brand-primary-pressed: var(--color-primary-pressed);
+  --brand-page-background: var(--color-surface-2);
+  --brand-card-background: var(--color-surface-deep);
+  --brand-muted-background: var(--color-surface-4);
+  --brand-text: var(--color-dark-high-emphasis);
+  --brand-text-muted: var(--color-dark-medium-emphasis);
+  --brand-border: var(--color-surface-grey-2);
+
+  /* self-contained font stack — the platform's Inter with system fallbacks (no CDN import) */
+  --brand-font: var(--inter-font-family), system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* author display rules below (e.g. `section { display: flex }`) would defeat
+   the UA's [hidden] { display: none } — the login page toggles its sections
+   with the hidden attribute, so restore its authority */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--brand-page-background);
+  color: var(--brand-text);
+  font: 400 var(--font-size-body-s) / var(--font-line-body-s) var(--brand-font);
+}
+
+/* top bar — the dashboard's shell: brand left, white surface, small shadow */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-xl);
+  background: var(--brand-card-background);
+  box-shadow: var(--shadow-small);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+
+  img {
+    height: var(--space-xxl);
+    width: auto;
+  }
+}
+
+.brand-name {
+  /* --font-headline-s, like the dashboard title */
+  font: 600 var(--font-size-headline-s) / var(--font-line-headline-s) var(--brand-font);
+
+  @include long-text;
+}
+
+/* centered main area — the card is the page's focal point */
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xxl) var(--space-xl);
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-xxl);
+  background: var(--brand-card-background);
+  border-radius: var(--space-xl);
+  box-shadow: var(--shadow-small);
+}
+
+h1 {
+  margin: 0;
+
+  /* --font-headline-m, like the dashboard heading */
+  font: 600 var(--font-size-headline-m) / var(--font-line-headline-m) var(--brand-font);
+}
+
+p {
+  margin: 0;
+}
+
+.muted,
+[role='status'] {
+  color: var(--brand-text-muted);
+}
+
+a {
+  color: var(--brand-primary);
+  font-weight: 500;
+}
+
+section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* buttons — the platform Button's filled/outlined pixels (P2.9) */
+button {
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: var(--space-sm);
+  background: var(--brand-primary);
+  color: var(--color-light-high-emphasis);
+  font: 500 var(--font-size-label-l) / var(--font-line-label-l) var(--brand-font);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--brand-primary-hover);
+  }
+
+  &:active {
+    background: var(--brand-primary-pressed);
+  }
+
+  &:disabled {
+    background: var(--color-dark-opacity-05);
+    color: var(--color-dark-disabled);
+    cursor: default;
+  }
+
+  &:focus-visible {
+    @include outline;
+  }
+
+  &.secondary {
+    background: none;
+    border: 1px solid var(--brand-text);
+    color: var(--brand-text);
+
+    &:hover {
+      background: var(--color-dark-opacity-05);
+    }
+
+    &:active {
+      background: var(--color-dark-opacity-08);
+    }
+  }
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+#qr-image {
+  border-radius: var(--space-sm);
+  border: 1px solid var(--brand-border);
+  align-self: center;
+}
+
+/* detail block — like the dashboard's collapsible raw-token debug block */
+dl {
+  margin: 0;
+  padding: var(--space-md);
+  background: var(--brand-muted-background);
+  border-radius: var(--space-sm);
+}
+
+dt {
+  font: 500 var(--font-size-label-s) / var(--font-line-label-s) var(--brand-font);
+  color: var(--brand-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+dd {
+  margin: 0 0 var(--space-xs);
+  overflow-wrap: anywhere;
+}
+
+dd:last-child {
+  margin-bottom: 0;
+}

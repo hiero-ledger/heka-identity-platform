@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<!--
+  The wallet login page (INTEGRATION.md P1.6 + P2.1/P2.1.1 + P2.10.2): a fully
+  STATIC page served by the bridge on its own origin - the interaction uid
+  comes from the URL and everything else from the same-origin JSON interaction
+  API (/interaction/:uid/data, /dc-api/start, /dc-api/verify, /status,
+  /complete, /branding). Same-origin fetches carry the _interaction cookie,
+  which is what enforces the section-3.3 binding rule (P2.1.1 decision: this
+  page must never move to another origin, iframes included).
+
+  This file is the VITE INPUT (P2.10.2): `yarn ui:build` compiles it (with
+  src/login.ts and src/styles.scss) into src/oidc/pages/ui/, which is what the
+  bridge actually serves. The bundle is self-contained - no CDN references on
+  a login page.
+
+  Branding (P2.10): deployment-level - edit this source and rebuild, or
+  volume-mount over dist/oidc/pages in Docker; per-client - the login
+  configuration's `branding` block is fetched from /interaction/:uid/branding
+  and applied client-side (product name, logo, - -brand-* CSS variables,
+  custom CSS).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in with wallet</title>
+<script type="module" src="/src/login.ts"></script>
+</head>
+<body>
+<header class="top-bar">
+  <div class="brand">
+    <img id="brand-logo" src="/interaction/assets/logo.svg" alt="">
+    <span id="brand-name" class="brand-name">Heka</span>
+  </div>
+</header>
+<main>
+<div class="card">
+<h1>Sign in with your wallet</h1>
+<section id="dc-api" hidden>
+  <button id="dc-api-button" type="button">Sign in with the wallet on this device</button>
+  <p id="dc-api-status" role="status"></p>
+  <p><a id="show-qr" href="#">Show a QR code instead</a></p>
+</section>
+<section id="qr" hidden>
+  <p class="muted">Scan the QR code with your wallet app, or open it on this device.</p>
+  <img id="qr-image" alt="Wallet sign-in QR code" width="260" height="260" hidden>
+  <p><a id="deep-link" hidden>Open wallet on this device</a></p>
+  <p id="qr-status" role="status">Loading&hellip;</p>
+</section>
+</div>
+</main>
+</body>
+</html>

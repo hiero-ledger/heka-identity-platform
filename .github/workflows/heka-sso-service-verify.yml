@@ -58,6 +58,11 @@ jobs:
         run: yarn install --immutable
         shell: bash
 
+      # P2.10.2: the login page is a built artifact — the service tests serve
+      # and assert it, so it must exist before `yarn test`
+      - name: Build login page UI
+        run: yarn ui:build
+
       - name: Run typecheck
         run: yarn check-types
 

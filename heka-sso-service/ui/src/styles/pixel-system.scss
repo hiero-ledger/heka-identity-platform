@@ -1,0 +1,27 @@
+:root {
+  --space-none: 0;
+  --space-unit: 16px;
+  --space-xxxxs: calc(0.125 * var(--space-unit)); // 2px
+  --space-xxxs: calc(0.25 * var(--space-unit)); // 4px
+  --space-xxs: calc(0.375 * var(--space-unit)); // 6px
+  --space-xs: calc(0.5 * var(--space-unit)); // 8px
+  --space-sm: calc(0.75 * var(--space-unit)); // 12px
+  --space-md: calc(1 * var(--space-unit)); // 16px
+  --space-lg: calc(1.25 * var(--space-unit)); // 20px
+  --space-xl: calc(1.5 * var(--space-unit)); // 24px
+  --space-xxl: calc(2 * var(--space-unit)); // 32px
+  --space-xxxl: calc(2.5 * var(--space-unit)); // 40px
+  --space-xxxxl: calc(3 * var(--space-unit)); // 48px
+  --space-xxxxxl: calc(4.5 * var(--space-unit)); // 72px
+  --space-xxxxxxl: calc(6 * var(--space-unit)); // 96px
+  --space-xxxxxxxl: calc(7.5 * var(--space-unit)); // 120px
+  --space-template-card-width: calc(11.6669 * var(--space-unit)); // 186.66 px
+  --space-template-card-widthd2: calc(
+    0.5 * 11.6669 * var(--space-unit)
+  ); // 186.66 px
+  --space-template-card-height: calc(18.125 * var(--space-unit)); // 290px
+  --space-form: calc(21 * var(--space-unit)); // 336px
+  --space-card-logo: calc(4 * var(--space-md));
+  --space-content-with-restriction: 50vw;
+  --space-field-action-button-top: calc(1.75 * var(--space-unit));
+}

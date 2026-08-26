@@ -68,9 +68,10 @@ export class WalletIdentityAcquirer implements IdentityAcquirer {
     this.prune()
     this.pending.delete(interactionUid)
     this.logger.log(`Interaction ${interactionUid}: wallet login page served (login config '${loginConfig.id}')`)
-    // The static login page (P2.1.1), a file template since P2.10.1 — nothing
-    // per-interaction is server-rendered into it.
-    return { kind: 'page', html: loadPage('login.html') }
+    // The static login page (P2.1.1) — a Vite-built artifact since P2.10.2
+    // (`ui/`, built by `yarn ui:build`); nothing per-interaction is
+    // server-rendered into it.
+    return { kind: 'page', html: loadPage('ui/login.html') }
   }
 
   /** P2.1.1 — the QR path's data: creates the cross-device `direct_post` session (fresh nonce, §4.6-1). */

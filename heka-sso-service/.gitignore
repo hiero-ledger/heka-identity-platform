@@ -39,3 +39,6 @@ test/*.js
 .idea
 .data
 .static
+
+# Vite build output of the login page (P2.10.2, yarn ui:build)
+src/oidc/pages/ui

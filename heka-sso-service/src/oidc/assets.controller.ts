@@ -5,18 +5,21 @@ import { Controller, Get, Logger, Param, Res } from '@nestjs/common'
 import { ApiExcludeController } from '@nestjs/swagger'
 import { Response } from 'express'
 
-import { pageAssetsDir } from './pages'
+import { pageAssetRoots } from './pages'
 
 /**
- * Shared static assets for the bridge pages (INTEGRATION.md P2.10.1): the
- * stylesheet + logo referenced by all four HTML documents, served from the
- * bridge's own origin at `/interaction/assets/*` (a Nest carve-out of the
- * provider root mount, like the interaction routes). Files come from
- * `pages/assets/` — edit or volume-mount them for per-deployment branding.
+ * Shared static assets for the bridge pages (INTEGRATION.md P2.10.1/P2.10.2):
+ * the built login-page bundle (`login.js`, `styles.css` — Vite output, which
+ * the three hook templates also link) and the hand-authored `logo.svg`,
+ * served from the bridge's own origin at `/interaction/assets/*` (a Nest
+ * carve-out of the provider root mount, like the interaction routes). Files
+ * resolve against `pageAssetRoots` in order — edit sources and `yarn
+ * ui:build`, or volume-mount over `dist/oidc/pages` for per-deployment
+ * branding.
  *
- * Only whitelisted extensions from that single directory are served: the
- * `:file` parameter is one path segment by routing, and basename() plus the
- * name pattern reject traversal.
+ * Only whitelisted extensions from those directories are served: the `:file`
+ * parameter is one path segment by routing, and basename() plus the name
+ * pattern reject traversal (this also keeps `ui/login.html` unexposed here).
  */
 @ApiExcludeController()
 @Controller('interaction/assets')
@@ -40,13 +43,17 @@ export class InteractionAssetsController {
       return
     }
 
-    try {
-      const content = await readFile(join(pageAssetsDir, file))
-      res.setHeader('cache-control', 'public, max-age=300')
-      res.type(contentType).send(content)
-    } catch {
-      this.logger.warn(`asset '${file}' not found`)
-      res.sendStatus(404)
+    for (const root of pageAssetRoots) {
+      try {
+        const content = await readFile(join(root, file))
+        res.setHeader('cache-control', 'public, max-age=300')
+        res.type(contentType).send(content)
+        return
+      } catch {
+        // not in this root — try the next
+      }
     }
+    this.logger.warn(`asset '${file}' not found`)
+    res.sendStatus(404)
   }
 }

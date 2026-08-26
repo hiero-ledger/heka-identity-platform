@@ -20,15 +20,34 @@ import { join } from 'node:path'
  */
 const pagesDir = join(__dirname, 'pages')
 
-/** Directory of the shared static assets (stylesheet, logo). */
+/** Directory of the hand-authored shared static assets (logo). */
 export const pageAssetsDir = join(pagesDir, 'assets')
+
+/** Vite build output of the login page (P2.10.2, `yarn ui:build`) — gitignored. */
+export const builtUiDir = join(pagesDir, 'ui')
+
+/**
+ * Roots the asset route serves from, first hit wins: the built UI output
+ * (`login.js`, `styles.css`) shadows the hand-authored assets dir (`logo.svg`).
+ */
+export const pageAssetRoots = [builtUiDir, pageAssetsDir]
 
 const cache = new Map<string, string>()
 
 export function loadPage(name: string): string {
   let html = cache.get(name)
   if (html === undefined) {
-    html = readFileSync(join(pagesDir, name), 'utf8')
+    try {
+      html = readFileSync(join(pagesDir, name), 'utf8')
+    } catch (error) {
+      if (name.startsWith('ui/')) {
+        throw new Error(
+          `bridge page template '${name}' not found — the login page is a built artifact (P2.10.2); ` +
+            `run \`yarn ui:build\` first (${error})`,
+        )
+      }
+      throw error
+    }
     cache.set(name, html)
   }
   return html
