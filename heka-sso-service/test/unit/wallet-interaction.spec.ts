@@ -8,6 +8,7 @@ import {
   AccountClaimsStore,
   createOidcProvider,
   InteractionController,
+  LoginEventsService,
   VerificationSessionClient,
   VerificationSessionState,
   WalletIdentityAcquirer,
@@ -85,9 +86,11 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
   const configService = { oidcConfig: config } as unknown as ConfigService
   const accountClaims = new AccountClaimsStore(configService)
   const provider = createOidcProvider(config, testJwks(), accountClaims)
+  const loginEventsMock = { registerSession: vi.fn() }
   const acquirer = new WalletIdentityAcquirer(
     sessionsMock as unknown as VerificationSessionClient,
     configService,
+    loginEventsMock as unknown as LoginEventsService,
   )
   const controller = new InteractionController(provider, acquirer, configService, accountClaims)
 
@@ -121,6 +124,7 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     sessionsMock.createDcApiRequest.mockReset()
     sessionsMock.verifyDcApiResponse.mockReset()
     sessionsMock.getSession.mockReset()
+    loginEventsMock.registerSession.mockReset()
     sessionsMock.createSignedRequest.mockResolvedValue({
       sessionId: 'vs-1',
       authorizationRequest: 'openid4vp://?request_uri=https%3A%2F%2Fis%2Foid4vp%2Fabc',
@@ -221,6 +225,8 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     expect(sessionsMock.createSignedRequest).toHaveBeenCalledTimes(1)
     expect(data.body.qrDataUrl).toContain('data:image/png;base64')
     expect(data.body.authorizationRequest).toContain('openid4vp://?request_uri=')
+    // the session is routed for WebSocket push (P3.7)
+    expect(loginEventsMock.registerSession).toHaveBeenCalledWith('vs-1', interactionPath.split('/')[2])
 
     // polling: pending while the wallet has not responded (P1.6.3)
     sessionsMock.getSession.mockResolvedValueOnce({ id: 'vs-1', state: VerificationSessionState.RequestUriRetrieved })
@@ -266,6 +272,7 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     const defaultLoginConfig = config.loginConfigs[0]
     expect(sessionsMock.createDcApiRequest).toHaveBeenCalledWith(defaultLoginConfig, 'http://localhost:3005')
     expect(sessionsMock.createSignedRequest).not.toHaveBeenCalled() // no wasted direct_post session
+    expect(loginEventsMock.registerSession).toHaveBeenCalledWith('vs-dc-1', interactionPath.split('/')[2])
 
     // verify: the wallet's response is forwarded with the bridge origin — never a client-supplied one
     const walletResponse = { vp_token: { pid: ['eyJhbGciOi…'] } }

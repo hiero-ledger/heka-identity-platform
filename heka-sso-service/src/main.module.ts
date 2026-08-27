@@ -13,6 +13,7 @@ import type Provider from 'oidc-provider'
 
 import { HealthModule } from './health'
 import { OidcModule } from './oidc'
+import { LoginEventsService } from './oidc/login-events.service'
 import { OIDC_PROVIDER } from './oidc/provider.factory'
 
 @Module({
@@ -65,6 +66,10 @@ export class MainModule {
       if (nestPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) return next()
       return oidcCallback(req as any, res)
     })
+
+    // P3.7: the login page's push channel — WebSocket upgrades on
+    // /interaction/:uid/events, cookie-bound like the JSON interaction routes.
+    app.get(LoginEventsService).attach(app.getHttpServer())
 
     app.enableShutdownHooks()
 

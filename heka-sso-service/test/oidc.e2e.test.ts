@@ -5,9 +5,10 @@ import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
 import { Server } from 'net'
 import request from 'supertest'
+import WebSocket from 'ws'
 
 import { OidcEntity, OidcSigningKey } from '../src/core/database'
-import { OidcCleanupService } from '../src/oidc'
+import { LoginEventsService, OidcCleanupService, VerificationSessionState } from '../src/oidc'
 import { initializeMikroOrm, startTestApp } from './helpers'
 
 const brokerClientId = 'keycloak-broker'
@@ -74,6 +75,8 @@ const e2eEnv: Record<string, string> = {
       branding: { productName: 'E2E Corp ID', colors: { 'brand-primary': '#0a5c36' } },
     },
   ]),
+  // pinned to the default — a dev env/.env may enable it (the P2.5.1 tests assert the dialog)
+  OIDC_LOGOUT_AUTO_CONFIRM: 'false',
   // wiped/overridden per app below
   OIDC_STUB_LOGIN: 'false',
   IDENTITY_SERVICE_BASE_URL: 'http://identity.e2e.internal',
@@ -769,6 +772,51 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       const idToken = decodeJwtPayload(tokens.body.id_token)
       expect(idToken.amr).toEqual(['vc'])
       expect(idToken).toMatchObject({ given_name: 'Ada', family_name: 'Lovelace', email: 'ada@example.com' })
+    })
+
+    test('WebSocket push (P3.7): cookie-bound subscription receives the verified push', async () => {
+      const codeVerifier = randomBytes(32).toString('base64url')
+      const jar = jarFactory()
+
+      const authorize = await request(app).get('/authorize').query(authorizeQuery(codeVerifier)).expect(303)
+      jar.store(authorize)
+      const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
+      await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+      await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(200)
+
+      // subscribe like the login page does — same-origin WebSocket carrying the interaction cookie
+      const socket = new WebSocket(`ws://127.0.0.1:3105${interactionPath}/events`, {
+        headers: { cookie: jar.header() },
+      })
+      await new Promise<void>((resolve, reject) => {
+        socket.on('open', () => resolve())
+        socket.on('error', reject)
+        socket.on('unexpected-response', (_req, res) => reject(new Error(`upgrade refused: ${res.statusCode}`)))
+      })
+      const push = new Promise<Record<string, unknown>>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('no push received')), 2000)
+        socket.on('message', (data) => {
+          clearTimeout(timeout)
+          resolve(JSON.parse(String(data)))
+        })
+      })
+
+      // the identity-service gateway is mocked out in e2e — inject its event at the relay
+      sessionState = 'ResponseVerified'
+      nestApp.get(LoginEventsService).handleSessionEvent({
+        sessionId: 'e2e-session',
+        state: VerificationSessionState.ResponseVerified,
+      })
+      expect(await push).toEqual({ status: 'verified' })
+      socket.close()
+
+      // §3.3: an uncookied subscription is refused, no session state leaks
+      const rejected = new WebSocket(`ws://127.0.0.1:3105${interactionPath}/events`)
+      const refusal = await new Promise<string>((resolve) => {
+        rejected.on('unexpected-response', (_req, res) => resolve(`status ${res.statusCode}`))
+        rejected.on('error', (error) => resolve(String(error)))
+      })
+      expect(refusal).toMatch(/400|hang up|socket/i)
     })
 
     test('binding rule (§3.3): the interaction API is rejected without the interaction cookie', async () => {

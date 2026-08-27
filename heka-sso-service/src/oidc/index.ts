@@ -11,8 +11,10 @@ export {
   LoginStatus,
   StubIdentityAcquirer,
 } from './identity-acquirer'
+export { IdentityServiceEventsClient, VerificationSessionEvent } from './identity-service-events.client'
 export { IdentityServiceTokenProvider } from './identity-service-token.provider'
 export { InteractionController } from './interaction.controller'
+export { LoginEventsService } from './login-events.service'
 export { MikroOrmAdapter } from './mikro-orm.adapter'
 export { OidcModule } from './oidc.module'
 export { OidcCleanupService } from './oidc-cleanup.service'

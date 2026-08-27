@@ -11,6 +11,7 @@ import {
   LoginPageData,
   LoginStatus,
 } from './identity-acquirer'
+import { LoginEventsService } from './login-events.service'
 import { loadPage } from './pages'
 import { VerificationSessionClient, VerificationSessionState } from './verification-session.client'
 
@@ -34,8 +35,9 @@ interface PendingLogin {
  *   the identity service's origin-bound `verify` endpoint. The `origin` is
  *   the bridge's own (from the issuer URL) — never client-supplied.
  * - **QR fallback (P1.6)**: `getLoginData` creates a `direct_post` session
- *   (signed JAR — P1.6.1) and returns QR + deep link; the page **polls**
- *   `checkLogin` (P1.6.3 — the WebSocket push is postponed to P3.7).
+ *   (signed JAR — P1.6.1) and returns QR + deep link; the page listens on the
+ *   WebSocket push channel (P3.7, `LoginEventsService`) and **polls**
+ *   `checkLogin` as the fallback (P1.6.3).
  *
  * Either way the page navigates to the completion route in the same
  * cookie-bound browser session (§3.3 binding rule); `completeLogin` accepts
@@ -56,6 +58,8 @@ export class WalletIdentityAcquirer implements IdentityAcquirer {
   public constructor(
     private readonly sessions: VerificationSessionClient,
     configService: ConfigService,
+    /** P3.7: registers session→interaction routing for the WebSocket push (absent in some unit tests). */
+    private readonly loginEvents?: LoginEventsService,
   ) {
     this.ttlMs = configService.oidcConfig.ttl.interaction * 1000
     this.origin = new URL(configService.oidcConfig.issuerUrl).origin
@@ -78,6 +82,7 @@ export class WalletIdentityAcquirer implements IdentityAcquirer {
   public async getLoginData(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData> {
     const created = await this.sessions.createSignedRequest(loginConfig)
     this.entry(interactionUid).directPostSessionId = created.sessionId
+    this.loginEvents?.registerSession(created.sessionId, interactionUid)
 
     this.logger.log(`Interaction ${interactionUid}: cross-device login via verification session ${created.sessionId}`)
     const qrDataUrl = await QRCode.toDataURL(created.authorizationRequest, { width: 260, margin: 1 })
@@ -88,6 +93,7 @@ export class WalletIdentityAcquirer implements IdentityAcquirer {
   public async beginDcApiLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<DcApiLoginRequest> {
     const created = await this.sessions.createDcApiRequest(loginConfig, this.origin)
     this.entry(interactionUid).dcApiSessionId = created.sessionId
+    this.loginEvents?.registerSession(created.sessionId, interactionUid)
 
     this.logger.log(`Interaction ${interactionUid}: DC API login via verification session ${created.sessionId}`)
     return { protocol: created.protocol, request: created.authorizationRequestObject }
