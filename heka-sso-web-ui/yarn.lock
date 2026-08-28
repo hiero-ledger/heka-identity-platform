@@ -10,7 +10,7 @@
     jose "^6.0.8"
     openid-client "^6.8.0"
 
-"@auth0/auth0-react@^2.24.1":
+"@auth0/auth0-react@2.24.1":
   version "2.24.1"
   resolved "https://registry.yarnpkg.com/@auth0/auth0-react/-/auth0-react-2.24.1.tgz#edb8fa5535096a969d2de89bb6f8f1621604eb8a"
   integrity sha512-K6ymu7g0OoulMllSx/VE+m9yNao8IEy1YzeIX8NnzveIbVvYd2j3+PB5zU3NHXCeMhtT9RYu7EDBxKR1E4+W0A==
