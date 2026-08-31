@@ -2,13 +2,13 @@
 // centered in the main area, platform tokens throughout.
 .card {
   width: 100%;
-  max-width: 720px;
+  max-width: var(--layout-content-width);
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
   padding: var(--space-xxl);
   background: var(--color-surface-deep);
-  border-radius: var(--space-xl);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-small);
 }
 
@@ -58,7 +58,7 @@
     margin-top: var(--space-sm);
     padding: var(--space-md);
     background: var(--color-surface-4);
-    border-radius: var(--space-sm);
+    border-radius: var(--radius-md);
     font-size: var(--font-size-label-m);
     line-height: var(--font-line-label-l);
     text-align: left;
