@@ -227,7 +227,9 @@ Notes from doing it: `Screen` uses `matchMedia` + `useSyncExternalStore` (no `re
 - B3. `Card`, `KeyValueList`, `Badge`.
 - B4. Replace `App.tsx`'s top bar/main with the layouts; state switch untouched.
 
-### Phase C — Screens · ~1 day
+### Phase C — Screens · ~1 day · ✅ done 2026-08-31
+
+Notes from doing it: `claims.ts` accessors are shape-tolerant for the three token shapes the RP actually sees — Keycloak (mapped attributes: `age_over_18` is the string `"true"`, `amr` an array, no `vc_presented_attributes`), Auth0 (namespaced `https://…/name` keys) and bridge-direct (`vc_presented_attributes` object with `<template>.<name>` keys); `preview.html` has a state per shape (`dashboard`, `dashboard-auth0`, `dashboard-full`, `dashboard-bare`). `App.tsx` state switch is unchanged except that the Welcome landing now takes precedence over a stale `auth.error`, which is what makes "Back" on the failure screen work (it sets the same signed-out flag the sign-out path uses). The `Badge` is text-only — identity-service's `success.svg` is gradient artwork that doesn't read at 16 px, and hand-drawing a check would break the icon rule. The desktop sidebar is sticky so Sign out stays visible when the dashboard is taller than the viewport (it is, at 1280×720). `App.module.scss` is gone; the three auth screens share `pages/AuthPages.module.scss`. Mobile pass (C4) done via CDP at 360/768/1280 for every state: no horizontal overflow, key/value rows stack, buttons full width, heading steps down. Sign-in screen aligned to the Figma frame on review: `AuthLayout`'s top row is back-action left / brand **right**, the page body is centered in the content column (top-aligned when stacked), and the header illustration is identity-service's 3D `wallet.png` (cropped, WebP — DESIGN-TOKENS §6) at Figma's 434 px / 48 px offsets, clipped by the column.
 
 - C1. `SplashPage`, `WelcomePage`, `SignInErrorPage` (three thin components sharing `AuthLayout`).
 - C2. `DashboardPage` rebuilt per §2.3: claim selection/formatting in `src/claims.ts` (pure functions: pick presented attributes, derive display name, `amr` → label, timestamps).

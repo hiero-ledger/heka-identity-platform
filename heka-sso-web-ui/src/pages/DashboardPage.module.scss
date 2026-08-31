@@ -1,57 +1,53 @@
-// P2.9: the claims card is the page's focal point — a white surface card
-// centered in the main area, platform tokens throughout.
-.card {
-  width: 100%;
-  max-width: var(--layout-content-width);
+@import '@/styles/mixins';
+
+.page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
-  padding: var(--space-xxl);
-  background: var(--color-surface-deep);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-small);
+  gap: var(--space-xl);
+  width: 100%;
+  max-width: var(--layout-content-width);
+  min-width: 0;
 }
 
-.heading {
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxxs);
+}
+
+.title {
   font: var(--font-headline-m);
+  color: var(--color-dark-high-emphasis);
+
+  @include stacked {
+    font: var(--font-headline-s);
+  }
 }
 
-.subheading {
+.subtitle {
   font: var(--font-body-s);
   color: var(--color-dark-medium-emphasis);
 }
 
-.claims {
-  width: 100%;
-  border-collapse: collapse;
-
-  th {
-    font: var(--font-subtitle-s);
-    color: var(--color-dark-medium-emphasis);
-    text-align: left;
-    padding: var(--space-xs) var(--space-sm);
-    border-bottom: 1px solid var(--color-dark-outline-medium);
-  }
-
-  td {
-    font: var(--font-body-s);
-    text-align: left;
-    vertical-align: top;
-    padding: var(--space-xs) var(--space-sm);
-    border-bottom: 1px solid var(--color-surface-grey-2);
-    overflow-wrap: anywhere;
-  }
-
-  code {
-    font-size: var(--font-size-label-m);
-  }
+.muted {
+  color: var(--color-dark-medium-emphasis);
 }
 
-.debug {
+.code {
+  font: var(--font-label-m);
+  overflow-wrap: anywhere;
+}
+
+// Collapsed raw-claims block (P2.9): the <pre> scrolls inside the block,
+// never the page (UI-PLAN.md §2.4).
+.developer {
+  min-width: 0;
+
   summary {
     font: var(--font-subtitle-s);
     color: var(--color-dark-medium-emphasis);
     cursor: pointer;
+    padding: var(--space-xs) 0;
   }
 
   pre {
@@ -61,7 +57,7 @@
     border-radius: var(--radius-md);
     font-size: var(--font-size-label-m);
     line-height: var(--font-line-label-l);
-    text-align: left;
     overflow-x: auto;
+    max-width: 100%;
   }
 }

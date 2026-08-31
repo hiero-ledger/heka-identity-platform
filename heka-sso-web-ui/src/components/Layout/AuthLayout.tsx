@@ -30,9 +30,10 @@ function AuthLayout({ title, illustration, topAction, children }: AuthLayoutProp
       <main className={styles.body}>
         {isDesktop && <HeaderPanel title={title} illustration={illustration} />}
         <div className={styles.content}>
+          {/* Figma "Block": back action on the left, brand on the right */}
           <div className={styles.contentTop}>
+            <div>{topAction}</div>
             <Logo />
-            {topAction}
           </div>
           {!isDesktop && <TopPanel title={title} illustration={illustration} />}
           <div className={styles.contentBody}>{children}</div>
