@@ -1,5 +1,6 @@
 // Pixels copied from heka-identity-service-web-ui `shared/ui/Button` (the
-// `filled`/`outlined` variants this app uses) — shared pixels, not semantics.
+// variants this app uses) — shared pixels, not semantics; constants from
+// design-tokens.scss only.
 @import '../../styles/mixins';
 
 .Button {
@@ -44,7 +45,7 @@
 .outlined {
   background: none;
   outline: none;
-  border: 1px solid var(--color-dark-high-emphasis);
+  border: var(--border-width) solid var(--color-dark-high-emphasis);
   color: var(--color-dark-high-emphasis);
 
   &[data-hovered] {
@@ -60,4 +61,64 @@
     color: var(--color-dark-disabled);
     border-color: var(--color-dark-disabled);
   }
+}
+
+.tonal {
+  outline: none;
+  border: none;
+  background-color: var(--color-primary-opacity-6);
+  color: var(--color-text-on-surface);
+
+  &[data-hovered] {
+    background-color: var(--color-primary-opacity-9);
+  }
+
+  &[data-pressed] {
+    background-color: var(--color-primary-opacity-12);
+  }
+
+  &[data-disabled] {
+    background-color: var(--color-dark-opacity-05);
+    color: var(--color-dark-disabled);
+  }
+}
+
+.text {
+  outline: none;
+  border: none;
+  background: none;
+  color: var(--color-dark-high-emphasis);
+
+  &[data-hovered] {
+    background-color: var(--color-dark-opacity-05);
+  }
+
+  &[data-pressed] {
+    background-color: var(--color-dark-opacity-08);
+  }
+
+  &[data-disabled] {
+    color: var(--color-dark-disabled);
+  }
+}
+
+.small {
+  border-radius: var(--radius-sm);
+  padding: var(--space-xxxs);
+  gap: var(--space-xxxs);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.leftAligned {
+  justify-content: flex-start;
+}
+
+.icon {
+  width: var(--space-xl);
+  height: var(--space-xl);
+  min-width: var(--space-xl);
+  flex-shrink: 0;
 }

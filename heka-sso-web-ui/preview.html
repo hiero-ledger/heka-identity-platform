@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heka demo app — UI preview</title>
+  </head>
+  <body>
+    <!-- Dev-only: renders the app's screens with a fake session, no IdP needed.
+         http://localhost:5173/preview.html?state=dashboard|splash|error|signed-out
+         Not part of the production build (vite builds index.html only). -->
+    <div id="root"></div>
+    <script type="module" src="/src/dev/preview.tsx"></script>
+  </body>
+</html>

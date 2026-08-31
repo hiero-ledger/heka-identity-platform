@@ -1,0 +1,20 @@
+@import '../../styles/mixins';
+
+.Card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+  background: var(--color-surface-deep);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-small);
+
+  @include mobile {
+    padding: var(--space-md);
+  }
+}
+
+.title {
+  font: var(--font-subtitle-m);
+  color: var(--color-dark-high-emphasis);
+}

@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react'
 
 import styles from './App.module.scss'
 import { useAuthSession } from './auth/session'
+import { displayName } from './claims'
 import Button from './components/Button/Button'
+import Card from './components/Card/Card'
+import { AppLayout, AuthLayout } from './components/Layout'
+import Loader from './components/Loader/Loader'
+import { copy } from './copy'
 import DashboardPage from './pages/DashboardPage'
 
 // Survives the logout redirect round-trip (per tab): with it set, the app
@@ -38,39 +43,51 @@ function App() {
     auth.signIn()
   }
 
-  // P2.9: presentation only — the auth flow and state switch are unchanged;
-  // the "Sign out" button moved out of the dashboard body into the top bar.
+  // Presentation only (UI-PLAN.md B4): the auth flow and the state switch are
+  // unchanged; the states render inside the shells from components/Layout.
+  // Phase C replaces the interim cards below with the Welcome / Splash /
+  // Sign-in-failed screens.
+  if (auth.isAuthenticated) {
+    return (
+      <AppLayout userName={displayName(auth.claims)} onSignOut={signOut}>
+        <DashboardPage />
+      </AppLayout>
+    )
+  }
+
+  if (auth.error) {
+    return (
+      <AuthLayout title={copy.states.error.title} illustration="wallet">
+        <Card>
+          <p className={styles.message}>{auth.error}</p>
+          <div className={styles.actions}>
+            <Button onPress={() => auth.signIn()}>{copy.states.error.action}</Button>
+          </div>
+        </Card>
+      </AuthLayout>
+    )
+  }
+
+  if (signedOut && !auth.isLoading) {
+    return (
+      <AuthLayout title={copy.states.signedOut.title} illustration="wallet">
+        <Card>
+          <p className={styles.message}>{copy.states.signedOut.message}</p>
+          <div className={styles.actions}>
+            <Button onPress={signInAgain}>{copy.states.signedOut.action}</Button>
+          </div>
+        </Card>
+      </AuthLayout>
+    )
+  }
+
   return (
-    <div className={styles.app}>
-      <header className={styles.topBar}>
-        <span className={styles.title}>Heka SSO Web UI</span>
-        {auth.isAuthenticated && (
-          <Button buttonType="outlined" onPress={signOut}>
-            Sign out
-          </Button>
-        )}
-      </header>
-      <main className={styles.main}>
-        {auth.error ? (
-          <div className={styles.error}>
-            <h1 className={styles.errorTitle}>Sign-in failed</h1>
-            <p className={styles.errorMessage}>{auth.error}</p>
-            <Button onPress={() => auth.signIn()}>Try again</Button>
-          </div>
-        ) : auth.isAuthenticated ? (
-          <DashboardPage />
-        ) : signedOut && !auth.isLoading ? (
-          // Reuses the error card's layout for the signed-out landing.
-          <div className={styles.error}>
-            <h1 className={styles.errorTitle}>Signed out</h1>
-            <p className={styles.errorMessage}>You have been signed out.</p>
-            <Button onPress={signInAgain}>Sign in</Button>
-          </div>
-        ) : (
-          <p className={styles.status}>Signing in…</p>
-        )}
-      </main>
-    </div>
+    <AuthLayout title={copy.states.signingIn.title} illustration="wallet">
+      <div className={styles.splash}>
+        <Loader type="linear" label={copy.states.signingIn.title} />
+        <p className={styles.status}>{copy.states.signingIn.redirecting(copy.providers[auth.provider])}</p>
+      </div>
+    </AuthLayout>
   )
 }
 

@@ -42,4 +42,8 @@ yarn install
 yarn dev
 ```
 
-Open http://localhost:5173 — you are redirected to the Keycloak login page. Sign in (e.g. via the `heka-sso` wallet IdP button); Keycloak creates/links the federated user and redirects back to the dashboard, which lists the brokered claims (`sub`, `given_name`, `family_name`, `email`, `amr`, `vc_presented_attributes`) and the raw ID-token payload for debugging mapper configuration. "Sign out" performs RP-initiated logout at Keycloak and lands back on the Keycloak login page.
+Open http://localhost:5173 — you are redirected to the Keycloak login page.
+
+### UI preview without an IdP
+
+`http://localhost:5173/preview.html?state=dashboard` (also `splash`, `error`, `signed-out`) mounts the app on a fake session so the screens can be checked in a browser without Keycloak/Auth0. Dev-only: `preview.html` is not part of the production build. Design tokens and the UI plan live in [docs/](docs/). Sign in (e.g. via the `heka-sso` wallet IdP button); Keycloak creates/links the federated user and redirects back to the dashboard, which lists the brokered claims (`sub`, `given_name`, `family_name`, `email`, `amr`, `vc_presented_attributes`) and the raw ID-token payload for debugging mapper configuration. "Sign out" performs RP-initiated logout at Keycloak and lands back on the Keycloak login page.

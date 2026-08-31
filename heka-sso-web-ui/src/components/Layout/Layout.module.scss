@@ -1,0 +1,191 @@
+// Shell geometry (UI-PLAN.md §2.2 desktop, §2.4 stacked): pixels of
+// identity-service's Authenticated/UnauthenticatedLayout with the widths
+// measured from the Figma frames; constants from design-tokens.scss only.
+@import '../../styles/mixins';
+
+// Outer surface. Full viewport height following the visual viewport
+// (keyboard / address bar), safe-area aware.
+.shell {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  min-height: var(--visual-viewport-height, 100dvh);
+  background: var(--color-surface-2);
+  padding: max(var(--layout-body-inset), env(safe-area-inset-top))
+    max(var(--layout-body-inset), env(safe-area-inset-right))
+    max(var(--layout-body-inset), env(safe-area-inset-bottom))
+    max(var(--layout-body-inset), env(safe-area-inset-left));
+
+  @include stacked {
+    flex-direction: column;
+  }
+}
+
+// Authenticated shell: the sidebar sits directly on the surface (its own
+// padding), the body keeps the 8 px inset on the other three sides.
+.appShell {
+  padding-left: 0;
+
+  @include stacked {
+    padding-left: max(var(--layout-body-inset), env(safe-area-inset-left));
+  }
+}
+
+// White rounded body.
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  background: var(--color-surface-deep);
+  border-radius: var(--layout-body-radius);
+  padding: var(--layout-body-inset);
+
+  @include stacked {
+    flex-direction: column;
+  }
+}
+
+// --- Sidebar (desktop, AppLayout) ------------------------------------------
+
+.sidebar {
+  flex: 0 0 var(--layout-sidebar-width);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-xl);
+}
+
+.sidebarNav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxxs);
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  font: var(--font-body-s);
+}
+
+.navItemActive {
+  background-color: var(--color-primary-opacity-6);
+}
+
+.navIcon {
+  width: var(--space-xl);
+  height: var(--space-xl);
+  flex-shrink: 0;
+}
+
+.sidebarFooter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxxs);
+}
+
+.userName {
+  @include long-text;
+}
+
+// --- Top row (stacked shell, AppLayout) ------------------------------------
+
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 0 var(--space-md);
+}
+
+// --- Header panel (desktop, AuthLayout) ------------------------------------
+// Figma "Header": a 288 px column on the body surface — H1 at 48/48, the
+// illustration anchored bottom-left and clipped by the column. Its fill is
+// the `DSR Branded 2` token (white), so it reads as a column, not a box.
+
+.headerPanel {
+  position: relative;
+  flex: 0 0 var(--layout-header-panel-width);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--color-primary-branded-2);
+  padding: var(--space-xxxxl) var(--space-xxxl);
+}
+
+.headerTitle {
+  font: var(--font-headline-m);
+  color: var(--color-dark-high-emphasis);
+}
+
+.headerIllustration {
+  position: absolute;
+  left: var(--space-xxxl);
+  bottom: calc(2 * var(--space-xxl));
+  width: var(--layout-illustration-size);
+  height: auto;
+  pointer-events: none;
+}
+
+// --- Top panel (stacked shell, AuthLayout) ---------------------------------
+
+.topPanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 0 var(--layout-content-padding-mobile);
+  font: var(--font-headline-m);
+  color: var(--color-dark-high-emphasis);
+
+  @include tablet {
+    padding: 0 var(--layout-content-padding-tablet);
+  }
+}
+
+.topPanelIllustration {
+  width: var(--layout-illustration-size-mobile);
+  height: auto;
+  flex-shrink: 0;
+}
+
+// --- Content column (both layouts) -----------------------------------------
+
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  padding: var(--layout-content-padding);
+
+  @include tablet {
+    padding: var(--layout-content-padding-tablet);
+  }
+
+  @include mobile {
+    padding: var(--layout-content-padding-mobile);
+  }
+}
+
+// Figma "Block": the 48 px row above the body (logo, back action).
+.contentTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: var(--space-xxxxl);
+}
+
+.contentBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}

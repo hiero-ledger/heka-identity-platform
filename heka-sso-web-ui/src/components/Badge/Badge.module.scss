@@ -1,0 +1,25 @@
+.Badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xxxs);
+  padding: var(--space-xxxs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  font: var(--font-label-m);
+  white-space: nowrap;
+}
+
+.success {
+  background-color: var(--color-success);
+  color: var(--color-light-high-emphasis);
+}
+
+.neutral {
+  background-color: var(--color-primary-opacity-6);
+  color: var(--color-text-on-surface);
+}
+
+.icon {
+  width: var(--space-md);
+  height: var(--space-md);
+  flex-shrink: 0;
+}

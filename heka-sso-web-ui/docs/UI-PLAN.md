@@ -218,7 +218,9 @@ Notes from doing it: the unused `.text-*` utility classes were dropped rather th
 
 Phases B–D below build **only** on the constants from A1 — see the reuse rules in §2.1.
 
-### Phase B — Shell and shared components · ~1 day
+### Phase B — Shell and shared components · ~1 day · ✅ done 2026-08-31
+
+Notes from doing it: `Screen` uses `matchMedia` + `useSyncExternalStore` (no `react-responsive`); a `stacked` mixin (`< 1024px`) was added locally to `mixins.scss`. The copied icons carry identity-service's brand fills, so `vite.config.ts` maps them to `currentColor` via svgr `replaceAttrValues` (SVG files stay verbatim). Header panel decision (risk 3): Figma binds `DSR Branded 2 = #fff` on the header column, so it sits flat on the white body with the illustration clipped bottom-left — no tinted box; recorded in DESIGN-TOKENS §6. Added `preview.html` + `src/dev/preview.tsx`: a dev-only entry (`?state=dashboard|splash|error|signed-out`) mounting `App` on a fake `AuthSession`, so screens can be checked without an IdP — not part of the production build. Verified with CDP viewport emulation (headless Edge clamps `--window-size` to ~500 px, so plain screenshots mislead at phone widths): no horizontal overflow at 360 / 768 / 1280 in any state. `copy.ts` and `claims.ts` were started here (shell strings, `displayName`); C extends them.
 
 - B1. Copy/trim `Grid`, `Logo`, `Loader`, `Screen` (matchMedia variant), extend `Button`.
 - B2. `AppLayout` (sidebar + body) and `AuthLayout` (header panel + content); desktop per §2.2, stacked shell below 1024 per §2.4 (top row, `TopPanel`, `100dvh` + `--visual-viewport-height`, safe-area padding).

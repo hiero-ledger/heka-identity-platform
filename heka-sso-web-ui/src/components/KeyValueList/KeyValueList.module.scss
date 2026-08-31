@@ -1,0 +1,48 @@
+@import '../../styles/mixins';
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+
+  @include border('bottom', var(--color-dark-divider));
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  @include stacked {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-xxxs);
+  }
+}
+
+.label {
+  font: var(--font-body-s);
+  color: var(--color-dark-medium-emphasis);
+
+  @include stacked {
+    font: var(--font-label-m);
+  }
+}
+
+.value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  font: var(--font-body-s);
+  color: var(--color-dark-high-emphasis);
+
+  @include long-text-full;
+
+  @include stacked {
+    font: var(--font-body-m);
+  }
+}

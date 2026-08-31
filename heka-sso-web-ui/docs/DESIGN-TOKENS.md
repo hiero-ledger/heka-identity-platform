@@ -116,6 +116,7 @@ New tokens to add: `--color-dark-divider`, `--color-success` (`#1aa179`), `--col
 - Desktop canvas: **1280 × 720**; mobile variants: **360** wide.
 - Shell: left `Menu` **288px** wide, full height; right panel 992px with an 8px inset `Body`.
 - Inside `Body`: a 288px `Header` column and a 680px content column with 48px padding.
+- `Header` column on `Sign in`: H1 at (48, 48); illustration at (48, 280), 434 × 360, overflowing (clipped by) the column. The column's fill is the `DSR Branded 2` token (`#fff`), i.e. it sits flat on the body surface rather than as a tinted box — identity-service's branded `BasicPanel` background does **not** carry over. In code: `--layout-illustration-size` 340px (identity-service's desktop illustration width) / `--layout-illustration-size-mobile` 160px.
 - Screen inventory: Sign in, Create account, Registration, Password, Profile, Configuration, Issue credential (5 steps + offer/received), Verify credential (4 steps + request/verified), Create schema, Create credential definition, Edit/View/Save-as-template, Confirmation, Demo.
 
 ## 7. Inferred tokens (from `heka-identity-service-web-ui`)
