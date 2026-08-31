@@ -1,9 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
-import '../styles/index.scss'
-import App from '../App.tsx'
-import { AuthSession, AuthSessionContext } from '../auth/session'
+import '@/styles/index.scss'
+import App from '@/App.tsx'
+import { AuthSession, AuthSessionContext } from '@/auth/session'
 
 // Dev-only preview (preview.html): mounts <App> on a fake AuthSession so the
 // screens can be checked in a browser without Keycloak/Auth0 (UI-PLAN.md

@@ -1,8 +1,8 @@
 import { ReactNode } from 'react'
 
-import { useVisualViewportHeight } from '../../lib/useVisualViewportHeight'
-import Logo from '../Logo/Logo'
-import { useDesktop } from '../Screen/useMediaQuery'
+import { useVisualViewportHeight } from '@/utils/useVisualViewportHeight'
+import Logo from '@/components/Logo/Logo'
+import { useDesktop } from '@/components/Screen/useMediaQuery'
 
 import { HeaderPanel, Illustration, TopPanel } from './HeaderPanel'
 import styles from './Layout.module.scss'

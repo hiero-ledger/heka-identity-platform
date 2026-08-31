@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 
-import { classNames } from '../../lib/classNames'
+import { classNames } from '@/utils/classNames'
 
 import styles from './Card.module.scss'
 

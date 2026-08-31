@@ -1,5 +1,5 @@
-import LinearSpinner from '../../assets/icons/linear-spinner.svg?react'
-import Spinner from '../../assets/icons/spinner.svg?react'
+import LinearSpinner from '@/assets/icons/linear-spinner.svg?react'
+import Spinner from '@/assets/icons/spinner.svg?react'
 
 export type LoaderType = 'circular' | 'linear'
 

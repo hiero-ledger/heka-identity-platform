@@ -1,7 +1,7 @@
 import { Button as AriaButton } from 'react-aria-components'
 
-import LogoMark from '../../assets/logo-mark.svg?react'
-import { copy } from '../../copy'
+import LogoMark from '@/assets/logo-mark.svg?react'
+import { copy } from '@/copy'
 
 import styles from './Logo.module.scss'
 

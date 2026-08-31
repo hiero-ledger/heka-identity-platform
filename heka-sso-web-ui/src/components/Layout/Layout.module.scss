@@ -1,7 +1,7 @@
 // Shell geometry (UI-PLAN.md §2.2 desktop, §2.4 stacked): pixels of
 // identity-service's Authenticated/UnauthenticatedLayout with the widths
 // measured from the Figma frames; constants from design-tokens.scss only.
-@import '../../styles/mixins';
+@import '@/styles/mixins';
 
 // Outer surface. Full viewport height following the visual viewport
 // (keyboard / address bar), safe-area aware.

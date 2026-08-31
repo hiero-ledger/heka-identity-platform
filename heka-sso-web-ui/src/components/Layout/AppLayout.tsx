@@ -1,13 +1,13 @@
 import { ReactNode } from 'react'
 
-import DashboardIcon from '../../assets/icons/dashboard-outline.svg?react'
-import UserIcon from '../../assets/icons/user.svg?react'
-import { copy } from '../../copy'
-import { classNames } from '../../lib/classNames'
-import { useVisualViewportHeight } from '../../lib/useVisualViewportHeight'
-import Button from '../Button/Button'
-import Logo from '../Logo/Logo'
-import { useDesktop } from '../Screen/useMediaQuery'
+import DashboardIcon from '@/assets/icons/dashboard-outline.svg?react'
+import UserIcon from '@/assets/icons/user.svg?react'
+import { copy } from '@/copy'
+import { classNames } from '@/utils/classNames'
+import { useVisualViewportHeight } from '@/utils/useVisualViewportHeight'
+import Button from '@/components/Button/Button'
+import Logo from '@/components/Logo/Logo'
+import { useDesktop } from '@/components/Screen/useMediaQuery'
 
 import styles from './Layout.module.scss'
 

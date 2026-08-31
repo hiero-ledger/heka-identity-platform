@@ -1,7 +1,7 @@
 import { ReactNode } from 'react'
 
-import SuccessIcon from '../../assets/icons/success.svg?react'
-import { classNames } from '../../lib/classNames'
+import SuccessIcon from '@/assets/icons/success.svg?react'
+import { classNames } from '@/utils/classNames'
 
 import styles from './Badge.module.scss'
 

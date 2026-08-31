@@ -4,10 +4,10 @@ import {
   ButtonProps as AriaButtonProps,
 } from 'react-aria-components'
 
-import ArrowBackIcon from '../../assets/icons/arrow-back.svg?react'
-import LogoutIcon from '../../assets/icons/logout.svg?react'
-import UserIcon from '../../assets/icons/user.svg?react'
-import { classNames, Mods } from '../../lib/classNames'
+import ArrowBackIcon from '@/assets/icons/arrow-back.svg?react'
+import LogoutIcon from '@/assets/icons/logout.svg?react'
+import UserIcon from '@/assets/icons/user.svg?react'
+import { classNames, Mods } from '@/utils/classNames'
 
 import styles from './Button.module.scss'
 

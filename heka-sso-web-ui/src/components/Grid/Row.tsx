@@ -1,4 +1,4 @@
-import { classNames } from '../../lib/classNames'
+import { classNames } from '@/utils/classNames'
 
 import styles from './Grid.module.scss'
 import { FlexContainerProps } from './types'

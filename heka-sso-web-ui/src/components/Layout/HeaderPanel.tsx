@@ -1,4 +1,4 @@
-import WalletIllustration from '../../assets/icons/wallet-new.svg?react'
+import WalletIllustration from '@/assets/icons/wallet-new.svg?react'
 
 import styles from './Layout.module.scss'
 
