@@ -123,7 +123,7 @@ const runAuthorizationFlow = async (
 const decodeJwtPayload = (jwt: string): Record<string, any> =>
   JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString())
 
-describe('wallet-login interaction (P1.3, stub login)', () => {
+describe('wallet-login interaction (stub login)', () => {
   describe('with the stub enabled', () => {
     const { app, accountClaims } = buildApp(new StubIdentityAcquirer())
 
@@ -154,10 +154,10 @@ describe('wallet-login interaction (P1.3, stub login)', () => {
 
       const idToken = decodeJwtPayload(tokens.body.id_token)
       expect(idToken.nonce).toBe('nonce-value')
-      // stub logins must never look like verified presentations (P1.3.2)
+      // stub logins must never look like verified presentations
       expect(idToken.amr).toEqual(['stub'])
 
-      // the mapped claim set is stored under the computed sub for findAccount (§4.4)
+      // the mapped claim set is stored under the computed sub for findAccount
       const storedClaims = {
         given_name: 'Stub',
         family_name: 'User',
@@ -167,11 +167,11 @@ describe('wallet-login interaction (P1.3, stub login)', () => {
       }
       expect(accountClaims.get(idToken.sub)).toEqual(storedClaims)
 
-      // findAccount (P1.4) releases the claim set into the id_token — every
-      // claim must be there because Auth0 never calls userinfo (§1 step 4)
+      // findAccount releases the claim set into the id_token — every
+      // claim must be there because Auth0 never calls userinfo
       expect(idToken).toMatchObject(storedClaims)
 
-      // … and userinfo serves the same claims with an identical sub (broker matrix, §1)
+      // … and userinfo serves the same claims with an identical sub
       const userinfo = await request(app)
         .get('/userinfo')
         .set('Authorization', `Bearer ${tokens.body.access_token}`)
@@ -215,7 +215,7 @@ describe('wallet-login interaction (P1.3, stub login)', () => {
       expect(decodeJwtPayload(tokens.body.id_token).given_name).toBe('Stub')
     })
 
-    test('derived sub is stable across logins (§4.3)', async () => {
+    test('derived sub is stable across logins', async () => {
       const firstVerifier = randomBytes(32).toString('base64url')
       const firstCallback = await runAuthorizationFlow(app, firstVerifier)
       const secondVerifier = randomBytes(32).toString('base64url')

@@ -1,6 +1,6 @@
 # Integration Notes — heka-sso-service on node-oidc-provider
 
-Companion to [Architecture of oidc-provider.md](<Architecture of oidc-provider.md>) (library internals) and [Feasibility & High-Level Design.md](<../../docs/Feasibility & High-Level Design.md>) (product design, "the feasibility doc"). This document maps that design onto the platform and carries the implementation plan for the new service.
+Companion to [Architecture of oidc-provider.md](<Architecture of oidc-provider.md>) (library internals) and [OID4VCI & OID4VP Design.md](<../../docs/OID4VCI & OID4VP Design.md>) (product design, "the feasibility doc"). This document maps that design onto the platform and carries the implementation plan for the new service.
 
 > **Platform decisions**
 >

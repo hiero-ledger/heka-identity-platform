@@ -4,8 +4,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { Interval } from '@nestjs/schedule'
 
 /**
- * Hourly purge of expired `oidc-provider` artifacts (INTEGRATION.md P1.5,
- * §5-Inherit-2 — the platform's expired-row cleanup pattern). The adapter
+ * Hourly purge of expired `oidc-provider` artifacts. The adapter
  * already treats expired rows as absent on read; this reclaims the storage.
  */
 @Injectable()

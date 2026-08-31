@@ -40,12 +40,12 @@ class CookieJar {
 const decodeJwtPayload = (jwt: string) => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString())
 
 /**
- * Logout (P2.5/P2.5.1): RP-initiated logout with the custom confirmation page
+ * Logout: RP-initiated logout with the custom confirmation page
  * (auto-confirm on a valid id_token_hint), post-logout redirect with state,
  * and the back-channel logout_token (`sid`-matched) POSTed to the registered
  * receiver — the stub login stands in for the wallet presentation.
  */
-describe('logout (P2.5)', () => {
+describe('logout', () => {
   let backchannelServer: Server
   let backchannelRequests: { path: string; body: string }[]
 
@@ -68,7 +68,7 @@ describe('logout (P2.5)', () => {
       OIDC_SUB_HMAC_SALT: 'unit-test-sub-hmac-salt-0123456789abcdef',
       // the receiver below is on 127.0.0.1 — drop the SSRF dispatcher (dev flag)
       OIDC_ALLOW_PRIVATE_NETWORK_CALLS: 'true',
-      // this suite exercises the opt-in auto-confirm path (P2.5.1)
+      // this suite exercises the opt-in auto-confirm path
       OIDC_LOGOUT_AUTO_CONFIRM: 'true',
       OIDC_CLIENTS: JSON.stringify([
         {
@@ -158,7 +158,7 @@ describe('logout (P2.5)', () => {
     expect(decodeJwtPayload(idToken).sid).toEqual(expect.any(String))
   })
 
-  test('RP-initiated logout with id_token_hint: auto-confirm page → post-logout redirect with state → backchannel logout_token (P2.5.1)', async () => {
+  test('RP-initiated logout with id_token_hint: auto-confirm page → post-logout redirect with state → backchannel logout_token', async () => {
     const { jar, idToken } = await login()
     const sid = decodeJwtPayload(idToken).sid
 
@@ -184,7 +184,7 @@ describe('logout (P2.5)', () => {
     expect(`${redirect.origin}${redirect.pathname}`).toBe(brokerPostLogoutUri)
     expect(redirect.searchParams.get('state')).toBe('kc-logout-state')
 
-    // the registered receiver got the sid-matched logout_token (P2.5)
+    // the registered receiver got the sid-matched logout_token
     expect(backchannelRequests).toHaveLength(1)
     expect(backchannelRequests[0].path).toBe('/backchannel-logout')
     const logoutToken = decodeJwtPayload(new URLSearchParams(backchannelRequests[0].body).get('logout_token')!)

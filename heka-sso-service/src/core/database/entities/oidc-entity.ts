@@ -2,7 +2,7 @@ import { BaseEntity } from '@mikro-orm/core'
 import { Entity, Index, PrimaryKey, Property } from '@mikro-orm/decorators/legacy'
 
 /**
- * Storage for every `oidc-provider` model (INTEGRATION.md P1.5): sessions,
+ * Storage for every `oidc-provider` model: sessions,
  * grants, authorization codes, access/refresh tokens, interactions, replay
  * detection, … — one row per model instance, keyed by (model name, id). The
  * full model state lives in the jsonb `payload`; `grantId`/`userCode`/`uid`

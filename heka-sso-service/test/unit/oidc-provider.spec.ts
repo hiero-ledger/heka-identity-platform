@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import Provider from 'oidc-provider'
 
 /**
- * Module-system guard (INTEGRATION.md §5-Decide-1): the project compiles to
+ * Module-system guard: the project compiles to
  * CommonJS while oidc-provider v9 is pure ESM, so the compiled code relies on
  * Node's require(esm) support (Node >= 22.12). The createRequire path below
  * exercises exactly that; the static import covers the vitest/ESM path.

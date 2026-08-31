@@ -1,11 +1,11 @@
 import { loadPage, renderPage } from '../../src/oidc'
 
 /**
- * Bridge-page templates (INTEGRATION.md P2.10.1): the four documents live as
+ * Bridge-page templates: the four documents live as
  * `.html` files in `src/oidc/pages/` (copied to dist by nest-cli assets) and
  * are rendered with `{{key}}` placeholder substitution.
  */
-describe('bridge-page templates (P2.10.1)', () => {
+describe('bridge-page templates', () => {
   test('all hook templates load and link the shared (built) stylesheet', () => {
     for (const name of ['logout-auto.html', 'logout-confirm.html', 'logout-success.html', 'error.html']) {
       const html = loadPage(name)
@@ -14,7 +14,7 @@ describe('bridge-page templates (P2.10.1)', () => {
     }
   })
 
-  test('the built login page (P2.10.2) loads and references its bundle', () => {
+  test('the built login page loads and references its bundle', () => {
     // requires `yarn ui:build` — loadPage errors with that hint when missing
     const html = loadPage('ui/login.html')
     expect(html).toContain('<!DOCTYPE html>')
@@ -23,7 +23,7 @@ describe('bridge-page templates (P2.10.1)', () => {
   })
 
   test('renderPage inserts values verbatim — no $-pattern mangling, no re-scanning', () => {
-    // the XSRF form must be embedded exactly as the library built it (P2.5.1)
+    // the XSRF form must be embedded exactly as the library built it
     const form = '<form id="op.logoutForm"><input name="xsrf" value="a$&b{{host}}"/></form>'
     const html = renderPage('logout-confirm.html', { form, host: 'sso.example.com' })
 

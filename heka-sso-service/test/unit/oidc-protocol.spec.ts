@@ -7,7 +7,7 @@ import { createOidcProvider } from '../../src/oidc'
 import { testJwks } from '../helpers/jwks'
 
 /**
- * OP core PR 2 protocol policy (INTEGRATION.md Phase 1): static clients from
+ * OP core PR 2 protocol policy: static clients from
  * `OIDC_CLIENTS`, authorization code + PKCE (S256) only, client_secret_basic +
  * client_secret_post. Only the validation/error paths are testable here — the
  * happy-path code exchange needs the adapter, interaction, and findAccount PRs.
@@ -108,7 +108,7 @@ describe('OIDC protocol policy', () => {
       expect(response.text).toContain('Sign-in error')
     })
 
-    test('rejects a missing PKCE challenge — required for all clients (restored with the P1.7 demo realm)', async () => {
+    test('rejects a missing PKCE challenge — required for all clients (restored with the demo realm)', async () => {
       const withoutPkce: Partial<typeof validAuthorizeQuery> = { ...validAuthorizeQuery }
       delete withoutPkce.code_challenge
       delete withoutPkce.code_challenge_method

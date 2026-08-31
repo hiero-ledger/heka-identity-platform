@@ -3,13 +3,13 @@ import { Injectable, Logger } from '@nestjs/common'
 
 import { describeFetchError } from './fetch-error.util'
 
-/** Re-acquire this many seconds before the token's `expires_in` elapses (P1.6.7). */
+/** Re-acquire this many seconds before the token's `expires_in` elapses. */
 const REFRESH_MARGIN_SECONDS = 60
 /** Assumed lifetime when the auth service omits `expires_in`. */
 const FALLBACK_EXPIRES_IN_SECONDS = 3600
 
 /**
- * Identity-service service account (INTEGRATION.md P1.6.7): supplies the
+ * Identity-service service account: supplies the
  * bearer token for heka-identity-service API calls. Instead of a pasted static
  * JWT (which expires after heka-auth-service's `JWT_ACCESS_EXPIRY` ≈ 1h and
  * then breaks every wallet login), the bridge logs into heka-auth-service

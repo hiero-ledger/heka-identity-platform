@@ -19,7 +19,7 @@ export interface CreatedVerificationSession {
   authorizationRequest: string
 }
 
-/** Result of creating a DC API verification session (P2.1) — what `navigator.credentials.get()` needs. */
+/** Result of creating a DC API verification session — what `navigator.credentials.get()` needs. */
 export interface CreatedDcApiVerificationSession {
   sessionId: string
   /** DC API protocol identifier matching the request object (signed requests carry the JAR). */
@@ -38,24 +38,22 @@ export interface VerificationSessionRecord {
 }
 
 /**
- * Client for heka-identity-service's verification-session API (INTEGRATION.md
- * §3, P1.6): `POST /openid4vc/verification-session/request` + `GET
- * /openid4vc/verification-session/:id`.
+ * Client for heka-identity-service's verification-session API:
+ * `POST /openid4vc/verification-session/request` + `GET /openid4vc/verification-session/:id`.
  *
- * P1.6.1 — signed authorization requests (JAR) from day one: every session is
+ * signed authorization requests (JAR) from day one: every session is
  * created with a `requestSigner` (`IDENTITY_SERVICE_REQUEST_SIGNER_DID`), so
- * the wallet fetches the request by `request_uri` as a signed JAR (feasibility
- * §3.3 step 6). There is deliberately **no unsigned fallback** — the identity
+ * the wallet fetches the request by `request_uri` as a signed JAR.
+ * There is deliberately **no unsigned fallback** — the identity
  * service itself rejects signerless non-DC-API sessions, and this client fails
- * fast on missing configuration instead of degrading. The `x509_san_dns`
- * client-id scheme upgrade stays in Phase 3 (P3.1).
+ * fast on missing configuration instead of degrading.
  *
- * Response mode is plain `direct_post` in Phase 1 (P1.6.2); `direct_post.jwt`
- * lands with HAIP (P3.1). The DC API same-device flow (P2.1) uses separate
+ * Response mode is plain `direct_post`; `direct_post.jwt`
+ * lands with HAIP. The DC API same-device flow uses separate
  * sessions with `responseMode: 'dc_api'`, verified through the origin-bound
  * `verify` endpoint.
  *
- * Authentication (P1.6.7): the bearer token comes from
+ * Authentication: the bearer token comes from
  * `IdentityServiceTokenProvider` — a self-refreshing service-account login
  * against heka-auth-service, with `IDENTITY_SERVICE_AUTH_TOKEN` as a static
  * override for tests/dev. An unexpected 401 on a service-account token drops
@@ -78,7 +76,7 @@ export class VerificationSessionClient {
     if (!publicVerifierId || !requestSignerDid) {
       throw new Error(
         'IDENTITY_SERVICE_PUBLIC_VERIFIER_ID and IDENTITY_SERVICE_REQUEST_SIGNER_DID must be configured — ' +
-          'authorization requests are always signed (JAR, P1.6.1), there is no unsigned fallback',
+          'authorization requests are always signed, there is no unsigned fallback',
       )
     }
     if (!loginConfig.dcqlQuery) {
@@ -92,7 +90,6 @@ export class VerificationSessionClient {
       authorizationRequest: string
     }>('POST', '/openid4vc/verification-session/request', {
       publicVerifierId,
-      // JAR, always (P1.6.1)
       requestSigner: { method: 'did', did: requestSignerDid },
       dcql: { query: loginConfig.dcqlQuery },
       responseMode: 'direct_post',
@@ -109,7 +106,7 @@ export class VerificationSessionClient {
   }
 
   /**
-   * P2.1 — DC API same-device flow: create a verification session whose
+   * DC API same-device flow: create a verification session whose
    * response comes back through the browser (`responseMode: 'dc_api'`) instead
    * of the wallet's `direct_post`. The request is signed like every other
    * session (current wallet matchers require it — see
@@ -125,7 +122,7 @@ export class VerificationSessionClient {
     if (!publicVerifierId || !requestSignerDid) {
       throw new Error(
         'IDENTITY_SERVICE_PUBLIC_VERIFIER_ID and IDENTITY_SERVICE_REQUEST_SIGNER_DID must be configured — ' +
-          'DC API authorization requests are signed like every other session (P2.1)',
+          'DC API authorization requests are signed like every other session',
       )
     }
     if (!loginConfig.dcqlQuery) {
@@ -165,7 +162,7 @@ export class VerificationSessionClient {
   }
 
   /**
-   * P2.1 — forward the wallet's DC API response (the parsed
+   * forward the wallet's DC API response (the parsed
    * `DigitalCredential.data` the browser hands back) to the identity service's
    * origin-bound `verify` endpoint. On success the returned record is already
    * `ResponseVerified` and carries the disclosed `sharedAttributes`.
@@ -192,7 +189,7 @@ export class VerificationSessionClient {
   private async request<T>(method: 'GET' | 'POST', path: string, body?: Record<string, unknown>): Promise<T> {
     let response = await this.send(method, path, body)
 
-    // P1.6.7: a service-account token may have been revoked or expired early —
+    // a service-account token may have been revoked or expired early —
     // re-acquire once and retry; a second 401 surfaces as a normal failure
     if (response.status === 401 && this.tokens.usesLogin) {
       this.logger.warn(`identity-service ${method} ${path} returned 401 — re-acquiring the service-account token`)

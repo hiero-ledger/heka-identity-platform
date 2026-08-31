@@ -5,7 +5,7 @@ import WebSocket from 'ws'
 import { IdentityServiceTokenProvider } from './identity-service-token.provider'
 import { VerificationSessionState } from './verification-session.client'
 
-/** A verification-session state change pushed by heka-identity-service (P3.7). */
+/** A verification-session state change pushed by heka-identity-service. */
 export interface VerificationSessionEvent {
   sessionId: string
   state: VerificationSessionState
@@ -19,10 +19,9 @@ const VERIFICATION_SESSION_STATE_CHANGED = 'OpenId4VcVerifier.VerificationSessio
 const CLOSE_UNAUTHORIZED = 3000
 
 /**
- * WebSocket subscription to heka-identity-service's notification gateway
- * (INTEGRATION.md P3.7, §3 "Async completion signals"): one server-side
+ * WebSocket subscription to heka-identity-service's notification gateway: one server-side
  * connection to `ws(s)://<identity-service>/notifications`, authenticated with
- * the same bearer token as the REST client (P1.6.7). Verification-session
+ * the same bearer token as the REST client. Verification-session
  * state changes are forwarded to the handler; everything else is ignored.
  *
  * The gateway keys connections **per user id** (last connection wins), so the
@@ -31,7 +30,7 @@ const CLOSE_UNAUTHORIZED = 3000
  *
  * Push is an optimization, not a dependency: on any failure the client
  * reconnects with capped exponential backoff, and the login page's polling
- * fallback (P1.6.3) keeps working regardless.
+ * fallback keeps working regardless.
  */
 @Injectable()
 export class IdentityServiceEventsClient implements OnModuleDestroy {

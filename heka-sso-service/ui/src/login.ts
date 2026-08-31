@@ -1,18 +1,17 @@
 /**
- * Wallet login page logic (INTEGRATION.md P1.6 + P2.1 + P2.10.2 — the typed,
- * lintable source of what used to be an inline script). Behavior contract:
+ * Wallet login page logic. Behavior contract:
  *
- * - DC API preferred (P2.1): feature-detect `navigator.credentials.get()` +
+ * - DC API preferred: feature-detect `navigator.credentials.get()` +
  *   `DigitalCredential`, hand the signed request to the OS credential picker,
  *   forward the wallet's response to the bridge's origin-bound verify route.
- * - QR fallback (P1.6): `/data` creates the `direct_post` verification
- *   session lazily (P2.1.1 — never before the QR path engages), then the page
- *   listens on the same-origin WebSocket (`/interaction/:uid/events`, P3.7)
- *   for status pushes; polling (P1.6.3) takes over whenever the socket is
+ * - QR fallback: `/data` creates the `direct_post` verification
+ *   session lazily, then the page
+ *   listens on the same-origin WebSocket (`/interaction/:uid/events`)
+ *   for status pushes; pollin takes over whenever the socket is
  *   unavailable, fails, or takes too long to open.
  * - Completion always navigates the SAME cookie-bound browser session to
- *   `/interaction/:uid/complete` (§3.3 binding rule).
- * - Per-client branding (P2.10.3) from `/interaction/:uid/branding` — purely
+ *   `/interaction/:uid/complete`.
+ * - Per-client branding from `/interaction/:uid/branding` — purely
  *   cosmetic, failures ignored.
  */
 import './styles.scss'
@@ -39,7 +38,7 @@ interface Branding extends LoginStatus {
   customCss?: string
 }
 
-/** The Digital Credentials API surface the page feature-detects (P2.1). */
+/** The Digital Credentials API surface the page feature-detects. */
 interface DigitalCredentialConstructor {
   userAgentAllowsProtocol?: (protocol: string) => boolean
 }
@@ -67,7 +66,7 @@ const getJson = <T>(url: string, options?: RequestInit): Promise<T> =>
   fetch(url, options).then((res) => res.json() as Promise<T>)
 
 /**
- * Per-client branding (P2.10.3): product name, logo, colors, custom CSS from
+ * Per-client branding: product name, logo, colors, custom CSS from
  * the login configuration — purely cosmetic, so failures are ignored.
  */
 function applyBranding(): void {
@@ -95,7 +94,7 @@ function applyBranding(): void {
 }
 
 /**
- * Feature detection (P2.1): the DC API surface must exist, and where the
+ * Feature detection: the DC API surface must exist, and where the
  * browser can tell us, it must route the OpenID4VP protocol ids we emit.
  */
 function dcApiSupported(): boolean {
@@ -110,9 +109,9 @@ function dcApiSupported(): boolean {
 }
 
 /**
- * Cross-device fallback (P1.6): fetch the QR/deep-link data — this is what
+ * Cross-device fallback: fetch the QR/deep-link data — this is what
  * creates the direct_post verification session — then listen for the
- * WebSocket push (P3.7), with status polling (P1.6.3) as the fallback channel.
+ * WebSocket push, with status polling as the fallback channel.
  */
 function startQr(): void {
   qrSection.hidden = false
@@ -184,7 +183,7 @@ function stopPolling(): void {
 }
 
 /**
- * P3.7: push channel — same-origin WebSocket carrying the same JSON as
+ * push channel — same-origin WebSocket carrying the same JSON as
  * `/status`. Polling takes over whenever the socket is unavailable, fails,
  * or takes too long to open.
  */
@@ -231,7 +230,7 @@ function connectPush(): void {
 }
 
 /**
- * Same-device DC API path (P2.1): create a dc_api session, hand the request
+ * Same-device DC API path: create a dc_api session, hand the request
  * to the OS credential picker, and forward the wallet's response to the
  * bridge, which verifies it via the identity service's origin-bound verify
  * endpoint. Requires a user gesture, hence the button.

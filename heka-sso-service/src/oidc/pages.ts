@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
- * Bridge-page templates and shared static assets (INTEGRATION.md P2.10.1).
+ * Bridge-page templates and shared static assets.
  *
  * The four HTML documents the bridge serves (wallet login page, logout
  * confirmation, post-logout, error) live as plain `.html` files in
@@ -23,7 +23,7 @@ const pagesDir = join(__dirname, 'pages')
 /** Directory of the hand-authored shared static assets (logo). */
 export const pageAssetsDir = join(pagesDir, 'assets')
 
-/** Vite build output of the login page (P2.10.2, `yarn ui:build`) — gitignored. */
+/** Vite build output of the login page — gitignored. */
 export const builtUiDir = join(pagesDir, 'ui')
 
 /**
@@ -42,7 +42,7 @@ export function loadPage(name: string): string {
     } catch (error) {
       if (name.startsWith('ui/')) {
         throw new Error(
-          `bridge page template '${name}' not found — the login page is a built artifact (P2.10.2); ` +
+          `bridge page template '${name}' not found — the login page is a built artifact; ` +
             `run \`yarn ui:build\` first (${error})`,
         )
       }

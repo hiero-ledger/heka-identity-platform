@@ -12,18 +12,18 @@ import { OIDC_PROVIDER } from './provider.factory'
 type InteractionDetails = Awaited<ReturnType<Provider['interactionDetails']>>
 
 /**
- * Wallet-login interaction (INTEGRATION.md P1.3/P1.6): the provider redirects
+ * Wallet-login interaction: the provider redirects
  * here from `/authorize` and this controller finishes the interaction —
- * `interactionDetails`/`interactionFinished` over the raw `(req, res)`
- * (§5-Inherit-3). Identity acquisition is pluggable (`IDENTITY_ACQUIRER`):
+ * `interactionDetails`/`interactionFinished` over the raw `(req, res)`.
+ * Identity acquisition is pluggable (`IDENTITY_ACQUIRER`):
  * the dev stub completes the login prompt immediately; the OID4VP wallet
- * acquirer serves a static login page (P2.1.1) driven by the JSON routes here
+ * acquirer serves a static login page driven by the JSON routes here
  * — `:uid/data` (QR/deep-link, cross-device), `:uid/dc-api/start` +
- * `:uid/dc-api/verify` (Digital Credentials API, same-device — P2.1),
- * `:uid/status` polling (P1.6.3) — and, once the presentation is verified,
+ * `:uid/dc-api/verify` (Digital Credentials API, same-device),
+ * `:uid/status` polling — and, once the presentation is verified,
  * the page navigates to `:uid/complete`.
  *
- * The binding rule (§3.3) is enforced by construction: `interactionDetails`
+ * The binding rule is enforced by construction: `interactionDetails`
  * only resolves when the browser presents the `_interaction` cookie set on the
  * initiating `/authorize` request (its path covers the sub-routes), so the
  * authorization code is released only into that browser session — never into
@@ -64,9 +64,9 @@ export class InteractionController {
   }
 
   /**
-   * The static login page's data (P2.1.1): creates the cross-device
+   * The static login page's data: creates the cross-device
    * verification session and returns the QR + deep-link payload. Cookie-bound
-   * like every interaction route (§3.3).
+   * like every interaction route.
    */
   @Get(':uid/data')
   public async data(@Req() req: Request, @Res() res: Response): Promise<void> {
@@ -80,10 +80,10 @@ export class InteractionController {
   }
 
   /**
-   * Per-client branding for the login page (P2.10.3): the login
+   * Per-client branding for the login page: the login
    * configuration's `branding` block, applied client-side (product name,
    * logo, `--brand-*` colors, custom CSS). Purely cosmetic and, like every
-   * interaction route, cookie-bound (§3.3) — creates no verification session.
+   * interaction route, cookie-bound — creates no verification session.
    */
   @Get(':uid/branding')
   public async branding(@Req() req: Request, @Res() res: Response): Promise<void> {
@@ -92,7 +92,7 @@ export class InteractionController {
     })
   }
 
-  /** DC API same-device login, step 1 (P2.1): create the `dc_api` session and return the request object. */
+  /** DC API same-device login, step 1: create the `dc_api` session and return the request object. */
   @Post(':uid/dc-api/start')
   public async dcApiStart(@Req() req: Request, @Res() res: Response): Promise<void> {
     await this.pageApi(req, res, async (details, loginConfig) => {
@@ -106,7 +106,7 @@ export class InteractionController {
   }
 
   /**
-   * DC API same-device login, step 2 (P2.1): the browser forwards the wallet's
+   * DC API same-device login, step 2: the browser forwards the wallet's
    * response (the parsed `DigitalCredential.data`); the bridge submits it to
    * the identity service's origin-bound verify endpoint. The origin is the
    * bridge's own — never taken from the request.
@@ -131,9 +131,8 @@ export class InteractionController {
   }
 
   /**
-   * Shared wrapper for the login page's JSON API (P2.1/P2.1.1): resolves the
-   * interaction from the `_interaction` cookie (§3.3 binding — requests
-   * without it get a 400 and no session state), resolves the client's login
+   * Shared wrapper for the login page's JSON API: resolves the
+   * interaction from the `_interaction` cookie, resolves the client's login
    * configuration, and turns failures into JSON errors instead of HTML.
    */
   private async pageApi(
@@ -165,7 +164,7 @@ export class InteractionController {
     }
   }
 
-  /** Login progress for the polling login page (P1.6.3). Cookie-bound like every interaction route. */
+  /** Login progress for the polling login page. Cookie-bound like every interaction route. */
   @Get(':uid/status')
   public async status(@Req() req: Request, @Res() res: Response): Promise<void> {
     try {
@@ -181,7 +180,7 @@ export class InteractionController {
     }
   }
 
-  /** Completion route the login page navigates to once the presentation is verified (§3.3 step 12). */
+  /** Completion route the login page navigates to once the presentation is verified. */
   @Get(':uid/complete')
   public async complete(@Req() req: Request, @Res() res: Response): Promise<void> {
     const details = await this.provider.interactionDetails(req, res)
@@ -240,11 +239,9 @@ export class InteractionController {
   }
 
   /**
-   * The claims pipeline (P1.3/P1.4): map/merge claims, compute `sub` over the
-   * **mapped** claim set (§4.3 — the full disclosed set may carry volatile
-   * values and must not destabilize the derived `sub`), attach the full
-   * disclosed set as `vc_presented_attributes` (feasibility §3.5), store for
-   * `findAccount` (§4.4), and finish the interaction.
+   * The claims pipeline: map/merge claims, compute `sub` over the
+   * **mapped** claim set, attach the full disclosed set as `vc_presented_attributes`, store for
+   * `findAccount`, and finish the interaction.
    */
   private async finishLogin(
     req: Request,
@@ -323,7 +320,7 @@ export class InteractionController {
   }
 
   /**
-   * Login-config resolution (§4.2): by the client's `loginConfigId`, falling
+   * Login-config resolution: by the client's `loginConfigId`, falling
    * back to the config with id `default`.
    */
   private resolveLoginConfig(clientId: string): OidcLoginConfig | undefined {

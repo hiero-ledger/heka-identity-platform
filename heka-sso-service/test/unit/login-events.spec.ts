@@ -19,10 +19,10 @@ const signedCookie = (uid: string) => {
 const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
- * WebSocket push channel to the login page (P3.7): cookie-bound upgrade on
+ * WebSocket push channel to the login page: cookie-bound upgrade on
  * /interaction/:uid/events, session→interaction routing, LoginStatus mapping.
  */
-describe('LoginEventsService (P3.7)', () => {
+describe('LoginEventsService', () => {
   let server: Server
   let baseUrl: string
   let service: LoginEventsService
@@ -112,7 +112,7 @@ describe('LoginEventsService (P3.7)', () => {
     expect(messages).toEqual([])
   })
 
-  test('binding rule (§3.3): upgrades without a valid signed cookie are refused', async () => {
+  test('binding rule: upgrades without a valid signed cookie are refused', async () => {
     // no cookie at all
     await expect(connect('/interaction/uid-5/events')).rejects.toThrow(/upgrade refused: 400|socket hang up/)
     // bad signature

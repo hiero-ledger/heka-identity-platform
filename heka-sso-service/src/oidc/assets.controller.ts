@@ -8,7 +8,7 @@ import { Response } from 'express'
 import { pageAssetRoots } from './pages'
 
 /**
- * Shared static assets for the bridge pages (INTEGRATION.md P2.10.1/P2.10.2):
+ * Shared static assets for the bridge pages:
  * the built login-page bundle (`login.js`, `styles.css` — Vite output, which
  * the three hook templates also link) and the hand-authored `logo.svg`,
  * served from the bridge's own origin at `/interaction/assets/*` (a Nest

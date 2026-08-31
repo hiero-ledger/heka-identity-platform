@@ -4,8 +4,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { ClaimSet } from './claims.util'
 
 /**
- * DI token for the interaction's pluggable identity-acquisition step
- * (INTEGRATION.md P1.3/P1.6). `StubIdentityAcquirer` (dev) and
+ * DI token for the interaction's pluggable identity-acquisition step. `StubIdentityAcquirer` (dev) and
  * `WalletIdentityAcquirer` (OID4VP) implement it; `null` is bound when no
  * acquisition method is enabled.
  */
@@ -14,19 +13,19 @@ export const IDENTITY_ACQUIRER = 'IDENTITY_ACQUIRER'
 export interface AcquiredIdentity {
   /** Disclosed attributes keyed by credential-query claim path (the login config's `claimMapping` keys). */
   attributes: ClaimSet
-  /** Authentication method references for the session — `['vc']` only for a real presentation (P1.3.2). */
+  /** Authentication method references for the session — `['vc']` only for a real presentation. */
   amr: string[]
-  /** The full disclosed set, published under `vc_presented_attributes` (feasibility §3.5). */
+  /** The full disclosed set, published under `vc_presented_attributes`. */
   presentedAttributes?: ClaimSet
 }
 
 /** Outcome of starting the login step: an immediate identity (stub) or a login page to render (wallet). */
 export type BeginLoginResult = { kind: 'identity'; identity: AcquiredIdentity } | { kind: 'page'; html: string }
 
-/** Progress of a pending login, as reported to the polling login page (P1.6.3). */
+/** Progress of a pending login, as reported to the polling login page. */
 export type LoginStatus = { status: 'pending' } | { status: 'verified' } | { status: 'error'; message?: string }
 
-/** JSON payload for the static login page's QR path (P2.1.1: `GET /interaction/:uid/data`). */
+/** JSON payload for the static login page's QR path (`GET /interaction/:uid/data`). */
 export interface LoginPageData {
   /** Wallet-facing authorization request URI (`openid4vp://?request_uri=…`) — the deep-link target. */
   authorizationRequest: string
@@ -34,7 +33,7 @@ export interface LoginPageData {
   qrDataUrl: string
 }
 
-/** A DC API request for `navigator.credentials.get()` (P2.1: `POST /interaction/:uid/dc-api/start`). */
+/** A DC API request for `navigator.credentials.get()` (`POST /interaction/:uid/dc-api/start`). */
 export interface DcApiLoginRequest {
   /** DC API protocol identifier (`openid4vp-v1-signed` / `openid4vp-v1-unsigned`). */
   protocol: string
@@ -44,13 +43,13 @@ export interface DcApiLoginRequest {
 
 /**
  * How the interaction establishes who the user is. The flow is two-phase to
- * fit the target flow's asynchronous wallet presentation (feasibility §3.3):
+ * fit the target flow's asynchronous wallet presentation:
  * `beginLogin` either resolves immediately (stub) or renders a login page
  * whose browser then polls `checkLogin` and, once verified, navigates to the
  * completion route, which calls `completeLogin` — in the same cookie-bound
- * browser session (the §3.3 binding rule).
+ * browser session.
  *
- * The optional methods are the static login page's JSON API (P2.1/P2.1.1) —
+ * The optional methods are the static login page's JSON API —
  * only the wallet acquirer implements them (the stub never renders a page):
  * `getLoginData` starts the cross-device QR path, `beginDcApiLogin` /
  * `verifyDcApiLogin` the DC API same-device path.
@@ -59,11 +58,11 @@ export interface IdentityAcquirer {
   beginLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<BeginLoginResult>
   checkLogin(interactionUid: string): Promise<LoginStatus>
   completeLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<AcquiredIdentity>
-  /** P2.1.1: create the cross-device verification session and return the QR/deep-link data. */
+  /** create the cross-device verification session and return the QR/deep-link data. */
   getLoginData?(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData>
-  /** P2.1: create a DC API verification session and return the `navigator.credentials.get()` request. */
+  /** create a DC API verification session and return the `navigator.credentials.get()` request. */
   beginDcApiLogin?(loginConfig: OidcLoginConfig, interactionUid: string): Promise<DcApiLoginRequest>
-  /** P2.1: verify the wallet's DC API response (the parsed `DigitalCredential.data`). */
+  /** verify the wallet's DC API response (the parsed `DigitalCredential.data`). */
   verifyDcApiLogin?(interactionUid: string, authorizationResponse: Record<string, unknown>): Promise<LoginStatus>
 }
 
@@ -76,10 +75,10 @@ const stubIdentityByClaim: ClaimSet = {
 }
 
 /**
- * Dev-only stub (INTEGRATION.md P1.3): synthesizes a "disclosed" attribute for
+ * Dev-only stub: synthesizes a "disclosed" attribute for
  * every claim-mapping entry of the login configuration — so the real mapping
  * pipeline is exercised — without any credential presentation. Only bound when
- * `OIDC_STUB_LOGIN=true`; production refuses that flag (P1.3.1).
+ * `OIDC_STUB_LOGIN=true`; production refuses that flag.
  */
 @Injectable()
 export class StubIdentityAcquirer implements IdentityAcquirer {
@@ -105,7 +104,7 @@ export class StubIdentityAcquirer implements IdentityAcquirer {
     for (const [path, claimName] of Object.entries(loginConfig.claimMapping)) {
       attributes[path] = stubIdentityByClaim[claimName] ?? `stub-${claimName}`
     }
-    // amr must never claim 'vc' for a stub login (P1.3.2)
+    // amr must never claim 'vc' for a stub login
     return { attributes, amr: ['stub'] }
   }
 }
