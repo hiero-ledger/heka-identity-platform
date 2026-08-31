@@ -14,6 +14,8 @@ Vite env vars (see `.env` / `.env.example`):
 | `VITE_KC_URL` | `http://localhost:8080` | Keycloak base URL |
 | `VITE_KC_REALM` | `master` | Keycloak realm |
 | `VITE_KC_CLIENT_ID` | `heka-sso-web-ui` | OIDC client id registered in Keycloak |
+| `VITE_KC_IDP_HINT` | `heka-sso` | Keycloak IdP alias sent as `kc_idp_hint`, so Keycloak forwards straight to the bridge. Set empty to show Keycloak's own login page (with the "Sign in with wallet" button) |
+| `VITE_AUTO_SIGN_IN` | `true` | `false` lands unauthenticated visits on the Welcome screen (presenter clicks "Sign in with wallet") instead of redirecting to the IdP immediately |
 | `VITE_AUTH0_DOMAIN` | — | Auth0 tenant domain (e.g. `<tenant>.eu.auth0.com`) |
 | `VITE_AUTH0_CLIENT_ID` | — | Client id of the Auth0 SPA application |
 | `VITE_AUTH0_CONNECTION` | _(unset)_ | Optional: enterprise connection to forward to directly, skipping the Auth0 login widget (analog of `kc_idp_hint`) |
@@ -43,6 +45,14 @@ yarn dev
 ```
 
 Open http://localhost:5173 — you are redirected to the Keycloak login page.
+
+### Screens
+
+| Welcome (`VITE_AUTO_SIGN_IN=false`, or after sign-out) | Dashboard |
+|---|---|
+| ![Welcome](docs/screenshots/welcome-1280.png) | ![Dashboard](docs/screenshots/dashboard-1280.png) |
+
+Phone-width captures (`welcome-360.png`, `dashboard-360.png`, `error-360.png`) and the bridge's wallet login page as reached through the chain (`bridge-login-*.png`) are in [docs/screenshots/](docs/screenshots/).
 
 ### UI preview without an IdP
 

@@ -23,6 +23,8 @@ export const copy = {
   splash: {
     title: 'Signing you in',
     redirecting: (provider: string) => `Redirecting to ${provider}…`,
+    signingOutTitle: 'Signing you out',
+    signingOut: (provider: string) => `Ending your session at ${provider}…`,
   },
   welcome: {
     title: 'Sign in',

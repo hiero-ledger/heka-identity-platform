@@ -48,6 +48,7 @@ Figma reports colors as `#RRGGBBAA`; the alpha column is the rounded percentage.
 |---|---|---|
 | `green-600` | `#1aa179` | `--color-success` |
 | `purple_600` | `#6f42c1` | `--color-accent-purple` |
+| *(not a variable)* | `#f18d00` | `--color-accent-nav` — menu icon accent. Baked into the icon artwork (identity-service `dashboard-outline.svg`; sibling nav icons use `#f1b500` / `#f16400`), visible on the Figma `Menu` component; not bound to a Figma variable |
 
 These are raw palette names rather than semantic variables in Figma; confirm intended semantics with design before naming them.
 
@@ -111,12 +112,21 @@ Unchanged (values match Figma): all `--color-dark-*` / `--color-light-*` emphasi
 
 New tokens to add: `--color-dark-divider`, `--color-success` (`#1aa179`), `--color-accent-purple` (`#6f42c1`), `--color-primary-branded-2`, `--shadow-elevated`.
 
+## 5a. Motion (proposed — no motion tokens in Figma)
+
+| CSS variable | Value | Use |
+|---|---|---|
+| `--motion-duration-enter` | `180ms` | shell/screen fade-in when a screen mounts (identity-service uses a 200 ms transform transition) |
+| `--motion-easing-standard` | `cubic-bezier(0.2, 0, 0, 1)` | standard ease-out |
+
+Both are disabled under `prefers-reduced-motion: reduce`.
+
 ## 6. Layout facts from the mockups (from page metadata)
 
 - Desktop canvas: **1280 × 720**; mobile variants: **360** wide.
 - Shell: left `Menu` **288px** wide, full height; right panel 992px with an 8px inset `Body`.
 - Inside `Body`: a 288px `Header` column and a 680px content column with 48px padding.
-- `Header` column on `Sign in`: H1 at (48, 48); illustration at (48, 280), 434 × 360, overflowing (clipped by) the column. The column's fill is the `DSR Branded 2` token (`#fff`), i.e. it sits flat on the body surface rather than as a tinted box — identity-service's branded `BasicPanel` background does **not** carry over. In code: `--layout-illustration-size` 434px (the Figma width) / `--layout-illustration-size-mobile` 160px. Asset: `src/assets/wallet.webp` = identity-service's `public/wallet.png` (1024² with transparent margins) cropped to its opaque box (823 × 676 — the same 1.22 aspect as Figma's 434 × 360 placement) and saved as WebP (~98 KB vs 700 KB); with the crop, Figma's offsets apply verbatim.
+- `Header` column on `Sign in`: H1 at (48, 48); illustration at (48, 280), 434 × 360, overflowing (clipped by) the column. The column's fill is the `DSR Branded 2` token (`#fff`), i.e. it sits flat on the body surface rather than as a tinted box — identity-service's branded `BasicPanel` background does **not** carry over. In code: `--layout-illustration-size` 434px (the Figma width) / `--layout-illustration-size-mobile` 160px. Asset: `src/assets/wallet.webp` = identity-service's `public/wallet.png` (1024² with transparent margins) cropped to its opaque box (823 × 676 — the same 1.22 aspect as Figma's 434 × 360 placement) and saved as WebP (~98 KB vs 700 KB); with the crop, Figma's offsets apply verbatim. The authenticated shell's header column (Figma "Issue credential") uses `many-wallets.webp` the same way (source `many-wallets.png` 1024², opaque box 831 × 837, WebP ~97 KB) at 434 px, offsets 32 px left / 16 px bottom — measured from the frame image, not Figma metadata.
 - Screen inventory: Sign in, Create account, Registration, Password, Profile, Configuration, Issue credential (5 steps + offer/received), Verify credential (4 steps + request/verified), Create schema, Create credential definition, Edit/View/Save-as-template, Confirmation, Demo.
 
 ## 7. Inferred tokens (from `heka-identity-service-web-ui`)

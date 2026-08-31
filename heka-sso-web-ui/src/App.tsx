@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useAuthSession } from './auth/session'
 import { displayName } from './claims'
 import { AppLayout } from './components/Layout'
+import { copy } from './copy'
 import DashboardPage from './pages/DashboardPage'
 import SignInErrorPage from './pages/SignInErrorPage'
 import SplashPage from './pages/SplashPage'
@@ -14,14 +15,22 @@ import WelcomePage from './pages/WelcomePage'
 // user in again.
 const SIGNED_OUT_KEY = 'heka-sso-web-ui.signed-out'
 
+// UI-PLAN.md D2: with VITE_AUTO_SIGN_IN=false a first visit lands on the
+// Welcome screen and the presenter starts the loop by clicking "Sign in with
+// wallet"; the default (true) keeps the original auto-redirect behaviour.
+const autoSignIn = (import.meta.env.VITE_AUTO_SIGN_IN ?? 'true').toLowerCase() !== 'false'
+
 function App() {
   const auth = useAuthSession()
   const [signedOut, setSignedOut] = useState(() => sessionStorage.getItem(SIGNED_OUT_KEY) === '1')
+  // True from the Sign out click until the browser leaves for the IdP's logout
+  // endpoint — the Splash stays up instead of the Welcome screen flashing.
+  const [signingOut, setSigningOut] = useState(false)
 
   // The login page is the IdP's (Keycloak or Auth0): an unauthenticated visit
   // redirects there immediately. The guards prevent redirect loops during the
   // callback exchange, after a failed sign-in, and after an explicit sign-out.
-  const shouldRedirect = !signedOut && !auth.isAuthenticated && !auth.isLoading && !auth.error
+  const shouldRedirect = autoSignIn && !signedOut && !auth.isAuthenticated && !auth.isLoading && !auth.error
 
   useEffect(() => {
     if (shouldRedirect) {
@@ -30,8 +39,11 @@ function App() {
   }, [shouldRedirect, auth])
 
   const signOut = () => {
+    // The flag is read on the next load (after the logout round-trip); the
+    // React state is deliberately not flipped here so the Dashboard does not
+    // give way to the Welcome screen for a frame before the redirect.
     sessionStorage.setItem(SIGNED_OUT_KEY, '1')
-    setSignedOut(true)
+    setSigningOut(true)
     auth.signOut()
   }
 
@@ -51,9 +63,17 @@ function App() {
   // Presentation only (UI-PLAN.md §2.3): the auth flow is unchanged — each
   // state of the original switch maps to one screen. The landing takes
   // precedence over a stale error so "Back" from the failure screen works.
+  if (signingOut) {
+    return <SplashPage provider={auth.provider} direction="out" />
+  }
   if (auth.isAuthenticated) {
     return (
-      <AppLayout userName={displayName(auth.claims)} onSignOut={signOut}>
+      <AppLayout
+        title={copy.nav.dashboard}
+        illustration="wallets"
+        userName={displayName(auth.claims)}
+        onSignOut={signOut}
+      >
         <DashboardPage />
       </AppLayout>
     )
@@ -63,6 +83,9 @@ function App() {
   }
   if (auth.error) {
     return <SignInErrorPage message={auth.error} onRetry={() => auth.signIn()} onBack={backToWelcome} />
+  }
+  if (!autoSignIn && !auth.isLoading) {
+    return <WelcomePage provider={auth.provider} onSignIn={() => auth.signIn()} />
   }
   return <SplashPage provider={auth.provider} />
 }

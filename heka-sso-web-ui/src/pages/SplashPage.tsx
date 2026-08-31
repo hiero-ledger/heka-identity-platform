@@ -7,15 +7,20 @@ import styles from './AuthPages.module.scss'
 
 interface SplashPageProps {
   provider: AuthProviderName
+  /** `in` while a session is restored or the IdP redirect is in flight; `out` while the logout redirect leaves. */
+  direction?: 'in' | 'out'
 }
 
-/** Shown while the session is restored or the IdP redirect is in flight. */
-function SplashPage({ provider }: SplashPageProps) {
+/** Transitional screen — stays on screen until the browser navigates away, so nothing else flashes. */
+function SplashPage({ provider, direction = 'in' }: SplashPageProps) {
+  const providerLabel = copy.providers[provider]
+  const title = direction === 'out' ? copy.splash.signingOutTitle : copy.splash.title
+  const status = direction === 'out' ? copy.splash.signingOut(providerLabel) : copy.splash.redirecting(providerLabel)
   return (
-    <AuthLayout title={copy.splash.title} illustration="wallet">
+    <AuthLayout title={title} illustration="wallet">
       <div className={styles.splash} role="status" aria-live="polite">
-        <Loader type="linear" label={copy.splash.title} />
-        <p className={styles.status}>{copy.splash.redirecting(copy.providers[provider])}</p>
+        <Loader type="linear" label={title} />
+        <p className={styles.status}>{status}</p>
       </div>
     </AuthLayout>
   )

@@ -22,7 +22,7 @@ export default defineConfig({
     svgr({
       svgrOptions: {
         replaceAttrValues: {
-          '#F18D00': 'currentColor', // dashboard-outline
+          '#F18D00': 'currentColor', // dashboard-outline — coloured back via --color-accent-nav
           '#2E2721': 'currentColor', // user (old primary)
           black: 'currentColor', // logout
         },

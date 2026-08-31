@@ -2,27 +2,32 @@ import { ReactNode } from 'react'
 
 import DashboardIcon from '@/assets/icons/dashboard-outline.svg?react'
 import UserIcon from '@/assets/icons/user.svg?react'
-import { copy } from '@/copy'
-import { classNames } from '@/utils/classNames'
-import { useVisualViewportHeight } from '@/utils/useVisualViewportHeight'
 import Button from '@/components/Button/Button'
 import Logo from '@/components/Logo/Logo'
 import { useDesktop } from '@/components/Screen/useMediaQuery'
+import { copy } from '@/copy'
+import { classNames } from '@/utils/classNames'
+import { useVisualViewportHeight } from '@/utils/useVisualViewportHeight'
 
+import { HeaderPanel, Illustration, TopPanel } from './HeaderPanel'
 import styles from './Layout.module.scss'
 
 interface AppLayoutProps {
+  /** Page title shown in the header column (stacked: the top panel). */
+  title: string
+  illustration?: Illustration
   userName?: string
   onSignOut: () => void
   children: ReactNode
 }
 
 /**
- * Authenticated shell (UI-PLAN.md §2.2 / §2.4): sidebar + white body on
- * desktop; logo/sign-out top row + body when stacked. One page, so the nav
- * has a single, always-active item.
+ * Authenticated shell (UI-PLAN.md §2.2 / §2.4, Figma "Issue credential"):
+ * sidebar (logo, nav, user, sign out) + white body holding the header column
+ * and the centered page content; logo/sign-out top row + top panel + content
+ * when stacked. One page, so the nav has a single, always-active item.
  */
-function AppLayout({ userName, onSignOut, children }: AppLayoutProps) {
+function AppLayout({ title, illustration, userName, onSignOut, children }: AppLayoutProps) {
   useVisualViewportHeight()
   const isDesktop = useDesktop()
 
@@ -33,7 +38,7 @@ function AppLayout({ userName, onSignOut, children }: AppLayoutProps) {
           <Logo />
           <nav className={styles.sidebarNav} aria-label="Main">
             <span className={classNames(styles.navItem, { [styles.navItemActive]: true })} aria-current="page">
-              <DashboardIcon className={styles.navIcon} aria-hidden="true" />
+              <DashboardIcon className={classNames(styles.navIcon, {}, [styles.navItemIcon])} aria-hidden="true" />
               {copy.nav.dashboard}
             </span>
           </nav>
@@ -44,7 +49,7 @@ function AppLayout({ userName, onSignOut, children }: AppLayoutProps) {
                 <span className={styles.userName}>{userName}</span>
               </div>
             )}
-            <Button buttonType="text" leftIcon="logout" alignment="left" onPress={onSignOut}>
+            <Button buttonType="outlined" fullWidth onPress={onSignOut}>
               {copy.nav.signOut}
             </Button>
           </div>
@@ -58,7 +63,11 @@ function AppLayout({ userName, onSignOut, children }: AppLayoutProps) {
         </header>
       )}
       <main className={styles.body}>
-        <div className={styles.content}>{children}</div>
+        {isDesktop && <HeaderPanel title={title} illustration={illustration} />}
+        <div className={styles.content}>
+          {!isDesktop && <TopPanel title={title} illustration={illustration} />}
+          <div className={styles.contentBody}>{children}</div>
+        </div>
       </main>
     </div>
   )

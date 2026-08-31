@@ -6,6 +6,11 @@ import { AuthSession, AuthSessionContext } from './session'
 const kcUrl: string = import.meta.env.VITE_KC_URL
 const kcRealm: string = import.meta.env.VITE_KC_REALM
 const kcClientId: string = import.meta.env.VITE_KC_CLIENT_ID
+// Identity-provider hint (INTEGRATION.md U.2): Keycloak skips its own login
+// page and forwards straight to this IdP alias — the bridge. Default
+// `heka-sso` (the demo realm's alias); set VITE_KC_IDP_HINT= (empty) to see
+// Keycloak's login page with the "Sign in with wallet" button instead.
+const kcIdpHint: string = import.meta.env.VITE_KC_IDP_HINT ?? 'heka-sso'
 
 const authConfig: AuthProviderProps = {
   authority: `${kcUrl}/realms/${kcRealm}`,
@@ -14,6 +19,7 @@ const authConfig: AuthProviderProps = {
   post_logout_redirect_uri: window.location.origin,
   response_type: 'code',
   scope: 'openid profile email',
+  ...(kcIdpHint ? { extraQueryParams: { kc_idp_hint: kcIdpHint } } : {}),
   onSigninCallback: () => {
     // Strip code/state from the URL after the redirect returns
     window.history.replaceState({}, document.title, window.location.pathname)

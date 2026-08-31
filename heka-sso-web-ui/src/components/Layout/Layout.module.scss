@@ -3,9 +3,28 @@
 // measured from the Figma frames; constants from design-tokens.scss only.
 @import '@/styles/mixins';
 
+// Screens swap by remounting a shell; a short fade-in turns the hard cut into
+// a transition (UI-PLAN.md: no blinking between states). Off under
+// prefers-reduced-motion.
+@keyframes shell-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 // Outer surface. Full viewport height following the visual viewport
 // (keyboard / address bar), safe-area aware.
 .shell {
+  animation: shell-enter var(--motion-duration-enter) var(--motion-easing-standard) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
   display: flex;
   width: 100%;
   min-height: 100vh;
@@ -89,6 +108,12 @@
   flex-shrink: 0;
 }
 
+// Menu-item icons carry the warm accent of the Figma Menu (the svgr build maps
+// the artwork's fill to currentColor, so the token decides the colour).
+.navItemIcon {
+  color: var(--color-accent-nav);
+}
+
 .sidebarFooter {
   display: flex;
   flex-direction: column;
@@ -140,6 +165,13 @@
   max-width: none;
   height: auto;
   pointer-events: none;
+}
+
+// Figma "Issue credential" header: the wallet stack sits lower and further
+// left than the sign-in wallet (measured from the frame: ~34px / 16px).
+.illustration-wallets {
+  left: var(--space-xxl);
+  bottom: var(--space-md);
 }
 
 // --- Top panel (stacked shell, AuthLayout) ---------------------------------

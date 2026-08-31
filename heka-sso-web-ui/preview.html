@@ -5,10 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Heka demo app — UI preview</title>
+    <!-- Same critical paint / preloads as index.html so the preview behaves like the app. -->
+    <style>
+      html {
+        background: #f4f4f4;
+      }
+    </style>
+    <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/illustrations/wallet.webp" as="image" type="image/webp" />
+    <link rel="preload" href="/illustrations/many-wallets.webp" as="image" type="image/webp" />
   </head>
   <body>
     <!-- Dev-only: renders the app's screens with a fake session, no IdP needed.
-         http://localhost:5173/preview.html?state=dashboard|splash|error|signed-out
+         http://localhost:5173/preview.html?state=dashboard|dashboard-auth0|dashboard-full|dashboard-bare|welcome|signed-out|error|splash
          Not part of the production build (vite builds index.html only). -->
     <div id="root"></div>
     <script type="module" src="/src/dev/preview.tsx"></script>

@@ -61,6 +61,7 @@
   --color-notification: #ef2727; // inherited (low confidence), DESIGN-TOKENS §7.3
   --color-error: var(--color-notification); // proposed, DESIGN-TOKENS §7.3
   --color-accent-purple: #6f42c1; // Figma purple_600, role unconfirmed
+  --color-accent-nav: #f18d00; // menu icon accent — from the icon artwork (Figma Menu), not a Figma variable
 
   // ---------------------------------------------------------------------------
   // 2. Spacing — pixel system, 16px unit (DESIGN-TOKENS §2, §7.2)
@@ -184,4 +185,10 @@
 
   --outline-width: 2px; // focus ring, used by the `outline` mixin
   --border-width: 1px; // hairline borders, used by the `border` mixin
+
+  // ---------------------------------------------------------------------------
+  // 6. Motion (proposed — no motion tokens in Figma; identity-service uses 200ms)
+  // ---------------------------------------------------------------------------
+  --motion-duration-enter: 180ms; // screen/shell fade-in
+  --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
 }
