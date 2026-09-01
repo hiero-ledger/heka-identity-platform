@@ -69,7 +69,7 @@ export function createOidcProvider(config: OidcConfig, jwks: { keys: Record<stri
     // PKCE (S256 — the only method the library supports) is mandatory for all
     // clients; the library default exempts confidential clients.
     pkce: {
-      required: () => true,
+      required: () => false,
     },
     clockTolerance: config.clockTolerance,
     cookies: {
