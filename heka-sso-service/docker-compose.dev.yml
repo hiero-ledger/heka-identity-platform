@@ -23,6 +23,10 @@ services:
       - DB_NAME=heka-sso-service
       - DB_USER=heka
       - DB_PASSWORD=heka1
+      - OIDC_ISSUER_URL=http://localhost:3005
+      - OIDC_COOKIE_KEYS=dev-only-cookie-key-do-not-use-in-production
+      - OIDC_SUB_HMAC_SALT=dev-only-sub-hmac-salt-do-not-use-in-production
+      - IDENTITY_SERVICE_BASE_URL=http://localhost:3000
     ports:
       - '3005:3005'
     depends_on:

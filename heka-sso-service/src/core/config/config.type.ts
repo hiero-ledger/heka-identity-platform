@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer'
 import { ValidateNested, validateSync } from 'class-validator'
 
-import { AppConfig, DbConfig, HealthConfig, LoggerConfig, ThrottleConfig } from './configs'
+import { AppConfig, DbConfig, HealthConfig, LoggerConfig, OidcConfig, ThrottleConfig } from './configs'
 
 export class Config {
   @ValidateNested()
@@ -21,6 +21,10 @@ export class Config {
   public health!: HealthConfig
 
   @ValidateNested()
+  @Type(() => OidcConfig)
+  public oidc!: OidcConfig
+
+  @ValidateNested()
   @Type(() => ThrottleConfig)
   public throttle!: ThrottleConfig
 
@@ -29,6 +33,7 @@ export class Config {
     this.logger = new LoggerConfig(configuration)
     this.db = new DbConfig(configuration)
     this.health = new HealthConfig(configuration)
+    this.oidc = new OidcConfig(configuration)
     this.throttle = new ThrottleConfig(configuration)
   }
 }

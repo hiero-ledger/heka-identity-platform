@@ -3,7 +3,10 @@
     // MikroORM v7 ships ESM-only packages whose type declarations reference
     // subpath exports (e.g. `@mikro-orm/core/schema`). Resolving those requires
     // an exports-map-aware moduleResolution, so the project uses nodenext.
-    // Emit stays CommonJS (package.json has no "type": "module").
+    // Emit stays CommonJS (package.json has no "type": "module"); the pure-ESM
+    // `oidc-provider` v9 loads via Node's require(esm) — requires Node >= 22.12
+    // (engines pins 22.17.0); spiked per INTEGRATION.md §5-Decide-1 and guarded
+    // by test/unit/oidc-provider.spec.ts.
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "declaration": true,
