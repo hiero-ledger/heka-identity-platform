@@ -14,7 +14,9 @@ services:
   # host.docker.internal; browser-facing URLs stay on localhost:3005.
   keycloak:
     image: quay.io/keycloak/keycloak:26.3
-    command: start-dev --import-realm
+    # Dev flags: no theme caching, so a rebuilt heka-keycloak-theme jar shows
+    # after a container restart without clearing caches (UI-PLAN.md Phase K).
+    command: start-dev --import-realm --spi-theme-static-max-age=-1 --spi-theme-cache-themes=false --spi-theme-cache-templates=false
     environment:
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin
       - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
@@ -22,6 +24,9 @@ services:
       - '8080:8080'
     volumes:
       - ./keycloak:/opt/keycloak/data/import:ro
+      # Login theme (realm-heka.json sets loginTheme: heka). Build it once:
+      #   cd ../heka-keycloak-theme && yarn build-keycloak-theme
+      - ../heka-keycloak-theme/dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar:/opt/keycloak/providers/heka-theme.jar:ro
     extra_hosts:
       - 'host.docker.internal:host-gateway'
   heka-sso-service:

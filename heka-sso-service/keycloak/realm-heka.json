@@ -1,6 +1,7 @@
 {
   "realm": "heka",
-  "displayName": "Heka SSO demo",
+  "displayName": "OID4VP SSO Demo",
+  "loginTheme": "heka",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,
