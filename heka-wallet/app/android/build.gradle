@@ -61,6 +61,7 @@ subprojects {
                 }
             }
 
+            // Fixing mismatch between Kotlin (v19) and Java (v17) versions
             project.plugins.withId("org.jetbrains.kotlin.android") {
                 project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
                     kotlinOptions {
