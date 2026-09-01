@@ -25,6 +25,7 @@ const loggerConfigDefaults = {
     'oidc.subHmacSalt',
     'oidc.identityService.authToken',
     'oidc.clients[*].clientSecret',
+    'oidc.jwks',
   ],
 }
 

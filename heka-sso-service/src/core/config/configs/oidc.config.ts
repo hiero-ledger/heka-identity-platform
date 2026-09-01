@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 
 import { Type } from 'class-transformer'
 import {
@@ -31,6 +32,8 @@ export enum OidcConfigKeys {
   ttlGrant = 'OIDC_TTL_GRANT',
   clients = 'OIDC_CLIENTS',
   loginConfigs = 'OIDC_LOGIN_CONFIGS',
+  jwks = 'OIDC_JWKS',
+  jwksFile = 'OIDC_JWKS_FILE',
 }
 
 /** `sub` strategies per INTEGRATION.md §4.3 — the MVP implements `derived`. */
@@ -67,6 +70,13 @@ const knownDefaultSecrets = new Set([
   'password',
   'changeme',
 ])
+
+/**
+ * `kid` values of well-known development JWKS — most importantly
+ * node-oidc-provider's built-in dev keystore (`keystore-CHANGE-ME`).
+ * A production JWKS override must not contain any of these.
+ */
+const knownDefaultKeyIds = new Set(['keystore-CHANGE-ME', 'test', 'dev', 'example', 'changeme'])
 
 const urlOptions = { protocols: ['http', 'https'], require_protocol: true, require_tld: false }
 
@@ -257,6 +267,15 @@ export class OidcConfig {
   @Type(() => OidcLoginConfig)
   public loginConfigs: OidcLoginConfig[]
 
+  /**
+   * Optional signing-JWKS override (`OIDC_JWKS` inline JSON, or `OIDC_JWKS_FILE`
+   * path) — intended for dev/test. When unset, keys are generated on first
+   * start and persisted in Postgres (see `SigningKeysService`).
+   */
+  @IsOptional()
+  @IsObject()
+  public jwks?: { keys: Record<string, any>[] }
+
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
     const nodeEnv = (env.NODE_ENV ?? process.env.NODE_ENV)?.toString().toLowerCase()
@@ -321,6 +340,8 @@ export class OidcConfig {
       (loginConfig) => new OidcLoginConfig(loginConfig),
     )
 
+    this.jwks = OidcConfig.resolveJwksOverride(env, problems, isProduction)
+
     if (problems.length > 0) {
       throw new Error(`OidcConfig validation failed:\n - ${problems.join('\n - ')}`)
     }
@@ -331,6 +352,56 @@ export class OidcConfig {
           'Sessions and derived sub values will not survive a restart.',
       )
     }
+  }
+
+  private static resolveJwksOverride(
+    env: Record<string, any>,
+    problems: string[],
+    isProduction: boolean,
+  ): { keys: Record<string, any>[] } | undefined {
+    let raw: string | undefined = env[OidcConfigKeys.jwks]
+    const source = raw ? OidcConfigKeys.jwks : OidcConfigKeys.jwksFile
+    if (!raw && env[OidcConfigKeys.jwksFile]) {
+      try {
+        raw = readFileSync(env[OidcConfigKeys.jwksFile], 'utf8')
+      } catch {
+        problems.push(`${OidcConfigKeys.jwksFile} could not be read: ${env[OidcConfigKeys.jwksFile]}`)
+        return undefined
+      }
+    }
+    if (!raw) return undefined
+
+    let jwks: any
+    try {
+      jwks = JSON.parse(raw)
+    } catch {
+      problems.push(`${source} contains invalid JSON`)
+      return undefined
+    }
+    if (!jwks || !Array.isArray(jwks.keys) || jwks.keys.length === 0) {
+      problems.push(`${source} must be a JWKS object with a non-empty "keys" array`)
+      return undefined
+    }
+
+    if (isProduction) {
+      for (const key of jwks.keys) {
+        const label = `${source}: key '${key.kid ?? '<no kid>'}'`
+        if (key.kid && knownDefaultKeyIds.has(key.kid)) {
+          problems.push(`${label} is a known default key — generate real signing keys for production`)
+        }
+        if (!key.d) {
+          problems.push(`${label} has no private material — the signing JWKS must contain private keys`)
+        }
+        if (key.kty === 'RSA' && (!key.n || Buffer.from(key.n, 'base64url').length < 256)) {
+          problems.push(`${label} RSA modulus is below 2048 bits — too weak for production`)
+        }
+        if (key.kty === 'EC' && !['P-256', 'P-384', 'P-521'].includes(key.crv)) {
+          problems.push(`${label} uses an unsupported EC curve for production`)
+        }
+      }
+    }
+
+    return jwks
   }
 
   private static parseJsonArray(env: Record<string, any>, key: OidcConfigKeys, problems: string[]): any[] {
