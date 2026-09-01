@@ -6,7 +6,7 @@ import { APP_GUARD } from '@nestjs/core'
 import { MainModule } from '../../src/main.module'
 import { MikroOrmModule } from '@mikro-orm/nestjs'
 import { defineConfig, PostgreSqlDriver } from '@mikro-orm/postgresql'
-import { DatabaseModule, OidcSigningKey } from '../../src/core/database'
+import { DatabaseModule, OidcEntity, OidcSigningKey } from '../../src/core/database'
 import TestMikroOrmConfig from '../config/mikro-orm'
 import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
 
@@ -20,7 +20,7 @@ import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
       useFactory: () =>
         defineConfig({
           ...TestMikroOrmConfig(),
-          entities: [OidcSigningKey],
+          entities: [OidcEntity, OidcSigningKey],
           metadataProvider: ReflectMetadataProvider,
         }),
     }),

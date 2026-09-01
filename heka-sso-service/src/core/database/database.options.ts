@@ -1,5 +1,5 @@
 import { DbConfig } from '@core/config/configs/db.config'
-import { OidcSigningKey } from '@core/database/entities'
+import { OidcEntity, OidcSigningKey } from '@core/database/entities'
 import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
 import { Migrator } from '@mikro-orm/migrations'
 import { LoadStrategy } from '@mikro-orm/postgresql'
@@ -14,7 +14,7 @@ export const databaseOptions = (config: DbConfig) => ({
   dbName: config.name,
   user: config.user,
   password: config.password,
-  entities: [OidcSigningKey],
+  entities: [OidcEntity, OidcSigningKey],
   findOneOrFailHandler: (entityName: string, key: any) => {
     return new NotFoundException(`${entityName} not found for ${JSON.stringify(key)}`)
   },

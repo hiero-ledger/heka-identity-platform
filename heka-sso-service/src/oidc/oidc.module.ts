@@ -1,11 +1,14 @@
 import { ConfigModule, ConfigService } from '@config'
-import { OidcSigningKey } from '@core/database'
+import { OidcEntity, OidcSigningKey } from '@core/database'
+import { EntityManager } from '@mikro-orm/core'
 import { MikroOrmModule } from '@mikro-orm/nestjs'
 import { Logger, Module } from '@nestjs/common'
 
 import { AccountClaimsStore } from './account-claims.store'
 import { IDENTITY_ACQUIRER, IdentityAcquirer, StubIdentityAcquirer } from './identity-acquirer'
 import { InteractionController } from './interaction.controller'
+import { MikroOrmAdapter } from './mikro-orm.adapter'
+import { OidcCleanupService } from './oidc-cleanup.service'
 import { createOidcProvider, OIDC_PROVIDER } from './provider.factory'
 import { SigningKeysService } from './signing-keys.service'
 
@@ -16,19 +19,28 @@ import { SigningKeysService } from './signing-keys.service'
  * on first start) unless the dev override is configured.
  */
 @Module({
-  imports: [ConfigModule, MikroOrmModule.forFeature({ entities: [OidcSigningKey] })],
+  imports: [ConfigModule, MikroOrmModule.forFeature({ entities: [OidcEntity, OidcSigningKey] })],
   controllers: [InteractionController],
   providers: [
     SigningKeysService,
     AccountClaimsStore,
+    OidcCleanupService,
     {
       provide: OIDC_PROVIDER,
-      inject: [ConfigService, SigningKeysService, AccountClaimsStore],
+      inject: [ConfigService, SigningKeysService, AccountClaimsStore, EntityManager],
       useFactory: async (
         configService: ConfigService,
         signingKeys: SigningKeysService,
         accountClaims: AccountClaimsStore,
-      ) => createOidcProvider(configService.oidcConfig, await signingKeys.getJwks(), accountClaims),
+        em: EntityManager,
+      ) =>
+        createOidcProvider(
+          configService.oidcConfig,
+          await signingKeys.getJwks(),
+          accountClaims,
+          // P1.5: Postgres-backed storage; the adapter forks the EM per operation (§5)
+          (name: string) => new MikroOrmAdapter(name, em),
+        ),
     },
     {
       // Pluggable identity-acquisition step (P1.3): the dev stub when
