@@ -18,6 +18,7 @@ export class OidcSigningKey extends CustomBaseEntity {
   public alg!: string
 
   /** Full private JWK (including `kid`, `alg`, `use`) — the only copy of the key material. */
+  // TODO: setup encryption (encryption at-rest in DB as a rule, other options) for this value.
   @Property({ nullable: false, type: 'json' })
   public jwk!: Record<string, unknown>
 

@@ -321,6 +321,7 @@ export class OidcConfig {
     this.cookieKeys = env[OidcConfigKeys.cookieKeys]
       ? env[OidcConfigKeys.cookieKeys].split(',')
       : [secretOrDevFallback(OidcConfigKeys.cookieKeys)]
+    this.cookieKeys = this.cookieKeys.map((key) => key.trim()).filter((key) => key.length > 0)
     refuseKnownDefault(OidcConfigKeys.cookieKeys, this.cookieKeys)
 
     this.subHmacSalt = secretOrDevFallback(OidcConfigKeys.subHmacSalt)
