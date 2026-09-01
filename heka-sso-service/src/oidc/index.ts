@@ -10,6 +10,7 @@ export {
 } from './identity-acquirer'
 export { InteractionController } from './interaction.controller'
 export { MikroOrmAdapter } from './mikro-orm.adapter'
+export { noStoreMiddleware } from './no-store.middleware'
 export { OidcModule } from './oidc.module'
 export { OidcCleanupService } from './oidc-cleanup.service'
 export { AccountClaimsResolver, createOidcProvider, OIDC_PROVIDER } from './provider.factory'
@@ -21,3 +22,4 @@ export {
   VerificationSessionState,
 } from './verification-session.client'
 export { WalletIdentityAcquirer } from './wallet-identity-acquirer'
+export { assertWalletAuthorizationRequest, WALLET_URI_SCHEMES } from './wallet-uri'
