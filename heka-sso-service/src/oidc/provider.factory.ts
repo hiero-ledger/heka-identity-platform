@@ -1,8 +1,34 @@
 import { OidcClientConfig, OidcConfig } from '@config'
 import Provider, { ClientMetadata, Configuration } from 'oidc-provider'
 
+import { ClaimSet } from './claims.util'
+
 /** DI token for the configured `oidc-provider` instance. */
 export const OIDC_PROVIDER = 'OIDC_PROVIDER'
+
+/** Minimal contract of `AccountClaimsStore` the provider needs for `findAccount` (P1.4). */
+export interface AccountClaimsResolver {
+  get(sub: string): ClaimSet | undefined
+}
+
+/**
+ * The claim names this deployment can release (P1.4): the union of every login
+ * configuration's mapped claim names and static claims, plus the pipeline's
+ * own claims (`login_config_id`, `vc_presented_attributes` — §1 step 3) and
+ * `amr`. All are attached to the `openid` scope: brokering IdPs request
+ * `scope=openid` (Keycloak's default) and Auth0 never calls userinfo, so
+ * everything must be available in the id_token (§1 step 4). Standalone
+ * `claim: null` entries would only be requestable via the claims parameter,
+ * which brokers do not send.
+ */
+const openidScopeClaims = (config: OidcConfig): string[] => {
+  const names = new Set<string>(['sub', 'amr', 'login_config_id', 'vc_presented_attributes'])
+  for (const loginConfig of config.loginConfigs) {
+    for (const claimName of Object.values(loginConfig.claimMapping)) names.add(claimName)
+    for (const claimName of Object.keys(loginConfig.staticClaims ?? {})) names.add(claimName)
+  }
+  return [...names].sort()
+}
 
 /**
  * Escapes a value for safe interpolation into the error page markup.
@@ -55,11 +81,33 @@ const toClientMetadata = (client: OidcClientConfig): ClientMetadata => ({
  * common denominator (authorization code + PKCE S256 only, secret-based client
  * auth, clock-skew slack for Keycloak's 0s default). Runs on the library's
  * built-in in-memory adapter until the MikroORM adapter PR replaces it.
+ *
+ * `accountClaims` (P1.4) resolves the claim set the interaction stored under
+ * the computed `sub` (§4.4 — there is no user table); when omitted (some unit
+ * tests), the library's default sub-only `findAccount` applies.
  */
-export function createOidcProvider(config: OidcConfig, jwks: { keys: Record<string, any>[] }): Provider {
+export function createOidcProvider(
+  config: OidcConfig,
+  jwks: { keys: Record<string, any>[] },
+  accountClaims?: AccountClaimsResolver,
+): Provider {
   const provider = new Provider(config.issuerUrl, {
     jwks: jwks as Configuration['jwks'],
     clients: config.clients.map(toClientMetadata),
+    // findAccount over the stored claim set (P1.4): `accountId` *is* the
+    // computed `sub`; an unknown `sub` (e.g. the in-memory store died with a
+    // restart) resolves to no account and the flow fails cleanly instead of
+    // minting an identity from nothing.
+    ...(accountClaims && {
+      findAccount: (_ctx, sub) => {
+        const claims = accountClaims.get(sub)
+        if (!claims) return undefined
+        return {
+          accountId: sub,
+          claims: () => ({ ...claims, sub }),
+        }
+      },
+    }),
     extraClientMetadata: {
       properties: ['login_config_id'],
     },
@@ -73,18 +121,14 @@ export function createOidcProvider(config: OidcConfig, jwks: { keys: Record<stri
       required: () => false,
     },
     clockTolerance: config.clockTolerance,
-    // The library default set plus `amr`, attached to the `openid` scope so
-    // every id_token carries the session's authentication method references
-    // (`['vc']` for wallet logins, `['stub']` for the dev stub) to the
-    // brokering IdP (INTEGRATION.md §1 step 3). A standalone `amr: null` entry
-    // would only make it requestable via the claims parameter, which brokers
-    // do not send.
+    // The library default set plus everything this deployment can release
+    // under the `openid` scope (see `openidScopeClaims`).
     claims: {
       acr: null,
       sid: null,
       auth_time: null,
       iss: null,
-      openid: ['sub', 'amr'],
+      openid: openidScopeClaims(config),
     },
     cookies: {
       keys: config.cookieKeys,
