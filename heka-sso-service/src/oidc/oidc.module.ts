@@ -8,6 +8,7 @@ import { AccountClaimsStore } from './account-claims.store'
 import { IDENTITY_ACQUIRER, IdentityAcquirer, StubIdentityAcquirer } from './identity-acquirer'
 import { IdentityServiceTokenProvider } from './identity-service-token.provider'
 import { InteractionController } from './interaction.controller'
+import { InteractionService } from './interaction.service'
 import { MikroOrmAdapter } from './mikro-orm.adapter'
 import { OidcCleanupService } from './oidc-cleanup.service'
 import { createOidcProvider, OIDC_PROVIDER } from './provider.factory'
@@ -27,6 +28,7 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
   providers: [
     SigningKeysService,
     AccountClaimsStore,
+    InteractionService,
     OidcCleanupService,
     IdentityServiceTokenProvider,
     VerificationSessionClient,

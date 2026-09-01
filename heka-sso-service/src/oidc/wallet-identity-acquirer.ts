@@ -6,7 +6,9 @@ import { ClaimSet } from './claims.util'
 import {
   AcquiredIdentity,
   BeginLoginResult,
+  DcApiLogin,
   DcApiLoginRequest,
+  DirectPostLogin,
   IdentityAcquirer,
   LoginPageData,
   LoginStatus,
@@ -33,7 +35,7 @@ interface PendingLogin {
  *   forwards the wallet's response to `verifyDcApiLogin`, which submits it to
  *   the identity service's origin-bound `verify` endpoint. The `origin` is
  *   the bridge's own (from the issuer URL) — never client-supplied.
- * - **QR fallback (P1.6)**: `getLoginData` creates a `direct_post` session
+ * - **QR fallback (P1.6)**: `beginDirectPostLogin` creates a `direct_post` session
  *   (signed JAR — P1.6.1) and returns QR + deep link; the page **polls**
  *   `checkLogin` (P1.6.3 — the WebSocket push lands in P2.2).
  *
@@ -46,7 +48,7 @@ interface PendingLogin {
  * single-instance dev until it moves into persisted interaction state.
  */
 @Injectable()
-export class WalletIdentityAcquirer implements IdentityAcquirer {
+export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin, DcApiLogin {
   private readonly logger = new Logger(WalletIdentityAcquirer.name)
   private readonly pending = new Map<string, PendingLogin>()
   private readonly ttlMs: number
@@ -72,7 +74,7 @@ export class WalletIdentityAcquirer implements IdentityAcquirer {
   }
 
   /** P2.1.1 — the QR path's data: creates the cross-device `direct_post` session (fresh nonce, §4.6-1). */
-  public async getLoginData(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData> {
+  public async beginDirectPostLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData> {
     const created = await this.sessions.createSignedRequest(loginConfig)
     this.entry(interactionUid).directPostSessionId = created.sessionId
 

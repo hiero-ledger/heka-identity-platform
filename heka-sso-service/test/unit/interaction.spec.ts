@@ -9,6 +9,7 @@ import {
   createOidcProvider,
   IdentityAcquirer,
   InteractionController,
+  InteractionService,
   StubIdentityAcquirer,
 } from '../../src/oidc'
 import { testJwks } from '../helpers/jwks'
@@ -73,7 +74,10 @@ const buildApp = (identityAcquirer: IdentityAcquirer | null) => {
   const configService = { oidcConfig: config } as unknown as ConfigService
   const accountClaims = new AccountClaimsStore(configService)
   const provider = createOidcProvider(config, testJwks(), accountClaims)
-  const controller = new InteractionController(provider, identityAcquirer, configService, accountClaims)
+  const controller = new InteractionController(
+    provider,
+    new InteractionService(provider, identityAcquirer, configService, accountClaims),
+  )
 
   const app = express()
   app.get('/interaction/:uid', (req, res, next) => {

@@ -8,6 +8,7 @@ import {
   AccountClaimsStore,
   createOidcProvider,
   InteractionController,
+  InteractionService,
   VerificationSessionClient,
   VerificationSessionState,
   WalletIdentityAcquirer,
@@ -83,7 +84,10 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     sessionsMock as unknown as VerificationSessionClient,
     configService,
   )
-  const controller = new InteractionController(provider, acquirer, configService, accountClaims)
+  const controller = new InteractionController(
+    provider,
+    new InteractionService(provider, acquirer, configService, accountClaims),
+  )
 
   const app = express()
   app.use('/interaction', express.json())
