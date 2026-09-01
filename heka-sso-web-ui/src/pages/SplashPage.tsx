@@ -17,7 +17,7 @@ function SplashPage({ provider, direction = 'in' }: SplashPageProps) {
   const title = direction === 'out' ? copy.splash.signingOutTitle : copy.splash.title
   const status = direction === 'out' ? copy.splash.signingOut(providerLabel) : copy.splash.redirecting(providerLabel)
   return (
-    <AuthLayout title={title} illustration="wallet">
+    <AuthLayout title={title}>
       <div className={styles.splash} role="status" aria-live="polite">
         <Loader type="linear" label={title} />
         <p className={styles.status}>{status}</p>

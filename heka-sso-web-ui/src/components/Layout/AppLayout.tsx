@@ -9,13 +9,12 @@ import { copy } from '@/copy'
 import { classNames } from '@/utils/classNames'
 import { useVisualViewportHeight } from '@/utils/useVisualViewportHeight'
 
-import { HeaderPanel, Illustration, TopPanel } from './HeaderPanel'
+import { HeaderPanel, TopPanel } from './HeaderPanel'
 import styles from './Layout.module.scss'
 
 interface AppLayoutProps {
   /** Page title shown in the header column (stacked: the top panel). */
   title: string
-  illustration?: Illustration
   userName?: string
   onSignOut: () => void
   children: ReactNode
@@ -27,7 +26,7 @@ interface AppLayoutProps {
  * and the centered page content; logo/sign-out top row + top panel + content
  * when stacked. One page, so the nav has a single, always-active item.
  */
-function AppLayout({ title, illustration, userName, onSignOut, children }: AppLayoutProps) {
+function AppLayout({ title, userName, onSignOut, children }: AppLayoutProps) {
   useVisualViewportHeight()
   const isDesktop = useDesktop()
 
@@ -63,9 +62,9 @@ function AppLayout({ title, illustration, userName, onSignOut, children }: AppLa
         </header>
       )}
       <main className={styles.body}>
-        {isDesktop && <HeaderPanel title={title} illustration={illustration} />}
+        {isDesktop && <HeaderPanel title={title} eyebrow={copy.eyebrow.dashboard} />}
         <div className={styles.content}>
-          {!isDesktop && <TopPanel title={title} illustration={illustration} />}
+          {!isDesktop && <TopPanel title={title} eyebrow={copy.eyebrow.dashboard} />}
           <div className={styles.contentBody}>{children}</div>
         </div>
       </main>

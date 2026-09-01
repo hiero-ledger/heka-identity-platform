@@ -33,10 +33,6 @@
   color: var(--color-dark-medium-emphasis);
 }
 
-.code {
-  font: var(--font-label-m);
-  overflow-wrap: anywhere;
-}
 
 // Collapsed raw-claims block (P2.9): the <pre> scrolls inside the block,
 // never the page (UI-PLAN.md §2.4).

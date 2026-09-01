@@ -126,7 +126,7 @@ Both are disabled under `prefers-reduced-motion: reduce`.
 - Desktop canvas: **1280 × 720**; mobile variants: **360** wide.
 - Shell: left `Menu` **288px** wide, full height; right panel 992px with an 8px inset `Body`.
 - Inside `Body`: a 288px `Header` column and a 680px content column with 48px padding.
-- `Header` column on `Sign in`: H1 at (48, 48); illustration at (48, 280), 434 × 360, overflowing (clipped by) the column. The column's fill is the `DSR Branded 2` token (`#fff`), i.e. it sits flat on the body surface rather than as a tinted box — identity-service's branded `BasicPanel` background does **not** carry over. In code: `--layout-illustration-size` 434px (the Figma width) / `--layout-illustration-size-mobile` 160px. Asset: `src/assets/wallet.webp` = identity-service's `public/wallet.png` (1024² with transparent margins) cropped to its opaque box (823 × 676 — the same 1.22 aspect as Figma's 434 × 360 placement) and saved as WebP (~98 KB vs 700 KB); with the crop, Figma's offsets apply verbatim. The authenticated shell's header column (Figma "Issue credential") uses `many-wallets.webp` the same way (source `many-wallets.png` 1024², opaque box 831 × 837, WebP ~97 KB) at 434 px, offsets 32 px left / 16 px bottom — measured from the frame image, not Figma metadata.
+- `Header` column on `Sign in`: H1 at (48, 48); illustration at (48, 280), 434 × 360, overflowing (clipped by) the column. The column's fill is the `DSR Branded 2` token (`#fff`), i.e. it sits flat on the body surface rather than as a tinted box — identity-service's branded `BasicPanel` background does **not** carry over. In code: `--layout-illustration-size` 434px (the Figma width) / `--layout-illustration-size-mobile` 160px. Asset: `src/assets/wallet.webp` = identity-service's `public/wallet.png` (1024² with transparent margins) cropped to its opaque box (823 × 676 — the same 1.22 aspect as Figma's 434 × 360 placement) and saved as WebP (~98 KB vs 700 KB); with the crop, Figma's offsets apply verbatim. Both header columns show `public/illustrations/civictrust.webp` (§8) at the wallet-stack placement.
 - Screen inventory: Sign in, Create account, Registration, Password, Profile, Configuration, Issue credential (5 steps + offer/received), Verify credential (4 steps + request/verified), Create schema, Create credential definition, Edit/View/Save-as-template, Confirmation, Demo.
 
 ## 7. Inferred tokens (from `heka-identity-service-web-ui`)
@@ -195,6 +195,27 @@ Optional aliases if a radius scale is wanted: `--radius-xs/sm/md/lg/xl` = 4 / 8 
 | `rgb(0 0 0 / 50%)` | `Panel` modal backdrop | `--color-backdrop` |
 | `0 4px 6px rgb(0 0 0 / 10%)` | `Panel`, `Schema`, `Template` card hover | `--shadow-card-hover` |
 | `0 8px 20px rgb(0 0 0 / 20%), 0 1px 3px rgb(0 0 0 / 6%)` | `Template` drag state | `--shadow-card-drag` |
+
+## 8. CivicTrust demo theme (overrides, 2026-08-31)
+
+The app is branded **CivicTrust** for the demo; `design-tokens.scss` overrides the graphite brand tokens with a blue palette **seeded from the logo** (`public/civic-trust.webp`, dominant saturated colour `#094e66`, sampled in-browser). The Figma values in §1 remain the platform reference; everything not listed here is unchanged (neutral alphas, spacing, typography, effects, status colours, `--color-accent-nav` — the orange stays as the complementary accent).
+
+| Token | Platform (Figma) | CivicTrust | Derivation |
+|---|---|---|---|
+| `--color-primary` | `#262629` | `#094e66` | logo dominant colour; 9.2:1 on white |
+| `--color-primary-hover` | `#202023` | `#084257` | primary × 0.85 (§7.1 rule) |
+| `--color-primary-pressed` | `#1b1b1d` | `#063747` | primary × 0.70 |
+| `--color-primary-opacity-6/9/12` | `rgb(116 116 123 / …)` | `rgb(76 138 165 / 8% \| 12% \| 16%)` | lighter tinted base of the primary hue, same alpha steps |
+| `--color-text-on-surface` | `#333` | `#29404d` | cooled toward the primary hue |
+| `--color-surface-2` | `#f4f4f4` | `#f0f5f7` | cool-tinted; mirrored by the inline critical background in `index.html`/`preview.html` |
+| `--color-surface-4` | `#ebebed` | `#e4edf1` | |
+| `--color-surface-grey-2` | `#edeff1` | `#e8eff3` | default border colour |
+| `--color-primary-soft` | *(none)* | `#4c8aa5` | the opacity trio's base as a solid; gradient end |
+| `--gradient-accent` | *(none)* | `linear-gradient(90deg, primary → primary-soft)` | title accent bar under page titles |
+| `--font-letter-spacing-eyebrow` | *(none)* | `0.08em` | uppercase eyebrow label above page titles (`label-m`) |
+| *(illustration)* | wallet renders | `public/illustrations/civictrust.webp` | the CivicTrust isometric render (`civictrust.jpg`, background flood-filled transparent, cropped, WebP) in both header columns at the "Issue credential" wallet-stack placement |
+
+To return to the platform palette, restore the §1 values in `design-tokens.scss` (and the two critical-background mirrors).
 
 ## Gaps / follow-ups
 

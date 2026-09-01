@@ -14,7 +14,7 @@ interface SignInErrorPageProps {
 /** Sign-in failure: error card with a notification-colored accent, retry + back. */
 function SignInErrorPage({ message, onRetry, onBack }: SignInErrorPageProps) {
   return (
-    <AuthLayout title={copy.error.title} illustration="wallet">
+    <AuthLayout title={copy.error.title}>
       <div className={styles.action}>
         <Card className={styles.errorCard}>
           <p className={styles.errorHeading} role="alert">

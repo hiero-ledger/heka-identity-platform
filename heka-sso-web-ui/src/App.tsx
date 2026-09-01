@@ -70,7 +70,7 @@ function App() {
     return (
       <AppLayout
         title={copy.nav.dashboard}
-        illustration="wallets"
+       
         userName={displayName(auth.claims)}
         onSignOut={signOut}
       >

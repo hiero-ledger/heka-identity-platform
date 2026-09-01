@@ -15,7 +15,9 @@ export function useVisualViewportHeight(): void {
     if (!viewport) return
 
     const update = () => {
-      document.documentElement.style.setProperty(PROPERTY, `${Math.round(viewport.height)}px`)
+      // floor, not round: a value even 1px over the layout viewport (browser
+      // zoom yields fractional heights) would create a document scrollbar
+      document.documentElement.style.setProperty(PROPERTY, `${Math.floor(viewport.height)}px`)
     }
     update()
     viewport.addEventListener('resize', update)

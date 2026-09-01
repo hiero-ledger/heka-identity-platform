@@ -1,6 +1,5 @@
 import { Button as AriaButton } from 'react-aria-components'
 
-import LogoMark from '@/assets/logo-mark.svg?react'
 import { copy } from '@/copy'
 
 import styles from './Logo.module.scss'
@@ -10,13 +9,14 @@ interface LogoProps {
   onPress?: () => void
 }
 
-// Layout of identity-service's `Logo` and Figma's "Logo block" (24 px app
-// icon + wordmark). The mark is a placeholder until the brand asset is
-// exported from Figma (UI-PLAN.md risk 2); the wordmark is text for now.
+// Layout of identity-service's `Logo` and Figma's "Logo block": brand mark +
+// wordmark. The mark is the CivicTrust raster (public/civic-trust.webp —
+// cropped, 96px tall, preloaded from index.html); decorative next to the
+// wordmark text, so alt="".
 function Logo({ onPress }: LogoProps) {
   const content = (
     <>
-      <LogoMark className={styles.mark} aria-hidden="true" />
+      <img className={styles.mark} src="/civic-trust.webp" alt="" decoding="async" />
       <span className={styles.wordmark}>{copy.app.name}</span>
     </>
   )

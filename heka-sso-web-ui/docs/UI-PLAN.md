@@ -92,7 +92,7 @@ Rules for reuse:
 - Radii use `--radius-*`, not `--space-*`, so the two scales can diverge later without touching components.
 - `@font-face` rules live in `index.scss` — the tokens file is pure constants. Inter is self-hosted (`public/fonts`, OFL) and preloaded from `index.html`.
 - Adding a constant means adding a row to DESIGN-TOKENS.md first.
-- One documented exception to "no literals outside the tokens file": `index.html`/`preview.html` carry an inline `html { background: #f4f4f4 }` (the value of `--color-surface-2`) so the first frame is not white before the stylesheet applies (in `vite dev` styles arrive via JS). Keep it in sync with the token.
+- One documented exception to "no literals outside the tokens file": `index.html`/`preview.html` carry an inline `html { background: … }` mirroring `--color-surface-2` (currently `#f0f5f7`, DESIGN-TOKENS §8) so the first frame is not white before the stylesheet applies (in `vite dev` styles arrive via JS). Keep it in sync with the token.
 
 ### 2.2 Shell (desktop ≥ 1024)
 
