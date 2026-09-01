@@ -81,10 +81,10 @@ export class UserService {
     }
 
     const issuerLogoPath = newLogoPath ?? user.logo
-    const issuerLogoUrl = issuerLogoPath ? this.fileStorageService.url(issuerLogoPath) : undefined
+    const issuerLogoUrl = issuerLogoPath ? this.fileStorageService.publicUrl(issuerLogoPath) : undefined
     await this.openId4VcIssuerService.applyUserDisplay(tenantAgent, {
       logo: {
-        url: issuerLogoUrl,
+        uri: issuerLogoUrl,
       },
       background_color: user.backgroundColor,
       name: user.name ?? authInfo.userId,

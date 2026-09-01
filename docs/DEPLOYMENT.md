@@ -95,6 +95,14 @@ see §5). The wallet-login configuration (`OIDC_LOGIN_CONFIGS`,
 # Wallet-facing OID4VC endpoint (:3003) — offers (OID4VCI) + requests (OID4VP)
 AGENT_OID4VCI_ENDPOINT=https://<identity-tunnel>.ngrok-free.app
 
+# Wallet-facing base URL of uploaded logos (`display[].logo.uri` in issuer
+# metadata). Wallets reject non-https values, so use the same tunnel: the :3003
+# router also serves the uploaded files. Leave FILE_STORAGE_FS_URL (browser-facing,
+# web UI) on http://localhost:3000 — ngrok's free tier answers browsers with an
+# interstitial page, which breaks <img> tags. The URL is persisted into the issuer
+# record when the profile / schema is saved — re-save them after changing it.
+FILE_STORAGE_FS_PUBLIC_URL=https://<identity-tunnel>.ngrok-free.app
+
 # Only for DIDComm flows with a remote wallet (embedded in DID documents):
 # AGENT_HTTP_ENDPOINT=https://<identity-tunnel>.ngrok-free.app
 # AGENT_WS_ENDPOINT=wss://<identity-tunnel>.ngrok-free.app
@@ -136,8 +144,9 @@ use:
 adb reverse tcp:3003 tcp:3003   # identity service Credo public router — wallet fetches
                                 #   OID4VP requests / OID4VCI offers, posts presentations
                                 #   (pairs with the localhost fallback of AGENT_OID4VCI_ENDPOINT)
-adb reverse tcp:3000 tcp:3000   # identity service API — e.g. issuer logo URLs
-                                #   (FILE_STORAGE_FS_URL) referenced from issuer metadata
+adb reverse tcp:3000 tcp:3000   # identity service REST API (web UI → service); logos are
+                                #   also served on :3003, but third-party wallets reject the
+                                #   http://localhost FILE_STORAGE_FS_PUBLIC_URL fallback anyway
 adb reverse tcp:5173 tcp:5173   # heka-sso-web-ui — open the demo RP in the phone's
                                 #   browser (same-device / DC API flow)
 adb reverse tcp:8080 tcp:8080   # Keycloak — when the phone's browser runs the
@@ -189,6 +198,7 @@ The demo RP (`heka-sso-web-ui`) switches brokers via `VITE_AUTH_PROVIDER`
 | Broker rejects the connection or code exchange with issuer/`iss` errors | `OIDC_ISSUER_URL` ≠ the URL the broker fetched discovery from. Fix the env, restart the bridge, and **re-save the broker's connection** (it caches discovery — e.g. Auth0 stores the issuer snapshot at creation time). |
 | Wallet: cannot fetch the request / offer (timeout, NXDOMAIN) | The QR embeds a dead or stale tunnel URL. Confirm the identity tunnel is up (`http://127.0.0.1:4040`), `AGENT_OID4VCI_ENDPOINT` matches it, the service was restarted, and the QR was created after the restart. |
 | Third-party wallet: "must be an https url" | `AGENT_OID4VCI_ENDPOINT` is `http://` (or unset → localhost fallback). Use the https tunnel URL. |
+| Third-party wallet: "Validation of metadata … failed … https:// url at display[0].logo.uri" | The logo URL stored in the issuer record is `http://`. Set `FILE_STORAGE_FS_PUBLIC_URL` to the https tunnel URL, restart, then re-save the user profile (PATCH `/users`) and the schemas so the stored display is regenerated. |
 | Bridge error page: `invalid_request … code_challenge` | The broker didn't send PKCE. Keycloak: enable PKCE S256 on the IdP. (Auth0/Okta send it automatically.) |
 | Browser shows an ngrok warning page mid-login | Free-tier interstitial — click through once per session, or use a paid plan / cloudflared. |
 | Everything worked yesterday, broken today | An ephemeral tunnel URL changed. Only the identity tunnel should be ephemeral: update `AGENT_OID4VCI_ENDPOINT`, restart, re-issue QRs. The bridge's static domain never changes — if you moved it, every broker connection must be updated too. |

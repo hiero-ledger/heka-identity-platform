@@ -1,6 +1,8 @@
 import type { AskarModuleConfigStoreOptions } from '@credo-ts/askar'
 import type { InitConfig } from '@credo-ts/core'
 
+import { resolve } from 'path'
+
 import { DidCommModuleConfigOptions } from '@credo-ts/didcomm'
 import { IndyVdrPoolConfig } from '@credo-ts/indy-vdr'
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
@@ -11,6 +13,7 @@ import express from 'express'
 import { AriesCredentialFormat, ProtocolType } from 'common/types'
 
 import { CredentialsConfiguration } from './credential-configuration'
+import { FileSystemConfig } from './file-storage'
 
 export default registerAs('agent', () => {
   const label = process.env.AGENT_LABEL ?? 'Heka'
@@ -89,12 +92,20 @@ export default registerAs('agent', () => {
     process.env.HEDERA_OPERATOR_KEY ??
     '302e020100300506032b6570042204209f54b75b6238ced43e41b1463999cb40bf2f7dd2c9fd4fd3ef780027c016a138'
 
+  // The OID4VC router is the only surface that has to be publicly reachable
+  // over https (wallets reject non-https `display[].logo.uri`). Serve uploaded
+  // files (logos) from the same express app so a single tunnel covers both the
+  // issuer metadata and the images it references; point
+  // FILE_STORAGE_FS_PUBLIC_URL at AGENT_OID4VCI_ENDPOINT to use it.
+  const oid4VcApp = express()
+  oid4VcApp.use(express.static(resolve(new FileSystemConfig().path)))
+
   const oidConfig = {
     port: oid4VcPort,
     path: '/oid4vci',
     issuanceEndpoint: oid4VciEndpoint + '/oid4vci',
     verificationEndpoint: oid4VciEndpoint + '/oid4vp',
-    app: express(),
+    app: oid4VcApp,
   }
 
   const initConfig: InitConfig = {

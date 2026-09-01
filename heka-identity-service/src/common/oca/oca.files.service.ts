@@ -92,7 +92,7 @@ export class OCAFilesService {
     overlays.push(
       new BrandingOverlay({
         captureBase: capture_base.digest,
-        logo: schema.logo ? this.fileStorageService.url(schema.logo) : this.DEFAULT_SCHEMA_BACKGROUND_LOGO,
+        logo: schema.logo ? this.fileStorageService.publicUrl(schema.logo) : this.DEFAULT_SCHEMA_BACKGROUND_LOGO,
         primaryBackgroundColor: schema.bgColor ?? this.DEFAULT_SCHEMA_BACKGROUND_COLOR,
       }),
     )

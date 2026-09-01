@@ -70,7 +70,7 @@ async function main() {
   const schema = {
     name: 'Passport',
     bgColor: '#171717',
-    fields: ['name', 'surname', 'age'],
+    fields: ['given_name', 'family_name', 'birth_date', 'passport_number', 'expiry_date'],
     registrations: [
       {
         network: 'key',

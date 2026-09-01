@@ -41,7 +41,7 @@ import {
  *           "text_color": "#000000",
  *           "locale": "en-US",
  *           "logo": {
- *             "url": "https://example.com/logo.png",
+ *             "uri": "https://example.com/logo.png",
  *             "alt_text": "Example Credential Logo"
  *           }
  *         }
@@ -74,7 +74,7 @@ import {
  *           "text_color": "#000000",
  *           "locale": "en-US",
  *           "logo": {
- *             "url": "https://example.com/logo.png",
+ *             "uri": "https://example.com/logo.png",
  *             "alt_text": "Example Credential Logo"
  *           }
  *         }
@@ -89,7 +89,7 @@ import {
  *       "locale": "en-US",
  *       "logo": {
  *         "alt_text": "Example Issuer Logo",
- *         "url": "https://example.com/logo.png"
+ *         "uri": "https://example.com/logo.png"
  *       },
  *       "text_color": "#000000"
  *     }
