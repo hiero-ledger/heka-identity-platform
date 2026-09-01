@@ -2,13 +2,14 @@ import { ConfigModule, ConfigService } from '@config'
 import { OidcEntity, OidcSigningKey } from '@core/database'
 import { EntityManager } from '@mikro-orm/core'
 import { MikroOrmModule } from '@mikro-orm/nestjs'
-import { Logger, Module } from '@nestjs/common'
+import { Logger, MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 
 import { AccountClaimsStore } from './account-claims.store'
 import { IDENTITY_ACQUIRER, IdentityAcquirer, StubIdentityAcquirer } from './identity-acquirer'
 import { IdentityServiceTokenProvider } from './identity-service-token.provider'
 import { InteractionController } from './interaction.controller'
 import { MikroOrmAdapter } from './mikro-orm.adapter'
+import { noStoreMiddleware } from './no-store.middleware'
 import { OidcCleanupService } from './oidc-cleanup.service'
 import { createOidcProvider, OIDC_PROVIDER } from './provider.factory'
 import { SigningKeysService } from './signing-keys.service'
@@ -76,4 +77,10 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
   ],
   exports: [SigningKeysService, OIDC_PROVIDER, AccountClaimsStore],
 })
-export class OidcModule {}
+export class OidcModule implements NestModule {
+  public configure(consumer: MiddlewareConsumer): void {
+    // Per-user, per-attempt responses (login page with a single-use
+    // authorization request, cookie-bound status/complete) must never be cached.
+    consumer.apply(noStoreMiddleware).forRoutes(InteractionController)
+  }
+}

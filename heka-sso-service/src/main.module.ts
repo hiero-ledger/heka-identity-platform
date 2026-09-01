@@ -1,3 +1,4 @@
+import { securityHeaders } from '@common/middleware'
 import { ConfigModule, ConfigService } from '@config'
 import { DatabaseModule } from '@core/database'
 import { LoggerModule } from '@core/logger'
@@ -48,6 +49,9 @@ export class MainModule {
     const config = app.get(ConfigService).config
 
     app.use(CorrelationIdMiddleware())
+    // Security headers for every response — ahead of the provider mount below,
+    // which short-circuits the middleware chain for the OP's own paths.
+    app.use(securityHeaders())
 
     // The whole service is the OP (INTEGRATION.md §5-Decide-2): the provider
     // is mounted at the app root and owns every path except the Nest surface.
