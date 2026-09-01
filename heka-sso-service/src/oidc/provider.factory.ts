@@ -1,5 +1,5 @@
-import { OidcConfig } from '@config'
-import Provider, { Configuration } from 'oidc-provider'
+import { OidcClientConfig, OidcConfig } from '@config'
+import Provider, { ClientMetadata, Configuration } from 'oidc-provider'
 
 /** DI token for the configured `oidc-provider` instance. */
 export const OIDC_PROVIDER = 'OIDC_PROVIDER'
@@ -32,15 +32,46 @@ ${Object.entries(out)
 }
 
 /**
- * OP core (INTEGRATION.md Phase 1, PR 1): builds the `node-oidc-provider`
- * instance from validated config and the persisted signing JWKS. Runs on the
- * library's built-in in-memory adapter until the MikroORM adapter PR replaces
- * it. Clients and protocol policy (PKCE/client auth/clockTolerance) land in
- * OP core PR 2.
+ * Maps a validated static client config onto the provider's client metadata.
+ * `login_config_id` rides along as extra metadata (declared below via
+ * `extraClientMetadata`) for the interaction layer to resolve the login
+ * configuration per client.
+ */
+const toClientMetadata = (client: OidcClientConfig): ClientMetadata => ({
+  client_id: client.clientId,
+  client_secret: client.clientSecret,
+  redirect_uris: client.redirectUris,
+  grant_types: client.grantTypes,
+  response_types: client.responseTypes as ClientMetadata['response_types'],
+  token_endpoint_auth_method: client.tokenEndpointAuthMethod as ClientMetadata['token_endpoint_auth_method'],
+  ...(client.loginConfigId !== undefined && { login_config_id: client.loginConfigId }),
+})
+
+/**
+ * OP core (INTEGRATION.md Phase 1, PR 1 + PR 2): builds the `node-oidc-provider`
+ * instance from validated config and the persisted signing JWKS — static
+ * clients from `OIDC_CLIENTS` and the protocol policy targeting the IdP-broker
+ * common denominator (authorization code + PKCE S256 only, secret-based client
+ * auth, clock-skew slack for Keycloak's 0s default). Runs on the library's
+ * built-in in-memory adapter until the MikroORM adapter PR replaces it.
  */
 export function createOidcProvider(config: OidcConfig, jwks: { keys: Record<string, any>[] }): Provider {
   const provider = new Provider(config.issuerUrl, {
     jwks: jwks as Configuration['jwks'],
+    clients: config.clients.map(toClientMetadata),
+    extraClientMetadata: {
+      properties: ['login_config_id'],
+    },
+    // Authorization code flow only — no implicit/hybrid (broker matrix, INTEGRATION.md §1).
+    responseTypes: ['code'],
+    // The IdP-broker floor (Cognito/Entra): secret-based auth via header or body.
+    clientAuthMethods: ['client_secret_basic', 'client_secret_post'],
+    // PKCE (S256 — the only method the library supports) is mandatory for all
+    // clients; the library default exempts confidential clients.
+    pkce: {
+      required: () => true,
+    },
+    clockTolerance: config.clockTolerance,
     cookies: {
       keys: config.cookieKeys,
     },

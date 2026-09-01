@@ -35,6 +35,7 @@ describe('OidcConfig', () => {
       session: 86400,
       grant: 86400,
     })
+    expect(config.clockTolerance).toBe(15)
     expect(config.clients).toEqual([])
     expect(config.loginConfigs).toEqual([])
   })
@@ -47,6 +48,7 @@ describe('OidcConfig', () => {
       IDENTITY_SERVICE_BASE_URL: 'http://identity.internal:3000',
       IDENTITY_SERVICE_AUTH_TOKEN: 'token-value',
       OIDC_TTL_ACCESS_TOKEN: '600',
+      OIDC_CLOCK_TOLERANCE: '30',
       OIDC_CLIENTS: JSON.stringify([
         {
           clientId: 'keycloak-broker',
@@ -67,6 +69,7 @@ describe('OidcConfig', () => {
     expect(config.cookieKeys).toEqual(['first-cookie-key-value', 'second-cookie-key-value'])
     expect(config.identityService.authToken).toBe('token-value')
     expect(config.ttl.accessToken).toBe(600)
+    expect(config.clockTolerance).toBe(30)
 
     expect(config.clients).toHaveLength(1)
     expect(config.clients[0]).toMatchObject({
