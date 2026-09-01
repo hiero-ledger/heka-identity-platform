@@ -265,7 +265,7 @@ describe('SchemaV2Service', () => {
         protocol: ProtocolType.Aries,
         credentialFormat: AriesCredentialRegistrationFormat.Anoncreds,
         did: 'did:key:z1',
-      } as any)
+      })
 
       expect(anoncredsRegistryService.registerSchema).toHaveBeenCalledWith(
         tenantAgent,
