@@ -25,6 +25,8 @@ export enum OidcConfigKeys {
   subHmacSalt = 'OIDC_SUB_HMAC_SALT',
   identityServiceBaseUrl = 'IDENTITY_SERVICE_BASE_URL',
   identityServiceAuthToken = 'IDENTITY_SERVICE_AUTH_TOKEN',
+  identityServicePublicVerifierId = 'IDENTITY_SERVICE_PUBLIC_VERIFIER_ID',
+  identityServiceRequestSignerDid = 'IDENTITY_SERVICE_REQUEST_SIGNER_DID',
   ttlAccessToken = 'OIDC_TTL_ACCESS_TOKEN',
   ttlAuthorizationCode = 'OIDC_TTL_AUTHORIZATION_CODE',
   ttlIdToken = 'OIDC_TTL_ID_TOKEN',
@@ -145,6 +147,16 @@ export class OidcLoginConfig {
   @Length(1, 255)
   public verificationTemplate!: string
 
+  /**
+   * Inline DCQL query for the wallet presentation (§4.2 — "which credentials,
+   * claims, issuer constraints"). The identity-service session API takes the
+   * query inline; resolving `verificationTemplate` by id can replace this
+   * later without changing the client.
+   */
+  @IsOptional()
+  @IsObject()
+  public dcqlQuery?: Record<string, unknown>
+
   /** Credential-query claim path → OIDC claim name (e.g. `pid.given_name` → `given_name`). */
   @IsObject()
   public claimMapping: Record<string, string>
@@ -170,6 +182,7 @@ export class OidcLoginConfig {
     const loginConfig = data ?? {}
     this.id = loginConfig.id
     this.verificationTemplate = loginConfig.verificationTemplate
+    this.dcqlQuery = loginConfig.dcqlQuery
     this.claimMapping = loginConfig.claimMapping ?? {}
     this.staticClaims = loginConfig.staticClaims
     this.subStrategy = loginConfig.subStrategy ?? SubStrategy.derived
@@ -231,10 +244,26 @@ export class IdentityServiceConfig {
   @IsString()
   public authToken?: string
 
+  /** The identity-service public verifier the bridge creates verification sessions under. */
+  @IsOptional()
+  @IsString()
+  public publicVerifierId?: string
+
+  /**
+   * DID whose key signs authorization requests (JAR, P1.6.1) — every
+   * verification session is created with a `requestSigner`; there is no
+   * unsigned fallback for the `request_uri` path.
+   */
+  @IsOptional()
+  @IsString()
+  public requestSignerDid?: string
+
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
     this.baseUrl = env[OidcConfigKeys.identityServiceBaseUrl]
     this.authToken = env[OidcConfigKeys.identityServiceAuthToken]
+    this.publicVerifierId = env[OidcConfigKeys.identityServicePublicVerifierId]
+    this.requestSignerDid = env[OidcConfigKeys.identityServiceRequestSignerDid]
   }
 }
 
