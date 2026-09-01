@@ -1,3 +1,7 @@
+export { AccountClaimsStore } from './account-claims.store'
+export { ClaimSet, computeSub, mapClaims } from './claims.util'
+export { AcquiredIdentity, IDENTITY_ACQUIRER, IdentityAcquirer, StubIdentityAcquirer } from './identity-acquirer'
+export { InteractionController } from './interaction.controller'
 export { OidcModule } from './oidc.module'
 export { createOidcProvider, OIDC_PROVIDER } from './provider.factory'
 export { SIGNING_ALGS, SigningAlg, SigningKeysService } from './signing-keys.service'

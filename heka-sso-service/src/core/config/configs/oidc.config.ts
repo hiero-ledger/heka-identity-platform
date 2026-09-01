@@ -5,6 +5,7 @@ import { Type } from 'class-transformer'
 import {
   ArrayNotEmpty,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsIn,
   IsInt,
@@ -35,6 +36,7 @@ export enum OidcConfigKeys {
   loginConfigs = 'OIDC_LOGIN_CONFIGS',
   jwks = 'OIDC_JWKS',
   jwksFile = 'OIDC_JWKS_FILE',
+  stubLogin = 'OIDC_STUB_LOGIN',
 }
 
 /** `sub` strategies per INTEGRATION.md §4.3 — the MVP implements `derived`. */
@@ -98,6 +100,12 @@ export class OidcClientConfig {
   @IsUrl(urlOptions, { each: true })
   public redirectUris!: string[]
 
+  /** For RP-initiated logout — e.g. Keycloak's broker logout-return URL (`…/broker/<alias>/endpoint/logout_response`). */
+  @IsOptional()
+  @IsArray()
+  @IsUrl(urlOptions, { each: true })
+  public postLogoutRedirectUris?: string[]
+
   @IsArray()
   @IsString({ each: true })
   public grantTypes: string[]
@@ -118,6 +126,7 @@ export class OidcClientConfig {
     this.clientId = client.clientId
     this.clientSecret = client.clientSecret
     this.redirectUris = client.redirectUris
+    this.postLogoutRedirectUris = client.postLogoutRedirectUris
     this.grantTypes = client.grantTypes ?? ['authorization_code']
     this.responseTypes = client.responseTypes ?? ['code']
     this.tokenEndpointAuthMethod = client.tokenEndpointAuthMethod ?? 'client_secret_basic'
@@ -287,6 +296,15 @@ export class OidcConfig {
   @IsObject()
   public jwks?: { keys: Record<string, any>[] }
 
+  /**
+   * Dev-only stub login (INTEGRATION.md P1.3): the wallet-login interaction
+   * completes immediately with the login configuration's static claims instead
+   * of a credential presentation. A bridge that logs anyone in must never
+   * reach a real deployment — production refuses this flag (P1.3.1).
+   */
+  @IsBoolean()
+  public stubLogin: boolean
+
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
     const nodeEnv = (env.NODE_ENV ?? process.env.NODE_ENV)?.toString().toLowerCase()
@@ -356,6 +374,13 @@ export class OidcConfig {
     )
 
     this.jwks = OidcConfig.resolveJwksOverride(env, problems, isProduction)
+
+    this.stubLogin = env[OidcConfigKeys.stubLogin]?.toString().toLowerCase() === 'true'
+    if (isProduction && this.stubLogin) {
+      problems.push(
+        `${OidcConfigKeys.stubLogin} must not be enabled in production — the stub bypasses credential verification`,
+      )
+    }
 
     if (problems.length > 0) {
       throw new Error(`OidcConfig validation failed:\n - ${problems.join('\n - ')}`)

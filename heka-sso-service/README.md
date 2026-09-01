@@ -100,13 +100,14 @@ Secrets in this section have **no compiled-in defaults** (see [INTEGRATION.md](d
 | `OIDC_LOGIN_CONFIGS`           | `[]`                          | Static login configurations (MVP), JSON array — see below.                                  |
 | `OIDC_JWKS`                    | _(unset — keys from Postgres)_ | Inline JWKS override (JSON), intended for dev/test. **Secret.**                            |
 | `OIDC_JWKS_FILE`               | _(unset)_                     | Path to a JWKS file override, intended for dev/test. **Secret.**                            |
+| `OIDC_STUB_LOGIN`              | `false`                       | Dev-only stub login (see below). **Refused in production.**                                 |
 
 #### Protocol policy
 
 The OP speaks the IdP-broker common denominator (INTEGRATION.md §1) and nothing more:
 
 - **Authorization code flow only** — `response_types_supported` is `["code"]`; no implicit or hybrid flows.
-- **PKCE is mandatory for every client** (confidential ones included) and **S256 is the only accepted `code_challenge_method`**.
+- **PKCE**: **S256 is the only accepted `code_challenge_method`**. The requirement is currently relaxed (`pkce.required` → false) because Keycloak's identity-provider config does not send PKCE unless explicitly enabled — to be re-tightened once the demo realm (P1.7) pins PKCE S256 on the IdP side.
 - **Client authentication**: `client_secret_basic` and `client_secret_post`. The two are interchangeable presentations of the same registered secret (the Cognito/Entra floor); no JWT-based or unauthenticated clients.
 
 `OIDC_CLIENTS` — JSON array of static clients (IdP brokers). `grantTypes`, `responseTypes`, and `tokenEndpointAuthMethod` (`client_secret_basic` or `client_secret_post`) are optional; client secrets must be ≥ 16 chars in production:
@@ -116,6 +117,7 @@ The OP speaks the IdP-broker common denominator (INTEGRATION.md §1) and nothing
   "clientId": "keycloak-broker",
   "clientSecret": "<strong secret>",
   "redirectUris": ["https://kc.example.com/realms/myrealm/broker/heka-sso/endpoint"],
+  "postLogoutRedirectUris": ["https://kc.example.com/realms/myrealm/broker/heka-sso/endpoint/logout_response"],
   "loginConfigId": "default"
 }]
 ```
@@ -131,6 +133,10 @@ The OP speaks the IdP-broker common denominator (INTEGRATION.md §1) and nothing
   "issuerAllowlist": []
 }]
 ```
+
+#### Stub login (dev only)
+
+With `OIDC_STUB_LOGIN=true`, the wallet-login interaction at `/interaction/:uid` completes **immediately, without any credential verification** (INTEGRATION.md P1.3): a fixed dev identity is pushed through the real claims pipeline (claim mapping, `derived` `sub` computation, claim-set storage), so the full broker loop — RP → Keycloak → bridge → back — runs end-to-end before the OID4VP wallet integration lands (P1.6). Stub logins carry `amr: ["stub"]` (never `["vc"]`) so brokered tokens can't be mistaken for verified presentations. The flag is **refused at startup in production**, like the dev-default secrets. When the flag is off and no other acquisition method is available, logins are denied with `access_denied`.
 
 #### Signing keys (JWKS)
 

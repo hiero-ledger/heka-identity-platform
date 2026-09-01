@@ -53,7 +53,10 @@ export class MainModule {
     // no body parser sits in front of the provider (§5-Decide-3) — it parses
     // its own request bodies from the raw stream; requests that fall through
     // to Nest still get the standard parsers.
-    const nestPrefixes = ['/health', `/${config.app.prefix}`]
+    // /interaction is the wallet-login interaction surface (Nest controllers,
+    // INTEGRATION.md P1.3) — everything else outside /health and the API
+    // prefix belongs to the provider.
+    const nestPrefixes = ['/health', '/interaction', `/${config.app.prefix}`]
     const oidcCallback = app.get<Provider>(OIDC_PROVIDER).callback()
     app.use((req: { path?: string; url: string }, res: any, next: () => void) => {
       const path = req.path ?? req.url.split('?')[0]
