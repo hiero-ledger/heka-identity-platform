@@ -44,6 +44,7 @@ const toClientMetadata = (client: OidcClientConfig): ClientMetadata => ({
   grant_types: client.grantTypes,
   response_types: client.responseTypes as ClientMetadata['response_types'],
   token_endpoint_auth_method: client.tokenEndpointAuthMethod as ClientMetadata['token_endpoint_auth_method'],
+  ...(client.postLogoutRedirectUris !== undefined && { post_logout_redirect_uris: client.postLogoutRedirectUris }),
   ...(client.loginConfigId !== undefined && { login_config_id: client.loginConfigId }),
 })
 
@@ -72,6 +73,19 @@ export function createOidcProvider(config: OidcConfig, jwks: { keys: Record<stri
       required: () => false,
     },
     clockTolerance: config.clockTolerance,
+    // The library default set plus `amr`, attached to the `openid` scope so
+    // every id_token carries the session's authentication method references
+    // (`['vc']` for wallet logins, `['stub']` for the dev stub) to the
+    // brokering IdP (INTEGRATION.md §1 step 3). A standalone `amr: null` entry
+    // would only make it requestable via the claims parameter, which brokers
+    // do not send.
+    claims: {
+      acr: null,
+      sid: null,
+      auth_time: null,
+      iss: null,
+      openid: ['sub', 'amr'],
+    },
     cookies: {
       keys: config.cookieKeys,
     },

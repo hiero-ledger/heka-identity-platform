@@ -77,10 +77,10 @@ The library implements the **issuer role** of OpenID for Verifiable Credential I
 
 ### What the library provides
 
-- **Credential Issuer Metadata** endpoint (`/.well-known/openid-credential-issuer`), **Credential endpoint** (`/credential`), and **Nonce endpoint** for `c_nonce` challenges (derived from a configured 32-byte `nonceSecret`, stateless and multi-instance safe).
-- Proof validation for **`jwt`** and **`attestation`** proof types (attestation needs `getKeyAttestationSignaturePublicKey` to resolve the wallet provider's key).
-- **Pre-Authorized Code grant** (`urn:ietf:params:oauth:grant-type:pre-authorized_code`) with single-use codes and constant-time `tx_code` validation (`lib/actions/grants/pre_authorized_code.js`).
-- Authorization-code-based issuance, wired to the credential endpoint through `features.resourceIndicators` (`defaultResource` / `useGrantedResource` / `getResourceServerInfo` — the exact recipe is in the `openid4vci` JSDoc in `defaults.js`).
+1. **Credential Issuer Metadata** endpoint (`/.well-known/openid-credential-issuer`), **Credential endpoint** (`/credential`), and **Nonce endpoint** for `c_nonce` challenges (derived from a configured 32-byte `nonceSecret`, stateless and multi-instance safe).
+2. Proof validation for **`jwt`** and **`attestation`** proof types (attestation needs `getKeyAttestationSignaturePublicKey` to resolve the wallet provider's key).
+3. **Pre-Authorized Code grant** (`urn:ietf:params:oauth:grant-type:pre-authorized_code`) with single-use codes and constant-time `tx_code` validation (`lib/actions/grants/pre_authorized_code.js`).
+4. Authorization-code-based issuance, wired to the credential endpoint through `features.resourceIndicators` (`defaultResource` / `useGrantedResource` / `getResourceServerInfo` — the exact recipe is in the `openid4vci` JSDoc in `defaults.js`).
 
 ### What the application would have to provide (not applicable here)
 
@@ -88,8 +88,8 @@ The library implements the **issuer role** of OpenID for Verifiable Credential I
 
 ### Caveats (if ever enabled)
 
-- Experimental: requires `openid4vci: { enabled: true, ack: 'experimental-01' }` and **`~` version pinning** — breaking changes to experimental features ship in minor releases.
-- Credential-endpoint access tokens must use the **`opaque`** format, with audience equal to the credential endpoint (see `credentialEndpointExpectedAudience`).
+1. Experimental: requires `openid4vci: { enabled: true, ack: 'experimental-01' }` and **`~` version pinning** — breaking changes to experimental features ship in minor releases.
+2. Credential-endpoint access tokens must use the **`opaque`** format, with audience equal to the credential endpoint (see `credentialEndpointExpectedAudience`).
 
 ---
 
@@ -186,11 +186,11 @@ Rules: no shared code, entities, or secrets between the two; heka-sso-service ne
 
 ### 4.6 Security design (adopted from feasibility §3.6)
 
-- **Cross-device session fixation**: prefer DC API; on the QR path follow the IETF Cross-Device Flows BCP — request TTLs ≤ 2–3 min, one-time `request_uri`, verifier identity shown in wallet consent (signed requests with `x509_san_dns` per HAIP in Phase 3), never auto-redirect a session the user didn't initiate.
-- **Response confidentiality/replay**: `direct_post.jwt` encrypted responses (Phase 3); single-use verification sessions; nonce verified in KB-JWT / `deviceAuth` (by Credo).
-- **Trust framework**: per-login-config issuer allowlists / trust anchors — never a global hardcoded trust store.
-- **Revocation**: Token Status List (SD-JWT VC), Bitstring Status List (W3C VC), MSO validity (mdoc); per-config hard-fail vs flag policy; cache status lists (Phase 3).
-- **OAuth hygiene**: PKCE, exact redirect URI matching, one-time codes bound to client + interaction cookie, rotating asymmetric keys with `kid` discipline, rate limiting on `/authorize` and interaction endpoints; interID's 11-vector analysis as the threat-model checklist; OIDF conformance suite before release.
+1. **Cross-device session fixation**: prefer DC API; on the QR path follow the IETF Cross-Device Flows BCP — request TTLs ≤ 2–3 min, one-time `request_uri`, verifier identity shown in wallet consent (signed requests with `x509_san_dns` per HAIP in Phase 3), never auto-redirect a session the user didn't initiate.
+2. **Response confidentiality/replay**: `direct_post.jwt` encrypted responses (Phase 3); single-use verification sessions; nonce verified in KB-JWT / `deviceAuth` (by Credo).
+3. **Trust framework**: per-login-config issuer allowlists / trust anchors — never a global hardcoded trust store.
+4. **Revocation**: Token Status List (SD-JWT VC), Bitstring Status List (W3C VC), MSO validity (mdoc); per-config hard-fail vs flag policy; cache status lists (Phase 3).
+5. **OAuth hygiene**: PKCE, exact redirect URI matching, one-time codes bound to client + interaction cookie, rotating asymmetric keys with `kid` discipline, rate limiting on `/authorize` and interaction endpoints; interID's 11-vector analysis as the threat-model checklist; OIDF conformance suite before release.
 
 ---
 
@@ -200,9 +200,9 @@ The original plan targeted heka-auth-service, and its codebase was audited in de
 
 ### Inherit (platform component pattern)
 
-- NestJS 11 + Express, Node `^22.17.0`, Yarn 4, MikroORM/PostgreSQL + migrations, class-validator config classes, nestjs-pino logging, Terminus health module, vitest unit/e2e patterns, Dockerfile/docker-compose/CI — copy the skeleton from heka-auth-service.
-- The hourly expired-row cleanup pattern (`@Interval` scheduled task) — reuse for the adapter's expired artifacts.
-- Interaction routes as Nest controllers work: `interactionDetails`/`interactionFinished` take raw `(req, res)` via `@Req()`/`@Res()`.
+1. NestJS 11 + Express, Node `^22.17.0`, Yarn 4, MikroORM/PostgreSQL + migrations, class-validator config classes, nestjs-pino logging, Terminus health module, vitest unit/e2e patterns, Dockerfile/docker-compose/CI — copy the skeleton from heka-auth-service.
+2. The hourly expired-row cleanup pattern (`@Interval` scheduled task) — reuse for the adapter's expired artifacts.
+3. Interaction routes as Nest controllers work: `interactionDetails`/`interactionFinished` take raw `(req, res)` via `@Req()`/`@Res()`.
 
 ### Decide differently (greenfield advantages)
 
@@ -214,8 +214,8 @@ The original plan targeted heka-auth-service, and its codebase was audited in de
 
 ### Still applies (unchanged risks)
 
-- **MikroORM request context**: the provider invokes the adapter from its own Koa middleware, outside Nest's request lifecycle — the adapter must not rely on ambient `RequestContext` (fork the EM per operation or use native queries), and adapter tests must run through real HTTP flows.
-- **Proxy/cookie correctness** (`provider.proxy = true`, `Secure`/`SameSite` across the redirect chain) and the **dev-topology hostname rule** (browser and Keycloak container must see one identical issuer).
+1. **MikroORM request context**: the provider invokes the adapter from its own Koa middleware, outside Nest's request lifecycle — the adapter must not rely on ambient `RequestContext` (fork the EM per operation or use native queries), and adapter tests must run through real HTTP flows.
+2. **Proxy/cookie correctness** (`provider.proxy = true`, `Secure`/`SameSite` across the redirect chain) and the **dev-topology hostname rule** (browser and Keycloak container must see one identical issuer).
 
 ---
 
@@ -227,11 +227,11 @@ Phases mirror the feasibility doc's implementation plan (§4 there). Each phase 
 
 *Why:* creates the new component and de-risks the foundations everything else builds on — module-system choice, config/secrets posture, and key material. Cheap now, expensive to retrofit.
 
-- [x] Scaffold `heka-sso-service/` from the platform component pattern (skeleton per §5-Inherit: config/logger/health/migrations/Docker/CI; port `3005`); move this document into the new project.
-- [x] Decide the module system (§5-Decide-1): **ESM-native recommended**; if CJS, spike `require('oidc-provider')` on Node 22 first — gate for everything below. → **Decided: CommonJS** (platform consistency with heka-auth-service; no `"type": "module"`, `module: nodenext` emits CJS). The `require('oidc-provider')` spike **passed**: TypeScript 5.9 under `nodenext` compiles the ESM-only import to `require()`, and Node ≥ 22.12 loads it via `require(esm)` (engines pins `22.17.0`; the constraint holds as long as the library ships no top-level await). Guarded by `test/unit/oidc-provider.spec.ts`, which exercises the `require(esm)` path explicitly. The platform's tsconfig path-alias import pattern (`@config`, `@core/*`, …) is kept, as in heka-auth-service.
-- [x] Add `oidc-provider@^9.11.3` (no experimental features — `~` pinning only becomes mandatory if one is ever enabled) + `@types/oidc-provider`. → Added as **exact-pinned** `oidc-provider@9.11.3` + `@types/oidc-provider@9.11.1` (the project pins all dependency versions).
-- [x] `OidcConfig` (class-validator pattern): issuer URL, cookie keys, `sub` HMAC salt, identity-service base URL/credentials, TTLs, static client + login config (MVP). **No compiled-in defaults for secrets; fail-fast in production** (§5-Decide-4). → `src/core/config/configs/oidc.config.ts`: in production the constructor fails fast when issuer/secrets are unset and **refuses known dev-default secrets** (the values shipped in `env/.env`/compose); outside production, unset secrets are generated per boot. Static clients (`OIDC_CLIENTS`) and login configs (`OIDC_LOGIN_CONFIGS`, §4.2: verification template, claim mapping, `sub` strategy, issuer allowlist) are JSON env vars; secret fields are pino-redacted from startup config logging.
-- [x] Signing JWKS (RS256 + ES256): generate on first start and persist — key material lives in Postgres per the feasibility component architecture (§3.2 there; env/file override for dev) — refuse known-default keys in production; document rotation. → `SigningKeysService` (`src/oidc/`) + `oidc_signing_key` entity/migration: RSA-2048 + P-256 keys generated on first use (`getJwks()`, called by the Phase 1 provider factory at startup), `kid` = RFC 7638 thumbprint, JWKS published newest-first (newest key signs). `OIDC_JWKS`/`OIDC_JWKS_FILE` override for dev; in production the override refuses known-default kids (incl. the library's `keystore-CHANGE-ME` dev keystore), public-only keys, RSA < 2048 bits, and non-NIST curves. Overlap-rotation runbook (`rotateKey` → wait out IdP JWKS cache → `retireKey`) documented in the README.
+- [x] **P0.1** — Scaffold `heka-sso-service/` from the platform component pattern (skeleton per §5-Inherit: config/logger/health/migrations/Docker/CI; port `3005`); move this document into the new project.
+- [x] **P0.2** — Decide the module system (§5-Decide-1): **ESM-native recommended**; if CJS, spike `require('oidc-provider')` on Node 22 first — gate for everything below. → **Decided: CommonJS** (platform consistency with heka-auth-service; no `"type": "module"`, `module: nodenext` emits CJS). The `require('oidc-provider')` spike **passed**: TypeScript 5.9 under `nodenext` compiles the ESM-only import to `require()`, and Node ≥ 22.12 loads it via `require(esm)` (engines pins `22.17.0`; the constraint holds as long as the library ships no top-level await). Guarded by `test/unit/oidc-provider.spec.ts`, which exercises the `require(esm)` path explicitly. The platform's tsconfig path-alias import pattern (`@config`, `@core/*`, …) is kept, as in heka-auth-service.
+- [x] **P0.3** — Add `oidc-provider@^9.11.3` (no experimental features — `~` pinning only becomes mandatory if one is ever enabled) + `@types/oidc-provider`. → Added as **exact-pinned** `oidc-provider@9.11.3` + `@types/oidc-provider@9.11.1` (the project pins all dependency versions).
+- [x] **P0.4** — `OidcConfig` (class-validator pattern): issuer URL, cookie keys, `sub` HMAC salt, identity-service base URL/credentials, TTLs, static client + login config (MVP). **No compiled-in defaults for secrets; fail-fast in production** (§5-Decide-4). → `src/core/config/configs/oidc.config.ts`: in production the constructor fails fast when issuer/secrets are unset and **refuses known dev-default secrets** (the values shipped in `env/.env`/compose); outside production, unset secrets are generated per boot. Static clients (`OIDC_CLIENTS`) and login configs (`OIDC_LOGIN_CONFIGS`, §4.2: verification template, claim mapping, `sub` strategy, issuer allowlist) are JSON env vars; secret fields are pino-redacted from startup config logging.
+- [x] **P0.5** — Signing JWKS (RS256 + ES256): generate on first start and persist — key material lives in Postgres per the feasibility component architecture (§3.2 there; env/file override for dev) — refuse known-default keys in production; document rotation. → `SigningKeysService` (`src/oidc/`) + `oidc_signing_key` entity/migration: RSA-2048 + P-256 keys generated on first use (`getJwks()`, called by the Phase 1 provider factory at startup), `kid` = RFC 7638 thumbprint, JWKS published newest-first (newest key signs). `OIDC_JWKS`/`OIDC_JWKS_FILE` override for dev; in production the override refuses known-default kids (incl. the library's `keystore-CHANGE-ME` dev keystore), public-only keys, RSA < 2048 bits, and non-NIST curves. Overlap-rotation runbook (`rotateKey` → wait out IdP JWKS cache → `retireKey`) documented in the README.
 
 ### Phase 1 — MVP: bridge works end-to-end with Keycloak
 
@@ -239,41 +239,49 @@ Phases mirror the feasibility doc's implementation plan (§4 there). Each phase 
 
 Matches feasibility Phase 1. Goal: a Keycloak realm brokers "Sign in with wallet" through heka-sso-service, verified by heka-wallet, SD-JWT VC only.
 
-- [ ] **OP core** — split into two PRs. (Not per endpoint: `node-oidc-provider` serves discovery/`/authorize`/`/token`/`/jwks`/`/userinfo` in full as soon as the provider is mounted — the increments are configuration layers, each shippable and testable on its own.)
-  - [x] **OP core PR 1 — provider skeleton & mount**: async provider factory — issuer from `OidcConfig`, `jwks` from `SigningKeysService` (RS256/ES256 + `kid`), `cookies.keys`, `ttl`, `features.devInteractions: false`, `renderError`, `provider.proxy = true` — mounted at the app root via `provider.callback()`, coexisting with the Nest controllers (`/health`, `/api/docs`; mind §5: no global body parser in front of the provider). Runs on the library's built-in in-memory adapter until the MikroORM adapter PR replaces it. Exit: discovery and `/jwks` serve the persisted keys; e2e for both + Nest-route coexistence. → `src/oidc/provider.factory.ts` (async DI factory via the `OIDC_PROVIDER` token) + root-mount dispatch middleware in `MainModule.appConfigure` — registered before Nest's init-time body parsers, so the provider reads raw request bodies while `/health` and `/api/*` fall through to Nest with normal parsing. Routes pinned to the documented paths (`/authorize`, `/token`, `/jwks`, `/userinfo` — the library default would be `/me`). Note: discovery *endpoint URLs* derive from the forwarded Host (`provider.proxy = true`); only `issuer` is fixed from config — the reverse proxy must forward the public Host header.
-  - [x] **OP core PR 2 — clients & protocol policy**: static clients from `OIDC_CLIENTS`, authorization code flow + PKCE (S256), both `client_secret_basic` and `client_secret_post`, `clockTolerance` for Keycloak's 0s skew. Exit: `/authorize` validates requests (unknown client / bad redirect_uri / missing PKCE rejected; valid requests route toward the interaction), `/token` enforces client auth + PKCE; e2e for those error/validation paths. The full code flow and `/userinfo` become end-to-end testable only after the adapter, interaction, and `findAccount` PRs below. → `provider.factory.ts` maps `OidcConfig.clients` onto provider client metadata (`loginConfigId` carried as `login_config_id` via `extraClientMetadata` for the interaction PR) and pins the policy: `responseTypes: ['code']` (no implicit/hybrid), `pkce.required` always true (the v9 library default exempts confidential clients; S256 is the only method v9 supports), `clientAuthMethods` limited to `client_secret_basic` + `client_secret_post` (the library treats the two as interchangeable presentations of the registered secret), `clockTolerance` from new `OIDC_CLOCK_TOLERANCE` (default 15s). Validation paths covered twice: `test/unit/oidc-protocol.spec.ts` (provider callback, runs in CI) and `test/oidc.e2e.test.ts` (full Nest app; verified against local Postgres, still skipped in CI pending a Postgres instance).
-- [ ] **MikroORM adapter**: `OidcEntity` (jsonb payload, `grantId`/`userCode`/`uid` indexes, `expiresAt`) + migration + the 8-method contract; scheduled task purges expired rows. Adapter forks the EM per operation (no ambient request context — §5).
-- [ ] **Static login configurations** (JSON/env): verification-template/DCQL reference, claim mapping, `derived` sub strategy, issuer allowlist.
-- [ ] **Wallet-login interaction** at `/interaction/:uid`: create verification session via identity-service REST, render QR + deep link, poll for `ResponseVerified`, map attributes per login config, compute `derived` sub, store the claim set, `interactionFinished` with `amr: ['vc']`. Enforce the binding rule (§3.3): code released only into the initiating browser session.
-  - Per the feasibility target flow (§3.3 there, step 6), the wallet fetches the request by `request_uri` as a **signed authorization request (JAR)** — request Credo's signed-request creation from day one; the `x509_san_dns` client-id scheme upgrade stays in Phase 3.
-  - Wallet response mode is plain `direct_post` in Phase 1; the target flow's `direct_post.jwt` (encrypted responses) lands in Phase 3 with HAIP.
-  - Polling is the fallback channel of the target flow; the WebSocket push (flow steps 10/12) lands in Phase 2.
-- [ ] **`findAccount`** over the stored claim set (§4.4) — no user table.
-- [ ] **Keycloak demo**: `docker-compose.dev.yml` with Keycloak + pre-configured realm (IdP from discovery URL, PKCE S256, Attribute Importer mappers, "Trust Email", "Allowed clock skew"), demo walkthrough with heka-wallet. Delivers the roadmap's "SSO via SSI + WebUI demo".
-- [ ] **Tests**: unit (adapter, claim mapping, sub derivation); e2e (supertest, following heka-auth-service's vitest patterns) for discovery, full code + PKCE flow with a mocked verification session, userinfo `sub` consistency.
+The phase is cut by an **intermediate milestone**: the full broker loop (heka-sso-web-ui → Keycloak → bridge → back) completes end-to-end with a **dev-only stub login** (P1.3 + P1.4) *before* any wallet/verification wiring (P1.6). This proves the entire OIDC surface — `/authorize`, interaction hand-off, `interactionFinished`, code exchange, `findAccount`, claims in Keycloak-brokered tokens — with the wallet presentation as the only remaining variable. The stub is then replaced by the real OID4VP interaction.
 
-Exit criteria: full broker loop — protected app → Keycloak → wallet presentation → federated user in Keycloak.
+- [x] **P1.1 — OP core** — split into two PRs. (Not per endpoint: `node-oidc-provider` serves discovery/`/authorize`/`/token`/`/jwks`/`/userinfo` in full as soon as the provider is mounted — the increments are configuration layers, each shippable and testable on its own.)
+  - [x] **P1.1.1 — OP core PR 1 — provider skeleton & mount**: async provider factory — issuer from `OidcConfig`, `jwks` from `SigningKeysService` (RS256/ES256 + `kid`), `cookies.keys`, `ttl`, `features.devInteractions: false`, `renderError`, `provider.proxy = true` — mounted at the app root via `provider.callback()`, coexisting with the Nest controllers (`/health`, `/api/docs`; mind §5: no global body parser in front of the provider). Runs on the library's built-in in-memory adapter until the MikroORM adapter PR replaces it. Exit: discovery and `/jwks` serve the persisted keys; e2e for both + Nest-route coexistence. → `src/oidc/provider.factory.ts` (async DI factory via the `OIDC_PROVIDER` token) + root-mount dispatch middleware in `MainModule.appConfigure` — registered before Nest's init-time body parsers, so the provider reads raw request bodies while `/health` and `/api/*` fall through to Nest with normal parsing. Routes pinned to the documented paths (`/authorize`, `/token`, `/jwks`, `/userinfo` — the library default would be `/me`). Note: discovery *endpoint URLs* derive from the forwarded Host (`provider.proxy = true`); only `issuer` is fixed from config — the reverse proxy must forward the public Host header.
+  - [x] **P1.1.2 — OP core PR 2 — clients & protocol policy**: static clients from `OIDC_CLIENTS`, authorization code flow + PKCE (S256), both `client_secret_basic` and `client_secret_post`, `clockTolerance` for Keycloak's 0s skew. Exit: `/authorize` validates requests (unknown client / bad redirect_uri / missing PKCE rejected; valid requests route toward the interaction), `/token` enforces client auth + PKCE; e2e for those error/validation paths. The full code flow and `/userinfo` become end-to-end testable only after the adapter, interaction, and `findAccount` PRs below. → `provider.factory.ts` maps `OidcConfig.clients` onto provider client metadata (`loginConfigId` carried as `login_config_id` via `extraClientMetadata` for the interaction PR) and pins the policy: `responseTypes: ['code']` (no implicit/hybrid), `pkce.required` always true (the v9 library default exempts confidential clients; S256 is the only method v9 supports), `clientAuthMethods` limited to `client_secret_basic` + `client_secret_post` (the library treats the two as interchangeable presentations of the registered secret), `clockTolerance` from new `OIDC_CLOCK_TOLERANCE` (default 15s). Validation paths covered twice: `test/unit/oidc-protocol.spec.ts` (provider callback, runs in CI) and `test/oidc.e2e.test.ts` (full Nest app; verified against local Postgres, still skipped in CI pending a Postgres instance).
+- [x] **P1.2 — Static login configurations** (JSON/env): verification-template/DCQL reference, claim mapping, `derived` sub strategy, issuer allowlist. → Landed with the Phase 0 config work: `OIDC_LOGIN_CONFIGS` parsed/validated in `src/core/config/configs/oidc.config.ts` (`OidcLoginConfig`: `verificationTemplate`, `claimMapping`, `staticClaims`, `subStrategy` + `subClaim`, `issuerAllowlist`), selected per client via `loginConfigId`.
+- [x] **P1.3 — Interaction skeleton + stub login** (the intermediate-milestone PR — lands *before* any wallet/identity-service wiring): `/interaction/:uid` as Nest controllers over raw `(req, res)` (`interactionDetails`/`interactionFinished`, §5-Inherit), plus the claims pipeline the wallet step will reuse — resolve the client's login config, map/merge claims, compute the `derived` sub, store the claim set for `findAccount`, then `interactionFinished`. Identity acquisition is a **pluggable step**; this PR ships only the **dev stub**: no verification session — the interaction completes immediately with the login config's `staticClaims` (plus a fixed dev identity), letting the broker loop run without a wallet. → `src/oidc/interaction.controller.ts` (`/interaction` carved out of the provider root-mount in `MainModule`; handles the `login` prompt via the pluggable `IDENTITY_ACQUIRER` and auto-grants the `consent` prompt — user consent happens in the wallet, the only clients are brokering IdPs), `claims.util.ts` (`mapClaims`: claim-path mapping + `staticClaims` underneath + `login_config_id` custom claim; `computeSub`: `derived` via HMAC-SHA256 over client_id ‖ order-independent claim serialization — other strategies throw until P2.6), `account-claims.store.ts` (in-memory claim-set store keyed by `sub`, session-TTL expiry, consumed by P1.4), `identity-acquirer.ts` (interface + `StubIdentityAcquirer`, which synthesizes a disclosed attribute per claim-mapping entry so the real pipeline is exercised). The `openid` scope claims list gains `amr` so id_tokens carry it to the IdP (§1 step 3). Covered by `test/unit/claims.spec.ts` + `test/unit/interaction.spec.ts` (full code flow over the provider callback: login → auto-consent → code exchange → userinfo `sub` consistency, stable `sub` across logins, access_denied when no acquirer, server_error on missing login config).
+  - [x] **P1.3.1** — Gated by an explicit env flag (e.g. `OIDC_STUB_LOGIN=true`), **refused in production** exactly like the dev-default secrets (§5-Decide-4) — a bridge that logs anyone in must never reach a real deployment. → `OidcConfig.stubLogin`; production fail-fast covered in `oidc-config.spec.ts`; flag set in `env/.env` + `docker-compose.dev.yml`.
+  - [x] **P1.3.2** — Stub logins set `amr: ['stub']` (never `['vc']`) so brokered tokens can't be mistaken for verified presentations downstream. → asserted on the id_token in `interaction.spec.ts`.
+  - [x] **P1.3.3** — Runs on the in-memory adapter; single-instance dev only. The MikroORM adapter (P1.5) removes that restriction.
+  - Note (post-e7ef715): `pkce.required` is currently relaxed to `false` — Keycloak's identity-provider config does not send PKCE unless explicitly enabled. Re-tighten to always-required when the demo realm (P1.7) pins PKCE S256 on the IdP side; P1.1.2's "always true" statement is suspended until then.
+- [ ] **P1.4 — `findAccount`** over the stored claim set (§4.4) — no user table. Part of the intermediate milestone: without it the stub loop can't issue id_tokens/userinfo, so it lands in (or immediately after) the P1.3 PR.
+- [ ] **P1.5 — MikroORM adapter**: `OidcEntity` (jsonb payload, `grantId`/`userCode`/`uid` indexes, `expiresAt`) + migration + the 8-method contract; scheduled task purges expired rows. Adapter forks the EM per operation (no ambient request context — §5).
+- [ ] **P1.6 — Wallet-login interaction** — replaces the P1.3 stub identity step (same interaction skeleton, claims pipeline, and `findAccount`; only the pluggable acquisition step changes): create verification session via identity-service REST, render QR + deep link, poll for `ResponseVerified`, map the **disclosed attributes** per login config, `interactionFinished` with `amr: ['vc']`. Enforce the binding rule (§3.3): code released only into the initiating browser session.
+  - **P1.6.1** — Per the feasibility target flow (§3.3 there, step 6), the wallet fetches the request by `request_uri` as a **signed authorization request (JAR)** — request Credo's signed-request creation from day one; the `x509_san_dns` client-id scheme upgrade stays in Phase 3.
+  - **P1.6.2** — Wallet response mode is plain `direct_post` in Phase 1; the target flow's `direct_post.jwt` (encrypted responses) lands in Phase 3 with HAIP.
+  - **P1.6.3** — Polling is the fallback channel of the target flow; the WebSocket push (flow steps 10/12) lands in Phase 2 (P2.2).
+  - **P1.6.4** — The stub stays available behind its flag for demos/tests after this PR.
+- [ ] **P1.7 — Keycloak demo**: `docker-compose.dev.yml` with Keycloak + pre-configured realm (IdP from discovery URL, PKCE S256, Attribute Importer mappers, "Trust Email", "Allowed clock skew"), demo walkthrough with heka-wallet. Delivers the roadmap's "SSO via SSI + WebUI demo".
+- [ ] **P1.8 — Tests**: unit (adapter, claim mapping, sub derivation); e2e (supertest, following heka-auth-service's vitest patterns) for discovery, full code + PKCE flow with the stub login and with a mocked verification session, userinfo `sub` consistency.
+
+Exit criteria — intermediate milestone: heka-sso-web-ui → Keycloak (`kc_idp_hint=heka-sso`) → bridge stub interaction → code exchange → federated user in Keycloak → dashboard shows brokered claims, no wallet involved. Phase exit: the same loop with a real wallet presentation replacing the stub.
 
 ### Phase 2 — Product-grade UX & management
 
 *Why:* turns the demoable MVP into something operable in real deployments — the best-UX and most-secure login path (DC API), clients/login-configs manageable without redeploys, the remaining credential formats, and clean session termination. Without this phase the bridge works but can't be run as a product.
 
-- [ ] **DC API same-device flow**: feature-detect `navigator.credentials.get()`, submit via identity-service's origin-bound `verify` endpoint; QR fallback retained.
-- [ ] **WebSocket push** to the login page (subscribe to identity-service verification events; polling fallback).
-- [ ] **Admin CRUD** for OIDC clients + login configurations (Postgres entities + admin API; screens in heka-identity-service-web-ui). Completes the feasibility component architecture's storage model — clients, login configs, interactions, grants, and key material all in PostgreSQL.
-- [ ] **Formats**: mdoc + W3C VC-JWT (already verifiable by Credo); `email_verified` handling.
-- [ ] **Logout**: RP-initiated + back-channel logout (`sid`-matched) wired to Keycloak.
-- [ ] **`sub` strategies**: add `credential-claim` and `ephemeral` (per login config).
-- [ ] E2E suite; threat-model review against interID's 11-vector checklist.
+- [ ] **P2.1 — DC API same-device flow**: feature-detect `navigator.credentials.get()`, submit via identity-service's origin-bound `verify` endpoint; QR fallback retained.
+- [ ] **P2.2 — WebSocket push** to the login page (subscribe to identity-service verification events; polling fallback).
+- [ ] **P2.3 — Admin CRUD** for OIDC clients + login configurations (Postgres entities + admin API; screens in heka-identity-service-web-ui). Completes the feasibility component architecture's storage model — clients, login configs, interactions, grants, and key material all in PostgreSQL.
+- [ ] **P2.4 — Formats**: mdoc + W3C VC-JWT (already verifiable by Credo); `email_verified` handling.
+- [ ] **P2.5 — Logout**: RP-initiated + back-channel logout (`sid`-matched) wired to Keycloak.
+- [ ] **P2.6 — `sub` strategies**: add `credential-claim` and `ephemeral` (per login config).
+- [ ] **P2.7** — E2E suite; threat-model review against interID's 11-vector checklist.
 
 ### Phase 3 — Interop & assurance
 
 *Why:* extends trust beyond Heka's own wallet — HAIP + trust/revocation policies are what EUDI-ecosystem wallets require, and OIDF conformance is what lets IdP operators adopt the bridge without auditing it themselves. This is the phase that fills the "no mature OSS bridge on final OID4VP 1.0" market gap identified by the feasibility doc.
 
-- [ ] **HAIP 1.0 profile**: signed requests with `x509_san_dns`, `direct_post.jwt` encrypted responses, DCQL-only.
-- [ ] **Revocation/status-list policies** per login config; trust anchors; EUDI reference wallet interop testing.
-- [ ] **OIDF conformance**: OP certification + OID4VP conformance (via identity-service sessions).
-- [ ] Brokering guides for Auth0 / Entra External ID / Okta / Cognito; multi-tenant bridge (per-tenant issuers) if demanded.
+- [ ] **P3.1 — HAIP 1.0 profile**: signed requests with `x509_san_dns`, `direct_post.jwt` encrypted responses, DCQL-only.
+- [ ] **P3.2 — Revocation/status-list policies** per login config; trust anchors; EUDI reference wallet interop testing.
+- [ ] **P3.3 — OIDF conformance**: OP certification + OID4VP conformance (via identity-service sessions).
+- [ ] **P3.4** — Brokering guides for Auth0 / Entra External ID / Okta / Cognito; multi-tenant bridge (per-tenant issuers) if demanded.
 
 ### Test RP UI — `heka-sso-web-ui` (Phase 1 demo companion)
 
@@ -281,7 +289,7 @@ Exit criteria: full broker loop — protected app → Keycloak → wallet presen
 
 **Stack (already scaffolded):** Vite + React 19 + TypeScript, `react-oidc-context` (wrapping `oidc-client-ts`) — both installed. No further dependencies planned: with only two screens gated by authentication state, conditional rendering replaces a router.
 
-**The login page is Keycloak's** — the UI renders no login screen of its own. An unauthenticated visit is **redirected automatically** to Keycloak's stock login page (with the `heka-sso` "Sign in with wallet" IdP button); no Keycloak theming/customization. In code: an effect in `App.tsx` calls `auth.signinRedirect()` whenever `!auth.isAuthenticated && !auth.isLoading && !auth.activeNavigator && !auth.error` (the guards prevent redirect loops during the callback exchange and on failures).
+**The login page is Keycloak's** — the UI renders no login screen of its own. An unauthenticated visit is **redirected automatically** to Keycloak; no Keycloak theming/customization. In code: an effect in `App.tsx` calls `auth.signinRedirect()` whenever `!auth.isAuthenticated && !auth.isLoading && !auth.activeNavigator && !auth.error` (the guards prevent redirect loops during the callback exchange and on failures). The sign-in request carries **`kc_idp_hint=heka-sso`** (`extraQueryParams`), so Keycloak skips its own credential form and forwards straight to the `heka-sso` identity provider — the bridge — making the UI a pure driver for the broker loop; drop the hint to get Keycloak's stock login page with the IdP button instead.
 
 **States** (switched in `App.tsx` on `useAuth()` state):
 
@@ -292,17 +300,17 @@ Exit criteria: full broker loop — protected app → Keycloak → wallet presen
 | `error` | Error message + "Try again" (restarts sign-in) — the only UI shown outside the dashboard, so a broken flow can't loop forever |
 | `isAuthenticated` | **Dashboard**: signed-in confirmation; claims table from `auth.user.profile` (`sub`, `given_name`, `family_name`, `email`, and — once Keycloak mappers propagate them — `amr` / `vc_presented_attributes`); collapsible raw ID-token payload for debugging mapper config; "Sign out" button → `auth.signoutRedirect()` (RP-initiated logout at Keycloak, returning to the app, which redirects back to Keycloak login). |
 
-**Planned changes:**
+**Changes (all implemented):**
 
-1. `.env` (+ `.env.example`) — Vite vars: `VITE_KC_URL=http://localhost:8080`, `VITE_KC_REALM=master`, `VITE_KC_CLIENT_ID=heka-sso-web-ui` (matching the realm/alias already assumed by the service's dev `OIDC_CLIENTS`).
-2. `src/auth.ts` — the `AuthProviderProps` config built from those vars: `authority = <KC_URL>/realms/<realm>` (endpoints via Keycloak discovery), `response_type: 'code'` (PKCE is automatic in `oidc-client-ts`), `scope: 'openid profile email'`, `redirect_uri`/`post_logout_redirect_uri = window.location.origin`, and `onSigninCallback` stripping `code`/`state` from the URL after the redirect returns.
-3. `src/main.tsx` — wrap `<App />` in `<AuthProvider {...authConfig}>`.
-4. `src/pages/DashboardPage.tsx` — the dashboard screen; `App.tsx` becomes the auto-redirect effect + state switch above (template counter demo removed).
-5. `README.md` — run instructions + the Keycloak client setup below.
+- [x] **U.1** — `.env` (+ `.env.example`) — Vite vars: `VITE_KC_URL=http://localhost:8080`, `VITE_KC_REALM=master`, `VITE_KC_CLIENT_ID=heka-sso-web-ui` (matching the realm/alias already assumed by the service's dev `OIDC_CLIENTS`).
+- [x] **U.2** — `src/auth.ts` — the `AuthProviderProps` config built from those vars: `authority = <KC_URL>/realms/<realm>` (endpoints via Keycloak discovery), `response_type: 'code'` (PKCE is automatic in `oidc-client-ts`), `scope: 'openid profile email'`, `redirect_uri`/`post_logout_redirect_uri = window.location.origin`, `onSigninCallback` stripping `code`/`state` from the URL after the redirect returns, and `extraQueryParams: { kc_idp_hint: 'heka-sso' }` (see above).
+- [x] **U.3** — `src/main.tsx` — wrap `<App />` in `<AuthProvider {...authConfig}>`.
+- [x] **U.4** — `src/pages/DashboardPage.tsx` — the dashboard screen; `App.tsx` becomes the auto-redirect effect + state switch above (template counter demo removed).
+- [x] **U.5** — `README.md` — run instructions + the Keycloak client setup below.
 
 **Keycloak prerequisite** (manual until the Phase 1 demo compose lands): in realm `master`, create client `heka-sso-web-ui` — public (no secret), Standard Flow only, PKCE `S256`, valid redirect URIs `http://localhost:5173/*` (Vite dev port), valid post-logout redirect URIs `http://localhost:5173/*`, web origins `http://localhost:5173`.
 
-**Test loop delivered:** `yarn dev` (:5173) → open the app → automatic redirect to the Keycloak login page → "heka-sso" IdP button → bridge wallet interaction → back through Keycloak (first-broker-login creates the federated user) → dashboard shows the brokered claims. Sign-out ends the Keycloak session and lands back on the Keycloak login page (via the auto-redirect).
+**Test loop delivered:** `yarn dev` (:5173) → open the app → automatic redirect to Keycloak, which (via `kc_idp_hint`) forwards straight to the bridge → bridge interaction (stub login first, wallet presentation once it lands) → back through Keycloak (first-broker-login creates the federated user) → dashboard shows the brokered claims. Sign-out ends the Keycloak session and lands back at the start of the loop (via the auto-redirect). This is the driver for both the Phase 1 intermediate milestone (stub) and the phase exit (wallet).
 
 Out of scope (per the §"Interaction UI scope creep" risk, applied here too): styling beyond the Vite defaults, routing, state management, token refresh tuning (library defaults), and any direct calls to heka-sso-service or heka-identity-service.
 

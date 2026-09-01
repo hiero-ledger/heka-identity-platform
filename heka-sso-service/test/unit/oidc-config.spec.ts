@@ -129,6 +129,16 @@ describe('OidcConfig', () => {
     ).toThrow(/known default secret/)
   })
 
+  test('stub login: off by default, on with OIDC_STUB_LOGIN=true, refused in production', () => {
+    expect(new OidcConfig({}).stubLogin).toBe(false)
+    expect(new OidcConfig({ OIDC_STUB_LOGIN: 'true' }).stubLogin).toBe(true)
+
+    expect(() => new OidcConfig({ ...strongProductionEnv, OIDC_STUB_LOGIN: 'true' })).toThrow(
+      /OIDC_STUB_LOGIN must not be enabled in production/,
+    )
+    expect(new OidcConfig({ ...strongProductionEnv, OIDC_STUB_LOGIN: 'false' }).stubLogin).toBe(false)
+  })
+
   test('rejects too-short client secrets in production', () => {
     expect(
       () =>
