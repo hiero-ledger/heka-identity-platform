@@ -171,7 +171,6 @@ export class InteractionService {
     details: InteractionDetails,
     authorizationResponse: Record<string, unknown>,
   ): Promise<LoginStatus> {
-    this.requireLoginConfig(details)
     const acquirer = this.identityAcquirer
     if (!supportsDcApiLogin(acquirer)) throw new InteractionApiError('wallet login is not enabled')
     return await acquirer.verifyDcApiLogin(details.uid, authorizationResponse)
