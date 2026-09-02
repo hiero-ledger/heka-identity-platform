@@ -9,8 +9,6 @@ interface HeaderPanelProps {
   illustration?: Illustration
 }
 
-// Illustrations are raster exports (identity-service's `public/wallet.png`, cropped to its
-// opaque content and saved as WebP — the 3D wallet of the Figma "Sign in" header); decorative, so alt="".
 const illustrations: Record<Illustration, string> = {
   wallet: walletImage,
 }

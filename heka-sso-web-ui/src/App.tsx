@@ -48,7 +48,7 @@ function App() {
     setSignedOut(true)
   }
 
-  // Presentation only (UI-PLAN.md §2.3): the auth flow is unchanged — each
+  // Presentation only: the auth flow is unchanged — each
   // state of the original switch maps to one screen. The landing takes
   // precedence over a stale error so "Back" from the failure screen works.
   if (auth.isAuthenticated) {

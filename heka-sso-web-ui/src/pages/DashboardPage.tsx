@@ -24,9 +24,9 @@ function orNotShared(value: string | undefined): ReactNode {
 }
 
 /**
- * The signed-in screen (UI-PLAN.md §2.3): greeting, the wallet-presented
+ * The signed-in screen: greeting, the wallet-presented
  * identity, the session facts, and the raw claims for debugging mapper
- * configuration (kept collapsed, per P2.9).
+ * configuration (kept collapsed).
  */
 function DashboardPage() {
   const { claims, provider } = useAuthSession()

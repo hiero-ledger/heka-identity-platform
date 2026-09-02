@@ -1,8 +1,8 @@
-// Pure helpers over the decoded ID-token claims (UI-PLAN.md C2). The RP sees
+// Pure helpers over the decoded ID-token claims. The RP sees
 // three shapes of the same data, so every accessor is tolerant:
 //
 // - Keycloak: brokered claims arrive through attribute importers + protocol
-//   mappers — `age_over_18` is the string "true", `amr` a string array,
+//   mappers â€” `age_over_18` is the string "true", `amr` a string array,
 //   `vc_presented_attributes` usually absent (not mapped by the demo realm).
 // - Auth0: non-standard claims are namespaced custom claims
 //   (`https://<namespace>/amr`), so lookups also match `<anything>/<name>`.
@@ -20,7 +20,7 @@ export function isTrue(value: unknown): boolean {
   return value === true || value === 1 || value === 'true' || value === '1'
 }
 
-/** Top-level claim by name; falls back to an Auth0-style namespaced key (`…/name`). */
+/** Top-level claim by name; falls back to an Auth0-style namespaced key (`ï¿½/name`). */
 export function claim(claims: Claims, name: string): unknown {
   if (name in claims) return claims[name]
   const namespaced = Object.keys(claims).find((key) => key.endsWith(`/${name}`))
