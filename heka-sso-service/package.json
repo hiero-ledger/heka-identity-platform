@@ -49,6 +49,7 @@
     "chalk": "4.1.2",
     "class-transformer": "0.5.1",
     "class-validator": "0.14.1",
+    "helmet": "8.3.0",
     "nestjs-pino": "4.6.1",
     "oidc-provider": "9.11.3",
     "pino": "8.19.0",
