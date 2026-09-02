@@ -66,7 +66,7 @@ export class VerificationSessionClient {
 
   public constructor(
     configService: ConfigService,
-    private readonly tokens: IdentityServiceTokenProvider,
+    private readonly tokenProvider: IdentityServiceTokenProvider,
   ) {
     this.config = configService.oidcConfig.identityService
   }
@@ -191,9 +191,9 @@ export class VerificationSessionClient {
 
     // a service-account token may have been revoked or expired early —
     // re-acquire once and retry; a second 401 surfaces as a normal failure
-    if (response.status === 401 && this.tokens.usesLogin) {
+    if (response.status === 401 && this.tokenProvider.usesLogin) {
       this.logger.warn(`identity-service ${method} ${path} returned 401 — re-acquiring the service-account token`)
-      this.tokens.invalidate()
+      this.tokenProvider.invalidate()
       response = await this.send(method, path, body)
     }
 
@@ -205,7 +205,7 @@ export class VerificationSessionClient {
   }
 
   private async send(method: 'GET' | 'POST', path: string, body?: Record<string, unknown>): Promise<Response> {
-    const token = await this.tokens.getToken()
+    const token = await this.tokenProvider.getToken()
     try {
       return await fetch(`${this.config.baseUrl}${path}`, {
         method,

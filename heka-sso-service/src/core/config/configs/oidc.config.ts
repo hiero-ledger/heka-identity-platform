@@ -162,6 +162,9 @@ export class OidcClientConfig {
   }
 }
 
+/** DCQL `credentials[].id` syntax (OpenID4VP DCQL; mirrors the `dcql` package identity-service validates with). */
+const DCQL_ID_PATTERN = /^[a-zA-Z0-9_-]+$/
+
 /**
  * Per-client branding of the wallet login page. Served to the page via `GET /interaction/:uid/branding`
  * and applied client-side; purely cosmetic. All fields optional — the page's
@@ -260,6 +263,59 @@ export class OidcLoginConfig {
     this.subClaim = loginConfig.subClaim
     this.issuerAllowlist = loginConfig.issuerAllowlist ?? []
     this.branding = loginConfig.branding ? new OidcLoginConfigBranding(loginConfig.branding) : undefined
+  }
+
+  /** DCQL credential query ids (`dcqlQuery.credentials[].id`) — the prefixes claim-mapping keys are written against. */
+  public get credentialQueryIds(): string[] {
+    const credentials = (this.dcqlQuery as { credentials?: unknown } | undefined)?.credentials
+    if (!Array.isArray(credentials)) return []
+    return credentials
+      .map((credential) => (credential as { id?: unknown } | null)?.id)
+      .filter((id): id is string => typeof id === 'string')
+  }
+
+  /**
+   * Structural checks the identity service would otherwise only surface at
+   * login time (or not at all): with an inline `dcqlQuery`, `credentials` must
+   * be a non-empty array of queries with a DCQL-valid `id`, and every
+   * `claimMapping` key must be `<credential query id>.<claim>` — a mapping
+   * written against a wrong prefix silently maps nothing, which would collapse
+   * every user of the client onto the same derived `sub`. Configs
+   * without a `dcqlQuery` (stub login / template resolved by id) are not
+   * checked here.
+   */
+  public dcqlProblems(): string[] {
+    if (this.dcqlQuery === undefined) return []
+    const problems: string[] = []
+    const credentials = (this.dcqlQuery as { credentials?: unknown }).credentials
+    if (!Array.isArray(credentials) || credentials.length === 0) {
+      problems.push('dcqlQuery.credentials must be a non-empty array of credential queries')
+    } else {
+      credentials.forEach((credential, index) => {
+        const id = (credential as { id?: unknown } | null)?.id
+        if (typeof id !== 'string' || !DCQL_ID_PATTERN.test(id)) {
+          problems.push(`dcqlQuery.credentials[${index}].id must be a non-empty string of [a-zA-Z0-9_-]`)
+        }
+      })
+    }
+    const ids = this.credentialQueryIds
+    const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index)
+    if (duplicates.length > 0) {
+      problems.push(`dcqlQuery.credentials ids must be unique (duplicate: ${[...new Set(duplicates)].join(', ')})`)
+    }
+    if (ids.length > 0) {
+      for (const key of Object.keys(this.claimMapping)) {
+        const separator = key.indexOf('.')
+        const prefix = separator > 0 ? key.slice(0, separator) : ''
+        const claim = separator > 0 ? key.slice(separator + 1) : ''
+        if (!ids.includes(prefix) || claim.length === 0) {
+          problems.push(
+            `claimMapping key '${key}' must be '<credential query id>.<claim>' with an id from dcqlQuery (${ids.join(', ')})`,
+          )
+        }
+      }
+    }
+    return problems
   }
 }
 
@@ -485,6 +541,7 @@ export class OidcConfig {
     this.cookieKeys = env[OidcConfigKeys.cookieKeys]
       ? env[OidcConfigKeys.cookieKeys].split(',')
       : [secretOrDevFallback(OidcConfigKeys.cookieKeys)]
+    this.cookieKeys = this.cookieKeys.map((key) => key.trim()).filter((key) => key.length > 0)
     refuseKnownDefault(OidcConfigKeys.cookieKeys, this.cookieKeys)
 
     this.subHmacSalt = secretOrDevFallback(OidcConfigKeys.subHmacSalt)
@@ -527,6 +584,11 @@ export class OidcConfig {
     this.loginConfigs = OidcConfig.parseJsonArray(env, OidcConfigKeys.loginConfigs, problems).map(
       (loginConfig) => new OidcLoginConfig(loginConfig),
     )
+    for (const loginConfig of this.loginConfigs) {
+      for (const problem of loginConfig.dcqlProblems()) {
+        problems.push(`${OidcConfigKeys.loginConfigs}: login configuration '${loginConfig.id}': ${problem}`)
+      }
+    }
 
     this.jwks = OidcConfig.resolveJwksOverride(env, problems, isProduction)
 

@@ -10,6 +10,7 @@ import {
   AccountClaimsStore,
   createOidcProvider,
   InteractionController,
+  InteractionService,
   StubIdentityAcquirer,
 } from '../../src/oidc'
 import { testJwks } from '../helpers/jwks'
@@ -93,7 +94,10 @@ describe('logout', () => {
     const configService = { oidcConfig: config } as unknown as ConfigService
     const accountClaims = new AccountClaimsStore(configService)
     const provider = createOidcProvider(config, testJwks(), accountClaims)
-    const controller = new InteractionController(provider, new StubIdentityAcquirer(), configService, accountClaims)
+    const controller = new InteractionController(
+      provider,
+      new InteractionService(provider, new StubIdentityAcquirer(), configService, accountClaims),
+    )
 
     app = express()
     app.get('/interaction/:uid', (req, res, next) => {
@@ -294,7 +298,10 @@ describe('logout confirmation dialog (default — OIDC_LOGOUT_AUTO_CONFIRM off)'
   const configService = { oidcConfig: config } as unknown as ConfigService
   const accountClaims = new AccountClaimsStore(configService)
   const provider = createOidcProvider(config, testJwks(), accountClaims)
-  const controller = new InteractionController(provider, new StubIdentityAcquirer(), configService, accountClaims)
+  const controller = new InteractionController(
+    provider,
+    new InteractionService(provider, new StubIdentityAcquirer(), configService, accountClaims),
+  )
 
   const app = express()
   app.get('/interaction/:uid', (req, res, next) => {

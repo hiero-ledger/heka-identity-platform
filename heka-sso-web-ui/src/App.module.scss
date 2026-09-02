@@ -4,7 +4,7 @@
   flex-direction: column;
 }
 
-// P2.9: top bar — app title on the left, "Sign out" on the right.
+// top bar — app title on the left, "Sign out" on the right.
 .topBar {
   display: flex;
   align-items: center;
@@ -19,7 +19,7 @@
   font: var(--font-headline-s);
 }
 
-// P2.9: centered page container; the dashboard's claims card is its focal point.
+// centered page container; the dashboard's claims card is its focal point.
 .main {
   flex: 1;
   display: flex;

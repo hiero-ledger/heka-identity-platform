@@ -2,7 +2,7 @@
 // (`src/app/styles/variables/typography.scss`) — shared pixels, not semantics.
 // One deliberate deviation: the platform file starts with a Google Fonts
 // `@import`, which is STRIPPED here — the login page bundle must stay
-// self-contained (no CDN references, P2.10.2); `--brand-font` in styles.scss
+// self-contained (no CDN references); `--brand-font` in styles.scss
 // adds the system fallback stack. Utility classes are omitted (unused).
 
 :root {
