@@ -72,14 +72,14 @@ export class InteractionService {
   public async beginLogin(details: InteractionDetails): Promise<LoginPromptOutcome> {
     const clientId = details.params.client_id as string
 
+    if (!this.identityAcquirer) {
+      return this.finished(this.failLogin(details, 'access_denied', 'no identity acquisition method is enabled'))
+    }
+
     const loginConfig = this.resolveLoginConfig(clientId)
     if (!loginConfig) {
       this.logger.error(`Interaction ${details.uid}: no login configuration for client '${clientId}'`)
       return this.finished(this.failLogin(details, 'server_error', 'no login configuration for client'))
-    }
-
-    if (!this.identityAcquirer) {
-      return this.finished(this.failLogin(details, 'access_denied', 'no identity acquisition method is enabled'))
     }
 
     try {
