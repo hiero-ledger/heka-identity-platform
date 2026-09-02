@@ -6,6 +6,7 @@ import { ClaimSet } from './claims.util'
 import { AcquiredIdentity, BeginLoginResult, IdentityAcquirer, LoginStatus } from './identity-acquirer'
 import { renderLoginPage } from './login-page'
 import { VerificationSessionClient, VerificationSessionState } from './verification-session.client'
+import { assertWalletAuthorizationRequest } from './wallet-uri'
 
 /**
  * OID4VP wallet login (INTEGRATION.md P1.6, feasibility §3.3): `beginLogin`
@@ -37,6 +38,9 @@ export class WalletIdentityAcquirer implements IdentityAcquirer {
     // A page re-render starts a fresh verification session (fresh nonce,
     // one-time request_uri — §4.6-1); the previous one is simply abandoned.
     const created = await this.sessions.createSignedRequest(loginConfig)
+    // Boundary check before the value reaches the page's href / QR: wallet
+    // scheme allowlist + JAR by reference; fails closed (-> server_error).
+    assertWalletAuthorizationRequest(created.authorizationRequest)
     this.prune()
     this.pending.set(interactionUid, { sessionId: created.sessionId, expiresAt: Date.now() + this.ttlMs })
 
@@ -84,8 +88,11 @@ export class WalletIdentityAcquirer implements IdentityAcquirer {
   }
 
   private credentialQueryId(loginConfig: OidcLoginConfig): string {
-    const credentials = (loginConfig.dcqlQuery as { credentials?: { id?: string }[] } | undefined)?.credentials
-    return credentials?.[0]?.id ?? 'credential'
+    // Guaranteed by OidcLoginConfig.dcqlProblems() at config load; no silent
+    // fallback — a wrong prefix would map nothing and collapse `sub` (§4.3).
+    const [queryId] = loginConfig.credentialQueryIds
+    if (!queryId) throw new Error(`login configuration '${loginConfig.id}' has no DCQL credential query id`)
+    return queryId
   }
 
   private getPending(interactionUid: string): { sessionId: string; expiresAt: number } | undefined {
