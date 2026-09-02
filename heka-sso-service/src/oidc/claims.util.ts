@@ -24,11 +24,11 @@ const stableStringify = (value: unknown): string => {
 }
 
 /**
- * Claim mapping per the login configuration (INTEGRATION.md §4.2): disclosed
+ * Claim mapping per the login configuration: disclosed
  * attributes keyed by credential-query claim path (e.g. `pid.given_name`) map
  * onto OIDC claim names; static claims fill in underneath (mapped attributes
  * win); the login-config id rides along in a custom claim so downstream policy
- * can tell how the user authenticated (§1 step 3).
+ * can tell how the user authenticated.
  */
 export function mapClaims(loginConfig: OidcLoginConfig, attributes: ClaimSet): ClaimSet {
   const mapped: ClaimSet = {}
@@ -41,10 +41,8 @@ export function mapClaims(loginConfig: OidcLoginConfig, attributes: ClaimSet): C
 }
 
 /**
- * `sub` computation per the login configuration's strategy (INTEGRATION.md
- * §4.3). The MVP implements `derived` (the default): `HMAC(salt, client_id ‖
- * claim-set)` — stable for the same person *and* pairwise per RP. The
- * `credential-claim` and `ephemeral` strategies land in Phase 3 (P3.8).
+ * `sub` computation per the login configuration's strategy. The MVP implements
+ * `derived` (the default): `HMAC(salt, client_id ‖ claim-set)` — stable for the same person *and* pairwise per RP.
  */
 export function computeSub(loginConfig: OidcLoginConfig, clientId: string, claims: ClaimSet, hmacSalt: string): string {
   switch (loginConfig.subStrategy) {
@@ -53,6 +51,6 @@ export function computeSub(loginConfig: OidcLoginConfig, clientId: string, claim
         .update(`${clientId}${SUB_INPUT_SEPARATOR}${stableStringify(claims)}`)
         .digest('base64url')
     default:
-      throw new Error(`sub strategy '${loginConfig.subStrategy}' is not implemented until Phase 3 (P3.8)`)
+      throw new Error(`sub strategy '${loginConfig.subStrategy}' is not implemented`)
   }
 }

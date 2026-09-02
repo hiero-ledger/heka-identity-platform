@@ -11,7 +11,7 @@ const matches = (row: Row, where: Row) => Object.entries(where).every(([key, val
  * operations the adapter uses (`upsert`, `findOne`, `nativeUpdate`,
  * `nativeDelete`) over a plain row array with the table's composite-PK
  * semantics (`name`, `id`). `fork()` is counted — the adapter must fork per
- * operation (INTEGRATION.md §5: no ambient RequestContext).
+ * operation.
  */
 class FakeEntityManager {
   public rows: Row[] = []
@@ -50,7 +50,7 @@ const buildAdapter = (name = 'AccessToken') => {
   return { em, adapter: new MikroOrmAdapter(name, em as unknown as EntityManager) }
 }
 
-/** MikroORM adapter contract (P1.5/P1.8): the 8-method contract over `oidc_entity`. */
+/** MikroORM adapter contract: the 8-method contract over `oidc_entity`. */
 describe('MikroOrmAdapter', () => {
   test('upsert + find round-trip; secondary-lookup columns copied out of the payload', async () => {
     const { em, adapter } = buildAdapter()
@@ -160,7 +160,7 @@ describe('MikroOrmAdapter', () => {
     expect(await accessTokens.find('access-2')).toMatchObject({ grantId: 'grant-2' })
   })
 
-  test('forks the EntityManager for every operation — no ambient request context (§5)', async () => {
+  test('forks the EntityManager for every operation — no ambient request context', async () => {
     const { em, adapter } = buildAdapter()
 
     await adapter.upsert('token-1', { jti: 'token-1' }, 60)

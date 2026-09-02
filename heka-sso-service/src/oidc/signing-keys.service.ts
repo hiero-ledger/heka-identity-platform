@@ -9,9 +9,9 @@ export const SIGNING_ALGS = ['RS256', 'ES256'] as const
 export type SigningAlg = (typeof SIGNING_ALGS)[number]
 
 /**
- * Signing JWKS for the OP (INTEGRATION.md Phase 0): RS256 + ES256 keys are
+ * Signing JWKS for the OP: RS256 + ES256 keys are
  * generated on first start and persisted in Postgres (`oidc_signing_key`),
- * per the feasibility component architecture (§3.2 there). An `OIDC_JWKS` /
+ * per the feasibility component architecture. An `OIDC_JWKS` /
  * `OIDC_JWKS_FILE` override bypasses the database (dev; production refuses
  * known-default keys at config validation).
  *

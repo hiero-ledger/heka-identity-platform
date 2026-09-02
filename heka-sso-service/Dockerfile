@@ -7,7 +7,7 @@ WORKDIR /opt/heka-sso-service
 
 COPY package*.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
-# ui is a yarn workspace (P2.10.2) — its manifest must be present at install time
+# ui is a yarn workspace — its manifest must be present at install time
 COPY ui/package.json ./ui/
 
 RUN yarn install --immutable

@@ -8,17 +8,16 @@ import { InteractionApiError, InteractionDetails, InteractionService } from './i
 import { OIDC_PROVIDER } from './provider.factory'
 
 /**
- * Wallet-login interaction routes (INTEGRATION.md P1.3/P1.6): the provider
- * redirects here from `/authorize`; this controller resolves the interaction
- * and finishes it — `interactionDetails`/`interactionFinished` over the raw
- * `(req, res)` (§5-Inherit-3) — with the outcomes `InteractionService`
- * computes. The wallet login page (P2.1.1) is driven by the JSON routes here:
+ * Wallet-login interaction routes: the provider redirects here from `/authorize`;
+ * this controller resolves the interaction and finishes it — `interactionDetails`/`interactionFinished`
+ * over the raw `(req, res)` — with the outcomes `InteractionService`
+ * computes. The wallet login page is driven by the JSON routes here:
  * `:uid/data` (QR/deep-link, cross-device), `:uid/dc-api/start` +
- * `:uid/dc-api/verify` (Digital Credentials API, same-device — P2.1),
- * `:uid/status` polling (P1.6.3) — and, once the presentation is verified,
+ * `:uid/dc-api/verify` (Digital Credentials API, same-device),
+ * `:uid/status` polling — and, once the presentation is verified,
  * the page navigates to `:uid/complete`.
  *
- * The binding rule (§3.3) is enforced by construction: `interactionDetails`
+ * The binding rule is enforced by construction: `interactionDetails`
  * only resolves when the browser presents the `_interaction` cookie set on the
  * initiating `/authorize` request (its path covers the sub-routes), so the
  * authorization code is released only into that browser session — never into
@@ -60,30 +59,30 @@ export class InteractionController {
     }
   }
 
-  /** The static login page's data (P2.1.1): QR + deep-link payload. Cookie-bound like every interaction route (§3.3). */
+  /** The static login page's data: QR + deep-link payload. Cookie-bound like every interaction route. */
   @Get(':uid/data')
   public async data(@Req() req: Request, @Res() res: Response): Promise<void> {
     await this.pageApi(req, res, (details) => this.interactions.loginPageData(details))
   }
 
   /**
-   * Per-client branding for the login page (P2.10.3): the login
+   * Per-client branding for the login page: the login
    * configuration's `branding` block, applied client-side (product name,
    * logo, `--brand-*` colors, custom CSS). Purely cosmetic and, like every
-   * interaction route, cookie-bound (§3.3) — creates no verification session.
+   * interaction route, cookie-bound — creates no verification session.
    */
   @Get(':uid/branding')
   public async branding(@Req() req: Request, @Res() res: Response): Promise<void> {
     await this.pageApi(req, res, async (details) => this.interactions.branding(details))
   }
 
-  /** DC API same-device login, step 1 (P2.1): create the `dc_api` session and return the request object. */
+  /** DC API same-device login, step 1: create the `dc_api` session and return the request object. */
   @Post(':uid/dc-api/start')
   public async dcApiStart(@Req() req: Request, @Res() res: Response): Promise<void> {
     await this.pageApi(req, res, (details) => this.interactions.beginDcApiLogin(details))
   }
 
-  /** DC API same-device login, step 2 (P2.1): verify the browser-forwarded wallet response. */
+  /** DC API same-device login, step 2: verify the browser-forwarded wallet response. */
   @Post(':uid/dc-api/verify')
   public async dcApiVerify(
     @Req() req: Request,
@@ -98,7 +97,7 @@ export class InteractionController {
     })
   }
 
-  /** Login progress for the polling login page (P1.6.3). Cookie-bound like every interaction route. */
+  /** Login progress for the polling login page. Cookie-bound like every interaction route. */
   @Get(':uid/status')
   public async status(@Req() req: Request, @Res() res: Response): Promise<void> {
     try {
@@ -110,7 +109,7 @@ export class InteractionController {
     }
   }
 
-  /** Completion route the login page navigates to once the presentation is verified (§3.3 step 12). */
+  /** Completion route the login page navigates to once the presentation is verified. */
   @Get(':uid/complete')
   public async complete(@Req() req: Request, @Res() res: Response): Promise<void> {
     const details = await this.provider.interactionDetails(req, res)
@@ -118,8 +117,8 @@ export class InteractionController {
   }
 
   /**
-   * Shared wrapper for the login page's JSON API (P2.1/P2.1.1): resolves the
-   * interaction from the `_interaction` cookie (§3.3 binding — requests
+   * Shared wrapper for the login page's JSON API: resolves the
+   * interaction from the `_interaction` cookie (binding — requests
    * without it get a 400 and no session state), answers with the handler's
    * JSON payload, and turns failures into JSON errors instead of HTML —
    * user-facing ones (`InteractionApiError`) with their message, anything else

@@ -1,4 +1,4 @@
-# Feasibility & High-Level Design
+# OID4VCI & OID4VP Design
 
 **Heka Identity Platform** · Draft v0.1 · 2026-08-12
 
@@ -12,13 +12,13 @@ An OIDC/OAuth 2.0 provider component that authenticates users by **Verifiable Cr
 
 | Factor | Assessment |
 | --- | --- |
-| Core verification capability | **Already built.**<br>`heka-identity-service`<br>has a complete OID4VP verifier (Credo-TS 0.7): authorization request creation with DCQL or Presentation Exchange,<br>`direct_post`<br>/<br>`direct_post.jwt`<br>response handling, Digital Credentials API support, and attribute extraction for SD-JWT VC, W3C VC-JWT, and mdoc. |
-| Missing piece | An OIDC provider facade:<br>`/authorize`<br>,<br>`/token`<br>, discovery, JWKS, id\\_token minting, claim mapping. This is well-understood, library-supported territory. |
-| Standards timing | OID4VP 1.0 is<br>**Final**<br>(July 2025), HAIP 1.0 Final (Dec 2025), DCQL replaced Presentation Exchange, and the browser Digital Credentials API shipped in Chrome 141 / Safari 26. Building now means building on final specs. |
-| Pattern risk | **Low — the pattern is proven.**<br>BC Gov's<br>`vc-authn-oidc`<br>has run this exact architecture in production for years (on the older DIDComm stack); Procivis, Gataca, and Talao sell it commercially; GAIA-X published an open-source prototype. |
-| Market gap | No mature<br>**open-source**<br>bridge exists on<br>**final OID4VP 1.0**<br>. Existing OSS is either legacy-protocol (<br>`vc-authn-oidc`<br>\\= DIDComm/AnonCreds, no PKCE) or prototype-grade (GAIA-X bridge, draft-18). Heka can fill this gap. |
-| Roadmap fit | Heka's<br>`[ROADMAP.md](http://roadmap.md/)`<br>already lists<br>**"SSO via SSI support + WebUI demo" for Q3 2026**<br>. |
-| Keycloak-native alternative | Keycloak core has OID4VCI (issuance) only; maintainers stated OID4VP login is<br>**not**<br>on their capacity roadmap — which validates the external-bridge approach. |
+| Core verification capability | **Already built.**<br>`heka-identity-service` has a complete OID4VP verifier (Credo-TS 0.7): authorization request creation with DCQL or Presentation Exchange, `direct_post`/`direct_post.jwt` response handling, Digital Credentials API support, and attribute extraction for SD-JWT VC, W3C VC-JWT, and mdoc. |
+| Missing piece | An OIDC provider facade: `/authorize`, `/token`, discovery, JWKS, id_token minting, claim mapping. This is well-understood, library-supported territory. |
+| Standards timing | OID4VP 1.0 is **Final** (July 2025), HAIP 1.0 Final (Dec 2025), DCQL replaced Presentation Exchange, and the browser Digital Credentials API shipped in Chrome 141 / Safari 26. Building now means building on final specs. |
+| Pattern risk | **Low — the pattern is proven.** BC Gov's `vc-authn-oidc` has run this exact architecture in production for years (on the older DIDComm stack); Procivis, Gataca, and Talao sell it commercially; GAIA-X published an open-source prototype. |
+| Market gap | No mature **open-source** bridge exists on **final OID4VP 1.0**. Existing OSS is either legacy-protocol (`vc-authn-oidc`= DIDComm/AnonCreds, no PKCE) or prototype-grade (GAIA-X bridge, draft-18). Heka can fill this gap. |
+| Roadmap fit | Heka's `[ROADMAP.md](http://roadmap.md/)` already lists **"SSO via SSI support + WebUI demo" for Q3 2026**. |
+| Keycloak-native alternative | Keycloak core has OID4VCI (issuance) only; maintainers stated OID4VP login is **not** on their capacity roadmap — which validates the external-bridge approach. |
 
 ---
 
@@ -37,41 +37,41 @@ The bridge's job is mapping a **synchronous redirect protocol** (OIDC code flow)
 
 | Needed capability | Existing Heka asset |
 | --- | --- |
-| Create OID4VP authorization requests (DCQL or PE, signed/unsigned,<br>`direct_post(.jwt)`<br>,<br>`dc_api(.jwt)`<br>) | `heka-identity-service`<br>—<br>`POST /openid4vc/verification-session/request`<br>(<br>`src/openid4vc/verification-sessions/`<br>) |
-| Host wallet-facing OID4VP endpoints (<br>`request_uri`<br>,<br>`response_uri`<br>) | Credo public router at<br>`:3003/oid4vp`<br>(<br>`src/openid4vc/starter/`<br>,<br>`src/config/agent.ts`<br>) |
-| Verify presentations & extract disclosed attributes | Verification session service — poll<br>`GET /verification-session/:id`<br>until<br>`ResponseVerified`<br>;<br>`extractAttributesFromPresentation`<br>covers SD-JWT VC, JWT-VC, mdoc |
-| Browser-mediated same-device flow | Digital Credentials API support —<br>`POST /verification-session/:id/verify`<br>with origin binding (<br>`docs/[dc-api.md](http://dc-api.md/)`<br>) |
-| Async completion signals | Webhooks + WebSocket subscriptions (<br>`src/user/`<br>module) |
-| Declarative "what to ask for" | Verification templates (<br>`src/verification-template/`<br>) |
-| Multi-tenancy | Credo tenants, auto-provisioned per<br>`(role, sub, org_id)` |
-| First-party wallet for demos/e2e | `heka-wallet`<br>(Bifold fork) with OID4VP + DC API handlers |
-| Working precedent in-repo | `demo/a2a-oid4vp`<br>— OID4VP used as authentication for A2A agents |
+| Create OID4VP authorization requests (DCQL or PE, signed/unsigned, `direct_post(.jwt)`, `dc_api(.jwt)`) | `heka-identity-service` - `POST /openid4vc/verification-session/request`(`src/openid4vc/verification-sessions/`) |
+| Host wallet-facing OID4VP endpoints (`request_uri`, `response_uri`) | Credo public router at`:3003/oid4vp` (`src/openid4vc/starter/`, `src/config/agent.ts`) |
+| Verify presentations & extract disclosed attributes | Verification session service - poll `GET /verification-session/:id` until `ResponseVerified`; `extractAttributesFromPresentation` covers SD-JWT VC, JWT-VC, mdoc |
+| Browser-mediated same-device flow | Digital Credentials API support - `POST /verification-session/:id/verify` with origin binding (`docs/[dc-api.md](http://dc-api.md/)`) |
+| Async completion signals | Webhooks + WebSocket subscriptions (`src/user/` module) |
+| Declarative "what to ask for" | Verification templates (`src/verification-template/`) |
+| Multi-tenancy | Credo tenants, auto-provisioned per `(role, sub, org_id)` |
+| First-party wallet for demos/e2e | `heka-wallet` (Bifold fork) with OID4VP + DC API handlers |
+| Working precedent in-repo | `demo/a2a-oid4vp` - OID4VP used as authentication for A2A agents |
 
-What does **not** exist anywhere in the codebase: an `/authorize` endpoint, an OIDC discovery document, id\_token issuance, SIOPv2. The existing `heka-auth-service` is a username/password JWT issuer (shared-secret HS256), not an OIDC provider — it is not a suitable base for a public-facing, spec-compliant AS (different token model, different security posture), which is why a **new component** is recommended.
+What does **not** exist anywhere in the codebase: an `/authorize` endpoint, an OIDC discovery document, id\_token issuance, SIOPv2. The existing `heka-auth-service` is a username/password JWT issuer (shared-secret HS256), not an OIDC provider - it is not a suitable base for a public-facing, spec-compliant AS (different token model, different security posture), which is why a **new component** is recommended.
 
 ### 2.3 Standards to build on (state as of mid-2026)
 
 | Spec | Status | Decision |
 | --- | --- | --- |
-| **OID4VP 1.0** | OpenID<br>**Final**<br>(2025-07-09) | Core wallet protocol. Use<br>**DCQL**<br>(PE was removed from the final spec);<br>`request_uri`<br>(JAR) for cross-device;<br>`direct_post.jwt`<br>responses. |
+| **OID4VP 1.0** | OpenID **Final** (2025-07-09) | Core wallet protocol. Use **DCQL** (PE was removed from the final spec); `request_uri` (JAR) for cross-device; `direct_post.jwt` responses. |
 | **HAIP 1.0** | OpenID Final (2025-12) | Target profile for interop (SD-JWT VC + mdoc, encrypted responses, x509 client identification, DCQL). Required for EUDI-wallet compatibility. |
-| **Digital Credentials API** | Chrome 141 & Safari 26 shipped; W3C WD on Rec track | **Preferred invocation channel**<br>— the browser binds the request to origin + session, eliminating cross-device session fixation. QR is the fallback. |
-| **SIOPv2** | Still Implementer's Draft; ecosystems moved to plain<br>`vp_token` | **Skip.** |
+| **Digital Credentials API** | Chrome 141 & Safari 26 shipped; W3C WD on Rec track | **Preferred invocation channel** - the browser binds the request to origin + session, eliminating cross-device session fixation. QR is the fallback. |
+| **SIOPv2** | Still Implementer's Draft; ecosystems moved to plain `vp_token` | **Skip.** |
 | **SD-JWT**<br>/ SD-JWT VC | RFC 9901 / I-D (de-facto EUDI PID format) | First-priority credential format. |
 | **W3C VC 2.0** | W3C Recommendation (2025-05) | Supported via existing Credo verification. |
 | **ISO mdoc/mDL** | 18013-5/-7; OID4VP<br>`mso_mdoc`<br>profile | Supported via existing Credo verification. |
-| AnonCreds | DIDComm-only in Heka (no OID4VP binding) | **Out of scope for v1**<br>(possible later via a DIDComm present-proof channel, as<br>`vc-authn-oidc`<br>does). |
+| AnonCreds | DIDComm-only in Heka (no OID4VP binding) | **Out of scope for v1** (possible later via a DIDComm present-proof channel, as `vc-authn-oidc` does). |
 
 ### 2.4 Prior art (what to learn from)
 
 | Project | Stack | Takeaway |
 | --- | --- | --- |
-| [`acapy-vc-authn-oidc`](https://github.com/openwallet-foundation/acapy-vc-authn-oidc)<br>(BC Gov → OWF) | FastAPI OP + ACA-Py, DIDComm/AnonCreds | The canonical architecture: park the OIDC request server-side, QR page with<br>[socket.io](http://socket.io/)<br>push + polling fallback, webhook-driven completion, configurable<br>`sub`<br>strategies (nominated attribute / ephemeral / consistent hash),<br>`vc_presented_attributes`<br>claim,<br>`amr=vc_authn`<br>. Its debt list (no OID4VP, no SD-JWT, no PKCE) is exactly what a new build fixes. |
-| [GAIA-X `ssi-to-oidc-bridge`](https://github.com/GAIA-X4PLC-AAD/ssi-to-oidc-bridge) | Ory Hydra + Next.js login app | "Don't hand-roll the OP" — delegate OIDC correctness to a certified OP core and implement only the login interaction. JSONPath-based declarative "login policies" for issuer allowlists + claim mapping. |
-| [Procivis One OpenID Bridge](https://docs.procivis.ch/openid-bridge/integrate) | Commercial, Rust core | Validates the exact product shape, with Keycloak as the documented primary integration;<br>`{schema}--{path}`<br>claim mapping, holder identifier as default<br>`sub`<br>. |
-| [`ba-itsys/keycloak-extension-oid4vp`](https://github.com/ba-itsys/eudi-wallet-connector) | Keycloak IdP SPI | Proves the Keycloak-native alternative works (OIDF-conformant, in Germany's SPRIND EUDI sandbox) — a reference if a Keycloak-embedded variant is ever demanded. |
-| [EUDI verifier endpoint](https://github.com/eu-digital-identity-wallet/eudi-srv-web-verifier-endpoint-23220-4-kt) | Kotlin/Spring | Reference for<br>`response_code`<br>\\-style completion binding and delegated issuer-trust validation. |
-| [interID paper](https://arxiv.org/html/2602.14871)<br>(2026) | Academic, Keycloak-based VaaS | Security checklist: 11 attack vectors at the OIDC/SSI/multi-tenant seam; critique of<br>`vc-authn-oidc`<br>and<br>[walt.id](http://walt.id/)<br>IDP Kit. Use as the threat-model starting point. |
+| [`acapy-vc-authn-oidc`](https://github.com/openwallet-foundation/acapy-vc-authn-oidc)<br>(BC Gov → OWF) | FastAPI OP + ACA-Py, DIDComm/AnonCreds | The canonical architecture: park the OIDC request server-side, QR page with [socket.io](http://socket.io/) push + polling fallback, webhook-driven completion, configurable `sub` strategies (nominated attribute / ephemeral / consistent hash), `vc_presented_attributes` claim, `amr=vc_authn`. Its debt list (no OID4VP, no SD-JWT, no PKCE) is exactly what a new build fixes. |
+| [GAIA-X `ssi-to-oidc-bridge`](https://github.com/GAIA-X4PLC-AAD/ssi-to-oidc-bridge) | Ory Hydra + Next.js login app | "Don't hand-roll the OP" - delegate OIDC correctness to a certified OP core and implement only the login interaction. JSONPath-based declarative "login policies" for issuer allowlists + claim mapping. |
+| [Procivis One OpenID Bridge](https://docs.procivis.ch/openid-bridge/integrate) | Commercial, Rust core | Validates the exact product shape, with Keycloak as the documented primary integration; `{schema}--{path}` claim mapping, holder identifier as default `sub`. |
+| [`ba-itsys/keycloak-extension-oid4vp`](https://github.com/ba-itsys/eudi-wallet-connector) | Keycloak IdP SPI | Proves the Keycloak-native alternative works (OIDF-conformant, in Germany's SPRIND EUDI sandbox) - a reference if a Keycloak-embedded variant is ever demanded. |
+| [EUDI verifier endpoint](https://github.com/eu-digital-identity-wallet/eudi-srv-web-verifier-endpoint-23220-4-kt) | Kotlin/Spring | Reference for `response_code`\\-style completion binding and delegated issuer-trust validation. |
+| [interID paper](https://arxiv.org/html/2602.14871)<br>(2026) | Academic, Keycloak-based VaaS | Security checklist: 11 attack vectors at the OIDC/SSI/multi-tenant seam; critique of `vc-authn-oidc` and [walt.id](http://walt.id/) IDP Kit. Use as the threat-model starting point. |
 
 ---
 
@@ -162,27 +162,27 @@ The common denominator across Keycloak, Auth0, Entra External ID, Okta, and Cogn
 
 | Requirement | Detail |
 | --- | --- |
-| Discovery | `{issuer}/.well-known/openid-configuration`<br>with<br>`issuer`<br>(exact-match, https, no query/fragment),<br>`authorization_endpoint`<br>,<br>`token_endpoint`<br>,<br>`jwks_uri`<br>,<br>`response_types_supported`<br>(<br>`code`<br>),<br>`subject_types_supported`<br>(<br>`public`<br>),<br>`token_endpoint_auth_methods_supported`<br>,<br>`id_token_signing_alg_values_supported` |
-| Flow | Authorization code,<br>`response_mode=query`<br>.<br>**No PAR/JAR requirement**<br>— Keycloak's broker cannot send them; PKCE<br>**S256 accepted**<br>(Keycloak opt-in, others expect it) |
-| `state` | Echo verbatim; Keycloak's state is long (>100 chars) —<br>**no length limits** |
-| `nonce` | Keycloak always sends one and<br>**hard-fails**<br>if the id\\_token doesn't echo it |
-| id\\_token | JWS<br>**RS256**<br>default (+ ES256 option),<br>`kid`<br>in header and JWKS (Cognito requires it),<br>`iss`<br>\\=issuer,<br>`aud`<br>\\=client\\_id, stable<br>`sub`<br>,<br>`exp`<br>/<br>`iat`<br>(mind Keycloak's default<br>**0s clock skew**<br>— back-date<br>`iat`<br>slightly),<br>`sid`<br>for logout, profile claims incl.<br>`email`<br>+<br>`email_verified`<br>(Entra/Okta functionally require email; pair with Keycloak "Trust Email") |
-| Token endpoint auth | **Both**<br>`client_secret_post`<br>(Cognito/Entra floor) and<br>`client_secret_basic`<br>;<br>`private_key_jwt`<br>as an option |
-| userinfo | JSON over Bearer GET,<br>`Content-Type: application/json`<br>,<br>**`sub` identical to id\\_token**<br>(Keycloak verifies) |
-| Logout | `end_session_endpoint`<br>honoring<br>`id_token_hint`<br>+<br>`post_logout_redirect_uri`<br>; emit OIDC Back-Channel Logout tokens (<br>`sid`<br>\\-matched) to Keycloak's<br>`/logout/backchannel-logout` |
-| Auth0 quirk | Auth0 doesn't call userinfo — all needed claims must be in the id\\_token |
+| Discovery | `{issuer}/.well-known/openid-configuration` with `issuer` (exact-match, https, no query/fragment), `authorization_endpoint`, `token_endpoint`, `jwks_uri`, `response_types_supported` (`code`), `subject_types_supported` (`public`), `token_endpoint_auth_methods_supported`, `id_token_signing_alg_values_supported` |
+| Flow | Authorization code, `response_mode=query`. **No PAR/JAR requirement** - Keycloak's broker cannot send them; PKCE **S256 accepted** (Keycloak opt-in, others expect it) |
+| `state` | Echo verbatim; Keycloak's state is long (>100 chars) - **no length limits** |
+| `nonce` | Keycloak always sends one and **hard-fails** if the id_token doesn't echo it |
+| id_token | JWS **RS256** default (+ ES256 option), `kid` in header and JWKS (Cognito requires it), `iss`=issuer, `aud`=client_id, stable `sub`, `exp`/`iat` (mind Keycloak's default **0s clock skew** - back-date `iat` slightly), `sid` for logout, profile claims incl. `email` + `email_verified` (Entra/Okta functionally require email; pair with Keycloak "Trust Email") |
+| Token endpoint auth | **Both** `client_secret_post` (Cognito/Entra floor) and `client_secret_basic`; `private_key_jwt` as an option |
+| userinfo | JSON over Bearer GET, `Content-Type: application/json`, **`sub` identical to id_token** (Keycloak verifies) |
+| Logout | `end_session_endpoint` honoring `id_token_hint` + `post_logout_redirect_uri`; emit OIDC Back-Channel Logout tokens (`sid`-matched) to Keycloak's `/logout/backchannel-logout` |
+| Auth0 quirk | Auth0 doesn't call userinfo - all needed claims must be in the id_token |
 | TLS | Public-CA HTTPS on 443 (Cognito requirement; private CAs need Keycloak truststore config) |
 
 `node-oidc-provider` covers essentially all of this out of the box; the checklist becomes configuration + conformance testing rather than implementation.
 
 ### 3.5 Identity mapping
 
-**Subject identifier (`sub`) — configurable per login configuration:**
+**Subject identifier (`sub`) - configurable per login configuration:**
 
 | Strategy | Behavior | Use when |
 | --- | --- | --- |
 | `credential-claim` | A nominated claim (e.g. personal ID number, employee ID) | The credential carries a stable unique identifier and its disclosure is acceptable |
-| `derived`<br>(<br>**default**<br>) | `HMAC(salt, client_id ‖ stable-claim-set)`<br>— stable<br>_and_<br>pairwise per RP | Privacy-preserving stable login (mirrors OIDC pairwise subs;<br>`vc-authn-oidc`<br>'s "consistent identifier") |
+| `derived` (**default**) | `HMAC(salt, client_id ‖ stable-claim-set)` - stable _and_ pairwise per RP | Privacy-preserving stable login (mirrors OIDC pairwise subs; `vc-authn-oidc`'s "consistent identifier") |
 | `ephemeral` | Random per session | Pure attribute-gating (e.g. age check), no account continuity |
 
 Do **not** default to holder DID / key-binding key as `sub`: SD-JWT VC key-binding keys rotate per credential and EUDI PIDs have no stable holder key — logins would silently become new users.
@@ -204,7 +204,7 @@ Do **not** default to holder DID / key-binding key as `sub`: SD-JWT VC key-bindi
 
 ## 4\. Implementation plan
 
-### Phase 1 — MVP (bridge works end-to-end with Keycloak)
+### Phase 1 - MVP (bridge works end-to-end with Keycloak)
 
 -   `heka-sso-service` skeleton: NestJS + `node-oidc-provider` \+ MikroORM/Postgres, Dockerfile, docker-compose, CI workflow (copy the existing component pattern).
 -   Discovery, `/authorize`, `/token`, `/jwks`, `/userinfo`; code flow + PKCE; RS256/ES256 with rotation.
@@ -212,14 +212,14 @@ Do **not** default to holder DID / key-binding key as `sub`: SD-JWT VC key-bindi
 -   Login configurations as static config (JSON/env), `derived` sub strategy, basic claim mapping.
 -   Keycloak demo: compose file with a realm pre-configured to broker to the bridge (+ mappers), demo walkthrough with `heka-wallet`. This also delivers the roadmap's "WebUI demo".
 
-### Phase 2 — Product-grade UX & management
+### Phase 2 - Product-grade UX & management
 
 -   DC API same-device flow (reuse the existing `verify` endpoint); WebSocket push to the login page.
 -   Admin CRUD for OIDC clients + login configurations; WebUI screens; per-scope config selection.
 -   mdoc + W3C VC-JWT formats; `email_verified` handling; RP-initiated + back-channel logout; multiple `sub` strategies.
 -   E2E tests (existing Vitest/e2e patterns), threat-model review against interID's checklist.
 
-### Phase 3 — Interop & assurance
+### Phase 3 - Interop & assurance
 
 -   HAIP 1.0 profile: signed requests with `x509_san_dns`, `direct_post.jwt` encrypted responses, DCQL-only.
 -   Revocation/status-list policies; per-config trust anchors; EUDI reference wallet interop testing.
@@ -233,13 +233,13 @@ Rough sizing: Phase 1 is a few engineer-weeks given how much the verifier stack 
 
 | # | Risk / question | Mitigation / next step |
 | --- | --- | --- |
-| 1 | **Credo OID4VP-final coverage**<br>— Heka pins Credo-TS 0.7 (<br>`v1`<br>/<br>`v1.draft21`<br>request versions). Exact conformance of Credo's "v1" to the published Final (and its DCQL coverage) must be verified against real wallets. | Early spike: run the OIDF OID4VP conformance tests against a Heka verification session; track Credo releases. |
-| 2 | **Wallet ecosystem variance**<br>— EUDI wallets require HAIP + (per eIDAS 2.0) relying-party registration in national registries; other wallets vary in DCQL/<br>`direct_post.jwt`<br>support. | Ship draft/profile compatibility switches per login config (Heka's session API already exposes version + response-mode knobs); test matrix: Heka Wallet, EUDI reference wallet, Sphereon/Animo wallets, Talao Altme. |
-| 3 | **`sub` stability across credential re-issuance**<br>— users re-issued a credential must not become new accounts. | Default<br>`derived`<br>strategy over stable<br>_claims_<br>, not keys/DIDs; document the constraint per credential type. |
-| 4 | **DC API maturity**<br>— Firefox support is new; enterprise browsers lag. | Always ship the QR fallback; feature-detect. |
-| 5 | **AnonCreds credentials can't ride OID4VP**<br>— Heka's AnonCreds flows are DIDComm-only. | Explicitly out of scope for v1; optional later: a DIDComm present-proof channel in the interaction service (vc-authn parity). |
-| 6 | **Bridge is an internet-facing AS**<br>— new attack surface for the platform. | Certified OP library, conformance testing, security review before GA; no default secrets. |
-| 7 | Where does the bridge live — new component vs. extending<br>`heka-auth-service`<br>? | Recommended: new component (auth-service is a shared-secret HS256 password service; mixing postures invites mistakes). Revisit only if ops overhead is a blocker. |
+| 1 | **Credo OID4VP-final coverage** - Heka pins Credo-TS 0.7 (`v1`/`v1.draft21` request versions). Exact conformance of Credo's "v1" to the published Final (and its DCQL coverage) must be verified against real wallets. | Early spike: run the OIDF OID4VP conformance tests against a Heka verification session; track Credo releases. |
+| 2 | **Wallet ecosystem variance** - EUDI wallets require HAIP + (per eIDAS 2.0) relying-party registration in national registries; other wallets vary in DCQL/`direct_post.jwt` support. | Ship draft/profile compatibility switches per login config (Heka's session API already exposes version + response-mode knobs); test matrix: Heka Wallet, EUDI reference wallet, Sphereon/Animo wallets, Talao Altme. |
+| 3 | **`sub` stability across credential re-issuance** - users re-issued a credential must not become new accounts. | Default `derived` strategy over stable _claims_, not keys/DIDs; document the constraint per credential type. |
+| 4 | **DC API maturity** - Firefox support is new; enterprise browsers lag. | Always ship the QR fallback; feature-detect. |
+| 5 | **AnonCreds credentials can't ride OID4VP** - Heka's AnonCreds flows are DIDComm-only. | Explicitly out of scope for v1; optional later: a DIDComm present-proof channel in the interaction service (vc-authn parity). |
+| 6 | **Bridge is an internet-facing AS** - new attack surface for the platform. | Certified OP library, conformance testing, security review before GA; no default secrets. |
+| 7 | Where does the bridge live — new component vs. extending `heka-auth-service`? | Recommended: new component (auth-service is a shared-secret HS256 password service; mixing postures invites mistakes). Revisit only if ops overhead is a blocker. |
 
 ---
 

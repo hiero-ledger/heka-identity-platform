@@ -28,7 +28,7 @@ export type InteractionDetails = Awaited<ReturnType<Provider['interactionDetails
 export type LoginPromptOutcome = { kind: 'finished'; results: InteractionResults } | { kind: 'page'; html: string }
 
 /**
- * A user-facing failure of the login page's JSON API (P2.1/P2.1.1) — the
+ * A user-facing failure of the login page's JSON API — the
  * controller answers it with a 400 carrying this message. Anything else thrown
  * by the page API is an internal failure and is reported generically.
  */
@@ -40,15 +40,13 @@ export class InteractionApiError extends Error {
 }
 
 /**
- * Wallet-login interaction logic (INTEGRATION.md P1.3/P1.6/P2.1): login-config
- * resolution (§4.2), the pluggable identity-acquisition step
+ * Wallet-login interaction logic: login-config resolution, the pluggable identity-acquisition step
  * (`IDENTITY_ACQUIRER` — dev stub or OID4VP wallet acquirer), the login page's
  * JSON API gated on the acquirer's capabilities, the claims pipeline that
- * derives `sub` (§4.3) and the auto-granted consent. It works on the
+ * derives `sub` and the auto-granted consent. It works on the
  * provider's `InteractionDetails` and returns `InteractionResults`; the HTTP
- * side — `interactionDetails`/`interactionFinished` over the raw `(req, res)`
- * (§5-Inherit-3), status codes, JSON error shapes — stays in
- * `InteractionController`.
+ * side — `interactionDetails`/`interactionFinished` over the raw `(req, res)`,
+ * status codes, JSON error shapes — stays in `InteractionController`.
  */
 @Injectable()
 export class InteractionService {
@@ -145,7 +143,7 @@ export class InteractionService {
     return { consent: { grantId } }
   }
 
-  /** P2.1.1 — the static login page's QR/deep-link data: creates the cross-device verification session. */
+  /** the static login page's QR/deep-link data: creates the cross-device verification session. */
   public async loginPageData(details: InteractionDetails): Promise<LoginPageData> {
     const loginConfig = this.requireLoginConfig(details)
     const acquirer = this.identityAcquirer
@@ -153,7 +151,7 @@ export class InteractionService {
     return await acquirer.beginDirectPostLogin(loginConfig, details.uid)
   }
 
-  /** P2.1 — DC API same-device login, step 1: create the `dc_api` session and return the request object. */
+  /** DC API same-device login, step 1: create the `dc_api` session and return the request object. */
   public async beginDcApiLogin(details: InteractionDetails): Promise<DcApiLoginRequest> {
     const loginConfig = this.requireLoginConfig(details)
     const acquirer = this.identityAcquirer
@@ -162,7 +160,7 @@ export class InteractionService {
   }
 
   /**
-   * P2.1 — DC API same-device login, step 2: the browser forwards the wallet's
+   * DC API same-device login, step 2: the browser forwards the wallet's
    * response (the parsed `DigitalCredential.data`); the acquirer submits it to
    * the identity service's origin-bound verify endpoint. The origin is the
    * bridge's own — never taken from the request.
@@ -176,12 +174,12 @@ export class InteractionService {
     return await acquirer.verifyDcApiLogin(details.uid, authorizationResponse)
   }
 
-  /** P2.10.3 — the login configuration's branding block for the login page. Cosmetic; creates no session. */
+  /** the login configuration's branding block for the login page. Cosmetic; creates no session. */
   public branding(details: InteractionDetails): OidcLoginConfigBranding | Record<string, never> {
     return this.requireLoginConfig(details).branding ?? {}
   }
 
-  /** P1.6.3 — login progress for the polling login page (only the cross-device path polls). */
+  /** login progress for the polling login page (only the cross-device path polls). */
   public async loginStatus(details: InteractionDetails): Promise<LoginStatus> {
     const acquirer = this.identityAcquirer
     if (!supportsDirectPostLogin(acquirer)) return { status: 'error', message: 'wallet login is not enabled' }
@@ -199,11 +197,11 @@ export class InteractionService {
   }
 
   /**
-   * The claims pipeline (P1.3/P1.4): map/merge claims, compute `sub` over the
-   * **mapped** claim set (§4.3 — the full disclosed set may carry volatile
+   * The claims pipeline: map/merge claims, compute `sub` over the
+   * **mapped** claim set (the full disclosed set may carry volatile
    * values and must not destabilize the derived `sub`), attach the full
-   * disclosed set as `vc_presented_attributes` (feasibility §3.5), store for
-   * `findAccount` (§4.4), and produce the login result.
+   * disclosed set as `vc_presented_attributes`, store for
+   * `findAccount`, and produce the login result.
    */
   private finishLogin(
     details: InteractionDetails,

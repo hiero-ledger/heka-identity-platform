@@ -15,15 +15,15 @@ const brokerClientId = 'keycloak-broker'
 const brokerSecret = 'e2e-broker-secret-value'
 const brokerRedirectUri = 'http://localhost:8080/realms/heka/broker/heka-sso/endpoint'
 
-// A second, independent client for the P2.7 isolation checks (interID AT.8):
+// A second, independent client for the isolation checks:
 // codes and subs must never cross the client boundary.
 const secondClientId = 'second-broker'
 const secondClientSecret = 'e2e-second-broker-secret'
 const secondRedirectUri = 'http://localhost:8081/realms/other/broker/heka-sso/endpoint'
 
 /**
- * The e2e env is pinned here (P1.8) — independent of `env/.env` drift. The
- * login config mirrors the demo shape (mDL SD-JWT, §4.2): DCQL query id `mdl`,
+ * The e2e env is pinned here — independent of `env/.env` drift. The
+ * login config mirrors the demo shape (mDL SD-JWT): DCQL query id `mdl`,
  * claim mapping `mdl.<claim> → <oidc claim>`.
  */
 const e2eEnv: Record<string, string> = {
@@ -38,7 +38,7 @@ const e2eEnv: Record<string, string> = {
       clientSecret: brokerSecret,
       redirectUris: [brokerRedirectUri],
       postLogoutRedirectUris: [`${brokerRedirectUri}/logout_response`],
-      // makes the provider mint `sid` (P2.5); unreachable on purpose — a failed
+      // makes the provider mint `sid`; unreachable on purpose — a failed
       // back-channel POST must never break the RP-initiated logout itself
       backchannelLogoutUri: 'http://localhost:9/backchannel-logout',
       loginConfigId: 'default',
@@ -71,11 +71,11 @@ const e2eEnv: Record<string, string> = {
       },
       subStrategy: 'derived',
       issuerAllowlist: [],
-      // P2.10.3: per-client login-page branding
+      // per-client login-page branding
       branding: { productName: 'E2E Corp ID', colors: { 'brand-primary': '#0a5c36' } },
     },
   ]),
-  // pinned to the default — a dev env/.env may enable it (the P2.5.1 tests assert the dialog)
+  // pinned to the default — a dev env/.env may enable it
   OIDC_LOGOUT_AUTO_CONFIRM: 'false',
   // wiped/overridden per app below
   OIDC_STUB_LOGIN: 'false',
@@ -179,7 +179,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
     if (orm) await orm.close(true)
   })
 
-  describe('stub-login app (P1.3–P1.5)', () => {
+  describe('stub-login app', () => {
     let nestApp: INestApplication
     let app: Server
 
@@ -275,7 +275,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         expect(response.headers.location).toBeUndefined()
       })
 
-      test('/authorize rejects a missing PKCE challenge — required for all clients (restored with the P1.7 demo realm)', async () => {
+      test('/authorize rejects a missing PKCE challenge — required for all clients (restored with the demo realm)', async () => {
         const withoutPkce: Partial<typeof validAuthorizeQuery> = { ...validAuthorizeQuery }
         delete withoutPkce.code_challenge
         delete withoutPkce.code_challenge_method
@@ -344,7 +344,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
           .expect(200)
         expect(userinfo.body.sub).toBe(idToken.sub)
 
-        // adapter persistence (P1.5): the flow's artifacts live in oidc_entity
+        // adapter persistence: the flow's artifacts live in oidc_entity
         const em = orm.em.fork()
         for (const name of ['Session', 'Grant', 'AccessToken']) {
           expect(await em.count(OidcEntity, { name })).toBeGreaterThan(0)
@@ -359,7 +359,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         expect(replay.body.error).toBe('invalid_grant')
       })
 
-      test('RP-initiated logout (P2.5): confirmation dialog → session ended → redirect to the broker logout return (P2.5.1)', async () => {
+      test('RP-initiated logout: confirmation dialog → session ended → redirect to the broker logout return', async () => {
         // sign in, keeping the session cookies
         const codeVerifier = randomBytes(32).toString('base64url')
         const jar = jarFactory()
@@ -422,7 +422,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         expect(decodeJwtPayload(first.body.id_token).sub).toBe(decodeJwtPayload(second.body.id_token).sub)
       })
 
-      test('cleanup task purges expired artifacts (P1.5)', async () => {
+      test('cleanup task purges expired artifacts', async () => {
         const em = orm.em.fork()
         em.persist(
           new OidcEntity({
@@ -441,12 +441,12 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
     })
 
     /**
-     * P2.7 — threat-model-driven coverage (docs/THREAT-MODEL.md): the OAuth/OIDC
-     * seam of interID's AT.1–AT.11 checklist, exercised against the running
-     * provider. The wallet/verification seam (AT.5–AT.7) is covered in the
+     * threat-model-driven coverage: the OAuth/OIDC
+     * seam of interID's checklist, exercised against the running
+     * provider. The wallet/verification seam is covered in the
      * wallet-login app suite below.
      */
-    describe('threat-model coverage (P2.7 — interID AT.1–AT.11, OAuth/OIDC seam)', () => {
+    describe('threat-model coverage (interID, OAuth/OIDC seam)', () => {
       const runFlow = async (codeVerifier: string, overrides: Record<string, string> = {}, redirectUri?: string) => {
         const jar = jarFactory()
         const response = await request(app).get('/authorize').query(authorizeQuery(codeVerifier, overrides)).expect(303)
@@ -454,7 +454,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         return { jar, callbackUrl: await follow303Chain(app, jar, response.headers.location, redirectUri) }
       }
 
-      test('AT.1: /token rejects a wrong PKCE code_verifier', async () => {
+      test('/token rejects a wrong PKCE code_verifier', async () => {
         const codeVerifier = randomBytes(32).toString('base64url')
         const { callbackUrl } = await runFlow(codeVerifier)
 
@@ -467,7 +467,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         expect(response.body.error).toBe('invalid_grant')
       })
 
-      test('AT.1: /token rejects a redirect_uri differing from the authorization request', async () => {
+      test('/token rejects a redirect_uri differing from the authorization request', async () => {
         const codeVerifier = randomBytes(32).toString('base64url')
         const { callbackUrl } = await runFlow(codeVerifier)
 
@@ -479,7 +479,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         expect(response.body.error).toBe('invalid_grant')
       })
 
-      test('AT.8: a code issued to one client cannot be redeemed by another (validly authenticated) client', async () => {
+      test('a code issued to one client cannot be redeemed by another (validly authenticated) client', async () => {
         const codeVerifier = randomBytes(32).toString('base64url')
         const { callbackUrl } = await runFlow(codeVerifier)
 
@@ -492,7 +492,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         expect(response.body.error).toBe('invalid_grant')
       })
 
-      test('AT.2: state is echoed verbatim on success and error redirects (no length limit — broker matrix)', async () => {
+      test('state is echoed verbatim on success and error redirects (no length limit — broker matrix)', async () => {
         const longState = randomBytes(96).toString('base64url') // 128 chars
 
         const codeVerifier = randomBytes(32).toString('base64url')
@@ -509,7 +509,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         expect(errorRedirect.searchParams.get('state')).toBe(longState)
       })
 
-      test('AT.3/AT.11: the id_token is bound to its issuer, audience, and nonce', async () => {
+      test('the id_token is bound to its issuer, audience, and nonce', async () => {
         const codeVerifier = randomBytes(32).toString('base64url')
         const { callbackUrl } = await runFlow(codeVerifier)
         const tokens = await exchangeCode(app, callbackUrl.searchParams.get('code'), codeVerifier)
@@ -521,7 +521,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         expect(idToken.nonce).toBe('e2e-nonce')
       })
 
-      test('AT.4: provider cookies are HttpOnly; the interaction cookie is SameSite and path-scoped', async () => {
+      test('provider cookies are HttpOnly; the interaction cookie is SameSite and path-scoped', async () => {
         const codeVerifier = randomBytes(32).toString('base64url')
         const response = await request(app).get('/authorize').query(authorizeQuery(codeVerifier)).expect(303)
 
@@ -536,7 +536,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         expect(interactionCookie).toMatch(/path=\/interaction\//i)
       })
 
-      test('AT.8/§4.3: the derived sub is pairwise — different clients see different subs for the same identity', async () => {
+      test('the derived sub is pairwise — different clients see different subs for the same identity', async () => {
         const firstVerifier = randomBytes(32).toString('base64url')
         const first = await exchangeCode(
           app,
@@ -563,7 +563,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         expect(firstSub).not.toBe(secondSub)
       })
 
-      test('AT.2: the logout confirmation rejects a wrong XSRF token and keeps the session', async () => {
+      test('the logout confirmation rejects a wrong XSRF token and keeps the session', async () => {
         const codeVerifier = randomBytes(32).toString('base64url')
         const { jar, callbackUrl } = await runFlow(codeVerifier)
         const tokens = await exchangeCode(app, callbackUrl.searchParams.get('code'), codeVerifier)
@@ -595,7 +595,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
     })
   })
 
-  describe('wallet-login app with a mocked verification session (P1.6/P1.8/P2.1)', () => {
+  describe('wallet-login app with a mocked verification session', () => {
     let nestApp: INestApplication
     let app: Server
 
@@ -653,7 +653,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         OIDC_STUB_LOGIN: 'false',
         IDENTITY_SERVICE_PUBLIC_VERIFIER_ID: 'did:key:zE2eVerifier',
         IDENTITY_SERVICE_REQUEST_SIGNER_DID: 'did:key:zE2eSigner',
-        // static override (P1.6.7) — no auth-service login in the e2e
+        // static override — no auth-service login in the e2e
         IDENTITY_SERVICE_AUTH_TOKEN: 'e2e-static-token',
       })
       vi.stubGlobal('fetch', fetchMock)
@@ -681,7 +681,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       jar.store(authorize)
       const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
 
-      // the static login page renders (P2.1.1) — no verification session yet
+      // the static login page renders — no verification session yet
       const page = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
       expect(page.text).toContain('Sign in with your wallet')
       expect(fetchMock).not.toHaveBeenCalled()
@@ -719,10 +719,10 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         email: 'ada@example.com',
         login_config_id: 'default',
       })
-      // the full disclosed set rides along (feasibility §3.5)
+      // the full disclosed set rides along
       expect(idToken.vc_presented_attributes).toEqual(disclosedAttributes)
 
-      // userinfo sub consistency (§1 step 4)
+      // userinfo sub consistency
       const userinfo = await request(app)
         .get('/userinfo')
         .set('Authorization', `Bearer ${tokens.body.access_token}`)
@@ -730,7 +730,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       expect(userinfo.body.sub).toBe(idToken.sub)
     })
 
-    test('DC API same-device flow (P2.1): start → verify → cookie-bound completion → tokens with amr=[vc]', async () => {
+    test('DC API same-device flow: start → verify → cookie-bound completion → tokens with amr=[vc]', async () => {
       const codeVerifier = randomBytes(32).toString('base64url')
       const jar = jarFactory()
 
@@ -774,7 +774,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       expect(idToken).toMatchObject({ given_name: 'Ada', family_name: 'Lovelace', email: 'ada@example.com' })
     })
 
-    test('WebSocket push (P3.7): cookie-bound subscription receives the verified push', async () => {
+    test('WebSocket push: cookie-bound subscription receives the verified push', async () => {
       const codeVerifier = randomBytes(32).toString('base64url')
       const jar = jarFactory()
 
@@ -810,7 +810,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       expect(await push).toEqual({ status: 'verified' })
       socket.close()
 
-      // §3.3: an uncookied subscription is refused, no session state leaks
+      // an uncookied subscription is refused, no session state leaks
       const rejected = new WebSocket(`ws://127.0.0.1:3105${interactionPath}/events`)
       const refusal = await new Promise<string>((resolve) => {
         rejected.on('unexpected-response', (_req, res) => resolve(`status ${res.statusCode}`))
@@ -819,7 +819,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       expect(refusal).toMatch(/400|hang up|socket/i)
     })
 
-    test('binding rule (§3.3): the interaction API is rejected without the interaction cookie', async () => {
+    test('binding rule: the interaction API is rejected without the interaction cookie', async () => {
       const codeVerifier = randomBytes(32).toString('base64url')
       const jar = jarFactory()
 
@@ -867,7 +867,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       expect(callbackUrl.searchParams.get('code')).toBeNull()
     })
 
-    test('bridge-page branding (P2.10): shared assets served, per-client branding cookie-bound', async () => {
+    test('bridge-page branding: shared assets served, per-client branding cookie-bound', async () => {
       const codeVerifier = randomBytes(32).toString('base64url')
       const jar = jarFactory()
 
@@ -875,7 +875,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       jar.store(authorize)
       const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
 
-      // the login page links the shared stylesheet (P2.10.1) …
+      // the login page links the shared stylesheet
       const page = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
       expect(page.text).toContain('/interaction/assets/styles.css')
 
@@ -884,14 +884,14 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       expect(css.headers['content-type']).toContain('text/css')
       expect(css.text).toContain('--brand-primary')
 
-      // per-client branding (P2.10.3), cookie-bound like every interaction route
+      // per-client branding, cookie-bound like every interaction route
       const branding = await request(app).get(`${interactionPath}/branding`).set('Cookie', jar.header()).expect(200)
       expect(branding.body).toEqual({ productName: 'E2E Corp ID', colors: { 'brand-primary': '#0a5c36' } })
       await request(app).get(`${interactionPath}/branding`).expect(400)
     })
 
-    /** P2.7/AT.5 — the proof request is built server-side from the login config; the browser supplies nothing. */
-    test('AT.5: the DCQL query sent to the identity service comes from the server-side login config only', async () => {
+    /** the proof request is built server-side from the login config; the browser supplies nothing. */
+    test('the DCQL query sent to the identity service comes from the server-side login config only', async () => {
       const codeVerifier = randomBytes(32).toString('base64url')
       const jar = jarFactory()
 
@@ -905,12 +905,12 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       const configuredLoginConfig = JSON.parse(e2eEnv.OIDC_LOGIN_CONFIGS)[0]
       expect(createBody.dcql).toEqual({ query: configuredLoginConfig.dcqlQuery })
       expect(createBody.responseMode).toBe('direct_post')
-      // signed JAR (P1.6.1): the wallet can verify who is asking
+      // signed JAR: the wallet can verify who is asking
       expect(createBody.requestSigner).toEqual({ method: 'did', did: 'did:key:zE2eSigner' })
     })
 
-    /** P2.7/AT.7 — a finished interaction is consumed; replaying its completion route yields no second code. */
-    test('AT.7: a completed interaction cannot be replayed for a second authorization code', async () => {
+    /** a finished interaction is consumed; replaying its completion route yields no second code. */
+    test('a completed interaction cannot be replayed for a second authorization code', async () => {
       const codeVerifier = randomBytes(32).toString('base64url')
       const jar = jarFactory()
 

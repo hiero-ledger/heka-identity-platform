@@ -26,7 +26,7 @@ const loginResponse = (access: string, expiresIn = 3600) =>
   fetchResponse({ access, refresh: 'refresh-token', token_type: 'Bearer', expires_in: expiresIn })
 
 /**
- * Identity-service service account (P1.6.7): lazy login against
+ * Identity-service service account: lazy login against
  * heka-auth-service, cached token, re-acquired shortly before expiry;
  * `IDENTITY_SERVICE_AUTH_TOKEN` stays as a static override.
  */

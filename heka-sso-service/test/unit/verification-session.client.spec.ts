@@ -24,7 +24,7 @@ const buildClient = (env: Record<string, string> = {}) => {
   return new VerificationSessionClient(configService, new IdentityServiceTokenProvider(configService))
 }
 
-/** Client on the P1.6.7 service-account path (no static token override). */
+/** Client on the service-account path (no static token override). */
 const buildServiceAccountClient = () =>
   buildClient({
     IDENTITY_SERVICE_AUTH_TOKEN: '',
@@ -41,7 +41,7 @@ const fetchResponse = (body: unknown, status = 200) => ({
 })
 
 /**
- * Verification-session client (P1.6 / P1.6.1): sessions are always created as
+ * Verification-session client: sessions are always created as
  * signed authorization requests (JAR) — no unsigned fallback.
  */
 describe('VerificationSessionClient', () => {
@@ -56,7 +56,7 @@ describe('VerificationSessionClient', () => {
     vi.unstubAllGlobals()
   })
 
-  test('creates the session with a requestSigner — JAR, always (P1.6.1)', async () => {
+  test('creates the session with a requestSigner — JAR, always', async () => {
     fetchMock.mockResolvedValue(
       fetchResponse({
         verificationSession: { id: 'session-1' },
@@ -102,7 +102,7 @@ describe('VerificationSessionClient', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  test('DC API (P2.1): creates a signed dc_api session bound to the calling origin', async () => {
+  test('DC API: creates a signed dc_api session bound to the calling origin', async () => {
     fetchMock.mockResolvedValue(
       fetchResponse({
         verificationSession: { id: 'dc-session-1' },
@@ -208,7 +208,7 @@ describe('VerificationSessionClient', () => {
     await expect(buildClient().createSignedRequest(loginConfig)).rejects.toThrow(/422.*requestSigner\.did/)
   })
 
-  test('service account (P1.6.7): acquires a token via auth-service login and retries once on 401', async () => {
+  test('service account: acquires a token via auth-service login and retries once on 401', async () => {
     fetchMock
       // lazy login, then the session call fails with an unexpected 401
       .mockResolvedValueOnce(fetchResponse({ access: 'stale-token', expires_in: 3600 }))

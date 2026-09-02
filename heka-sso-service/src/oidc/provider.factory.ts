@@ -8,18 +8,18 @@ import { renderPage } from './pages'
 /** DI token for the configured `oidc-provider` instance. */
 export const OIDC_PROVIDER = 'OIDC_PROVIDER'
 
-/** Minimal contract of `AccountClaimsStore` the provider needs for `findAccount` (P1.4). */
+/** Minimal contract of `AccountClaimsStore` the provider needs for `findAccount`. */
 export interface AccountClaimsResolver {
   get(sub: string): ClaimSet | undefined
 }
 
 /**
- * The claim names this deployment can release (P1.4): the union of every login
+ * The claim names this deployment can release: the union of every login
  * configuration's mapped claim names and static claims, plus the pipeline's
- * own claims (`login_config_id`, `vc_presented_attributes` — §1 step 3) and
+ * own claims (`login_config_id`, `vc_presented_attributes`) and
  * `amr`. All are attached to the `openid` scope: brokering IdPs request
  * `scope=openid` (Keycloak's default) and Auth0 never calls userinfo, so
- * everything must be available in the id_token (§1 step 4). Standalone
+ * everything must be available in the id_token. Standalone
  * `claim: null` entries would only be requestable via the claims parameter,
  * which brokers do not send.
  */
@@ -38,9 +38,7 @@ const openidScopeClaims = (config: OidcConfig): string[] => {
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`)
 
 /**
- * Error page (P2.10.1: pixels live in `pages/error.html`). Never leaks stack
- * traces; `out` carries only the OAuth error fields the library deems safe to
- * show.
+ * Error page. Never leaks stack traces; `out` carries only the OAuth error fields the library deems safe to show.
  */
 const renderError: NonNullable<Configuration['renderError']> = async (ctx, out) => {
   ctx.type = 'html'
@@ -54,7 +52,7 @@ const renderError: NonNullable<Configuration['renderError']> = async (ctx, out) 
 /**
  * Interaction policy = the library default plus one login check: when the
  * session claims an `accountId` whose claim set is no longer resolvable —
- * the store is in-memory (P1.3/P1.5), so a restart wipes it while provider
+ * the store is in-memory, so a restart wipes it while provider
  * sessions persist in Postgres for up to a day — a fresh wallet login is
  * required. Without this check the no-interaction fast path crashes: an
  * unresolvable account skips grant loading and the consent checks then
@@ -87,7 +85,7 @@ const toClientMetadata = (client: OidcClientConfig): ClientMetadata => ({
   response_types: client.responseTypes as ClientMetadata['response_types'],
   token_endpoint_auth_method: client.tokenEndpointAuthMethod as ClientMetadata['token_endpoint_auth_method'],
   ...(client.postLogoutRedirectUris !== undefined && { post_logout_redirect_uris: client.postLogoutRedirectUris }),
-  // P2.5: back-channel logout receiver; session_required puts `sid` into
+  // back-channel logout receiver; session_required puts `sid` into
   // id_tokens and logout_tokens so the receiver can match the exact session.
   ...(client.backchannelLogoutUri !== undefined && {
     backchannel_logout_uri: client.backchannelLogoutUri,
@@ -97,8 +95,8 @@ const toClientMetadata = (client: OidcClientConfig): ClientMetadata => ({
 })
 
 /**
- * RP-initiated logout confirmation page (P2.5.1; pixels live in
- * `pages/logout-confirm.html` / `pages/logout-auto.html` since P2.10.1). The
+ * RP-initiated logout confirmation page (pixels live in
+ * `pages/logout-confirm.html` / `pages/logout-auto.html`). The
  * pre-built `form` argument must be embedded verbatim — it carries the XSRF
  * secret — and the confirm button submits `name="logout"`.
  *
@@ -123,7 +121,7 @@ const buildLogoutSource =
       : renderPage('logout-confirm.html', { form, host: escapeHtml(ctx.host) })
   }
 
-/** Post-logout page (P2.5.1) — shown only when the RP registered no `post_logout_redirect_uri`. */
+/** Post-logout page — shown only when the RP registered no `post_logout_redirect_uri`. */
 const postLogoutSuccessSource: NonNullable<
   NonNullable<NonNullable<Configuration['features']>['rpInitiatedLogout']>['postLogoutSuccessSource']
 > = async (ctx) => {
@@ -132,18 +130,18 @@ const postLogoutSuccessSource: NonNullable<
 }
 
 /**
- * OP core (INTEGRATION.md Phase 1, PR 1 + PR 2): builds the `node-oidc-provider`
+ * OP core: builds the `node-oidc-provider`
  * instance from validated config and the persisted signing JWKS — static
  * clients from `OIDC_CLIENTS` and the protocol policy targeting the IdP-broker
  * common denominator (authorization code + PKCE S256 only, secret-based client
  * auth, clock-skew slack for Keycloak's 0s default). Runs on the library's
  * built-in in-memory adapter until the MikroORM adapter PR replaces it.
  *
- * `accountClaims` (P1.4) resolves the claim set the interaction stored under
- * the computed `sub` (§4.4 — there is no user table); when omitted (some unit
+ * `accountClaims` resolves the claim set the interaction stored under
+ * the computed `sub`; when omitted (some unit
  * tests), the library's default sub-only `findAccount` applies.
  *
- * `adapter` (P1.5) is the storage factory — `MikroOrmAdapter` over Postgres in
+ * `adapter` is the storage factory — `MikroOrmAdapter` over Postgres in
  * the app; when omitted (unit tests), the library's in-memory adapter applies.
  */
 export function createOidcProvider(
@@ -156,7 +154,7 @@ export function createOidcProvider(
     jwks: jwks as Configuration['jwks'],
     ...(adapter && { adapter }),
     clients: config.clients.map(toClientMetadata),
-    // findAccount over the stored claim set (P1.4): `accountId` *is* the
+    // findAccount over the stored claim set: `accountId` *is* the
     // computed `sub`; an unknown `sub` (e.g. the in-memory store died with a
     // restart) resolves to no account and the flow fails cleanly instead of
     // minting an identity from nothing.
@@ -176,15 +174,12 @@ export function createOidcProvider(
     extraClientMetadata: {
       properties: ['login_config_id'],
     },
-    // Authorization code flow only — no implicit/hybrid (broker matrix, INTEGRATION.md §1).
+    // Authorization code flow only — no implicit/hybrid.
     responseTypes: ['code'],
     // The IdP-broker floor (Cognito/Entra): secret-based auth via header or body.
     clientAuthMethods: ['client_secret_basic', 'client_secret_post'],
     // PKCE (S256 — the only method the library supports) is mandatory for all
-    // clients; the library default exempts confidential clients. Relaxed
-    // between e7ef715 and P1.7 (Keycloak IdPs don't send PKCE by default);
-    // restored now that the demo realm pins PKCE S256 on the IdP side —
-    // manually configured IdPs must enable it too (§4.6-5).
+    // clients; the library default exempts confidential clients.
     pkce: {
       required: () => true,
     },
@@ -211,9 +206,9 @@ export function createOidcProvider(
     },
     features: {
       devInteractions: { enabled: false },
-      // P2.5 — logout, wired to Keycloak (§1 step 8): RP-initiated logout with
-      // the custom confirmation page (auto-confirmed on a valid id_token_hint,
-      // P2.5.1), and back-channel logout_tokens (`sid`-matched) POSTed to
+      // logout, wired to Keycloak: RP-initiated logout with
+      // the custom confirmation page (auto-confirmed on a valid id_token_hint
+      // and back-channel logout_tokens (`sid`-matched) POSTed to
       // clients that registered a backchannel_logout_uri.
       rpInitiatedLogout: {
         enabled: true,
@@ -245,7 +240,7 @@ export function createOidcProvider(
     renderError,
   })
 
-  // TLS terminates at the reverse proxy — trust X-Forwarded-* (INTEGRATION.md §1).
+  // TLS terminates at the reverse proxy — trust X-Forwarded-*.
   provider.proxy = true
 
   // Uncaught provider exceptions render a generic "server_error" page and are
@@ -255,7 +250,7 @@ export function createOidcProvider(
     logger.error(`server_error at ${ctx?.method} ${ctx?.path}: ${err?.message}`, err?.stack)
   })
 
-  // Back-channel logout failures are otherwise swallowed (P2.5) — the SSRF
+  // Back-channel logout failures are otherwise swallowed — the SSRF
   // protection destroying a private-network connection lands here too.
   provider.on('backchannel.error', (_ctx, err: Error, client: { clientId?: string }) => {
     logger.warn(`back-channel logout to client '${client?.clientId}' failed: ${err?.message}`)

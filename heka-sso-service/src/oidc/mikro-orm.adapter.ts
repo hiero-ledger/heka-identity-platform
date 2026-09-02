@@ -3,16 +3,16 @@ import { EntityManager } from '@mikro-orm/core'
 import type { Adapter, AdapterPayload } from 'oidc-provider'
 
 /**
- * MikroORM adapter for `oidc-provider` (INTEGRATION.md P1.5): the 8-method
+ * MikroORM adapter for `oidc-provider`: the 8-method
  * contract from `example/my_adapter.js` over the `oidc_entity` table — one
  * adapter instance per model name, one row per model instance.
  *
  * The provider invokes these methods from its own Koa middleware, outside
  * Nest's request lifecycle — no ambient `RequestContext` is active, so every
- * operation forks the injected EntityManager (§5-Still-applies-1).
+ * operation forks the injected EntityManager.
  *
  * Expired rows are treated as absent on read; `OidcCleanupService` purges
- * them hourly (§5-Inherit-2).
+ * them hourly.
  */
 export class MikroOrmAdapter implements Adapter {
   public constructor(

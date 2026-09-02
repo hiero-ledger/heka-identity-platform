@@ -2,8 +2,8 @@ import { OidcLoginConfig, SubStrategy } from '../../src/core/config'
 import { computeSub, mapClaims } from '../../src/oidc'
 
 /**
- * Claims pipeline (INTEGRATION.md P1.3): claim mapping per the login
- * configuration (§4.2) and the `derived` pairwise `sub` strategy (§4.3).
+ * Claims pipeline: claim mapping per the login
+ * configuration and the `derived` pairwise `sub` strategy.
  */
 describe('claims pipeline', () => {
   const loginConfig = new OidcLoginConfig({
@@ -90,10 +90,10 @@ describe('claims pipeline', () => {
     })
   })
 
-  test('non-derived strategies are not implemented until Phase 3 (P3.8, postponed from P2.6)', () => {
+  test('non-derived strategies are not implemented', () => {
     for (const subStrategy of [SubStrategy.credentialClaim, SubStrategy.ephemeral]) {
       const config = new OidcLoginConfig({ ...loginConfig, subStrategy })
-      expect(() => computeSub(config, 'client-a', {}, salt)).toThrow(/not implemented until Phase 3/)
+      expect(() => computeSub(config, 'client-a', {}, salt)).toThrow(`sub strategy '${subStrategy}' is not implemented`)
     }
   })
 })

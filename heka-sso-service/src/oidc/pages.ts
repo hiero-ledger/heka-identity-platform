@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 
 /**
- * Bridge-page templates and shared static assets (INTEGRATION.md P2.10.1).
+ * Bridge-page templates and shared static assets.
  *
  * The four HTML documents the bridge serves (wallet login page, logout
  * confirmation, post-logout, error) live as plain `.html` files in
@@ -10,7 +10,7 @@ import { basename, join } from 'node:path'
  * `pages/assets/` (served at `/interaction/assets/*` by
  * `InteractionAssetsController`). `nest build` copies the whole directory
  * into `dist/oidc/pages` (nest-cli.json `assets`), where the Vite login-page
- * build (P2.10.2) also emits into `pages/ui`, so a deployment re-brands by
+ * build also emits into `pages/ui`, so a deployment re-brands by
  * editing HTML/CSS — or volume-mounting over `dist/oidc/pages` in Docker —
  * without a rebuild.
  *
@@ -25,7 +25,7 @@ const pagesDir = join(__dirname, 'pages')
 export const pageAssetsDir = join(pagesDir, 'assets')
 
 /**
- * Vite build output of the login page (P2.10.2, `yarn ui:build`), emitted
+ * Vite build output of the login page (`yarn ui:build`), emitted
  * straight into `dist/oidc/pages/ui`. Compiled, that is this module's own
  * `pages/ui`; under vitest the module runs from `src/`, so the built output is
  * found in the sibling `dist` tree instead.
@@ -55,7 +55,7 @@ export function loadPage(name: string): string {
     } catch (error) {
       if (name.startsWith('ui/')) {
         throw new Error(
-          `bridge page template '${name}' not found — the login page is a built artifact (P2.10.2); ` +
+          `bridge page template '${name}' not found — the login page is a built artifact; ` +
             `run \`yarn ui:build\` first (${error})`,
         )
       }

@@ -86,7 +86,7 @@ describe('OidcConfig', () => {
     expect(config.loginConfigs[0].branding).toBeUndefined()
   })
 
-  test('login-config branding (P2.10.3): parsed when present, validated', () => {
+  test('login-config branding: parsed when present, validated', () => {
     const config = new OidcConfig({
       OIDC_LOGIN_CONFIGS: JSON.stringify([
         {
@@ -239,7 +239,7 @@ describe('OidcConfig', () => {
     expect(new OidcConfig({ ...strongProductionEnv, OIDC_STUB_LOGIN: 'false' }).stubLogin).toBe(false)
   })
 
-  test('identity-service service account (P1.6.7): reads credentials and the auth-service base URL', () => {
+  test('identity-service service account: reads credentials and the auth-service base URL', () => {
     const config = new OidcConfig({
       IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
       IDENTITY_SERVICE_AUTH_PASSWORD: 'service-account-password',

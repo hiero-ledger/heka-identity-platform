@@ -11,7 +11,7 @@ import { VerificationSessionEvent } from './identity-service-events.client'
 import { VerificationSessionState } from './verification-session.client'
 
 /**
- * `GET /interaction/:uid/events` upgraded to a WebSocket (P3.7). The uid is
+ * `GET /interaction/:uid/events` upgraded to a WebSocket. The uid is
  * matched against the provider's uid alphabet (nanoid) directly — no
  * `decodeURIComponent`, which throws on malformed percent-encoding, and a
  * throw in an `upgrade` listener would take the process down. The length
@@ -20,13 +20,13 @@ import { VerificationSessionState } from './verification-session.client'
 const EVENTS_PATH = /^\/interaction\/([\w-]{1,128})\/events$/
 
 /**
- * WebSocket push to the login page (INTEGRATION.md P3.7): the page opens
+ * WebSocket push to the login page: the page opens
  * `ws(s)://<bridge>/interaction/:uid/events` and receives `LoginStatus`
  * pushes (same JSON shape as the `:uid/status` polling route) whenever
  * heka-identity-service reports a state change for one of the interaction's
  * verification sessions.
  *
- * The §3.3 binding rule holds for the push channel exactly as for the JSON
+ * The binding rule holds for the push channel exactly as for the JSON
  * routes: the endpoint lives under the interaction's cookie path, and the
  * upgrade is accepted only when the request carries the provider's **signed**
  * `_interaction` cookie whose value matches the uid in the URL (verified with
@@ -34,7 +34,7 @@ const EVENTS_PATH = /^\/interaction\/([\w-]{1,128})\/events$/
  * signature, or a foreign uid → 400, no session state leaks.
  *
  * Session→interaction mapping is registered by the wallet acquirer when it
- * creates verification sessions; like the other P1.3/P1.6 stores it is
+ * creates verification sessions; like the other stores it is
  * in-memory (single-instance dev) until interaction state is persisted.
  */
 @Injectable()
@@ -117,7 +117,7 @@ export class LoginEventsService implements OnModuleDestroy {
   }
 
   /**
-   * §3.3 binding for the upgrade request: the signed `_interaction` cookie
+   * binding for the upgrade request: the signed `_interaction` cookie
    * (name=value signed by the provider's keygrip over `cookies.keys`, sig in
    * `_interaction.sig`) must be present, valid, and match the URL's uid.
    */

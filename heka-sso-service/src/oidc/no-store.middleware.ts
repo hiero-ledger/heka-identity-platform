@@ -4,7 +4,7 @@ import type { NextFunction, Request, Response } from 'express'
  * `Cache-Control: no-store` for the interaction surface. Every `/interaction`
  * response is per-user and per-attempt — the login page embeds a single-use
  * authorization request (QR + deep link) and the interaction uid, and the
- * `status`/`complete` sub-routes are cookie-bound (§3.3) — so none of it may
+ * `status`/`complete` sub-routes are cookie-bound — so none of it may
  * land in a browser or proxy cache (Back button, shared machines, stale
  * `request_uri`). Scoped to `InteractionController` in `OidcModule` rather
  * than applied globally: discovery and JWKS are meant to be cached by relying

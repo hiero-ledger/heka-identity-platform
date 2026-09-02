@@ -18,50 +18,48 @@ import { loadPage } from './pages'
 import { VerificationSessionClient, VerificationSessionState } from './verification-session.client'
 import { assertWalletAuthorizationRequest } from './wallet-uri'
 
-/** The verification sessions a pending interaction may hold — one per login path (P2.1). */
+/** The verification sessions a pending interaction may hold — one per login path. */
 interface PendingLogin {
-  /** Cross-device QR / deep-link session (`direct_post`, P1.6). */
+  /** Cross-device QR / deep-link session (`direct_post`). */
   directPostSessionId?: string
-  /** Same-device DC API session (`dc_api`, P2.1). */
+  /** Same-device DC API session (`dc_api`). */
   dcApiSessionId?: string
   expiresAt: number
 }
 
 /**
- * OID4VP wallet login (INTEGRATION.md P1.6 + P2.1, feasibility §3.3):
- * `beginLogin` serves the static login page (P2.1.1); the page then drives
+ * OID4VP wallet login: `beginLogin` serves the static login page; the page then drives
  * one of two paths over the same-origin JSON interaction API:
  *
- * - **DC API (preferred, P2.1)**: `beginDcApiLogin` creates a `dc_api`
+ * - **DC API (preferred)**: `beginDcApiLogin` creates a `dc_api`
  *   verification session; the browser hands the request to the OS picker and
  *   forwards the wallet's response to `verifyDcApiLogin`, which submits it to
  *   the identity service's origin-bound `verify` endpoint. The `origin` is
  *   the bridge's own (from the issuer URL) — never client-supplied.
- * - **QR fallback (P1.6)**: `beginDirectPostLogin` creates a `direct_post` session
- *   (signed JAR — P1.6.1) and returns QR + deep link; the page listens on the
- *   WebSocket push channel (P3.7, `LoginEventsService`) and **polls**
- *   `checkLogin` as the fallback (P1.6.3).
+ * - **QR fallback**: `beginDirectPostLogin` creates a `direct_post` session
+ *   (signed JAR) and returns QR + deep link; the page listens on the
+ *   WebSocket push channel (`LoginEventsService`) and **polls**
+ *   `checkLogin` as the fallback.
  *
  * Either way the page navigates to the completion route in the same
- * cookie-bound browser session (§3.3 binding rule); `completeLogin` accepts
+ * cookie-bound browser session (binding rule); `completeLogin` accepts
  * whichever session reached `ResponseVerified` and maps the disclosed
  * attributes.
  *
- * The uid→session index is in-memory (like the P1.3/P1.4 claim-set store):
- * single-instance dev until it moves into persisted interaction state.
+ * The uid→session index is in-memory: single-instance dev until it moves into persisted interaction state.
  */
 @Injectable()
 export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin, DcApiLogin {
   private readonly logger = new Logger(WalletIdentityAcquirer.name)
   private readonly pending = new Map<string, PendingLogin>()
   private readonly ttlMs: number
-  /** The bridge's own web origin — the login page is served from it (§5-Decide-2: the issuer is the service origin). */
+  /** The bridge's own web origin — the login page is served from it. */
   private readonly origin: string
 
   public constructor(
     private readonly sessions: VerificationSessionClient,
     configService: ConfigService,
-    /** P3.7: registers session→interaction routing for the WebSocket push (absent in some unit tests). */
+    /** registers session→interaction routing for the WebSocket push (absent in some unit tests). */
     private readonly loginEvents?: LoginEventsService,
   ) {
     this.ttlMs = configService.oidcConfig.ttl.interaction * 1000
@@ -75,13 +73,13 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
     this.prune()
     this.pending.delete(interactionUid)
     this.logger.log(`Interaction ${interactionUid}: wallet login page served (login config '${loginConfig.id}')`)
-    // The static login page (P2.1.1) — a Vite-built artifact since P2.10.2
+    // The static login page — a Vite-built artifact since
     // (`ui/`, built by `yarn ui:build`); nothing per-interaction is
     // server-rendered into it.
     return { kind: 'page', html: loadPage('ui/login.html') }
   }
 
-  /** P2.1.1 — the QR path's data: creates the cross-device `direct_post` session (fresh nonce, §4.6-1). */
+  /** the QR path's data: creates the cross-device `direct_post` session. */
   public async beginDirectPostLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData> {
     const created = await this.sessions.createSignedRequest(loginConfig)
     // Boundary check before the value reaches the page's href / QR: wallet
@@ -96,7 +94,7 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
     return { authorizationRequest: created.authorizationRequest, qrDataUrl }
   }
 
-  /** P2.1 — the DC API path: creates the same-device `dc_api` session bound to the bridge origin. */
+  /** the DC API path: creates the same-device `dc_api` session bound to the bridge origin. */
   public async beginDcApiLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<DcApiLoginRequest> {
     const created = await this.sessions.createDcApiRequest(loginConfig, this.origin)
     this.entry(interactionUid).dcApiSessionId = created.sessionId
@@ -106,7 +104,7 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
     return { protocol: created.protocol, request: created.authorizationRequestObject }
   }
 
-  /** P2.1 — verify the browser-forwarded DC API response via the identity service's origin-bound endpoint. */
+  /** verify the browser-forwarded DC API response via the identity service's origin-bound endpoint. */
   public async verifyDcApiLogin(
     interactionUid: string,
     authorizationResponse: Record<string, unknown>,

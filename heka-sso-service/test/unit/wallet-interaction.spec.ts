@@ -46,13 +46,13 @@ class CookieJar {
 }
 
 /**
- * Wallet-login interaction (P1.6 + P2.1): static login page + JSON interaction
- * API (P2.1.1), the DC API same-device path (P2.1), the QR fallback with
- * status polling (P1.6.3), cookie-bound completion, and the
+ * Wallet-login interaction: static login page + JSON interaction
+ * API, the DC API same-device path, the QR fallback with
+ * status polling, cookie-bound completion, and the
  * disclosed-attribute claims pipeline — against a mocked identity-service
  * verification-session client.
  */
-describe('wallet-login interaction (P1.6/P2.1)', () => {
+describe('wallet-login interaction', () => {
   const sessionsMock = {
     createSignedRequest: vi.fn(),
     createDcApiRequest: vi.fn(),
@@ -78,7 +78,7 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
         claimMapping: { 'pid.given_name': 'given_name', 'pid.family_name': 'family_name' },
         subStrategy: 'derived',
         issuerAllowlist: [],
-        // P2.10.3: per-client login-page branding, served via GET :uid/branding
+        // per-client login-page branding, served via GET :uid/branding
         branding: {
           productName: 'Acme ID',
           logoUrl: '/interaction/assets/acme.svg',
@@ -184,13 +184,13 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
       .send({ grant_type: 'authorization_code', code, code_verifier: codeVerifier, redirect_uri: brokerRedirectUri })
       .expect(200)
 
-  test('serves the static login page (P2.1.1) — no verification session until a path engages', async () => {
+  test('serves the static login page — no verification session until a path engages', async () => {
     const codeVerifier = randomBytes(32).toString('base64url')
     const { jar, interactionPath } = await startFlow(codeVerifier)
 
     const page = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
     expect(page.text).toContain('Sign in with your wallet')
-    // the page logic is a built artifact (P2.10.2) — the page links the bundle,
+    // the page logic is a built artifact — the page links the bundle,
     // whose DC API/branding behavior is asserted in assets.controller.spec.ts
     expect(page.text).toContain('/interaction/assets/login.js')
     expect(page.text).toContain('/interaction/assets/styles.css')
@@ -200,11 +200,11 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     expect(sessionsMock.createDcApiRequest).not.toHaveBeenCalled()
   })
 
-  test('branding (P2.10.3): the login config branding is served to the page, cookie-bound (§3.3)', async () => {
+  test('branding: the login config branding is served to the page, cookie-bound', async () => {
     const codeVerifier = randomBytes(32).toString('base64url')
     const { jar, interactionPath } = await startFlow(codeVerifier)
 
-    // the static page links the shared assets and the branding hooks (P2.10.1)
+    // the static page links the shared assets and the branding hooks
     const page = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
     expect(page.text).toContain('/interaction/assets/styles.css')
     expect(page.text).toContain('id="brand-name"') // the branding hooks live in the markup
@@ -219,17 +219,17 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     expect(sessionsMock.createSignedRequest).not.toHaveBeenCalled()
     expect(sessionsMock.createDcApiRequest).not.toHaveBeenCalled()
 
-    // §3.3: without the interaction cookie the branding (like every route) is refused
+    // without the interaction cookie the branding (like every route) is refused
     const uncookied = await request(app).get(`${interactionPath}/branding`).expect(400)
     expect(uncookied.body.status).toBe('error')
   })
 
-  test('QR fallback: data → poll → complete → tokens with amr vc (P1.6.3/P2.1.1)', async () => {
+  test('QR fallback: data → poll → complete → tokens with amr vc', async () => {
     const codeVerifier = randomBytes(32).toString('base64url')
     const { jar, interactionPath } = await startFlow(codeVerifier)
     const page = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
 
-    // the data call creates the direct_post session (signed, P1.6.1) and returns QR + deep link
+    // the data call creates the direct_post session and returns QR + deep link
     const data = await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(200)
     expect(sessionsMock.createSignedRequest).toHaveBeenCalledTimes(1)
     expect(data.body.qrDataUrl).toContain('data:image/png;base64')
@@ -239,10 +239,10 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     expect(page.headers['pragma']).toBe('no-cache')
     expect(page.headers['x-frame-options']).toBe('DENY')
     expect(page.headers['content-security-policy']).toBe("frame-ancestors 'none'")
-    // the session is routed for WebSocket push (P3.7)
+    // the session is routed for WebSocket push
     expect(loginEventsMock.registerSession).toHaveBeenCalledWith('vs-1', interactionPath.split('/')[2])
 
-    // polling: pending while the wallet has not responded (P1.6.3)
+    // polling: pending while the wallet has not responded
     sessionsMock.getSession.mockResolvedValueOnce({ id: 'vs-1', state: VerificationSessionState.RequestUriRetrieved })
     const pending = await request(app).get(`${interactionPath}/status`).set('Cookie', jar.header()).expect(200)
     expect(pending.body).toEqual({ status: 'pending' })
@@ -257,7 +257,7 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     const verified = await request(app).get(`${interactionPath}/status`).set('Cookie', jar.header()).expect(200)
     expect(verified.body).toEqual({ status: 'verified' })
 
-    // completion happens in the same cookie-bound browser session (§3.3)
+    // completion happens in the same cookie-bound browser session
     const complete = await request(app).get(`${interactionPath}/complete`).set('Cookie', jar.header()).expect(303)
     jar.store(complete)
     const callbackUrl = await followTo(jar, complete.headers.location)
@@ -268,7 +268,7 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     expect(idToken.amr).toEqual(['vc'])
     // disclosed attributes mapped per login config (query-id-prefixed paths)
     expect(idToken).toMatchObject({ given_name: 'Ada', family_name: 'Lovelace', login_config_id: 'default' })
-    // the full disclosed set is published under vc_presented_attributes (§3.5)
+    // the full disclosed set is published under vc_presented_attributes
     expect(idToken.vc_presented_attributes).toEqual({
       given_name: 'Ada',
       family_name: 'Lovelace',
@@ -276,7 +276,7 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     })
   })
 
-  test('DC API path (P2.1): start → verify (origin-bound) → complete → tokens with amr vc', async () => {
+  test('DC API path: start → verify (origin-bound) → complete → tokens with amr vc', async () => {
     const codeVerifier = randomBytes(32).toString('base64url')
     const { jar, interactionPath } = await startFlow(codeVerifier)
     await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
@@ -387,7 +387,7 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
     expect(callbackUrl.searchParams.get('code')).toBeNull()
   })
 
-  test('interaction API without the interaction cookie is rejected — no session leakage (§3.3)', async () => {
+  test('interaction API without the interaction cookie is rejected — no session leakage', async () => {
     for (const [method, path] of [
       ['get', '/interaction/some-uid/status'],
       ['get', '/interaction/some-uid/data'],

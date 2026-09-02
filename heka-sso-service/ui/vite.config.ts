@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
 
 /**
- * The wallet login page build (INTEGRATION.md P2.10.2).
+ * The wallet login page build.
  *
  * Output goes straight into the service's build output, `dist/oidc/pages/ui/`,
- * next to where `nest build` copies the hand-authored P2.10.1 templates
+ * next to where `nest build` copies the hand-authored templates
  * (nest-cli.json `assets`; nest build does not wipe `dist`, so build order
  * doesn't matter): the bridge serves `ui/login.html` via `loadPage` and the
  * built assets via `/interaction/assets/*` (`InteractionAssetsController`
@@ -13,7 +13,7 @@ import { defineConfig } from 'vite'
  *
  * File names are pinned (no content hashes): the three provider-hook templates
  * link the same built stylesheet by name (`styles.css`), and stable names keep
- * the Docker volume-mount branding story (P2.10.1) working. Cache headers stay
+ * the Docker volume-mount branding story working. Cache headers stay
  * short (`max-age=300`) for the same reason.
  *
  * `base` makes every emitted URL absolute under the bridge's asset route — the
