@@ -66,7 +66,18 @@ export class InteractionController {
     await this.pageApi(req, res, (details) => this.interactions.loginPageData(details))
   }
 
-  /** DC API same-device login, step 1 (P2.1): the `navigator.credentials.get()` request. */
+  /**
+   * Per-client branding for the login page (P2.10.3): the login
+   * configuration's `branding` block, applied client-side (product name,
+   * logo, `--brand-*` colors, custom CSS). Purely cosmetic and, like every
+   * interaction route, cookie-bound (§3.3) — creates no verification session.
+   */
+  @Get(':uid/branding')
+  public async branding(@Req() req: Request, @Res() res: Response): Promise<void> {
+    await this.pageApi(req, res, async (details) => this.interactions.branding(details))
+  }
+
+  /** DC API same-device login, step 1 (P2.1): create the `dc_api` session and return the request object. */
   @Post(':uid/dc-api/start')
   public async dcApiStart(@Req() req: Request, @Res() res: Response): Promise<void> {
     await this.pageApi(req, res, (details) => this.interactions.beginDcApiLogin(details))

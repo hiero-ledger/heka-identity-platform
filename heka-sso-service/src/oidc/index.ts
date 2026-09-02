@@ -1,4 +1,5 @@
 export { AccountClaimsStore } from './account-claims.store'
+export { InteractionAssetsController } from './assets.controller'
 export { ClaimSet, computeSub, mapClaims } from './claims.util'
 export {
   AcquiredIdentity,
@@ -21,6 +22,7 @@ export { MikroOrmAdapter } from './mikro-orm.adapter'
 export { noStoreMiddleware } from './no-store.middleware'
 export { OidcModule } from './oidc.module'
 export { OidcCleanupService } from './oidc-cleanup.service'
+export { loadPage, pageAssetsDir, renderPage } from './pages'
 export { AccountClaimsResolver, createOidcProvider, OIDC_PROVIDER } from './provider.factory'
 export { SIGNING_ALGS, SigningAlg, SigningKeysService } from './signing-keys.service'
 export {

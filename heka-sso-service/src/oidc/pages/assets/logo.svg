@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Wallet sign-in">
+  <!-- Neutral placeholder mark (P2.10.1) — replace with your deployment's logo. -->
+  <rect x="4" y="12" width="56" height="40" rx="10" fill="#2e2721"/>
+  <rect x="40" y="26" width="20" height="12" rx="6" fill="#f1ece7"/>
+  <circle cx="46" cy="32" r="3" fill="#2e2721"/>
+</svg>

@@ -167,6 +167,47 @@ export class OidcClientConfig {
 /** DCQL `credentials[].id` syntax (OpenID4VP DCQL; mirrors the `dcql` package identity-service validates with). */
 const DCQL_ID_PATTERN = /^[a-zA-Z0-9_-]+$/
 
+/**
+ * Per-client branding of the wallet login page (INTEGRATION.md P2.10.3 — the
+ * §4.2 theming hook). Served to the page via `GET /interaction/:uid/branding`
+ * and applied client-side; purely cosmetic. All fields optional — the page's
+ * built-in branding (P2.10.1 file templates + assets) is the default.
+ */
+export class OidcLoginConfigBranding {
+  /** Shown next to the logo and in the page title. */
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  public productName?: string
+
+  /** Logo image URL — bridge-relative (e.g. `/interaction/assets/acme.svg`) or absolute. */
+  @IsOptional()
+  @IsString()
+  @Length(1, 2000)
+  public logoUrl?: string
+
+  /**
+   * CSS custom-property overrides applied on `:root`, keyed with or without
+   * the leading `--` (see `--brand-*` in `pages/assets/styles.css`).
+   */
+  @IsOptional()
+  @IsObject()
+  public colors?: Record<string, string>
+
+  /** Extra CSS appended to the page (admin-supplied — same trust level as the rest of the config). */
+  @IsOptional()
+  @IsString()
+  public customCss?: string
+
+  public constructor(data?: Record<string, any>) {
+    const branding = data ?? {}
+    this.productName = branding.productName
+    this.logoUrl = branding.logoUrl
+    this.colors = branding.colors
+    this.customCss = branding.customCss
+  }
+}
+
 /** Declarative per-client login configuration (INTEGRATION.md §4.2). */
 export class OidcLoginConfig {
   @IsString()
@@ -209,6 +250,12 @@ export class OidcLoginConfig {
   @IsString({ each: true })
   public issuerAllowlist: string[]
 
+  /** Per-client login-page branding (P2.10.3). */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OidcLoginConfigBranding)
+  public branding?: OidcLoginConfigBranding
+
   public constructor(data?: Record<string, any>) {
     const loginConfig = data ?? {}
     this.id = loginConfig.id
@@ -219,6 +266,7 @@ export class OidcLoginConfig {
     this.subStrategy = loginConfig.subStrategy ?? SubStrategy.derived
     this.subClaim = loginConfig.subClaim
     this.issuerAllowlist = loginConfig.issuerAllowlist ?? []
+    this.branding = loginConfig.branding ? new OidcLoginConfigBranding(loginConfig.branding) : undefined
   }
 
   /** DCQL credential query ids (`dcqlQuery.credentials[].id`) — the prefixes claim-mapping keys are written against. */

@@ -5,6 +5,7 @@ import { MikroOrmModule } from '@mikro-orm/nestjs'
 import { Logger, MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 
 import { AccountClaimsStore } from './account-claims.store'
+import { InteractionAssetsController } from './assets.controller'
 import { IDENTITY_ACQUIRER, IdentityAcquirer, StubIdentityAcquirer } from './identity-acquirer'
 import { IdentityServiceTokenProvider } from './identity-service-token.provider'
 import { InteractionController } from './interaction.controller'
@@ -25,7 +26,9 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
  */
 @Module({
   imports: [ConfigModule, MikroOrmModule.forFeature({ entities: [OidcEntity, OidcSigningKey] })],
-  controllers: [InteractionController],
+  // P2.10.1: the assets controller is listed first so /interaction/assets/*
+  // resolves before InteractionController's `:uid`-shaped routes.
+  controllers: [InteractionAssetsController, InteractionController],
   providers: [
     SigningKeysService,
     AccountClaimsStore,

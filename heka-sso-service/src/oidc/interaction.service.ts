@@ -1,4 +1,4 @@
-import { ConfigService, OidcLoginConfig } from '@config'
+import { ConfigService, OidcLoginConfig, OidcLoginConfigBranding } from '@config'
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common'
 import type Provider from 'oidc-provider'
 import type { InteractionResults } from 'oidc-provider'
@@ -174,6 +174,11 @@ export class InteractionService {
     const acquirer = this.identityAcquirer
     if (!supportsDcApiLogin(acquirer)) throw new InteractionApiError('wallet login is not enabled')
     return await acquirer.verifyDcApiLogin(details.uid, authorizationResponse)
+  }
+
+  /** P2.10.3 — the login configuration's branding block for the login page. Cosmetic; creates no session. */
+  public branding(details: InteractionDetails): OidcLoginConfigBranding | Record<string, never> {
+    return this.requireLoginConfig(details).branding ?? {}
   }
 
   /** P1.6.3 — login progress for the polling login page (only the cross-device path polls). */

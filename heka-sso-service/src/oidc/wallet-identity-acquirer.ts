@@ -13,7 +13,7 @@ import {
   LoginPageData,
   LoginStatus,
 } from './identity-acquirer'
-import { LOGIN_PAGE_HTML } from './login-page'
+import { loadPage } from './pages'
 import { VerificationSessionClient, VerificationSessionState } from './verification-session.client'
 import { assertWalletAuthorizationRequest } from './wallet-uri'
 
@@ -71,7 +71,9 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
     this.prune()
     this.pending.delete(interactionUid)
     this.logger.log(`Interaction ${interactionUid}: wallet login page served (login config '${loginConfig.id}')`)
-    return { kind: 'page', html: LOGIN_PAGE_HTML }
+    // The static login page (P2.1.1), a file template since P2.10.1 — nothing
+    // per-interaction is server-rendered into it.
+    return { kind: 'page', html: loadPage('login.html') }
   }
 
   /** P2.1.1 — the QR path's data: creates the cross-device `direct_post` session (fresh nonce, §4.6-1). */
