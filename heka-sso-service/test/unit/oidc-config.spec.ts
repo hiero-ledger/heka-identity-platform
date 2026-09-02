@@ -194,7 +194,7 @@ describe('OidcConfig', () => {
     ).toThrow(/known default secret/)
   })
 
-  test('stub login (P1.3): off by default, on with OIDC_STUB_LOGIN=true, refused in production', () => {
+  test('stub login: off by default, on with OIDC_STUB_LOGIN=true, refused in production', () => {
     expect(new OidcConfig({}).stubLogin).toBe(false)
     expect(new OidcConfig({ OIDC_STUB_LOGIN: 'true' }).stubLogin).toBe(true)
 

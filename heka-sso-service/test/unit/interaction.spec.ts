@@ -123,7 +123,7 @@ const runAuthorizationFlow = async (app: express.Express, codeVerifier: string, 
 const decodeJwtPayload = (jwt: string): Record<string, any> =>
   JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString())
 
-describe('wallet-login interaction (P1.3, stub login)', () => {
+describe('wallet-login interaction (stub login)', () => {
   describe('with the stub enabled', () => {
     const { app, accountClaims } = buildApp(new StubIdentityAcquirer())
 
