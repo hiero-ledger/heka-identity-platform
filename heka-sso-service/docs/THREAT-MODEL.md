@@ -25,7 +25,7 @@ Companion to [INTEGRATION.md](INTEGRATION.md) (§4.6-5 mandates this review) and
 | AT.4 Session hijacking | **Mitigated** (deployment caveats) | TLS → `Secure` cookies; review `OIDC_TTL_SESSION` per deployment |
 | AT.5 Proof request manipulation | **Mitigated** | — |
 | AT.6 Verification result spoofing | **Mitigated** (residual: issuer trust policy) | P3.2 (`issuerAllowlist` enforcement, trust anchors) |
-| AT.7 Credential presentation replay | **Partially mitigated** | **P2.8** (request TTL ≤ 2–3 min, one-time `request_uri`); P3.1 (`direct_post.jwt`) |
+| AT.7 Credential presentation replay | **Partially mitigated** | **P3.9** (request TTL ≤ 2–3 min, one-time `request_uri` — postponed from P2.8); P3.1 (`direct_post.jwt`) |
 | AT.8 Client credential isolation | **Mitigated** (single-tenant scope) | P3.5 (secret storage), P3.4 (multi-tenant issuers) |
 | AT.9 Session data isolation | **Mitigated** (residual: in-memory stores) | P3.5 (claim/pending stores → Postgres) |
 | AT.10 Proof template isolation | **Mitigated by construction** | Re-review at P3.5 (per-request `login_config:<id>` selection) |
@@ -101,7 +101,7 @@ Companion to [INTEGRATION.md](INTEGRATION.md) (§4.6-5 mandates this review) and
 
 **Evidence.** P2.7 e2e: replaying `/complete` after a successful login yields no second code. P1.8 e2e: code single-use.
 
-**Residual — the known Phase 2 gap (P2.8).** Two IETF Cross-Device-Flows-BCP controls need heka-identity-service changes, not bridge work: the wallet-facing request TTL is Credo's **300 s default** (target ≤ 2–3 min, `expirationInSeconds` not yet exposed), and the `request_uri` is **re-fetchable** until expiry (single-use enforcement missing). Additionally, wallet responses ride plain `direct_post` until **P3.1** (`direct_post.jwt` encrypted responses per HAIP) — response confidentiality on that leg relies on TLS.
+**Residual — the known gap (P3.9, postponed from P2.8 on 2026-08-25).** Two IETF Cross-Device-Flows-BCP controls need heka-identity-service changes, not bridge work: the wallet-facing request TTL is Credo's **300 s default** (target ≤ 2–3 min, `expirationInSeconds` not yet exposed), and the `request_uri` is **re-fetchable** until expiry (single-use enforcement missing). Additionally, wallet responses ride plain `direct_post` until **P3.1** (`direct_post.jwt` encrypted responses per HAIP) — response confidentiality on that leg relies on TLS.
 
 ## AT.8 — Client credential isolation
 
@@ -156,7 +156,7 @@ Companion to [INTEGRATION.md](INTEGRATION.md) (§4.6-5 mandates this review) and
 
 | Item | Vector(s) | Where it's planned |
 |---|---|---|
-| Request TTL ≤ 2–3 min + one-time `request_uri` (identity-service changes) | AT.7 | **P2.8** |
+| Request TTL ≤ 2–3 min + one-time `request_uri` (identity-service changes) | AT.7 | **P3.9** (postponed from P2.8) |
 | `direct_post.jwt` encrypted responses (HAIP) | AT.7, AT.3 | P3.1 |
 | `issuerAllowlist` enforcement, trust anchors, revocation/status-list policies | AT.6 | P3.2 |
 | Persist claim/pending stores; encrypted client-secret storage; allowlist per-request config selection | AT.9, AT.8, AT.10 | P3.5 |

@@ -1,0 +1,63 @@
+// Pixels copied from heka-identity-service-web-ui `shared/ui/Button` (the
+// `filled`/`outlined` variants this app uses) — shared pixels, not semantics.
+@import '../../styles/mixins';
+
+.Button {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--space-sm);
+  color: var(--color-light-high-emphasis);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-xs);
+
+  font: var(--font-label-l);
+  outline: none;
+
+  @include long-text;
+
+  &[data-focus-visible] {
+    @include outline;
+  }
+}
+
+.filled {
+  background-color: var(--color-primary);
+  border: none;
+  outline: none;
+
+  &[data-hovered] {
+    background-color: var(--color-primary-hover);
+  }
+
+  &[data-pressed] {
+    background-color: var(--color-primary-pressed);
+  }
+
+  &[data-disabled] {
+    background-color: var(--color-dark-opacity-05);
+    color: var(--color-dark-disabled);
+  }
+}
+
+.outlined {
+  background: none;
+  outline: none;
+  border: 1px solid var(--color-dark-high-emphasis);
+  color: var(--color-dark-high-emphasis);
+
+  &[data-hovered] {
+    background-color: var(--color-dark-opacity-05);
+  }
+
+  &[data-pressed] {
+    background-color: var(--color-dark-opacity-08);
+  }
+
+  &[data-disabled] {
+    background: none;
+    color: var(--color-dark-disabled);
+    border-color: var(--color-dark-disabled);
+  }
+}

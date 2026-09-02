@@ -1,0 +1,26 @@
+// Global styles (INTEGRATION.md P2.9): the platform's visual language.
+// reset + variables are copied verbatim from heka-identity-service-web-ui
+// (`src/app/styles`, `src/shared/styles`) — shared pixels, not semantics
+// (the P2.1.1 reuse rule). Keep them in sync by re-copying, not by editing.
+@import 'reset';
+@import 'variables/global';
+@import 'variables/pixel-system';
+@import 'variables/colors';
+@import 'variables/typography';
+
+html,
+body {
+  font-family: var(--inter-font-family), serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-surface-2);
+  color: var(--color-dark-high-emphasis);
+  font: var(--font-body-s);
+}
