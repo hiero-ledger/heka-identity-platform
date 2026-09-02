@@ -6,8 +6,9 @@ import request from 'supertest'
 
 import { initializeMikroOrm, startTestApp } from './helpers'
 
-// TODO: re-enable once CI provides a Postgres instance for e2e tests
-describe.skip('E2E health', () => {
+// Opt-in: needs the dev Postgres (docker-compose.dev.yml, port 5434).
+// Run with `yarn test:e2e` (or E2E=true in the environment).
+describe.skipIf(process.env.E2E !== 'true')('E2E health', () => {
   let ormSchemaGenerator: SchemaGenerator
   let orm: MikroORM<PostgreSqlDriver>
 
@@ -15,6 +16,8 @@ describe.skip('E2E health', () => {
   let app: Server
 
   beforeAll(async () => {
+    // keep clear of a running dev bridge (:3005) and the OIDC e2e app (:3105)
+    process.env.APP_PORT = '3106'
     orm = await initializeMikroOrm()
     ormSchemaGenerator = orm.schema
 
