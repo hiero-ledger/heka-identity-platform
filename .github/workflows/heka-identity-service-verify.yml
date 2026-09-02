@@ -14,9 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  checks: write
-  pull-requests: write
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -25,6 +23,11 @@ jobs:
         working-directory: ./heka-identity-service
     name: Build and check
     runs-on: ubuntu-latest
+    permissions:
+      # Required to check out the repository
+      contents: read
+      # Required by vitest-coverage-report-action to post the coverage comment
+      pull-requests: write
 
     services:
       postgres:
