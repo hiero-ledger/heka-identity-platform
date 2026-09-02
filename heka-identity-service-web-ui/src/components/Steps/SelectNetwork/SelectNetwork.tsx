@@ -78,13 +78,13 @@ export const SelectNetwork = ({
     if (onChangeNetwork && networkOptions.length > 0) {
       onChangeNetwork(networkOptions[0].value);
     }
-  }, [network, networkOptions, protocolType]);
+  }, [network, networkOptions, protocolType, onChangeNetwork]);
 
   useEffect(() => {
     if (onChangeDid && didOptions.length > 0) {
       onChangeDid(didOptions[0].value);
     }
-  }, [didOptions, network]);
+  }, [didOptions, network, onChangeDid]);
 
   const onNetworkChange = useCallback(
     (option: string) => {

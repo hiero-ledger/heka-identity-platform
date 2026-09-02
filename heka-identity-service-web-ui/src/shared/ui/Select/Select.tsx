@@ -37,7 +37,7 @@ export interface SelectProps extends AriaSelectPropsType {
 const DEFAULT_PLACEHOLDER = 'Select value';
 
 // todo: Research why the forwardRef is required. Fix it.
-export const Select = React.forwardRef((props: SelectProps, ref) => {
+export const Select = React.forwardRef((props: SelectProps, _ref) => {
   const {
     className,
     placeholder,
@@ -146,3 +146,5 @@ export const Select = React.forwardRef((props: SelectProps, ref) => {
     </AriaSelect>
   );
 });
+
+Select.displayName = 'Select';

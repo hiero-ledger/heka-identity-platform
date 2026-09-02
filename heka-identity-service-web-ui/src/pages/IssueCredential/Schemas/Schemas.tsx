@@ -27,13 +27,13 @@ import { EditorView } from './EditorView/EditorView';
 import * as cls from './Schemas.module.scss';
 
 export const Schemas = () => {
-  const { schemas = [], isLoading } = useSelector(
+  const { schemas, isLoading } = useSelector(
     (state: RootState) => state.schemas,
   );
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
-  const [localSchemas, setLocalSchemas] = useState(schemas);
+  const [localSchemas, setLocalSchemas] = useState(schemas ?? []);
   const [schema, setSchema] = useState<null | SchemaType>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
   const [isRegistrationsModalOpen, setRegistrationsModalOpen] = useState(false);
@@ -65,8 +65,8 @@ export const Schemas = () => {
   }, [dispatch, showActiveSchemas]);
 
   useEffect(() => {
-    setLocalSchemas(schemas);
-  }, [setLocalSchemas, isLoading]);
+    setLocalSchemas(schemas ?? []);
+  }, [setLocalSchemas, isLoading, schemas]);
 
   useEffect(() => {
     if (schema?.id) {
