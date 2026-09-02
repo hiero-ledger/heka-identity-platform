@@ -4,7 +4,8 @@
   STATIC page served by the bridge on its own origin - the interaction uid
   comes from the URL and everything else from the same-origin JSON interaction
   API (/interaction/:uid/data, /dc-api/start, /dc-api/verify, /status,
-  /complete, /branding). Same-origin fetches carry the _interaction cookie,
+  /events, /complete, /branding). Same-origin fetches carry the _interaction
+  cookie,
   which is what enforces the section-3.3 binding rule (P2.1.1 decision: this
   page must never move to another origin, iframes included).
 

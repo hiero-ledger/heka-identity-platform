@@ -5,8 +5,11 @@
  * - DC API preferred (P2.1): feature-detect `navigator.credentials.get()` +
  *   `DigitalCredential`, hand the signed request to the OS credential picker,
  *   forward the wallet's response to the bridge's origin-bound verify route.
- * - QR + polling fallback (P1.6.3): `/data` creates the `direct_post`
- *   verification session lazily (P2.1.1 — never before the QR path engages).
+ * - QR fallback (P1.6): `/data` creates the `direct_post` verification
+ *   session lazily (P2.1.1 — never before the QR path engages), then the page
+ *   listens on the same-origin WebSocket (`/interaction/:uid/events`, P3.7)
+ *   for status pushes; polling (P1.6.3) takes over whenever the socket is
+ *   unavailable, fails, or takes too long to open.
  * - Completion always navigates the SAME cookie-bound browser session to
  *   `/interaction/:uid/complete` (§3.3 binding rule).
  * - Per-client branding (P2.10.3) from `/interaction/:uid/branding` — purely
@@ -107,8 +110,9 @@ function dcApiSupported(): boolean {
 }
 
 /**
- * Cross-device fallback (P1.6.3): fetch the QR/deep-link data — this is what
- * creates the direct_post verification session — then poll status.
+ * Cross-device fallback (P1.6): fetch the QR/deep-link data — this is what
+ * creates the direct_post verification session — then listen for the
+ * WebSocket push (P3.7), with status polling (P1.6.3) as the fallback channel.
  */
 function startQr(): void {
   qrSection.hidden = false
@@ -125,26 +129,105 @@ function startQr(): void {
       deepLink.href = data.authorizationRequest ?? ''
       deepLink.hidden = false
       qrStatus.textContent = 'Waiting for the wallet presentation…'
-      setTimeout(poll, 2000)
+      connectPush()
     })
     .catch(() => {
       qrStatus.textContent = 'The sign-in attempt could not be started.'
     })
 }
 
-function poll(): void {
+let finished = false
+let pollingActive = false
+let pollTimer: ReturnType<typeof setTimeout> | null = null
+
+function handleStatus(data: LoginStatus | null | undefined): void {
+  if (finished || !data) return
+  if (data.status === 'verified') {
+    finished = true
+    stopPolling()
+    qrStatus.textContent = 'Presentation verified — signing you in…'
+    window.location.href = completeUrl
+  } else if (data.status === 'error') {
+    stopPolling()
+    qrStatus.textContent = data.message || 'Sign-in failed.'
+  }
+}
+
+const fetchStatus = (): Promise<LoginStatus> =>
   getJson<LoginStatus>(`${base}/status`, { headers: { accept: 'application/json' } })
-    .then((data) => {
-      if (data.status === 'verified') {
-        qrStatus.textContent = 'Presentation verified — signing you in…'
-        window.location.href = completeUrl
-      } else if (data.status === 'error') {
-        qrStatus.textContent = data.message || 'Sign-in failed.'
-      } else {
-        setTimeout(poll, 2000)
-      }
-    })
-    .catch(() => setTimeout(poll, 5000))
+
+function pollLoop(delay: number): void {
+  pollTimer = setTimeout(() => {
+    fetchStatus()
+      .then((data) => {
+        handleStatus(data)
+        if (pollingActive && !finished) pollLoop(2000)
+      })
+      .catch(() => {
+        if (pollingActive && !finished) pollLoop(5000)
+      })
+  }, delay)
+}
+
+function startPolling(): void {
+  if (pollingActive || finished) return
+  pollingActive = true
+  pollLoop(2000)
+}
+
+function stopPolling(): void {
+  pollingActive = false
+  if (pollTimer) {
+    clearTimeout(pollTimer)
+    pollTimer = null
+  }
+}
+
+/**
+ * P3.7: push channel — same-origin WebSocket carrying the same JSON as
+ * `/status`. Polling takes over whenever the socket is unavailable, fails,
+ * or takes too long to open.
+ */
+function connectPush(): void {
+  if (!('WebSocket' in window)) {
+    startPolling()
+    return
+  }
+  let socket: WebSocket
+  try {
+    const scheme = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
+    socket = new WebSocket(`${scheme}${window.location.host}${base}/events`)
+  } catch {
+    startPolling()
+    return
+  }
+  let opened = false
+  const openGuard = setTimeout(() => {
+    if (!opened) startPolling()
+  }, 4000)
+  socket.onopen = () => {
+    opened = true
+    clearTimeout(openGuard)
+    stopPolling()
+    // catch up on anything that happened before the socket connected
+    fetchStatus()
+      .then(handleStatus)
+      .catch(() => {})
+  }
+  socket.onmessage = (event: MessageEvent<string>) => {
+    try {
+      handleStatus(JSON.parse(event.data) as LoginStatus)
+    } catch {
+      // ignore malformed frames
+    }
+  }
+  socket.onclose = () => {
+    clearTimeout(openGuard)
+    if (!finished) startPolling()
+  }
+  socket.onerror = () => {
+    // onclose follows and starts polling
+  }
 }
 
 /**

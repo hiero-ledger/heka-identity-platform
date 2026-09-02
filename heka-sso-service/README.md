@@ -51,7 +51,7 @@ The service listens on port `3005` by default. The whole service is the OIDC pro
 - **Health** (`/health`, Nest/Terminus) — memory + database health probe for use as a Kubernetes readiness/liveness check or a Compose healthcheck.
 - **Swagger UI** (`/api/docs`, Nest).
 
-Behind a reverse proxy the public `Host` header must be forwarded (`provider.proxy = true` trusts `X-Forwarded-*`): discovery endpoint URLs are derived from it.
+Behind a reverse proxy the public `Host` header must be forwarded (`provider.proxy = true` trusts `X-Forwarded-*`): discovery endpoint URLs are derived from it. The proxy should also forward WebSocket upgrades for `/interaction/*/events` (the login page's push channel, P3.7) — one that doesn't degrades the page to polling, not to breakage.
 
 ## Configuration
 

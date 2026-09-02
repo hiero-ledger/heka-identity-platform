@@ -15,9 +15,11 @@ export {
   supportsDcApiLogin,
   supportsDirectPostLogin,
 } from './identity-acquirer'
+export { IdentityServiceEventsClient, VerificationSessionEvent } from './identity-service-events.client'
 export { IdentityServiceTokenProvider } from './identity-service-token.provider'
 export { InteractionController } from './interaction.controller'
 export { InteractionApiError, InteractionDetails, InteractionService, LoginPromptOutcome } from './interaction.service'
+export { LoginEventsService } from './login-events.service'
 export { MikroOrmAdapter } from './mikro-orm.adapter'
 export { noStoreMiddleware } from './no-store.middleware'
 export { OidcModule } from './oidc.module'

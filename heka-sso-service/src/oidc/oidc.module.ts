@@ -7,9 +7,11 @@ import { Logger, MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 import { AccountClaimsStore } from './account-claims.store'
 import { InteractionAssetsController } from './assets.controller'
 import { IDENTITY_ACQUIRER, IdentityAcquirer, StubIdentityAcquirer } from './identity-acquirer'
+import { IdentityServiceEventsClient } from './identity-service-events.client'
 import { IdentityServiceTokenProvider } from './identity-service-token.provider'
 import { InteractionController } from './interaction.controller'
 import { InteractionService } from './interaction.service'
+import { LoginEventsService } from './login-events.service'
 import { MikroOrmAdapter } from './mikro-orm.adapter'
 import { noStoreMiddleware } from './no-store.middleware'
 import { OidcCleanupService } from './oidc-cleanup.service'
@@ -36,6 +38,8 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
     OidcCleanupService,
     IdentityServiceTokenProvider,
     VerificationSessionClient,
+    LoginEventsService,
+    IdentityServiceEventsClient,
     {
       provide: OIDC_PROVIDER,
       inject: [ConfigService, SigningKeysService, AccountClaimsStore, EntityManager],
@@ -60,8 +64,13 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
       // identity-service verifier/signer are configured; otherwise none —
       // logins are then denied.
       provide: IDENTITY_ACQUIRER,
-      inject: [ConfigService, VerificationSessionClient],
-      useFactory: (configService: ConfigService, sessions: VerificationSessionClient): IdentityAcquirer | null => {
+      inject: [ConfigService, VerificationSessionClient, LoginEventsService, IdentityServiceEventsClient],
+      useFactory: (
+        configService: ConfigService,
+        sessions: VerificationSessionClient,
+        loginEvents: LoginEventsService,
+        identityEvents: IdentityServiceEventsClient,
+      ): IdentityAcquirer | null => {
         const logger = new Logger(OidcModule.name)
         if (configService.oidcConfig.stubLogin) {
           logger.warn('OIDC_STUB_LOGIN is enabled — logins are stubbed without credential verification (dev only)')
@@ -70,7 +79,10 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
         const { publicVerifierId, requestSignerDid } = configService.oidcConfig.identityService
         if (publicVerifierId && requestSignerDid) {
           logger.log('Wallet login enabled (OID4VP via heka-identity-service verification sessions)')
-          return new WalletIdentityAcquirer(sessions, configService)
+          // P3.7: subscribe to identity-service verification events and relay
+          // them to the login page; polling remains the fallback channel.
+          identityEvents.start((event) => loginEvents.handleSessionEvent(event))
+          return new WalletIdentityAcquirer(sessions, configService, loginEvents)
         }
         logger.warn(
           'No identity acquisition method enabled — set IDENTITY_SERVICE_PUBLIC_VERIFIER_ID + ' +
@@ -80,7 +92,7 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
       },
     },
   ],
-  exports: [SigningKeysService, OIDC_PROVIDER, AccountClaimsStore],
+  exports: [SigningKeysService, OIDC_PROVIDER, AccountClaimsStore, LoginEventsService],
 })
 export class OidcModule implements NestModule {
   public configure(consumer: MiddlewareConsumer): void {

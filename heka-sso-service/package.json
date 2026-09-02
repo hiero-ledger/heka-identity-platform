@@ -56,6 +56,7 @@
     "class-transformer": "0.5.1",
     "class-validator": "0.14.1",
     "helmet": "8.3.0",
+    "keygrip": "1.1.0",
     "nestjs-pino": "4.6.1",
     "oidc-provider": "9.11.3",
     "pino": "8.19.0",
@@ -65,7 +66,8 @@
     "reflect-metadata": "0.2.1",
     "rxjs": "7.8.1",
     "swagger-ui-express": "5.0.0",
-    "uuid": "10.0.0"
+    "uuid": "10.0.0",
+    "ws": "8.18.3"
   },
   "devDependencies": {
     "@mikro-orm/cli": "7.1.3",
@@ -73,11 +75,13 @@
     "@nestjs/schematics": "11.1.0",
     "@nestjs/testing": "11.1.24",
     "@types/express": "5.0.0",
+    "@types/keygrip": "1.0.6",
     "@types/node": "22.0.2",
     "@types/oidc-provider": "9.11.1",
     "@types/qrcode": "1.5.5",
     "@types/supertest": "6.0.2",
     "@types/uuid": "9.0.8",
+    "@types/ws": "8.18.1",
     "eslint": "10.4.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.6",

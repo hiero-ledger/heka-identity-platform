@@ -33,6 +33,8 @@ describe('interaction assets (P2.10.1)', () => {
     expect(js.text).toContain('navigator.credentials') // DC API feature detection
     expect(js.text).toContain('/dc-api/start') // same-device path
     expect(js.text).toContain('/branding') // P2.10.3 branding fetch
+    expect(js.text).toContain('/events') // P3.7 WebSocket push subscription (polling fallback retained)
+    expect(js.text).toContain('/status') // P1.6.3 polling fallback
   })
 
   test('rejects traversal, non-whitelisted extensions, and missing files', async () => {
