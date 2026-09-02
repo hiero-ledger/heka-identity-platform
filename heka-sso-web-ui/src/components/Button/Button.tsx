@@ -1,22 +1,62 @@
+import { ReactNode } from 'react'
 import {
   Button as AriaButton,
   ButtonProps as AriaButtonProps,
 } from 'react-aria-components'
 
+import ArrowBackIcon from '@/assets/icons/arrow-back.svg?react'
+import LogoutIcon from '@/assets/icons/logout.svg?react'
+import UserIcon from '@/assets/icons/user.svg?react'
+import { classNames, Mods } from '@/utils/classNames'
+
 import styles from './Button.module.scss'
 
-interface ButtonProps extends AriaButtonProps {
-  buttonType?: 'filled' | 'outlined'
+export type ButtonType = 'filled' | 'outlined' | 'tonal' | 'text'
+export type ButtonIcon = 'arrow-back' | 'logout' | 'user'
+
+const icons: Record<ButtonIcon, ReactNode> = {
+  'arrow-back': <ArrowBackIcon className={styles.icon} aria-hidden="true" />,
+  logout: <LogoutIcon className={styles.icon} aria-hidden="true" />,
+  user: <UserIcon className={styles.icon} aria-hidden="true" />,
 }
 
-// Minimal platform-styled button: react-aria-components
-// with the pixels of heka-identity-service-web-ui's Button — only the variants
-// this app needs, none of the icon/loader machinery.
-function Button({ buttonType = 'filled', className, ...props }: ButtonProps) {
-  const classes = [styles.Button, styles[buttonType], className]
-    .filter(Boolean)
-    .join(' ')
-  return <AriaButton className={classes} {...props} />
+export interface ButtonProps extends Omit<AriaButtonProps, 'className' | 'children'> {
+  buttonType?: ButtonType
+  isSmall?: boolean
+  fullWidth?: boolean
+  alignment?: 'center' | 'left'
+  leftIcon?: ButtonIcon
+  rightIcon?: ButtonIcon
+  className?: string
+  children?: ReactNode
+}
+
+// Pixels of heka-identity-service-web-ui `shared/ui/Button` — the `filled`,
+// `outlined`, `tonal` and `text` variants, icons and the small/full-width
+// modifiers this app needs; no `elevated`/`shutter` variants, no loader.
+function Button({
+  buttonType = 'filled',
+  isSmall,
+  fullWidth,
+  alignment,
+  leftIcon,
+  rightIcon,
+  className,
+  children,
+  ...props
+}: ButtonProps) {
+  const mods: Mods = {
+    [styles.small]: isSmall,
+    [styles.fullWidth]: fullWidth,
+    [styles.leftAligned]: alignment === 'left',
+  }
+  return (
+    <AriaButton className={classNames(styles.Button, mods, [styles[buttonType], className])} {...props}>
+      {leftIcon && icons[leftIcon]}
+      {children}
+      {rightIcon && icons[rightIcon]}
+    </AriaButton>
+  )
 }
 
 export default Button

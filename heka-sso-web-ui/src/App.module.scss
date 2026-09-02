@@ -1,32 +1,12 @@
-.app {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-}
+@import './styles/mixins';
 
-// top bar — app title on the left, "Sign out" on the right.
-.topBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-xl);
-  background: var(--color-surface-deep);
-  box-shadow: var(--shadow-small);
-}
-
-.title {
-  font: var(--font-headline-s);
-}
-
-// centered page container; the dashboard's claims card is its focal point.
-.main {
+.splash {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-xxl) var(--space-xl);
+  gap: var(--space-md);
 }
 
 .status {
@@ -34,22 +14,16 @@
   color: var(--color-dark-medium-emphasis);
 }
 
-.error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-xxl);
-  background: var(--color-surface-deep);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-small);
-}
-
-.errorTitle {
-  font: var(--font-headline-s);
-}
-
-.errorMessage {
+.message {
   font: var(--font-body-s);
   color: var(--color-dark-medium-emphasis);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-sm);
+
+  @include mobile {
+    flex-direction: column;
+  }
 }

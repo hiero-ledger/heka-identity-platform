@@ -1,12 +1,12 @@
 // src/styles/design-tokens.scss — the only place CSS constants are defined
 // for heka-sso-web-ui.
 //
-// Source of truth: docs/DESIGN-TOKENS.md (Partisia-SSI-2.0 Figma, "Web UI"
-// page). Change the doc first, then this file; keep the section order in sync.
+// Source of truth: docs/DESIGN-TOKENS.md. 
+// Change the doc first, then this file; keep the section order in sync.
 // Values marked `inferred` were not read from Figma — see the referenced
 // DESIGN-TOKENS section for how they were derived and how confident we are.
 //
-// Reuse rules (docs/UI-PLAN.md §2.1): component SCSS uses only `var(--…)`
+// Reuse rules: component SCSS uses only `var(--…)`
 // names from this file — no literal colors, px sizes, font sizes or shadows.
 // Radii use `--radius-*`, never `--space-*`.
 
@@ -107,6 +107,7 @@
   --layout-content-padding: var(--space-xxxxl); // 48px, desktop
   --layout-content-padding-tablet: var(--space-xl); // 24px, 640–1024 (inferred from identity-service)
   --layout-content-padding-mobile: var(--space-md); // 16px, ≤ 640 (inferred from identity-service)
+  --layout-illustration-size: 340px; // header-panel illustration width, identity-service desktopIconProps (Figma: 434px, clipped by the 288px column)
   --layout-illustration-size-mobile: 160px; // TopPanel illustration, identity-service mobileIconProps
 
   // ---------------------------------------------------------------------------

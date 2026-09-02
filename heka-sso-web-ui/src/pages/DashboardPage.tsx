@@ -1,4 +1,4 @@
-import { useAuthSession } from '../auth/session'
+import { useAuthSession } from '@/auth/session'
 
 import styles from './DashboardPage.module.scss'
 
