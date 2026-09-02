@@ -1,0 +1,17 @@
+{
+  "name": "heka-sso-service-ui",
+  "version": "0.0.1",
+  "description": "Wallet login page of heka-sso-service (INTEGRATION.md P2.10.2) — built to static files the bridge serves from its own origin",
+  "license": "Apache-2.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "check-types": "tsc --noEmit",
+    "dev": "vite"
+  },
+  "devDependencies": {
+    "sass": "1.77.8",
+    "typescript": "5.9.3",
+    "vite": "6.4.3"
+  }
+}

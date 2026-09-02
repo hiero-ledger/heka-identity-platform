@@ -15,14 +15,24 @@ describe('interaction assets (P2.10.1)', () => {
     controller.file(req.params.file, res).catch(next)
   })
 
-  test('serves the shared stylesheet and logo with correct content types and caching', async () => {
+  test('serves the built stylesheet and the hand-authored logo with correct content types and caching', async () => {
+    // built by `yarn ui:build` (P2.10.2) — resolved from the pages/ui root
     const css = await request(app).get('/interaction/assets/styles.css').expect(200)
     expect(css.headers['content-type']).toContain('text/css')
     expect(css.headers['cache-control']).toContain('max-age')
     expect(css.text).toContain('--brand-primary')
 
+    // resolved from the hand-authored pages/assets root
     const svg = await request(app).get('/interaction/assets/logo.svg').expect(200)
     expect(svg.headers['content-type']).toContain('image/svg+xml')
+  })
+
+  test('serves the built login-page script with the page behavior in it (P2.10.2)', async () => {
+    const js = await request(app).get('/interaction/assets/login.js').expect(200)
+    expect(js.headers['content-type']).toContain('text/javascript')
+    expect(js.text).toContain('navigator.credentials') // DC API feature detection
+    expect(js.text).toContain('/dc-api/start') // same-device path
+    expect(js.text).toContain('/branding') // P2.10.3 branding fetch
   })
 
   test('rejects traversal, non-whitelisted extensions, and missing files', async () => {

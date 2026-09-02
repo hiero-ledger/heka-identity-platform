@@ -22,7 +22,7 @@ export { MikroOrmAdapter } from './mikro-orm.adapter'
 export { noStoreMiddleware } from './no-store.middleware'
 export { OidcModule } from './oidc.module'
 export { OidcCleanupService } from './oidc-cleanup.service'
-export { loadPage, pageAssetsDir, renderPage } from './pages'
+export { builtUiDir, loadPage, pageAssetRoots, pageAssetsDir, renderPage } from './pages'
 export { AccountClaimsResolver, createOidcProvider, OIDC_PROVIDER } from './provider.factory'
 export { SIGNING_ALGS, SigningAlg, SigningKeysService } from './signing-keys.service'
 export {

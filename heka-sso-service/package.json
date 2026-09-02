@@ -3,8 +3,14 @@
   "version": "0.0.1",
   "description": "Heka SSO service",
   "license": "Apache-2.0",
+  "private": true,
+  "workspaces": [
+    "ui"
+  ],
   "scripts": {
-    "build": "npx @nestjs/cli build",
+    "build": "yarn ui:build && npx @nestjs/cli build",
+    "ui:build": "yarn workspace heka-sso-service-ui build",
+    "ui:dev": "yarn workspace heka-sso-service-ui dev",
     "check-types": "yarn check-types:src && yarn check-types:test",
     "check-types:src": "tsc --noEmit",
     "check-types:test": "tsc -p tsconfig.test.json --noEmit",
