@@ -19,7 +19,7 @@ export const WALLET_URI_SCHEMES: ReadonlySet<string> = new Set([
  * HTML escaping does not neutralize a `javascript:` (or any browser) scheme in
  * an `href`, so the value is allowlisted by scheme and required to be a JAR by
  * reference (`request_uri` — P1.6.1, "signed, always"). Fails closed: the
- * caller turns the error into `server_error` and nothing is rendered. Error
+ * data route answers with a generic JSON error and nothing is rendered. Error
  * messages carry the scheme only — the URI is a single-use credential and must
  * not be logged.
  */

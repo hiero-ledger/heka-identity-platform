@@ -102,6 +102,90 @@ describe('VerificationSessionClient', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  test('DC API (P2.1): creates a signed dc_api session bound to the calling origin', async () => {
+    fetchMock.mockResolvedValue(
+      fetchResponse({
+        verificationSession: { id: 'dc-session-1' },
+        authorizationRequest: 'openid4vp://…',
+        authorizationRequestObject: { request: 'signed-jar-jwt' },
+      }),
+    )
+
+    const created = await buildClient().createDcApiRequest(loginConfig, 'https://sso.example.com')
+
+    expect(created).toEqual({
+      sessionId: 'dc-session-1',
+      protocol: 'openid4vp-v1-signed',
+      authorizationRequestObject: { request: 'signed-jar-jwt' },
+    })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('http://identity.internal:3000/openid4vc/verification-session/request')
+    expect(JSON.parse(init.body)).toEqual({
+      publicVerifierId: 'verifier-1',
+      requestSigner: { method: 'did', did: 'did:web:sso.example.com' },
+      dcql: { query: dcqlQuery },
+      responseMode: 'dc_api',
+      version: 'v1',
+      expectedOrigins: ['https://sso.example.com'],
+    })
+  })
+
+  test('DC API: an unsigned request object maps to the unsigned protocol id', async () => {
+    fetchMock.mockResolvedValue(
+      fetchResponse({
+        verificationSession: { id: 'dc-session-2' },
+        authorizationRequest: 'openid4vp://…',
+        authorizationRequestObject: { response_type: 'vp_token', dcql_query: dcqlQuery },
+      }),
+    )
+
+    const created = await buildClient().createDcApiRequest(loginConfig, 'https://sso.example.com')
+    expect(created.protocol).toBe('openid4vp-v1-unsigned')
+  })
+
+  test('DC API: fails when the identity service returns no authorizationRequestObject', async () => {
+    fetchMock.mockResolvedValue(
+      fetchResponse({ verificationSession: { id: 'dc-session-3' }, authorizationRequest: 'openid4vp://…' }),
+    )
+
+    await expect(buildClient().createDcApiRequest(loginConfig, 'https://sso.example.com')).rejects.toThrow(
+      /no authorizationRequestObject/,
+    )
+  })
+
+  test('DC API: fails fast when verifier id or signer DID is not configured', async () => {
+    await expect(
+      buildClient({ IDENTITY_SERVICE_REQUEST_SIGNER_DID: '' }).createDcApiRequest(loginConfig, 'https://sso.example.com'),
+    ).rejects.toThrow(/must be configured/)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  test('DC API: verifyDcApiResponse posts the browser-forwarded response to the origin-bound verify endpoint', async () => {
+    fetchMock.mockResolvedValue(
+      fetchResponse({
+        id: 'dc-session-1',
+        state: VerificationSessionState.ResponseVerified,
+        sharedAttributes: { given_name: 'Ada' },
+      }),
+    )
+
+    const record = await buildClient().verifyDcApiResponse(
+      'dc-session-1',
+      { vp_token: { pid: ['token'] } },
+      'https://sso.example.com',
+    )
+
+    expect(record.state).toBe(VerificationSessionState.ResponseVerified)
+    expect(record.sharedAttributes).toEqual({ given_name: 'Ada' })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('http://identity.internal:3000/openid4vc/verification-session/dc-session-1/verify')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual({
+      authorizationResponse: { vp_token: { pid: ['token'] } },
+      origin: 'https://sso.example.com',
+    })
+  })
+
   test('getSession returns the record state', async () => {
     fetchMock.mockResolvedValue(
       fetchResponse({

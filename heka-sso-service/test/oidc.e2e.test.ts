@@ -355,12 +355,13 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
     })
   })
 
-  describe('wallet-login app with a mocked verification session (P1.6/P1.8)', () => {
+  describe('wallet-login app with a mocked verification session (P1.6/P1.8/P2.1)', () => {
     let nestApp: INestApplication
     let app: Server
 
-    /** Mutable session state the mocked identity service reports (P1.6.3 polling). */
+    /** Mutable session states the mocked identity service reports (direct_post polling + dc_api verify). */
     let sessionState: 'RequestCreated' | 'ResponseVerified' | 'Error'
+    let dcSessionState: 'RequestCreated' | 'ResponseVerified' | 'Error'
     const disclosedAttributes = { given_name: 'Ada', family_name: 'Lovelace', email: 'ada@example.com' }
 
     const jsonResponse = (body: unknown) => ({
@@ -370,19 +371,38 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       text: async () => JSON.stringify(body),
     })
 
-    const fetchMock = vi.fn(async (url: unknown) => {
+    const fetchMock = vi.fn(async (url: unknown, init?: { method?: string; body?: string }) => {
       const target = String(url)
       if (target === 'http://identity.e2e.internal/openid4vc/verification-session/request') {
+        const body = JSON.parse(init?.body ?? '{}')
+        if (body.responseMode === 'dc_api') {
+          return jsonResponse({
+            verificationSession: { id: 'e2e-dc-session' },
+            authorizationRequest: 'openid4vp://…',
+            authorizationRequestObject: { request: 'signed-jar-jwt' },
+          })
+        }
         return jsonResponse({
           verificationSession: { id: 'e2e-session' },
           authorizationRequest: 'openid4vp://?request_uri=https%3A%2F%2Fis%2Foid4vp%2Fe2e',
         })
+      }
+      if (target === 'http://identity.e2e.internal/openid4vc/verification-session/e2e-dc-session/verify') {
+        dcSessionState = 'ResponseVerified'
+        return jsonResponse({ id: 'e2e-dc-session', state: dcSessionState, sharedAttributes: disclosedAttributes })
       }
       if (target === 'http://identity.e2e.internal/openid4vc/verification-session/e2e-session') {
         return jsonResponse({
           id: 'e2e-session',
           state: sessionState,
           ...(sessionState === 'ResponseVerified' && { sharedAttributes: disclosedAttributes }),
+        })
+      }
+      if (target === 'http://identity.e2e.internal/openid4vc/verification-session/e2e-dc-session') {
+        return jsonResponse({
+          id: 'e2e-dc-session',
+          state: dcSessionState,
+          ...(dcSessionState === 'ResponseVerified' && { sharedAttributes: disclosedAttributes }),
         })
       }
       throw new Error(`unexpected fetch in e2e: ${target}`)
@@ -408,10 +428,11 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
 
     beforeEach(() => {
       sessionState = 'RequestCreated'
+      dcSessionState = 'RequestCreated'
       fetchMock.mockClear()
     })
 
-    test('full wallet flow: QR page → polling → cookie-bound completion → tokens with amr=[vc]', async () => {
+    test('full wallet flow: static page → data (QR) → polling → cookie-bound completion → tokens with amr=[vc]', async () => {
       const codeVerifier = randomBytes(32).toString('base64url')
       const jar = jarFactory()
 
@@ -420,10 +441,15 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       jar.store(authorize)
       const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
 
-      // the login page renders (session created via the mocked identity service)
+      // the static login page renders (P2.1.1) — no verification session yet
       const page = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
       expect(page.text).toContain('Sign in with your wallet')
-      expect(page.text).toContain(`${interactionPath}/status`)
+      expect(fetchMock).not.toHaveBeenCalled()
+
+      // the QR data call creates the direct_post session via the mocked identity service
+      const data = await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(200)
+      expect(data.body.qrDataUrl).toContain('data:image/png;base64')
+      expect(data.body.authorizationRequest).toContain('openid4vp://?request_uri=')
       expect(fetchMock.mock.calls[0][0]).toBe('http://identity.e2e.internal/openid4vc/verification-session/request')
 
       // polling: pending while the wallet has not responded …
@@ -464,7 +490,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       expect(userinfo.body.sub).toBe(idToken.sub)
     })
 
-    test('binding rule (§3.3): status and completion are rejected without the interaction cookie', async () => {
+    test('DC API same-device flow (P2.1): start → verify → cookie-bound completion → tokens with amr=[vc]', async () => {
       const codeVerifier = randomBytes(32).toString('base64url')
       const jar = jarFactory()
 
@@ -472,11 +498,68 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       jar.store(authorize)
       const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
       await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+
+      // start: dc_api session created, request object + protocol returned for navigator.credentials.get()
+      const start = await request(app).post(`${interactionPath}/dc-api/start`).set('Cookie', jar.header()).expect(200)
+      expect(start.body).toEqual({ protocol: 'openid4vp-v1-signed', request: { request: 'signed-jar-jwt' } })
+      const createBody = JSON.parse(fetchMock.mock.calls[0][1]?.body ?? '{}')
+      expect(createBody.responseMode).toBe('dc_api')
+      // origin binding: the bridge's own origin (from OIDC_ISSUER_URL) rides in expectedOrigins
+      expect(createBody.expectedOrigins).toEqual(['http://localhost:3005'])
+
+      // verify: the browser-forwarded wallet response reaches the origin-bound verify endpoint
+      const verify = await request(app)
+        .post(`${interactionPath}/dc-api/verify`)
+        .set('Cookie', jar.header())
+        .send({ authorizationResponse: { vp_token: { pid: ['e2e-vp-token'] } } })
+        .expect(200)
+      expect(verify.body).toEqual({ status: 'verified' })
+      const verifyCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/e2e-dc-session/verify'))
+      expect(JSON.parse(verifyCall?.[1]?.body ?? '{}')).toEqual({
+        authorizationResponse: { vp_token: { pid: ['e2e-vp-token'] } },
+        origin: 'http://localhost:3005',
+      })
+
+      // completion in the same cookie-bound session resumes the flow to the client
+      const complete = await request(app).get(`${interactionPath}/complete`).set('Cookie', jar.header()).expect(303)
+      jar.store(complete)
+      const callbackUrl = await follow303Chain(app, jar, complete.headers.location)
+      const code = callbackUrl.searchParams.get('code')
+      expect(code).toBeTruthy()
+
+      const tokens = await exchangeCode(app, code, codeVerifier)
+      expect(tokens.status).toBe(200)
+      const idToken = decodeJwtPayload(tokens.body.id_token)
+      expect(idToken.amr).toEqual(['vc'])
+      expect(idToken).toMatchObject({ given_name: 'Ada', family_name: 'Lovelace', email: 'ada@example.com' })
+    })
+
+    test('binding rule (§3.3): the interaction API is rejected without the interaction cookie', async () => {
+      const codeVerifier = randomBytes(32).toString('base64url')
+      const jar = jarFactory()
+
+      const authorize = await request(app).get('/authorize').query(authorizeQuery(codeVerifier)).expect(303)
+      jar.store(authorize)
+      const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
+      await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+      await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(200)
       sessionState = 'ResponseVerified'
 
-      // no cookie → no session state leaks, no code is released
+      // no cookie → no session state leaks, no session is created or verified, no code is released
       const uncookiedStatus = await request(app).get(`${interactionPath}/status`).expect(400)
       expect(uncookiedStatus.body.status).toBe('error')
+
+      const uncookiedData = await request(app).get(`${interactionPath}/data`).expect(400)
+      expect(uncookiedData.body.status).toBe('error')
+
+      const uncookiedStart = await request(app).post(`${interactionPath}/dc-api/start`).expect(400)
+      expect(uncookiedStart.body.status).toBe('error')
+
+      const uncookiedVerify = await request(app)
+        .post(`${interactionPath}/dc-api/verify`)
+        .send({ authorizationResponse: {} })
+        .expect(400)
+      expect(uncookiedVerify.body.status).toBe('error')
 
       const uncookiedComplete = await request(app).get(`${interactionPath}/complete`)
       expect(uncookiedComplete.status).toBeGreaterThanOrEqual(400)
@@ -490,6 +573,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       jar.store(authorize)
       const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
       await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+      await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(200)
 
       // still RequestCreated — completing must fail, not log in
       const complete = await request(app).get(`${interactionPath}/complete`).set('Cookie', jar.header()).expect(303)

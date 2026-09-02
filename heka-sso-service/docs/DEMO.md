@@ -93,11 +93,17 @@ then `yarn dev` and open `http://localhost:5173`.
 1. The app auto-redirects to Keycloak; `kc_idp_hint=heka-sso` forwards straight to the
    bridge (drop the hint in `src/auth.ts` to see Keycloak's login page with the
    "Sign in with wallet" button instead).
-2. The bridge shows the login page: QR + same-device link, "Waiting for the wallet…".
-3. Scan the QR with heka-wallet, review the consent screen (given name, family name,
-   age over 18), tap **Share**.
-4. The page polls to "verified", completes the interaction in the same cookie-bound tab,
-   and returns the code to Keycloak; first-broker-login creates the federated user.
+2. The bridge shows the login page. On a browser with the Digital Credentials API
+   (e.g. Chrome on Android with a wallet installed) it offers **"Sign in with the
+   wallet on this device"** (P2.1 — OS credential picker, origin-bound); otherwise —
+   or via "Show a QR code instead" — it shows the QR + same-device link, "Waiting
+   for the wallet…".
+3. DC API path: pick the credential in the OS picker and consent in the wallet.
+   QR path: scan the QR with heka-wallet, review the consent screen (given name,
+   family name, age over 18), tap **Share**.
+4. The page completes (DC API verifies synchronously; the QR path polls to
+   "verified") in the same cookie-bound tab and returns the code to Keycloak;
+   first-broker-login creates the federated user.
 5. The dashboard shows the brokered claims: `given_name`/`family_name` (as first/last
    name), `age_over_18`, and `amr` containing `vc`.
 
