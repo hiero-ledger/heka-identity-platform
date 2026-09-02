@@ -1,4 +1,4 @@
-import { useAuth } from 'react-oidc-context'
+import { useAuthSession } from '../auth/session'
 
 import styles from './DashboardPage.module.scss'
 
@@ -11,6 +11,11 @@ const KNOWN_CLAIMS = [
   'vc_presented_attributes',
 ] as const
 
+const PROVIDER_LABELS = {
+  keycloak: 'Keycloak',
+  auth0: 'Auth0',
+} as const
+
 function formatClaim(value: unknown): string {
   if (value === undefined) return '—'
   if (typeof value === 'string') return value
@@ -18,14 +23,14 @@ function formatClaim(value: unknown): string {
 }
 
 function DashboardPage() {
-  const auth = useAuth()
-  const profile: Record<string, unknown> = auth.user?.profile ?? {}
+  const auth = useAuthSession()
+  const claims = auth.claims
 
   return (
     <section className={styles.card}>
       <div>
         <h1 className={styles.heading}>Dashboard</h1>
-        <p className={styles.subheading}>You are signed in via Keycloak.</p>
+        <p className={styles.subheading}>You are signed in via {PROVIDER_LABELS[auth.provider]}.</p>
       </div>
       <table className={styles.claims}>
         <thead>
@@ -40,14 +45,14 @@ function DashboardPage() {
               <td>
                 <code>{claim}</code>
               </td>
-              <td>{formatClaim(profile[claim])}</td>
+              <td>{formatClaim(claims[claim])}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <details className={styles.debug}>
         <summary>Raw ID token claims</summary>
-        <pre>{JSON.stringify(profile, null, 2)}</pre>
+        <pre>{JSON.stringify(claims, null, 2)}</pre>
       </details>
     </section>
   )

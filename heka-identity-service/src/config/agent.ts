@@ -60,6 +60,9 @@ export default registerAs('agent', () => {
   const walletPostgresUser = process.env.WALLET_POSTGRES_USER ?? 'heka'
   const walletPostgresPass = process.env.WALLET_POSTGRES_PASSWORD ?? 'heka1'
 
+  // Public endpoints advertised to wallets and DIDComm peers. For anything
+  // beyond a same-host setup, set the AGENT_*_ENDPOINT variables in .env
+  // (e.g. to an ngrok URL — see docs/DEPLOYMENT.md at the repo root).
   const host = process.env.EXPRESS_HOST || 'localhost'
   const httpEndpoint = process.env.AGENT_HTTP_ENDPOINT ?? `http://${host}:${httpPort}`
   const wsEndpoint = process.env.AGENT_WS_ENDPOINT ?? `ws://${host}:${wsPort}`
