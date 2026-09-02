@@ -1,8 +1,16 @@
 export { AccountClaimsStore } from './account-claims.store'
 export { ClaimSet, computeSub, mapClaims } from './claims.util'
-export { AcquiredIdentity, IDENTITY_ACQUIRER, IdentityAcquirer, StubIdentityAcquirer } from './identity-acquirer'
+export {
+  AcquiredIdentity,
+  BeginLoginResult,
+  IDENTITY_ACQUIRER,
+  IdentityAcquirer,
+  LoginStatus,
+  StubIdentityAcquirer,
+} from './identity-acquirer'
 export { InteractionController } from './interaction.controller'
 export { MikroOrmAdapter } from './mikro-orm.adapter'
+export { noStoreMiddleware } from './no-store.middleware'
 export { OidcModule } from './oidc.module'
 export { OidcCleanupService } from './oidc-cleanup.service'
 export { AccountClaimsResolver, createOidcProvider, OIDC_PROVIDER } from './provider.factory'
@@ -13,3 +21,5 @@ export {
   VerificationSessionRecord,
   VerificationSessionState,
 } from './verification-session.client'
+export { WalletIdentityAcquirer } from './wallet-identity-acquirer'
+export { assertWalletAuthorizationRequest, WALLET_URI_SCHEMES } from './wallet-uri'

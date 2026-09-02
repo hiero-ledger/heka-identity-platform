@@ -2,16 +2,18 @@ import { ConfigModule, ConfigService } from '@config'
 import { OidcEntity, OidcSigningKey } from '@core/database'
 import { EntityManager } from '@mikro-orm/core'
 import { MikroOrmModule } from '@mikro-orm/nestjs'
-import { Logger, Module } from '@nestjs/common'
+import { Logger, MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 
 import { AccountClaimsStore } from './account-claims.store'
 import { IDENTITY_ACQUIRER, IdentityAcquirer, StubIdentityAcquirer } from './identity-acquirer'
 import { InteractionController } from './interaction.controller'
 import { MikroOrmAdapter } from './mikro-orm.adapter'
+import { noStoreMiddleware } from './no-store.middleware'
 import { OidcCleanupService } from './oidc-cleanup.service'
 import { createOidcProvider, OIDC_PROVIDER } from './provider.factory'
 import { SigningKeysService } from './signing-keys.service'
 import { VerificationSessionClient } from './verification-session.client'
+import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
 
 /**
  * OP core module (INTEGRATION.md §4.1): the `node-oidc-provider` instance, its
@@ -45,21 +47,38 @@ import { VerificationSessionClient } from './verification-session.client'
         ),
     },
     {
-      // Pluggable identity-acquisition step (P1.3): the dev stub when
-      // OIDC_STUB_LOGIN=true (production refuses the flag — P1.3.1), otherwise
-      // none — the interaction then denies logins until the wallet
-      // implementation lands (P1.6).
+      // Pluggable identity-acquisition step (P1.3/P1.6): the dev stub wins
+      // when OIDC_STUB_LOGIN=true (explicit dev override; production refuses
+      // the flag — P1.3.1); otherwise the OID4VP wallet acquirer when the
+      // identity-service verifier/signer are configured; otherwise none —
+      // logins are then denied.
       provide: IDENTITY_ACQUIRER,
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService): IdentityAcquirer | null => {
-        if (!configService.oidcConfig.stubLogin) return null
-        new Logger(OidcModule.name).warn(
-          'OIDC_STUB_LOGIN is enabled — logins are stubbed without credential verification (dev only)',
+      inject: [ConfigService, VerificationSessionClient],
+      useFactory: (configService: ConfigService, sessions: VerificationSessionClient): IdentityAcquirer | null => {
+        const logger = new Logger(OidcModule.name)
+        if (configService.oidcConfig.stubLogin) {
+          logger.warn('OIDC_STUB_LOGIN is enabled — logins are stubbed without credential verification (dev only)')
+          return new StubIdentityAcquirer()
+        }
+        const { publicVerifierId, requestSignerDid } = configService.oidcConfig.identityService
+        if (publicVerifierId && requestSignerDid) {
+          logger.log('Wallet login enabled (OID4VP via heka-identity-service verification sessions)')
+          return new WalletIdentityAcquirer(sessions, configService)
+        }
+        logger.warn(
+          'No identity acquisition method enabled — set IDENTITY_SERVICE_PUBLIC_VERIFIER_ID + ' +
+            'IDENTITY_SERVICE_REQUEST_SIGNER_DID for wallet login (or OIDC_STUB_LOGIN=true in dev); logins will be denied',
         )
-        return new StubIdentityAcquirer()
+        return null
       },
     },
   ],
   exports: [SigningKeysService, OIDC_PROVIDER, AccountClaimsStore],
 })
-export class OidcModule {}
+export class OidcModule implements NestModule {
+  public configure(consumer: MiddlewareConsumer): void {
+    // Per-user, per-attempt responses (login page with a single-use
+    // authorization request, cookie-bound status/complete) must never be cached.
+    consumer.apply(noStoreMiddleware).forRoutes(InteractionController)
+  }
+}

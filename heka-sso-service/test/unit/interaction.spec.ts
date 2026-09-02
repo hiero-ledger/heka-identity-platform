@@ -3,12 +3,14 @@ import { createHash, randomBytes } from 'node:crypto'
 import express from 'express'
 import request from 'supertest'
 
+import { securityHeaders } from '../../src/common/middleware'
 import { ConfigService, OidcConfig } from '../../src/core/config'
 import {
   AccountClaimsStore,
   createOidcProvider,
   IdentityAcquirer,
   InteractionController,
+  noStoreMiddleware,
   StubIdentityAcquirer,
 } from '../../src/oidc'
 import { testJwks } from '../helpers/jwks'
@@ -76,6 +78,8 @@ const buildApp = (identityAcquirer: IdentityAcquirer | null) => {
   const controller = new InteractionController(provider, identityAcquirer, configService, accountClaims)
 
   const app = express()
+  app.use(securityHeaders())
+  app.use('/interaction', noStoreMiddleware)
   app.get('/interaction/:uid', (req, res, next) => {
     controller.interaction(req, res).catch(next)
   })
@@ -216,5 +220,31 @@ describe('wallet-login interaction (stub login)', () => {
       expect(callbackUrl.searchParams.get('error')).toBe('access_denied')
       expect(callbackUrl.searchParams.get('code')).toBeNull()
     })
+  })
+})
+
+describe('response hardening (security headers)', () => {
+  const { app } = buildApp(new StubIdentityAcquirer())
+
+  test('interaction responses are uncacheable and unframeable', async () => {
+    const codeVerifier = randomBytes(32).toString('base64url')
+    const authorize = await request(app).get('/authorize').query(authorizeQuery(codeVerifier)).expect(303)
+    const jar = new CookieJar()
+    jar.store(authorize)
+    const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
+
+    const interaction = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(303)
+    expect(interaction.headers['cache-control']).toBe('no-store')
+    expect(interaction.headers['pragma']).toBe('no-cache')
+    expect(interaction.headers['x-frame-options']).toBe('DENY')
+    expect(interaction.headers['content-security-policy']).toBe("frame-ancestors 'none'")
+  })
+
+  test('framing is denied on provider endpoints too, while discovery stays cacheable', async () => {
+    const discovery = await request(app).get('/.well-known/openid-configuration').expect(200)
+    expect(discovery.headers['x-frame-options']).toBe('DENY')
+    expect(discovery.headers['content-security-policy']).toBe("frame-ancestors 'none'")
+    // no-store is scoped to /interaction — RPs are expected to cache discovery/JWKS
+    expect(discovery.headers['cache-control']).not.toBe('no-store')
   })
 })
