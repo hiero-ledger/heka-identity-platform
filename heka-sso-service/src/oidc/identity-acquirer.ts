@@ -80,17 +80,20 @@ export interface DcApiLogin {
   verifyDcApiLogin(interactionUid: string, authorizationResponse: Record<string, unknown>): Promise<LoginStatus>
 }
 
+const DC_API_METHODS = ['beginDcApiLogin', 'verifyDcApiLogin'] as const satisfies readonly (keyof DcApiLogin)[]
+const DIRECT_POST_METHODS = ['beginDirectPostLogin', 'checkLogin'] as const satisfies readonly (keyof DirectPostLogin)[]
+
 const hasMethods = (candidate: unknown, names: string[]): boolean =>
   !!candidate && names.every((name) => typeof (candidate as Record<string, unknown>)[name] === 'function')
 
 /** Whether the acquirer serves the cross-device QR path (`GET :uid/data` + `GET :uid/status`). */
 export const supportsDirectPostLogin = (
   acquirer: IdentityAcquirer | null,
-): acquirer is IdentityAcquirer & DirectPostLogin => hasMethods(acquirer, ['beginDirectPostLogin', 'checkLogin'])
+): acquirer is IdentityAcquirer & DirectPostLogin => hasMethods(acquirer, DIRECT_POST_METHODS as unknown as string[])
 
 /** Whether the acquirer serves the same-device DC API path (`POST :uid/dc-api/start` + `POST :uid/dc-api/verify`). */
 export const supportsDcApiLogin = (acquirer: IdentityAcquirer | null): acquirer is IdentityAcquirer & DcApiLogin =>
-  hasMethods(acquirer, ['beginDcApiLogin', 'verifyDcApiLogin'])
+  hasMethods(acquirer, DC_API_METHODS as unknown as string[])
 
 /** Fixed dev identity the stub discloses, keyed by OIDC claim name. */
 const stubIdentityByClaim: ClaimSet = {

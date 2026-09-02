@@ -15,6 +15,7 @@ import {
 } from './identity-acquirer'
 import { LOGIN_PAGE_HTML } from './login-page'
 import { VerificationSessionClient, VerificationSessionState } from './verification-session.client'
+import { assertWalletAuthorizationRequest } from './wallet-uri'
 
 /** The verification sessions a pending interaction may hold — one per login path (P2.1). */
 interface PendingLogin {
@@ -76,6 +77,10 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
   /** P2.1.1 — the QR path's data: creates the cross-device `direct_post` session (fresh nonce, §4.6-1). */
   public async beginDirectPostLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData> {
     const created = await this.sessions.createSignedRequest(loginConfig)
+    // Boundary check before the value reaches the page's href / QR: wallet
+    // scheme allowlist + JAR by reference; fails closed — the poisoned session
+    // is never stored and the page gets a JSON error instead of a deep link.
+    assertWalletAuthorizationRequest(created.authorizationRequest)
     this.entry(interactionUid).directPostSessionId = created.sessionId
 
     this.logger.log(`Interaction ${interactionUid}: cross-device login via verification session ${created.sessionId}`)
@@ -171,8 +176,11 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
   }
 
   private credentialQueryId(loginConfig: OidcLoginConfig): string {
-    const credentials = (loginConfig.dcqlQuery as { credentials?: { id?: string }[] } | undefined)?.credentials
-    return credentials?.[0]?.id ?? 'credential'
+    // Guaranteed by OidcLoginConfig.dcqlProblems() at config load; no silent
+    // fallback — a wrong prefix would map nothing and collapse `sub` (§4.3).
+    const [queryId] = loginConfig.credentialQueryIds
+    if (!queryId) throw new Error(`login configuration '${loginConfig.id}' has no DCQL credential query id`)
+    return queryId
   }
 
   /** The pending entry for the interaction, created on first use (sessions are started lazily by the page). */
