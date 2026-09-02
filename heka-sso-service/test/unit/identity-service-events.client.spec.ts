@@ -21,7 +21,7 @@ const waitFor = async <T>(probe: () => T | undefined, what: string, timeoutMs = 
 }
 
 /**
- * Server-side subscription to heka-identity-service's notification gateway: 
+ * Server-side subscription to heka-identity-service's notification gateway:
  * bearer-authenticated connect, verifier-event filtering, reconnect
  * with backoff, token invalidation on an unauthorized close.
  */

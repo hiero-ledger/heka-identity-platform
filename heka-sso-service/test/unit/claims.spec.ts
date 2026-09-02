@@ -59,30 +59,22 @@ describe('claims pipeline', () => {
 
     test('is independent of claim key order, including nested objects', () => {
       const reordered = { family_name: 'Lovelace', given_name: 'Ada' }
-      expect(computeSub(loginConfig, 'client-a', claims, salt)).toBe(
-        computeSub(loginConfig, 'client-a', reordered, salt),
-      )
+      expect(computeSub(loginConfig, 'client-a', claims, salt)).toBe(computeSub(loginConfig, 'client-a', reordered, salt))
 
       const nested = { address: { country: 'GB', city: 'London' } }
       const nestedReordered = { address: { city: 'London', country: 'GB' } }
-      expect(computeSub(loginConfig, 'client-a', nested, salt)).toBe(
-        computeSub(loginConfig, 'client-a', nestedReordered, salt),
-      )
+      expect(computeSub(loginConfig, 'client-a', nested, salt)).toBe(computeSub(loginConfig, 'client-a', nestedReordered, salt))
     })
 
     test('is pairwise: differs per client for the same claim set', () => {
-      expect(computeSub(loginConfig, 'client-a', claims, salt)).not.toBe(
-        computeSub(loginConfig, 'client-b', claims, salt),
-      )
+      expect(computeSub(loginConfig, 'client-a', claims, salt)).not.toBe(computeSub(loginConfig, 'client-b', claims, salt))
     })
 
     test('differs per claim set and per salt', () => {
       expect(computeSub(loginConfig, 'client-a', claims, salt)).not.toBe(
-        computeSub(loginConfig, 'client-a', { ...claims, given_name: 'Grace' }, salt),
+        computeSub(loginConfig, 'client-a', { ...claims, given_name: 'Grace' }, salt)
       )
-      expect(computeSub(loginConfig, 'client-a', claims, salt)).not.toBe(
-        computeSub(loginConfig, 'client-a', claims, `${salt}-other`),
-      )
+      expect(computeSub(loginConfig, 'client-a', claims, salt)).not.toBe(computeSub(loginConfig, 'client-a', claims, `${salt}-other`))
     })
 
     test('yields a url-safe value', () => {
@@ -93,7 +85,7 @@ describe('claims pipeline', () => {
   test('non-derived strategies are not implemented', () => {
     for (const subStrategy of [SubStrategy.credentialClaim, SubStrategy.ephemeral]) {
       const config = new OidcLoginConfig({ ...loginConfig, subStrategy })
-      expect(() => computeSub(config, 'client-a', {}, salt)).toThrow(/not implemented until Phase 3/)
+      expect(() => computeSub(config, 'client-a', {}, salt)).toThrow(`sub strategy '${subStrategy}' is not implemented`)
     }
   })
 })

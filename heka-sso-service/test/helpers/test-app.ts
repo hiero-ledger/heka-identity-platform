@@ -1,14 +1,14 @@
 import { MikroORM } from '@mikro-orm/core'
-import { Global, INestApplication, Module, OnModuleInit } from '@nestjs/common'
-import { Test } from '@nestjs/testing'
-import { APP_GUARD } from '@nestjs/core'
-
-import { MainModule } from '../../src/main.module'
+import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
 import { MikroOrmModule } from '@mikro-orm/nestjs'
 import { defineConfig, PostgreSqlDriver } from '@mikro-orm/postgresql'
+import { Global, INestApplication, Module, OnModuleInit } from '@nestjs/common'
+import { APP_GUARD } from '@nestjs/core'
+import { Test } from '@nestjs/testing'
+
 import { DatabaseModule, OidcEntity, OidcSigningKey } from '../../src/core/database'
+import { MainModule } from '../../src/main.module'
 import TestMikroOrmConfig from '../config/mikro-orm'
-import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
 
 @Global()
 @Module({

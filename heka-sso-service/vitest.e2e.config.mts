@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 import baseConfig from './vitest.config.mts'
 
 /**
- * E2E runner (P1.8): same transform pipeline as the base config, but only the
+ * E2E runner: same transform pipeline as the base config, but only the
  * e2e files, with the `E2E` gate switched on. Needs the dev Postgres
  * (`docker-compose.dev.yml`, port 5434). Invoked via `yarn test:e2e`.
  *

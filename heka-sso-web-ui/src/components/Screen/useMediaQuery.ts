@@ -3,7 +3,7 @@ import { useCallback, useSyncExternalStore } from 'react'
 /**
  * Breakpoints of `src/styles/mixins.scss` (`mobile` ≤ 640, `desktop` ≥ 1024) —
  * the same numbers heka-identity-service-web-ui's `Screen` uses, implemented
- * with `matchMedia` instead of `react-responsive` (UI-PLAN.md §3).
+ * with `matchMedia` instead of `react-responsive`.
  */
 export const breakpoints = {
   mobile: 640,
@@ -17,12 +17,12 @@ export function useMediaQuery(query: string): boolean {
       media.addEventListener('change', onChange)
       return () => media.removeEventListener('change', onChange)
     },
-    [query],
+    [query]
   )
   return useSyncExternalStore(
     subscribe,
     () => window.matchMedia(query).matches,
-    () => false,
+    () => false
   )
 }
 
@@ -35,7 +35,5 @@ export function useMobile(): boolean {
 }
 
 export function useTablet(): boolean {
-  return useMediaQuery(
-    `(min-width: ${breakpoints.mobile + 1}px) and (max-width: ${breakpoints.desktop - 1}px)`,
-  )
+  return useMediaQuery(`(min-width: ${breakpoints.mobile + 1}px) and (max-width: ${breakpoints.desktop - 1}px)`)
 }

@@ -80,10 +80,7 @@ describe('OIDC protocol policy', () => {
     expect(response.body.response_types_supported).toEqual(['code'])
     expect(response.body.grant_types_supported).toContain('authorization_code')
     expect(response.body.code_challenge_methods_supported).toEqual(['S256'])
-    expect(response.body.token_endpoint_auth_methods_supported.sort()).toEqual([
-      'client_secret_basic',
-      'client_secret_post',
-    ])
+    expect(response.body.token_endpoint_auth_methods_supported.sort()).toEqual(['client_secret_basic', 'client_secret_post'])
   })
 
   describe('/authorize validation', () => {

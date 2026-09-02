@@ -10,8 +10,14 @@ import { LoginStatus } from './identity-acquirer'
 import { VerificationSessionEvent } from './identity-service-events.client'
 import { VerificationSessionState } from './verification-session.client'
 
-/** `GET /interaction/:uid/events` upgraded to a WebSocket. */
-const EVENTS_PATH = /^\/interaction\/([^/]+)\/events$/
+/**
+ * `GET /interaction/:uid/events` upgraded to a WebSocket. The uid is
+ * matched against the provider's uid alphabet (nanoid) directly — no
+ * `decodeURIComponent`, which throws on malformed percent-encoding, and a
+ * throw in an `upgrade` listener would take the process down. The length
+ * bound keeps oversized segments away from the keygrip verification.
+ */
+const EVENTS_PATH = /^\/interaction\/([\w-]{1,128})\/events$/
 
 /**
  * WebSocket push to the login page: the page opens
@@ -52,24 +58,30 @@ export class LoginEventsService implements OnModuleDestroy {
     this.wss = new WebSocketServer({ noServer: true })
 
     server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
-      const path = (request.url ?? '').split('?')[0]
-      const match = EVENTS_PATH.exec(path)
-      if (!match) {
-        // no other upgrade surface exists on the bridge
-        socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n')
-        socket.destroy()
-        return
-      }
+      // a throw here is an uncaught exception on the server — fail the socket, never the process
+      try {
+        const path = (request.url ?? '').split('?')[0]
+        const match = EVENTS_PATH.exec(path)
+        if (!match) {
+          // no other upgrade surface exists on the bridge
+          socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n')
+          socket.destroy()
+          return
+        }
 
-      const uid = decodeURIComponent(match[1])
-      if (!this.isBoundToInteraction(request, uid)) {
-        this.logger.warn(`Rejected an events subscription without a valid interaction cookie (uid ${uid})`)
-        socket.write('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n')
-        socket.destroy()
-        return
-      }
+        const uid = match[1]
+        if (!this.isBoundToInteraction(request, uid)) {
+          this.logger.warn(`Rejected an events subscription without a valid interaction cookie (uid ${uid})`)
+          socket.write('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n')
+          socket.destroy()
+          return
+        }
 
-      this.wss!.handleUpgrade(request, socket, head, (client) => this.subscribe(uid, client))
+        this.wss!.handleUpgrade(request, socket, head, (client) => this.subscribe(uid, client))
+      } catch (error) {
+        this.logger.error(`Upgrade handling failed: ${error}`)
+        socket.destroy()
+      }
     })
   }
 

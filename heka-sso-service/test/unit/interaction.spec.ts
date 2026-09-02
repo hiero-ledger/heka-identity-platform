@@ -3,12 +3,15 @@ import { createHash, randomBytes } from 'node:crypto'
 import express from 'express'
 import request from 'supertest'
 
+import { securityHeaders } from '../../src/common/middleware'
 import { ConfigService, OidcConfig } from '../../src/core/config'
 import {
   AccountClaimsStore,
   createOidcProvider,
   IdentityAcquirer,
   InteractionController,
+  InteractionService,
+  noStoreMiddleware,
   StubIdentityAcquirer,
 } from '../../src/oidc'
 import { testJwks } from '../helpers/jwks'
@@ -73,9 +76,11 @@ const buildApp = (identityAcquirer: IdentityAcquirer | null) => {
   const configService = { oidcConfig: config } as unknown as ConfigService
   const accountClaims = new AccountClaimsStore(configService)
   const provider = createOidcProvider(config, testJwks(), accountClaims)
-  const controller = new InteractionController(provider, identityAcquirer, configService, accountClaims)
+  const controller = new InteractionController(provider, new InteractionService(provider, identityAcquirer, configService, accountClaims))
 
   const app = express()
+  app.use(securityHeaders())
+  app.use('/interaction', noStoreMiddleware)
   app.get('/interaction/:uid', (req, res, next) => {
     controller.interaction(req, res).catch(next)
   })
@@ -99,12 +104,7 @@ const authorizeQuery = (codeVerifier: string, clientId = 'keycloak-broker') => (
  * resume → redirect back to the client, carrying cookies like a browser, and
  * returns the final redirect back to the client's redirect_uri.
  */
-const runAuthorizationFlow = async (
-  app: express.Express,
-  codeVerifier: string,
-  clientId?: string,
-  jar = new CookieJar(),
-) => {
+const runAuthorizationFlow = async (app: express.Express, codeVerifier: string, clientId?: string, jar = new CookieJar()) => {
   let response = await request(app).get('/authorize').query(authorizeQuery(codeVerifier, clientId)).expect(303)
   jar.store(response)
 
@@ -120,8 +120,7 @@ const runAuthorizationFlow = async (
   return new URL(location)
 }
 
-const decodeJwtPayload = (jwt: string): Record<string, any> =>
-  JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString())
+const decodeJwtPayload = (jwt: string): Record<string, any> => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString())
 
 describe('wallet-login interaction (stub login)', () => {
   describe('with the stub enabled', () => {
@@ -172,10 +171,7 @@ describe('wallet-login interaction (stub login)', () => {
       expect(idToken).toMatchObject(storedClaims)
 
       // … and userinfo serves the same claims with an identical sub
-      const userinfo = await request(app)
-        .get('/userinfo')
-        .set('Authorization', `Bearer ${tokens.body.access_token}`)
-        .expect(200)
+      const userinfo = await request(app).get('/userinfo').set('Authorization', `Bearer ${tokens.body.access_token}`).expect(200)
       expect(userinfo.body.sub).toBe(idToken.sub)
       expect(userinfo.body).toMatchObject(storedClaims)
     })
@@ -255,5 +251,31 @@ describe('wallet-login interaction (stub login)', () => {
       expect(callbackUrl.searchParams.get('error')).toBe('access_denied')
       expect(callbackUrl.searchParams.get('code')).toBeNull()
     })
+  })
+})
+
+describe('response hardening (security headers)', () => {
+  const { app } = buildApp(new StubIdentityAcquirer())
+
+  test('interaction responses are uncacheable and unframeable', async () => {
+    const codeVerifier = randomBytes(32).toString('base64url')
+    const authorize = await request(app).get('/authorize').query(authorizeQuery(codeVerifier)).expect(303)
+    const jar = new CookieJar()
+    jar.store(authorize)
+    const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
+
+    const interaction = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(303)
+    expect(interaction.headers['cache-control']).toBe('no-store')
+    expect(interaction.headers['pragma']).toBe('no-cache')
+    expect(interaction.headers['x-frame-options']).toBe('DENY')
+    expect(interaction.headers['content-security-policy']).toBe("frame-ancestors 'none'")
+  })
+
+  test('framing is denied on provider endpoints too, while discovery stays cacheable', async () => {
+    const discovery = await request(app).get('/.well-known/openid-configuration').expect(200)
+    expect(discovery.headers['x-frame-options']).toBe('DENY')
+    expect(discovery.headers['content-security-policy']).toBe("frame-ancestors 'none'")
+    // no-store is scoped to /interaction — RPs are expected to cache discovery/JWKS
+    expect(discovery.headers['cache-control']).not.toBe('no-store')
   })
 })

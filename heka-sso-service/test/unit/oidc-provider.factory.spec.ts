@@ -17,10 +17,7 @@ describe('createOidcProvider', () => {
   test('serves discovery at the root with the configured issuer and routes', async () => {
     // Endpoint URLs are built from the request Host (forwarded by the reverse
     // proxy in production — provider.proxy = true); the issuer is from config.
-    const response = await request(callback)
-      .get('/.well-known/openid-configuration')
-      .set('Host', 'localhost:3005')
-      .expect(200)
+    const response = await request(callback).get('/.well-known/openid-configuration').set('Host', 'localhost:3005').expect(200)
 
     expect(response.body.issuer).toBe(issuer)
     expect(response.body.authorization_endpoint).toBe(`${issuer}/authorize`)

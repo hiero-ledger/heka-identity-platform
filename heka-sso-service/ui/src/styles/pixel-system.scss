@@ -16,9 +16,7 @@
   --space-xxxxxxl: calc(6 * var(--space-unit)); // 96px
   --space-xxxxxxxl: calc(7.5 * var(--space-unit)); // 120px
   --space-template-card-width: calc(11.6669 * var(--space-unit)); // 186.66 px
-  --space-template-card-widthd2: calc(
-    0.5 * 11.6669 * var(--space-unit)
-  ); // 186.66 px
+  --space-template-card-widthd2: calc(0.5 * 11.6669 * var(--space-unit)); // 186.66 px
   --space-template-card-height: calc(18.125 * var(--space-unit)); // 290px
   --space-form: calc(21 * var(--space-unit)); // 336px
   --space-card-logo: calc(4 * var(--space-md));

@@ -1,11 +1,9 @@
-// Shell geometry (UI-PLAN.md §2.2 desktop, §2.4 stacked): pixels of
-// identity-service's Authenticated/UnauthenticatedLayout with the widths
+// Shell geometry: pixels of identity-service's Authenticated/UnauthenticatedLayout with the widths
 // measured from the Figma frames; constants from design-tokens.scss only.
 @import '@/styles/mixins';
 
 // Screens swap by remounting a shell; a short fade-in turns the hard cut into
-// a transition (UI-PLAN.md: no blinking between states). Off under
-// prefers-reduced-motion.
+// a transition. Off under prefers-reduced-motion.
 @keyframes shell-enter {
   from {
     opacity: 0;
@@ -18,7 +16,7 @@
 
 // Outer surface. Full viewport height following the visual viewport
 // (keyboard / address bar), safe-area aware.
-// NB: plain declarations stay ABOVE the nested @media/@include blocks —
+// NB: plain declarations stay ABOVE the nested @media/@include blocks �
 // Sass's mixed-decls deprecation (https://sass-lang.com/d/mixed-decls).
 .shell {
   display: flex;
@@ -26,17 +24,15 @@
   min-height: 100vh;
   min-height: var(--visual-viewport-height, 100dvh);
   background: var(--color-surface-2);
-  padding: max(var(--layout-body-inset), env(safe-area-inset-top))
-    max(var(--layout-body-inset), env(safe-area-inset-right))
-    max(var(--layout-body-inset), env(safe-area-inset-bottom))
-    max(var(--layout-body-inset), env(safe-area-inset-left));
+  padding: max(var(--layout-body-inset), env(safe-area-inset-top)) max(var(--layout-body-inset), env(safe-area-inset-right))
+    max(var(--layout-body-inset), env(safe-area-inset-bottom)) max(var(--layout-body-inset), env(safe-area-inset-left));
   animation: shell-enter var(--motion-duration-enter) var(--motion-easing-standard) both;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
 
-  // Desktop: an app frame exactly one viewport tall — the page itself never
+  // Desktop: an app frame exactly one viewport tall � the page itself never
   // scrolls (no document scrollbar); long content scrolls inside the content
   // column (identity-service's AuthenticatedLayout does the same).
   @include desktop {
@@ -77,8 +73,6 @@
 
 // --- Sidebar (desktop, AppLayout) ------------------------------------------
 
-// Sticky: when the body is taller than the viewport the page scrolls but the
-// sidebar (and its Sign out) stays put.
 .sidebar {
   flex: 0 0 var(--layout-sidebar-width);
   display: flex;
@@ -146,7 +140,7 @@
 }
 
 // --- Header panel (desktop, both layouts) ----------------------------------
-// Figma "Header": a 288 px column on the body surface — H1 at 48/48, the
+// Figma "Header": a 288 px column on the body surface � H1 at 48/48, the
 // illustration anchored bottom-left, overflowing the column to the right and
 // clipped by it (the "Issue credential" wallet-stack placement: ~32px left,
 // 16px bottom).
@@ -247,7 +241,6 @@
   }
 }
 
-// Figma "Block": the 48 px row above the body (logo, back action).
 .contentTop {
   display: flex;
   align-items: center;
@@ -256,8 +249,6 @@
   min-height: var(--space-xxxxl);
 }
 
-// The page body is centered in the column (Figma "Sign in": the 360px form
-// sits in the middle of the content area); stacked shells keep it at the top.
 .contentBody {
   flex: 1;
   min-width: 0;

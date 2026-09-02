@@ -21,8 +21,7 @@ interface AppLayoutProps {
 }
 
 /**
- * Authenticated shell (UI-PLAN.md §2.2 / §2.4, Figma "Issue credential"):
- * sidebar (logo, nav, user, sign out) + white body holding the header column
+ * Authenticated shell: sidebar (logo, nav, user, sign out) + white body holding the header column
  * and the centered page content; logo/sign-out top row + top panel + content
  * when stacked. One page, so the nav has a single, always-active item.
  */

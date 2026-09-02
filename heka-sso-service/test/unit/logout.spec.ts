@@ -6,12 +6,7 @@ import express, { Express } from 'express'
 import request from 'supertest'
 
 import { ConfigService, OidcConfig } from '../../src/core/config'
-import {
-  AccountClaimsStore,
-  createOidcProvider,
-  InteractionController,
-  StubIdentityAcquirer,
-} from '../../src/oidc'
+import { AccountClaimsStore, createOidcProvider, InteractionController, InteractionService, StubIdentityAcquirer } from '../../src/oidc'
 import { testJwks } from '../helpers/jwks'
 
 const brokerRedirectUri = 'https://kc.example.com/realms/r/broker/heka-sso/endpoint'
@@ -93,7 +88,10 @@ describe('logout', () => {
     const configService = { oidcConfig: config } as unknown as ConfigService
     const accountClaims = new AccountClaimsStore(configService)
     const provider = createOidcProvider(config, testJwks(), accountClaims)
-    const controller = new InteractionController(provider, new StubIdentityAcquirer(), configService, accountClaims)
+    const controller = new InteractionController(
+      provider,
+      new InteractionService(provider, new StubIdentityAcquirer(), configService, accountClaims)
+    )
 
     app = express()
     app.get('/interaction/:uid', (req, res, next) => {
@@ -259,7 +257,7 @@ describe('logout', () => {
         new OidcConfig({
           NODE_ENV: 'production',
           OIDC_ALLOW_PRIVATE_NETWORK_CALLS: 'true',
-        }),
+        })
     ).toThrow(/OIDC_ALLOW_PRIVATE_NETWORK_CALLS/)
   })
 })
@@ -294,7 +292,10 @@ describe('logout confirmation dialog (default — OIDC_LOGOUT_AUTO_CONFIRM off)'
   const configService = { oidcConfig: config } as unknown as ConfigService
   const accountClaims = new AccountClaimsStore(configService)
   const provider = createOidcProvider(config, testJwks(), accountClaims)
-  const controller = new InteractionController(provider, new StubIdentityAcquirer(), configService, accountClaims)
+  const controller = new InteractionController(
+    provider,
+    new InteractionService(provider, new StubIdentityAcquirer(), configService, accountClaims)
+  )
 
   const app = express()
   app.get('/interaction/:uid', (req, res, next) => {

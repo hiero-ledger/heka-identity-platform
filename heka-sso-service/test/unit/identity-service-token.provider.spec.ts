@@ -113,9 +113,7 @@ describe('IdentityServiceTokenProvider', () => {
   })
 
   test('surfaces login failures with status and detail, and recovers on the next call', async () => {
-    fetchMock
-      .mockResolvedValueOnce(fetchResponse({ error: 'Unauthorized' }, 401))
-      .mockResolvedValue(loginResponse('acquired-token'))
+    fetchMock.mockResolvedValueOnce(fetchResponse({ error: 'Unauthorized' }, 401)).mockResolvedValue(loginResponse('acquired-token'))
     const provider = buildProvider(serviceAccountEnv)
 
     await expect(provider.getToken()).rejects.toThrow(/service account 'sso-bridge' failed: 401/)

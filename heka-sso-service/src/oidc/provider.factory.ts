@@ -66,7 +66,7 @@ const buildInteractionPolicy = (accountClaims: AccountClaimsResolver) => {
       const accountId = ctx.oidc.session?.accountId
       if (accountId && !accountClaims.get(accountId)) return interactionPolicy.Check.REQUEST_PROMPT
       return interactionPolicy.Check.NO_NEED_TO_PROMPT
-    }),
+    })
   )
   return policy
 }
@@ -110,9 +110,7 @@ const toClientMetadata = (client: OidcClientConfig): ClientMetadata => ({
  * auto-confirm page).
  */
 const buildLogoutSource =
-  (
-    autoConfirmWithHint: boolean,
-  ): NonNullable<NonNullable<NonNullable<Configuration['features']>['rpInitiatedLogout']>['logoutSource']> =>
+  (autoConfirmWithHint: boolean): NonNullable<NonNullable<NonNullable<Configuration['features']>['rpInitiatedLogout']>['logoutSource']> =>
   async (ctx, form) => {
     const autoConfirm = autoConfirmWithHint && Boolean(ctx.oidc.entities.IdTokenHint)
     ctx.type = 'html'
@@ -148,7 +146,7 @@ export function createOidcProvider(
   config: OidcConfig,
   jwks: { keys: Record<string, any>[] },
   accountClaims?: AccountClaimsResolver,
-  adapter?: Configuration['adapter'],
+  adapter?: Configuration['adapter']
 ): Provider {
   const provider = new Provider(config.issuerUrl, {
     jwks: jwks as Configuration['jwks'],

@@ -1,4 +1,5 @@
 node_modules/
+/src/kc.gen.tsx
 /dist/
 /dist_keycloak/
 /public/keycloakify-dev-resources/

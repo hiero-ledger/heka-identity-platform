@@ -17,7 +17,7 @@ import type { Adapter, AdapterPayload } from 'oidc-provider'
 export class MikroOrmAdapter implements Adapter {
   public constructor(
     private readonly name: string,
-    private readonly em: EntityManager,
+    private readonly em: EntityManager
   ) {}
 
   public async upsert(id: string, payload: AdapterPayload, expiresIn?: number): Promise<void> {
@@ -30,6 +30,7 @@ export class MikroOrmAdapter implements Adapter {
       uid: payload.uid ?? null,
       expiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null,
       updatedAt: new Date(),
+      consumedAt: null,
     })
   }
 

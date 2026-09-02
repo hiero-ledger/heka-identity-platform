@@ -33,9 +33,8 @@
   color: var(--color-dark-medium-emphasis);
 }
 
-
-// Collapsed raw-claims block (P2.9): the <pre> scrolls inside the block,
-// never the page (UI-PLAN.md §2.4).
+// Collapsed raw-claims block: the <pre> scrolls inside the block,
+// never the page.
 .developer {
   min-width: 0;
 

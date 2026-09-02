@@ -8,7 +8,7 @@ interface HeaderPanelProps {
 
 // The header-column illustration (Figma "Issue credential": artwork anchored
 // bottom-left, overflowing the column and clipped by it). Asset:
-// public/illustrations/civictrust.webp â€” the CivicTrust render with its
+// public/illustrations/civictrust.webp — the CivicTrust render with its
 // background removed, preloaded from index.html. Decorative, so alt="".
 const ILLUSTRATION_URL = '/illustrations/civictrust.webp'
 

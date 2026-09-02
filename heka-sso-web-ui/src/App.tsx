@@ -15,7 +15,7 @@ import WelcomePage from './pages/WelcomePage'
 // user in again.
 const SIGNED_OUT_KEY = 'heka-sso-web-ui.signed-out'
 
-// UI-PLAN.md D2: with VITE_AUTO_SIGN_IN=false a first visit lands on the
+// with VITE_AUTO_SIGN_IN=false a first visit lands on the
 // Welcome screen and the presenter starts the loop by clicking "Sign in with
 // wallet"; the default (true) keeps the original auto-redirect behaviour.
 const autoSignIn = (import.meta.env.VITE_AUTO_SIGN_IN ?? 'true').toLowerCase() !== 'false'
@@ -60,7 +60,7 @@ function App() {
     setSignedOut(true)
   }
 
-  // Presentation only (UI-PLAN.md §2.3): the auth flow is unchanged — each
+  // Presentation only: the auth flow is unchanged — each
   // state of the original switch maps to one screen. The landing takes
   // precedence over a stale error so "Back" from the failure screen works.
   if (signingOut) {
@@ -68,12 +68,7 @@ function App() {
   }
   if (auth.isAuthenticated) {
     return (
-      <AppLayout
-        title={copy.nav.dashboard}
-       
-        userName={displayName(auth.claims)}
-        onSignOut={signOut}
-      >
+      <AppLayout title={copy.nav.dashboard} userName={displayName(auth.claims)} onSignOut={signOut}>
         <DashboardPage />
       </AppLayout>
     )

@@ -36,35 +36,62 @@ export interface LoginPageData {
 /** A DC API request for `navigator.credentials.get()` (`POST /interaction/:uid/dc-api/start`). */
 export interface DcApiLoginRequest {
   /** DC API protocol identifier (`openid4vp-v1-signed` / `openid4vp-v1-unsigned`). */
-  protocol: string
+  protocol: 'openid4vp-v1-signed' | 'openid4vp-v1-unsigned'
   /** The authorization request object, passed as the DC API request's `data`. */
   request: Record<string, unknown>
 }
 
 /**
- * How the interaction establishes who the user is. The flow is two-phase to
- * fit the target flow's asynchronous wallet presentation:
- * `beginLogin` either resolves immediately (stub) or renders a login page
- * whose browser then polls `checkLogin` and, once verified, navigates to the
- * completion route, which calls `completeLogin` — in the same cookie-bound
- * browser session.
+ * How the interaction establishes who the user is (feasibility §3.3). The
+ * flow is two-phase: `beginLogin` either resolves immediately (stub) or
+ * renders a login page; once the page reports the presentation verified it
+ * navigates to the completion route, which calls `completeLogin` — in the
+ * same cookie-bound browser session (the §3.3 binding rule).
  *
- * The optional methods are the static login page's JSON API —
- * only the wallet acquirer implements them (the stub never renders a page):
- * `getLoginData` starts the cross-device QR path, `beginDcApiLogin` /
- * `verifyDcApiLogin` the DC API same-device path.
+ * The login page's JSON API is modelled as capability
+ * interfaces rather than optional methods, so each capability is all-or-
+ * nothing and the controller checks for it with the type guards below:
+ * - `DirectPostLogin` — the cross-device QR / deep-link path: start the
+ *   `direct_post` session and poll its progress;
+ * - `DcApiLogin` — the same-device DC API path: start the `dc_api` session
+ *   and verify the browser-forwarded response.
+ * The stub implements neither (it never renders a page); the wallet acquirer
+ * implements both.
  */
 export interface IdentityAcquirer {
   beginLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<BeginLoginResult>
-  checkLogin(interactionUid: string): Promise<LoginStatus>
   completeLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<AcquiredIdentity>
-  /** create the cross-device verification session and return the QR/deep-link data. */
-  getLoginData?(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData>
-  /** create a DC API verification session and return the `navigator.credentials.get()` request. */
-  beginDcApiLogin?(loginConfig: OidcLoginConfig, interactionUid: string): Promise<DcApiLoginRequest>
-  /** verify the wallet's DC API response (the parsed `DigitalCredential.data`). */
-  verifyDcApiLogin?(interactionUid: string, authorizationResponse: Record<string, unknown>): Promise<LoginStatus>
 }
+
+/** Cross-device QR / deep-link path (`direct_post`) — both methods or neither. */
+export interface DirectPostLogin {
+  /** create the cross-device verification session and return the QR/deep-link data. */
+  beginDirectPostLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData>
+  /** progress of the pending cross-device login, for the polling page. */
+  checkLogin(interactionUid: string): Promise<LoginStatus>
+}
+
+/** Same-device DC API path (`dc_api`) — both methods or neither. */
+export interface DcApiLogin {
+  /** create a DC API verification session and return the `navigator.credentials.get()` request. */
+  beginDcApiLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<DcApiLoginRequest>
+  /** verify the wallet's DC API response (the parsed `DigitalCredential.data`). */
+  verifyDcApiLogin(interactionUid: string, authorizationResponse: Record<string, unknown>): Promise<LoginStatus>
+}
+
+const DC_API_METHODS = ['beginDcApiLogin', 'verifyDcApiLogin'] as const satisfies readonly (keyof DcApiLogin)[]
+const DIRECT_POST_METHODS = ['beginDirectPostLogin', 'checkLogin'] as const satisfies readonly (keyof DirectPostLogin)[]
+
+const hasMethods = (candidate: unknown, names: string[]): boolean =>
+  !!candidate && names.every((name) => typeof (candidate as Record<string, unknown>)[name] === 'function')
+
+/** Whether the acquirer serves the cross-device QR path (`GET :uid/data` + `GET :uid/status`). */
+export const supportsDirectPostLogin = (acquirer: IdentityAcquirer | null): acquirer is IdentityAcquirer & DirectPostLogin =>
+  hasMethods(acquirer, DIRECT_POST_METHODS as unknown as string[])
+
+/** Whether the acquirer serves the same-device DC API path (`POST :uid/dc-api/start` + `POST :uid/dc-api/verify`). */
+export const supportsDcApiLogin = (acquirer: IdentityAcquirer | null): acquirer is IdentityAcquirer & DcApiLogin =>
+  hasMethods(acquirer, DC_API_METHODS as unknown as string[])
 
 /** Fixed dev identity the stub discloses, keyed by OIDC claim name. */
 const stubIdentityByClaim: ClaimSet = {
@@ -86,11 +113,6 @@ export class StubIdentityAcquirer implements IdentityAcquirer {
 
   public async beginLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<BeginLoginResult> {
     return { kind: 'identity', identity: await this.acquire(loginConfig, interactionUid) }
-  }
-
-  public async checkLogin(): Promise<LoginStatus> {
-    // the stub never renders a polling page — nothing is ever pending
-    return { status: 'verified' }
   }
 
   public async completeLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<AcquiredIdentity> {
