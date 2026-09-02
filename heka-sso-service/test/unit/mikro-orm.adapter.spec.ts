@@ -130,6 +130,23 @@ describe('MikroOrmAdapter', () => {
     expect(consumed!.consumed! * 1000).toBeLessThanOrEqual(Date.now())
   })
 
+  test('consume succeeds at most once — a second consume throws instead of silently passing', async () => {
+    const { em, adapter } = buildAdapter('AuthorizationCode')
+
+    await adapter.upsert('code-1', { jti: 'code-1' }, 60)
+    await adapter.consume('code-1')
+    const consumedAt = em.rows[0].consumedAt
+
+    await expect(adapter.consume('code-1')).rejects.toThrow(/already consumed/)
+    expect(em.rows[0].consumedAt).toBe(consumedAt)
+  })
+
+  test('consume throws for an unknown artifact', async () => {
+    const { adapter } = buildAdapter('AuthorizationCode')
+
+    await expect(adapter.consume('never-stored')).rejects.toThrow(/already consumed or gone/)
+  })
+
   test('destroy removes only the (name, id) row', async () => {
     const em = new FakeEntityManager()
     const accessTokens = new MikroOrmAdapter('AccessToken', em as unknown as EntityManager)

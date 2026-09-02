@@ -48,9 +48,17 @@ export class MikroOrmAdapter implements Adapter {
     return this.toPayload(await this.em.fork().findOne(OidcEntity, { name: this.name, uid }))
   }
 
-  /** Marks single-use artifacts (authorization codes) as used — reuse is then rejected by the provider. */
+  /**
+   * Marks single-use artifacts (authorization codes, rotated refresh tokens)
+   * as used — reuse is then rejected by the provider. The update is
+   * conditional on the row being unconsumed: of two concurrent consumers only
+   * one matches, and the loser's throw fails its token request instead of
+   * issuing a second token — the provider's own find-then-check cannot see
+   * that window (docs/toctou-remediation-plan.md, issue 3).
+   */
   public async consume(id: string): Promise<void> {
-    await this.em.fork().nativeUpdate(OidcEntity, { name: this.name, id }, { consumedAt: new Date() })
+    const affected = await this.em.fork().nativeUpdate(OidcEntity, { name: this.name, id, consumedAt: null }, { consumedAt: new Date() })
+    if (affected === 0) throw new Error(`${this.name} '${id}' is already consumed or gone`)
   }
 
   public async destroy(id: string): Promise<void> {
