@@ -42,6 +42,8 @@ export enum OidcConfigKeys {
   jwks = 'OIDC_JWKS',
   jwksFile = 'OIDC_JWKS_FILE',
   stubLogin = 'OIDC_STUB_LOGIN',
+  allowPrivateNetworkCalls = 'OIDC_ALLOW_PRIVATE_NETWORK_CALLS',
+  logoutAutoConfirm = 'OIDC_LOGOUT_AUTO_CONFIRM',
 }
 
 /** `sub` strategies per INTEGRATION.md §4.3 — the MVP implements `derived`. */
@@ -113,6 +115,24 @@ export class OidcClientConfig {
   @IsUrl(urlOptions, { each: true })
   public postLogoutRedirectUris?: string[]
 
+  /**
+   * OIDC Back-Channel Logout receiver (P2.5) — where the bridge POSTs the
+   * `logout_token` when the session ends. Keycloak's realm-level receiver is
+   * `…/realms/<realm>/protocol/openid-connect/logout/backchannel-logout`.
+   */
+  @IsOptional()
+  @IsUrl(urlOptions)
+  public backchannelLogoutUri?: string
+
+  /**
+   * Include `sid` in logout_tokens (and id_tokens) so the receiver can match
+   * the exact session (P2.5 — `sid`-matched). Defaults to true when a
+   * back-channel logout URI is configured.
+   */
+  @IsOptional()
+  @IsBoolean()
+  public backchannelLogoutSessionRequired?: boolean
+
   @IsArray()
   @IsString({ each: true })
   public grantTypes: string[]
@@ -134,6 +154,9 @@ export class OidcClientConfig {
     this.clientSecret = client.clientSecret
     this.redirectUris = client.redirectUris
     this.postLogoutRedirectUris = client.postLogoutRedirectUris
+    this.backchannelLogoutUri = client.backchannelLogoutUri
+    this.backchannelLogoutSessionRequired =
+      client.backchannelLogoutSessionRequired ?? (client.backchannelLogoutUri ? true : undefined)
     this.grantTypes = client.grantTypes ?? ['authorization_code']
     this.responseTypes = client.responseTypes ?? ['code']
     this.tokenEndpointAuthMethod = client.tokenEndpointAuthMethod ?? 'client_secret_basic'
@@ -420,6 +443,26 @@ export class OidcConfig {
   @IsBoolean()
   public stubLogin: boolean
 
+  /**
+   * Dev-only (P2.5): lets the provider's outbound calls (back-channel
+   * logout_tokens) reach special-use IPs — the library's SSRF protection
+   * otherwise destroys connections to loopback/private ranges, which is
+   * exactly where the dev Keycloak's back-channel receiver lives
+   * (localhost:8080). Production refuses this flag: real receivers are
+   * public hosts and the SSRF protection must stay on (§4.6).
+   */
+  @IsBoolean()
+  public allowPrivateNetworkCalls: boolean
+
+  /**
+   * P2.5.1: skip the logout confirmation dialog when the request carries a
+   * valid `id_token_hint` (the broker chain — the user already confirmed at
+   * the IdP). Off by default: the bridge shows its confirmation dialog on
+   * every RP-initiated logout.
+   */
+  @IsBoolean()
+  public logoutAutoConfirm: boolean
+
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
     const nodeEnv = (env.NODE_ENV ?? process.env.NODE_ENV)?.toString().toLowerCase()
@@ -509,6 +552,16 @@ export class OidcConfig {
     if (isProduction && this.stubLogin) {
       problems.push(
         `${OidcConfigKeys.stubLogin} must not be enabled in production — the stub bypasses credential verification`,
+      )
+    }
+
+    this.logoutAutoConfirm = env[OidcConfigKeys.logoutAutoConfirm]?.toString().toLowerCase() === 'true'
+
+    this.allowPrivateNetworkCalls = env[OidcConfigKeys.allowPrivateNetworkCalls]?.toString().toLowerCase() === 'true'
+    if (isProduction && this.allowPrivateNetworkCalls) {
+      problems.push(
+        `${OidcConfigKeys.allowPrivateNetworkCalls} must not be enabled in production — ` +
+          "it disables the SSRF protection on the provider's outbound calls",
       )
     }
 

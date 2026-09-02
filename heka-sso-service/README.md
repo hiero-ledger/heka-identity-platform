@@ -106,6 +106,8 @@ Secrets in this section have **no compiled-in defaults** (see [INTEGRATION.md](d
 | `OIDC_JWKS`                    | _(unset — keys from Postgres)_ | Inline JWKS override (JSON), intended for dev/test. **Secret.**                            |
 | `OIDC_JWKS_FILE`               | _(unset)_                     | Path to a JWKS file override, intended for dev/test. **Secret.**                            |
 | `OIDC_STUB_LOGIN`              | `false`                       | Dev-only stub login (see below). **Refused in production.**                                 |
+| `OIDC_ALLOW_PRIVATE_NETWORK_CALLS` | `false`                   | Dev-only: allow the provider's outbound calls (back-channel logout_tokens, P2.5) to reach loopback/private IPs — its SSRF protection blocks them otherwise, and the dev Keycloak receiver lives on `localhost:8080`. **Refused in production.** |
+| `OIDC_LOGOUT_AUTO_CONFIRM`     | `false`                       | Skip the logout confirmation dialog when the request carries a valid `id_token_hint` (the broker chain — the user already confirmed at the IdP). Default: the dialog is always shown. |
 
 #### Protocol policy
 
@@ -123,9 +125,12 @@ The OP speaks the IdP-broker common denominator (INTEGRATION.md §1) and nothing
   "clientSecret": "<strong secret>",
   "redirectUris": ["https://kc.example.com/realms/myrealm/broker/heka-sso/endpoint"],
   "postLogoutRedirectUris": ["https://kc.example.com/realms/myrealm/broker/heka-sso/endpoint/logout_response"],
+  "backchannelLogoutUri": "https://kc.example.com/realms/myrealm/protocol/openid-connect/logout/backchannel-logout",
   "loginConfigId": "default"
 }]
 ```
+
+`backchannelLogoutUri` (optional, P2.5) is where the bridge POSTs the OIDC Back-Channel Logout `logout_token` when a session ends; when set, id_tokens and logout_tokens carry `sid` so the receiver can match the exact session (`backchannelLogoutSessionRequired` defaults to `true`). Keycloak's realm-level receiver is shown above.
 
 `OIDC_LOGIN_CONFIGS` — JSON array of declarative login configurations (INTEGRATION.md §4.2): which credentials to ask for, how disclosed claims map to OIDC claims, the `sub` strategy (`derived` default, `credential-claim`, `ephemeral`), and the trusted credential issuers:
 
