@@ -13,8 +13,8 @@ COPY ui/package.json ./ui/
 RUN yarn install --immutable
 
 COPY . .
-# `yarn build` chains the login-page UI build (vite → src/oidc/pages/ui) and the
-# nest build, which copies the built pages into dist/oidc/pages
+# `yarn build` chains the login-page UI build (vite → dist/oidc/pages/ui) and
+# the nest build, which copies the hand-authored pages into dist/oidc/pages
 RUN yarn build
 
 FROM node:22-bookworm-slim
