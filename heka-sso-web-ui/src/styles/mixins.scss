@@ -3,17 +3,19 @@
   outline-offset: var(--outline-width);
 }
 
+// Copied from heka-identity-service-web-ui; the only local change is the
+// border width reading `--border-width` from design-tokens.scss.
 @mixin border($side: 'all', $color: var(--color-surface-grey-2)) {
   @if $side == 'all' {
-    border: 1px solid $color;
+    border: var(--border-width) solid $color;
   } @else if $side == 'top' {
-    border-top: 1px solid $color;
+    border-top: var(--border-width) solid $color;
   } @else if $side == 'right' {
-    border-right: 1px solid $color;
+    border-right: var(--border-width) solid $color;
   } @else if $side == 'bottom' {
-    border-bottom: 1px solid $color;
+    border-bottom: var(--border-width) solid $color;
   } @else if $side == 'left' {
-    border-left: 1px solid $color;
+    border-left: var(--border-width) solid $color;
   }
 }
 
