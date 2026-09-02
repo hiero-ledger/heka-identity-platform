@@ -9,7 +9,7 @@ interface ButtonProps extends AriaButtonProps {
   buttonType?: 'filled' | 'outlined'
 }
 
-// Minimal platform-styled button (INTEGRATION.md P2.9): react-aria-components
+// Minimal platform-styled button: react-aria-components
 // with the pixels of heka-identity-service-web-ui's Button — only the variants
 // this app needs, none of the icon/loader machinery.
 function Button({ buttonType = 'filled', className, ...props }: ButtonProps) {

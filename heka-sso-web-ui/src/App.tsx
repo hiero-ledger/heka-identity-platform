@@ -38,7 +38,7 @@ function App() {
     auth.signIn()
   }
 
-  // P2.9: presentation only — the auth flow and state switch are unchanged;
+  // presentation only — the auth flow and state switch are unchanged;
   // the "Sign out" button moved out of the dashboard body into the top bar.
   return (
     <div className={styles.app}>

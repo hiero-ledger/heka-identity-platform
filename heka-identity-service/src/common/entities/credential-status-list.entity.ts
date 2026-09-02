@@ -18,7 +18,7 @@ interface CredentialStatusListProps {
   owner: User
 }
 
-// W3C Bitstring Status List v1.0 sets a 16KB = 131,072-bit minimum for herd privacy (§2.2, §3.3)
+// W3C Bitstring Status List v1.0 sets a 16KB = 131,072-bit minimum for herd privacy
 export const defaultCredentialStatusListSize = 131072
 
 // Upper bound on a caller-supplied size: 2^23 bits = 1MB buffer
