@@ -2,7 +2,7 @@ import { ConfigModule, ConfigService } from '@config'
 import { OidcEntity, OidcSigningKey } from '@core/database'
 import { EntityManager } from '@mikro-orm/core'
 import { MikroOrmModule } from '@mikro-orm/nestjs'
-import { Logger, Module } from '@nestjs/common'
+import { Logger, MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 
 import { AccountClaimsStore } from './account-claims.store'
 import { InteractionAssetsController } from './assets.controller'
@@ -10,8 +10,10 @@ import { IDENTITY_ACQUIRER, IdentityAcquirer, StubIdentityAcquirer } from './ide
 import { IdentityServiceEventsClient } from './identity-service-events.client'
 import { IdentityServiceTokenProvider } from './identity-service-token.provider'
 import { InteractionController } from './interaction.controller'
+import { InteractionService } from './interaction.service'
 import { LoginEventsService } from './login-events.service'
 import { MikroOrmAdapter } from './mikro-orm.adapter'
+import { noStoreMiddleware } from './no-store.middleware'
 import { OidcCleanupService } from './oidc-cleanup.service'
 import { createOidcProvider, OIDC_PROVIDER } from './provider.factory'
 import { SigningKeysService } from './signing-keys.service'
@@ -32,6 +34,7 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
   providers: [
     SigningKeysService,
     AccountClaimsStore,
+    InteractionService,
     OidcCleanupService,
     IdentityServiceTokenProvider,
     VerificationSessionClient,
@@ -91,4 +94,10 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
   ],
   exports: [SigningKeysService, OIDC_PROVIDER, AccountClaimsStore, LoginEventsService],
 })
-export class OidcModule {}
+export class OidcModule implements NestModule {
+  public configure(consumer: MiddlewareConsumer): void {
+    // Per-user, per-attempt responses (login page with a single-use
+    // authorization request, cookie-bound status/complete) must never be cached.
+    consumer.apply(noStoreMiddleware).forRoutes(InteractionController)
+  }
+}

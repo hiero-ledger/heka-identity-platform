@@ -6,7 +6,9 @@ import { ClaimSet } from './claims.util'
 import {
   AcquiredIdentity,
   BeginLoginResult,
+  DcApiLogin,
   DcApiLoginRequest,
+  DirectPostLogin,
   IdentityAcquirer,
   LoginPageData,
   LoginStatus,
@@ -14,6 +16,7 @@ import {
 import { LoginEventsService } from './login-events.service'
 import { loadPage } from './pages'
 import { VerificationSessionClient, VerificationSessionState } from './verification-session.client'
+import { assertWalletAuthorizationRequest } from './wallet-uri'
 
 /** The verification sessions a pending interaction may hold — one per login path (P2.1). */
 interface PendingLogin {
@@ -34,7 +37,7 @@ interface PendingLogin {
  *   forwards the wallet's response to `verifyDcApiLogin`, which submits it to
  *   the identity service's origin-bound `verify` endpoint. The `origin` is
  *   the bridge's own (from the issuer URL) — never client-supplied.
- * - **QR fallback (P1.6)**: `getLoginData` creates a `direct_post` session
+ * - **QR fallback (P1.6)**: `beginDirectPostLogin` creates a `direct_post` session
  *   (signed JAR — P1.6.1) and returns QR + deep link; the page listens on the
  *   WebSocket push channel (P3.7, `LoginEventsService`) and **polls**
  *   `checkLogin` as the fallback (P1.6.3).
@@ -48,7 +51,7 @@ interface PendingLogin {
  * single-instance dev until it moves into persisted interaction state.
  */
 @Injectable()
-export class WalletIdentityAcquirer implements IdentityAcquirer {
+export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin, DcApiLogin {
   private readonly logger = new Logger(WalletIdentityAcquirer.name)
   private readonly pending = new Map<string, PendingLogin>()
   private readonly ttlMs: number
@@ -79,8 +82,12 @@ export class WalletIdentityAcquirer implements IdentityAcquirer {
   }
 
   /** P2.1.1 — the QR path's data: creates the cross-device `direct_post` session (fresh nonce, §4.6-1). */
-  public async getLoginData(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData> {
+  public async beginDirectPostLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData> {
     const created = await this.sessions.createSignedRequest(loginConfig)
+    // Boundary check before the value reaches the page's href / QR: wallet
+    // scheme allowlist + JAR by reference; fails closed — the poisoned session
+    // is never stored and the page gets a JSON error instead of a deep link.
+    assertWalletAuthorizationRequest(created.authorizationRequest)
     this.entry(interactionUid).directPostSessionId = created.sessionId
     this.loginEvents?.registerSession(created.sessionId, interactionUid)
 
@@ -178,8 +185,11 @@ export class WalletIdentityAcquirer implements IdentityAcquirer {
   }
 
   private credentialQueryId(loginConfig: OidcLoginConfig): string {
-    const credentials = (loginConfig.dcqlQuery as { credentials?: { id?: string }[] } | undefined)?.credentials
-    return credentials?.[0]?.id ?? 'credential'
+    // Guaranteed by OidcLoginConfig.dcqlProblems() at config load; no silent
+    // fallback — a wrong prefix would map nothing and collapse `sub` (§4.3).
+    const [queryId] = loginConfig.credentialQueryIds
+    if (!queryId) throw new Error(`login configuration '${loginConfig.id}' has no DCQL credential query id`)
+    return queryId
   }
 
   /** The pending entry for the interaction, created on first use (sessions are started lazily by the page). */
