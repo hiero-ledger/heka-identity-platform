@@ -1,5 +1,4 @@
-// All user-facing strings (UI-PLAN.md §2.3, C3): English only, no i18n
-// framework — one place to find and change wording.
+// All user-facing strings: English only, no i18n framework.
 export const copy = {
   app: {
     /** Wordmark next to the logo mark. */

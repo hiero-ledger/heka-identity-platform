@@ -44,7 +44,7 @@
 }
 
 // Local addition (not in identity-service): the stacked shell below the
-// desktop breakpoint — mobile + tablet together (UI-PLAN.md §2.4).
+// desktop breakpoint — mobile + tablet together.
 @mixin stacked {
   @media (width < 1024px) {
     @content;

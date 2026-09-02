@@ -10,7 +10,6 @@ interface CardProps {
   children: ReactNode
 }
 
-/** White surface card: radius-lg, shadow-small (UI-PLAN.md §3). */
 function Card({ title, className, children }: CardProps) {
   return (
     <section className={classNames(styles.Card, {}, [className])}>

@@ -1,4 +1,4 @@
-// Pure helpers over the decoded ID-token claims (UI-PLAN.md C2). The RP sees
+// Pure helpers over the decoded ID-token claims. The RP sees
 // three shapes of the same data, so every accessor is tolerant:
 //
 // - Keycloak: brokered claims arrive through attribute importers + protocol
@@ -15,12 +15,12 @@ export function asString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value : undefined
 }
 
-/** `true`, `"true"`, `1`, `"1"` → true (Keycloak string attributes). */
+/** `true`, `"true"`, `1`, `"1"` > true (Keycloak string attributes). */
 export function isTrue(value: unknown): boolean {
   return value === true || value === 1 || value === 'true' || value === '1'
 }
 
-/** Top-level claim by name; falls back to an Auth0-style namespaced key (`…/name`). */
+/** Top-level claim by name; falls back to an Auth0-style namespaced key (`�/name`). */
 export function claim(claims: Claims, name: string): unknown {
   if (name in claims) return claims[name]
   const namespaced = Object.keys(claims).find((key) => key.endsWith(`/${name}`))
@@ -93,7 +93,7 @@ export function signedInWithWallet(claims: Claims): boolean {
   return amrValues(claims).includes('vc')
 }
 
-/** Unix seconds (number or numeric string) → local date-time; `undefined` otherwise. */
+/** Unix seconds (number or numeric string) > local date-time; `undefined` otherwise. */
 export function formatTimestamp(value: unknown, locale?: string): string | undefined {
   const seconds = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
   if (!Number.isFinite(seconds) || seconds <= 0) return undefined

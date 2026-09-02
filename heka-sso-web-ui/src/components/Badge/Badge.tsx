@@ -11,7 +11,6 @@ interface BadgeProps {
   children: ReactNode
 }
 
-/** Inline status chip: label-m, radius-sm (UI-PLAN.md §3). Text only — no icon glyph in the asset set yet. */
 function Badge({ variant = 'neutral', children }: BadgeProps) {
   return <span className={classNames(styles.Badge, {}, [styles[variant]])}>{children}</span>
 }

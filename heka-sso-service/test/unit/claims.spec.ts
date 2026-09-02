@@ -93,7 +93,7 @@ describe('claims pipeline', () => {
   test('non-derived strategies are not implemented', () => {
     for (const subStrategy of [SubStrategy.credentialClaim, SubStrategy.ephemeral]) {
       const config = new OidcLoginConfig({ ...loginConfig, subStrategy })
-      expect(() => computeSub(config, 'client-a', {}, salt)).toThrow(/not implemented until Phase 3/)
+      expect(() => computeSub(config, 'client-a', {}, salt)).toThrow(`sub strategy '${subStrategy}' is not implemented`)
     }
   })
 })

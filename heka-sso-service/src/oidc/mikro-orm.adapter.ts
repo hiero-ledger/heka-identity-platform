@@ -30,6 +30,7 @@ export class MikroOrmAdapter implements Adapter {
       uid: payload.uid ?? null,
       expiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null,
       updatedAt: new Date(),
+      consumedAt: null,
     })
   }
 

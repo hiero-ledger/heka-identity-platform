@@ -7,7 +7,7 @@ services:
       - POSTGRES_USER=heka
       - POSTGRES_PASSWORD=heka1
       - POSTGRES_DB=heka-sso-service
-  # P1.7 demo: Keycloak with the pre-configured `heka` realm (IdP `heka-sso`
+  # Keycloak with the pre-configured `heka` realm (IdP `heka-sso`
   # against the bridge — PKCE S256, JWKS signature validation, 15s clock skew,
   # attribute mappers; client `heka-sso-web-ui` for the test RP). Server-side
   # calls (token/jwks/userinfo) reach the bridge on the host via
@@ -51,7 +51,7 @@ services:
       - IDENTITY_SERVICE_BASE_URL=http://localhost:3000
       - OIDC_CLIENTS=[{"clientId":"keycloak-broker","clientSecret":"dev-only-broker-secret-do-not-use-in-production","redirectUris":["http://localhost:8080/realms/heka/broker/heka-sso/endpoint","http://localhost:8080/realms/master/broker/heka-sso/endpoint"],"postLogoutRedirectUris":["http://localhost:8080/realms/heka/broker/heka-sso/endpoint/logout_response","http://localhost:8080/realms/master/broker/heka-sso/endpoint/logout_response"],"loginConfigId":"default"}]
       - OIDC_LOGIN_CONFIGS=[{"id":"default","verificationTemplate":"default","claimMapping":{"mdl.given_name":"given_name","mdl.family_name":"family_name","mdl.age_over_18":"age_over_18"},"subStrategy":"derived","issuerAllowlist":[]}]
-      # Dev-only stub login (INTEGRATION.md P1.3) — refused in production
+      # Dev-only stub login — refused in production
       - OIDC_STUB_LOGIN=true
     ports:
       - '3005:3005'
