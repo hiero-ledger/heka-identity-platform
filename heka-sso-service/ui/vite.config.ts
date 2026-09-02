@@ -3,12 +3,13 @@ import { defineConfig } from 'vite'
 /**
  * The wallet login page build.
  *
- * Output goes into `src/oidc/pages/ui/` (gitignored), next to the hand-authored
- * templates: the bridge serves `ui/login.html` via `loadPage` and the
+ * Output goes straight into the service's build output, `dist/oidc/pages/ui/`,
+ * next to where `nest build` copies the hand-authored templates
+ * (nest-cli.json `assets`; nest build does not wipe `dist`, so build order
+ * doesn't matter): the bridge serves `ui/login.html` via `loadPage` and the
  * built assets via `/interaction/assets/*` (`InteractionAssetsController`
  * resolves that route against `pages/ui` first, then `pages/assets`; the
  * extension whitelist keeps `login.html` itself unexposed there).
- * `nest build` then copies the whole `pages/` tree into `dist/`.
  *
  * File names are pinned (no content hashes): the three provider-hook templates
  * link the same built stylesheet by name (`styles.css`), and stable names keep
@@ -21,7 +22,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   base: '/interaction/assets/',
   build: {
-    outDir: '../src/oidc/pages/ui',
+    outDir: '../dist/oidc/pages/ui',
     emptyOutDir: true,
     rollupOptions: {
       input: 'login.html',

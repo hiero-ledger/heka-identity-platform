@@ -5,8 +5,7 @@ import { AuthSession, AuthSessionContext } from './session'
 
 const auth0Domain: string = import.meta.env.VITE_AUTH0_DOMAIN
 const auth0ClientId: string = import.meta.env.VITE_AUTH0_CLIENT_ID
-// Optional: the enterprise connection to forward to, skipping the Auth0 login
-// widget (the Auth0 analog of kc_idp_hint — AUTH0-PLAN.md §4).
+// Optional: the enterprise connection to forward to, skipping the Auth0 login widget.
 const auth0Connection: string | undefined = import.meta.env.VITE_AUTH0_CONNECTION || undefined
 
 function Auth0SessionBridge({ children }: PropsWithChildren) {
@@ -22,7 +21,7 @@ function Auth0SessionBridge({ children }: PropsWithChildren) {
       signIn: () => void loginWithRedirect(),
       // federated: also end the session at the upstream connection (the
       // bridge) — otherwise its OP session survives and the next login
-      // completes silently, without a wallet presentation (AUTH0-PLAN.md §5).
+      // completes silently, without a wallet presentation.
       signOut: () => void logout({ logoutParams: { returnTo: window.location.origin, federated: true } })
     }),
     [isAuthenticated, isLoading, error, user, loginWithRedirect, logout]
