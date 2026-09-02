@@ -1,12 +1,7 @@
-// Global styles: the platform's visual language on the Partisia-SSI-2.0
-// design system (docs/UI-PLAN.md).
-//
-// - design-tokens.scss is this app's single source of CSS constants, written
-//   from docs/DESIGN-TOKENS.md (it is NOT a copy of identity-service any more —
-//   the palettes diverged).
+// - design-tokens.scss is this app's single source of CSS constants.
 // - reset.scss and mixins.scss are still verbatim copies of
 //   heka-identity-service-web-ui (`src/app/styles`, `src/shared/styles`) —
-//   shared pixels, not semantics (INTEGRATION.md P2.1.1). Keep them in sync by
+//   shared pixels, not semantics. Keep them in sync by
 //   re-copying, not by editing.
 
 @import 'design-tokens';

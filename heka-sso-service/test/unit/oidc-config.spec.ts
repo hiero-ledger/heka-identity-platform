@@ -136,6 +136,71 @@ describe('OidcConfig', () => {
     ).toThrow()
   })
 
+  describe('login configuration DCQL / claim-mapping consistency', () => {
+    const loginConfig = (overrides: Record<string, unknown>) => ({
+      OIDC_LOGIN_CONFIGS: JSON.stringify([
+        {
+          id: 'default',
+          verificationTemplate: 't',
+          dcqlQuery: { credentials: [{ id: 'pid', format: 'dc+sd-jwt', claims: [{ path: ['given_name'] }] }] },
+          claimMapping: { 'pid.given_name': 'given_name' },
+          ...overrides,
+        },
+      ]),
+    })
+
+    test('accepts a mapping written against the DCQL credential query ids', () => {
+      const config = new OidcConfig(
+        loginConfig({
+          dcqlQuery: { credentials: [{ id: 'pid' }, { id: 'mdl-1' }] },
+          claimMapping: { 'pid.given_name': 'given_name', 'mdl-1.portrait': 'picture' },
+        }),
+      )
+      expect(config.loginConfigs[0].credentialQueryIds).toEqual(['pid', 'mdl-1'])
+      expect(config.loginConfigs[0].dcqlProblems()).toEqual([])
+    })
+
+    test('does not check configs without an inline dcqlQuery (stub login / template by id)', () => {
+      const config = new OidcConfig(loginConfig({ dcqlQuery: undefined, claimMapping: { 'pid.given_name': 'x' } }))
+      expect(config.loginConfigs[0].credentialQueryIds).toEqual([])
+    })
+
+    test('rejects a dcqlQuery without credential queries', () => {
+      expect(() => new OidcConfig(loginConfig({ dcqlQuery: {} }))).toThrow(/credentials must be a non-empty array/)
+      expect(() => new OidcConfig(loginConfig({ dcqlQuery: { credentials: [] } }))).toThrow(
+        /credentials must be a non-empty array/,
+      )
+    })
+
+    test('rejects credential queries with a missing, malformed, or duplicate id', () => {
+      expect(() => new OidcConfig(loginConfig({ dcqlQuery: { credentials: [{ format: 'dc+sd-jwt' }] } }))).toThrow(
+        /credentials\[0\]\.id must be a non-empty string/,
+      )
+      expect(() => new OidcConfig(loginConfig({ dcqlQuery: { credentials: [{ id: 'pid card' }] } }))).toThrow(
+        /credentials\[0\]\.id must be a non-empty string/,
+      )
+      expect(() => new OidcConfig(loginConfig({ dcqlQuery: { credentials: [{ id: 'pid' }, { id: 'pid' }] } }))).toThrow(
+        /ids must be unique \(duplicate: pid\)/,
+      )
+    })
+
+    test('rejects claim-mapping keys that do not use a credential query id as prefix', () => {
+      expect(() => new OidcConfig(loginConfig({ claimMapping: { 'PID.given_name': 'given_name' } }))).toThrow(
+        /claimMapping key 'PID\.given_name' must be '<credential query id>\.<claim>' with an id from dcqlQuery \(pid\)/,
+      )
+      expect(() => new OidcConfig(loginConfig({ claimMapping: { given_name: 'given_name' } }))).toThrow(
+        /claimMapping key 'given_name'/,
+      )
+      expect(() => new OidcConfig(loginConfig({ claimMapping: { 'pid.': 'given_name' } }))).toThrow(
+        /claimMapping key 'pid\.'/,
+      )
+      // the message names the offending login configuration
+      expect(() => new OidcConfig(loginConfig({ claimMapping: { 'x.y': 'z' } }))).toThrow(
+        /OIDC_LOGIN_CONFIGS: login configuration 'default': claimMapping key 'x\.y'/,
+      )
+    })
+  })
+
   test('fails fast in production when secrets are unset', () => {
     expect(() => new OidcConfig({ NODE_ENV: 'production' })).toThrow(/must be set in production/)
   })

@@ -10,7 +10,7 @@ interface LogoProps {
 }
 
 // Layout of identity-service's `Logo` and Figma's "Logo block": brand mark +
-// wordmark. The mark is the CivicTrust raster (public/civic-trust.webp â€”
+// wordmark. The mark is the CivicTrust raster (public/civic-trust.webp —
 // cropped, 96px tall, preloaded from index.html); decorative next to the
 // wordmark text, so alt="".
 function Logo({ onPress }: LogoProps) {

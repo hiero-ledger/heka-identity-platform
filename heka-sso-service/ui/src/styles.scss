@@ -1,15 +1,15 @@
 /*
- * Shared bridge-page stylesheet (INTEGRATION.md P2.10.1/P2.10.2) — built by
- * Vite to `/interaction/assets/styles.css`; the three provider-hook templates
+ * Shared bridge-page stylesheet — built by Vite to `/interaction/assets/styles.css`; 
+ * the three provider-hook templates
  * (`logout-*.html`, `error.html`) link the same built file (thin branded
- * shells, per the P2.10 framing).
+ * shells, per the framing).
  *
- * Laid out like the heka-sso-web-ui dashboard (P2.9) for consistency: a white
+ * Laid out like the heka-sso-web-ui dashboard for consistency: a white
  * top bar with the brand on the left, the surface-2 page background, and a
  * centered white card as the focal point. Design tokens and mixins are copied
- * from heka-identity-service-web-ui in `styles/` (the P2.1.1 reuse rule —
+ * from heka-identity-service-web-ui in `styles/` (reuse rule —
  * shared pixels, not semantics); the `--brand-*` layer maps onto them and is
- * what the login configuration's `branding.colors` (P2.10.3) overrides at
+ * what the login configuration's `branding.colors` overrides at
  * runtime.
  */
 @import './styles/colors';
@@ -19,7 +19,7 @@
 @import './styles/mixins';
 
 :root {
-  /* brand-overridable (branding.colors, P2.10.3), mapped onto the platform tokens */
+  /* brand-overridable (branding.colors), mapped onto the platform tokens */
   --brand-primary: var(--color-primary);
   --brand-primary-hover: var(--color-primary-hover);
   --brand-primary-pressed: var(--color-primary-pressed);
@@ -133,7 +133,7 @@ section {
   gap: var(--space-sm);
 }
 
-/* buttons — the platform Button's filled/outlined pixels (P2.9) */
+/* buttons — the platform Button's filled/outlined pixels */
 button {
   padding: var(--space-sm) var(--space-md);
   border: none;

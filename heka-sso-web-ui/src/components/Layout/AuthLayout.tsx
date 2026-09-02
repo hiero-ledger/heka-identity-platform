@@ -16,8 +16,7 @@ interface AuthLayoutProps {
 }
 
 /**
- * Unauthenticated shell (Figma "Sign in", identity-service
- * `UnauthenticatedLayout`): white body with the header column on desktop, or
+ * Unauthenticated shell: white body with the header column on desktop, or
  * the top panel when stacked; the content column carries the logo row and
  * the page body.
  */
@@ -30,7 +29,6 @@ function AuthLayout({ title, topAction, children }: AuthLayoutProps) {
       <main className={styles.body}>
         {isDesktop && <HeaderPanel title={title} eyebrow={copy.eyebrow.auth} />}
         <div className={styles.content}>
-          {/* Figma "Block": back action on the left, brand on the right */}
           <div className={styles.contentTop}>
             <div>{topAction}</div>
             <Logo />
