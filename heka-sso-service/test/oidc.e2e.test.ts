@@ -14,6 +14,12 @@ const brokerClientId = 'keycloak-broker'
 const brokerSecret = 'e2e-broker-secret-value'
 const brokerRedirectUri = 'http://localhost:8080/realms/heka/broker/heka-sso/endpoint'
 
+// A second, independent client for the P2.7 isolation checks (interID AT.8):
+// codes and subs must never cross the client boundary.
+const secondClientId = 'second-broker'
+const secondClientSecret = 'e2e-second-broker-secret'
+const secondRedirectUri = 'http://localhost:8081/realms/other/broker/heka-sso/endpoint'
+
 /**
  * The e2e env is pinned here (P1.8) — independent of `env/.env` drift. The
  * login config mirrors the demo shape (mDL SD-JWT, §4.2): DCQL query id `mdl`,
@@ -34,6 +40,12 @@ const e2eEnv: Record<string, string> = {
       // makes the provider mint `sid` (P2.5); unreachable on purpose — a failed
       // back-channel POST must never break the RP-initiated logout itself
       backchannelLogoutUri: 'http://localhost:9/backchannel-logout',
+      loginConfigId: 'default',
+    },
+    {
+      clientId: secondClientId,
+      clientSecret: secondClientSecret,
+      redirectUris: [secondRedirectUri],
       loginConfigId: 'default',
     },
   ]),
@@ -93,19 +105,24 @@ const jarFactory = () => {
 type Jar = ReturnType<typeof jarFactory>
 
 /** Follows the provider's 303 chain until it lands on the client redirect_uri. */
-const follow303Chain = async (app: Server, jar: Jar, startLocation: string): Promise<URL> => {
+const follow303Chain = async (
+  app: Server,
+  jar: Jar,
+  startLocation: string,
+  redirectUri: string = brokerRedirectUri,
+): Promise<URL> => {
   let location = startLocation
-  for (let hop = 0; hop < 6 && !location.startsWith(brokerRedirectUri); hop++) {
+  for (let hop = 0; hop < 6 && !location.startsWith(redirectUri); hop++) {
     const { pathname, search } = new URL(location, 'http://localhost')
     const response = await request(app).get(`${pathname}${search}`).set('Cookie', jar.header()).expect(303)
     jar.store(response)
     location = response.headers.location
   }
-  expect(location).toMatch(new RegExp(`^${brokerRedirectUri}`))
+  expect(location).toMatch(new RegExp(`^${redirectUri}`))
   return new URL(location)
 }
 
-const authorizeQuery = (codeVerifier: string) => ({
+const authorizeQuery = (codeVerifier: string, overrides: Record<string, string> = {}) => ({
   client_id: brokerClientId,
   redirect_uri: brokerRedirectUri,
   response_type: 'code',
@@ -114,14 +131,28 @@ const authorizeQuery = (codeVerifier: string) => ({
   nonce: 'e2e-nonce',
   code_challenge: createHash('sha256').update(codeVerifier).digest('base64url'),
   code_challenge_method: 'S256',
+  ...overrides,
 })
 
-const exchangeCode = (app: Server, code: string | null, codeVerifier: string) =>
-  request(app).post('/token').auth(brokerClientId, brokerSecret).type('form').send({
+interface TokenClient {
+  id: string
+  secret: string
+  redirectUri: string
+}
+
+const brokerTokenClient: TokenClient = { id: brokerClientId, secret: brokerSecret, redirectUri: brokerRedirectUri }
+
+const exchangeCode = (
+  app: Server,
+  code: string | null,
+  codeVerifier: string,
+  client: TokenClient = brokerTokenClient,
+) =>
+  request(app).post('/token').auth(client.id, client.secret).type('form').send({
     grant_type: 'authorization_code',
     code,
     code_verifier: codeVerifier,
-    redirect_uri: brokerRedirectUri,
+    redirect_uri: client.redirectUri,
   })
 
 const decodeJwtPayload = (jwt: string) => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString())
@@ -403,6 +434,160 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         expect(await em.fork().findOne(OidcEntity, { name: 'AccessToken', id: 'expired-e2e-token' })).toBeNull()
       })
     })
+
+    /**
+     * P2.7 — threat-model-driven coverage (docs/THREAT-MODEL.md): the OAuth/OIDC
+     * seam of interID's AT.1–AT.11 checklist, exercised against the running
+     * provider. The wallet/verification seam (AT.5–AT.7) is covered in the
+     * wallet-login app suite below.
+     */
+    describe('threat-model coverage (P2.7 — interID AT.1–AT.11, OAuth/OIDC seam)', () => {
+      const runFlow = async (codeVerifier: string, overrides: Record<string, string> = {}, redirectUri?: string) => {
+        const jar = jarFactory()
+        const response = await request(app).get('/authorize').query(authorizeQuery(codeVerifier, overrides)).expect(303)
+        jar.store(response)
+        return { jar, callbackUrl: await follow303Chain(app, jar, response.headers.location, redirectUri) }
+      }
+
+      test('AT.1: /token rejects a wrong PKCE code_verifier', async () => {
+        const codeVerifier = randomBytes(32).toString('base64url')
+        const { callbackUrl } = await runFlow(codeVerifier)
+
+        const response = await exchangeCode(
+          app,
+          callbackUrl.searchParams.get('code'),
+          randomBytes(32).toString('base64url'),
+        )
+        expect(response.status).toBe(400)
+        expect(response.body.error).toBe('invalid_grant')
+      })
+
+      test('AT.1: /token rejects a redirect_uri differing from the authorization request', async () => {
+        const codeVerifier = randomBytes(32).toString('base64url')
+        const { callbackUrl } = await runFlow(codeVerifier)
+
+        const response = await exchangeCode(app, callbackUrl.searchParams.get('code'), codeVerifier, {
+          ...brokerTokenClient,
+          redirectUri: `${brokerRedirectUri}/other`,
+        })
+        expect(response.status).toBe(400)
+        expect(response.body.error).toBe('invalid_grant')
+      })
+
+      test('AT.8: a code issued to one client cannot be redeemed by another (validly authenticated) client', async () => {
+        const codeVerifier = randomBytes(32).toString('base64url')
+        const { callbackUrl } = await runFlow(codeVerifier)
+
+        const response = await exchangeCode(app, callbackUrl.searchParams.get('code'), codeVerifier, {
+          id: secondClientId,
+          secret: secondClientSecret,
+          redirectUri: brokerRedirectUri,
+        })
+        expect(response.status).toBe(400)
+        expect(response.body.error).toBe('invalid_grant')
+      })
+
+      test('AT.2: state is echoed verbatim on success and error redirects (no length limit — broker matrix)', async () => {
+        const longState = randomBytes(96).toString('base64url') // 128 chars
+
+        const codeVerifier = randomBytes(32).toString('base64url')
+        const { callbackUrl } = await runFlow(codeVerifier, { state: longState })
+        expect(callbackUrl.searchParams.get('state')).toBe(longState)
+
+        // error redirect (missing PKCE) carries the same state back
+        const withoutPkce: Partial<ReturnType<typeof authorizeQuery>> = authorizeQuery('unused', { state: longState })
+        delete withoutPkce.code_challenge
+        delete withoutPkce.code_challenge_method
+        const rejected = await request(app).get('/authorize').query(withoutPkce).expect(303)
+        const errorRedirect = new URL(rejected.headers.location)
+        expect(errorRedirect.searchParams.get('error')).toBe('invalid_request')
+        expect(errorRedirect.searchParams.get('state')).toBe(longState)
+      })
+
+      test('AT.3/AT.11: the id_token is bound to its issuer, audience, and nonce', async () => {
+        const codeVerifier = randomBytes(32).toString('base64url')
+        const { callbackUrl } = await runFlow(codeVerifier)
+        const tokens = await exchangeCode(app, callbackUrl.searchParams.get('code'), codeVerifier)
+        expect(tokens.status).toBe(200)
+
+        const idToken = decodeJwtPayload(tokens.body.id_token)
+        expect(idToken.iss).toBe('http://localhost:3005')
+        expect(idToken.aud).toBe(brokerClientId)
+        expect(idToken.nonce).toBe('e2e-nonce')
+      })
+
+      test('AT.4: provider cookies are HttpOnly; the interaction cookie is SameSite and path-scoped', async () => {
+        const codeVerifier = randomBytes(32).toString('base64url')
+        const response = await request(app).get('/authorize').query(authorizeQuery(codeVerifier)).expect(303)
+
+        const cookies = ([] as string[]).concat(response.headers['set-cookie'] ?? [])
+        expect(cookies.length).toBeGreaterThan(0)
+        for (const cookie of cookies) {
+          expect(cookie).toMatch(/httponly/i)
+        }
+        const interactionCookie = cookies.find((cookie) => cookie.startsWith('_interaction='))
+        expect(interactionCookie).toBeDefined()
+        expect(interactionCookie).toMatch(/samesite=lax/i)
+        expect(interactionCookie).toMatch(/path=\/interaction\//i)
+      })
+
+      test('AT.8/§4.3: the derived sub is pairwise — different clients see different subs for the same identity', async () => {
+        const firstVerifier = randomBytes(32).toString('base64url')
+        const first = await exchangeCode(
+          app,
+          (await runFlow(firstVerifier)).callbackUrl.searchParams.get('code'),
+          firstVerifier,
+        )
+
+        const secondVerifier = randomBytes(32).toString('base64url')
+        const secondFlow = await runFlow(
+          secondVerifier,
+          { client_id: secondClientId, redirect_uri: secondRedirectUri },
+          secondRedirectUri,
+        )
+        const second = await exchangeCode(app, secondFlow.callbackUrl.searchParams.get('code'), secondVerifier, {
+          id: secondClientId,
+          secret: secondClientSecret,
+          redirectUri: secondRedirectUri,
+        })
+
+        const firstSub = decodeJwtPayload(first.body.id_token).sub
+        const secondSub = decodeJwtPayload(second.body.id_token).sub
+        expect(firstSub).toBeTruthy()
+        expect(secondSub).toBeTruthy()
+        expect(firstSub).not.toBe(secondSub)
+      })
+
+      test('AT.2: the logout confirmation rejects a wrong XSRF token and keeps the session', async () => {
+        const codeVerifier = randomBytes(32).toString('base64url')
+        const { jar, callbackUrl } = await runFlow(codeVerifier)
+        const tokens = await exchangeCode(app, callbackUrl.searchParams.get('code'), codeVerifier)
+        const idToken = tokens.body.id_token as string
+
+        const confirmPage = await request(app)
+          .get('/session/end')
+          .query({ id_token_hint: idToken, post_logout_redirect_uri: `${brokerRedirectUri}/logout_response` })
+          .set('Cookie', jar.header())
+          .expect(200)
+        jar.store(confirmPage)
+
+        const forged = await request(app)
+          .post('/session/end/confirm')
+          .type('form')
+          .set('Cookie', jar.header())
+          .send({ xsrf: 'forged-xsrf-value', logout: 'yes' })
+        expect(forged.status).toBeGreaterThanOrEqual(400)
+
+        // the session survived the forged confirmation — silent re-auth still works
+        const silentVerifier = randomBytes(32).toString('base64url')
+        const silent = await request(app)
+          .get('/authorize')
+          .query({ ...authorizeQuery(silentVerifier), prompt: 'none' })
+          .set('Cookie', jar.header())
+          .expect(303)
+        expect(new URL(silent.headers.location).searchParams.get('error')).toBeNull()
+      })
+    })
   })
 
   describe('wallet-login app with a mocked verification session (P1.6/P1.8/P2.1)', () => {
@@ -630,6 +815,49 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       const callbackUrl = await follow303Chain(app, jar, complete.headers.location)
       expect(callbackUrl.searchParams.get('error')).toBe('access_denied')
       expect(callbackUrl.searchParams.get('code')).toBeNull()
+    })
+
+    /** P2.7/AT.5 — the proof request is built server-side from the login config; the browser supplies nothing. */
+    test('AT.5: the DCQL query sent to the identity service comes from the server-side login config only', async () => {
+      const codeVerifier = randomBytes(32).toString('base64url')
+      const jar = jarFactory()
+
+      const authorize = await request(app).get('/authorize').query(authorizeQuery(codeVerifier)).expect(303)
+      jar.store(authorize)
+      const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
+      await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+      await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(200)
+
+      const createBody = JSON.parse(fetchMock.mock.calls[0][1]?.body ?? '{}')
+      const configuredLoginConfig = JSON.parse(e2eEnv.OIDC_LOGIN_CONFIGS)[0]
+      expect(createBody.dcql).toEqual({ query: configuredLoginConfig.dcqlQuery })
+      expect(createBody.responseMode).toBe('direct_post')
+      // signed JAR (P1.6.1): the wallet can verify who is asking
+      expect(createBody.requestSigner).toEqual({ method: 'did', did: 'did:key:zE2eSigner' })
+    })
+
+    /** P2.7/AT.7 — a finished interaction is consumed; replaying its completion route yields no second code. */
+    test('AT.7: a completed interaction cannot be replayed for a second authorization code', async () => {
+      const codeVerifier = randomBytes(32).toString('base64url')
+      const jar = jarFactory()
+
+      const authorize = await request(app).get('/authorize').query(authorizeQuery(codeVerifier)).expect(303)
+      jar.store(authorize)
+      const interactionPath = new URL(authorize.headers.location, 'http://localhost').pathname
+      await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+      await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(200)
+      sessionState = 'ResponseVerified'
+
+      const complete = await request(app).get(`${interactionPath}/complete`).set('Cookie', jar.header()).expect(303)
+      jar.store(complete)
+      const callbackUrl = await follow303Chain(app, jar, complete.headers.location)
+      const tokens = await exchangeCode(app, callbackUrl.searchParams.get('code'), codeVerifier)
+      expect(tokens.status).toBe(200)
+
+      // the interaction was consumed with the resume — replaying /complete must not release anything
+      const replay = await request(app).get(`${interactionPath}/complete`).set('Cookie', jar.header())
+      expect(replay.status).toBeGreaterThanOrEqual(400)
+      expect(replay.headers.location ?? '').not.toContain('code=')
     })
   })
 })

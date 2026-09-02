@@ -90,10 +90,10 @@ describe('claims pipeline', () => {
     })
   })
 
-  test('non-derived strategies are not implemented until Phase 2 (P2.6)', () => {
+  test('non-derived strategies are not implemented until Phase 3 (P3.8, postponed from P2.6)', () => {
     for (const subStrategy of [SubStrategy.credentialClaim, SubStrategy.ephemeral]) {
       const config = new OidcLoginConfig({ ...loginConfig, subStrategy })
-      expect(() => computeSub(config, 'client-a', {}, salt)).toThrow(/not implemented until Phase 2/)
+      expect(() => computeSub(config, 'client-a', {}, salt)).toThrow(/not implemented until Phase 3/)
     }
   })
 })
