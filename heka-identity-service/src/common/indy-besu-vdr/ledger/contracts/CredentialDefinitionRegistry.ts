@@ -1,4 +1,5 @@
 import { injectable } from '@credo-ts/core'
+
 import {
   LedgerClient,
   CredentialDefinition as VdrCredentialDefinition,

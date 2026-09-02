@@ -1,4 +1,5 @@
 import { AgentContext, DependencyManager, Module } from '@credo-ts/core'
+
 import { LedgerClient } from 'indybesu-vdr'
 
 import { IndyBesuModuleConfig, IndyBesuModuleConfigOptions } from './IndyBesuModuleConfig'

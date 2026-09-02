@@ -3,12 +3,16 @@ import { createHash, randomBytes } from 'node:crypto'
 import express from 'express'
 import request from 'supertest'
 
+import { securityHeaders } from '../../src/common/middleware'
 import { ConfigService, OidcConfig } from '../../src/core/config'
 import {
   AccountClaimsStore,
   createOidcProvider,
   InteractionController,
+  noStoreMiddleware,
+  InteractionService,
   VerificationSessionClient,
+  assertWalletAuthorizationRequest,
   VerificationSessionState,
   WalletIdentityAcquirer,
 } from '../../src/oidc'
@@ -85,13 +89,15 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
   const configService = { oidcConfig: config } as unknown as ConfigService
   const accountClaims = new AccountClaimsStore(configService)
   const provider = createOidcProvider(config, testJwks(), accountClaims)
-  const acquirer = new WalletIdentityAcquirer(
-    sessionsMock as unknown as VerificationSessionClient,
-    configService,
+  const acquirer = new WalletIdentityAcquirer(sessionsMock as unknown as VerificationSessionClient, configService)
+  const controller = new InteractionController(
+    provider,
+    new InteractionService(provider, acquirer, configService, accountClaims),
   )
-  const controller = new InteractionController(provider, acquirer, configService, accountClaims)
 
   const app = express()
+  app.use(securityHeaders())
+  app.use('/interaction', noStoreMiddleware)
   app.use('/interaction', express.json())
   app.get('/interaction/:uid', (req, res, next) => {
     controller.interaction(req, res).catch(next)
@@ -214,18 +220,24 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
   test('QR fallback: data → poll → complete → tokens with amr vc (P1.6.3/P2.1.1)', async () => {
     const codeVerifier = randomBytes(32).toString('base64url')
     const { jar, interactionPath } = await startFlow(codeVerifier)
-    await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+    const page = await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
 
     // the data call creates the direct_post session (signed, P1.6.1) and returns QR + deep link
     const data = await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(200)
     expect(sessionsMock.createSignedRequest).toHaveBeenCalledTimes(1)
     expect(data.body.qrDataUrl).toContain('data:image/png;base64')
     expect(data.body.authorizationRequest).toContain('openid4vp://?request_uri=')
+    // the interaction surface hands out single-use authorization requests: never cached, never framed
+    expect(page.headers['cache-control']).toBe('no-store')
+    expect(page.headers['pragma']).toBe('no-cache')
+    expect(page.headers['x-frame-options']).toBe('DENY')
+    expect(page.headers['content-security-policy']).toBe("frame-ancestors 'none'")
 
     // polling: pending while the wallet has not responded (P1.6.3)
     sessionsMock.getSession.mockResolvedValueOnce({ id: 'vs-1', state: VerificationSessionState.RequestUriRetrieved })
     const pending = await request(app).get(`${interactionPath}/status`).set('Cookie', jar.header()).expect(200)
     expect(pending.body).toEqual({ status: 'pending' })
+    expect(pending.headers['cache-control']).toBe('no-store') // polled per-interaction JSON is uncacheable too
 
     // …then verified once heka-identity-service marks the session
     sessionsMock.getSession.mockResolvedValue({
@@ -388,5 +400,48 @@ describe('wallet-login interaction (P1.6/P2.1)', () => {
 
     const data = await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(400)
     expect(data.body.status).toBe('error')
+  })
+
+  test('an authorization request with a non-wallet scheme is never rendered — fails closed', async () => {
+    // HTML escaping does not neutralize a browser scheme in an href — the boundary check must
+    sessionsMock.createSignedRequest.mockResolvedValue({
+      sessionId: 'vs-evil',
+      authorizationRequest: 'javascript:alert(1)',
+    })
+    const codeVerifier = randomBytes(32).toString('base64url')
+    const { jar, interactionPath } = await startFlow(codeVerifier)
+    await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+
+    // the data route fails closed with a generic JSON error — no deep link, no QR
+    const data = await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(400)
+    expect(data.body).toEqual({ status: 'error', message: 'The sign-in attempt could not be started.' })
+    expect(data.text).not.toContain('javascript:')
+
+    // the poisoned session was never stored: polling finds no pending login and never looks it up
+    const status = await request(app).get(`${interactionPath}/status`).set('Cookie', jar.header()).expect(200)
+    expect(status.body.status).toBe('error')
+    expect(sessionsMock.getSession).not.toHaveBeenCalled()
+  })
+})
+
+describe('assertWalletAuthorizationRequest', () => {
+  test.each([
+    'openid4vp://?request_uri=https%3A%2F%2Fis%2Foid4vp%2Fabc',
+    'haip://?client_id=x509_san_dns%3Averifier.example&request_uri=https%3A%2F%2Fis%2Fjar%2F1',
+    'eudi-openid4vp://?request_uri=https%3A%2F%2Fis%2Fjar%2F1',
+    'mdoc-openid4vp://?request_uri=https%3A%2F%2Fis%2Fjar%2F1',
+  ])('accepts wallet invocation URIs: %s', (uri) => {
+    expect(assertWalletAuthorizationRequest(uri)).toBe(uri)
+  })
+
+  test.each([
+    ['javascript:alert(1)', /unexpected scheme 'javascript:'/],
+    ['data:text/html,hi', /unexpected scheme 'data:'/],
+    ['https://phish.example/?request_uri=https%3A%2F%2Fis%2Fjar%2F1', /unexpected scheme 'https:'/],
+    ['openid4vp://?client_id=x&response_type=vp_token', /request_uri missing/],
+    ['not a uri', /not a valid URI/],
+    ['', /not a valid URI/],
+  ])('rejects %s', (uri, message) => {
+    expect(() => assertWalletAuthorizationRequest(uri)).toThrow(message)
   })
 })

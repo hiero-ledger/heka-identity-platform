@@ -9,9 +9,9 @@
   page must never move to another origin, iframes included).
 
   This file is the VITE INPUT (P2.10.2): `yarn ui:build` compiles it (with
-  src/login.ts and src/styles.scss) into src/oidc/pages/ui/, which is what the
-  bridge actually serves. The bundle is self-contained - no CDN references on
-  a login page.
+  src/login.ts and src/styles.scss) into dist/oidc/pages/ui/, which is what
+  the bridge actually serves. The bundle is self-contained - no CDN references
+  on a login page.
 
   Branding (P2.10): deployment-level - edit this source and rebuild, or
   volume-mount over dist/oidc/pages in Docker; per-client - the login
