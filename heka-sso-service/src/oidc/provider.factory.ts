@@ -121,9 +121,12 @@ export function createOidcProvider(
     // The IdP-broker floor (Cognito/Entra): secret-based auth via header or body.
     clientAuthMethods: ['client_secret_basic', 'client_secret_post'],
     // PKCE (S256 — the only method the library supports) is mandatory for all
-    // clients; the library default exempts confidential clients.
+    // clients; the library default exempts confidential clients. Relaxed
+    // between e7ef715 and P1.7 (Keycloak IdPs don't send PKCE by default);
+    // restored now that the demo realm pins PKCE S256 on the IdP side —
+    // manually configured IdPs must enable it too (§4.6-5).
     pkce: {
-      required: () => false,
+      required: () => true,
     },
     clockTolerance: config.clockTolerance,
     // The library default set plus everything this deployment can release

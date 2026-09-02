@@ -129,15 +129,15 @@ describe.skip('E2E OIDC provider', () => {
       expect(response.headers.location).toBeUndefined()
     })
 
-    test('/authorize accepts a missing PKCE challenge (requirement relaxed for Keycloak broker defaults)', async () => {
-      // pkce.required was relaxed to `() => false` (commit e7ef715); revisit
-      // once the demo realm (P1.7) pins PKCE S256 on the IdP side.
+    test('/authorize rejects a missing PKCE challenge — required for all clients (restored with the P1.7 demo realm)', async () => {
       const withoutPkce: Partial<typeof validAuthorizeQuery> = { ...validAuthorizeQuery }
       delete withoutPkce.code_challenge
       delete withoutPkce.code_challenge_method
       const response = await request(app).get('/authorize').query(withoutPkce).expect(303)
 
-      expect(response.headers.location).toMatch(/\/interaction\/[^/]+$/)
+      const location = new URL(response.headers.location)
+      expect(location.searchParams.get('error')).toBe('invalid_request')
+      expect(location.searchParams.get('error_description')).toContain('PKCE')
     })
 
     test('/authorize routes a valid request toward the interaction', async () => {
