@@ -43,7 +43,7 @@ function App() {
     auth.signIn()
   }
 
-  // Presentation only (UI-PLAN.md B4): the auth flow and the state switch are
+  // Presentation only: the auth flow and the state switch are
   // unchanged; the states render inside the shells from components/Layout.
   // Phase C replaces the interim cards below with the Welcome / Splash /
   // Sign-in-failed screens.

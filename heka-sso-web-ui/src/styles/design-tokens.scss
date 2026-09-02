@@ -1,12 +1,12 @@
 // src/styles/design-tokens.scss — the only place CSS constants are defined
 // for heka-sso-web-ui.
 //
-// Source of truth: docs/DESIGN-TOKENS.md (Partisia-SSI-2.0 Figma, "Web UI"
-// page). Change the doc first, then this file; keep the section order in sync.
+// Source of truth: docs/DESIGN-TOKENS.md. 
+// Change the doc first, then this file; keep the section order in sync.
 // Values marked `inferred` were not read from Figma — see the referenced
 // DESIGN-TOKENS section for how they were derived and how confident we are.
 //
-// Reuse rules (docs/UI-PLAN.md §2.1): component SCSS uses only `var(--…)`
+// Reuse rules: component SCSS uses only `var(--…)`
 // names from this file — no literal colors, px sizes, font sizes or shadows.
 // Radii use `--radius-*`, never `--space-*`.
 

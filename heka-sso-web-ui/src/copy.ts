@@ -1,5 +1,4 @@
-// All user-facing strings (UI-PLAN.md §2.3): English only, no i18n framework.
-// Phase B introduces the shell strings; Phase C adds the screens'.
+// All user-facing strings: English only, no i18n framework.
 export const copy = {
   app: {
     /** Wordmark next to the logo mark. */

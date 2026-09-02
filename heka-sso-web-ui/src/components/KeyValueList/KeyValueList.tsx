@@ -16,8 +16,7 @@ interface KeyValueListProps {
 }
 
 /**
- * Label/value rows: two columns on desktop, label stacked over value when
- * the shell is stacked (UI-PLAN.md §2.3 / §2.4).
+ * Label/value rows: two columns on desktop, label stacked over value when the shell is stacked.
  */
 function KeyValueList({ items, className }: KeyValueListProps) {
   return (
