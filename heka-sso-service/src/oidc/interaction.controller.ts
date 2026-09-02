@@ -63,12 +63,12 @@ export class InteractionController {
   /** Login progress for the polling login page (P1.6.3). Cookie-bound like every interaction route. */
   @Get(':uid/status')
   public async status(@Req() req: Request, @Res() res: Response): Promise<void> {
+    if (!this.identityAcquirer) {
+      res.json({ status: 'error', message: 'no identity acquisition method is enabled' })
+      return
+    }
     try {
       const details = await this.provider.interactionDetails(req, res)
-      if (!this.identityAcquirer) {
-        res.json({ status: 'error', message: 'no identity acquisition method is enabled' })
-        return
-      }
       res.json(await this.identityAcquirer.checkLogin(details.uid))
     } catch (error) {
       this.logger.warn(`Interaction status check failed: ${error}`)
@@ -111,15 +111,13 @@ export class InteractionController {
    */
   private async login(req: Request, res: Response, details: InteractionDetails): Promise<void> {
     const clientId = details.params.client_id as string
-
+    if (!this.identityAcquirer) {
+      return await this.failLogin(req, res, details, 'access_denied', 'no identity acquisition method is enabled')
+    }
     const loginConfig = this.resolveLoginConfig(clientId)
     if (!loginConfig) {
       this.logger.error(`Interaction ${details.uid}: no login configuration for client '${clientId}'`)
       return await this.failLogin(req, res, details, 'server_error', 'no login configuration for client')
-    }
-
-    if (!this.identityAcquirer) {
-      return await this.failLogin(req, res, details, 'access_denied', 'no identity acquisition method is enabled')
     }
 
     try {
@@ -149,7 +147,33 @@ export class InteractionController {
     identity: AcquiredIdentity,
   ): Promise<void> {
     const clientId = details.params.client_id as string
+
+    // Guard against an empty mapping (§4.3): `mapClaims` drops every attribute
+    // whose path is not a claim-mapping key, so if none of them matched the
+    // mapped set is just static claims + login_config_id — identical for every
+    // user — and a derived `sub` computed over it would merge all wallet
+    // holders of this client into one account. Config validation catches wrong
+    // prefixes; this catches claim-name mismatches, empty disclosures and
+    // upstream renames at runtime. Fail closed instead.
+    const mappingPaths = Object.keys(loginConfig.claimMapping)
+    const matchedPaths = mappingPaths.filter((path) => identity.attributes[path] !== undefined)
+    if (mappingPaths.length > 0 && matchedPaths.length === 0) {
+      this.logger.error(
+        `Interaction ${details.uid}: none of the ${mappingPaths.length} claim-mapping paths of login configuration ` +
+          `'${loginConfig.id}' matched the presented attributes (paths: ${Object.keys(identity.attributes).join(', ') || 'none'}) — ` +
+          'refusing to derive sub from a claim set that carries no per-user data',
+      )
+      return await this.failLogin(
+        req,
+        res,
+        details,
+        'access_denied',
+        'the presented credential did not contain the required claims',
+      )
+    }
+
     const claims = mapClaims(loginConfig, identity.attributes)
+
     const sub = computeSub(loginConfig, clientId, claims, this.configService.oidcConfig.subHmacSalt)
     if (identity.presentedAttributes) {
       claims.vc_presented_attributes = identity.presentedAttributes
