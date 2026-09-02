@@ -26,7 +26,7 @@ describe('NotificationEventsListener lifecycle', () => {
     orm = createMock<MikroORM>()
     em = createMock<EntityManager>()
     warnSpy = vi.fn()
-    logger = createMock<Logger>({ warn: warnSpy } as Partial<Logger>)
+    logger = createMock<Logger>({ warn: warnSpy })
 
     listener = new NotificationEventsListener(agent, notificationService, orm, em, logger)
   })
