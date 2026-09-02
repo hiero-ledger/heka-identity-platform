@@ -12,7 +12,7 @@ interface LogoProps {
 
 // Layout of identity-service's `Logo` and Figma's "Logo block" (24 px app
 // icon + wordmark). The mark is a placeholder until the brand asset is
-// exported from Figma (UI-PLAN.md risk 2); the wordmark is text for now.
+// exported from Figma; the wordmark is text for now.
 function Logo({ onPress }: LogoProps) {
   const content = (
     <>

@@ -4,18 +4,24 @@ export { ClaimSet, computeSub, mapClaims } from './claims.util'
 export {
   AcquiredIdentity,
   BeginLoginResult,
+  DcApiLogin,
   DcApiLoginRequest,
+  DirectPostLogin,
   IDENTITY_ACQUIRER,
   IdentityAcquirer,
   LoginPageData,
   LoginStatus,
   StubIdentityAcquirer,
+  supportsDcApiLogin,
+  supportsDirectPostLogin,
 } from './identity-acquirer'
 export { IdentityServiceEventsClient, VerificationSessionEvent } from './identity-service-events.client'
 export { IdentityServiceTokenProvider } from './identity-service-token.provider'
 export { InteractionController } from './interaction.controller'
+export { InteractionApiError, InteractionDetails, InteractionService, LoginPromptOutcome } from './interaction.service'
 export { LoginEventsService } from './login-events.service'
 export { MikroOrmAdapter } from './mikro-orm.adapter'
+export { noStoreMiddleware } from './no-store.middleware'
 export { OidcModule } from './oidc.module'
 export { OidcCleanupService } from './oidc-cleanup.service'
 export { builtUiDir, loadPage, pageAssetRoots, pageAssetsDir, renderPage } from './pages'
@@ -29,3 +35,4 @@ export {
   VerificationSessionState,
 } from './verification-session.client'
 export { WalletIdentityAcquirer } from './wallet-identity-acquirer'
+export { assertWalletAuthorizationRequest, WALLET_URI_SCHEMES } from './wallet-uri'

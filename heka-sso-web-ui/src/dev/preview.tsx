@@ -11,7 +11,7 @@ import { AuthSession, AuthSessionContext } from '@/auth/session'
 //   dashboard        Keycloak-shaped claims (mapped attributes, amr array)
 //   dashboard-auth0  Auth0-shaped claims (namespaced custom claims)
 //   dashboard-full   bridge-direct claims incl. vc_presented_attributes
-//   dashboard-bare   minimal claims (nothing disclosed) â€” fallbacks
+//   dashboard-bare   minimal claims (nothing disclosed) — fallbacks
 //   welcome | signed-out | error | splash
 
 type PreviewState =

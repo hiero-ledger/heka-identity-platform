@@ -17,7 +17,7 @@ import {
   CredentialStatusListSubject,
 } from './dto'
 
-// W3C Bitstring Status List v1.0 (§2.2, §3.3) requires `encodedList` to be a Multibase-encoded base64url string
+// W3C Bitstring Status List v1.0 requires `encodedList` to be a Multibase-encoded base64url string
 const MULTIBASE_BASE64URL_PREFIX = 'u'
 
 function toMultibaseBase64url(base64url: string): string {

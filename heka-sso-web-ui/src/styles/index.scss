@@ -1,16 +1,11 @@
-// Global styles: the platform's visual language on the Partisia-SSI-2.0
-// design system (docs/UI-PLAN.md).
-//
-// - design-tokens.scss is this app's single source of CSS constants, written
-//   from docs/DESIGN-TOKENS.md (it is NOT a copy of identity-service any more —
-//   the palettes diverged).
+// - design-tokens.scss is this app's single source of CSS constants.
 // - reset.scss and mixins.scss are still verbatim copies of
 //   heka-identity-service-web-ui (`src/app/styles`, `src/shared/styles`) —
-//   shared pixels, not semantics (INTEGRATION.md P2.1.1). Keep them in sync by
+//   shared pixels, not semantics. Keep them in sync by
 //   re-copying, not by editing.
 
 // Inter — self-hosting (woff2 in the bundle) is planned with the Keycloak
-// theme (UI-PLAN.md K2); until then the app loads it from Google Fonts.
+// theme; until then the app loads it from Google Fonts.
 @import 'https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap';
 
 @import 'design-tokens';

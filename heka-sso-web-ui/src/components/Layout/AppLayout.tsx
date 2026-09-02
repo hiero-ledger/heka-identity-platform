@@ -18,7 +18,7 @@ interface AppLayoutProps {
 }
 
 /**
- * Authenticated shell (UI-PLAN.md §2.2 / §2.4): sidebar + white body on
+ * Authenticated shell: sidebar + white body on
  * desktop; logo/sign-out top row + body when stacked. One page, so the nav
  * has a single, always-active item.
  */

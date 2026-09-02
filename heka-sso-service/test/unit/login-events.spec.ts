@@ -131,6 +131,16 @@ describe('LoginEventsService', () => {
     )
   })
 
+  test('a malformed uid segment is refused without crashing the server (no decodeURIComponent throw)', async () => {
+    // '%zz' is invalid percent-encoding and '%' is outside the uid alphabet — must fail the socket, not the process
+    await expect(connect('/interaction/%zz/events', signedCookie('uid-8'))).rejects.toThrow(
+      /upgrade refused: 404|socket hang up/,
+    )
+    // the server is still alive and serving upgrades
+    const socket = await connect('/interaction/uid-8/events', signedCookie('uid-8'))
+    expect(socket.readyState).toBe(WebSocket.OPEN)
+  })
+
   test('a closed subscription is dropped — later events do not throw', async () => {
     const socket = await connect('/interaction/uid-7/events', signedCookie('uid-7'))
     service.registerSession('vs-7', 'uid-7')
