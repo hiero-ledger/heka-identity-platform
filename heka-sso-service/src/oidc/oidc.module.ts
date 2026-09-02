@@ -6,6 +6,7 @@ import { Logger, MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 
 import { AccountClaimsStore } from './account-claims.store'
 import { IDENTITY_ACQUIRER, IdentityAcquirer, StubIdentityAcquirer } from './identity-acquirer'
+import { IdentityServiceTokenProvider } from './identity-service-token.provider'
 import { InteractionController } from './interaction.controller'
 import { MikroOrmAdapter } from './mikro-orm.adapter'
 import { noStoreMiddleware } from './no-store.middleware'
@@ -28,6 +29,7 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
     SigningKeysService,
     AccountClaimsStore,
     OidcCleanupService,
+    IdentityServiceTokenProvider,
     VerificationSessionClient,
     {
       provide: OIDC_PROVIDER,

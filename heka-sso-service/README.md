@@ -88,7 +88,10 @@ Secrets in this section have **no compiled-in defaults** (see [INTEGRATION.md](d
 | `OIDC_COOKIE_KEYS`             | _(generated in dev)_          | Comma-separated cookie signing keys (≥ 16 chars each). **Secret — required in production.** |
 | `OIDC_SUB_HMAC_SALT`           | _(generated in dev)_          | Salt for the `derived` pairwise `sub` strategy (≥ 32 chars). **Secret — required in production.** |
 | `IDENTITY_SERVICE_BASE_URL`    | `http://localhost:3000` (dev) | Base URL of heka-identity-service's verification-session API. **Required in production.**   |
-| `IDENTITY_SERVICE_AUTH_TOKEN`  | _(unset)_                     | Credential for the identity-service API. **Secret.**                                        |
+| `IDENTITY_SERVICE_AUTH_NAME`   | _(unset)_                     | Service-account user name (P1.6.7): the bridge logs into heka-auth-service, caches the token, and re-acquires it shortly before it expires. |
+| `IDENTITY_SERVICE_AUTH_PASSWORD` | _(unset)_                   | Service-account password. **Secret** — known dev values (e.g. the demo-user password) are refused in production. |
+| `AUTH_SERVICE_BASE_URL`        | `http://localhost:3004` (dev) | Base URL of heka-auth-service, where the service-account login happens. **Required in production when the service account is used.** |
+| `IDENTITY_SERVICE_AUTH_TOKEN`  | _(unset)_                     | Static token override for tests/dev — bypasses the service-account login. Note: heka-auth-service access tokens expire after ~1h. **Secret.** |
 | `IDENTITY_SERVICE_PUBLIC_VERIFIER_ID` | _(unset)_              | Identity-service verifier the bridge creates verification sessions under (wallet login, P1.6). |
 | `IDENTITY_SERVICE_REQUEST_SIGNER_DID` | _(unset)_              | DID whose key signs authorization requests (JAR, P1.6.1). Required for wallet login — no unsigned fallback. |
 | `OIDC_TTL_ACCESS_TOKEN`        | `3600`                        | Access-token lifetime in seconds.                                                           |

@@ -28,7 +28,7 @@ services:
       - OIDC_SUB_HMAC_SALT=dev-only-sub-hmac-salt-do-not-use-in-production
       - IDENTITY_SERVICE_BASE_URL=http://localhost:3000
       - OIDC_CLIENTS=[{"clientId":"keycloak-broker","clientSecret":"dev-only-broker-secret-do-not-use-in-production","redirectUris":["http://localhost:8080/realms/master/broker/heka-sso/endpoint"],"postLogoutRedirectUris":["http://localhost:8080/realms/master/broker/heka-sso/endpoint/logout_response"],"loginConfigId":"default"}]
-      - OIDC_LOGIN_CONFIGS=[{"id":"default","verificationTemplate":"default","claimMapping":{"pid.given_name":"given_name","pid.family_name":"family_name","pid.email":"email"},"subStrategy":"derived","issuerAllowlist":[]}]
+      - OIDC_LOGIN_CONFIGS=[{"id":"default","verificationTemplate":"default","claimMapping":{"mdl.given_name":"given_name","mdl.family_name":"family_name","mdl.age_over_18":"age_over_18"},"subStrategy":"derived","issuerAllowlist":[]}]
       # Dev-only stub login (INTEGRATION.md P1.3) — refused in production
       - OIDC_STUB_LOGIN=true
     ports:

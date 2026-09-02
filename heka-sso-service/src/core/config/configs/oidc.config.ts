@@ -25,6 +25,9 @@ export enum OidcConfigKeys {
   subHmacSalt = 'OIDC_SUB_HMAC_SALT',
   identityServiceBaseUrl = 'IDENTITY_SERVICE_BASE_URL',
   identityServiceAuthToken = 'IDENTITY_SERVICE_AUTH_TOKEN',
+  identityServiceAuthName = 'IDENTITY_SERVICE_AUTH_NAME',
+  identityServiceAuthPassword = 'IDENTITY_SERVICE_AUTH_PASSWORD',
+  authServiceBaseUrl = 'AUTH_SERVICE_BASE_URL',
   identityServicePublicVerifierId = 'IDENTITY_SERVICE_PUBLIC_VERIFIER_ID',
   identityServiceRequestSignerDid = 'IDENTITY_SERVICE_REQUEST_SIGNER_DID',
   ttlAccessToken = 'OIDC_TTL_ACCESS_TOKEN',
@@ -51,6 +54,7 @@ export enum SubStrategy {
 const oidcConfigDefaults = {
   issuerUrl: 'http://localhost:3005',
   identityServiceBaseUrl: 'http://localhost:3000',
+  authServiceBaseUrl: 'http://localhost:3004',
   ttl: {
     accessToken: 3600,
     authorizationCode: 60,
@@ -71,6 +75,7 @@ const knownDefaultSecrets = new Set([
   'dev-only-cookie-key-do-not-use-in-production',
   'dev-only-sub-hmac-salt-do-not-use-in-production',
   'dev-only-broker-secret-do-not-use-in-production',
+  'Password1234!', // the platform's demo-user password (prepare-demo-user.ts)
   'test',
   'secret',
   'password',
@@ -296,9 +301,31 @@ export class IdentityServiceConfig {
   @IsUrl(urlOptions)
   public baseUrl!: string
 
+  /**
+   * Static token override for tests/dev (P1.6.7) — bypasses the service-account
+   * login. Note: heka-auth-service access tokens expire after ~1h, so a pasted
+   * token breaks wallet logins once it lapses; prefer `authName`/`authPassword`.
+   */
   @IsOptional()
   @IsString()
   public authToken?: string
+
+  /**
+   * Identity-service service account (P1.6.7): the bridge logs into
+   * heka-auth-service (`POST /api/v1/oauth/token`) with these credentials,
+   * caches the token, and re-acquires it shortly before it expires.
+   */
+  @IsOptional()
+  @IsString()
+  public authName?: string
+
+  @IsOptional()
+  @IsString()
+  public authPassword?: string
+
+  /** Base URL of heka-auth-service, where the service-account login happens. */
+  @IsUrl(urlOptions)
+  public authServiceBaseUrl!: string
 
   /** The identity-service public verifier the bridge creates verification sessions under. */
   @IsOptional()
@@ -318,6 +345,9 @@ export class IdentityServiceConfig {
     const env = configuration ?? process.env
     this.baseUrl = env[OidcConfigKeys.identityServiceBaseUrl]
     this.authToken = env[OidcConfigKeys.identityServiceAuthToken]
+    this.authName = env[OidcConfigKeys.identityServiceAuthName]
+    this.authPassword = env[OidcConfigKeys.identityServiceAuthPassword]
+    this.authServiceBaseUrl = env[OidcConfigKeys.authServiceBaseUrl]
     this.publicVerifierId = env[OidcConfigKeys.identityServicePublicVerifierId]
     this.requestSignerDid = env[OidcConfigKeys.identityServiceRequestSignerDid]
   }
@@ -435,8 +465,18 @@ export class OidcConfig {
       ...env,
       [OidcConfigKeys.identityServiceBaseUrl]:
         env[OidcConfigKeys.identityServiceBaseUrl] || oidcConfigDefaults.identityServiceBaseUrl,
+      [OidcConfigKeys.authServiceBaseUrl]:
+        env[OidcConfigKeys.authServiceBaseUrl] || oidcConfigDefaults.authServiceBaseUrl,
     })
     refuseKnownDefault(OidcConfigKeys.identityServiceAuthToken, [this.identityService.authToken])
+    // Service-account credentials (P1.6.7): same secret hygiene as everything else
+    refuseKnownDefault(OidcConfigKeys.identityServiceAuthPassword, [this.identityService.authPassword])
+    if (isProduction && this.identityService.authName && !env[OidcConfigKeys.authServiceBaseUrl]) {
+      problems.push(
+        `${OidcConfigKeys.authServiceBaseUrl} must be set in production when the ` +
+          `${OidcConfigKeys.identityServiceAuthName} service account is used (no compiled-in default)`,
+      )
+    }
 
     this.ttl = new OidcTtlConfig(configuration)
 
