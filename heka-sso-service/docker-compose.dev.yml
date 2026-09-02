@@ -15,7 +15,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.3
     # Dev flags: no theme caching, so a rebuilt heka-keycloak-theme jar shows
-    # after a container restart without clearing caches (UI-PLAN.md Phase K).
+    # after a container restart without clearing caches.
     command: start-dev --import-realm --spi-theme-static-max-age=-1 --spi-theme-cache-themes=false --spi-theme-cache-templates=false
     environment:
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin

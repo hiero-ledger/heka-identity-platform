@@ -110,12 +110,7 @@ const jarFactory = () => {
 type Jar = ReturnType<typeof jarFactory>
 
 /** Follows the provider's 303 chain until it lands on the client redirect_uri. */
-const follow303Chain = async (
-  app: Server,
-  jar: Jar,
-  startLocation: string,
-  redirectUri: string = brokerRedirectUri,
-): Promise<URL> => {
+const follow303Chain = async (app: Server, jar: Jar, startLocation: string, redirectUri: string = brokerRedirectUri): Promise<URL> => {
   let location = startLocation
   for (let hop = 0; hop < 6 && !location.startsWith(redirectUri); hop++) {
     const { pathname, search } = new URL(location, 'http://localhost')
@@ -147,12 +142,7 @@ interface TokenClient {
 
 const brokerTokenClient: TokenClient = { id: brokerClientId, secret: brokerSecret, redirectUri: brokerRedirectUri }
 
-const exchangeCode = (
-  app: Server,
-  code: string | null,
-  codeVerifier: string,
-  client: TokenClient = brokerTokenClient,
-) =>
+const exchangeCode = (app: Server, code: string | null, codeVerifier: string, client: TokenClient = brokerTokenClient) =>
   request(app).post('/token').auth(client.id, client.secret).type('form').send({
     grant_type: 'authorization_code',
     code,
@@ -194,10 +184,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
     })
 
     test('serves discovery at the app root', async () => {
-      const response = await request(app)
-        .get('/.well-known/openid-configuration')
-        .set('Host', 'localhost:3005')
-        .expect(200)
+      const response = await request(app).get('/.well-known/openid-configuration').set('Host', 'localhost:3005').expect(200)
 
       expect(response.body.issuer).toBe('http://localhost:3005')
       expect(response.body.jwks_uri).toBe('http://localhost:3005/jwks')
@@ -250,10 +237,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
 
         expect(response.body.response_types_supported).toEqual(['code'])
         expect(response.body.code_challenge_methods_supported).toEqual(['S256'])
-        expect(response.body.token_endpoint_auth_methods_supported.sort()).toEqual([
-          'client_secret_basic',
-          'client_secret_post',
-        ])
+        expect(response.body.token_endpoint_auth_methods_supported.sort()).toEqual(['client_secret_basic', 'client_secret_post'])
       })
 
       test('/authorize rejects an unknown client on the error page', async () => {
@@ -338,10 +322,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
           login_config_id: 'default',
         })
 
-        const userinfo = await request(app)
-          .get('/userinfo')
-          .set('Authorization', `Bearer ${tokens.body.access_token}`)
-          .expect(200)
+        const userinfo = await request(app).get('/userinfo').set('Authorization', `Bearer ${tokens.body.access_token}`).expect(200)
         expect(userinfo.body.sub).toBe(idToken.sub)
 
         // adapter persistence: the flow's artifacts live in oidc_entity
@@ -407,17 +388,9 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
 
       test('stable sub across logins (derived strategy)', async () => {
         const firstVerifier = randomBytes(32).toString('base64url')
-        const first = await exchangeCode(
-          app,
-          (await runStubAuthorizationFlow(firstVerifier)).searchParams.get('code'),
-          firstVerifier,
-        )
+        const first = await exchangeCode(app, (await runStubAuthorizationFlow(firstVerifier)).searchParams.get('code'), firstVerifier)
         const secondVerifier = randomBytes(32).toString('base64url')
-        const second = await exchangeCode(
-          app,
-          (await runStubAuthorizationFlow(secondVerifier)).searchParams.get('code'),
-          secondVerifier,
-        )
+        const second = await exchangeCode(app, (await runStubAuthorizationFlow(secondVerifier)).searchParams.get('code'), secondVerifier)
 
         expect(decodeJwtPayload(first.body.id_token).sub).toBe(decodeJwtPayload(second.body.id_token).sub)
       })
@@ -430,7 +403,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
             id: 'expired-e2e-token',
             payload: { jti: 'expired-e2e-token' },
             expiresAt: new Date(Date.now() - 60_000),
-          }),
+          })
         )
         await em.flush()
 
@@ -458,11 +431,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         const codeVerifier = randomBytes(32).toString('base64url')
         const { callbackUrl } = await runFlow(codeVerifier)
 
-        const response = await exchangeCode(
-          app,
-          callbackUrl.searchParams.get('code'),
-          randomBytes(32).toString('base64url'),
-        )
+        const response = await exchangeCode(app, callbackUrl.searchParams.get('code'), randomBytes(32).toString('base64url'))
         expect(response.status).toBe(400)
         expect(response.body.error).toBe('invalid_grant')
       })
@@ -538,18 +507,10 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
 
       test('the derived sub is pairwise — different clients see different subs for the same identity', async () => {
         const firstVerifier = randomBytes(32).toString('base64url')
-        const first = await exchangeCode(
-          app,
-          (await runFlow(firstVerifier)).callbackUrl.searchParams.get('code'),
-          firstVerifier,
-        )
+        const first = await exchangeCode(app, (await runFlow(firstVerifier)).callbackUrl.searchParams.get('code'), firstVerifier)
 
         const secondVerifier = randomBytes(32).toString('base64url')
-        const secondFlow = await runFlow(
-          secondVerifier,
-          { client_id: secondClientId, redirect_uri: secondRedirectUri },
-          secondRedirectUri,
-        )
+        const secondFlow = await runFlow(secondVerifier, { client_id: secondClientId, redirect_uri: secondRedirectUri }, secondRedirectUri)
         const second = await exchangeCode(app, secondFlow.callbackUrl.searchParams.get('code'), secondVerifier, {
           id: secondClientId,
           secret: secondClientSecret,
@@ -723,10 +684,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       expect(idToken.vc_presented_attributes).toEqual(disclosedAttributes)
 
       // userinfo sub consistency
-      const userinfo = await request(app)
-        .get('/userinfo')
-        .set('Authorization', `Bearer ${tokens.body.access_token}`)
-        .expect(200)
+      const userinfo = await request(app).get('/userinfo').set('Authorization', `Bearer ${tokens.body.access_token}`).expect(200)
       expect(userinfo.body.sub).toBe(idToken.sub)
     })
 
@@ -840,10 +798,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
       const uncookiedStart = await request(app).post(`${interactionPath}/dc-api/start`).expect(400)
       expect(uncookiedStart.body.status).toBe('error')
 
-      const uncookiedVerify = await request(app)
-        .post(`${interactionPath}/dc-api/verify`)
-        .send({ authorizationResponse: {} })
-        .expect(400)
+      const uncookiedVerify = await request(app).post(`${interactionPath}/dc-api/verify`).send({ authorizationResponse: {} }).expect(400)
       expect(uncookiedVerify.body.status).toBe('error')
 
       const uncookiedComplete = await request(app).get(`${interactionPath}/complete`)

@@ -117,25 +117,19 @@ describe('LoginEventsService', () => {
     await expect(connect('/interaction/uid-5/events')).rejects.toThrow(/upgrade refused: 400|socket hang up/)
     // bad signature
     await expect(connect('/interaction/uid-5/events', '_interaction=uid-5; _interaction.sig=forged')).rejects.toThrow(
-      /upgrade refused: 400|socket hang up/,
+      /upgrade refused: 400|socket hang up/
     )
     // valid cookie for a different interaction
-    await expect(connect('/interaction/uid-5/events', signedCookie('uid-other'))).rejects.toThrow(
-      /upgrade refused: 400|socket hang up/,
-    )
+    await expect(connect('/interaction/uid-5/events', signedCookie('uid-other'))).rejects.toThrow(/upgrade refused: 400|socket hang up/)
   })
 
   test('upgrades outside /interaction/:uid/events are not served', async () => {
-    await expect(connect('/somewhere-else', signedCookie('uid-6'))).rejects.toThrow(
-      /upgrade refused: 404|socket hang up/,
-    )
+    await expect(connect('/somewhere-else', signedCookie('uid-6'))).rejects.toThrow(/upgrade refused: 404|socket hang up/)
   })
 
   test('a malformed uid segment is refused without crashing the server (no decodeURIComponent throw)', async () => {
     // '%zz' is invalid percent-encoding and '%' is outside the uid alphabet — must fail the socket, not the process
-    await expect(connect('/interaction/%zz/events', signedCookie('uid-8'))).rejects.toThrow(
-      /upgrade refused: 404|socket hang up/,
-    )
+    await expect(connect('/interaction/%zz/events', signedCookie('uid-8'))).rejects.toThrow(/upgrade refused: 404|socket hang up/)
     // the server is still alive and serving upgrades
     const socket = await connect('/interaction/uid-8/events', signedCookie('uid-8'))
     expect(socket.readyState).toBe(WebSocket.OPEN)

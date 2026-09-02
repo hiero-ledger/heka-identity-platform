@@ -15,11 +15,7 @@ export class HealthConfig {
 
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
-    this.memoryHeapThresholdMb = env.HEALTH_MEMORY_HEAP_THRESHOLD_MB
-      ? parseInt(env.HEALTH_MEMORY_HEAP_THRESHOLD_MB, 10)
-      : 2048
-    this.memoryRssThresholdMb = env.HEALTH_MEMORY_RSS_THRESHOLD_MB
-      ? parseInt(env.HEALTH_MEMORY_RSS_THRESHOLD_MB, 10)
-      : 2048
+    this.memoryHeapThresholdMb = env.HEALTH_MEMORY_HEAP_THRESHOLD_MB ? parseInt(env.HEALTH_MEMORY_HEAP_THRESHOLD_MB, 10) : 2048
+    this.memoryRssThresholdMb = env.HEALTH_MEMORY_RSS_THRESHOLD_MB ? parseInt(env.HEALTH_MEMORY_RSS_THRESHOLD_MB, 10) : 2048
   }
 }

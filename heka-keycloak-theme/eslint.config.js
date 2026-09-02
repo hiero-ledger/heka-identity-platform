@@ -1,48 +1,32 @@
-import typescriptEslint from "typescript-eslint";
-import reactRefresh from "eslint-plugin-react-refresh";
-import react from "eslint-plugin-react";
-import reactHooks from "eslint-plugin-react-hooks";
-import eslintConfigPrettier from "eslint-config-prettier";
-import globals from "globals";
-import js from "@eslint/js";
-import storybook from "eslint-plugin-storybook";
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+import prettierRecommended from 'eslint-plugin-prettier/recommended'
+import unusedImports from 'eslint-plugin-unused-imports'
 
-export default typescriptEslint.config(
-  js.configs.recommended,
-  ...typescriptEslint.configs.recommended,
-  react.configs.flat.recommended,
-  react.configs.flat["jsx-runtime"],
-  eslintConfigPrettier,
-  ...storybook.configs["flat/recommended"],
+export default tseslint.config(
+  { ignores: ['dist'] },
   {
-    ignores: ["dist/**", "public/**"],
-  },
-  {
-    plugins: {
-      "react-refresh": reactRefresh,
-      "react-hooks": reactHooks,
-    },
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ['**/*.{ts,tsx,js}'],
     languageOptions: {
-      globals: {
-        ...globals.browser,
-      },
+      ecmaVersion: 2020,
+      globals: globals.browser,
     },
-    settings: {
-      react: {
-        version: "detect",
-      },
+    plugins: {
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
+      'unused-imports': unusedImports,
     },
     rules: {
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
-      "react-hooks/exhaustive-deps": "off",
-      "@typescript-eslint/no-redeclare": "off",
-      "no-labels": "off",
+      ...reactHooks.configs.recommended.rules,
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      'unused-imports/no-unused-imports': 'error',
+      'linebreak-style': ['error', 'unix'],
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
-  {
-    files: ["**/*.stories.*"],
-    rules: {
-      "import/no-anonymous-default-export": "off",
-    },
-  },
-);
+  prettierRecommended
+)

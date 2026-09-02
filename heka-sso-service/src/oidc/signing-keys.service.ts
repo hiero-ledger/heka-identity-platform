@@ -28,7 +28,7 @@ export class SigningKeysService {
 
   public constructor(
     em: EntityManager,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService
   ) {
     this.em = em.fork()
   }
@@ -54,9 +54,7 @@ export class SigningKeysService {
   /** Rotation step 1: publish a fresh key for `alg` — it becomes the signing key immediately. */
   public async rotateKey(alg: SigningAlg): Promise<string> {
     const key = await this.generateAndPersistKey(alg)
-    this.logger.log(
-      `Rotated ${alg} signing key — new kid '${key.kid}'; retire the previous key after IdP caches expire`,
-    )
+    this.logger.log(`Rotated ${alg} signing key — new kid '${key.kid}'; retire the previous key after IdP caches expire`)
     return key.kid
   }
 
@@ -78,9 +76,7 @@ export class SigningKeysService {
 
   private async generateAndPersistKey(alg: SigningAlg): Promise<OidcSigningKey> {
     const { privateKey } =
-      alg === 'RS256'
-        ? generateKeyPairSync('rsa', { modulusLength: 2048 })
-        : generateKeyPairSync('ec', { namedCurve: 'P-256' })
+      alg === 'RS256' ? generateKeyPairSync('rsa', { modulusLength: 2048 }) : generateKeyPairSync('ec', { namedCurve: 'P-256' })
 
     const jwk = privateKey.export({ format: 'jwk' }) as Record<string, any>
     const kid = SigningKeysService.thumbprint(jwk)
@@ -93,8 +89,7 @@ export class SigningKeysService {
 
   /** RFC 7638 JWK thumbprint (SHA-256 over the canonical required members). */
   private static thumbprint(jwk: Record<string, any>): string {
-    const members =
-      jwk.kty === 'RSA' ? { e: jwk.e, kty: jwk.kty, n: jwk.n } : { crv: jwk.crv, kty: jwk.kty, x: jwk.x, y: jwk.y }
+    const members = jwk.kty === 'RSA' ? { e: jwk.e, kty: jwk.kty, n: jwk.n } : { crv: jwk.crv, kty: jwk.kty, x: jwk.x, y: jwk.y }
     return createHash('sha256').update(JSON.stringify(members)).digest('base64url')
   }
 }

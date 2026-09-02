@@ -70,9 +70,7 @@ export class IdentityServiceTokenProvider {
     }
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
-      throw new Error(
-        `auth-service login for service account '${authName}' failed: ${response.status} ${detail.slice(0, 500)}`,
-      )
+      throw new Error(`auth-service login for service account '${authName}' failed: ${response.status} ${detail.slice(0, 500)}`)
     }
 
     const token = (await response.json()) as { access?: string; expires_in?: number }
@@ -80,14 +78,13 @@ export class IdentityServiceTokenProvider {
       throw new Error(`auth-service login for service account '${authName}' returned no access token`)
     }
 
-    const expiresIn =
-      typeof token.expires_in === 'number' && token.expires_in > 0 ? token.expires_in : FALLBACK_EXPIRES_IN_SECONDS
+    const expiresIn = typeof token.expires_in === 'number' && token.expires_in > 0 ? token.expires_in : FALLBACK_EXPIRES_IN_SECONDS
     // shortly before expiry; for very short-lived tokens at least half the lifetime
     const refreshInSeconds = Math.max(expiresIn - REFRESH_MARGIN_SECONDS, expiresIn / 2)
     this.cached = { token: token.access, refreshAt: Date.now() + refreshInSeconds * 1000 }
 
     this.logger.log(
-      `Acquired identity-service token for '${authName}' (expires_in ${expiresIn}s, re-acquire in ~${Math.round(refreshInSeconds)}s)`,
+      `Acquired identity-service token for '${authName}' (expires_in ${expiresIn}s, re-acquire in ~${Math.round(refreshInSeconds)}s)`
     )
     return token.access
   }

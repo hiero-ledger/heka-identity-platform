@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <!--
   RP-initiated logout - interactive confirmation dialog.
   Served for hint-less requests always, and for id_token_hint requests unless
@@ -8,29 +8,29 @@
   the server.
 -->
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign out</title>
-<link rel="stylesheet" href="/interaction/assets/styles.css">
-</head>
-<body>
-<header class="top-bar">
-  <div class="brand">
-    <img src="/interaction/assets/logo.svg" alt="">
-    <span class="brand-name">Heka</span>
-  </div>
-</header>
-<main>
-<div class="card">
-<h1>Sign out</h1>
-{{form}}
-<p>Do you want to sign out from {{host}}?</p>
-<div class="actions">
-  <button autofocus type="submit" form="op.logoutForm" value="yes" name="logout">Yes, sign me out</button>
-  <button class="secondary" type="submit" form="op.logoutForm">No, stay signed in</button>
-</div>
-</div>
-</main>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign out</title>
+    <link rel="stylesheet" href="/interaction/assets/styles.css" />
+  </head>
+  <body>
+    <header class="top-bar">
+      <div class="brand">
+        <img src="/interaction/assets/logo.svg" alt="" />
+        <span class="brand-name">Heka</span>
+      </div>
+    </header>
+    <main>
+      <div class="card">
+        <h1>Sign out</h1>
+        {{form}}
+        <p>Do you want to sign out from {{host}}?</p>
+        <div class="actions">
+          <button autofocus type="submit" form="op.logoutForm" value="yes" name="logout">Yes, sign me out</button>
+          <button class="secondary" type="submit" form="op.logoutForm">No, stay signed in</button>
+        </div>
+      </div>
+    </main>
+  </body>
 </html>

@@ -86,9 +86,8 @@ const hasMethods = (candidate: unknown, names: string[]): boolean =>
   !!candidate && names.every((name) => typeof (candidate as Record<string, unknown>)[name] === 'function')
 
 /** Whether the acquirer serves the cross-device QR path (`GET :uid/data` + `GET :uid/status`). */
-export const supportsDirectPostLogin = (
-  acquirer: IdentityAcquirer | null,
-): acquirer is IdentityAcquirer & DirectPostLogin => hasMethods(acquirer, DIRECT_POST_METHODS as unknown as string[])
+export const supportsDirectPostLogin = (acquirer: IdentityAcquirer | null): acquirer is IdentityAcquirer & DirectPostLogin =>
+  hasMethods(acquirer, DIRECT_POST_METHODS as unknown as string[])
 
 /** Whether the acquirer serves the same-device DC API path (`POST :uid/dc-api/start` + `POST :uid/dc-api/verify`). */
 export const supportsDcApiLogin = (acquirer: IdentityAcquirer | null): acquirer is IdentityAcquirer & DcApiLogin =>

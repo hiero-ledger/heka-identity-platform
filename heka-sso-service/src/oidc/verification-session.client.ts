@@ -66,7 +66,7 @@ export class VerificationSessionClient {
 
   public constructor(
     configService: ConfigService,
-    private readonly tokenProvider: IdentityServiceTokenProvider,
+    private readonly tokenProvider: IdentityServiceTokenProvider
   ) {
     this.config = configService.oidcConfig.identityService
   }
@@ -76,13 +76,11 @@ export class VerificationSessionClient {
     if (!publicVerifierId || !requestSignerDid) {
       throw new Error(
         'IDENTITY_SERVICE_PUBLIC_VERIFIER_ID and IDENTITY_SERVICE_REQUEST_SIGNER_DID must be configured — ' +
-          'authorization requests are always signed, there is no unsigned fallback',
+          'authorization requests are always signed, there is no unsigned fallback'
       )
     }
     if (!loginConfig.dcqlQuery) {
-      throw new Error(
-        `login configuration '${loginConfig.id}' has no DCQL query (dcqlQuery) — nothing to request from the wallet`,
-      )
+      throw new Error(`login configuration '${loginConfig.id}' has no DCQL query (dcqlQuery) — nothing to request from the wallet`)
     }
 
     const response = await this.request<{
@@ -96,9 +94,7 @@ export class VerificationSessionClient {
       version: 'v1',
     })
 
-    this.logger.log(
-      `Created verification session ${response.verificationSession.id} (login config '${loginConfig.id}')`,
-    )
+    this.logger.log(`Created verification session ${response.verificationSession.id} (login config '${loginConfig.id}')`)
     return {
       sessionId: response.verificationSession.id,
       authorizationRequest: response.authorizationRequest,
@@ -114,21 +110,16 @@ export class VerificationSessionClient {
    * via `expectedOrigins`; the identity service returns the
    * `authorizationRequestObject` to pass into `navigator.credentials.get()`.
    */
-  public async createDcApiRequest(
-    loginConfig: OidcLoginConfig,
-    origin: string,
-  ): Promise<CreatedDcApiVerificationSession> {
+  public async createDcApiRequest(loginConfig: OidcLoginConfig, origin: string): Promise<CreatedDcApiVerificationSession> {
     const { publicVerifierId, requestSignerDid } = this.config
     if (!publicVerifierId || !requestSignerDid) {
       throw new Error(
         'IDENTITY_SERVICE_PUBLIC_VERIFIER_ID and IDENTITY_SERVICE_REQUEST_SIGNER_DID must be configured — ' +
-          'DC API authorization requests are signed like every other session',
+          'DC API authorization requests are signed like every other session'
       )
     }
     if (!loginConfig.dcqlQuery) {
-      throw new Error(
-        `login configuration '${loginConfig.id}' has no DCQL query (dcqlQuery) — nothing to request from the wallet`,
-      )
+      throw new Error(`login configuration '${loginConfig.id}' has no DCQL query (dcqlQuery) — nothing to request from the wallet`)
     }
 
     const response = await this.request<{
@@ -149,14 +140,11 @@ export class VerificationSessionClient {
       throw new Error('identity-service returned no authorizationRequestObject for the dc_api session')
     }
 
-    this.logger.log(
-      `Created DC API verification session ${response.verificationSession.id} (login config '${loginConfig.id}')`,
-    )
+    this.logger.log(`Created DC API verification session ${response.verificationSession.id} (login config '${loginConfig.id}')`)
     return {
       sessionId: response.verificationSession.id,
       // a signed request object carries the JAR ({ request: "<jwt>" }); unsigned carries the bare params
-      protocol:
-        'request' in requestObject || 'payload' in requestObject ? 'openid4vp-v1-signed' : 'openid4vp-v1-unsigned',
+      protocol: 'request' in requestObject || 'payload' in requestObject ? 'openid4vp-v1-signed' : 'openid4vp-v1-unsigned',
       authorizationRequestObject: requestObject,
     }
   }
@@ -170,20 +158,17 @@ export class VerificationSessionClient {
   public async verifyDcApiResponse(
     sessionId: string,
     authorizationResponse: Record<string, unknown>,
-    origin: string,
+    origin: string
   ): Promise<VerificationSessionRecord> {
     return await this.request<VerificationSessionRecord>(
       'POST',
       `/openid4vc/verification-session/${encodeURIComponent(sessionId)}/verify`,
-      { authorizationResponse, origin },
+      { authorizationResponse, origin }
     )
   }
 
   public async getSession(sessionId: string): Promise<VerificationSessionRecord> {
-    return await this.request<VerificationSessionRecord>(
-      'GET',
-      `/openid4vc/verification-session/${encodeURIComponent(sessionId)}`,
-    )
+    return await this.request<VerificationSessionRecord>('GET', `/openid4vc/verification-session/${encodeURIComponent(sessionId)}`)
   }
 
   private async request<T>(method: 'GET' | 'POST', path: string, body?: Record<string, unknown>): Promise<T> {

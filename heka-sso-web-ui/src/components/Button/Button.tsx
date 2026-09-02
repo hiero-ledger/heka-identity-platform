@@ -1,8 +1,5 @@
 import { ReactNode } from 'react'
-import {
-  Button as AriaButton,
-  ButtonProps as AriaButtonProps,
-} from 'react-aria-components'
+import { Button as AriaButton, ButtonProps as AriaButtonProps } from 'react-aria-components'
 
 import ArrowBackIcon from '@/assets/icons/arrow-back.svg?react'
 import LogoutIcon from '@/assets/icons/logout.svg?react'
@@ -34,17 +31,7 @@ export interface ButtonProps extends Omit<AriaButtonProps, 'className' | 'childr
 // Pixels of heka-identity-service-web-ui `shared/ui/Button` — the `filled`,
 // `outlined`, `tonal` and `text` variants, icons and the small/full-width
 // modifiers this app needs; no `elevated`/`shutter` variants, no loader.
-function Button({
-  buttonType = 'filled',
-  isSmall,
-  fullWidth,
-  alignment,
-  leftIcon,
-  rightIcon,
-  className,
-  children,
-  ...props
-}: ButtonProps) {
+function Button({ buttonType = 'filled', isSmall, fullWidth, alignment, leftIcon, rightIcon, className, children, ...props }: ButtonProps) {
   const mods: Mods = {
     [styles.small]: isSmall,
     [styles.fullWidth]: fullWidth,

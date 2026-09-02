@@ -30,7 +30,7 @@ export class InteractionController {
 
   public constructor(
     @Inject(OIDC_PROVIDER) private readonly provider: Provider,
-    private readonly interactions: InteractionService,
+    private readonly interactions: InteractionService
   ) {
     this.logger.verbose('constructor<>')
   }
@@ -87,7 +87,7 @@ export class InteractionController {
   public async dcApiVerify(
     @Req() req: Request,
     @Res() res: Response,
-    @Body() body: { authorizationResponse?: Record<string, unknown> },
+    @Body() body: { authorizationResponse?: Record<string, unknown> }
   ): Promise<void> {
     await this.pageApi(req, res, (details) => {
       if (!body?.authorizationResponse || typeof body.authorizationResponse !== 'object') {
@@ -125,11 +125,7 @@ export class InteractionController {
    * generically. Always 200 on success: Nest pre-sets 201 on POST routes and
    * these are plain JSON reads.
    */
-  private async pageApi(
-    req: Request,
-    res: Response,
-    handler: (details: InteractionDetails) => Promise<unknown>,
-  ): Promise<void> {
+  private async pageApi(req: Request, res: Response, handler: (details: InteractionDetails) => Promise<unknown>): Promise<void> {
     let details: InteractionDetails
     try {
       details = await this.provider.interactionDetails(req, res)
@@ -151,12 +147,7 @@ export class InteractionController {
     }
   }
 
-  private async finish(
-    req: Request,
-    res: Response,
-    results: InteractionResults,
-    mergeWithLastSubmission = false,
-  ): Promise<void> {
+  private async finish(req: Request, res: Response, results: InteractionResults, mergeWithLastSubmission = false): Promise<void> {
     return await this.provider.interactionFinished(req, res, results, { mergeWithLastSubmission })
   }
 }

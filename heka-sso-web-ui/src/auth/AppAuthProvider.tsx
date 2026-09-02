@@ -20,8 +20,7 @@ function AppAuthProvider({ children }: PropsWithChildren) {
     default:
       return (
         <p>
-          Unknown <code>VITE_AUTH_PROVIDER</code> value: <code>{providerName}</code> — expected{' '}
-          <code>keycloak</code> or <code>auth0</code>.
+          Unknown <code>VITE_AUTH_PROVIDER</code> value: <code>{providerName}</code> — expected <code>keycloak</code> or <code>auth0</code>.
         </p>
       )
   }

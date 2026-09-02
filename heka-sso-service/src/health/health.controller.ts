@@ -1,13 +1,7 @@
 import { ConfigService } from '@config'
 import { Controller, Get, Logger } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
-import {
-  HealthCheck,
-  HealthCheckResult,
-  HealthCheckService,
-  MemoryHealthIndicator,
-  MikroOrmHealthIndicator,
-} from '@nestjs/terminus'
+import { HealthCheck, HealthCheckResult, HealthCheckService, MemoryHealthIndicator, MikroOrmHealthIndicator } from '@nestjs/terminus'
 
 @ApiTags('Health')
 @Controller('health')
@@ -18,7 +12,7 @@ export class HealthController {
     private readonly healthCheckService: HealthCheckService,
     private readonly memoryHealthIndicator: MemoryHealthIndicator,
     private readonly mikroOrmHealthIndicator: MikroOrmHealthIndicator,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService
   ) {
     this.logger.verbose('constructor<>')
   }

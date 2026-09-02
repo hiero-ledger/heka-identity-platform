@@ -8,14 +8,12 @@ import dotEnvExpand from 'dotenv-expand'
 
 import { databaseOptions } from './database.options'
 
-const environment = process.env.NODE_ENV
-  ? `${process.cwd()}/env/.env.${process.env.NODE_ENV}`
-  : `${process.cwd()}/env/.env`
+const environment = process.env.NODE_ENV ? `${process.cwd()}/env/.env.${process.env.NODE_ENV}` : `${process.cwd()}/env/.env`
 
 dotEnvExpand.expand(
   environmentConfig({
     path: environment,
-  }),
+  })
 )
 
 const config: Options = defineConfig({

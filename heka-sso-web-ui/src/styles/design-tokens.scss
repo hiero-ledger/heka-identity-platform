@@ -1,7 +1,7 @@
 // src/styles/design-tokens.scss — the only place CSS constants are defined
 // for heka-sso-web-ui.
 //
-// Source of truth: docs/DESIGN-TOKENS.md. 
+// Source of truth: docs/DESIGN-TOKENS.md.
 // Change the doc first, then this file; keep the section order in sync.
 // Values marked `inferred` were not read from Figma — see the referenced
 // DESIGN-TOKENS section for how they were derived and how confident we are.
@@ -182,7 +182,8 @@
   --shadow-medium: 0 0 16px 0 rgb(0 0 0 / 7%), 0 6px 12px 0 rgb(0 0 0 / 7%), 0 4px 8px 0 rgb(0 0 0 / 7%); // inherited
   --shadow-large: 0 0 48px 0 rgb(0 0 0 / 7%), 0 16px 32px 0 rgb(0 0 0 / 7%), 0 12px 24px 0 rgb(0 0 0 / 7%); // inherited
   // Figma "$large": tinted five-layer elevation with an inner highlight
-  --shadow-elevated: 0 6px 13px 0 rgb(74 74 79 / 8%), 0 23px 23px 0 rgb(74 74 79 / 7%), 0 52px 31px 0 rgb(74 74 79 / 4%), 0 93px 37px 0 rgb(74 74 79 / 1%), 0 145px 41px 0 rgb(74 74 79 / 0%), inset 0 0.5px 1px 0 rgb(74 74 79 / 10%);
+  --shadow-elevated: 0 6px 13px 0 rgb(74 74 79 / 8%), 0 23px 23px 0 rgb(74 74 79 / 7%), 0 52px 31px 0 rgb(74 74 79 / 4%),
+    0 93px 37px 0 rgb(74 74 79 / 1%), 0 145px 41px 0 rgb(74 74 79 / 0%), inset 0 0.5px 1px 0 rgb(74 74 79 / 10%);
   --shadow-card-hover: 0 4px 6px rgb(0 0 0 / 10%); // proposed, DESIGN-TOKENS §7.5
   --shadow-card-drag: 0 8px 20px rgb(0 0 0 / 20%), 0 1px 3px rgb(0 0 0 / 6%); // proposed, DESIGN-TOKENS §7.5
 

@@ -56,7 +56,7 @@ export class InteractionService {
     @Inject(OIDC_PROVIDER) private readonly provider: Provider,
     @Optional() @Inject(IDENTITY_ACQUIRER) private readonly identityAcquirer: IdentityAcquirer | null,
     private readonly configService: ConfigService,
-    private readonly accountClaims: AccountClaimsStore,
+    private readonly accountClaims: AccountClaimsStore
   ) {
     this.logger.verbose('constructor<>')
   }
@@ -165,10 +165,7 @@ export class InteractionService {
    * the identity service's origin-bound verify endpoint. The origin is the
    * bridge's own — never taken from the request.
    */
-  public async verifyDcApiLogin(
-    details: InteractionDetails,
-    authorizationResponse: Record<string, unknown>,
-  ): Promise<LoginStatus> {
+  public async verifyDcApiLogin(details: InteractionDetails, authorizationResponse: Record<string, unknown>): Promise<LoginStatus> {
     const acquirer = this.identityAcquirer
     if (!supportsDcApiLogin(acquirer)) throw new InteractionApiError('wallet login is not enabled')
     return await acquirer.verifyDcApiLogin(details.uid, authorizationResponse)
@@ -203,11 +200,7 @@ export class InteractionService {
    * disclosed set as `vc_presented_attributes`, store for
    * `findAccount`, and produce the login result.
    */
-  private finishLogin(
-    details: InteractionDetails,
-    loginConfig: OidcLoginConfig,
-    identity: AcquiredIdentity,
-  ): InteractionResults {
+  private finishLogin(details: InteractionDetails, loginConfig: OidcLoginConfig, identity: AcquiredIdentity): InteractionResults {
     const clientId = details.params.client_id as string
     const claims = mapClaims(loginConfig, identity.attributes)
     const sub = computeSub(loginConfig, clientId, claims, this.configService.oidcConfig.subHmacSalt)

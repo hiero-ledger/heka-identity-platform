@@ -60,7 +60,7 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
     private readonly sessions: VerificationSessionClient,
     configService: ConfigService,
     /** registers session→interaction routing for the WebSocket push (absent in some unit tests). */
-    private readonly loginEvents?: LoginEventsService,
+    private readonly loginEvents?: LoginEventsService
   ) {
     this.ttlMs = configService.oidcConfig.ttl.interaction * 1000
     this.origin = new URL(configService.oidcConfig.issuerUrl).origin
@@ -105,10 +105,7 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
   }
 
   /** verify the browser-forwarded DC API response via the identity service's origin-bound endpoint. */
-  public async verifyDcApiLogin(
-    interactionUid: string,
-    authorizationResponse: Record<string, unknown>,
-  ): Promise<LoginStatus> {
+  public async verifyDcApiLogin(interactionUid: string, authorizationResponse: Record<string, unknown>): Promise<LoginStatus> {
     const sessionId = this.getPending(interactionUid)?.dcApiSessionId
     if (!sessionId) return { status: 'error', message: 'The sign-in attempt expired — please start over.' }
 
@@ -149,9 +146,7 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
 
     // either path may have finished — take whichever session is verified
     // (the DC API one first: its verify is synchronous and most recent)
-    const sessionIds = [entry.dcApiSessionId, entry.directPostSessionId].filter(
-      (sessionId): sessionId is string => !!sessionId,
-    )
+    const sessionIds = [entry.dcApiSessionId, entry.directPostSessionId].filter((sessionId): sessionId is string => !!sessionId)
     if (sessionIds.length === 0) throw new Error(`no verification session started for interaction ${interactionUid}`)
 
     let verified: { sessionId: string; sharedAttributes?: Record<string, unknown> } | undefined
@@ -174,9 +169,7 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
     // with the (first) DCQL credential query id.
     const disclosed: ClaimSet = verified.sharedAttributes ?? {}
     const queryId = this.credentialQueryId(loginConfig)
-    const attributes: ClaimSet = Object.fromEntries(
-      Object.entries(disclosed).map(([claim, value]) => [`${queryId}.${claim}`, value]),
-    )
+    const attributes: ClaimSet = Object.fromEntries(Object.entries(disclosed).map(([claim, value]) => [`${queryId}.${claim}`, value]))
 
     this.logger.log(`Interaction ${interactionUid}: presentation verified (session ${verified.sessionId})`)
     return { attributes, amr: ['vc'], presentedAttributes: disclosed }

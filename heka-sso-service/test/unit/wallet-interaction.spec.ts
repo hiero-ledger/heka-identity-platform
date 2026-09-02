@@ -7,13 +7,13 @@ import { securityHeaders } from '../../src/common/middleware'
 import { ConfigService, OidcConfig } from '../../src/core/config'
 import {
   AccountClaimsStore,
+  assertWalletAuthorizationRequest,
   createOidcProvider,
   InteractionController,
-  noStoreMiddleware,
   InteractionService,
   LoginEventsService,
+  noStoreMiddleware,
   VerificationSessionClient,
-  assertWalletAuthorizationRequest,
   VerificationSessionState,
   WalletIdentityAcquirer,
 } from '../../src/oidc'
@@ -94,12 +94,9 @@ describe('wallet-login interaction', () => {
   const acquirer = new WalletIdentityAcquirer(
     sessionsMock as unknown as VerificationSessionClient,
     configService,
-    loginEventsMock as unknown as LoginEventsService,
+    loginEventsMock as unknown as LoginEventsService
   )
-  const controller = new InteractionController(
-    provider,
-    new InteractionService(provider, acquirer, configService, accountClaims),
-  )
+  const controller = new InteractionController(provider, new InteractionService(provider, acquirer, configService, accountClaims))
 
   const app = express()
   app.use(securityHeaders())
@@ -349,11 +346,7 @@ describe('wallet-login interaction', () => {
     await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
     await request(app).post(`${interactionPath}/dc-api/start`).set('Cookie', jar.header()).expect(200)
 
-    const verify = await request(app)
-      .post(`${interactionPath}/dc-api/verify`)
-      .set('Cookie', jar.header())
-      .send({})
-      .expect(400)
+    const verify = await request(app).post(`${interactionPath}/dc-api/verify`).set('Cookie', jar.header()).send({}).expect(400)
     expect(verify.body.status).toBe('error')
     expect(sessionsMock.verifyDcApiResponse).not.toHaveBeenCalled()
   })

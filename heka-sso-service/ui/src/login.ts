@@ -69,8 +69,7 @@ const deepLink = element<HTMLAnchorElement>('deep-link')
 const qrStatus = element<HTMLParagraphElement>('qr-status')
 let qrStarted = false
 
-const getJson = <T>(url: string, options?: RequestInit): Promise<T> =>
-  fetch(url, options).then((res) => res.json() as Promise<T>)
+const getJson = <T>(url: string, options?: RequestInit): Promise<T> => fetch(url, options).then((res) => res.json() as Promise<T>)
 
 /**
  * Per-client branding: product name, logo, colors, custom CSS from
@@ -110,9 +109,7 @@ function dcApiSupported(): boolean {
   const digitalCredential = (window as { DigitalCredential?: DigitalCredentialConstructor }).DigitalCredential
   const allows = digitalCredential?.userAgentAllowsProtocol
   if (typeof allows !== 'function') return true
-  return (
-    allows.call(digitalCredential, 'openid4vp-v1-signed') || allows.call(digitalCredential, 'openid4vp-v1-unsigned')
-  )
+  return allows.call(digitalCredential, 'openid4vp-v1-signed') || allows.call(digitalCredential, 'openid4vp-v1-unsigned')
 }
 
 /**
@@ -163,8 +160,7 @@ function handleStatus(data: LoginStatus | null | undefined): void {
   }
 }
 
-const fetchStatus = (): Promise<LoginStatus> =>
-  getJson<LoginStatus>(`${base}/status`, { headers: { accept: 'application/json' } })
+const fetchStatus = (): Promise<LoginStatus> => getJson<LoginStatus>(`${base}/status`, { headers: { accept: 'application/json' } })
 
 function pollLoop(delay: number): void {
   pollTimer = setTimeout(() => {

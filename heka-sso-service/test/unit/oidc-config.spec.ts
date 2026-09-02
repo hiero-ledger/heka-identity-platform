@@ -113,10 +113,8 @@ describe('OidcConfig', () => {
     // malformed branding is rejected by validation
     expect(() =>
       validate({
-        OIDC_LOGIN_CONFIGS: JSON.stringify([
-          { id: 'bad', verificationTemplate: 't', claimMapping: {}, branding: { productName: 42 } },
-        ]),
-      }),
+        OIDC_LOGIN_CONFIGS: JSON.stringify([{ id: 'bad', verificationTemplate: 't', claimMapping: {}, branding: { productName: 42 } }]),
+      })
     ).toThrow()
   })
 
@@ -127,12 +125,12 @@ describe('OidcConfig', () => {
     expect(() =>
       validate({
         OIDC_LOGIN_CONFIGS: JSON.stringify([{ id: 'x', verificationTemplate: 't', subStrategy: 'unknown' }]),
-      }),
+      })
     ).toThrow()
     expect(() =>
       validate({
         OIDC_CLIENTS: JSON.stringify([{ clientId: 'no-redirects', clientSecret: 'secret-value-long-enough' }]),
-      }),
+      })
     ).toThrow()
   })
 
@@ -154,7 +152,7 @@ describe('OidcConfig', () => {
         loginConfig({
           dcqlQuery: { credentials: [{ id: 'pid' }, { id: 'mdl-1' }] },
           claimMapping: { 'pid.given_name': 'given_name', 'mdl-1.portrait': 'picture' },
-        }),
+        })
       )
       expect(config.loginConfigs[0].credentialQueryIds).toEqual(['pid', 'mdl-1'])
       expect(config.loginConfigs[0].dcqlProblems()).toEqual([])
@@ -167,36 +165,30 @@ describe('OidcConfig', () => {
 
     test('rejects a dcqlQuery without credential queries', () => {
       expect(() => new OidcConfig(loginConfig({ dcqlQuery: {} }))).toThrow(/credentials must be a non-empty array/)
-      expect(() => new OidcConfig(loginConfig({ dcqlQuery: { credentials: [] } }))).toThrow(
-        /credentials must be a non-empty array/,
-      )
+      expect(() => new OidcConfig(loginConfig({ dcqlQuery: { credentials: [] } }))).toThrow(/credentials must be a non-empty array/)
     })
 
     test('rejects credential queries with a missing, malformed, or duplicate id', () => {
       expect(() => new OidcConfig(loginConfig({ dcqlQuery: { credentials: [{ format: 'dc+sd-jwt' }] } }))).toThrow(
-        /credentials\[0\]\.id must be a non-empty string/,
+        /credentials\[0\]\.id must be a non-empty string/
       )
       expect(() => new OidcConfig(loginConfig({ dcqlQuery: { credentials: [{ id: 'pid card' }] } }))).toThrow(
-        /credentials\[0\]\.id must be a non-empty string/,
+        /credentials\[0\]\.id must be a non-empty string/
       )
       expect(() => new OidcConfig(loginConfig({ dcqlQuery: { credentials: [{ id: 'pid' }, { id: 'pid' }] } }))).toThrow(
-        /ids must be unique \(duplicate: pid\)/,
+        /ids must be unique \(duplicate: pid\)/
       )
     })
 
     test('rejects claim-mapping keys that do not use a credential query id as prefix', () => {
       expect(() => new OidcConfig(loginConfig({ claimMapping: { 'PID.given_name': 'given_name' } }))).toThrow(
-        /claimMapping key 'PID\.given_name' must be '<credential query id>\.<claim>' with an id from dcqlQuery \(pid\)/,
+        /claimMapping key 'PID\.given_name' must be '<credential query id>\.<claim>' with an id from dcqlQuery \(pid\)/
       )
-      expect(() => new OidcConfig(loginConfig({ claimMapping: { given_name: 'given_name' } }))).toThrow(
-        /claimMapping key 'given_name'/,
-      )
-      expect(() => new OidcConfig(loginConfig({ claimMapping: { 'pid.': 'given_name' } }))).toThrow(
-        /claimMapping key 'pid\.'/,
-      )
+      expect(() => new OidcConfig(loginConfig({ claimMapping: { given_name: 'given_name' } }))).toThrow(/claimMapping key 'given_name'/)
+      expect(() => new OidcConfig(loginConfig({ claimMapping: { 'pid.': 'given_name' } }))).toThrow(/claimMapping key 'pid\.'/)
       // the message names the offending login configuration
       expect(() => new OidcConfig(loginConfig({ claimMapping: { 'x.y': 'z' } }))).toThrow(
-        /OIDC_LOGIN_CONFIGS: login configuration 'default': claimMapping key 'x\.y'/,
+        /OIDC_LOGIN_CONFIGS: login configuration 'default': claimMapping key 'x\.y'/
       )
     })
   })
@@ -211,7 +203,7 @@ describe('OidcConfig', () => {
         new OidcConfig({
           ...strongProductionEnv,
           OIDC_COOKIE_KEYS: 'dev-only-cookie-key-do-not-use-in-production',
-        }),
+        })
     ).toThrow(/known default secret/)
 
     expect(
@@ -225,7 +217,7 @@ describe('OidcConfig', () => {
               redirectUris: ['https://kc.example.com/realms/r/broker/heka-sso/endpoint'],
             },
           ]),
-        }),
+        })
     ).toThrow(/known default secret/)
   })
 
@@ -234,7 +226,7 @@ describe('OidcConfig', () => {
     expect(new OidcConfig({ OIDC_STUB_LOGIN: 'true' }).stubLogin).toBe(true)
 
     expect(() => new OidcConfig({ ...strongProductionEnv, OIDC_STUB_LOGIN: 'true' })).toThrow(
-      /OIDC_STUB_LOGIN must not be enabled in production/,
+      /OIDC_STUB_LOGIN must not be enabled in production/
     )
     expect(new OidcConfig({ ...strongProductionEnv, OIDC_STUB_LOGIN: 'false' }).stubLogin).toBe(false)
   })
@@ -249,9 +241,9 @@ describe('OidcConfig', () => {
     expect(config.identityService.authPassword).toBe('service-account-password')
     expect(config.identityService.authServiceBaseUrl).toBe('http://localhost:3004')
 
-    expect(
-      new OidcConfig({ AUTH_SERVICE_BASE_URL: 'http://auth.internal:3004' }).identityService.authServiceBaseUrl,
-    ).toBe('http://auth.internal:3004')
+    expect(new OidcConfig({ AUTH_SERVICE_BASE_URL: 'http://auth.internal:3004' }).identityService.authServiceBaseUrl).toBe(
+      'http://auth.internal:3004'
+    )
   })
 
   test('service account in production: refuses the demo password and requires an explicit auth-service URL', () => {
@@ -262,7 +254,7 @@ describe('OidcConfig', () => {
           AUTH_SERVICE_BASE_URL: 'https://auth.example.com',
           IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
           IDENTITY_SERVICE_AUTH_PASSWORD: 'Password1234!',
-        }),
+        })
     ).toThrow(/known default secret/)
 
     expect(
@@ -271,7 +263,7 @@ describe('OidcConfig', () => {
           ...strongProductionEnv,
           IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
           IDENTITY_SERVICE_AUTH_PASSWORD: 'strong-production-password',
-        }),
+        })
     ).toThrow(/AUTH_SERVICE_BASE_URL must be set in production/)
 
     const config = new OidcConfig({
@@ -295,7 +287,7 @@ describe('OidcConfig', () => {
               redirectUris: ['https://kc.example.com/realms/r/broker/heka-sso/endpoint'],
             },
           ]),
-        }),
+        })
     ).toThrow(/too short for production/)
   })
 
@@ -341,17 +333,13 @@ describe('OidcConfig', () => {
         OIDC_JWKS: JSON.stringify({ keys }),
       })
 
-      expect(() => new OidcConfig(jwks([{ ...strongRsaJwk(), kid: 'keystore-CHANGE-ME' }]))).toThrow(
-        /known default key/,
-      )
+      expect(() => new OidcConfig(jwks([{ ...strongRsaJwk(), kid: 'keystore-CHANGE-ME' }]))).toThrow(/known default key/)
       const publicOnly = strongRsaJwk()
       delete publicOnly.d
       expect(() => new OidcConfig(jwks([publicOnly]))).toThrow(/no private material/)
-      expect(() => new OidcConfig(jwks([{ ...strongRsaJwk(), n: Buffer.alloc(128).toString('base64url') }]))).toThrow(
-        /below 2048 bits/,
-      )
+      expect(() => new OidcConfig(jwks([{ ...strongRsaJwk(), n: Buffer.alloc(128).toString('base64url') }]))).toThrow(/below 2048 bits/)
       expect(() => new OidcConfig(jwks([{ kty: 'EC', crv: 'secp256k1', kid: 'k', d: 'x', x: 'x', y: 'y' }]))).toThrow(
-        /unsupported EC curve/,
+        /unsupported EC curve/
       )
 
       expect(new OidcConfig(jwks([strongRsaJwk()])).jwks?.keys).toHaveLength(1)

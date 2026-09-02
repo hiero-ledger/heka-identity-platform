@@ -24,10 +24,8 @@
   min-height: 100vh;
   min-height: var(--visual-viewport-height, 100dvh);
   background: var(--color-surface-2);
-  padding: max(var(--layout-body-inset), env(safe-area-inset-top))
-    max(var(--layout-body-inset), env(safe-area-inset-right))
-    max(var(--layout-body-inset), env(safe-area-inset-bottom))
-    max(var(--layout-body-inset), env(safe-area-inset-left));
+  padding: max(var(--layout-body-inset), env(safe-area-inset-top)) max(var(--layout-body-inset), env(safe-area-inset-right))
+    max(var(--layout-body-inset), env(safe-area-inset-bottom)) max(var(--layout-body-inset), env(safe-area-inset-left));
   animation: shell-enter var(--motion-duration-enter) var(--motion-easing-standard) both;
 
   @media (prefers-reduced-motion: reduce) {

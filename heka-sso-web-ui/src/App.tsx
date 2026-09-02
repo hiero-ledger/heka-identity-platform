@@ -68,12 +68,7 @@ function App() {
   }
   if (auth.isAuthenticated) {
     return (
-      <AppLayout
-        title={copy.nav.dashboard}
-       
-        userName={displayName(auth.claims)}
-        onSignOut={signOut}
-      >
+      <AppLayout title={copy.nav.dashboard} userName={displayName(auth.claims)} onSignOut={signOut}>
         <DashboardPage />
       </AppLayout>
     )

@@ -5,7 +5,7 @@ const PROPERTY = '--visual-viewport-height'
 /**
  * Publishes the visual viewport height as `--visual-viewport-height` on
  * `<html>` so full-height shells can follow the on-screen keyboard and the
- * mobile address bar. Layouts use it as `min-height: var(--visual-viewport-height, 100dvh)`; 
+ * mobile address bar. Layouts use it as `min-height: var(--visual-viewport-height, 100dvh)`;
  * browsers without `visualViewport` keep the `dvh` fallback.
  */
 export function useVisualViewportHeight(): void {
