@@ -16,8 +16,7 @@ interface AuthLayoutProps {
 }
 
 /**
- * Unauthenticated shell (Figma "Sign in", identity-service
- * `UnauthenticatedLayout`): white body with the header column on desktop, or
+ * Unauthenticated shell: white body with the header column on desktop, or
  * the top panel when stacked; the content column carries the logo row and
  * the page body.
  */
@@ -31,8 +30,8 @@ function AuthLayout({ title, illustration, topAction, children }: AuthLayoutProp
         {isDesktop && <HeaderPanel title={title} illustration={illustration} />}
         <div className={styles.content}>
           <div className={styles.contentTop}>
+            <div>{topAction}</div>
             <Logo />
-            {topAction}
           </div>
           {!isDesktop && <TopPanel title={title} illustration={illustration} />}
           <div className={styles.contentBody}>{children}</div>

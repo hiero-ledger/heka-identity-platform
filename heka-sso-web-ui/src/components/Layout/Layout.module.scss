@@ -52,6 +52,11 @@
   flex-direction: column;
   gap: var(--space-md);
   padding: var(--space-md) var(--space-xl);
+  position: sticky;
+  top: var(--layout-body-inset);
+  align-self: flex-start;
+  height: calc(100vh - 2 * var(--layout-body-inset));
+  height: calc(var(--visual-viewport-height, 100dvh) - 2 * var(--layout-body-inset));
 }
 
 .sidebarNav {
@@ -102,9 +107,6 @@
 }
 
 // --- Header panel (desktop, AuthLayout) ------------------------------------
-// Figma "Header": a 288 px column on the body surface — H1 at 48/48, the
-// illustration anchored bottom-left and clipped by the column. Its fill is
-// the `DSR Branded 2` token (white), so it reads as a column, not a box.
 
 .headerPanel {
   position: relative;
@@ -124,9 +126,10 @@
 
 .headerIllustration {
   position: absolute;
-  left: var(--space-xxxl);
-  bottom: calc(2 * var(--space-xxl));
+  left: var(--space-xxxxl);
+  bottom: var(--space-xxxxl);
   width: var(--layout-illustration-size);
+  max-width: none;
   height: auto;
   pointer-events: none;
 }
@@ -172,7 +175,6 @@
   }
 }
 
-// Figma "Block": the 48 px row above the body (logo, back action).
 .contentTop {
   display: flex;
   align-items: center;
@@ -186,5 +188,11 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-xl);
+
+  @include stacked {
+    justify-content: flex-start;
+  }
 }

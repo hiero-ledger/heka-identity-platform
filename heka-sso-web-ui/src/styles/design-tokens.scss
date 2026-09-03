@@ -107,7 +107,7 @@
   --layout-content-padding: var(--space-xxxxl); // 48px, desktop
   --layout-content-padding-tablet: var(--space-xl); // 24px, 640–1024 (inferred from identity-service)
   --layout-content-padding-mobile: var(--space-md); // 16px, ≤ 640 (inferred from identity-service)
-  --layout-illustration-size: 340px; // header-panel illustration width, identity-service desktopIconProps (Figma: 434px, clipped by the 288px column)
+  --layout-illustration-size: 434px; // header-panel illustration width (Figma "Sign in": 434 × 360, clipped by the 288px column)
   --layout-illustration-size-mobile: 160px; // TopPanel illustration, identity-service mobileIconProps
 
   // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import WalletIllustration from '@/assets/icons/wallet-new.svg?react'
+import walletImage from '@/assets/wallet.webp'
 
 import styles from './Layout.module.scss'
 
@@ -9,28 +9,26 @@ interface HeaderPanelProps {
   illustration?: Illustration
 }
 
-const illustrations = {
-  wallet: WalletIllustration,
-} as const
+const illustrations: Record<Illustration, string> = {
+  wallet: walletImage,
+}
 
 /** Desktop: the 288px header column of the Figma body (identity-service `BasicPanel`). */
 export function HeaderPanel({ title, illustration }: HeaderPanelProps) {
-  const Illustration = illustration ? illustrations[illustration] : undefined
   return (
     <aside className={styles.headerPanel}>
       <h1 className={styles.headerTitle}>{title}</h1>
-      {Illustration && <Illustration className={styles.headerIllustration} aria-hidden="true" />}
+      {illustration && <img className={styles.headerIllustration} src={illustrations[illustration]} alt="" />}
     </aside>
   )
 }
 
 /** Stacked shell: title row with a small illustration (identity-service `TopPanel`). */
 export function TopPanel({ title, illustration }: HeaderPanelProps) {
-  const Illustration = illustration ? illustrations[illustration] : undefined
   return (
     <div className={styles.topPanel}>
       <h1>{title}</h1>
-      {Illustration && <Illustration className={styles.topPanelIllustration} aria-hidden="true" />}
+      {illustration && <img className={styles.topPanelIllustration} src={illustrations[illustration]} alt="" />}
     </div>
   )
 }

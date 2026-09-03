@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react'
 
-import styles from './App.module.scss'
 import { useAuthSession } from './auth/session'
 import { displayName } from './claims'
-import Button from './components/Button/Button'
-import Card from './components/Card/Card'
-import { AppLayout, AuthLayout } from './components/Layout'
-import Loader from './components/Loader/Loader'
-import { copy } from './copy'
+import { AppLayout } from './components/Layout'
 import DashboardPage from './pages/DashboardPage'
+import SignInErrorPage from './pages/SignInErrorPage'
+import SplashPage from './pages/SplashPage'
+import WelcomePage from './pages/WelcomePage'
 
 // Survives the logout redirect round-trip (per tab): with it set, the app
 // shows the signed-out landing instead of auto-redirecting straight back
@@ -43,10 +41,16 @@ function App() {
     auth.signIn()
   }
 
-  // Presentation only: the auth flow and the state switch are
-  // unchanged; the states render inside the shells from components/Layout.
-  // Phase C replaces the interim cards below with the Welcome / Splash /
-  // Sign-in-failed screens.
+  // "Back" on the failure screen parks the app on the Welcome landing (the
+  // same flag the sign-out path uses), from where "Sign in" retries.
+  const backToWelcome = () => {
+    sessionStorage.setItem(SIGNED_OUT_KEY, '1')
+    setSignedOut(true)
+  }
+
+  // Presentation only: the auth flow is unchanged — each
+  // state of the original switch maps to one screen. The landing takes
+  // precedence over a stale error so "Back" from the failure screen works.
   if (auth.isAuthenticated) {
     return (
       <AppLayout userName={displayName(auth.claims)} onSignOut={signOut}>
@@ -54,41 +58,13 @@ function App() {
       </AppLayout>
     )
   }
-
-  if (auth.error) {
-    return (
-      <AuthLayout title={copy.states.error.title} illustration="wallet">
-        <Card>
-          <p className={styles.message}>{auth.error}</p>
-          <div className={styles.actions}>
-            <Button onPress={() => auth.signIn()}>{copy.states.error.action}</Button>
-          </div>
-        </Card>
-      </AuthLayout>
-    )
-  }
-
   if (signedOut && !auth.isLoading) {
-    return (
-      <AuthLayout title={copy.states.signedOut.title} illustration="wallet">
-        <Card>
-          <p className={styles.message}>{copy.states.signedOut.message}</p>
-          <div className={styles.actions}>
-            <Button onPress={signInAgain}>{copy.states.signedOut.action}</Button>
-          </div>
-        </Card>
-      </AuthLayout>
-    )
+    return <WelcomePage provider={auth.provider} signedOut onSignIn={signInAgain} />
   }
-
-  return (
-    <AuthLayout title={copy.states.signingIn.title} illustration="wallet">
-      <div className={styles.splash}>
-        <Loader type="linear" label={copy.states.signingIn.title} />
-        <p className={styles.status}>{copy.states.signingIn.redirecting(copy.providers[auth.provider])}</p>
-      </div>
-    </AuthLayout>
-  )
+  if (auth.error) {
+    return <SignInErrorPage message={auth.error} onRetry={() => auth.signIn()} onBack={backToWelcome} />
+  }
+  return <SplashPage provider={auth.provider} />
 }
 
 export default App
