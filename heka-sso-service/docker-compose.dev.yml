@@ -10,11 +10,11 @@ services:
   # Rebuilds the heka-keycloak-theme jar on every `docker compose up` and
   # drops it into the shared `keycloak-theme` volume as heka-theme.jar, which
   # keycloak mounts as its providers dir. Source is bind-mounted from
-  # ../heka-keycloak-theme; node_modules lives in a named volume so the
+  # ../demo/heka-keycloak-theme; node_modules lives in a named volume so the
   # container's Linux-native deps don't clash with the host install.
   keycloak-theme-builder:
     build:
-      context: ../heka-keycloak-theme
+      context: ../demo/heka-keycloak-theme
       dockerfile: Dockerfile.builder
     working_dir: /theme
     command: >
@@ -22,7 +22,7 @@ services:
       && yarn build-keycloak-theme
       && cp dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar /out/heka-theme.jar"
     volumes:
-      - ../heka-keycloak-theme:/theme
+      - ../demo/heka-keycloak-theme:/theme
       - keycloak-theme-node-modules:/theme/node_modules
       - keycloak-theme:/out
   # Keycloak with the pre-configured `heka` realm (IdP `heka-sso`
