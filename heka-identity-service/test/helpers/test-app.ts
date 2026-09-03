@@ -34,9 +34,11 @@ import { AppModule } from 'src/app.module'
 import { startApp } from 'src/app.starter'
 import { AGENT_MODULES_TOKEN, getAgencyModulesMap } from 'src/common/agent/agent-modules.provider'
 import AgentConfig from 'src/config/agent'
+import FileStorageConfig from 'src/config/file-storage'
 import MikroOrmConfig from 'src/config/mikro-orm'
 import { createCredentialRequestToCredentialMapper } from 'src/utils/oid4vc'
 import TestAgentConfig from 'test/config/agent'
+import TestFileStorageConfig from 'test/config/file-storage'
 import TestMikroOrmConfig from 'test/config/mikro-orm'
 import { uuid } from 'utils/misc'
 
@@ -55,6 +57,10 @@ export async function startTestApp(): Promise<INestApplication> {
     .overrideProvider(AgentConfig.KEY)
     .useFactory({
       factory: TestAgentConfig,
+    })
+    .overrideProvider(FileStorageConfig.KEY)
+    .useFactory({
+      factory: TestFileStorageConfig,
     })
     .overrideProvider(AGENT_MODULES_TOKEN)
     .useFactory({

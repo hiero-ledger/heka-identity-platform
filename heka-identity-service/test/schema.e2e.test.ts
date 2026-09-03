@@ -1076,7 +1076,7 @@ describe('E2E schemas management', () => {
       }
 
       // @ts-ignore
-      expect(display.logo?.url).toBe(newSchema.logo)
+      expect(display.logo?.uri).toBe(newSchema.logo)
       // @ts-ignore
       expect(display.background_color).toBe(newSchema.bgColor)
     }
