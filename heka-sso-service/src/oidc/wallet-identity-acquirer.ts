@@ -18,48 +18,22 @@ import { loadPage } from './pages'
 import { VerificationSessionClient, VerificationSessionState } from './verification-session.client'
 import { assertWalletAuthorizationRequest } from './wallet-uri'
 
-/** The verification sessions a pending interaction may hold — one per login path. */
 interface PendingLogin {
-  /** Cross-device QR / deep-link session (`direct_post`). */
   directPostSessionId?: string
-  /** Same-device DC API session (`dc_api`). */
   dcApiSessionId?: string
   expiresAt: number
 }
 
-/**
- * OID4VP wallet login: `beginLogin` serves the static login page; the page then drives
- * one of two paths over the same-origin JSON interaction API:
- *
- * - **DC API (preferred)**: `beginDcApiLogin` creates a `dc_api`
- *   verification session; the browser hands the request to the OS picker and
- *   forwards the wallet's response to `verifyDcApiLogin`, which submits it to
- *   the identity service's origin-bound `verify` endpoint. The `origin` is
- *   the bridge's own (from the issuer URL) — never client-supplied.
- * - **QR fallback**: `beginDirectPostLogin` creates a `direct_post` session
- *   (signed JAR) and returns QR + deep link; the page listens on the
- *   WebSocket push channel (`LoginEventsService`) and **polls**
- *   `checkLogin` as the fallback.
- *
- * Either way the page navigates to the completion route in the same
- * cookie-bound browser session (binding rule); `completeLogin` accepts
- * whichever session reached `ResponseVerified` and maps the disclosed
- * attributes.
- *
- * The uid→session index is in-memory: single-instance dev until it moves into persisted interaction state.
- */
 @Injectable()
 export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin, DcApiLogin {
   private readonly logger = new Logger(WalletIdentityAcquirer.name)
   private readonly pending = new Map<string, PendingLogin>()
   private readonly ttlMs: number
-  /** The bridge's own web origin — the login page is served from it. */
   private readonly origin: string
 
   public constructor(
     private readonly sessions: VerificationSessionClient,
     configService: ConfigService,
-    /** registers session→interaction routing for the WebSocket push (absent in some unit tests). */
     private readonly loginEvents?: LoginEventsService
   ) {
     this.ttlMs = configService.oidcConfig.ttl.interaction * 1000
@@ -67,24 +41,14 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
   }
 
   public async beginLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<BeginLoginResult> {
-    // A page (re)load starts the login step fresh: previously created
-    // verification sessions are abandoned; the sessions themselves are only
-    // created once the page engages a path (data / dc-api/start).
     this.prune()
     this.pending.delete(interactionUid)
     this.logger.log(`Interaction ${interactionUid}: wallet login page served (login config '${loginConfig.id}')`)
-    // The static login page — a Vite-built artifact since
-    // (`ui/`, built by `yarn ui:build`); nothing per-interaction is
-    // server-rendered into it.
     return { kind: 'page', html: loadPage('ui/login.html') }
   }
 
-  /** the QR path's data: creates the cross-device `direct_post` session. */
   public async beginDirectPostLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<LoginPageData> {
     const created = await this.sessions.createSignedRequest(loginConfig)
-    // Boundary check before the value reaches the page's href / QR: wallet
-    // scheme allowlist + JAR by reference; fails closed — the poisoned session
-    // is never stored and the page gets a JSON error instead of a deep link.
     assertWalletAuthorizationRequest(created.authorizationRequest)
     this.entry(interactionUid).directPostSessionId = created.sessionId
     this.loginEvents?.registerSession(created.sessionId, interactionUid)
@@ -94,7 +58,6 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
     return { authorizationRequest: created.authorizationRequest, qrDataUrl }
   }
 
-  /** the DC API path: creates the same-device `dc_api` session bound to the bridge origin. */
   public async beginDcApiLogin(loginConfig: OidcLoginConfig, interactionUid: string): Promise<DcApiLoginRequest> {
     const created = await this.sessions.createDcApiRequest(loginConfig, this.origin)
     this.entry(interactionUid).dcApiSessionId = created.sessionId
@@ -104,7 +67,6 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
     return { protocol: created.protocol, request: created.authorizationRequestObject }
   }
 
-  /** verify the browser-forwarded DC API response via the identity service's origin-bound endpoint. */
   public async verifyDcApiLogin(interactionUid: string, authorizationResponse: Record<string, unknown>): Promise<LoginStatus> {
     const sessionId = this.getPending(interactionUid)?.dcApiSessionId
     if (!sessionId) return { status: 'error', message: 'The sign-in attempt expired — please start over.' }
@@ -117,7 +79,6 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
       this.logger.log(`Interaction ${interactionUid}: DC API presentation verified (session ${sessionId})`)
       return { status: 'verified' }
     } catch (error) {
-      // identity-service detail stays in the server log; the browser gets a generic message
       this.logger.warn(`Interaction ${interactionUid}: DC API verification failed: ${error}`)
       return { status: 'error', message: 'The presentation could not be verified.' }
     }
@@ -126,7 +87,6 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
   public async checkLogin(interactionUid: string): Promise<LoginStatus> {
     const entry = this.getPending(interactionUid)
     if (!entry) return { status: 'error', message: 'The sign-in attempt expired — please start over.' }
-    // only the QR path polls; a DC API-only login is pending until its synchronous verify lands
     if (!entry.directPostSessionId) return { status: 'pending' }
 
     const record = await this.sessions.getSession(entry.directPostSessionId)
@@ -144,8 +104,6 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
     const entry = this.getPending(interactionUid)
     if (!entry) throw new Error(`no pending verification session for interaction ${interactionUid}`)
 
-    // either path may have finished — take whichever session is verified
-    // (the DC API one first: its verify is synchronous and most recent)
     const sessionIds = [entry.dcApiSessionId, entry.directPostSessionId].filter((sessionId): sessionId is string => !!sessionId)
     if (sessionIds.length === 0) throw new Error(`no verification session started for interaction ${interactionUid}`)
 
@@ -164,9 +122,6 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
     }
     this.pending.delete(interactionUid)
 
-    // sharedAttributes is the flat disclosed claim set of the presentation;
-    // claim-mapping keys follow `<credential-query id>.<claim>`, so prefix
-    // with the (first) DCQL credential query id.
     const disclosed: ClaimSet = verified.sharedAttributes ?? {}
     const queryId = this.credentialQueryId(loginConfig)
     const attributes: ClaimSet = Object.fromEntries(Object.entries(disclosed).map(([claim, value]) => [`${queryId}.${claim}`, value]))
@@ -176,14 +131,11 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
   }
 
   private credentialQueryId(loginConfig: OidcLoginConfig): string {
-    // Guaranteed by OidcLoginConfig.dcqlProblems() at config load; no silent
-    // fallback — a wrong prefix would map nothing and collapse `sub` (§4.3).
     const [queryId] = loginConfig.credentialQueryIds
     if (!queryId) throw new Error(`login configuration '${loginConfig.id}' has no DCQL credential query id`)
     return queryId
   }
 
-  /** The pending entry for the interaction, created on first use (sessions are started lazily by the page). */
   private entry(interactionUid: string): PendingLogin {
     this.prune()
     const existing = this.getPending(interactionUid)

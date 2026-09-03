@@ -45,13 +45,6 @@ class CookieJar {
   }
 }
 
-/**
- * Wallet-login interaction: static login page + JSON interaction
- * API, the DC API same-device path, the QR fallback with
- * status polling, cookie-bound completion, and the
- * disclosed-attribute claims pipeline — against a mocked identity-service
- * verification-session client.
- */
 describe('wallet-login interaction', () => {
   const sessionsMock = {
     createSignedRequest: vi.fn(),

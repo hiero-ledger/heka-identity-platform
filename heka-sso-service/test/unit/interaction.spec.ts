@@ -40,11 +40,6 @@ class CookieJar {
   }
 }
 
-/**
- * The controller under test, wired exactly as in production — the provider at
- * the root, the interaction controller in front of it — but on a plain express
- * app (the full Nest wiring is covered by the e2e suite).
- */
 const buildApp = (identityAcquirer: IdentityAcquirer | null) => {
   const config = new OidcConfig({
     OIDC_SUB_HMAC_SALT: subHmacSalt,
@@ -99,11 +94,6 @@ const authorizeQuery = (codeVerifier: string, clientId = 'keycloak-broker') => (
   code_challenge_method: 'S256',
 })
 
-/**
- * Drives /authorize → interaction (login) → resume → interaction (consent) →
- * resume → redirect back to the client, carrying cookies like a browser, and
- * returns the final redirect back to the client's redirect_uri.
- */
 const runAuthorizationFlow = async (app: express.Express, codeVerifier: string, clientId?: string, jar = new CookieJar()) => {
   let response = await request(app).get('/authorize').query(authorizeQuery(codeVerifier, clientId)).expect(303)
   jar.store(response)

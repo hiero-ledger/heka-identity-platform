@@ -10,32 +10,10 @@ import { LoginStatus } from './identity-acquirer'
 import { VerificationSessionEvent } from './identity-service-events.client'
 import { VerificationSessionState } from './verification-session.client'
 
-/**
- * `GET /interaction/:uid/events` upgraded to a WebSocket. The uid is
- * matched against the provider's uid alphabet (nanoid) directly — no
- * `decodeURIComponent`, which throws on malformed percent-encoding, and a
- * throw in an `upgrade` listener would take the process down. The length
- * bound keeps oversized segments away from the keygrip verification.
- */
 const EVENTS_PATH = /^\/interaction\/([\w-]{1,128})\/events$/
 
 /**
- * WebSocket push to the login page: the page opens
- * `ws(s)://<bridge>/interaction/:uid/events` and receives `LoginStatus`
- * pushes (same JSON shape as the `:uid/status` polling route) whenever
- * heka-identity-service reports a state change for one of the interaction's
- * verification sessions.
- *
- * The binding rule holds for the push channel exactly as for the JSON
- * routes: the endpoint lives under the interaction's cookie path, and the
- * upgrade is accepted only when the request carries the provider's **signed**
- * `_interaction` cookie whose value matches the uid in the URL (verified with
- * the same `cookies.keys` keygrip the provider signs with). No cookie, bad
- * signature, or a foreign uid → 400, no session state leaks.
- *
- * Session→interaction mapping is registered by the wallet acquirer when it
- * creates verification sessions; like the other stores it is
- * in-memory (single-instance dev) until interaction state is persisted.
+ * WebSocket push to the login page
  */
 @Injectable()
 export class LoginEventsService implements OnModuleDestroy {
@@ -52,18 +30,15 @@ export class LoginEventsService implements OnModuleDestroy {
     this.ttlMs = configService.oidcConfig.ttl.interaction * 1000
   }
 
-  /** Hook the upgrade handling onto the app's HTTP server (called from `MainModule.appConfigure`). */
   public attach(server: Server): void {
     if (this.wss) return
     this.wss = new WebSocketServer({ noServer: true })
 
     server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
-      // a throw here is an uncaught exception on the server — fail the socket, never the process
       try {
         const path = (request.url ?? '').split('?')[0]
         const match = EVENTS_PATH.exec(path)
         if (!match) {
-          // no other upgrade surface exists on the bridge
           socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n')
           socket.destroy()
           return
@@ -85,13 +60,11 @@ export class LoginEventsService implements OnModuleDestroy {
     })
   }
 
-  /** Map a verification session to its interaction so events can be routed (called by the wallet acquirer). */
   public registerSession(sessionId: string, interactionUid: string): void {
     this.prune()
     this.sessions.set(sessionId, { uid: interactionUid, expiresAt: Date.now() + this.ttlMs })
   }
 
-  /** Route an identity-service verification event to the interaction's page sockets. */
   public handleSessionEvent(event: VerificationSessionEvent): void {
     const entry = this.sessions.get(event.sessionId)
     if (!entry || entry.expiresAt <= Date.now()) return
@@ -117,9 +90,8 @@ export class LoginEventsService implements OnModuleDestroy {
   }
 
   /**
-   * binding for the upgrade request: the signed `_interaction` cookie
-   * (name=value signed by the provider's keygrip over `cookies.keys`, sig in
-   * `_interaction.sig`) must be present, valid, and match the URL's uid.
+   * binding for the upgrade request: the signed `_interaction` cookie must be present, valid,
+   * and match the URL's uid.
    */
   private isBoundToInteraction(request: IncomingMessage, uid: string): boolean {
     const cookies = LoginEventsService.parseCookies(request.headers.cookie)

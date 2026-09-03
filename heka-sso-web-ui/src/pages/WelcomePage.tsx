@@ -7,16 +7,10 @@ import styles from './AuthPages.module.scss'
 
 interface WelcomePageProps {
   provider: AuthProviderName
-  /** After an explicit sign-out the copy reads as an end state. */
   signedOut?: boolean
   onSignIn: () => void
 }
 
-/**
- * The signed-out landing (and, with auto sign-in off, the first screen):
- * Figma "Sign in" minus the password fields — heading, one-line pitch, the
- * primary "Sign in with wallet" action, divider, provider line.
- */
 function WelcomePage({ provider, signedOut, onSignIn }: WelcomePageProps) {
   return (
     <AuthLayout title={copy.welcome.title}>

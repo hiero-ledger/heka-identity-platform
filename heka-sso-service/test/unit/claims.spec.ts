@@ -1,10 +1,6 @@
 import { OidcLoginConfig, SubStrategy } from '../../src/core/config'
 import { computeSub, mapClaims } from '../../src/oidc'
 
-/**
- * Claims pipeline: claim mapping per the login
- * configuration and the `derived` pairwise `sub` strategy.
- */
 describe('claims pipeline', () => {
   const loginConfig = new OidcLoginConfig({
     id: 'default',

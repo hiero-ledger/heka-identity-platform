@@ -1,10 +1,5 @@
 import { loadPage, renderPage } from '../../src/oidc'
 
-/**
- * Bridge-page templates: the four documents live as
- * `.html` files in `src/oidc/pages/` (copied to dist by nest-cli assets) and
- * are rendered with `{{key}}` placeholder substitution.
- */
 describe('bridge-page templates', () => {
   test('all hook templates load and link the shared (built) stylesheet', () => {
     for (const name of ['logout-auto.html', 'logout-confirm.html', 'logout-success.html', 'error.html']) {

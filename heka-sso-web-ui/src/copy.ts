@@ -1,9 +1,6 @@
-// All user-facing strings: English only, no i18n framework.
 export const copy = {
   app: {
-    /** Wordmark next to the logo mark. */
     name: 'CivicTrust',
-    /** Document title (index.html) and long-form product name. */
     title: 'CivicTrust Demo',
   },
   common: {
@@ -19,7 +16,6 @@ export const copy = {
     dashboard: 'Dashboard',
     signOut: 'Sign out',
   },
-  /** Small uppercase label above the page title in the header column. */
   eyebrow: {
     dashboard: 'Your account',
     auth: 'CivicTrust Demo',

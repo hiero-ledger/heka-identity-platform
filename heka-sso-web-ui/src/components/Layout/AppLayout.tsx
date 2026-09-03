@@ -13,18 +13,12 @@ import { HeaderPanel, TopPanel } from './HeaderPanel'
 import styles from './Layout.module.scss'
 
 interface AppLayoutProps {
-  /** Page title shown in the header column (stacked: the top panel). */
   title: string
   userName?: string
   onSignOut: () => void
   children: ReactNode
 }
 
-/**
- * Authenticated shell: sidebar (logo, nav, user, sign out) + white body holding the header column
- * and the centered page content; logo/sign-out top row + top panel + content
- * when stacked. One page, so the nav has a single, always-active item.
- */
 function AppLayout({ title, userName, onSignOut, children }: AppLayoutProps) {
   useVisualViewportHeight()
   const isDesktop = useDesktop()

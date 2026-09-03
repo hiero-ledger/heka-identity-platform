@@ -1,13 +1,6 @@
 import { OidcSigningKey } from '../../src/core/database'
 import { SigningKeysService } from '../../src/oidc'
 
-/**
- * In-memory stand-in for the (Postgres) EntityManager. `transactional`
- * runs the callback against the same fake; `execute` emulates the two raw
- * statements the service issues — the advisory lock (a no-op here; real
- * cross-connection serialization is covered by the e2e concurrency suite)
- * and `retireKey`'s conditional update with the last-active-key guard.
- */
 class FakeEntityManager {
   public store: OidcSigningKey[] = []
   public lockAcquisitions = 0

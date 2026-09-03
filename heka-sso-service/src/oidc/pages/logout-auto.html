@@ -1,12 +1,4 @@
 <!doctype html>
-<!--
-  RP-initiated logout - auto-confirm page. Served only when
-  OIDC_LOGOUT_AUTO_CONFIRM is enabled AND the request carries a valid
-  id_token_hint: in the broker chain the user already chose to sign out at the
-  IdP, so this page submits the confirmation itself. The interactive buttons
-  remain as the noscript fallback. {{form}} is the library's XSRF form,
-  embedded verbatim.
--->
 <html lang="en">
   <head>
     <meta charset="utf-8" />

@@ -13,10 +13,6 @@ function orNotShared(value: string | undefined): ReactNode {
   return value ?? <span className={styles.muted}>{copy.common.notShared}</span>
 }
 
-/**
- * The signed-in screen: greeting, the wallet-presented
- * identity, and the raw claims for debugging mapper configuration (kept collapsed).
- */
 function DashboardPage() {
   const { claims, provider } = useAuthSession()
   const providerLabel = copy.providers[provider]

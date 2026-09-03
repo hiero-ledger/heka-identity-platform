@@ -1,10 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react'
 
-/**
- * Breakpoints of `src/styles/mixins.scss` (`mobile` ≤ 640, `desktop` ≥ 1024) —
- * the same numbers heka-identity-service-web-ui's `Screen` uses, implemented
- * with `matchMedia` instead of `react-responsive`.
- */
 export const breakpoints = {
   mobile: 640,
   desktop: 1024,

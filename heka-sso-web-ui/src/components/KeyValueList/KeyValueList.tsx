@@ -15,9 +15,6 @@ interface KeyValueListProps {
   className?: string
 }
 
-/**
- * Label/value rows: two columns on desktop, label stacked over value when the shell is stacked.
- */
 function KeyValueList({ items, className }: KeyValueListProps) {
   return (
     <dl className={classNames(styles.list, {}, [className])}>

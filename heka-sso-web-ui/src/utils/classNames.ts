@@ -1,4 +1,3 @@
-// Copied from heka-identity-service-web-ui `shared/lib/classNames`.
 export type Mods = Record<string, boolean | string | undefined>
 
 export function classNames(cls: string, mods: Mods = {}, additional: Array<string | undefined> = []): string {

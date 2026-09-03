@@ -107,26 +107,15 @@ export class OidcClientConfig {
   @IsUrl(urlOptions, { each: true })
   public redirectUris!: string[]
 
-  /** For RP-initiated logout — e.g. Keycloak's broker logout-return URL (`…/broker/<alias>/endpoint/logout_response`). */
   @IsOptional()
   @IsArray()
   @IsUrl(urlOptions, { each: true })
   public postLogoutRedirectUris?: string[]
 
-  /**
-   * OIDC Back-Channel Logout receiver — where the bridge POSTs the
-   * `logout_token` when the session ends. Keycloak's realm-level receiver is
-   * `.../realms/<realm>/protocol/openid-connect/logout/backchannel-logout`.
-   */
   @IsOptional()
   @IsUrl(urlOptions)
   public backchannelLogoutUri?: string
 
-  /**
-   * Include `sid` in logout_tokens (and id_tokens) so the receiver can match
-   * the exact session. Defaults to true when a
-   * back-channel logout URI is configured.
-   */
   @IsOptional()
   @IsBoolean()
   public backchannelLogoutSessionRequired?: boolean
@@ -161,36 +150,23 @@ export class OidcClientConfig {
   }
 }
 
-/** DCQL `credentials[].id` syntax (OpenID4VP DCQL; mirrors the `dcql` package identity-service validates with). */
 const DCQL_ID_PATTERN = /^[a-zA-Z0-9_-]+$/
 
-/**
- * Per-client branding of the wallet login page. Served to the page via `GET /interaction/:uid/branding`
- * and applied client-side; purely cosmetic. All fields optional — the page's
- * built-in branding is the default.
- */
 export class OidcLoginConfigBranding {
-  /** Shown next to the logo and in the page title. */
   @IsOptional()
   @IsString()
   @Length(1, 255)
   public productName?: string
 
-  /** Logo image URL — bridge-relative (e.g. `/interaction/assets/acme.svg`) or absolute. */
   @IsOptional()
   @IsString()
   @Length(1, 2000)
   public logoUrl?: string
 
-  /**
-   * CSS custom-property overrides applied on `:root`, keyed with or without
-   * the leading `--` (see `--brand-*` in `pages/assets/styles.css`).
-   */
   @IsOptional()
   @IsObject()
   public colors?: Record<string, string>
 
-  /** Extra CSS appended to the page (admin-supplied — same trust level as the rest of the config). */
   @IsOptional()
   @IsString()
   public customCss?: string
@@ -210,21 +186,14 @@ export class OidcLoginConfig {
   @Length(1, 255)
   public id!: string
 
-  /** Reference to a heka-identity-service verification template / DCQL query. */
   @IsString()
   @Length(1, 255)
   public verificationTemplate!: string
 
-  /**
-   * Inline DCQL query for the wallet presentation. The identity-service session API takes the
-   * query inline; resolving `verificationTemplate` by id can replace this
-   * later without changing the client.
-   */
   @IsOptional()
   @IsObject()
   public dcqlQuery?: Record<string, unknown>
 
-  /** Credential-query claim path → OIDC claim name (e.g. `pid.given_name` → `given_name`). */
   @IsObject()
   public claimMapping: Record<string, string>
 
@@ -235,17 +204,14 @@ export class OidcLoginConfig {
   @IsEnum(SubStrategy)
   public subStrategy: SubStrategy
 
-  /** Nominated claim for the `credential-claim` strategy. */
   @IsOptional()
   @IsString()
   public subClaim?: string
 
-  /** Trust policy: accepted credential issuers. */
   @IsArray()
   @IsString({ each: true })
   public issuerAllowlist: string[]
 
-  /** Per-client login-page branding. */
   @IsOptional()
   @ValidateNested()
   @Type(() => OidcLoginConfigBranding)
@@ -264,23 +230,12 @@ export class OidcLoginConfig {
     this.branding = loginConfig.branding ? new OidcLoginConfigBranding(loginConfig.branding) : undefined
   }
 
-  /** DCQL credential query ids (`dcqlQuery.credentials[].id`) — the prefixes claim-mapping keys are written against. */
   public get credentialQueryIds(): string[] {
     const credentials = (this.dcqlQuery as { credentials?: unknown } | undefined)?.credentials
     if (!Array.isArray(credentials)) return []
     return credentials.map((credential) => (credential as { id?: unknown } | null)?.id).filter((id): id is string => typeof id === 'string')
   }
 
-  /**
-   * Structural checks the identity service would otherwise only surface at
-   * login time (or not at all): with an inline `dcqlQuery`, `credentials` must
-   * be a non-empty array of queries with a DCQL-valid `id`, and every
-   * `claimMapping` key must be `<credential query id>.<claim>` — a mapping
-   * written against a wrong prefix silently maps nothing, which would collapse
-   * every user of the client onto the same derived `sub`. Configs
-   * without a `dcqlQuery` (stub login / template resolved by id) are not
-   * checked here.
-   */
   public dcqlProblems(): string[] {
     if (this.dcqlQuery === undefined) return []
     const problems: string[] = []
@@ -314,7 +269,6 @@ export class OidcLoginConfig {
   }
 }
 
-/** Token/artifact lifetimes in seconds, mapped onto the provider `ttl` configuration. */
 export class OidcTtlConfig {
   @IsInt()
   @Min(1)
@@ -354,25 +308,14 @@ export class OidcTtlConfig {
   }
 }
 
-/** Connection to heka-identity-service's verification-session API. */
 export class IdentityServiceConfig {
   @IsUrl(urlOptions)
   public baseUrl!: string
 
-  /**
-   * Static token override for tests/dev — bypasses the service-account
-   * login. Note: heka-auth-service access tokens expire after ~1h, so a pasted
-   * token breaks wallet logins once it lapses; prefer `authName`/`authPassword`.
-   */
   @IsOptional()
   @IsString()
   public authToken?: string
 
-  /**
-   * Identity-service service account: the bridge logs into
-   * heka-auth-service (`POST /api/v1/oauth/token`) with these credentials,
-   * caches the token, and re-acquires it shortly before it expires.
-   */
   @IsOptional()
   @IsString()
   public authName?: string
@@ -381,20 +324,13 @@ export class IdentityServiceConfig {
   @IsString()
   public authPassword?: string
 
-  /** Base URL of heka-auth-service, where the service-account login happens. */
   @IsUrl(urlOptions)
   public authServiceBaseUrl!: string
 
-  /** The identity-service public verifier the bridge creates verification sessions under. */
   @IsOptional()
   @IsString()
   public publicVerifierId?: string
 
-  /**
-   * DID whose key signs authorization requests — every
-   * verification session is created with a `requestSigner`; there is no
-   * unsigned fallback for the `request_uri` path.
-   */
   @IsOptional()
   @IsString()
   public requestSignerDid?: string
@@ -413,13 +349,6 @@ export class IdentityServiceConfig {
 
 /**
  * OIDC provider configuration.
- *
- * Secrets (cookie keys, `sub` HMAC salt, identity-service credentials, client
- * secrets) have NO compiled-in defaults. In production the
- * constructor fails fast when they are unset, too weak, or equal to a known
- * dev-default value; outside production, unset secrets are generated fresh on
- * every start (sessions and derived `sub` values then do not survive a
- * restart — set explicit dev values, e.g. from `env/.env`, when that matters).
  */
 export class OidcConfig {
   @IsUrl(urlOptions)
@@ -443,11 +372,6 @@ export class OidcConfig {
   @Type(() => OidcTtlConfig)
   public ttl: OidcTtlConfig
 
-  /**
-   * Accepted clock skew in seconds when validating incoming JWTs (request
-   * objects, client assertions). Brokering IdPs — Keycloak most prominently —
-   * default to 0s tolerance on their side, so the bridge carries the slack.
-   */
   @IsInt()
   @Min(0)
   public clockTolerance: number
@@ -460,41 +384,16 @@ export class OidcConfig {
   @Type(() => OidcLoginConfig)
   public loginConfigs: OidcLoginConfig[]
 
-  /**
-   * Optional signing-JWKS override (`OIDC_JWKS` inline JSON, or `OIDC_JWKS_FILE`
-   * path) — intended for dev/test. When unset, keys are generated on first
-   * start and persisted in Postgres (see `SigningKeysService`).
-   */
   @IsOptional()
   @IsObject()
   public jwks?: { keys: Record<string, any>[] }
 
-  /**
-   * Dev-only stub login: the wallet-login interaction
-   * completes immediately with the login configuration's static claims instead
-   * of a credential presentation. A bridge that logs anyone in must never
-   * reach a real deployment — production refuses this flag.
-   */
   @IsBoolean()
   public stubLogin: boolean
 
-  /**
-   * Dev-only: lets the provider's outbound calls (back-channel
-   * logout_tokens) reach special-use IPs — the library's SSRF protection
-   * otherwise destroys connections to loopback/private ranges, which is
-   * exactly where the dev Keycloak's back-channel receiver lives
-   * (localhost:8080). Production refuses this flag: real receivers are
-   * public hosts and the SSRF protection must stay on.
-   */
   @IsBoolean()
   public allowPrivateNetworkCalls: boolean
 
-  /**
-   * skip the logout confirmation dialog when the request carries a
-   * valid `id_token_hint` (the broker chain — the user already confirmed at
-   * the IdP). Off by default: the bridge shows its confirmation dialog on
-   * every RP-initiated logout.
-   */
   @IsBoolean()
   public logoutAutoConfirm: boolean
 
@@ -545,7 +444,6 @@ export class OidcConfig {
       [OidcConfigKeys.authServiceBaseUrl]: env[OidcConfigKeys.authServiceBaseUrl] || oidcConfigDefaults.authServiceBaseUrl,
     })
     refuseKnownDefault(OidcConfigKeys.identityServiceAuthToken, [this.identityService.authToken])
-    // Service-account credentials: same secret hygiene as everything else
     refuseKnownDefault(OidcConfigKeys.identityServiceAuthPassword, [this.identityService.authPassword])
     if (isProduction && this.identityService.authName && !env[OidcConfigKeys.authServiceBaseUrl]) {
       problems.push(

@@ -6,11 +6,6 @@ import { AuthProviderName } from './session'
 
 const providerName = (import.meta.env.VITE_AUTH_PROVIDER || 'keycloak') as string
 
-/**
- * Selects the auth stack from `VITE_AUTH_PROVIDER` (`keycloak` — default — or
- * `auth0`). Everything below this component is provider-agnostic and works
- * against the `AuthSession` contract.
- */
 function AppAuthProvider({ children }: PropsWithChildren) {
   switch (providerName.toLowerCase() as AuthProviderName) {
     case 'auth0':

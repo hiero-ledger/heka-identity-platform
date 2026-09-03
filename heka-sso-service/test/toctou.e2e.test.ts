@@ -6,13 +6,9 @@ import { MikroOrmAdapter, SIGNING_ALGS, SigningKeysService } from '../src/oidc'
 import { initializeMikroOrm } from './helpers'
 
 /**
- * Concurrency scenarios from docs/toctou-remediation-plan.md, run against the
- * real dev Postgres: advisory locks are held per connection, so the two
- * "replicas" here are two independent `MikroORM.init` instances — an
- * in-process mock proves nothing about cross-replica serialization.
- *
- * Opt-in like the other e2e suites: needs the dev Postgres
- * (docker-compose.dev.yml, port 5434); run with `yarn test:e2e`.
+ * Concurrency scenarios run against the real dev Postgres: advisory locks are held per connection, so the two
+ * "replicas" here are two independent `MikroORM.init` instances — an in-process mock proves nothing about
+ * cross-replica serialization.
  */
 describe.skipIf(process.env.E2E !== 'true')('E2E TOCTOU serialization', () => {
   const configStub = { oidcConfig: { jwks: undefined } } as any

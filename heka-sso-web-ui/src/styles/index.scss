@@ -1,16 +1,6 @@
-// - design-tokens.scss is this app's single source of CSS constants.
-// - reset.scss and mixins.scss are still verbatim copies of
-//   heka-identity-service-web-ui (`src/app/styles`, `src/shared/styles`) —
-//   shared pixels, not semantics. Keep them in sync by
-//   re-copying, not by editing.
-
 @import 'design-tokens';
 @import 'reset';
 
-// Inter, self-hosted (public/fonts — the variable-weight woff2 subsets Google
-// Fonts serves, OFL) and preloaded from index.html, so text paints in the
-// final face on every load of the redirect chain instead of swapping in from
-// a fallback font. `swap` is the safety net if the preload is late.
 @font-face {
   font-family: inter;
   font-style: normal;

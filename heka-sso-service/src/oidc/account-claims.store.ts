@@ -4,12 +4,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { ClaimSet } from './claims.util'
 
 /**
- * Verified-claims store: the interaction stores the
- * mapped claim set keyed by the computed `sub` when login completes;
- * `findAccount` resolves it at token/userinfo time — there is no user
- * table. In-memory for now, matching the in-memory adapter —
- * single-instance dev only; entries live as long as the OP session TTL, the
- * longest window in which the provider may still call `findAccount`.
+ * Verified-claims store: the interaction stores mapped claim set keyed by the computed `sub` when login completes;
  */
 @Injectable()
 export class AccountClaimsStore {

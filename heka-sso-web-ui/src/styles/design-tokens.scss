@@ -1,94 +1,64 @@
-// src/styles/design-tokens.scss — the only place CSS constants are defined
-// for heka-sso-web-ui.
-//
-// Source of truth: docs/DESIGN-TOKENS.md.
-// Change the doc first, then this file; keep the section order in sync.
-// Values marked `inferred` were not read from Figma — see the referenced
-// DESIGN-TOKENS section for how they were derived and how confident we are.
-//
-// Reuse rules: component SCSS uses only `var(--…)`
-// names from this file — no literal colors, px sizes, font sizes or shadows.
-// Radii use `--radius-*`, never `--space-*`.
-
 :root {
-  // ---------------------------------------------------------------------------
-  // 1. Color — primary (DESIGN-TOKENS §1, §7.1)
-  // ---------------------------------------------------------------------------
-  --color-primary: #094e66; // CivicTrust override (DESIGN-TOKENS §8) — platform: #262629
-  --color-primary-hover: #084257; // primary × 0.85 (§7.1 rule; platform: #202023)
-  --color-primary-pressed: #063747; // primary × 0.70 (§7.1 rule; platform: #1b1b1d)
-  --color-primary-opacity-6: rgb(76 138 165 / 8%); // CivicTrust tinted base (platform: 116 116 123)
+  --color-primary: #094e66;
+  --color-primary-hover: #084257;
+  --color-primary-pressed: #063747;
+  --color-primary-opacity-6: rgb(76 138 165 / 8%);
   --color-primary-opacity-9: rgb(76 138 165 / 12%);
   --color-primary-opacity-12: rgb(76 138 165 / 16%);
-  --color-primary-branded-2: #fff; // Figma "Primary/DSR Branded 2"
+  --color-primary-branded-2: #fff;
 
-  // ---------------------------------------------------------------------------
-  // 1. Color — on surface: text, icons, dividers (DESIGN-TOKENS §1, §7.2)
-  // ---------------------------------------------------------------------------
   --color-dark-high-emphasis: rgb(0 0 0 / 90%);
   --color-dark-medium-emphasis: rgb(0 0 0 / 65%);
   --color-dark-disabled: rgb(0 0 0 / 38%);
   --color-dark-divider: rgb(0 0 0 / 10%);
   --color-dark-outline-medium: rgb(0 0 0 / 38%);
-  --color-dark-outline-high: rgb(0 0 0 / 65%); // inherited, DESIGN-TOKENS §7.2
-  --color-dark-opacity-05: rgb(0 0 0 / 5%); // inherited, DESIGN-TOKENS §7.2
-  --color-dark-opacity-08: rgb(0 0 0 / 8%); // inherited, DESIGN-TOKENS §7.2
-  --color-dark-opacity-10: rgb(0 0 0 / 10%); // inherited, DESIGN-TOKENS §7.2
-  --color-dark-opacity-30: rgb(0 0 0 / 30%); // inherited, DESIGN-TOKENS §7.2
-  --color-dark-opacity-33: rgb(0 0 0 / 33%); // inherited, DESIGN-TOKENS §7.2
-  --color-dark-opacity-36: rgb(0 0 0 / 36%); // inherited, DESIGN-TOKENS §7.2
+  --color-dark-outline-high: rgb(0 0 0 / 65%);
+  --color-dark-opacity-05: rgb(0 0 0 / 5%);
+  --color-dark-opacity-08: rgb(0 0 0 / 8%);
+  --color-dark-opacity-10: rgb(0 0 0 / 10%);
+  --color-dark-opacity-30: rgb(0 0 0 / 30%);
+  --color-dark-opacity-33: rgb(0 0 0 / 33%);
+  --color-dark-opacity-36: rgb(0 0 0 / 36%);
 
   --color-light-high-emphasis: rgb(255 255 255 / 90%);
-  --color-light-medium-emphasis: rgb(255 255 255 / 65%); // inherited, DESIGN-TOKENS §7.2
+  --color-light-medium-emphasis: rgb(255 255 255 / 65%);
   --color-light-disabled: rgb(255 255 255 / 38%);
-  --color-light-opacity-20: rgb(255 255 255 / 20%); // inherited, DESIGN-TOKENS §7.2
+  --color-light-opacity-20: rgb(255 255 255 / 20%);
 
-  --color-text-on-surface: #29404d; // CivicTrust (platform: #333)
+  --color-text-on-surface: #29404d;
 
-  // ---------------------------------------------------------------------------
-  // 1. Color — surface (DESIGN-TOKENS §1, §7.2, §7.5)
-  // ---------------------------------------------------------------------------
   --color-surface-deep: #fff;
-  --color-surface-2: #f0f5f7; // CivicTrust (platform: #f4f4f4) — mirrored in index.html/preview.html critical bg
-  --color-surface-4: #e4edf1; // CivicTrust (platform: #ebebed)
-  --color-surface-grey-2: #e8eff3; // CivicTrust (platform: #edeff1), default border color
-  --color-backdrop: rgb(0 0 0 / 50%); // proposed, DESIGN-TOKENS §7.5 (modal backdrop)
+  --color-surface-2: #f0f5f7;
+  --color-surface-4: #e4edf1;
+  --color-surface-grey-2: #e8eff3;
+  --color-backdrop: rgb(0 0 0 / 50%);
 
-  // ---------------------------------------------------------------------------
-  // 1. Color — status / accent (DESIGN-TOKENS §1, §7.3)
-  // ---------------------------------------------------------------------------
-  --color-success: #1aa179; // Figma green-600
-  --color-notification: #ef2727; // inherited (low confidence), DESIGN-TOKENS §7.3
-  --color-error: var(--color-notification); // proposed, DESIGN-TOKENS §7.3
-  --color-primary-soft: #4c8aa5; // CivicTrust: the opacity trio's base as a solid — gradient end, light accents
-  --gradient-accent: linear-gradient(90deg, var(--color-primary), var(--color-primary-soft)); // title accent bar
-  --color-accent-purple: #6f42c1; // Figma purple_600, role unconfirmed
-  --color-accent-nav: #f18d00; // menu icon accent — from the icon artwork (Figma Menu), not a Figma variable
+  --color-success: #1aa179;
+  --color-notification: #ef2727;
+  --color-error: var(--color-notification);
+  --color-primary-soft: #4c8aa5;
+  --gradient-accent: linear-gradient(90deg, var(--color-primary), var(--color-primary-soft));
+  --color-accent-purple: #6f42c1;
+  --color-accent-nav: #f18d00;
 
-  // ---------------------------------------------------------------------------
-  // 2. Spacing — pixel system, 16px unit (DESIGN-TOKENS §2, §7.2)
-  // ---------------------------------------------------------------------------
   --space-none: 0;
   --space-unit: 16px;
-  --space-xxxxs: calc(0.125 * var(--space-unit)); // 2px, inherited
+  --space-xxxxs: calc(0.125 * var(--space-unit)); // 2px
   --space-xxxs: calc(0.25 * var(--space-unit)); // 4px
   --space-xxs: calc(0.375 * var(--space-unit)); // 6px
   --space-xs: calc(0.5 * var(--space-unit)); // 8px
   --space-sm: calc(0.75 * var(--space-unit)); // 12px
   --space-md: calc(1 * var(--space-unit)); // 16px
-  --space-lg: calc(1.25 * var(--space-unit)); // 20px, inherited
+  --space-lg: calc(1.25 * var(--space-unit)); // 20px
   --space-xl: calc(1.5 * var(--space-unit)); // 24px
   --space-xxl: calc(2 * var(--space-unit)); // 32px
   --space-xxxl: calc(2.5 * var(--space-unit)); // 40px
   --space-xxxxl: calc(3 * var(--space-unit)); // 48px
-  --space-xxxxxl: calc(4.5 * var(--space-unit)); // 72px, inherited
-  --space-xxxxxxl: calc(6 * var(--space-unit)); // 96px, inherited
-  --space-xxxxxxxl: calc(7.5 * var(--space-unit)); // 120px, inherited
+  --space-xxxxxl: calc(4.5 * var(--space-unit)); // 72px
+  --space-xxxxxxl: calc(6 * var(--space-unit)); // 96px
+  --space-xxxxxxxl: calc(7.5 * var(--space-unit)); // 120px
 
-  // Layout constants inherited from identity-service for pixel parity
-  // (DESIGN-TOKENS §7.2). Kept so copied components resolve; unused ones may
-  // be dropped once the shared components are ported.
-  --space-form: calc(21 * var(--space-unit)); // 336px — the Figma "Sign in" action column is 360px, see --layout-action-width
+  --space-form: calc(21 * var(--space-unit)); // 336px
   --space-card-logo: calc(4 * var(--space-md)); // 64px
   --space-template-card-width: calc(11.6669 * var(--space-unit)); // 186.66px
   --space-template-card-widthd2: calc(0.5 * 11.6669 * var(--space-unit));
@@ -96,26 +66,19 @@
   --space-content-with-restriction: 50vw;
   --space-field-action-button-top: calc(1.75 * var(--space-unit)); // 28px
 
-  // ---------------------------------------------------------------------------
-  // 2. Layout — shell geometry measured from the Figma frames
-  //    (DESIGN-TOKENS §6, UI-PLAN §2.2 / §2.4)
-  // ---------------------------------------------------------------------------
-  --layout-canvas-width: 1280px; // desktop design canvas
-  --layout-sidebar-width: 288px; // left "Menu" column
-  --layout-header-panel-width: 288px; // "Header" column inside the body
-  --layout-content-width: 680px; // content column inside the body
-  --layout-action-width: 360px; // form / action column on "Sign in"
-  --layout-body-inset: var(--space-xs); // 8px gap around the white body
-  --layout-body-radius: var(--radius-xxl); // 32px
-  --layout-content-padding: var(--space-xxxxl); // 48px, desktop
-  --layout-content-padding-tablet: var(--space-xl); // 24px, 640–1024 (inferred from identity-service)
-  --layout-content-padding-mobile: var(--space-md); // 16px, ≤ 640 (inferred from identity-service)
-  --layout-illustration-size: 434px; // header-panel illustration width (Figma "Sign in": 434 × 360, clipped by the 288px column)
-  --layout-illustration-size-mobile: 160px; // TopPanel illustration, identity-service mobileIconProps
+  --layout-canvas-width: 1280px;
+  --layout-sidebar-width: 288px;
+  --layout-header-panel-width: 288px;
+  --layout-content-width: 680px;
+  --layout-action-width: 360px;
+  --layout-body-inset: var(--space-xs);
+  --layout-body-radius: var(--radius-xxl);
+  --layout-content-padding: var(--space-xxxxl);
+  --layout-content-padding-tablet: var(--space-xl);
+  --layout-content-padding-mobile: var(--space-md);
+  --layout-illustration-size: 434px;
+  --layout-illustration-size-mobile: 160px;
 
-  // ---------------------------------------------------------------------------
-  // 3. Radius — aliases of the spacing scale (DESIGN-TOKENS §7.4)
-  // ---------------------------------------------------------------------------
   --radius-xs: var(--space-xxxs); // 4px — checkbox
   --radius-sm: var(--space-xs); // 8px — small buttons, chips, toasts, badges
   --radius-md: var(--space-sm); // 12px — buttons, inputs, nav items
@@ -124,35 +87,31 @@
   --radius-xxl: var(--space-xxl); // 32px — layout shell, modals
   --radius-full: 50%; // avatars, stepper dots
 
-  // ---------------------------------------------------------------------------
-  // 4. Typography — Inter (DESIGN-TOKENS §3, §7.2)
-  //    The @font-face / Google Fonts import lives in index.scss.
-  // ---------------------------------------------------------------------------
   --inter-font-family: inter, sans-serif;
 
-  --font-size-label-s: 11px; // inherited
+  --font-size-label-s: 11px;
   --font-size-label-m: 12px;
   --font-size-label-l: 15px;
   --font-size-body-s: 14px;
   --font-size-body-m: 16px;
-  --font-size-subtitle-s: 14px; // inherited
+  --font-size-subtitle-s: 14px;
   --font-size-subtitle-m: 16px;
-  --font-size-headline-s: 20px; // inherited
+  --font-size-headline-s: 20px;
   --font-size-headline-m: 24px;
   --font-size-headline-l: 34px;
-  --font-size-display: 56px; // inherited
+  --font-size-display: 56px;
 
-  --font-line-label-s: 16px; // inherited
+  --font-line-label-s: 16px;
   --font-line-label-m: 16px;
   --font-line-label-l: 24px;
   --font-line-body-s: 20px;
   --font-line-body-m: 24px;
-  --font-line-subtitle-s: 20px; // inherited
+  --font-line-subtitle-s: 20px;
   --font-line-subtitle-m: 24px;
-  --font-line-headline-s: 28px; // inherited
+  --font-line-headline-s: 28px;
   --font-line-headline-m: 32px;
   --font-line-headline-l: 40px;
-  --font-line-display: 64px; // inherited
+  --font-line-display: 64px;
 
   --font-weight-light: 300;
   --font-weight-regular: 400;
@@ -160,7 +119,6 @@
   --font-weight-semibold: 600;
   --font-weight-extrabold: 800;
 
-  // `font` shorthands: weight size/line family
   --font-label-s: var(--font-weight-regular) var(--font-size-label-s) / var(--font-line-label-s) var(--inter-font-family);
   --font-label-m: var(--font-weight-regular) var(--font-size-label-m) / var(--font-line-label-m) var(--inter-font-family);
   --font-label-l: var(--font-weight-medium) var(--font-size-label-l) / var(--font-line-label-l) var(--inter-font-family);
@@ -172,27 +130,20 @@
   --font-headline-m: var(--font-weight-semibold) var(--font-size-headline-m) / var(--font-line-headline-m) var(--inter-font-family);
   --font-headline-l: var(--font-weight-extrabold) var(--font-size-headline-l) / var(--font-line-headline-l) var(--inter-font-family);
   --font-display: var(--font-weight-light) var(--font-size-display) / var(--font-line-display) var(--inter-font-family);
-  --font-letter-spacing-display: -0.01em; // display style only
-  --font-letter-spacing-eyebrow: 0.08em; // uppercase eyebrow labels above titles
+  --font-letter-spacing-display: -0.01em;
+  --font-letter-spacing-eyebrow: 0.08em;
 
-  // ---------------------------------------------------------------------------
-  // 5. Effects (DESIGN-TOKENS §4, §7.2, §7.5)
-  // ---------------------------------------------------------------------------
   --shadow-small: 0 0 8px 0 rgb(0 0 0 / 7%), 0 2px 4px 0 rgb(0 0 0 / 7%), 0 1px 2px 0 rgb(0 0 0 / 7%);
-  --shadow-medium: 0 0 16px 0 rgb(0 0 0 / 7%), 0 6px 12px 0 rgb(0 0 0 / 7%), 0 4px 8px 0 rgb(0 0 0 / 7%); // inherited
-  --shadow-large: 0 0 48px 0 rgb(0 0 0 / 7%), 0 16px 32px 0 rgb(0 0 0 / 7%), 0 12px 24px 0 rgb(0 0 0 / 7%); // inherited
-  // Figma "$large": tinted five-layer elevation with an inner highlight
+  --shadow-medium: 0 0 16px 0 rgb(0 0 0 / 7%), 0 6px 12px 0 rgb(0 0 0 / 7%), 0 4px 8px 0 rgb(0 0 0 / 7%);
+  --shadow-large: 0 0 48px 0 rgb(0 0 0 / 7%), 0 16px 32px 0 rgb(0 0 0 / 7%), 0 12px 24px 0 rgb(0 0 0 / 7%);
   --shadow-elevated: 0 6px 13px 0 rgb(74 74 79 / 8%), 0 23px 23px 0 rgb(74 74 79 / 7%), 0 52px 31px 0 rgb(74 74 79 / 4%),
     0 93px 37px 0 rgb(74 74 79 / 1%), 0 145px 41px 0 rgb(74 74 79 / 0%), inset 0 0.5px 1px 0 rgb(74 74 79 / 10%);
-  --shadow-card-hover: 0 4px 6px rgb(0 0 0 / 10%); // proposed, DESIGN-TOKENS §7.5
-  --shadow-card-drag: 0 8px 20px rgb(0 0 0 / 20%), 0 1px 3px rgb(0 0 0 / 6%); // proposed, DESIGN-TOKENS §7.5
+  --shadow-card-hover: 0 4px 6px rgb(0 0 0 / 10%);
+  --shadow-card-drag: 0 8px 20px rgb(0 0 0 / 20%), 0 1px 3px rgb(0 0 0 / 6%);
 
-  --outline-width: 2px; // focus ring, used by the `outline` mixin
-  --border-width: 1px; // hairline borders, used by the `border` mixin
+  --outline-width: 2px;
+  --border-width: 1px;
 
-  // ---------------------------------------------------------------------------
-  // 6. Motion (proposed — no motion tokens in Figma; identity-service uses 200ms)
-  // ---------------------------------------------------------------------------
-  --motion-duration-enter: 180ms; // screen/shell fade-in
+  --motion-duration-enter: 180ms;
   --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
 }

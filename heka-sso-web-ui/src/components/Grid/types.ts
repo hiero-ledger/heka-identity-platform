@@ -1,6 +1,5 @@
 import { CSSProperties, ReactNode } from 'react'
 
-// Copied from heka-identity-service-web-ui `shared/ui/Grid/types`.
 type ContentAlign = 'flex-start' | 'flex-end' | 'center' | 'space-between' | 'space-around'
 
 export interface FlexContainerProps {
