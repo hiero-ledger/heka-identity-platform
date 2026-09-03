@@ -300,13 +300,18 @@ async function handleAuthRequest(
 
   // The spec allows an inline `request` object instead of `request_uri`
   // This demo only implements the `request_uri` variant
-  if (!authorizationRequest.request_uri) {
+  if (authorizationRequest.request) {
     console.log(
       colorize(
         'yellow',
         'The agent sent an inline `request` object, but this demo only supports the `request_uri` variant. Skipping...'
       )
     )
+    return false
+  }
+
+  if (!authorizationRequest.request_uri) {
+    console.log(colorize('yellow', 'The agent sent an authorization request with no `request_uri`. Skipping...'))
     return false
   }
 

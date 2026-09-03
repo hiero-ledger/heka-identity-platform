@@ -123,7 +123,7 @@ const IDENTITY_SERVICE_AUTHORIZATION_HEADER = `Bearer ${IDENTITY_SERVICE_ACCESS_
 class DemoAgentExecutor implements AgentExecutor {
   private readonly cancelledTasks = new Set<string>()
   private readonly authorizedContexts = new Set<string>()
-  private readonly authWaiters = new Map<string, () => void>()
+  private readonly authWaiters = new Map<string, Set<() => void>>()
 
   private readonly verificationSessionContextMap = new Map<string, string>()
 
@@ -166,11 +166,14 @@ class DemoAgentExecutor implements AgentExecutor {
       `[DemoAgentExecutor] Processing message ${userMessage.messageId} for task ${taskId} (context: ${contextId})`
     )
 
-    if (requestContext.context.requestedExtensions?.includes(IN_TASK_OID4VP_EXTENSION_URI)) {
+    const isOid4vpExtensionActivated =
+      requestContext.context.requestedExtensions?.includes(IN_TASK_OID4VP_EXTENSION_URI) ?? false
+
+    if (isOid4vpExtensionActivated) {
       requestContext.context.addActivatedExtension(IN_TASK_OID4VP_EXTENSION_URI)
     } else {
       console.warn(
-        `[DemoAgentExecutor] Client did not request ${IN_TASK_OID4VP_EXTENSION_URI}, so it will not understand the authorization request.`
+        `[DemoAgentExecutor] Client did not request ${IN_TASK_OID4VP_EXTENSION_URI}, so it cannot process an authorization request.`
       )
     }
 
@@ -189,6 +192,27 @@ class DemoAgentExecutor implements AgentExecutor {
     eventBus.publish(AgentEvent.task(task))
 
     if (!this.authorizedContexts.has(contextId)) {
+      // Without the extension the client cannot answer, so decline instead of waiting out AUTH_TIMEOUT_MS.
+      if (!isOid4vpExtensionActivated) {
+        eventBus.publish(
+          AgentEvent.statusUpdate(
+            statusEvent(
+              taskId,
+              contextId,
+              TaskState.TASK_STATE_REJECTED,
+              agentText(
+                taskId,
+                contextId,
+                `This task requires in-task authorization via ${IN_TASK_OID4VP_EXTENSION_URI}, ` +
+                  'which this client did not declare. Add the extension URI to the `A2A-Extensions` ' +
+                  'request header and try again.'
+              )
+            )
+          )
+        )
+        return
+      }
+
       try {
         await this.requestAndAwaitAuthorization(taskId, contextId, eventBus)
       } catch (error: unknown) {
@@ -339,8 +363,24 @@ class DemoAgentExecutor implements AgentExecutor {
   }
 
   private onIdentityServiceNotification(notificationMessageData: Buffer): void {
-    const notificationMessage = JSON.parse(notificationMessageData.toString())
-    const { type, verificationSession } = notificationMessage
+    // Runs in the socket callback, so a throw here would terminate the agent.
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(notificationMessageData.toString())
+    } catch (error: unknown) {
+      console.warn('[DemoAgentExecutor] Ignoring malformed Identity Service notification:', error)
+      return
+    }
+
+    if (typeof parsed !== 'object' || parsed === null) {
+      console.warn('[DemoAgentExecutor] Ignoring non-object Identity Service notification.')
+      return
+    }
+
+    const { type, verificationSession } = parsed as {
+      type?: string
+      verificationSession?: { id: string; state: string }
+    }
 
     if (
       type !== 'OpenId4VcVerifier.VerificationSessionStateChanged' ||
@@ -354,10 +394,11 @@ class DemoAgentExecutor implements AgentExecutor {
 
     this.authorizedContexts.add(contextId)
 
-    const waiter = this.authWaiters.get(contextId)
-    if (waiter) {
+    // Resolve every request waiting on this context, not only the most recent one.
+    const waiters = this.authWaiters.get(contextId)
+    if (waiters) {
       this.authWaiters.delete(contextId)
-      waiter()
+      for (const waiter of waiters) waiter()
     }
   }
 
@@ -370,11 +411,21 @@ class DemoAgentExecutor implements AgentExecutor {
         resolve()
       }
       const timer = setTimeout(() => {
-        // Only clear our own waiter - a newer request for this context may have replaced it.
-        if (this.authWaiters.get(contextId) === waiter) this.authWaiters.delete(contextId)
+        // Drop only our own waiter - other requests on this context must keep waiting.
+        const pending = this.authWaiters.get(contextId)
+        if (pending) {
+          pending.delete(waiter)
+          if (pending.size === 0) this.authWaiters.delete(contextId)
+        }
         reject(new Error('authorization timeout exceeded'))
       }, timeoutMs)
-      this.authWaiters.set(contextId, waiter)
+
+      const existing = this.authWaiters.get(contextId)
+      if (existing) {
+        existing.add(waiter)
+      } else {
+        this.authWaiters.set(contextId, new Set([waiter]))
+      }
     })
   }
 }

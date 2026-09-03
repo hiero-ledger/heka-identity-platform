@@ -51,7 +51,7 @@ sequenceDiagram
     CLI->>User: (8.4) Display Task Result
 ```
 
-1.  **Extension Activation**: The CLI Client declares the extension URI in the `A2A-Extensions` header on every request, and the Demo Agent activates it for the call. The extension is optional on the agent card, so a client that does not declare it is warned that it will not understand the authentication request.
+1.  **Extension Activation**: The CLI Client declares the extension URI in the `A2A-Extensions` header on every message request (`sendMessage` / `sendMessageStream`), and the Demo Agent activates it for the call. The extension is optional on the agent card, so a client that does not declare it cannot process an authorization request. When such a client reaches a context that still needs authorization, the agent rejects the task immediately rather than leaving it to time out.
 2.  **Task Initiation**: A user sends a message to the Demo Agent via the A2A CLI.
 3.  **In-Task Authentication Request**: The Demo Agent determines that the context/task requires authentication. It invokes Heka Identity Service API to generate OID4VP authorization request, then sends CLI Client a status update with the `auth-required` state that also includes OID4VP authorization request metadata keyed by the extension URI.
 4.  **OID4VP Flow Initiation**: The CLI client receives a status update, detects the OID4VP request, and invokes Heka Wallet to present the requested credentials.
