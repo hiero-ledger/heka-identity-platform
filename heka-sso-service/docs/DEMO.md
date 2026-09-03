@@ -10,7 +10,7 @@ Zero wallet or bridge logic in the app — from its perspective this is plain
 | Component | Port | Started by |
 |---|---|---|
 | heka-sso-web-ui (test RP) | 5173 | `yarn dev` in `heka-sso-web-ui/` |
-| heka-keycloak-theme (login theme) | — | `yarn build-keycloak-theme` in `heka-keycloak-theme/` once; the compose mounts the jar (see §1) |
+| heka-keycloak-theme (login theme) | — | this project's `docker-compose.dev.yml` rebuilds it before Keycloak starts (see §1) |
 | Keycloak (broker, realm `heka` pre-imported) | 8080 | this project's `docker-compose.dev.yml` |
 | heka-sso-service (the bridge) | 3005 | `yarn start:dev` here |
 | heka-sso-service Postgres | 5434 | this project's `docker-compose.dev.yml` |

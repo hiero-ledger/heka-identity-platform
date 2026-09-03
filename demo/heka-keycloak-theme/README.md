@@ -35,10 +35,9 @@ yarn build-keycloak-theme
 
 ## Use it in the demo realm
 
-`heka-sso-service/docker-compose.dev.yml` mounts the jar into Keycloak's `providers/` directory and disables theme caching in dev; `heka-sso-service/keycloak/realm-heka.json` sets `"loginTheme": "heka"`. Rebuild the jar, then restart the Keycloak container:
+`heka-sso-service/docker-compose.dev.yml` rebuilds the jar in a `keycloak-theme-builder` container (from [Dockerfile.builder](Dockerfile.builder), so no local Java/Maven needed) on every `up`, hands it to Keycloak through a shared volume, and disables theme caching in dev; `heka-sso-service/keycloak/realm-heka.json` sets `"loginTheme": "heka"`. To pick up theme changes, just restart Keycloak — the builder reruns first:
 
 ```sh
-cd ../heka-keycloak-theme && yarn build-keycloak-theme
 cd ../heka-sso-service && docker compose -f docker-compose.dev.yml up -d --force-recreate keycloak
 ```
 

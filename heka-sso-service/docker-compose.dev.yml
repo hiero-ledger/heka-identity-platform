@@ -7,6 +7,24 @@ services:
       - POSTGRES_USER=heka
       - POSTGRES_PASSWORD=heka1
       - POSTGRES_DB=heka-sso-service
+  # Rebuilds the heka-keycloak-theme jar on every `docker compose up` and
+  # drops it into the shared `keycloak-theme` volume as heka-theme.jar, which
+  # keycloak mounts as its providers dir. Source is bind-mounted from
+  # ../demo/heka-keycloak-theme; node_modules lives in a named volume so the
+  # container's Linux-native deps don't clash with the host install.
+  keycloak-theme-builder:
+    build:
+      context: ../demo/heka-keycloak-theme
+      dockerfile: Dockerfile.builder
+    working_dir: /theme
+    command: >
+      sh -c "yarn install
+      && yarn build-keycloak-theme
+      && cp dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar /out/heka-theme.jar"
+    volumes:
+      - ../demo/heka-keycloak-theme:/theme
+      - keycloak-theme-node-modules:/theme/node_modules
+      - keycloak-theme:/out
   # Keycloak with the pre-configured `heka` realm (IdP `heka-sso`
   # against the bridge — PKCE S256, JWKS signature validation, 15s clock skew,
   # attribute mappers; client `heka-sso-web-ui` for the test RP). Server-side
@@ -24,11 +42,14 @@ services:
       - '8080:8080'
     volumes:
       - ./keycloak:/opt/keycloak/data/import:ro
-      # Login theme (realm-heka.json sets loginTheme: heka). Build it once:
-      #   cd ../heka-keycloak-theme && yarn build-keycloak-theme
-      - ../heka-keycloak-theme/dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar:/opt/keycloak/providers/heka-theme.jar:ro
+      # Login theme (realm-heka.json sets loginTheme: heka), built by
+      # keycloak-theme-builder above before this container starts.
+      - keycloak-theme:/opt/keycloak/providers:ro
     extra_hosts:
       - 'host.docker.internal:host-gateway'
+    depends_on:
+      keycloak-theme-builder:
+        condition: service_completed_successfully
   heka-sso-service:
     image: heka-sso-service:latest
     build:
@@ -57,3 +78,9 @@ services:
       - '3005:3005'
     depends_on:
       - postgres
+
+volumes:
+  # Theme jar handoff: keycloak-theme-builder writes, keycloak reads.
+  keycloak-theme:
+  # Linux node_modules for the theme build, separate from the host's.
+  keycloak-theme-node-modules:
