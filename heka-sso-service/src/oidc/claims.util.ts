@@ -17,14 +17,18 @@ const stableStringify = (value: unknown): string => {
   return JSON.stringify(value)
 }
 
-export function mapClaims(loginConfig: OidcLoginConfig, attributes: ClaimSet): ClaimSet {
+export function mapDisclosedClaims(loginConfig: OidcLoginConfig, attributes: ClaimSet): ClaimSet {
   const mapped: ClaimSet = {}
   for (const [path, claimName] of Object.entries(loginConfig.claimMapping)) {
     if (attributes[path] !== undefined) {
       mapped[claimName] = attributes[path]
     }
   }
-  return { ...loginConfig.staticClaims, ...mapped, login_config_id: loginConfig.id }
+  return mapped
+}
+
+export function mapClaims(loginConfig: OidcLoginConfig, attributes: ClaimSet): ClaimSet {
+  return { ...loginConfig.staticClaims, ...mapDisclosedClaims(loginConfig, attributes), login_config_id: loginConfig.id }
 }
 
 /**

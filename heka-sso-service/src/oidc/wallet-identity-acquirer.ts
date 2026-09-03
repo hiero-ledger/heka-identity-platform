@@ -123,6 +123,10 @@ export class WalletIdentityAcquirer implements IdentityAcquirer, DirectPostLogin
     this.pending.delete(interactionUid)
 
     const disclosed: ClaimSet = verified.sharedAttributes ?? {}
+    if (Object.keys(disclosed).length === 0) {
+      throw new Error(`verified session ${verified.sessionId} for interaction ${interactionUid} disclosed no attributes`)
+    }
+
     const queryId = this.credentialQueryId(loginConfig)
     const attributes: ClaimSet = Object.fromEntries(Object.entries(disclosed).map(([claim, value]) => [`${queryId}.${claim}`, value]))
 

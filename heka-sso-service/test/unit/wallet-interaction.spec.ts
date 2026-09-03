@@ -373,6 +373,41 @@ describe('wallet-login interaction', () => {
     expect(callbackUrl.searchParams.get('code')).toBeNull()
   })
 
+  test('a verified session that disclosed nothing is refused — no shared account is minted', async () => {
+    const codeVerifier = randomBytes(32).toString('base64url')
+    const { jar, interactionPath } = await startFlow(codeVerifier)
+    await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+    await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(200)
+
+    // heka-identity-service returns no sharedAttributes (e.g. an empty DCQL presentation entry list)
+    sessionsMock.getSession.mockResolvedValue({ id: 'vs-1', state: VerificationSessionState.ResponseVerified })
+    const complete = await request(app).get(`${interactionPath}/complete`).set('Cookie', jar.header()).expect(303)
+    jar.store(complete)
+    const callbackUrl = await followTo(jar, complete.headers.location)
+    expect(callbackUrl.searchParams.get('error')).toBe('access_denied')
+    expect(callbackUrl.searchParams.get('code')).toBeNull()
+  })
+
+  test('a disclosure the login config maps to no claim is refused — the sub would be shared', async () => {
+    const codeVerifier = randomBytes(32).toString('base64url')
+    const { jar, interactionPath } = await startFlow(codeVerifier)
+    await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+    await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(200)
+
+    // attributes were disclosed, but none of them is in claimMapping: the mapped claim set — and
+    // with it the derived sub — would be identical for every user of this login configuration
+    sessionsMock.getSession.mockResolvedValue({
+      id: 'vs-1',
+      state: VerificationSessionState.ResponseVerified,
+      sharedAttributes: { nationality: 'GB' },
+    })
+    const complete = await request(app).get(`${interactionPath}/complete`).set('Cookie', jar.header()).expect(303)
+    jar.store(complete)
+    const callbackUrl = await followTo(jar, complete.headers.location)
+    expect(callbackUrl.searchParams.get('error')).toBe('access_denied')
+    expect(callbackUrl.searchParams.get('code')).toBeNull()
+  })
+
   test('interaction API without the interaction cookie is rejected — no session leakage', async () => {
     for (const [method, path] of [
       ['get', '/interaction/some-uid/status'],

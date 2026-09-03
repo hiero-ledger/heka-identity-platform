@@ -4,7 +4,7 @@ import type Provider from 'oidc-provider'
 import type { InteractionResults } from 'oidc-provider'
 
 import { AccountClaimsStore } from './account-claims.store'
-import { computeSub, mapClaims } from './claims.util'
+import { computeSub, mapClaims, mapDisclosedClaims } from './claims.util'
 import {
   AcquiredIdentity,
   DcApiLoginRequest,
@@ -148,6 +148,15 @@ export class InteractionService {
 
   private finishLogin(details: InteractionDetails, loginConfig: OidcLoginConfig, identity: AcquiredIdentity): InteractionResults {
     const clientId = details.params.client_id as string
+
+    if (Object.keys(mapDisclosedClaims(loginConfig, identity.attributes)).length === 0) {
+      return this.failLogin(
+        details,
+        'access_denied',
+        'the presentation disclosed no attribute that the login configuration maps to a claim'
+      )
+    }
+
     const claims = mapClaims(loginConfig, identity.attributes)
     const sub = computeSub(loginConfig, clientId, claims, this.configService.oidcConfig.subHmacSalt)
     if (identity.presentedAttributes) {

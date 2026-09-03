@@ -1,5 +1,5 @@
 import { OidcLoginConfig, SubStrategy } from '../../src/core/config'
-import { computeSub, mapClaims } from '../../src/oidc'
+import { computeSub, mapClaims, mapDisclosedClaims } from '../../src/oidc'
 
 describe('claims pipeline', () => {
   const loginConfig = new OidcLoginConfig({
@@ -43,6 +43,20 @@ describe('claims pipeline', () => {
 
       expect(claims.family_name).toBeUndefined()
       expect(Object.values(claims)).not.toContain('GB')
+    })
+  })
+
+  describe('mapDisclosedClaims', () => {
+    test('returns only the claims backed by a disclosed attribute', () => {
+      expect(mapDisclosedClaims(loginConfig, { 'pid.given_name': 'Ada', 'pid.nationality': 'GB' })).toEqual({ given_name: 'Ada' })
+    })
+
+    test('is empty when nothing disclosed matches the mapping — static claims never count', () => {
+      expect(mapDisclosedClaims(loginConfig, {})).toEqual({})
+      // an unprefixed path, or one prefixed with another credential query id, matches nothing
+      expect(mapDisclosedClaims(loginConfig, { given_name: 'Ada', 'mdl.given_name': 'Ada' })).toEqual({})
+      // …while mapClaims still yields a full claim set, identical for every user: the caller must refuse it
+      expect(mapClaims(loginConfig, {})).toEqual({ department: 'QA', given_name: 'Should-Be-Overridden', login_config_id: 'default' })
     })
   })
 
