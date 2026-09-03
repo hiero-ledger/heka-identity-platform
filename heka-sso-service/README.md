@@ -206,7 +206,7 @@ Applies to Nest controllers only (see INTEGRATION.md §5 — provider endpoints 
 
 | Variable   | Default   | Description                                                              |
 |------------|-----------|--------------------------------------------------------------------------|
-| `NODE_ENV` | _(unset)_ | When set to `production`, switches the logger to non-pretty JSON output. |
+| `NODE_ENV` | _(unset locally; `production` in the Docker image)_ | Selects the deployment mode. `production` arms the startup guards on the secrets above and switches the logger to non-pretty JSON output; anything else (including unset) is development. Build the image with `--build-arg NODE_ENV=development` for a dev image, or override it per container as both compose files do. |
 
 ## Migrations
 
@@ -239,6 +239,28 @@ To run the service in Docker:
 ```bash
 docker compose -f docker-compose.dev.yml up -d
 ```
+
+`docker-compose.dev.yml` builds the image and brings up Keycloak with the `heka` realm; it uses the
+dev-only stub login, so no wallet is involved. `docker-compose.yml` runs the published image against
+a real wallet login and needs the verifier heka-identity-service creates sessions under:
+
+```bash
+IDENTITY_SERVICE_PUBLIC_VERIFIER_ID=<public verifier id> \
+IDENTITY_SERVICE_REQUEST_SIGNER_DID=<did that signs authorization requests> \
+  docker compose up -d
+```
+
+Compose refuses to start without those two — a bridge that binds no identity acquirer denies every
+`/authorize`. heka-identity-service (`:3000`) and heka-auth-service (`:3004`) are expected on the
+host and are reached over `host.docker.internal`; override `IDENTITY_SERVICE_BASE_URL` /
+`AUTH_SERVICE_BASE_URL` when they live elsewhere, and `IDENTITY_SERVICE_AUTH_NAME` /
+`IDENTITY_SERVICE_AUTH_PASSWORD` when the service account is not the demo user.
+
+The image runs as the unprivileged `node` user and defaults to `NODE_ENV=production`. Both compose
+files override it to `development`, because they ship the dev-only cookie key, `sub` salt and client
+secret that the production guards refuse. A real deployment keeps the default and supplies its own
+secrets — `NODE_ENV=production docker compose up -d` with `OIDC_COOKIE_KEYS`, `OIDC_SUB_HMAC_SALT`
+and `OIDC_CLIENTS` replaced.
 
 ## Testing
 
