@@ -44,6 +44,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
+      - NODE_ENV=development
       - APP_VERSION=0.0.1
       - APP_PORT=3005
       - APP_ENABLE_CORS=true
