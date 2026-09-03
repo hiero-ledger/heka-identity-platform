@@ -6164,6 +6164,7 @@ __metadata:
     fs-extra: "npm:^11.3.5"
     globals: "npm:^17.6.0"
     indybesu-vdr: "file:indy-besu-vdr-pkg"
+    ipaddr.js: "npm:^2.2.0"
     jsonwebtoken: "npm:^9.0.0"
     minio: "npm:^8.0.7"
     nestjs-pino: "npm:^3.2.0"
@@ -6388,6 +6389,13 @@ __metadata:
   version: 2.2.0
   resolution: "ipaddr.js@npm:2.2.0"
   checksum: 10c0/e4ee875dc1bd92ac9d27e06cfd87cdb63ca786ff9fd7718f1d4f7a8ef27db6e5d516128f52d2c560408cbb75796ac2f83ead669e73507c86282d45f84c5abbb6
+  languageName: node
+  linkType: hard
+
+"ipaddr.js@npm:^2.2.0":
+  version: 2.4.0
+  resolution: "ipaddr.js@npm:2.4.0"
+  checksum: 10c0/47c2f17677b40054ca50a09e1228cf818c0d02d4474c2e0e29232c6668b3c4d51a3cfc19d1e17897d7baf4d933b3111d6bdf5cfbe55ab184165469a75f2bf177
   languageName: node
   linkType: hard
 

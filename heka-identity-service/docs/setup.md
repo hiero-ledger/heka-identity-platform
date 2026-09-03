@@ -347,3 +347,18 @@ The service exposes `GET /health`, which checks memory, database connectivity, a
 | `HEALTH_MEMORY_RSS_THRESHOLD_MB`  | `2048`  | RSS usage threshold above which `memory_rss` reports unhealthy.   |
 
 Use `/health` as a Kubernetes readiness/liveness probe or a Compose healthcheck.
+
+## Notification webhooks (`/user`)
+
+If you set `messageDeliveryType` to **WebHook**, the Identity Service validates the configured URL before saving it (and again before sending each notification): only `http:` / `https:` absolute URLs without embedded credentials, with DNS/IP checks that disallow loopback/private/link-local resolves and commonly abused internal hostname patterns.
+
+Optional environment variables:
+
+- `WEBHOOK_ALLOW_HTTP` — set to `true` to allow `http://` callbacks (HTTPS-only by default; useful for local dev).
+- `WEBHOOK_ALLOW_INTERNAL_DNS_NAMES` — set to `true` to permit hostnames ending in `.internal`, `.local`, or `.localhost` (default: blocked; `localhost` remains blocked).
+- `WEBHOOK_HTTP_TIMEOUT_MS` — timeout for each webhook POST in milliseconds (default `10000`).
+- `WEBHOOK_HTTP_MAX_REDIRECTS` — maximum redirects axios may follow when posting (default `0`).
+- `WEBHOOK_DNS_RESOLUTION_TIMEOUT_MS` — cap for resolving the webhook hostname in milliseconds (default `5000`).
+- `WEBHOOK_MAX_RESPONSE_BODY_BYTES` — max response payload read for the outbound POST in bytes (default `512000`).
+
+Hostnames are validated when the profile is saved and again immediately before each outbound connection (custom `http(s).Agent` DNS `lookup`), using the same rules.
