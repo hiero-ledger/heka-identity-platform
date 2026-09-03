@@ -359,6 +359,34 @@ describe('wallet-login interaction', () => {
     expect(status.body).toEqual({ status: 'error', message: 'presentation signature invalid' })
   })
 
+  test('a transient identity-service failure keeps the poll alive — the login is not lost', async () => {
+    const codeVerifier = randomBytes(32).toString('base64url')
+    const { jar, interactionPath } = await startFlow(codeVerifier)
+    await request(app).get(interactionPath).set('Cookie', jar.header()).expect(200)
+    await request(app).get(`${interactionPath}/data`).set('Cookie', jar.header()).expect(200)
+
+    // the identity service is briefly unreachable: the interaction and the verification session
+    // are both still valid, so the page must keep polling rather than fail the login
+    sessionsMock.getSession.mockRejectedValueOnce(new Error('connect ECONNREFUSED 127.0.0.1:3000'))
+    const transient = await request(app).get(`${interactionPath}/status`).set('Cookie', jar.header()).expect(200)
+    expect(transient.body).toEqual({ status: 'pending' })
+
+    // …and the very next poll, once it recovers, completes the login as usual
+    sessionsMock.getSession.mockResolvedValue({
+      id: 'vs-1',
+      state: VerificationSessionState.ResponseVerified,
+      sharedAttributes: { given_name: 'Ada', family_name: 'Lovelace' },
+    })
+    const verified = await request(app).get(`${interactionPath}/status`).set('Cookie', jar.header()).expect(200)
+    expect(verified.body).toEqual({ status: 'verified' })
+
+    const complete = await request(app).get(`${interactionPath}/complete`).set('Cookie', jar.header()).expect(303)
+    jar.store(complete)
+    const callbackUrl = await followTo(jar, complete.headers.location)
+    expect(callbackUrl.searchParams.get('error')).toBeNull()
+    expect(callbackUrl.searchParams.get('code')).not.toBeNull()
+  })
+
   test('refuses completion while the session is not verified — access_denied back to the client', async () => {
     const codeVerifier = randomBytes(32).toString('base64url')
     const { jar, interactionPath } = await startFlow(codeVerifier)
