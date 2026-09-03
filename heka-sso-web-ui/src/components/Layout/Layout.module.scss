@@ -2,8 +2,22 @@
 // measured from the Figma frames; constants from design-tokens.scss only.
 @import '@/styles/mixins';
 
+// Screens swap by remounting a shell; a short fade-in turns the hard cut into
+// a transition. Off under prefers-reduced-motion.
+@keyframes shell-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 // Outer surface. Full viewport height following the visual viewport
 // (keyboard / address bar), safe-area aware.
+// NB: plain declarations stay ABOVE the nested @media/@include blocks �
+// Sass's mixed-decls deprecation (https://sass-lang.com/d/mixed-decls).
 .shell {
   display: flex;
   width: 100%;
@@ -14,6 +28,20 @@
     max(var(--layout-body-inset), env(safe-area-inset-right))
     max(var(--layout-body-inset), env(safe-area-inset-bottom))
     max(var(--layout-body-inset), env(safe-area-inset-left));
+  animation: shell-enter var(--motion-duration-enter) var(--motion-easing-standard) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
+  // Desktop: an app frame exactly one viewport tall � the page itself never
+  // scrolls (no document scrollbar); long content scrolls inside the content
+  // column (identity-service's AuthenticatedLayout does the same).
+  @include desktop {
+    height: 100vh;
+    height: var(--visual-viewport-height, 100dvh);
+    overflow: hidden;
+  }
 
   @include stacked {
     flex-direction: column;
@@ -34,6 +62,7 @@
 .body {
   flex: 1;
   min-width: 0;
+  min-height: 0; // lets the content column shrink to the frame and scroll
   display: flex;
   background: var(--color-surface-deep);
   border-radius: var(--layout-body-radius);
@@ -86,6 +115,12 @@
   flex-shrink: 0;
 }
 
+// Menu-item icons carry the warm accent of the Figma Menu (the svgr build maps
+// the artwork's fill to currentColor, so the token decides the colour).
+.navItemIcon {
+  color: var(--color-accent-nav);
+}
+
 .sidebarFooter {
   display: flex;
   flex-direction: column;
@@ -106,7 +141,11 @@
   padding: 0 var(--space-md);
 }
 
-// --- Header panel (desktop, AuthLayout) ------------------------------------
+// --- Header panel (desktop, both layouts) ----------------------------------
+// Figma "Header": a 288 px column on the body surface � H1 at 48/48, the
+// illustration anchored bottom-left, overflowing the column to the right and
+// clipped by it (the "Issue credential" wallet-stack placement: ~32px left,
+// 16px bottom).
 
 .headerPanel {
   position: relative;
@@ -115,19 +154,42 @@
   flex-direction: column;
   overflow: hidden;
   border-radius: var(--radius-xl);
-  background: var(--color-primary-branded-2);
   padding: var(--space-xxxxl) var(--space-xxxl);
 }
 
+// Title block: eyebrow / headline / accent bar (shared by the header column
+// and the stacked top panel).
+// Never shrinks below its longest word (min-width: auto); in the stacked top
+// panel the illustration is what yields instead.
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.headerEyebrow {
+  font: var(--font-label-m);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--font-letter-spacing-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-primary-soft);
+}
+
 .headerTitle {
-  font: var(--font-headline-m);
-  color: var(--color-dark-high-emphasis);
+  font: var(--font-headline-l);
+  color: var(--color-primary);
+
+  @include stacked {
+    font: var(--font-headline-m);
+  }
 }
 
 .headerIllustration {
   position: absolute;
-  left: var(--space-xxxxl);
-  bottom: var(--space-xxxxl);
+  left: var(--space-xxl);
+  bottom: var(--space-md);
   width: var(--layout-illustration-size);
   max-width: none;
   height: auto;
@@ -142,8 +204,6 @@
   justify-content: space-between;
   gap: var(--space-sm);
   padding: 0 var(--layout-content-padding-mobile);
-  font: var(--font-headline-m);
-  color: var(--color-dark-high-emphasis);
 
   @include tablet {
     padding: 0 var(--layout-content-padding-tablet);
@@ -153,7 +213,8 @@
 .topPanelIllustration {
   width: var(--layout-illustration-size-mobile);
   height: auto;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 // --- Content column (both layouts) -----------------------------------------
@@ -161,10 +222,17 @@
 .content {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
   padding: var(--layout-content-padding);
+
+  // Desktop app frame: this column is the scroll container.
+  @include desktop {
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
 
   @include tablet {
     padding: var(--layout-content-padding-tablet);

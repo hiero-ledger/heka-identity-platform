@@ -19,7 +19,7 @@ interface WelcomePageProps {
  */
 function WelcomePage({ provider, signedOut, onSignIn }: WelcomePageProps) {
   return (
-    <AuthLayout title={copy.welcome.title} illustration="wallet">
+    <AuthLayout title={copy.welcome.title}>
       <div className={styles.action}>
         <div className={styles.intro}>
           <h2 className={styles.heading}>{signedOut ? copy.welcome.signedOutHeading : copy.welcome.heading}</h2>

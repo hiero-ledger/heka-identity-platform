@@ -1,17 +1,7 @@
 import { ReactNode } from 'react'
 
 import { useAuthSession } from '@/auth/session'
-import {
-  ageOver18,
-  amrValues,
-  email,
-  firstName,
-  formatTimestamp,
-  lastName,
-  claim,
-  signedInWithWallet,
-  subject,
-} from '@/claims'
+import { ageOver18, email, firstName, lastName, signedInWithWallet } from '@/claims'
 import Badge from '@/components/Badge/Badge'
 import Card from '@/components/Card/Card'
 import KeyValueList, { KeyValueItem } from '@/components/KeyValueList/KeyValueList'
@@ -25,15 +15,13 @@ function orNotShared(value: string | undefined): ReactNode {
 
 /**
  * The signed-in screen: greeting, the wallet-presented
- * identity, the session facts, and the raw claims for debugging mapper
- * configuration (kept collapsed).
+ * identity, and the raw claims for debugging mapper configuration (kept collapsed).
  */
 function DashboardPage() {
   const { claims, provider } = useAuthSession()
   const providerLabel = copy.providers[provider]
   const wallet = signedInWithWallet(claims)
   const adult = ageOver18(claims)
-  const amr = amrValues(claims)
 
   const identity: KeyValueItem[] = [
     { key: 'given_name', label: copy.dashboard.identity.givenName, value: orNotShared(firstName(claims)) },
@@ -53,24 +41,6 @@ function DashboardPage() {
     },
   ]
 
-  const session: KeyValueItem[] = [
-    { key: 'provider', label: copy.dashboard.session.provider, value: providerLabel },
-    {
-      key: 'amr',
-      label: copy.dashboard.session.authentication,
-      value: amr.length
-        ? amr.map((code) => (
-            <Badge key={code} variant={code === 'vc' ? 'success' : 'neutral'}>
-              {copy.amr[code] ?? code}
-            </Badge>
-          ))
-        : copy.common.none,
-    },
-    { key: 'sub', label: copy.dashboard.session.subject, value: <code className={styles.code}>{subject(claims) ?? copy.common.none}</code> },
-    { key: 'auth_time', label: copy.dashboard.session.signedInAt, value: formatTimestamp(claim(claims, 'auth_time')) ?? copy.common.none },
-    { key: 'exp', label: copy.dashboard.session.expires, value: formatTimestamp(claim(claims, 'exp')) ?? copy.common.none },
-  ]
-
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -82,10 +52,6 @@ function DashboardPage() {
 
       <Card title={copy.dashboard.identity.title}>
         <KeyValueList items={identity} />
-      </Card>
-
-      <Card title={copy.dashboard.session.title}>
-        <KeyValueList items={session} />
       </Card>
 
       <details className={styles.developer}>

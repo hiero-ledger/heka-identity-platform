@@ -2,9 +2,9 @@
 export const copy = {
   app: {
     /** Wordmark next to the logo mark. */
-    name: 'Heka',
+    name: 'CivicTrust',
     /** Document title (index.html) and long-form product name. */
-    title: 'Heka demo app',
+    title: 'CivicTrust Demo',
   },
   common: {
     back: 'Back',
@@ -19,13 +19,20 @@ export const copy = {
     dashboard: 'Dashboard',
     signOut: 'Sign out',
   },
+  /** Small uppercase label above the page title in the header column. */
+  eyebrow: {
+    dashboard: 'Your account',
+    auth: 'CivicTrust Demo',
+  },
   splash: {
     title: 'Signing you in',
     redirecting: (provider: string) => `Redirecting to ${provider}…`,
+    signingOutTitle: 'Signing you out',
+    signingOut: (provider: string) => `Ending your session at ${provider}…`,
   },
   welcome: {
     title: 'Sign in',
-    heading: 'Sign in to Heka demo app',
+    heading: 'Sign in to CivicTrust Demo',
     lead: 'Use a verifiable credential from your wallet — no password needed.',
     signedOutHeading: 'You’re signed out',
     signedOutLead: 'Sign in again with your wallet whenever you’re ready.',
@@ -51,27 +58,8 @@ export const copy = {
       verifiedAdult: 'Verified 18+',
       notVerifiedAdult: 'Not verified 18+',
     },
-    session: {
-      title: 'Session',
-      provider: 'Identity provider',
-      authentication: 'Authentication',
-      subject: 'Subject',
-      signedInAt: 'Signed in',
-      expires: 'Session expires',
-    },
     developer: {
       summary: 'Raw ID token claims',
     },
   },
-  amr: {
-    vc: 'Wallet credential',
-    pwd: 'Password',
-    otp: 'One-time code',
-    mfa: 'Multi-factor',
-    hwk: 'Hardware key',
-    swk: 'Software key',
-    sms: 'SMS code',
-    face: 'Face recognition',
-    fpt: 'Fingerprint',
-  } as Record<string, string>,
 } as const

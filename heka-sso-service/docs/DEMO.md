@@ -84,20 +84,28 @@ In `heka-sso-web-ui/`, set `.env`:
 VITE_KC_URL=http://localhost:8080
 VITE_KC_REALM=heka
 VITE_KC_CLIENT_ID=heka-sso-web-ui
+# recommended for a presented demo (heka-sso-web-ui/docs/UI-PLAN.md Phase D):
+VITE_AUTO_SIGN_IN=false    # land on the Welcome screen; the presenter clicks "Sign in with wallet"
+VITE_KC_IDP_HINT=heka-sso  # default — skip Keycloak's page; set empty to show it (Keycloakify theme, Phase K)
 ```
 
 then `yarn dev` and open `http://localhost:5173`.
 
 ## 6. The loop
 
-1. The app auto-redirects to Keycloak; `kc_idp_hint=heka-sso` forwards straight to the
-   bridge (drop the hint in `src/auth.ts` to see Keycloak's login page with the
-   "Sign in with wallet" button instead).
-2. The bridge shows the login page. On a browser with the Digital Credentials API
-   (e.g. Chrome on Android with a wallet installed) it offers **"Sign in with the
-   wallet on this device"** (P2.1 — OS credential picker, origin-bound); otherwise —
-   or via "Show a QR code instead" — it shows the QR + same-device link, "Waiting
-   for the wallet…".
+1. The app redirects to Keycloak — immediately, or after the presenter clicks
+   **Sign in with wallet** on the Welcome screen when `VITE_AUTO_SIGN_IN=false`.
+   `kc_idp_hint=heka-sso` (env `VITE_KC_IDP_HINT`) forwards straight to the
+   bridge; set it empty to see Keycloak's login page with the "Sign in with
+   wallet" button instead.
+2. The bridge shows the login page, split by platform. **Mobile** with the
+   Digital Credentials API (e.g. Chrome on Android with a wallet installed)
+   shows only **"Sign in with the wallet on this device"** (P2.1 — OS
+   credential picker, origin-bound); mobile without it falls back to the QR +
+   same-device link. **Desktop** shows the cross-device QR immediately
+   ("Waiting for the wallet…"), plus — where the browser has the DC API — an
+   **"Open on another device"** link that hands off to the browser's own
+   dialog and its hybrid cross-device QR.
 3. DC API path: pick the credential in the OS picker and consent in the wallet.
    QR path: scan the QR with heka-wallet, review the consent screen (given name,
    family name, age over 18), tap **Share**.

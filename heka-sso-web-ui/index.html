@@ -4,7 +4,22 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Heka demo app</title>
+    <title>CivicTrust Demo</title>
+    <!-- Critical paint: the page background before the stylesheet arrives (in
+         `vite dev` styles are injected by JS, so without this the first frame
+         is white). Mirrors --color-surface-2 (CivicTrust value, DESIGN-TOKENS §8) in src/styles/design-tokens.scss —
+         keep in sync. -->
+    <style>
+      html {
+        background: #f0f5f7;
+      }
+    </style>
+    <!-- Self-hosted Inter (public/fonts, OFL) preloaded so text paints in the
+         final face — no fallback-font swap on the redirect round-trips. -->
+    <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- Brand mark + header-column illustration, preloaded so they don't pop in after the shell. -->
+    <link rel="preload" href="/civic-trust.webp" as="image" type="image/webp" />
+    <link rel="preload" href="/illustrations/civictrust.webp" as="image" type="image/webp" />
   </head>
   <body>
     <div id="root"></div>

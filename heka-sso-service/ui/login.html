@@ -34,14 +34,19 @@
 <main>
 <div class="card">
 <h1>Sign in with your wallet</h1>
+<!-- Mobile (DC API): same-device sign-in is the only visible action. -->
 <section id="dc-api" hidden>
   <button id="dc-api-button" type="button">Sign in with the wallet on this device</button>
   <p id="dc-api-status" role="status"></p>
-  <p><a id="show-qr" href="#">Show a QR code instead</a></p>
 </section>
+<!-- Desktop: the cross-device QR is shown immediately; the "Open on another
+     device" link hands off to the browser's DC API dialog (its own hybrid
+     cross-device QR). Also the fallback for mobile without the DC API, where
+     the deep link ("Open wallet on this device") is unhidden too. -->
 <section id="qr" hidden>
-  <p class="muted">Scan the QR code with your wallet app, or open it on this device.</p>
+  <p class="muted">Scan the QR code with the wallet app on your phone.</p>
   <img id="qr-image" alt="Wallet sign-in QR code" width="260" height="260" hidden>
+  <p><a id="dc-api-link" href="#" hidden>Open on another device</a></p>
   <p><a id="deep-link" hidden>Open wallet on this device</a></p>
   <p id="qr-status" role="status">Loading&hellip;</p>
 </section>

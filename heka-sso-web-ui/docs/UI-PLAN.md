@@ -90,8 +90,9 @@ Rules for reuse:
 
 - Component SCSS uses **only** `var(--…)` names from this file — no literal colors, px sizes, font sizes, or shadows in `*.module.scss`. Allowed literals: `0`, `1px` borders, `50%` radius, `100%`/`auto` sizes. Enforced by a grep check in Phase F (stylelint `declaration-property-value-disallowed-list` is the optional stricter version).
 - Radii use `--radius-*`, not `--space-*`, so the two scales can diverge later without touching components.
-- The Google Fonts `@import` and the `.text-*` utility classes stay in `index.scss` — the tokens file is pure constants.
+- `@font-face` rules live in `index.scss` — the tokens file is pure constants. Inter is self-hosted (`public/fonts`, OFL) and preloaded from `index.html`.
 - Adding a constant means adding a row to DESIGN-TOKENS.md first.
+- One documented exception to "no literals outside the tokens file": `index.html`/`preview.html` carry an inline `html { background: … }` mirroring `--color-surface-2` (currently `#f0f5f7`, DESIGN-TOKENS §8) so the first frame is not white before the stylesheet applies (in `vite dev` styles arrive via JS). Keep it in sync with the token.
 
 ### 2.2 Shell (desktop ≥ 1024)
 
@@ -236,7 +237,15 @@ Notes from doing it: `claims.ts` accessors are shape-tolerant for the three toke
 - C3. `src/copy.ts` with all strings.
 - C4. Mobile pass on every screen against the §2.4 table at 360 / 412 / 768 in devtools: stacked key/value rows, full-width buttons, heading step-down, no horizontal page scroll with a long `sub`/JSON.
 
-### Phase D — Demo polish · ~0.5 day
+### Phase D — Demo polish · ~0.5 day · ✅ code done 2026-08-31, D4 wallet run pending
+
+Notes from doing it: D1 `VITE_KC_IDP_HINT` (default `heka-sso`, empty disables) is passed as `extraQueryParams.kc_idp_hint`; D2 `VITE_AUTO_SIGN_IN` (default `true`) gates the auto-redirect and renders the Welcome screen first when `false`; both documented in `.env.example`, README and DEMO.md §5/§6. D3 holds (Welcome after sign-out reads "You're signed out"). **D4 was run headlessly against the live local stack** (Keycloak realm `heka`, bridge, identity-service): the app → Keycloak → bridge chain completes with `kc_idp_hint` skipping Keycloak's page, and the bridge's "Sign in with your wallet" page renders at 1280 and 360 with no console errors; Welcome-first mode produces the authorize URL with the hint on click. **Not run**: the wallet presentation itself and the sign-out chain (`OIDC_STUB_LOGIN=false` on the running bridge; the wallet step needs the phone) — that is the presenter's checklist item below. Environment quirk found: the running realm reaches the bridge through an ngrok free tunnel, whose browser interstitial (ERR_NGROK_6024) appears once per browser session before the bridge page — click "Visit Site", or use a paid tunnel/hostname for the demo. Screenshots: `docs/screenshots/` (welcome, dashboard, error, splash, bridge login; desktop + 360).
+
+Dashboard aligned to the Figma "Issue credential" frame on review: `AppLayout` now carries the same header column as the sign-in shell (title top-left, `many-wallets.webp` bottom-left clipped by the column; `TopPanel` when stacked), the page content is centered in the content column, and the sidebar footer is the mockup's full-width outlined button (Sign out) under the user row.
+
+Transitions de-flickered (2026-08-31): (1) Sign out no longer flips to the Welcome screen for a frame before the logout redirect — a `signingOut` state keeps a "Signing you out" Splash up until the browser leaves (the signed-out flag is still written for the return trip); (2) Inter is self-hosted and **preloaded**, so every full load in the redirect chain paints in the final face instead of swapping from a fallback font; (3) an inline critical background in `index.html` removes the white first frame in `vite dev`; (4) the two header illustrations moved to `public/illustrations/` and are preloaded, so they no longer pop in after the shell; (5) shells fade in over 180 ms (`--motion-*` tokens, off under reduced motion), which turns the remaining hard cuts (Splash → Dashboard on return from the IdP) into a transition. Verified headlessly: `document.fonts.check` is true at first evaluation on a cold profile, illustration `complete` at first paint, Sign out shows "Signing you out" with no Welcome render, no console errors.
+
+Presenter checklist for the remaining D4 (a) and (b) runs: `.env` per DEMO.md §5 (`VITE_AUTO_SIGN_IN=false`), desktop + QR loop with heka-wallet, then the same-device DC API loop on Android; confirm the Dashboard shows the name, "Verified 18+", the "Wallet credential" chip, and that Sign out returns to Welcome.
 
 - D1. **Optionally skip the IdP page**: send `kc_idp_hint=heka-sso` (Keycloak `extraQueryParams`) — reconciles the code with INTEGRATION.md U.2; Auth0 already has `VITE_AUTH0_CONNECTION`. Behind `VITE_KC_IDP_HINT` (default `heka-sso`, empty to disable). With the Phase K theme in place the page is branded, so the demo default is decided in D4 (§2.5).
 - D2. `VITE_AUTO_SIGN_IN` (default `true` = today's behavior). `false` lands on **Welcome** first so the presenter clicks "Sign in with wallet" on-screen. `.env.example` + README documented; DEMO.md §5 gets the recommended demo values.
