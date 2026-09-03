@@ -61,7 +61,7 @@ describe('VerificationSessionClient', () => {
       fetchResponse({
         verificationSession: { id: 'session-1' },
         authorizationRequest: 'openid4vp://?request_uri=https%3A%2F%2Fis%2Foid4vp%2Fabc',
-      }),
+      })
     )
 
     const created = await buildClient().createSignedRequest(loginConfig)
@@ -86,12 +86,12 @@ describe('VerificationSessionClient', () => {
   })
 
   test('fails fast when the signer DID or verifier id is not configured — never falls back to unsigned', async () => {
-    await expect(
-      buildClient({ IDENTITY_SERVICE_REQUEST_SIGNER_DID: '' }).createSignedRequest(loginConfig),
-    ).rejects.toThrow(/no unsigned fallback/)
-    await expect(
-      buildClient({ IDENTITY_SERVICE_PUBLIC_VERIFIER_ID: '' }).createSignedRequest(loginConfig),
-    ).rejects.toThrow(/no unsigned fallback/)
+    await expect(buildClient({ IDENTITY_SERVICE_REQUEST_SIGNER_DID: '' }).createSignedRequest(loginConfig)).rejects.toThrow(
+      /no unsigned fallback/
+    )
+    await expect(buildClient({ IDENTITY_SERVICE_PUBLIC_VERIFIER_ID: '' }).createSignedRequest(loginConfig)).rejects.toThrow(
+      /no unsigned fallback/
+    )
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -108,7 +108,7 @@ describe('VerificationSessionClient', () => {
         verificationSession: { id: 'dc-session-1' },
         authorizationRequest: 'openid4vp://…',
         authorizationRequestObject: { request: 'signed-jar-jwt' },
-      }),
+      })
     )
 
     const created = await buildClient().createDcApiRequest(loginConfig, 'https://sso.example.com')
@@ -136,7 +136,7 @@ describe('VerificationSessionClient', () => {
         verificationSession: { id: 'dc-session-2' },
         authorizationRequest: 'openid4vp://…',
         authorizationRequestObject: { response_type: 'vp_token', dcql_query: dcqlQuery },
-      }),
+      })
     )
 
     const created = await buildClient().createDcApiRequest(loginConfig, 'https://sso.example.com')
@@ -144,18 +144,14 @@ describe('VerificationSessionClient', () => {
   })
 
   test('DC API: fails when the identity service returns no authorizationRequestObject', async () => {
-    fetchMock.mockResolvedValue(
-      fetchResponse({ verificationSession: { id: 'dc-session-3' }, authorizationRequest: 'openid4vp://…' }),
-    )
+    fetchMock.mockResolvedValue(fetchResponse({ verificationSession: { id: 'dc-session-3' }, authorizationRequest: 'openid4vp://…' }))
 
-    await expect(buildClient().createDcApiRequest(loginConfig, 'https://sso.example.com')).rejects.toThrow(
-      /no authorizationRequestObject/,
-    )
+    await expect(buildClient().createDcApiRequest(loginConfig, 'https://sso.example.com')).rejects.toThrow(/no authorizationRequestObject/)
   })
 
   test('DC API: fails fast when verifier id or signer DID is not configured', async () => {
     await expect(
-      buildClient({ IDENTITY_SERVICE_REQUEST_SIGNER_DID: '' }).createDcApiRequest(loginConfig, 'https://sso.example.com'),
+      buildClient({ IDENTITY_SERVICE_REQUEST_SIGNER_DID: '' }).createDcApiRequest(loginConfig, 'https://sso.example.com')
     ).rejects.toThrow(/must be configured/)
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -166,14 +162,10 @@ describe('VerificationSessionClient', () => {
         id: 'dc-session-1',
         state: VerificationSessionState.ResponseVerified,
         sharedAttributes: { given_name: 'Ada' },
-      }),
+      })
     )
 
-    const record = await buildClient().verifyDcApiResponse(
-      'dc-session-1',
-      { vp_token: { pid: ['token'] } },
-      'https://sso.example.com',
-    )
+    const record = await buildClient().verifyDcApiResponse('dc-session-1', { vp_token: { pid: ['token'] } }, 'https://sso.example.com')
 
     expect(record.state).toBe(VerificationSessionState.ResponseVerified)
     expect(record.sharedAttributes).toEqual({ given_name: 'Ada' })
@@ -192,7 +184,7 @@ describe('VerificationSessionClient', () => {
         id: 'session-1',
         state: VerificationSessionState.ResponseVerified,
         sharedAttributes: { 'pid.given_name': 'Ada' },
-      }),
+      })
     )
 
     const record = await buildClient().getSession('session-1')

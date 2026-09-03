@@ -38,7 +38,7 @@ class FakeEntityManager {
       (key) =>
         (where.kid === undefined || key.kid === where.kid) &&
         (where.alg === undefined || key.alg === where.alg) &&
-        (!('retiredAt' in where) || (key.retiredAt ?? null) === where.retiredAt),
+        (!('retiredAt' in where) || (key.retiredAt ?? null) === where.retiredAt)
     )
   }
 }

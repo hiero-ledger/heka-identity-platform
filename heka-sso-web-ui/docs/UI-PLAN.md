@@ -15,7 +15,7 @@ Status: **in progress** — proposed 2026-08-31; **Phase A done** 2026-08-31 (`d
 | Auth | `AuthSession` contract bridged from Keycloak (`react-oidc-context`) or Auth0. Unauthenticated visit auto-redirects to the IdP. `kc_idp_hint` is **not** sent (known doc/code mismatch, P2.9 note). |
 | Demo chain | RP → Keycloak stock login page ("Sign in with wallet" button) → bridge login page (DC API / QR) → wallet → RP dashboard → Sign out → bridge logout confirm → Keycloak login page. |
 
-What the audience actually sees in the demo is **three UIs in a row**: this app, Keycloak's pages, and the bridge's login/logout pages. Consistency has to be judged across that chain, not just inside this repo. Keycloak's pages get a custom theme built with **Keycloakify** (§2.5, Phase K); the bridge pages follow via Phase E1.
+What the audience actually sees in the demo is **three UIs in a row**: this app, Keycloak's pages, and the bridge's login/logout pages. Consistency has to be judged across that chain, not just inside this repo. Keycloak's login page gets a **light Keycloakify theme** (§2.5, Phase K) — deliberately its own look, so the hand-off to the identity provider stays visible; the bridge pages follow via Phase E1.
 
 ## 1. Goals and boundaries
 
@@ -167,25 +167,21 @@ Rules that apply everywhere (app and Keycloak theme):
 
 Caveat: the Figma 360-wide frames were not read (call budget), so mobile geometry follows identity-service, not the design. DESIGN-TOKENS.md's next-frames list now prioritises them.
 
-### 2.5 Keycloak screens (Keycloakify)
+### 2.5 Keycloak login page (Keycloakify) — light touch
 
-Keycloak's own pages are themed with [Keycloakify](https://www.keycloakify.dev/) (v11, React + Vite, TypeScript) so the middle of the demo chain uses the same shell and tokens. The theme is a sibling project **`heka-keycloak-theme/`** at the repo root (own toolchain, like every other `heka-*` folder); its build output is a jar that the `heka-sso-service` dev compose mounts into Keycloak 26.3.
+Keycloak is a **different party and a different domain** (the identity provider), and the demo should let the audience feel that hand-off: the RP (this app), then "the identity provider", then the wallet. So the Keycloak theme is deliberately **not** a clone of the dashboard shell — it only makes the stock login page presentable and gives it its own identity.
 
-Design: the Keycloak **login page becomes the Figma "Sign in" screen** — `AuthLayout` shell (288 px header panel with title + wallet illustration, 360 px action column). Wallet-first: the `heka-sso` identity provider is rendered as the primary CTA **"Sign in with wallet"** (wallet icon), then a divider, then the username/password form (or nothing, when the realm has local login disabled). Every other Keycloak page inherits the same shell through the ejected `Template.tsx`.
+Scope: the **login page only** (`login.ftl`), themed with [Keycloakify](https://www.keycloakify.dev/) (v11, React + Vite) in a sibling project **`heka-keycloak-theme/`**; the jar is mounted into the `heka-sso-service` dev compose (Keycloak 26.3). Everything else (error, update-profile, logout pages…) stays on Keycloak's defaults — they inherit the background/card from the ejected `Template.tsx` for free, which is enough.
 
-Pages to eject and style explicitly (the ones the demo chain can hit):
+What changes on the login page:
 
-| Keycloak page | When it appears | Treatment |
-|---|---|---|
-| `login.ftl` | Entry into the realm (unless bypassed by `kc_idp_hint`) | The "Sign in" screen above |
-| `error.ftl`, `info.ftl`, `login-page-expired.ftl` | Wallet timeout / bridge error / back-button during the demo | Error card in `AuthLayout`; primary action "Back to sign in" |
-| `login-update-profile.ftl`, `idp-review-user-profile.ftl` | First-broker-login "Review Profile" (the realm makes email optional, but the step can still fire) | Form styled with the platform `TextInput` pixels |
-| `login-idp-link-confirm.ftl`, `login-idp-link-email.ftl` | A local user with the same email already exists | Confirmation card |
-| `logout-confirm.ftl` | RP-initiated logout without `id_token_hint` | Confirmation card |
+- **Background**: a calm full-page gradient (or a subtle abstract image) instead of Keycloak's flat grey — visibly *not* the CivicTrust white-on-blue-tint pages.
+- **Rounded corners**: the login card (radius ~24 px, soft shadow), inputs and buttons (~12 px), the IdP button included.
+- **Its own palette**: neutral slate/graphite with a single accent that is *not* the RP's petrol blue, so the two sites read as two sites. System font stack or Inter — either is fine; no tokens are copied from this repo.
+- **Identity line**: the realm display name ("OID4VP SSO Demo") prominent in the card header, plus a one-line note under the card such as "You are signing in through Heka SSO, the identity provider for CivicTrust Demo" — the explicit cue that the user has left the app.
+- Keycloak's own markup and default CSS stay (`doUseDefaultCss` on); the theme is a thin stylesheet layer over PatternFly, not a re-implementation. The "Sign in with wallet" IdP button keeps Keycloak's behaviour; it just gets the rounded/secondary styling.
 
-Everything else keeps Keycloakify's defaults inside our shell. `doUseDefaultCss={false}` — PatternFly/`keycloak.v2` CSS is dropped entirely; styling comes from a copy of `design-tokens.scss` + `reset.scss` + `mixins.scss` (shared pixels rule), with Inter bundled as `woff2` inside the jar so the login page never depends on a CDN. Text overrides (button labels, titles) via Keycloakify's `i18n` message overrides, English only. Account, admin and email themes: out of scope.
-
-Relation to D1 (`kc_idp_hint`): once the theme exists, showing the Keycloak page is acceptable and even useful (it demonstrates the "choose how to sign in" moment). `VITE_KC_IDP_HINT` stays configurable; pick the default for the demo in D4 after seeing both.
+Relation to D1 (`kc_idp_hint`): with the themed page in place, showing it in the demo is a feature (the "choose how to sign in / hand-off to the IdP" moment). `VITE_KC_IDP_HINT` stays configurable; pick the default for the demo in D4 after seeing both.
 
 ## 3. Component inventory
 
@@ -252,19 +248,22 @@ Presenter checklist for the remaining D4 (a) and (b) runs: `.env` per DEMO.md §
 - D3. Sign-out returns to **Welcome** (already the case via `SIGNED_OUT_KEY`) — verify the copy reads as an end state ("You're signed out" + Sign in again).
 - D4. Run the full DEMO.md loop twice: (a) **desktop + QR** at 1280×720 (Keycloak compose + bridge + wallet on the phone, and once with the dev stub); (b) **same-device DC API on a real Android phone** (Chrome + heka-wallet) — the whole chain on the phone screen, including the Keycloak page and the bridge page. Fix anything that wraps, overflows, flashes, or hides behind the keyboard/address bar. Capture screenshots of both runs into `docs/screenshots/` for the README.
 
-### Phase K — Keycloak theme with Keycloakify · ~2 days
+### Phase K — Keycloak login page with Keycloakify (light touch) · ~1 day · ✅ done 2026-09-01
 
-Depends on A1 (tokens) and B2/B3 (the `AuthLayout` shell and card pixels it mirrors). Can run in parallel with C/D.
+Independent of the RP work (no shared tokens or components — §2.5); can run any time after the demo realm exists.
+
+Notes from doing it: `heka-keycloak-theme/` is the `keycloakify-starter` (Keycloakify 11.16, React 18, Vite 5) with `themeName: "heka"`, `theme.css`, an ejected `Template.tsx` (identity line) and `Login.tsx` (ejected by copying Keycloakify's shipped sources — the CLI's `eject-page` is interactive only), a `HEKA_APP_NAME` theme property, and a `login/login.ftl` story. The jar builds with `yarn build-keycloak-theme` (the very first Maven run can fail while its plugin cache is cold — just run it again). Verified on a **throwaway** Keycloak 26.3 container with the jar mounted and the demo realm imported (your running Keycloak was left alone): the served page loads `/resources/…/login/heka/dist/assets/index-*.js`, card radius 24 px, identity line present, `.login-pf body`'s polygon background overridden, no horizontal overflow at 360. Three gotchas worth knowing: (1) Docker Desktop on Windows needs Windows-style mount paths from Git Bash (`MSYS_NO_PATHCONV=1`, `E:/…`) or the mount is silently empty; (2) the `heka-sso-web-ui` client enforces PKCE, so a hand-built authorize URL must carry `code_challenge` + `code_challenge_method=S256` or Keycloak 302s back to the RP with an error — which then bounced my headless browser to *your* Keycloak's stock page and briefly looked like the theme wasn't applied; (3) while a container has the jar bind-mounted, Windows refuses to replace it (`EPERM` on rename) — stop the container before rebuilding. K7's run through the real chain on the compose Keycloak still needs a container recreate on your side (`docker compose -f docker-compose.dev.yml up -d --force-recreate keycloak`, which re-imports the realm with `loginTheme: heka`), then `VITE_KC_IDP_HINT=` in the RP to show the page. Screenshots: `docs/screenshots/keycloak-login-{1280,360}.png`.
 
 - K1. **Scaffold** `heka-keycloak-theme/` from `keycloakify-starter` (Vite + React + TS; pin the React version the starter supports). `vite.config.ts`: `keycloakify({ themeName: 'heka', accountThemeImplementation: 'none' })`. Prerequisites on the build machine: Java + Maven (Keycloakify ≥ 10 packages the jar with Maven) — verify against the starter's README for the pinned version.
-- K2. **Tokens**: copy `design-tokens.scss`, `reset.scss`, `mixins.scss` from this repo into `heka-keycloak-theme/src/styles/` (shared pixels rule; re-copy to sync). Bundle Inter `woff2` files locally; `@font-face` in the theme, no Google Fonts import.
-- K3. **Shell**: eject `Template.tsx`; rebuild it as the `AuthLayout` from §2.2 with the §2.4 stacked variant below 1024 (this is the page the phone shows on the DC API path). `KcPage` with `doUseDefaultCss={false}`.
-- K4. **Pages**: `npx keycloakify eject-page` for the pages in §2.5. `Login.tsx`: wallet-first layout — the `social.providers` entry with alias `heka-sso` rendered as the primary `Button` (filled, wallet icon), divider, then the credentials form (respect `realm.password` / `registrationAllowed` flags). Error/info/expired pages → error card; profile/link/logout pages → form/confirmation cards using the ported `TextInput`/`Button` pixels.
-- K5. **Copy**: `i18n.ts` message overrides (page titles, "Sign in with wallet", error wording). English only.
-- K6. **Visual iteration**: `npx keycloakify add-story` for each ejected page; Storybook is the fast loop (no Keycloak needed) — check 1280×720 and 360 wide, and the error/expired variants.
-- K7. **Build & wiring** in `heka-sso-service`: `npx keycloakify build` → `dist_keycloak/*.jar` (use the variant Keycloakify emits for Keycloak 26). `docker-compose.dev.yml`: mount the jar at `/opt/keycloak/providers/heka-theme.jar:ro` and add the dev flags that disable theme caching (`--spi-theme-static-max-age=-1 --spi-theme-cache-themes=false --spi-theme-cache-templates=false`); `keycloak/realm-heka.json`: `"loginTheme": "heka"`. `npx keycloakify start-keycloak` is the alternative for local iteration against a throwaway Keycloak.
-- K8. **Verify in the chain**: DEMO.md loop with `VITE_KC_IDP_HINT=` (empty) so the themed login page is shown — on desktop **and** on the Android phone (DC API path); force an error path (cancel in the wallet, let a request expire) to see `error.ftl` / `login-page-expired.ftl`; first-broker-login with a fresh user to see whether the review-profile page fires, and if it does, fill the form on the phone with the keyboard open. Fix, rebuild jar, re-run.
-- K9. **Docs & CI**: `heka-keycloak-theme/README.md` (build, where the jar goes, how to re-sync tokens); DEMO.md §1 mentions the theme; a CI job that builds the jar and uploads it as an artifact (Java + Maven setup step).
+- K2. **Stylesheet**: one small `theme.scss` with its own handful of variables (background gradient, card/control radii, slate palette + accent, shadow). Deliberately independent of this repo's `design-tokens.scss`. Optional: bundle Inter `woff2` locally (no CDN on a login page); otherwise the system stack.
+- K3. **Template**: eject `Template.tsx`; keep its structure, wrap it in the background container, apply the rounded card class, show the realm display name in the card header and add the "signing in through Heka SSO, the identity provider for …" note under the card (text from `realm.displayName` + one message override).
+- K4. **Login page**: `npx keycloakify eject-page` for `login.ftl` only. Mostly CSS: rounded inputs/buttons, spacing, the IdP ("Sign in with wallet") button as a rounded secondary action, tidy typography. Keep Keycloak's markup and `doUseDefaultCss`.
+- K5. **Visual check**: `npx keycloakify add-story` for Login; Storybook at 1280×720 and 360 wide (the DC API path shows this page on the phone).
+- K6. **Build & wiring** in `heka-sso-service`: `npx keycloakify build` → `dist_keycloak/*.jar` (the variant Keycloakify emits for Keycloak 26). `docker-compose.dev.yml`: mount the jar at `/opt/keycloak/providers/heka-theme.jar:ro` and add the dev flags that disable theme caching (`--spi-theme-static-max-age=-1 --spi-theme-cache-themes=false --spi-theme-cache-templates=false`); `keycloak/realm-heka.json`: `"loginTheme": "heka"`. `npx keycloakify start-keycloak` is the alternative for local iteration against a throwaway Keycloak.
+- K7. **Verify in the chain**: DEMO.md loop with `VITE_KC_IDP_HINT=` (empty) so the page is shown — desktop and the Android phone; confirm the hand-off reads clearly (RP look → Keycloak look → bridge look) and that an error page (cancel in the wallet) still looks acceptable with the inherited background.
+- K8. **Docs**: `heka-keycloak-theme/README.md` (build, where the jar goes); DEMO.md §1 mentions the theme. A CI job for the jar is optional.
+
+Dropped from the earlier plan, on purpose: copying the RP tokens/shell into the theme, ejecting the error/profile/link/logout pages, the wallet-first re-layout of the login form, and i18n overrides beyond the identity line.
 
 ### Phase E — Cross-app consistency (follow-ups, separate PRs) · not in this estimate
 
@@ -280,7 +279,7 @@ Depends on A1 (tokens) and B2/B3 (the `AuthLayout` shell and card pixels it mirr
 - Mobile checks (§2.4): no horizontal page scroll at 360 with a long `sub` and the raw JSON open; tap targets ≥ 44 px; shells sized with `dvh`, not `vh`; safe-area padding present.
 - No console errors/warnings in the browser during the loop.
 
-Totals: **~4 days** for this repo (A–D, F; the mobile pass adds ~0.5 across C4/D4/F) + **~2 days** for the Keycloak theme (K, its own project) = **~6 developer-days**. E is tracked separately.
+Totals: **~4 days** for this repo (A–D, F; the mobile pass adds ~0.5 across C4/D4/F) + **~1 day** for the light Keycloak login theme (K, its own project) = **~5 developer-days**. E is tracked separately.
 
 ## 5. File-level changes
 
@@ -311,14 +310,12 @@ heka-sso-web-ui/
     UI-PLAN.md                        (this file)
     screenshots/                      D4
 
-heka-keycloak-theme/                  NEW sibling project (Phase K)
+heka-keycloak-theme/                  NEW sibling project (Phase K, light touch)
   package.json  vite.config.ts        keycloakify-starter, themeName 'heka'
   src/
-    styles/                           design-tokens.scss, reset.scss, mixins.scss (copies) + fonts/
-    login/KcPage.tsx  Template.tsx    shell = AuthLayout
-    login/pages/                      Login, Error, Info, LoginPageExpired, LoginUpdateProfile,
-                                      IdpReviewUserProfile, LoginIdpLinkConfirm, LoginIdpLinkEmail, LogoutConfirm
-    login/i18n.ts                     copy overrides
+    styles/theme.scss                 own small variable set (background, radii, slate palette) — NOT the RP tokens
+    login/KcPage.tsx  Template.tsx    background + rounded card + "signing in through Heka SSO" note
+    login/pages/Login.tsx             login.ftl only (rounded controls, IdP button styling)
   dist_keycloak/*.jar                 build output (gitignored)
 
 heka-sso-service/
@@ -335,7 +332,7 @@ heka-sso-service/
 4. Demo loop (DEMO.md §6) passes with `VITE_AUTO_SIGN_IN=false` + `kc_idp_hint`: Welcome → bridge login page → wallet → Dashboard shows name, "Verified 18+" badge, wallet `amr` chip → Sign out → Welcome. No stock Keycloak page appears.
 5. With `VITE_AUTO_SIGN_IN=true` and `VITE_KC_IDP_HINT=` (empty) the app behaves exactly as today for existing integrations/tests.
 6. README screenshots current; DESIGN-TOKENS.md gaps section updated with anything learned.
-7. Keycloak: with `VITE_KC_IDP_HINT=` (empty) the realm's login page renders the themed "Sign in" screen with "Sign in with wallet" as the primary action; the error and page-expired pages render in the same shell; no PatternFly styles are loaded (network tab shows only the theme's assets). The jar builds reproducibly from `heka-keycloak-theme/` and the compose picks it up without manual admin-console steps.
+7. Keycloak: with `VITE_KC_IDP_HINT=` (empty) the realm's login page renders with the theme's background and rounded card/controls, names the realm ("OID4VP SSO Demo") and states that it is the identity provider for the app — and it is visibly a *different site* from the RP (own palette, no CivicTrust shell). Keycloak's default CSS stays in place; other pages remain stock but inherit the background/card. The jar builds reproducibly from `heka-keycloak-theme/` and the compose picks it up without manual admin-console steps.
 
 ## 7. Risks and open questions
 
@@ -348,8 +345,8 @@ heka-sso-service/
 | 5 | Palette divergence from identity-service until E2 lands | Accepted for the demo; E1 (bridge page) should land in the same demo window since it's on-screen for longest. |
 | 6 | `age_over_18` may arrive as string `"true"` (Keycloak attribute importer) | `claims.ts` normalises `true` / `"true"`; covered by a unit test if a test runner is added (none today — vitest is a cheap add, optional). |
 | 7 | Auth0 path claims are namespaced custom claims | `claims.ts` reads both plain and namespaced keys (`https://…/vc_presented_attributes`); verify once in F. |
-| 8 | Keycloakify toolchain: needs Java + Maven for the jar; React/Vite versions pinned by the starter may differ from this repo's | Keep the theme a separate project with its own lockfile; don't try to share `node_modules` or components — only the three style files are copied. |
+| 8 | Keycloakify toolchain: needs Java + Maven for the jar; React/Vite versions pinned by the starter may differ from this repo's | Keep the theme a separate project with its own lockfile; nothing is shared or copied from the RP — its look is intentionally independent (§2.5). |
 | 9 | Keycloak caches themes; a rebuilt jar may not show up in dev | The K7 `--spi-theme-*` flags in `start-dev`; restart the container after replacing the jar. |
-| 10 | Three copies of `design-tokens.scss` (this repo, bridge `ui/`, theme) can drift | Single source is this repo's file; the others say so in their header. A checksum-compare script in CI is a cheap follow-up. |
-| 11 | Ejected Keycloak pages shadow upstream fixes for those pages | Eject only the §2.5 list; keep the rest on Keycloakify defaults so upgrades stay easy. |
+| 10 | Two copies of `design-tokens.scss` (this repo, bridge `ui/`) can drift | Single source is this repo's file; the bridge copy says so in its header. A checksum-compare script in CI is a cheap follow-up. |
+| 11 | Ejected Keycloak pages shadow upstream fixes for those pages | Eject only `Template.tsx` and `Login.tsx`; everything else stays on Keycloakify defaults so upgrades stay easy. |
 | 12 | Mobile geometry is inferred from identity-service, not from the Figma 360 frames | Build to §2.4; when Figma calls are available, read the 360-wide frames first (DESIGN-TOKENS.md gaps §3) and adjust paddings/radius in `design-tokens.scss` — components don't change. |

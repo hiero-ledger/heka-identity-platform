@@ -10,8 +10,8 @@ import {
   createOidcProvider,
   IdentityAcquirer,
   InteractionController,
-  noStoreMiddleware,
   InteractionService,
+  noStoreMiddleware,
   StubIdentityAcquirer,
 } from '../../src/oidc'
 import { testJwks } from '../helpers/jwks'
@@ -76,10 +76,7 @@ const buildApp = (identityAcquirer: IdentityAcquirer | null) => {
   const configService = { oidcConfig: config } as unknown as ConfigService
   const accountClaims = new AccountClaimsStore(configService)
   const provider = createOidcProvider(config, testJwks(), accountClaims)
-  const controller = new InteractionController(
-    provider,
-    new InteractionService(provider, identityAcquirer, configService, accountClaims),
-  )
+  const controller = new InteractionController(provider, new InteractionService(provider, identityAcquirer, configService, accountClaims))
 
   const app = express()
   app.use(securityHeaders())
@@ -107,12 +104,7 @@ const authorizeQuery = (codeVerifier: string, clientId = 'keycloak-broker') => (
  * resume → redirect back to the client, carrying cookies like a browser, and
  * returns the final redirect back to the client's redirect_uri.
  */
-const runAuthorizationFlow = async (
-  app: express.Express,
-  codeVerifier: string,
-  clientId?: string,
-  jar = new CookieJar(),
-) => {
+const runAuthorizationFlow = async (app: express.Express, codeVerifier: string, clientId?: string, jar = new CookieJar()) => {
   let response = await request(app).get('/authorize').query(authorizeQuery(codeVerifier, clientId)).expect(303)
   jar.store(response)
 
@@ -128,8 +120,7 @@ const runAuthorizationFlow = async (
   return new URL(location)
 }
 
-const decodeJwtPayload = (jwt: string): Record<string, any> =>
-  JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString())
+const decodeJwtPayload = (jwt: string): Record<string, any> => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString())
 
 describe('wallet-login interaction (stub login)', () => {
   describe('with the stub enabled', () => {
@@ -180,10 +171,7 @@ describe('wallet-login interaction (stub login)', () => {
       expect(idToken).toMatchObject(storedClaims)
 
       // … and userinfo serves the same claims with an identical sub
-      const userinfo = await request(app)
-        .get('/userinfo')
-        .set('Authorization', `Bearer ${tokens.body.access_token}`)
-        .expect(200)
+      const userinfo = await request(app).get('/userinfo').set('Authorization', `Bearer ${tokens.body.access_token}`).expect(200)
       expect(userinfo.body.sub).toBe(idToken.sub)
       expect(userinfo.body).toMatchObject(storedClaims)
     })

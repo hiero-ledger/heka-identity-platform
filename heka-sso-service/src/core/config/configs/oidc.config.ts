@@ -153,8 +153,7 @@ export class OidcClientConfig {
     this.redirectUris = client.redirectUris
     this.postLogoutRedirectUris = client.postLogoutRedirectUris
     this.backchannelLogoutUri = client.backchannelLogoutUri
-    this.backchannelLogoutSessionRequired =
-      client.backchannelLogoutSessionRequired ?? (client.backchannelLogoutUri ? true : undefined)
+    this.backchannelLogoutSessionRequired = client.backchannelLogoutSessionRequired ?? (client.backchannelLogoutUri ? true : undefined)
     this.grantTypes = client.grantTypes ?? ['authorization_code']
     this.responseTypes = client.responseTypes ?? ['code']
     this.tokenEndpointAuthMethod = client.tokenEndpointAuthMethod ?? 'client_secret_basic'
@@ -269,9 +268,7 @@ export class OidcLoginConfig {
   public get credentialQueryIds(): string[] {
     const credentials = (this.dcqlQuery as { credentials?: unknown } | undefined)?.credentials
     if (!Array.isArray(credentials)) return []
-    return credentials
-      .map((credential) => (credential as { id?: unknown } | null)?.id)
-      .filter((id): id is string => typeof id === 'string')
+    return credentials.map((credential) => (credential as { id?: unknown } | null)?.id).filter((id): id is string => typeof id === 'string')
   }
 
   /**
@@ -309,9 +306,7 @@ export class OidcLoginConfig {
         const prefix = separator > 0 ? key.slice(0, separator) : ''
         const claim = separator > 0 ? key.slice(separator + 1) : ''
         if (!ids.includes(prefix) || claim.length === 0) {
-          problems.push(
-            `claimMapping key '${key}' must be '<credential query id>.<claim>' with an id from dcqlQuery (${ids.join(', ')})`,
-          )
+          problems.push(`claimMapping key '${key}' must be '<credential query id>.<claim>' with an id from dcqlQuery (${ids.join(', ')})`)
         }
       }
     }
@@ -348,16 +343,12 @@ export class OidcTtlConfig {
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
     const defaults = oidcConfigDefaults.ttl
-    this.accessToken = env[OidcConfigKeys.ttlAccessToken]
-      ? parseInt(env[OidcConfigKeys.ttlAccessToken])
-      : defaults.accessToken
+    this.accessToken = env[OidcConfigKeys.ttlAccessToken] ? parseInt(env[OidcConfigKeys.ttlAccessToken]) : defaults.accessToken
     this.authorizationCode = env[OidcConfigKeys.ttlAuthorizationCode]
       ? parseInt(env[OidcConfigKeys.ttlAuthorizationCode])
       : defaults.authorizationCode
     this.idToken = env[OidcConfigKeys.ttlIdToken] ? parseInt(env[OidcConfigKeys.ttlIdToken]) : defaults.idToken
-    this.interaction = env[OidcConfigKeys.ttlInteraction]
-      ? parseInt(env[OidcConfigKeys.ttlInteraction])
-      : defaults.interaction
+    this.interaction = env[OidcConfigKeys.ttlInteraction] ? parseInt(env[OidcConfigKeys.ttlInteraction]) : defaults.interaction
     this.session = env[OidcConfigKeys.ttlSession] ? parseInt(env[OidcConfigKeys.ttlSession]) : defaults.session
     this.grant = env[OidcConfigKeys.ttlGrant] ? parseInt(env[OidcConfigKeys.ttlGrant]) : defaults.grant
   }
@@ -550,10 +541,8 @@ export class OidcConfig {
     requireInProduction(OidcConfigKeys.identityServiceBaseUrl)
     this.identityService = new IdentityServiceConfig({
       ...env,
-      [OidcConfigKeys.identityServiceBaseUrl]:
-        env[OidcConfigKeys.identityServiceBaseUrl] || oidcConfigDefaults.identityServiceBaseUrl,
-      [OidcConfigKeys.authServiceBaseUrl]:
-        env[OidcConfigKeys.authServiceBaseUrl] || oidcConfigDefaults.authServiceBaseUrl,
+      [OidcConfigKeys.identityServiceBaseUrl]: env[OidcConfigKeys.identityServiceBaseUrl] || oidcConfigDefaults.identityServiceBaseUrl,
+      [OidcConfigKeys.authServiceBaseUrl]: env[OidcConfigKeys.authServiceBaseUrl] || oidcConfigDefaults.authServiceBaseUrl,
     })
     refuseKnownDefault(OidcConfigKeys.identityServiceAuthToken, [this.identityService.authToken])
     // Service-account credentials: same secret hygiene as everything else
@@ -561,7 +550,7 @@ export class OidcConfig {
     if (isProduction && this.identityService.authName && !env[OidcConfigKeys.authServiceBaseUrl]) {
       problems.push(
         `${OidcConfigKeys.authServiceBaseUrl} must be set in production when the ` +
-          `${OidcConfigKeys.identityServiceAuthName} service account is used (no compiled-in default)`,
+          `${OidcConfigKeys.identityServiceAuthName} service account is used (no compiled-in default)`
       )
     }
 
@@ -571,9 +560,7 @@ export class OidcConfig {
       ? parseInt(env[OidcConfigKeys.clockTolerance])
       : oidcConfigDefaults.clockTolerance
 
-    this.clients = OidcConfig.parseJsonArray(env, OidcConfigKeys.clients, problems).map(
-      (client) => new OidcClientConfig(client),
-    )
+    this.clients = OidcConfig.parseJsonArray(env, OidcConfigKeys.clients, problems).map((client) => new OidcClientConfig(client))
     for (const client of this.clients) {
       refuseKnownDefault(OidcConfigKeys.clients, [client.clientSecret])
       if (isProduction && client.clientSecret && client.clientSecret.length < 16) {
@@ -582,7 +569,7 @@ export class OidcConfig {
     }
 
     this.loginConfigs = OidcConfig.parseJsonArray(env, OidcConfigKeys.loginConfigs, problems).map(
-      (loginConfig) => new OidcLoginConfig(loginConfig),
+      (loginConfig) => new OidcLoginConfig(loginConfig)
     )
     for (const loginConfig of this.loginConfigs) {
       for (const problem of loginConfig.dcqlProblems()) {
@@ -594,9 +581,7 @@ export class OidcConfig {
 
     this.stubLogin = env[OidcConfigKeys.stubLogin]?.toString().toLowerCase() === 'true'
     if (isProduction && this.stubLogin) {
-      problems.push(
-        `${OidcConfigKeys.stubLogin} must not be enabled in production — the stub bypasses credential verification`,
-      )
+      problems.push(`${OidcConfigKeys.stubLogin} must not be enabled in production — the stub bypasses credential verification`)
     }
 
     this.logoutAutoConfirm = env[OidcConfigKeys.logoutAutoConfirm]?.toString().toLowerCase() === 'true'
@@ -605,7 +590,7 @@ export class OidcConfig {
     if (isProduction && this.allowPrivateNetworkCalls) {
       problems.push(
         `${OidcConfigKeys.allowPrivateNetworkCalls} must not be enabled in production — ` +
-          "it disables the SSRF protection on the provider's outbound calls",
+          "it disables the SSRF protection on the provider's outbound calls"
       )
     }
 
@@ -616,7 +601,7 @@ export class OidcConfig {
     if (generatedSecrets.length > 0 && nodeEnv !== 'test') {
       console.warn(
         `[OidcConfig] Generated ephemeral dev secrets for: ${generatedSecrets.join(', ')}. ` +
-          'Sessions and derived sub values will not survive a restart.',
+          'Sessions and derived sub values will not survive a restart.'
       )
     }
   }
@@ -624,7 +609,7 @@ export class OidcConfig {
   private static resolveJwksOverride(
     env: Record<string, any>,
     problems: string[],
-    isProduction: boolean,
+    isProduction: boolean
   ): { keys: Record<string, any>[] } | undefined {
     let raw: string | undefined = env[OidcConfigKeys.jwks]
     const source = raw ? OidcConfigKeys.jwks : OidcConfigKeys.jwksFile

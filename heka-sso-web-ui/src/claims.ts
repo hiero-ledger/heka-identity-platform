@@ -84,7 +84,11 @@ export function ageOver18(claims: Claims): boolean | undefined {
 export function amrValues(claims: Claims): string[] {
   const raw = claim(claims, 'amr')
   if (Array.isArray(raw)) return raw.filter((v): v is string => typeof v === 'string')
-  if (typeof raw === 'string') return raw.split(',').map((v) => v.trim()).filter(Boolean)
+  if (typeof raw === 'string')
+    return raw
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)
   return []
 }
 

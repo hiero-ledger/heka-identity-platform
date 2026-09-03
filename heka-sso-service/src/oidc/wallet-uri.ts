@@ -6,12 +6,7 @@
  * compromised upstream would produce, and none of these custom schemes is
  * executable by the browser. Extend consciously, never with a browser scheme.
  */
-export const WALLET_URI_SCHEMES: ReadonlySet<string> = new Set([
-  'openid4vp:',
-  'haip:',
-  'eudi-openid4vp:',
-  'mdoc-openid4vp:',
-])
+export const WALLET_URI_SCHEMES: ReadonlySet<string> = new Set(['openid4vp:', 'haip:', 'eudi-openid4vp:', 'mdoc-openid4vp:'])
 
 /**
  * Minimal validation of the authorization request URI received from

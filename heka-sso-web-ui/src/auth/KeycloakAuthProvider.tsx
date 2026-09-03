@@ -23,7 +23,7 @@ const authConfig: AuthProviderProps = {
   onSigninCallback: () => {
     // Strip code/state from the URL after the redirect returns
     window.history.replaceState({}, document.title, window.location.pathname)
-  }
+  },
 }
 
 function KeycloakSessionBridge({ children }: PropsWithChildren) {
@@ -38,7 +38,7 @@ function KeycloakSessionBridge({ children }: PropsWithChildren) {
       error: auth.error?.message,
       claims: (auth.user?.profile ?? {}) as Record<string, unknown>,
       signIn: () => void auth.signinRedirect(),
-      signOut: () => void auth.signoutRedirect()
+      signOut: () => void auth.signoutRedirect(),
     }),
     [auth]
   )

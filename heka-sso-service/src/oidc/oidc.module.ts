@@ -47,14 +47,14 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
         configService: ConfigService,
         signingKeys: SigningKeysService,
         accountClaims: AccountClaimsStore,
-        em: EntityManager,
+        em: EntityManager
       ) =>
         createOidcProvider(
           configService.oidcConfig,
           await signingKeys.getJwks(),
           accountClaims,
           // Postgres-backed storage; the adapter forks the EM per operation
-          (name: string) => new MikroOrmAdapter(name, em),
+          (name: string) => new MikroOrmAdapter(name, em)
         ),
     },
     {
@@ -68,7 +68,7 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
         configService: ConfigService,
         sessions: VerificationSessionClient,
         loginEvents: LoginEventsService,
-        identityEvents: IdentityServiceEventsClient,
+        identityEvents: IdentityServiceEventsClient
       ): IdentityAcquirer | null => {
         const logger = new Logger(OidcModule.name)
         if (configService.oidcConfig.stubLogin) {
@@ -85,7 +85,7 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
         }
         logger.warn(
           'No identity acquisition method enabled — set IDENTITY_SERVICE_PUBLIC_VERIFIER_ID + ' +
-            'IDENTITY_SERVICE_REQUEST_SIGNER_DID for wallet login (or OIDC_STUB_LOGIN=true in dev); logins will be denied',
+            'IDENTITY_SERVICE_REQUEST_SIGNER_DID for wallet login (or OIDC_STUB_LOGIN=true in dev); logins will be denied'
         )
         return null
       },

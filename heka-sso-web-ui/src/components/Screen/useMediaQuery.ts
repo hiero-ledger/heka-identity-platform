@@ -17,12 +17,12 @@ export function useMediaQuery(query: string): boolean {
       media.addEventListener('change', onChange)
       return () => media.removeEventListener('change', onChange)
     },
-    [query],
+    [query]
   )
   return useSyncExternalStore(
     subscribe,
     () => window.matchMedia(query).matches,
-    () => false,
+    () => false
   )
 }
 
@@ -35,7 +35,5 @@ export function useMobile(): boolean {
 }
 
 export function useTablet(): boolean {
-  return useMediaQuery(
-    `(min-width: ${breakpoints.mobile + 1}px) and (max-width: ${breakpoints.desktop - 1}px)`,
-  )
+  return useMediaQuery(`(min-width: ${breakpoints.mobile + 1}px) and (max-width: ${breakpoints.desktop - 1}px)`)
 }

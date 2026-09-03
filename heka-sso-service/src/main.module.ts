@@ -89,7 +89,7 @@ export class MainModule {
         },
         whitelist: true,
         forbidNonWhitelisted: true,
-      }),
+      })
     )
 
     app.useGlobalInterceptors(new LoggerErrorInterceptor())

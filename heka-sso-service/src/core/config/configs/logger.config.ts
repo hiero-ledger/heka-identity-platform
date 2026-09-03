@@ -45,9 +45,7 @@ export class LoggerConfig {
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
     this.level = env[LoggerConfigKeys.level] || LogLevel.info
-    this.excludeUrls = env[LoggerConfigKeys.excludeUrls]
-      ? env[LoggerConfigKeys.excludeUrls].split(',')
-      : loggerConfigDefaults.excludeUrls
+    this.excludeUrls = env[LoggerConfigKeys.excludeUrls] ? env[LoggerConfigKeys.excludeUrls].split(',') : loggerConfigDefaults.excludeUrls
     this.redactFields = env[LoggerConfigKeys.redactFields]
       ? env[LoggerConfigKeys.redactFields].split(',')
       : loggerConfigDefaults.redactFields

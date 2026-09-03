@@ -13,15 +13,7 @@ import { AuthSession, AuthSessionContext } from '@/auth/session'
 //   dashboard-bare   minimal claims (nothing disclosed) — fallbacks
 //   welcome | signed-out | error | splash
 
-type PreviewState =
-  | 'dashboard'
-  | 'dashboard-auth0'
-  | 'dashboard-full'
-  | 'dashboard-bare'
-  | 'welcome'
-  | 'signed-out'
-  | 'error'
-  | 'splash'
+type PreviewState = 'dashboard' | 'dashboard-auth0' | 'dashboard-full' | 'dashboard-bare' | 'welcome' | 'signed-out' | 'error' | 'splash'
 
 const now = Math.floor(Date.now() / 1000)
 const base = {
@@ -109,5 +101,5 @@ createRoot(document.getElementById('root')!).render(
     <AuthSessionContext.Provider value={sessionFor(state)}>
       <App />
     </AuthSessionContext.Provider>
-  </StrictMode>,
+  </StrictMode>
 )

@@ -9,5 +9,5 @@ createRoot(document.getElementById('root')!).render(
     <AppAuthProvider>
       <App />
     </AppAuthProvider>
-  </StrictMode>,
+  </StrictMode>
 )

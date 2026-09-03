@@ -49,7 +49,7 @@ export class IdentityServiceEventsClient implements OnModuleDestroy {
 
   public constructor(
     configService: ConfigService,
-    private readonly tokens: IdentityServiceTokenProvider,
+    private readonly tokens: IdentityServiceTokenProvider
   ) {
     this.config = configService.oidcConfig.identityService
     this.reconnectDelayMs = this.reconnectBaseMs

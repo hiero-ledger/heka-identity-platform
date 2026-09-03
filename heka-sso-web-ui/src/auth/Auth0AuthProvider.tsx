@@ -22,7 +22,7 @@ function Auth0SessionBridge({ children }: PropsWithChildren) {
       // federated: also end the session at the upstream connection (the
       // bridge) — otherwise its OP session survives and the next login
       // completes silently, without a wallet presentation.
-      signOut: () => void logout({ logoutParams: { returnTo: window.location.origin, federated: true } })
+      signOut: () => void logout({ logoutParams: { returnTo: window.location.origin, federated: true } }),
     }),
     [isAuthenticated, isLoading, error, user, loginWithRedirect, logout]
   )
@@ -37,7 +37,7 @@ function Auth0AuthProvider({ children }: PropsWithChildren) {
       clientId={auth0ClientId}
       authorizationParams={{
         redirect_uri: window.location.origin,
-        ...(auth0Connection ? { connection: auth0Connection } : {})
+        ...(auth0Connection ? { connection: auth0Connection } : {}),
       }}
     >
       <Auth0SessionBridge>{children}</Auth0SessionBridge>

@@ -31,13 +31,10 @@ export const pageAssetsDir = join(pagesDir, 'assets')
  * found in the sibling `dist` tree instead.
  */
 export const builtUiDir =
-  basename(join(__dirname, '..')) === 'src'
-    ? join(__dirname, '..', '..', 'dist', 'oidc', 'pages', 'ui')
-    : join(pagesDir, 'ui')
+  basename(join(__dirname, '..')) === 'src' ? join(__dirname, '..', '..', 'dist', 'oidc', 'pages', 'ui') : join(pagesDir, 'ui')
 
 /** Resolves a template name: `ui/*` lives in the built output, the rest in `pages/`. */
-const pagePath = (name: string): string =>
-  name.startsWith('ui/') ? join(builtUiDir, name.slice('ui/'.length)) : join(pagesDir, name)
+const pagePath = (name: string): string => (name.startsWith('ui/') ? join(builtUiDir, name.slice('ui/'.length)) : join(pagesDir, name))
 
 /**
  * Roots the asset route serves from, first hit wins: the built UI output
@@ -55,8 +52,7 @@ export function loadPage(name: string): string {
     } catch (error) {
       if (name.startsWith('ui/')) {
         throw new Error(
-          `bridge page template '${name}' not found — the login page is a built artifact; ` +
-            `run \`yarn ui:build\` first (${error})`,
+          `bridge page template '${name}' not found — the login page is a built artifact; ` + `run \`yarn ui:build\` first (${error})`
         )
       }
       throw error

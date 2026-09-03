@@ -9,7 +9,7 @@ describe('bridge-page templates', () => {
   test('all hook templates load and link the shared (built) stylesheet', () => {
     for (const name of ['logout-auto.html', 'logout-confirm.html', 'logout-success.html', 'error.html']) {
       const html = loadPage(name)
-      expect(html).toContain('<!DOCTYPE html>')
+      expect(html).toMatch(/<!doctype html>/i)
       expect(html).toContain('/interaction/assets/styles.css')
     }
   })
@@ -17,7 +17,7 @@ describe('bridge-page templates', () => {
   test('the built login page loads and references its bundle', () => {
     // requires `yarn ui:build` — loadPage errors with that hint when missing
     const html = loadPage('ui/login.html')
-    expect(html).toContain('<!DOCTYPE html>')
+    expect(html).toMatch(/<!doctype html>/i)
     expect(html).toContain('/interaction/assets/login.js')
     expect(html).toContain('/interaction/assets/styles.css')
   })
