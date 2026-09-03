@@ -163,7 +163,16 @@ IdPs cache the JWKS, so rotation must overlap — never swap keys abruptly (an a
 
 1. **Publish a new key** (`SigningKeysService.rotateKey(alg)`): the new key is added and immediately becomes the signing key; the old key stays published so cached tokens still verify.
 2. **Wait out the IdP JWKS cache window** (Keycloak's default public-key cache TTL is ~24 h; check your IdP).
-3. **Retire the old key** (`SigningKeysService.retireKey(kid)`, or SQL: `update oidc_signing_key set retired_at = now() where kid = '<old-kid>'`): it disappears from the JWKS.
+3. **Retire the old key** (`SigningKeysService.retireKey(kid)`): it disappears from the JWKS. `retireKey` **refuses to retire the last active key** of an algorithm (it throws) — that would leave the JWKS without a signing key for it; rotate first. Retiring an unknown or already-retired kid is a no-op. If you must retire via SQL, keep the same guard:
+
+   ```sql
+   update oidc_signing_key k set retired_at = now()
+   where k.kid = '<old-kid>' and k.retired_at is null
+     and exists (select 1 from oidc_signing_key o
+                 where o.alg = k.alg and o.retired_at is null and o.kid <> k.kid);
+   ```
+
+Every signing-key operation (first-start generation, rotate, retire) runs inside a transaction holding a Postgres advisory lock (`docs/toctou-remediation-plan.md`), so concurrent replicas serialize instead of racing: two instances booting against an empty database create exactly one key per algorithm and publish identical JWKS.
 
 Until the Phase 2 admin API exposes these operations, rotation is performed via the service methods or SQL. Retired keys stay in the table for audit; they are never republished.
 

@@ -1,14 +1,43 @@
 import { OidcSigningKey } from '../../src/core/database'
 import { SigningKeysService } from '../../src/oidc'
 
+/**
+ * In-memory stand-in for the (Postgres) EntityManager. `transactional`
+ * runs the callback against the same fake; `execute` emulates the two raw
+ * statements the service issues — the advisory lock (a no-op here; real
+ * cross-connection serialization is covered by the e2e concurrency suite)
+ * and `retireKey`'s conditional update with the last-active-key guard.
+ */
 class FakeEntityManager {
   public store: OidcSigningKey[] = []
+  public lockAcquisitions = 0
 
   public fork() {
     return this
   }
 
-  public async count(_entity: unknown, where: { alg?: string; retiredAt?: null }) {
+  public async transactional<T>(fn: (em: this) => Promise<T>): Promise<T> {
+    return fn(this)
+  }
+
+  public async execute(sql: string, params: unknown[] = []) {
+    if (sql.includes('pg_advisory_xact_lock')) {
+      this.lockAcquisitions++
+      return []
+    }
+    if (sql.includes('update oidc_signing_key')) {
+      const kid = params[0] as string
+      const target = this.store.find((key) => key.kid === kid && (key.retiredAt ?? null) === null)
+      const hasOtherActive =
+        target && this.store.some((key) => key.alg === target.alg && (key.retiredAt ?? null) === null && key.kid !== kid)
+      if (!target || !hasOtherActive) return { affectedRows: 0 }
+      target.retiredAt = new Date()
+      return { affectedRows: 1 }
+    }
+    throw new Error(`FakeEntityManager: unexpected SQL '${sql}'`)
+  }
+
+  public async count(_entity: unknown, where: { kid?: string; alg?: string; retiredAt?: null }) {
     return this.matching(where).length
   }
 
@@ -26,11 +55,6 @@ class FakeEntityManager {
   public async flush() {
     this.store.push(...this.pending)
     this.pending = []
-  }
-
-  public async nativeUpdate(_entity: unknown, where: { kid: string; retiredAt: null }, data: { retiredAt: Date }) {
-    for (const key of this.matching(where)) key.retiredAt = data.retiredAt
-    return 1
   }
 
   private matching(where: { kid?: string; alg?: string; retiredAt?: null }) {
@@ -90,6 +114,18 @@ describe('SigningKeysService', () => {
 
     expect(await service.getJwks()).toBe(override)
     expect(em.store).toHaveLength(0)
+    expect(em.lockAcquisitions).toBe(0)
+  })
+
+  test('every database path runs under the signing-keys advisory lock', async () => {
+    const em = new FakeEntityManager()
+    const service = serviceWith(em)
+
+    await service.getJwks()
+    await service.rotateKey('RS256')
+    await service.retireKey('unknown-kid')
+
+    expect(em.lockAcquisitions).toBe(3)
   })
 
   test('rotation publishes the new key first and retirement unpublishes the old one', async () => {
@@ -114,5 +150,45 @@ describe('SigningKeysService', () => {
     expect(jwks.keys).toHaveLength(2)
     expect(jwks.keys.map((key) => key.kid)).not.toContain(oldKid)
     expect(em.store).toHaveLength(3)
+  })
+
+  test('refuses to retire the last active key of an algorithm', async () => {
+    const em = new FakeEntityManager()
+    const service = serviceWith(em)
+
+    await service.getJwks() // one active key per alg
+    const rsaKid = em.store.find((key) => key.alg === 'RS256')!.kid
+
+    await expect(service.retireKey(rsaKid)).rejects.toThrow(/last active key/)
+    expect(em.store.filter((key) => key.alg === 'RS256' && !key.retiredAt)).toHaveLength(1)
+  })
+
+  test('still retires a key when another active key of the same alg exists', async () => {
+    const em = new FakeEntityManager()
+    const service = serviceWith(em)
+
+    await service.getJwks()
+    const oldKid = em.store.find((key) => key.alg === 'ES256')!.kid
+    await service.rotateKey('ES256')
+
+    await service.retireKey(oldKid)
+
+    const active = em.store.filter((key) => key.alg === 'ES256' && !key.retiredAt)
+    expect(active).toHaveLength(1)
+    expect(active[0].kid).not.toBe(oldKid)
+  })
+
+  test('retireKey stays idempotent for an already-retired or unknown kid', async () => {
+    const em = new FakeEntityManager()
+    const service = serviceWith(em)
+
+    await service.getJwks()
+    const oldKid = em.store.find((key) => key.alg === 'RS256')!.kid
+    await service.rotateKey('RS256')
+    await service.retireKey(oldKid)
+
+    await expect(service.retireKey(oldKid)).resolves.toBeUndefined()
+    await expect(service.retireKey('no-such-kid')).resolves.toBeUndefined()
+    expect(em.store.filter((key) => key.alg === 'RS256' && !key.retiredAt)).toHaveLength(1)
   })
 })
