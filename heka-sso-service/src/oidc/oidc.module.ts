@@ -20,16 +20,8 @@ import { SigningKeysService } from './signing-keys.service'
 import { VerificationSessionClient } from './verification-session.client'
 import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
 
-/**
- * OP core module: the `node-oidc-provider` instance, its
- * signing-key store, and the wallet-login interaction. The provider is
- * built asynchronously because the signing JWKS comes from Postgres (generated
- * on first start) unless the dev override is configured.
- */
 @Module({
   imports: [ConfigModule, MikroOrmModule.forFeature({ entities: [OidcEntity, OidcSigningKey] })],
-  // the assets controller is listed first so /interaction/assets/*
-  // resolves before InteractionController's `:uid`-shaped routes.
   controllers: [InteractionAssetsController, InteractionController],
   providers: [
     SigningKeysService,
@@ -58,10 +50,6 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
         ),
     },
     {
-      // Pluggable identity-acquisition step: the dev stub wins
-      // when OIDC_STUB_LOGIN=true; otherwise the OID4VP wallet acquirer when the
-      // identity-service verifier/signer are configured; otherwise none —
-      // logins are then denied.
       provide: IDENTITY_ACQUIRER,
       inject: [ConfigService, VerificationSessionClient, LoginEventsService, IdentityServiceEventsClient],
       useFactory: (
@@ -78,8 +66,6 @@ import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
         const { publicVerifierId, requestSignerDid } = configService.oidcConfig.identityService
         if (publicVerifierId && requestSignerDid) {
           logger.log('Wallet login enabled (OID4VP via heka-identity-service verification sessions)')
-          // subscribe to identity-service verification events and relay
-          // them to the login page; polling remains the fallback channel.
           identityEvents.start((event) => loginEvents.handleSessionEvent(event))
           return new WalletIdentityAcquirer(sessions, configService, loginEvents)
         }

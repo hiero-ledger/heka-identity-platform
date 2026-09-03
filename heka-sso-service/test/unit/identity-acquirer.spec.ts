@@ -8,11 +8,6 @@ import {
   WalletIdentityAcquirer,
 } from '../../src/oidc'
 
-/**
- * The identity-acquisition step is a core interface plus two all-or-nothing
- * capability interfaces (cross-device `direct_post`, same-device DC API); the
- * controller gates the login page's JSON routes on the type guards.
- */
 describe('identity acquirer capabilities', () => {
   test('the stub implements the core flow only — it never renders a page', () => {
     const stub = new StubIdentityAcquirer()

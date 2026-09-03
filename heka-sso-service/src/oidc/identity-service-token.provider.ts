@@ -3,20 +3,11 @@ import { Injectable, Logger } from '@nestjs/common'
 
 import { describeFetchError } from './fetch-error.util'
 
-/** Re-acquire this many seconds before the token's `expires_in` elapses. */
 const REFRESH_MARGIN_SECONDS = 60
-/** Assumed lifetime when the auth service omits `expires_in`. */
 const FALLBACK_EXPIRES_IN_SECONDS = 3600
 
 /**
- * Identity-service service account: supplies the
- * bearer token for heka-identity-service API calls. Instead of a pasted static
- * JWT (which expires after heka-auth-service's `JWT_ACCESS_EXPIRY` ≈ 1h and
- * then breaks every wallet login), the bridge logs into heka-auth-service
- * lazily with its own credentials (`IDENTITY_SERVICE_AUTH_NAME` +
- * `IDENTITY_SERVICE_AUTH_PASSWORD`), caches the token, and re-acquires it
- * shortly before `expires_in`. `IDENTITY_SERVICE_AUTH_TOKEN` remains a static
- * override for tests/dev and disables the login entirely.
+ * Identity-service service account: supplies the bearer token for heka-identity-service API calls.
  */
 @Injectable()
 export class IdentityServiceTokenProvider {
@@ -29,7 +20,6 @@ export class IdentityServiceTokenProvider {
     this.config = configService.oidcConfig.identityService
   }
 
-  /** Whether tokens come from the service-account login (rather than the static override, or nothing). */
   public get usesLogin(): boolean {
     return !this.config.authToken && Boolean(this.config.authName && this.config.authPassword)
   }
@@ -39,18 +29,12 @@ export class IdentityServiceTokenProvider {
     if (!this.usesLogin) return undefined
     if (this.cached && Date.now() < this.cached.refreshAt) return this.cached.token
 
-    // concurrent callers share one login
     this.inFlight ??= this.login().finally(() => {
       this.inFlight = undefined
     })
     return await this.inFlight
   }
 
-  /**
-   * Drop the cached token so the next `getToken` logs in again — used by the
-   * once-only retry after an unexpected 401 (e.g. the token was revoked).
-   * No-op for the static override.
-   */
   public invalidate(): void {
     this.cached = undefined
   }
@@ -65,7 +49,6 @@ export class IdentityServiceTokenProvider {
         body: JSON.stringify({ name: authName, password: authPassword }),
       })
     } catch (error) {
-      // undici reports network failures as a bare "TypeError: fetch failed" — name the target and the cause
       throw new Error(`auth-service at ${authServiceBaseUrl} is unreachable: ${describeFetchError(error)}`)
     }
     if (!response.ok) {
@@ -79,7 +62,6 @@ export class IdentityServiceTokenProvider {
     }
 
     const expiresIn = typeof token.expires_in === 'number' && token.expires_in > 0 ? token.expires_in : FALLBACK_EXPIRES_IN_SECONDS
-    // shortly before expiry; for very short-lived tokens at least half the lifetime
     const refreshInSeconds = Math.max(expiresIn - REFRESH_MARGIN_SECONDS, expiresIn / 2)
     this.cached = { token: token.access, refreshAt: Date.now() + refreshInSeconds * 1000 }
 

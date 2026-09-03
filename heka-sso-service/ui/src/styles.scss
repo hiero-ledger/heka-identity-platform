@@ -1,17 +1,3 @@
-/*
- * Shared bridge-page stylesheet — built by Vite to `/interaction/assets/styles.css`; 
- * the three provider-hook templates
- * (`logout-*.html`, `error.html`) link the same built file (thin branded
- * shells, per the framing).
- *
- * Laid out like the heka-sso-web-ui dashboard for consistency: a white
- * top bar with the brand on the left, the surface-2 page background, and a
- * centered white card as the focal point. Design tokens and mixins are copied
- * from heka-identity-service-web-ui in `styles/` (reuse rule —
- * shared pixels, not semantics); the `--brand-*` layer maps onto them and is
- * what the login configuration's `branding.colors` overrides at
- * runtime.
- */
 @import './styles/colors';
 @import './styles/pixel-system';
 @import './styles/global';
@@ -19,7 +5,6 @@
 @import './styles/mixins';
 
 :root {
-  /* brand-overridable (branding.colors), mapped onto the platform tokens */
   --brand-primary: var(--color-primary);
   --brand-primary-hover: var(--color-primary-hover);
   --brand-primary-pressed: var(--color-primary-pressed);
@@ -30,7 +15,6 @@
   --brand-text-muted: var(--color-dark-medium-emphasis);
   --brand-border: var(--color-surface-grey-2);
 
-  /* self-contained font stack — the platform's Inter with system fallbacks (no CDN import) */
   --brand-font: var(--inter-font-family), system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -38,9 +22,6 @@
   box-sizing: border-box;
 }
 
-/* author display rules below (e.g. `section { display: flex }`) would defeat
-   the UA's [hidden] { display: none } — the login page toggles its sections
-   with the hidden attribute, so restore its authority */
 [hidden] {
   display: none !important;
 }
@@ -55,7 +36,6 @@ body {
   font: 400 var(--font-size-body-s) / var(--font-line-body-s) var(--brand-font);
 }
 
-/* top bar — the dashboard's shell: brand left, white surface, small shadow */
 .top-bar {
   display: flex;
   align-items: center;
@@ -78,13 +58,11 @@ body {
 }
 
 .brand-name {
-  /* --font-headline-s, like the dashboard title */
   font: 600 var(--font-size-headline-s) / var(--font-line-headline-s) var(--brand-font);
 
   @include long-text;
 }
 
-/* centered main area — the card is the page's focal point */
 main {
   flex: 1;
   display: flex;
@@ -108,8 +86,6 @@ main {
 
 h1 {
   margin: 0;
-
-  /* --font-headline-m, like the dashboard heading */
   font: 600 var(--font-size-headline-m) / var(--font-line-headline-m) var(--brand-font);
 }
 
@@ -133,7 +109,6 @@ section {
   gap: var(--space-sm);
 }
 
-/* buttons — the platform Button's filled/outlined pixels */
 button {
   padding: var(--space-sm) var(--space-md);
   border: none;
@@ -188,7 +163,6 @@ button {
   align-self: center;
 }
 
-/* detail block — like the dashboard's collapsible raw-token debug block */
 dl {
   margin: 0;
   padding: var(--space-md);

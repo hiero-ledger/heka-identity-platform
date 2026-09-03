@@ -10,16 +10,10 @@ import styles from './Layout.module.scss'
 
 interface AuthLayoutProps {
   title: string
-  /** Optional right-hand content of the top "Block" row (e.g. a back action). */
   topAction?: ReactNode
   children: ReactNode
 }
 
-/**
- * Unauthenticated shell: white body with the header column on desktop, or
- * the top panel when stacked; the content column carries the logo row and
- * the page body.
- */
 function AuthLayout({ title, topAction, children }: AuthLayoutProps) {
   useVisualViewportHeight()
   const isDesktop = useDesktop()

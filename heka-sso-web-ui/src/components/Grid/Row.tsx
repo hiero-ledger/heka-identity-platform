@@ -3,7 +3,6 @@ import { classNames } from '@/utils/classNames'
 import styles from './Grid.module.scss'
 import { FlexContainerProps } from './types'
 
-// Copied from heka-identity-service-web-ui `shared/ui/Grid/Row`.
 function Row({ children, justifyContent, alignItems, justifySelf, alignSelf, className, onClick, style }: FlexContainerProps) {
   return (
     <div

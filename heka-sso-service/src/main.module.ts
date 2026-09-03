@@ -50,19 +50,8 @@ export class MainModule {
     const config = app.get(ConfigService).config
 
     app.use(CorrelationIdMiddleware())
-    // Security headers for every response — ahead of the provider mount below,
-    // which short-circuits the middleware chain for the OP's own paths.
     app.use(securityHeaders())
 
-    // The whole service is the OP: the provider
-    // is mounted at the app root and owns every path except the Nest surface.
-    // This middleware is registered before Nest's init-time body parsers, so
-    // no body parser sits in front of the provider — it parses
-    // its own request bodies from the raw stream; requests that fall through
-    // to Nest still get the standard parsers.
-    // /interaction is the wallet-login interaction surface (Nest controllers)
-    // — everything else outside /health and the API
-    // prefix belongs to the provider.
     const nestPrefixes = ['/health', '/interaction', `/${config.app.prefix}`]
     const oidcCallback = app.get<Provider>(OIDC_PROVIDER).callback()
     app.use((req: { path?: string; url: string }, res: any, next: () => void) => {
@@ -71,8 +60,6 @@ export class MainModule {
       return oidcCallback(req as any, res)
     })
 
-    // the login page's push channel — WebSocket upgrades on
-    // /interaction/:uid/events, cookie-bound like the JSON interaction routes.
     app.get(LoginEventsService).attach(app.getHttpServer())
 
     app.enableShutdownHooks()

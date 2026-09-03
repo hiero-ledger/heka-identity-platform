@@ -3,11 +3,6 @@ import request from 'supertest'
 
 import { InteractionAssetsController } from '../../src/oidc'
 
-/**
- * Shared bridge-page assets: `/interaction/assets/*`
- * serves the stylesheet + logo from `pages/assets/` — whitelisted extensions
- * only, no traversal, no template exposure.
- */
 describe('interaction assets', () => {
   const controller = new InteractionAssetsController()
   const app = express()

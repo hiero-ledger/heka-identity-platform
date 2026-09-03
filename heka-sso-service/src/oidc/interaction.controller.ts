@@ -1,3 +1,4 @@
+import { BAD_REQUEST, SUCCESS } from '@const'
 import { Body, Controller, Get, Inject, Logger, Post, Req, Res } from '@nestjs/common'
 import { ApiExcludeController } from '@nestjs/swagger'
 import { Request, Response } from 'express'
@@ -10,18 +11,6 @@ import { OIDC_PROVIDER } from './provider.factory'
 /**
  * Wallet-login interaction routes: the provider redirects here from `/authorize`;
  * this controller resolves the interaction and finishes it — `interactionDetails`/`interactionFinished`
- * over the raw `(req, res)` — with the outcomes `InteractionService`
- * computes. The wallet login page is driven by the JSON routes here:
- * `:uid/data` (QR/deep-link, cross-device), `:uid/dc-api/start` +
- * `:uid/dc-api/verify` (Digital Credentials API, same-device),
- * `:uid/status` polling — and, once the presentation is verified,
- * the page navigates to `:uid/complete`.
- *
- * The binding rule is enforced by construction: `interactionDetails`
- * only resolves when the browser presents the `_interaction` cookie set on the
- * initiating `/authorize` request (its path covers the sub-routes), so the
- * authorization code is released only into that browser session — never into
- * the wallet's return channel.
  */
 @ApiExcludeController()
 @Controller('interaction')
@@ -44,7 +33,7 @@ export class InteractionController {
       case 'login': {
         const outcome = await this.interactions.beginLogin(details)
         if (outcome.kind === 'page') {
-          res.status(200).type('html').send(outcome.html)
+          res.status(SUCCESS).type('html').send(outcome.html)
           return
         }
         return await this.finish(req, res, outcome.results)
@@ -66,23 +55,18 @@ export class InteractionController {
   }
 
   /**
-   * Per-client branding for the login page: the login
-   * configuration's `branding` block, applied client-side (product name,
-   * logo, `--brand-*` colors, custom CSS). Purely cosmetic and, like every
-   * interaction route, cookie-bound — creates no verification session.
+   * Per-client branding for the login page (product name, logo, `--brand-*` colors, custom CSS).
    */
   @Get(':uid/branding')
   public async branding(@Req() req: Request, @Res() res: Response): Promise<void> {
     await this.pageApi(req, res, async (details) => this.interactions.branding(details))
   }
 
-  /** DC API same-device login, step 1: create the `dc_api` session and return the request object. */
   @Post(':uid/dc-api/start')
   public async dcApiStart(@Req() req: Request, @Res() res: Response): Promise<void> {
     await this.pageApi(req, res, (details) => this.interactions.beginDcApiLogin(details))
   }
 
-  /** DC API same-device login, step 2: verify the browser-forwarded wallet response. */
   @Post(':uid/dc-api/verify')
   public async dcApiVerify(
     @Req() req: Request,
@@ -105,7 +89,7 @@ export class InteractionController {
       res.json(await this.interactions.loginStatus(details))
     } catch (error) {
       this.logger.warn(`Interaction status check failed: ${error}`)
-      res.status(400).json({ status: 'error', message: 'The sign-in attempt is no longer valid.' })
+      res.status(BAD_REQUEST).json({ status: 'error', message: 'The sign-in attempt is no longer valid.' })
     }
   }
 
@@ -117,13 +101,7 @@ export class InteractionController {
   }
 
   /**
-   * Shared wrapper for the login page's JSON API: resolves the
-   * interaction from the `_interaction` cookie (binding — requests
-   * without it get a 400 and no session state), answers with the handler's
-   * JSON payload, and turns failures into JSON errors instead of HTML —
-   * user-facing ones (`InteractionApiError`) with their message, anything else
-   * generically. Always 200 on success: Nest pre-sets 201 on POST routes and
-   * these are plain JSON reads.
+   * Shared wrapper for the login page's JSON API: resolves the interaction from the `_interaction` cookie
    */
   private async pageApi(req: Request, res: Response, handler: (details: InteractionDetails) => Promise<unknown>): Promise<void> {
     let details: InteractionDetails
@@ -131,19 +109,19 @@ export class InteractionController {
       details = await this.provider.interactionDetails(req, res)
     } catch (error) {
       this.logger.warn(`Interaction lookup failed: ${error}`)
-      res.status(400).json({ status: 'error', message: 'The sign-in attempt is no longer valid.' })
+      res.status(BAD_REQUEST).json({ status: 'error', message: 'The sign-in attempt is no longer valid.' })
       return
     }
 
     try {
-      res.status(200).json(await handler(details))
+      res.status(SUCCESS).json(await handler(details))
     } catch (error) {
       if (error instanceof InteractionApiError) {
-        res.status(400).json({ status: 'error', message: error.message })
+        res.status(BAD_REQUEST).json({ status: 'error', message: error.message })
         return
       }
       this.logger.error(`Interaction ${details.uid}: page API call failed: ${error}`)
-      res.status(400).json({ status: 'error', message: 'The sign-in attempt could not be started.' })
+      res.status(BAD_REQUEST).json({ status: 'error', message: 'The sign-in attempt could not be started.' })
     }
   }
 

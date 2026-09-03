@@ -28,9 +28,6 @@ export interface ButtonProps extends Omit<AriaButtonProps, 'className' | 'childr
   children?: ReactNode
 }
 
-// Pixels of heka-identity-service-web-ui `shared/ui/Button` — the `filled`,
-// `outlined`, `tonal` and `text` variants, icons and the small/full-width
-// modifiers this app needs; no `elevated`/`shutter` variants, no loader.
 function Button({ buttonType = 'filled', isSmall, fullWidth, alignment, leftIcon, rightIcon, className, children, ...props }: ButtonProps) {
   const mods: Mods = {
     [styles.small]: isSmall,

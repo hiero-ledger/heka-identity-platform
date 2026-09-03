@@ -7,11 +7,9 @@ import styles from './AuthPages.module.scss'
 
 interface SplashPageProps {
   provider: AuthProviderName
-  /** `in` while a session is restored or the IdP redirect is in flight; `out` while the logout redirect leaves. */
   direction?: 'in' | 'out'
 }
 
-/** Transitional screen — stays on screen until the browser navigates away, so nothing else flashes. */
 function SplashPage({ provider, direction = 'in' }: SplashPageProps) {
   const providerLabel = copy.providers[provider]
   const title = direction === 'out' ? copy.splash.signingOutTitle : copy.splash.title

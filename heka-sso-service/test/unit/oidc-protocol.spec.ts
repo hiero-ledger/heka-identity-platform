@@ -6,12 +6,6 @@ import { OidcConfig } from '../../src/core/config'
 import { createOidcProvider } from '../../src/oidc'
 import { testJwks } from '../helpers/jwks'
 
-/**
- * OP core PR 2 protocol policy: static clients from
- * `OIDC_CLIENTS`, authorization code + PKCE (S256) only, client_secret_basic +
- * client_secret_post. Only the validation/error paths are testable here — the
- * happy-path code exchange needs the adapter, interaction, and findAccount PRs.
- */
 describe('OIDC protocol policy', () => {
   const brokerRedirectUri = 'https://kc.example.com/realms/r/broker/heka-sso/endpoint'
   const postClientRedirectUri = 'https://rp.example.com/callback'

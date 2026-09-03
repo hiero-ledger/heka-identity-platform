@@ -3,8 +3,6 @@
   outline-offset: var(--outline-width);
 }
 
-// Copied from heka-identity-service-web-ui; the only local change is the
-// border width reading `--border-width` from design-tokens.scss.
 @mixin border($side: 'all', $color: var(--color-surface-grey-2)) {
   @if $side == 'all' {
     border: var(--border-width) solid $color;
@@ -43,8 +41,6 @@
   }
 }
 
-// Local addition (not in identity-service): the stacked shell below the
-// desktop breakpoint — mobile + tablet together.
 @mixin stacked {
   @media (width < 1024px) {
     @content;

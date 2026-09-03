@@ -1,25 +1,3 @@
-/**
- * Wallet login page logic. Behavior contract:
- *
- * - Platform split: MOBILE with the DC API shows only "Sign in with the
- *   wallet on this device" (no QR); DESKTOP shows the cross-device QR
- *   immediately plus an "Open on another device" link that hands off to the
- *   browser's DC API dialog (its own hybrid cross-device QR). Mobile without
- *   the DC API falls back to the QR + same-device deep link — the only
- *   remaining path there.
- * - DC API: feature-detect `navigator.credentials.get()` +
- *   `DigitalCredential`, hand the signed request to the OS credential picker,
- *   forward the wallet's response to the bridge's origin-bound verify route.
- * - QR path: `/data` creates the `direct_post` verification
- *   session, then the page
- *   listens on the same-origin WebSocket (`/interaction/:uid/events`)
- *   for status pushes; polling takes over whenever the socket is
- *   unavailable, fails, or takes too long to open.
- * - Completion always navigates the SAME cookie-bound browser session to
- *   `/interaction/:uid/complete`.
- * - Per-client branding from `/interaction/:uid/branding` — purely
- *   cosmetic, failures ignored.
- */
 import './styles.scss'
 
 interface LoginStatus {
@@ -44,7 +22,6 @@ interface Branding extends LoginStatus {
   customCss?: string
 }
 
-/** The Digital Credentials API surface the page feature-detects. */
 interface DigitalCredentialConstructor {
   userAgentAllowsProtocol?: (protocol: string) => boolean
 }
@@ -71,10 +48,6 @@ let qrStarted = false
 
 const getJson = <T>(url: string, options?: RequestInit): Promise<T> => fetch(url, options).then((res) => res.json() as Promise<T>)
 
-/**
- * Per-client branding: product name, logo, colors, custom CSS from
- * the login configuration — purely cosmetic, so failures are ignored.
- */
 function applyBranding(): void {
   getJson<Branding>(`${base}/branding`)
     .then((branding) => {
@@ -99,10 +72,6 @@ function applyBranding(): void {
     .catch(() => {})
 }
 
-/**
- * Feature detection: the DC API surface must exist, and where the
- * browser can tell us, it must route the OpenID4VP protocol ids we emit.
- */
 function dcApiSupported(): boolean {
   if (!('credentials' in navigator) || typeof navigator.credentials.get !== 'function') return false
   if (!('DigitalCredential' in window)) return false
@@ -112,11 +81,6 @@ function dcApiSupported(): boolean {
   return allows.call(digitalCredential, 'openid4vp-v1-signed') || allows.call(digitalCredential, 'openid4vp-v1-unsigned')
 }
 
-/**
- * Cross-device fallback: fetch the QR/deep-link data — this is what
- * creates the direct_post verification session — then listen for the
- * WebSocket push, with status polling as the fallback channel.
- */
 function startQr(): void {
   qrSection.hidden = false
   if (qrStarted) return
@@ -129,8 +93,6 @@ function startQr(): void {
       }
       qrImage.src = data.qrDataUrl
       qrImage.hidden = false
-      // Same-device deep link into the wallet app — only meaningful where
-      // the wallet can live on this device (the mobile no-DC-API fallback).
       if (isMobilePlatform() && data.authorizationRequest) {
         deepLink.href = data.authorizationRequest
         deepLink.hidden = false
@@ -189,11 +151,6 @@ function stopPolling(): void {
   }
 }
 
-/**
- * push channel — same-origin WebSocket carrying the same JSON as
- * `/status`. Polling takes over whenever the socket is unavailable, fails,
- * or takes too long to open.
- */
 function connectPush(): void {
   if (!('WebSocket' in window)) {
     startPolling()
@@ -236,15 +193,6 @@ function connectPush(): void {
   }
 }
 
-/**
- * DC API path: create a dc_api session, hand the request to the OS/browser
- * credential picker (same-device on mobile; on desktop the dialog offers its
- * own cross-device hand-off), and forward the wallet's response to the
- * bridge, which verifies it via the identity service's origin-bound verify
- * endpoint. Requires a user gesture, hence the button/link. Status feedback
- * goes to `statusEl` — the section's own line on mobile, the QR status line
- * on desktop.
- */
 function startDcApi(statusEl: HTMLParagraphElement): void {
   dcApiButton.disabled = true
   statusEl.textContent = 'Waiting for your wallet…'
@@ -287,11 +235,6 @@ function startDcApi(statusEl: HTMLParagraphElement): void {
     })
 }
 
-/**
- * Platform check: same-device sign-in only makes sense where the wallet can
- * live on this device — phones/tablets. UA-Client-Hints where available,
- * UA string otherwise.
- */
 function isMobilePlatform(): boolean {
   const hints = (navigator as { userAgentData?: { mobile?: boolean } }).userAgentData
   if (typeof hints?.mobile === 'boolean') return hints.mobile
@@ -300,11 +243,6 @@ function isMobilePlatform(): boolean {
 
 applyBranding()
 
-// Mobile + DC API → only "Sign in with the wallet on this device" (no QR).
-// Desktop → the cross-device QR immediately; where the browser also has the
-// DC API, the "Open on another device" link hands off to its dialog (which
-// renders its own hybrid cross-device QR). Mobile without the DC API → the
-// QR + same-device deep link, as the only remaining path.
 if (isMobilePlatform() && dcApiSupported()) {
   dcApiSection.hidden = false
   dcApiButton.addEventListener('click', () => startDcApi(dcApiStatus))

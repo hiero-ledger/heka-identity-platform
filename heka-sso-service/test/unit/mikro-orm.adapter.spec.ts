@@ -6,13 +6,6 @@ type Row = Record<string, any>
 
 const matches = (row: Row, where: Row) => Object.entries(where).every(([key, value]) => row[key] === value)
 
-/**
- * In-memory stand-in for the forked EntityManager: implements exactly the four
- * operations the adapter uses (`upsert`, `findOne`, `nativeUpdate`,
- * `nativeDelete`) over a plain row array with the table's composite-PK
- * semantics (`name`, `id`). `fork()` is counted — the adapter must fork per
- * operation.
- */
 class FakeEntityManager {
   public rows: Row[] = []
   public forkCount = 0

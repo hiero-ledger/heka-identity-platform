@@ -34,12 +34,6 @@ class CookieJar {
 
 const decodeJwtPayload = (jwt: string) => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString())
 
-/**
- * Logout: RP-initiated logout with the custom confirmation page
- * (auto-confirm on a valid id_token_hint), post-logout redirect with state,
- * and the back-channel logout_token (`sid`-matched) POSTed to the registered
- * receiver — the stub login stands in for the wallet presentation.
- */
 describe('logout', () => {
   let backchannelServer: Server
   let backchannelRequests: { path: string; body: string }[]
@@ -262,11 +256,6 @@ describe('logout', () => {
   })
 })
 
-/**
- * Default behavior (auto-confirm off): the confirmation dialog is shown on
- * every RP-initiated logout — id_token_hint or not — and confirming it still
- * completes the logout.
- */
 describe('logout confirmation dialog (default — OIDC_LOGOUT_AUTO_CONFIRM off)', () => {
   const config = new OidcConfig({
     OIDC_SUB_HMAC_SALT: 'unit-test-sub-hmac-salt-0123456789abcdef',

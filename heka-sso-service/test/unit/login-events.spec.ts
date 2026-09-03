@@ -18,10 +18,6 @@ const signedCookie = (uid: string) => {
 
 const waitMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-/**
- * WebSocket push channel to the login page: cookie-bound upgrade on
- * /interaction/:uid/events, session→interaction routing, LoginStatus mapping.
- */
 describe('LoginEventsService', () => {
   let server: Server
   let baseUrl: string

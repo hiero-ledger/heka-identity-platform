@@ -17,8 +17,6 @@ button.Logo {
   cursor: pointer;
 }
 
-// The CivicTrust mark is portrait (~5:6, transparent background): fix the
-// height, keep the aspect.
 .mark {
   height: var(--space-xxl);
   width: auto;

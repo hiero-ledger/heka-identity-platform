@@ -40,10 +40,6 @@ const fetchResponse = (body: unknown, status = 200) => ({
   text: async () => JSON.stringify(body),
 })
 
-/**
- * Verification-session client: sessions are always created as
- * signed authorization requests (JAR) — no unsigned fallback.
- */
 describe('VerificationSessionClient', () => {
   const fetchMock = vi.fn()
 

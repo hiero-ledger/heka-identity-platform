@@ -25,11 +25,6 @@ const fetchResponse = (body: unknown, status = 200) => ({
 const loginResponse = (access: string, expiresIn = 3600) =>
   fetchResponse({ access, refresh: 'refresh-token', token_type: 'Bearer', expires_in: expiresIn })
 
-/**
- * Identity-service service account: lazy login against
- * heka-auth-service, cached token, re-acquired shortly before expiry;
- * `IDENTITY_SERVICE_AUTH_TOKEN` stays as a static override.
- */
 describe('IdentityServiceTokenProvider', () => {
   const fetchMock = vi.fn()
 

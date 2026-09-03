@@ -5,33 +5,16 @@ import WebSocket from 'ws'
 import { IdentityServiceTokenProvider } from './identity-service-token.provider'
 import { VerificationSessionState } from './verification-session.client'
 
-/** A verification-session state change pushed by heka-identity-service. */
 export interface VerificationSessionEvent {
   sessionId: string
   state: VerificationSessionState
   errorMessage?: string
 }
 
-/** Credo's `OpenId4VcVerifierEvents.VerificationSessionStateChanged` — the event type the bridge consumes. */
 const VERIFICATION_SESSION_STATE_CHANGED = 'OpenId4VcVerifier.VerificationSessionStateChanged'
 
-/** Close code the identity-service gateway uses for failed token validation. */
 const CLOSE_UNAUTHORIZED = 3000
 
-/**
- * WebSocket subscription to heka-identity-service's notification gateway: one server-side
- * connection to `ws(s)://<identity-service>/notifications`, authenticated with
- * the same bearer token as the REST client. Verification-session
- * state changes are forwarded to the handler; everything else is ignored.
- *
- * The gateway keys connections **per user id** (last connection wins), so the
- * bridge must use its own dedicated service account — sharing an account with
- * another consumer would silently steal each other's notifications.
- *
- * Push is an optimization, not a dependency: on any failure the client
- * reconnects with capped exponential backoff, and the login page's polling
- * fallback keeps working regardless.
- */
 @Injectable()
 export class IdentityServiceEventsClient implements OnModuleDestroy {
   private readonly logger = new Logger(IdentityServiceEventsClient.name)
@@ -43,7 +26,6 @@ export class IdentityServiceEventsClient implements OnModuleDestroy {
   private reconnectDelayMs: number
   private connectionLogged = false
 
-  /** Reconnect pacing — overridable in tests. */
   public reconnectBaseMs = 1_000
   public reconnectMaxMs = 30_000
 
@@ -55,7 +37,6 @@ export class IdentityServiceEventsClient implements OnModuleDestroy {
     this.reconnectDelayMs = this.reconnectBaseMs
   }
 
-  /** Start (and keep) the subscription; safe to call once from the module wiring. */
   public start(handler: (event: VerificationSessionEvent) => void): void {
     if (this.handler) return
     this.handler = handler
@@ -116,7 +97,6 @@ export class IdentityServiceEventsClient implements OnModuleDestroy {
 
     socket.on('close', (code) => {
       if (code === CLOSE_UNAUTHORIZED) {
-        // token rejected — drop the cached one so the reconnect logs in afresh
         this.logger.warn('Notification subscription closed as unauthorized — re-acquiring the service-account token')
         this.tokens.invalidate()
       }
@@ -124,7 +104,6 @@ export class IdentityServiceEventsClient implements OnModuleDestroy {
     })
 
     socket.on('error', (error) => {
-      // 'close' follows and schedules the reconnect; log the first failure prominently, then quietly
       if (this.connectionLogged) {
         this.logger.warn(`Notification subscription error: ${error.message}`)
         this.connectionLogged = false
@@ -144,7 +123,6 @@ export class IdentityServiceEventsClient implements OnModuleDestroy {
     this.reconnectDelayMs = Math.min(this.reconnectDelayMs * 2, this.reconnectMaxMs)
   }
 
-  /** Detach and close the socket; a parked error listener absorbs late failures (no unhandled 'error'). */
   private discardSocket(): void {
     const socket = this.socket
     if (!socket) return

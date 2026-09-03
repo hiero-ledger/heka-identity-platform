@@ -3,12 +3,6 @@ import { join } from 'node:path'
 
 import Provider from 'oidc-provider'
 
-/**
- * Module-system guard: the project compiles to
- * CommonJS while oidc-provider v9 is pure ESM, so the compiled code relies on
- * Node's require(esm) support (Node >= 22.12). The createRequire path below
- * exercises exactly that; the static import covers the vitest/ESM path.
- */
 describe('oidc-provider', () => {
   const issuer = 'http://localhost:3005'
 
@@ -21,8 +15,6 @@ describe('oidc-provider', () => {
   })
 
   test('loads via require(esm) — the CommonJS runtime path', () => {
-    // Anchored on the project root (not import.meta.url, which CJS forbids)
-    // so the file typechecks as CommonJS and still runs under vitest's ESM.
     const require = createRequire(join(process.cwd(), 'package.json'))
 
     const required = require('oidc-provider')
