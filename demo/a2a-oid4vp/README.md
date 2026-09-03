@@ -1,7 +1,7 @@
 # Agent-to-Agent (A2A) + OID4VP integration demo
 
 This demo is built around one of the relevant use cases for Agentic AI identity – VC-based authentication for interaction with Agents.
-It leverages [Agent-to-Agent (A2A)](https://a2a-protocol.org/latest/specification/) and [OpenID for Verifiable Presentations](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html) protocols, specifically demonstrating how to use OID4VP for A2A Task Authentication by implementing [OID4VP In-Task Authentication extension for A2A](https://github.com/DSRCorporation/a2a-oid4vp-in-task-auth-extension/blob/main/v1/spec.md).
+It leverages [Agent-to-Agent (A2A)](https://a2a-protocol.org/latest/specification/) and [OpenID for Verifiable Presentations](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html) protocols, specifically demonstrating how to use OID4VP for A2A Task Authentication by implementing [OID4VP In-Task Authentication extension for A2A](https://github.com/a2aproject/experimental-ext-oid4vp-auth/blob/main/v1/spec.md).
 
 The demo is built using [Genkit](https://genkit.dev/) with the OpenAI API.
 Heka Identity Platform is used as a decentralized identity wallet / agent providing support for OID4VP (for both Holder and Verifier parties).
@@ -13,13 +13,15 @@ This demo showcases how an AI agent can request additional authentication from a
 The **Demo Agent** acts as an AI-powered assistant capable of processing user queries and generating responses using Genkit and the OpenAI API.
 The agent is configured to require the user to present a verifiable credential via OID4VP before fulfilling any requests.
 
-The following mapping applies for roles/parties described in [OID4VP In-Task Authentication extension spec](https://github.com/DSRCorporation/a2a-oid4vp-in-task-auth-extension/blob/main/v1/spec.md):
+The following mapping applies for roles/parties described in [OID4VP In-Task Authentication extension spec](https://github.com/a2aproject/experimental-ext-oid4vp-auth/blob/main/v1/spec.md):
+
 - A2A Client → [CLI client](src/cli.ts)
 - A2A Server → [Demo Agent Server](src/agent/index.ts)
 - OID4VP Wallet → [Heka Wallet](../../heka-wallet)
 - OID4VP Verifier → [Heka Identity Service](../../heka-identity-service)
 
 **High-level demo flow:**
+
 ```mermaid
 sequenceDiagram
     participant User
@@ -29,31 +31,37 @@ sequenceDiagram
     participant HIS as Heka Identity Service
     participant LLM as OpenAI
 
-    User->>CLI: (1.1) Sends message (Task Initiation)
-    CLI->>Agent: (1.2) Send Message Request (A2A)
-    Agent->>HIS: (2.1) Create Verification Session (OID4VP)
-    HIS-->>Agent: (2.2) Authorization Request Metadata
-    Agent->>CLI: (2.3) Status Update (state: auth-required + metadata)
-    CLI->>Wallet: (3) Invoke Wallet (Out-of-band / DIDComm)
-    Wallet->>User: (4.1) Display Authorization Request
-    User->>Wallet: (4.2) Confirm Presentation
-    Wallet->>HIS: (4.3) Submit Verifiable Presentation (OID4VP direct_post)
-    HIS->>HIS: (5.1) Verify Presentation
-    HIS->>Agent: (5.2) Notify on verification status (Webhook/WebSocket)
-    Agent->>Agent: (6) Check verification status
-    Agent->>LLM: (7.1) Proceed with the Task (with verified context)
-    LLM-->>Agent: (7.2) LLM Response
-    Agent->>CLI: (7.3) Status Update (state: completed + result)
-    CLI->>User: (7.4) Display Task Result
+    CLI->>Agent: (1.1) Fetch Agent Card
+    Agent-->>CLI: (1.2) Agent Card (extension advertised)
+    User->>CLI: (2.1) Sends message (Task Initiation)
+    CLI->>Agent: (2.2) Send Message Request (A2A, extension declared via A2A-Extensions header)
+    Agent->>HIS: (3.1) Create Verification Session (OID4VP)
+    HIS-->>Agent: (3.2) Authorization Request Metadata
+    Agent->>CLI: (3.3) Status Update (state: auth-required + metadata)
+    CLI->>Wallet: (4) Invoke Wallet (Out-of-band / DIDComm)
+    Wallet->>User: (5.1) Display Authorization Request
+    User->>Wallet: (5.2) Confirm Presentation
+    Wallet->>HIS: (5.3) Submit Verifiable Presentation (OID4VP direct_post)
+    HIS->>HIS: (6.1) Verify Presentation
+    HIS->>Agent: (6.2) Notify on verification status (Webhook/WebSocket)
+    Agent->>Agent: (7) Check verification status
+    Agent->>LLM: (8.1) Proceed with the Task (with verified context)
+    LLM-->>Agent: (8.2) LLM Response
+    Agent->>CLI: (8.3) Status Update (state: completed + result)
+    CLI->>User: (8.4) Display Task Result
 ```
 
-1.  **Task Initiation**: A user sends a message to the Demo Agent via the A2A CLI.
-2.  **In-Task Authentication Request**: The Demo Agent determines that the context/task requires authentication. It invokes Heka Identity Service API to generate OID4VP authorization request, then sends CLI Client a `status-update` with the `auth-required` state that also includes OID4VP authorization request metadata.
-3.  **OID4VP Flow Initiation**: The CLI client receives a status update, detects the OID4VP request, and invokes Heka Wallet to present the requested credentials.
-4.  **Sharing Verifiable Presentation**: Heka Wallet receives OID4VP authorization request, displays requested credentials / claims to a user. After receiving a confirmation, the wallet sends authorization response (containing Verifiable Presentation) to Heka Identity Service verifier endpoint (OID4VP `direct_post.jwt` response mode).
-5.  **Verification**: Heka Identity Service receives and validates the presentation, then sends an out-of-band notification with verification status to the Demo Agent.
-6.  **In-Task Authentication Completion**: The Demo Agent receives notification and makes a decision on proceeding with a task based on verification status.
-7.  **Task Execution**: Once In-Task authentication is successfully completed, the Demo Agent proceeds with the task and generates a response.
+1.  **Extension Activation**: The CLI Client declares the extension URI in the `A2A-Extensions` header on every request, and the Demo Agent activates it for the call. The extension is optional on the agent card, so a client that does not declare it is warned that it will not understand the authentication request.
+2.  **Task Initiation**: A user sends a message to the Demo Agent via the A2A CLI.
+3.  **In-Task Authentication Request**: The Demo Agent determines that the context/task requires authentication. It invokes Heka Identity Service API to generate OID4VP authorization request, then sends CLI Client a status update with the `auth-required` state that also includes OID4VP authorization request metadata keyed by the extension URI.
+4.  **OID4VP Flow Initiation**: The CLI client receives a status update, detects the OID4VP request, and invokes Heka Wallet to present the requested credentials.
+5.  **Sharing Verifiable Presentation**: Heka Wallet receives OID4VP authorization request, displays requested credentials / claims to a user. After receiving a confirmation, the wallet sends authorization response (containing Verifiable Presentation) to Heka Identity Service verifier endpoint (OID4VP `direct_post.jwt` response mode).
+6.  **Verification**: Heka Identity Service receives and validates the presentation, then sends an out-of-band notification with verification status to the Demo Agent.
+7.  **In-Task Authentication Completion**: The Demo Agent receives notification and makes a decision on proceeding with a task based on verification status.
+8.  **Task Execution**: Once In-Task authentication is successfully completed, the Demo Agent proceeds with the task and generates a response.
+
+Note that `auth-required` is not a terminal state in A2A 1.x, so the agent's event stream stays open
+across steps 4-6 and the same task resumes once the credential has been presented out of band.
 
 ## Running the Demo
 
@@ -76,11 +84,14 @@ You can use `.env` file to define environment-specific and general settings for 
 Most values defined in `.env.example` follow default values used by Heka Identity Platform and can be kept as is.
 
 However, there are values that need to be manually set up:
+
 - `OPENAI_API_KEY` - add your OpenAI API key there
 - `HOLDER_PUBLIC_DID` - needs to be added after setting up the Heka Wallet app (see the [Run Heka Wallet section](#run-heka-wallet-on-mobile-device))
 
 Other supported values:
+
 - `DEMO_AGENT_PORT` - Port to be used by the Demo Agent server, defaults to `10003`
+- `DEMO_AGENT_AUTH_TIMEOUT_MS` - How long the Demo Agent waits for the credential to be presented before failing the task, defaults to `120000` (2 minutes)
 - `CLI_CLIENT_PORT` - Port to be used by CLI Client inbound transport (DIDComm inbound transport, used for Heka Wallet invocation), defaults to `3010`
 - `IDENTITY_SERVICE_URL` - URL of local instance of Heka Identity Service, defaults to `http://localhost:3000`. Must be changed if host, port, or API prefix configuration of the instance differs from default values
 - `IDENTITY_SERVICE_ACCESS_TOKEN` - Heka Identity Service API token, default value is a demo token with extremely long validity period. Must be changed if JWT configuration for Heka Identity Service instance was changed
@@ -176,6 +187,7 @@ You can now interact with the Demo Agent. The first message you send will trigge
 Heka Wallet app on your mobile device will display the OID4VP authorization request shortly after – you need to explicitly accept it in the app to pass additional auth requested by A2A Server.
 
 ## Disclaimer
+
 Important: The code provided is for demonstration purposes and illustrates the
 mechanics of leveraging Heka Identity Platform for Agent-to-Agent (A2A) protocol flow with OID4VP In-Task Authentication Extension. When building production applications,
 it is critical to treat any agent operating outside of your direct control as a
@@ -188,7 +200,7 @@ messages, artifacts, and task statuses—should be handled as untrusted input. F
 example, a malicious agent could provide an AgentCard containing crafted data in its
 fields (e.g., description, name, skills.description). If this data is used without
 sanitization to construct prompts for a Large Language Model (LLM), it could expose
-your application to prompt injection attacks.  Failure to properly validate and
+your application to prompt injection attacks. Failure to properly validate and
 sanitize this data before use can introduce security vulnerabilities into your
 application.
 

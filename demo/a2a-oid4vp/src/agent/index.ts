@@ -1,15 +1,16 @@
 import express from 'express'
-import { v4 as uuidv4 } from 'uuid'
-import { AgentCard, Message, TaskStatusUpdateEvent, TextPart } from '@a2a-js/sdk'
+import { A2A_PROTOCOL_VERSION, AGENT_CARD_PATH, AgentCard, Role, Task, TaskState } from '@a2a-js/sdk'
 import {
+  AgentEvent,
   AgentExecutor,
+  DefaultExecutionEventBusManager,
   DefaultRequestHandler,
   ExecutionEventBus,
   InMemoryTaskStore,
   RequestContext,
   TaskStore,
 } from '@a2a-js/sdk/server'
-import { A2AExpressApp } from '@a2a-js/sdk/server/express'
+import { agentCardHandler, jsonRpcHandler, UserBuilder } from '@a2a-js/sdk/server/express'
 import { MessageData } from 'genkit'
 import { ai } from './genkit.js'
 
@@ -20,37 +21,42 @@ import {
   InTaskOpenId4VpExtension,
   InTaskOpenId4VpMessageMetadata,
 } from '../a2a-oid4vp-extension'
+import { agentText, bindOrExit, partsToText, requireEnv, statusEvent, textPart, uuid } from '../a2a-helpers'
 import axios from 'axios'
 import { WebSocket } from 'ws'
 
 dotenv.config()
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error('OPENAI_API_KEY environment variable is not set.')
-}
+requireEnv('OPENAI_API_KEY')
 
-if (!process.env.IDENTITY_SERVICE_ACCESS_TOKEN || !process.env.IDENTITY_SERVICE_URL) {
-  throw new Error(
-    'Identity Service env environment variables are not set (IDENTITY_SERVICE_ACCESS_TOKEN and IDENTITY_SERVICE_URL).'
-  )
-}
+const IDENTITY_SERVICE_URL = requireEnv('IDENTITY_SERVICE_URL')
+const IDENTITY_SERVICE_ACCESS_TOKEN = requireEnv('IDENTITY_SERVICE_ACCESS_TOKEN')
 
-const DEMO_AGENT_PORT = process.env.DEMO_AGENT_PORT ?? 10003
+const DEMO_AGENT_PORT = Number(process.env.DEMO_AGENT_PORT) || 10003
+
+// How long the agent waits for the user to present a credential from the wallet before failing the task
+const AUTH_TIMEOUT_MS = Number(process.env.DEMO_AGENT_AUTH_TIMEOUT_MS) || 120000
 
 const DEMO_AGENT_CARD: AgentCard = {
   name: 'Demo Agent',
   description: 'A demo agent that can answer questions about decentralized identity.',
-  url: `http://localhost:${DEMO_AGENT_PORT}/`,
+  supportedInterfaces: [
+    {
+      protocolBinding: 'JSONRPC',
+      protocolVersion: A2A_PROTOCOL_VERSION,
+      url: `http://localhost:${DEMO_AGENT_PORT}/`,
+      tenant: '',
+    },
+  ],
   provider: {
     organization: 'Heka Identity Platform',
     url: 'https://github.com/hiero-ledger/heka-identity-platform',
   },
   version: '1.0.0',
-  protocolVersion: '1.0',
   capabilities: {
     streaming: true,
     pushNotifications: false,
-    stateTransitionHistory: false,
+    extendedAgentCard: false,
     extensions: [
       {
         uri: IN_TASK_OID4VP_EXTENSION_URI,
@@ -61,8 +67,6 @@ const DEMO_AGENT_CARD: AgentCard = {
       } satisfies InTaskOpenId4VpExtension,
     ],
   },
-  securitySchemes: undefined,
-  security: undefined,
   defaultInputModes: ['text'],
   defaultOutputModes: ['text'],
   skills: [
@@ -74,9 +78,12 @@ const DEMO_AGENT_CARD: AgentCard = {
       examples: ['What is Verifiable Credential?', 'What is Decentralized Identity?'],
       inputModes: ['text'],
       outputModes: ['text'],
+      securityRequirements: [],
     },
   ],
-  supportsAuthenticatedExtendedCard: false,
+  securitySchemes: {},
+  securityRequirements: [],
+  signatures: [],
 }
 
 const demoAgentPrompt = ai.prompt('demo_agent')
@@ -111,25 +118,21 @@ const PEX_DEFINITION = {
   ],
 }
 
-const IDENTITY_SERVICE_AUTHORIZATION_HEADER = `Bearer ${process.env.IDENTITY_SERVICE_ACCESS_TOKEN}`
+const IDENTITY_SERVICE_AUTHORIZATION_HEADER = `Bearer ${IDENTITY_SERVICE_ACCESS_TOKEN}`
 
 class DemoAgentExecutor implements AgentExecutor {
   private readonly cancelledTasks = new Set<string>()
   private readonly authorizedContexts = new Set<string>()
+  private readonly authWaiters = new Map<string, () => void>()
 
   private readonly verificationSessionContextMap = new Map<string, string>()
 
   private readonly identityServiceApi = axios.create({
-    baseURL: process.env.IDENTITY_SERVICE_URL,
+    baseURL: IDENTITY_SERVICE_URL,
     headers: { Authorization: IDENTITY_SERVICE_AUTHORIZATION_HEADER },
   })
 
-  private readonly notificationWebSocket = new WebSocket(
-    `${process.env.IDENTITY_SERVICE_URL.replace('http', 'ws')}/notifications`,
-    {
-      headers: { Authorization: IDENTITY_SERVICE_AUTHORIZATION_HEADER },
-    }
-  )
+  private notificationWebSocket: WebSocket | null = null
 
   private verifierDid: string | null = null
 
@@ -137,203 +140,183 @@ class DemoAgentExecutor implements AgentExecutor {
     const prepareWalletResponse = await this.identityServiceApi.post('/prepare-wallet')
 
     this.verifierDid = prepareWalletResponse.data.did
+
+    this.notificationWebSocket = new WebSocket(`${IDENTITY_SERVICE_URL.replace('http', 'ws')}/notifications`, {
+      headers: { Authorization: IDENTITY_SERVICE_AUTHORIZATION_HEADER },
+    })
+
+    this.notificationWebSocket.on('message', this.onIdentityServiceNotification.bind(this))
+    this.notificationWebSocket.on('error', (error) => {
+      console.error('[DemoAgentExecutor] Identity Service notification socket error:', error)
+    })
   }
 
-  public cancelTask = async (taskId: string, eventBus: ExecutionEventBus): Promise<void> => {
+  public cancelTask = async (taskId: string): Promise<void> => {
     this.cancelledTasks.add(taskId)
   }
 
   public async execute(requestContext: RequestContext, eventBus: ExecutionEventBus): Promise<void> {
     const userMessage = requestContext.userMessage
-    let task = requestContext.task
+    const existingTask = requestContext.task
 
-    const taskId = task?.id || uuidv4()
-    const contextId = userMessage.contextId || task?.contextId || uuidv4()
+    const taskId = requestContext.taskId
+    const contextId = requestContext.contextId
 
     console.log(
       `[DemoAgentExecutor] Processing message ${userMessage.messageId} for task ${taskId} (context: ${contextId})`
     )
 
-    if (!task) {
-      task = {
-        kind: 'task',
-        id: taskId,
-        contextId,
-        status: {
-          state: 'submitted',
-          timestamp: new Date().toISOString(),
-        },
-        history: [userMessage],
-        metadata: userMessage.metadata,
-      }
-      eventBus.publish(task)
+    if (requestContext.context.requestedExtensions?.includes(IN_TASK_OID4VP_EXTENSION_URI)) {
+      requestContext.context.addActivatedExtension(IN_TASK_OID4VP_EXTENSION_URI)
+    } else {
+      console.warn(
+        `[DemoAgentExecutor] Client did not request ${IN_TASK_OID4VP_EXTENSION_URI}, so it will not understand the authorization request.`
+      )
     }
 
-    if (!this.authorizedContexts.has(contextId)) {
-      const authorizationRequest = await this.createAuthorizationRequestForContext(contextId)
-
-      const authRequiredStatusUpdate: TaskStatusUpdateEvent = {
-        kind: 'status-update',
-        taskId,
-        contextId,
-        status: {
-          state: 'auth-required',
-          message: {
-            kind: 'message',
-            role: 'agent',
-            messageId: uuidv4(),
-            parts: [{ kind: 'text', text: 'Additional authorization is required for this task.' }],
-            taskId,
-            contextId,
-            metadata: {
-              [IN_TASK_OID4VP_EXTENSION_URI]: {
-                authorizationRequest,
-              } satisfies InTaskOpenId4VpMessageMetadata,
-            },
-          },
-          timestamp: new Date().toISOString(),
-        },
-        final: false,
-      }
-
-      eventBus.publish(authRequiredStatusUpdate)
-      await this.waitForContextAuthorization(contextId)
-    }
-
-    const workingStatusUpdate: TaskStatusUpdateEvent = {
-      kind: 'status-update',
-      taskId,
+    const task: Task = existingTask ?? {
+      id: taskId,
       contextId,
       status: {
-        state: 'working',
-        message: {
-          kind: 'message',
-          role: 'agent',
-          messageId: uuidv4(),
-          parts: [{ kind: 'text', text: 'Thinking...' }],
-          taskId,
-          contextId,
-        },
+        state: TaskState.TASK_STATE_SUBMITTED,
+        message: undefined,
         timestamp: new Date().toISOString(),
       },
-      final: false,
+      artifacts: [],
+      history: [userMessage],
+      metadata: userMessage.metadata,
     }
-    eventBus.publish(workingStatusUpdate)
+    eventBus.publish(AgentEvent.task(task))
 
-    const historyForGenkit = task?.history ? [...task.history] : []
-    if (!historyForGenkit.find((m) => m.messageId === userMessage.messageId)) {
-      historyForGenkit.push(userMessage)
+    if (!this.authorizedContexts.has(contextId)) {
+      try {
+        await this.requestAndAwaitAuthorization(taskId, contextId, eventBus)
+      } catch (error: unknown) {
+        const reason = error instanceof Error ? error.message : 'authorization did not complete'
+        console.error(`[DemoAgentExecutor] Authorization failed for context ${contextId}:`, error)
+        eventBus.publish(
+          AgentEvent.statusUpdate(
+            statusEvent(
+              taskId,
+              contextId,
+              TaskState.TASK_STATE_FAILED,
+              agentText(taskId, contextId, `Authorization was not completed (${reason}).`)
+            )
+          )
+        )
+        return
+      }
     }
 
-    const messages: MessageData[] = historyForGenkit
+    eventBus.publish(
+      AgentEvent.statusUpdate(
+        statusEvent(taskId, contextId, TaskState.TASK_STATE_WORKING, agentText(taskId, contextId, 'Thinking...'))
+      )
+    )
+
+    const history = existingTask?.history ? [...existingTask.history] : []
+    if (!history.some((message) => message.messageId === userMessage.messageId)) {
+      history.push(userMessage)
+    }
+
+    const messages: MessageData[] = history
       .map((message) => ({
-        role: (message.role === 'agent' ? 'model' : 'user') as 'user' | 'model',
-        content: message.parts
-          .filter((part): part is TextPart => part.kind === 'text' && !!part.text)
-          .map((part) => ({
-            text: part.text,
-          })),
+        role: (message.role === Role.ROLE_AGENT ? 'model' : 'user') as 'user' | 'model',
+        content: [{ text: partsToText(message.parts) }].filter((part) => part.text.length > 0),
       }))
       .filter((message) => message.content.length > 0)
 
     if (messages.length === 0) {
       console.warn(`[DemoAgentExecutor] No valid text messages found in history for task ${taskId}.`)
-      const failureUpdate: TaskStatusUpdateEvent = {
-        kind: 'status-update',
-        taskId,
-        contextId,
-        status: {
-          state: 'failed',
-          message: {
-            kind: 'message',
-            role: 'agent',
-            messageId: uuidv4(),
-            parts: [{ kind: 'text', text: 'No messages found to process.' }],
+      eventBus.publish(
+        AgentEvent.statusUpdate(
+          statusEvent(
             taskId,
             contextId,
-          },
-          timestamp: new Date().toISOString(),
-        },
-        final: true,
-      }
-      eventBus.publish(failureUpdate)
+            TaskState.TASK_STATE_FAILED,
+            agentText(taskId, contextId, 'No messages found to process.')
+          )
+        )
+      )
       return
     }
 
     try {
-      const response = await demoAgentPrompt(
-        {},
-        {
-          messages,
-        }
-      )
+      const response = await demoAgentPrompt({}, { messages })
 
       if (this.cancelledTasks.has(taskId)) {
         console.log(`[DemoAgentExecutor] Request cancelled for task: ${taskId}`)
-
-        const cancelledUpdate: TaskStatusUpdateEvent = {
-          kind: 'status-update',
-          taskId,
-          contextId,
-          status: {
-            state: 'canceled',
-            timestamp: new Date().toISOString(),
-          },
-          final: true,
-        }
-        eventBus.publish(cancelledUpdate)
+        eventBus.publish(
+          AgentEvent.statusUpdate(statusEvent(taskId, contextId, TaskState.TASK_STATE_CANCELED, undefined))
+        )
         return
       }
 
       const responseText = response.text
       console.info(`[DemoAgentExecutor] Prompt response: ${responseText}`)
 
-      const agentMessage: Message = {
-        kind: 'message',
-        role: 'agent',
-        messageId: uuidv4(),
-        parts: [{ kind: 'text', text: responseText || 'Completed.' }],
-        taskId,
-        contextId,
-      }
-
-      const finalUpdate: TaskStatusUpdateEvent = {
-        kind: 'status-update',
-        taskId,
-        contextId,
-        status: {
-          state: 'completed',
-          message: agentMessage,
-          timestamp: new Date().toISOString(),
-        },
-        final: true,
-      }
-      eventBus.publish(finalUpdate)
+      eventBus.publish(
+        AgentEvent.statusUpdate(
+          statusEvent(
+            taskId,
+            contextId,
+            TaskState.TASK_STATE_COMPLETED,
+            agentText(taskId, contextId, responseText || 'Completed.')
+          )
+        )
+      )
 
       console.log(`[DemoAgentExecutor] Task ${taskId} finished with state: completed`)
     } catch (error: unknown) {
       console.error(`[DemoAgentExecutor] Error processing task ${taskId}:`, error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      const errorUpdate: TaskStatusUpdateEvent = {
-        kind: 'status-update',
+      eventBus.publish(
+        AgentEvent.statusUpdate(
+          statusEvent(
+            taskId,
+            contextId,
+            TaskState.TASK_STATE_FAILED,
+            agentText(taskId, contextId, `Agent error: ${errorMessage}`)
+          )
+        )
+      )
+    }
+  }
+
+  private async requestAndAwaitAuthorization(
+    taskId: string,
+    contextId: string,
+    eventBus: ExecutionEventBus
+  ): Promise<void> {
+    const authorizationRequest = await this.createAuthorizationRequestForContext(contextId)
+
+    eventBus.publish(
+      AgentEvent.statusUpdate({
         taskId,
         contextId,
         status: {
-          state: 'failed',
+          state: TaskState.TASK_STATE_AUTH_REQUIRED,
           message: {
-            kind: 'message',
-            role: 'agent',
-            messageId: uuidv4(),
-            parts: [{ kind: 'text', text: `Agent error: ${errorMessage}` }],
-            taskId,
+            messageId: uuid(),
             contextId,
+            taskId,
+            role: Role.ROLE_AGENT,
+            parts: [textPart('Additional authorization is required for this task.')],
+            metadata: {
+              [IN_TASK_OID4VP_EXTENSION_URI]: {
+                authorizationRequest,
+              } satisfies InTaskOpenId4VpMessageMetadata,
+            },
+            extensions: [IN_TASK_OID4VP_EXTENSION_URI],
+            referenceTaskIds: [],
           },
           timestamp: new Date().toISOString(),
         },
-        final: true,
-      }
-      eventBus.publish(errorUpdate)
-    }
+        metadata: undefined,
+      })
+    )
+
+    await this.waitForContextAuthorization(contextId)
   }
 
   private async createAuthorizationRequestForContext(contextId: string): Promise<InTaskOpenId4VpAuthorizationRequest> {
@@ -355,25 +338,43 @@ class DemoAgentExecutor implements AgentExecutor {
     return { request_uri, client_id: 'demo-client-id' }
   }
 
-  private async waitForContextAuthorization(contextId: string, timeoutMs: number = 30000): Promise<void> {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => reject('Authorization timeout exceeded.'), timeoutMs)
-      this.notificationWebSocket.on('message', (notificationMessageData: Buffer) => {
-        const notificationMessage = JSON.parse(notificationMessageData.toString())
-        const { type, verificationSession } = notificationMessage
+  private onIdentityServiceNotification(notificationMessageData: Buffer): void {
+    const notificationMessage = JSON.parse(notificationMessageData.toString())
+    const { type, verificationSession } = notificationMessage
 
-        if (
-          type !== 'OpenId4VcVerifier.VerificationSessionStateChanged' ||
-          verificationSession?.state !== 'ResponseVerified'
-        ) {
-          return
-        }
+    if (
+      type !== 'OpenId4VcVerifier.VerificationSessionStateChanged' ||
+      verificationSession?.state !== 'ResponseVerified'
+    ) {
+      return
+    }
 
-        if (this.verificationSessionContextMap.get(verificationSession.id) === contextId) {
-          this.authorizedContexts.add(contextId)
-          resolve()
-        }
-      })
+    const contextId = this.verificationSessionContextMap.get(verificationSession.id)
+    if (!contextId) return
+
+    this.authorizedContexts.add(contextId)
+
+    const waiter = this.authWaiters.get(contextId)
+    if (waiter) {
+      this.authWaiters.delete(contextId)
+      waiter()
+    }
+  }
+
+  private waitForContextAuthorization(contextId: string, timeoutMs: number = AUTH_TIMEOUT_MS): Promise<void> {
+    if (this.authorizedContexts.has(contextId)) return Promise.resolve()
+
+    return new Promise<void>((resolve, reject) => {
+      const waiter = () => {
+        clearTimeout(timer)
+        resolve()
+      }
+      const timer = setTimeout(() => {
+        // Only clear our own waiter - a newer request for this context may have replaced it.
+        if (this.authWaiters.get(contextId) === waiter) this.authWaiters.delete(contextId)
+        reject(new Error('authorization timeout exceeded'))
+      }, timeoutMs)
+      this.authWaiters.set(contextId, waiter)
     })
   }
 }
@@ -384,14 +385,21 @@ async function main() {
 
   await agentExecutor.initialize()
 
-  const requestHandler = new DefaultRequestHandler(DEMO_AGENT_CARD, taskStore, agentExecutor)
+  const requestHandler = new DefaultRequestHandler(
+    DEMO_AGENT_CARD,
+    taskStore,
+    agentExecutor,
+    new DefaultExecutionEventBusManager()
+  )
 
-  const appBuilder = new A2AExpressApp(requestHandler)
-  const expressApp = appBuilder.setupRoutes(express())
+  const expressApp = express()
+  expressApp.use(express.json())
+  expressApp.use(`/${AGENT_CARD_PATH}`, agentCardHandler({ agentCardProvider: requestHandler }))
+  expressApp.use('/', jsonRpcHandler({ requestHandler, userBuilder: UserBuilder.noAuthentication }))
 
-  expressApp.listen(DEMO_AGENT_PORT, () => {
-    console.log(`[DemoAgent] Server using new framework started on http://localhost:${DEMO_AGENT_PORT}`)
-    console.log(`[DemoAgent] Agent Card: http://localhost:${DEMO_AGENT_PORT}/.well-known/agent-card.json`)
+  bindOrExit(expressApp, DEMO_AGENT_PORT, 'DemoAgent', () => {
+    console.log(`[DemoAgent] Server started on http://localhost:${DEMO_AGENT_PORT}`)
+    console.log(`[DemoAgent] Agent Card: http://localhost:${DEMO_AGENT_PORT}/${AGENT_CARD_PATH}`)
     console.log('[DemoAgent] Press Ctrl+C to stop the server')
   })
 }
