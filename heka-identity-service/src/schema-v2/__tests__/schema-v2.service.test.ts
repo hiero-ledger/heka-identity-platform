@@ -511,7 +511,11 @@ describe('SchemaV2Service', () => {
     })
 
     test('patches updates Oid4vc registration display when bgColor changes', async () => {
-      const registration = { protocol: ProtocolType.Oid4vc, did: 'did:key:z1' }
+      const registration = {
+        protocol: ProtocolType.Oid4vc,
+        did: 'did:key:z1',
+        credentials: { supportedCredentialId: 'cred-1', statusListId: 'sl-1' },
+      }
       const mockSchema: any = {
         id: 'schema-1',
         name: 'My Schema',
@@ -534,6 +538,7 @@ describe('SchemaV2Service', () => {
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
           'cred-1': { format: 'vc+sd-jwt', vct: 'My Schema', display: [] },
+          'cred-other': { format: 'vc+sd-jwt', vct: 'Other Schema', display: [{ name: 'Other Schema' }] },
         },
         display: [{ name: 'Issuer' }],
       } as any)
@@ -543,7 +548,18 @@ describe('SchemaV2Service', () => {
       expect(openId4VcIssuerService.updateIssuerMetadata).toHaveBeenCalledWith(
         tenantAgent,
         'issuer-1',
-        expect.objectContaining({ action: UpdateIssuerSupportedCredentialsAction.Replace }),
+        expect.objectContaining({
+          action: UpdateIssuerSupportedCredentialsAction.Replace,
+          display: [{ name: 'Issuer' }],
+          credentialsSupported: [
+            expect.objectContaining({
+              id: 'cred-1',
+              display: [{ name: 'My Schema', logo: { uri: undefined }, background_color: '#333' }],
+            }),
+            // other schemas' configurations keep their own display
+            expect.objectContaining({ id: 'cred-other', display: [{ name: 'Other Schema' }] }),
+          ],
+        }),
       )
     })
   })
@@ -777,7 +793,7 @@ describe('SchemaV2Service', () => {
         bgColor: '#fff',
       }
       setupOid4vcRegister(schemaWithLogo)
-      vi.mocked(fileStorageService.url).mockReturnValue('https://cdn/logo.png')
+      vi.mocked(fileStorageService.publicUrl).mockReturnValue('https://cdn/logo.png')
 
       await schemaV2Service.registration(authInfo, tenantAgent, 'schema-1', {
         protocol: ProtocolType.Oid4vc,
@@ -786,7 +802,7 @@ describe('SchemaV2Service', () => {
         did: 'did:key:z1',
       })
 
-      expect(fileStorageService.url).toHaveBeenCalledWith('path/to/logo.png')
+      expect(fileStorageService.publicUrl).toHaveBeenCalledWith('path/to/logo.png')
     })
 
     test('throws BadRequestException when Oid4vc schema already registered in issuer metadata', async () => {

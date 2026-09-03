@@ -30,6 +30,7 @@ const fileStorageConfigKeys = {
   target: `${keyPrefixGlobal}TARGET`,
   fileSystem: {
     url: `${keyPrefixFileSystem}URL`,
+    publicUrl: `${keyPrefixFileSystem}PUBLIC_URL`,
     path: `${keyPrefixFileSystem}PATH`,
   },
   minio: {
@@ -44,12 +45,21 @@ const fileStorageConfigKeys = {
 }
 
 export class FileSystemConfig {
+  /** Base URL for browser-facing links (web UI, REST responses). */
   public url!: string
+  /**
+   * Base URL embedded into wallet-facing artifacts (OID4VCI issuer metadata,
+   * OCA branding). Must be https and reachable from the wallet device; falls
+   * back to `url`. Kept separate because a dev tunnel (ngrok) that satisfies
+   * the wallet serves an interstitial page to browsers, breaking the web UI.
+   */
+  public publicUrl!: string
   public path!: string
 
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
     this.url = env[fileStorageConfigKeys.fileSystem.url] || fileStorageConfigDefaults.fileSystem.url
+    this.publicUrl = env[fileStorageConfigKeys.fileSystem.publicUrl] || this.url
     this.path = env[fileStorageConfigKeys.fileSystem.path] || fileStorageConfigDefaults.fileSystem.path
   }
 }

@@ -3518,11 +3518,11 @@ components:
             - add
             - replace
         display:
-          type: array
           items:
-            type: string
-      required:
-        - credentialsSupported
+            type: array
+            items:
+              type: openId4VciIssuerDisplayDto
+          type: array
     OpenId4VciTxCode:
       type: object
       properties:
