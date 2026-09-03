@@ -1,6 +1,6 @@
 export { AccountClaimsStore } from './account-claims.store'
 export { InteractionAssetsController } from './assets.controller'
-export { ClaimSet, computeSub, mapClaims } from './claims.util'
+export { ClaimSet, computeSub, mapClaims, mapDisclosedClaims } from './claims.util'
 export {
   AcquiredIdentity,
   BeginLoginResult,
