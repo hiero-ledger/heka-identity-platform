@@ -1,0 +1,29 @@
+# CodeQL configuration used by .github/workflows/codeql-analysis.yml
+name: 'Heka Identity Platform CodeQL config'
+
+# Analysis is scoped to the two network-exposed TypeScript backend services.
+# The remaining TypeScript workspaces (heka-identity-service-web-ui,
+# heka-wallet) can be added once the initial alert backlog for these two has
+# been triaged - adding a line here is all that is required.
+paths:
+  - heka-identity-service
+  - heka-auth-service
+
+paths-ignore:
+  # Dependencies, build output and coverage reports are not committed, but stay
+  # excluded so a leftover working-tree copy can never enter the database.
+  - '**/node_modules'
+  - '**/dist'
+  - '**/coverage'
+  # Vendored Yarn release bundle (~3 MB of minified third-party JavaScript per
+  # service, committed via `yarnPath` in .yarnrc.yml).
+  - '**/.yarn'
+  # Generated wasm-bindgen bindings for the Indy Besu VDR: vendored, not
+  # maintained in this repository, and not meaningfully analysable.
+  - 'heka-identity-service/indy-besu-vdr-pkg'
+
+# The default query suite is used deliberately: it is the highest-precision set,
+# which keeps the first run's alert backlog reviewable. Consider switching to
+# `security-extended` once that backlog has been worked through.
+# queries:
+#   - uses: security-extended

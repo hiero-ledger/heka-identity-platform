@@ -1,0 +1,72 @@
+name: CodeQL static analysis
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    # Weekly full scan (Mondays, 03:27 UTC). Keeps results fresh when a file is
+    # not touched for a long time and re-applies newly published CodeQL queries.
+    - cron: '27 3 * * 1'
+  workflow_dispatch:
+
+# Unlike the per-component verify workflows, this one deliberately has no
+# `paths` filter, so that every pull request to `main` is analysed and the check
+# can safely be made a required status check. The set of analysed sources is
+# narrowed in .github/codeql/codeql-config.yml instead, which keeps a run cheap
+# regardless of which component a pull request touches.
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Only supersede pull request runs. Pushes to `main` and the scheduled scan
+  # must finish, otherwise the code scanning results for `main` go stale.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze TypeScript services
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to check out the repository
+      contents: read
+      # Required to upload results to the code scanning dashboard
+      security-events: write
+      # `actions: read` and `packages: read` are intentionally omitted: they are
+      # only needed for private repositories and for private CodeQL packs
+      # respectively. Both would have to be added if this repository ever
+      # becomes private.
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@6f5948dfacef28e207b48d0905cf90c03365536d # v3.37.9
+        with:
+          languages: javascript-typescript
+          # JavaScript/TypeScript is analysed straight from source, so no
+          # dependency installation or build step is needed. This also means no
+          # third-party package lifecycle script executes in this job.
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@6f5948dfacef28e207b48d0905cf90c03365536d # v3.37.9
+        with:
+          # Keeps these results distinct from any other SARIF uploaded for the
+          # same commit.
+          category: '/language:javascript-typescript'
