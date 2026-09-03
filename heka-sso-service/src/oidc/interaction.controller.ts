@@ -84,12 +84,24 @@ export class InteractionController {
   /** Login progress for the polling login page. Cookie-bound like every interaction route. */
   @Get(':uid/status')
   public async status(@Req() req: Request, @Res() res: Response): Promise<void> {
+    let details: InteractionDetails
     try {
-      const details = await this.provider.interactionDetails(req, res)
-      res.json(await this.interactions.loginStatus(details))
+      details = await this.provider.interactionDetails(req, res)
     } catch (error) {
       this.logger.warn(`Interaction status check failed: ${error}`)
       res.status(BAD_REQUEST).json({ status: 'error', message: 'The sign-in attempt is no longer valid.' })
+      return
+    }
+
+    try {
+      res.json(await this.interactions.loginStatus(details))
+    } catch (error) {
+      if (error instanceof InteractionApiError) {
+        res.status(BAD_REQUEST).json({ status: 'error', message: error.message })
+        return
+      }
+      this.logger.warn(`Interaction ${details.uid}: login status read failed, still pending: ${error}`)
+      res.json({ status: 'pending' })
     }
   }
 
