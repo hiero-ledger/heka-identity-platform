@@ -46,12 +46,12 @@ jobs:
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
       - name: Prepare Github Runner
-        uses: pandaswhocode/initialize-github-job@ffb7446339e8e6007b942312ac95457d1a20b6cf # v1.0.4
+        uses: pandaswhocode/initialize-github-job@0ed960ecaed898893e404ad55c7aa12fdc3b2a53 # v1.4.0
         with:
           checkout: 'true'
           checkout-ref: '${{ github.ref }}'
@@ -88,7 +88,7 @@ jobs:
         run: yarn test:coverage
 
       - name: Report coverage
-        uses: davelosert/vitest-coverage-report-action@15b5b41bb7d36796d89f4bf482b09529c53f3446 # v2.9.2
+        uses: davelosert/vitest-coverage-report-action@8b157684c6a6b259b97d45e72b44242865c0f6a5 # v2.12.2
         with:
           working-directory: ./heka-identity-service
           json-summary-path: ./coverage/coverage-summary.json
