@@ -11,9 +11,16 @@ services:
     image: heka-sso-service:latest
     ports:
       - '3005:3005'
+    # heka-identity-service (3000) and heka-auth-service (3004) run outside this compose
+    # project, published on the host: inside the container 'localhost' is the container itself.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     environment:
-      - APP_VERSION=${APP_VERSION:0.0.1}
-      - APP_PORT=${APP_PORT:3005}
+      # The image defaults to NODE_ENV=production, which refuses the dev-only secrets below.
+      # A real deployment sets NODE_ENV=production and replaces every secret in this file.
+      - NODE_ENV=${NODE_ENV:-development}
+      - APP_VERSION=${APP_VERSION:-0.0.1}
+      - APP_PORT=${APP_PORT:-3005}
       - APP_ENABLE_CORS=true
       - LOG_LEVEL=info
       - LOG_EXCLUDE_URLS=/version,/health
@@ -22,10 +29,17 @@ services:
       - DB_NAME=heka-sso-service
       - DB_USER=heka
       - DB_PASSWORD=heka1
-      - OIDC_ISSUER_URL=http://localhost:3005
+      - OIDC_ISSUER_URL=${OIDC_ISSUER_URL:-http://localhost:3005}
       - OIDC_COOKIE_KEYS=dev-only-cookie-key-do-not-use-in-production
       - OIDC_SUB_HMAC_SALT=dev-only-sub-hmac-salt-do-not-use-in-production
-      - IDENTITY_SERVICE_BASE_URL=http://localhost:3000
+      - IDENTITY_SERVICE_BASE_URL=${IDENTITY_SERVICE_BASE_URL:-http://host.docker.internal:3000}
+      - AUTH_SERVICE_BASE_URL=${AUTH_SERVICE_BASE_URL:-http://host.docker.internal:3004}
+      - IDENTITY_SERVICE_AUTH_NAME=${IDENTITY_SERVICE_AUTH_NAME:-demo}
+      - IDENTITY_SERVICE_AUTH_PASSWORD=${IDENTITY_SERVICE_AUTH_PASSWORD:-Password1234!}
+      - IDENTITY_SERVICE_PUBLIC_VERIFIER_ID=${IDENTITY_SERVICE_PUBLIC_VERIFIER_ID:?set it to the heka-identity-service public verifier id the bridge creates verification sessions under}
+      - IDENTITY_SERVICE_REQUEST_SIGNER_DID=${IDENTITY_SERVICE_REQUEST_SIGNER_DID:?set it to the DID that signs OID4VP authorization requests}
+      - OIDC_CLIENTS=[{"clientId":"keycloak-broker","clientSecret":"dev-only-broker-secret-do-not-use-in-production","redirectUris":["http://localhost:8080/realms/heka/broker/heka-sso/endpoint","http://localhost:8080/realms/master/broker/heka-sso/endpoint"],"postLogoutRedirectUris":["http://localhost:8080/realms/heka/broker/heka-sso/endpoint/logout_response","http://localhost:8080/realms/master/broker/heka-sso/endpoint/logout_response"],"loginConfigId":"default"}]
+      - OIDC_LOGIN_CONFIGS=[{"id":"default","verificationTemplate":"default","dcqlQuery":{"credentials":[{"id":"mdl","format":"dc+sd-jwt","meta":{"vct_values":["mDL"]},"claims":[{"path":["given_name"]},{"path":["family_name"]},{"path":["age_over_18"]}]}]},"claimMapping":{"mdl.given_name":"given_name","mdl.family_name":"family_name","mdl.age_over_18":"age_over_18"},"subStrategy":"derived","issuerAllowlist":[]}]
     depends_on:
       - postgres
     healthcheck:

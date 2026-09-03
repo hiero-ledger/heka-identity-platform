@@ -21,16 +21,24 @@ FROM node:22-bookworm-slim
 
 RUN apt-get update && apt-get install curl -y
 
+ARG NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
+
+# node:22-bookworm-slim ships an unprivileged 'node' user; the service needs no root privilege,
+# and `yarn start` compiles into the working directory, so it owns the whole app directory.
+RUN mkdir -p /opt/heka-sso-service && chown node:node /opt/heka-sso-service
 WORKDIR /opt/heka-sso-service
 
-COPY --from=builder /opt/heka-sso-service/migrations ./migrations
+COPY --from=builder --chown=node:node /opt/heka-sso-service/migrations ./migrations
 
-COPY --from=builder /opt/heka-sso-service/dist ./dist
-COPY --from=builder /opt/heka-sso-service/node_modules ./node_modules
-COPY --from=builder /opt/heka-sso-service/package*.json ./
-COPY --from=builder /opt/heka-sso-service/tsconfig*.json ./
-COPY --from=builder /opt/heka-sso-service/yarn.lock ./
-COPY --from=builder /opt/heka-sso-service/.yarn ./.yarn
-COPY --from=builder /opt/heka-sso-service/.yarnrc.yml ./
+COPY --from=builder --chown=node:node /opt/heka-sso-service/dist ./dist
+COPY --from=builder --chown=node:node /opt/heka-sso-service/node_modules ./node_modules
+COPY --from=builder --chown=node:node /opt/heka-sso-service/package*.json ./
+COPY --from=builder --chown=node:node /opt/heka-sso-service/tsconfig*.json ./
+COPY --from=builder --chown=node:node /opt/heka-sso-service/yarn.lock ./
+COPY --from=builder --chown=node:node /opt/heka-sso-service/.yarn ./.yarn
+COPY --from=builder --chown=node:node /opt/heka-sso-service/.yarnrc.yml ./
+
+USER node
 
 CMD ["sh", "-c", "yarn migration:up && yarn start"]
