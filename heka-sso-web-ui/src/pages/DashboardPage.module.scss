@@ -1,0 +1,56 @@
+@import '@/styles/mixins';
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  width: 100%;
+  max-width: var(--layout-content-width);
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxxs);
+}
+
+.title {
+  font: var(--font-headline-m);
+  color: var(--color-dark-high-emphasis);
+
+  @include stacked {
+    font: var(--font-headline-s);
+  }
+}
+
+.subtitle {
+  font: var(--font-body-s);
+  color: var(--color-dark-medium-emphasis);
+}
+
+.muted {
+  color: var(--color-dark-medium-emphasis);
+}
+
+.developer {
+  min-width: 0;
+
+  summary {
+    font: var(--font-subtitle-s);
+    color: var(--color-dark-medium-emphasis);
+    cursor: pointer;
+    padding: var(--space-xs) 0;
+  }
+
+  pre {
+    margin-top: var(--space-sm);
+    padding: var(--space-md);
+    background: var(--color-surface-4);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-label-m);
+    line-height: var(--font-line-label-l);
+    overflow-x: auto;
+    max-width: 100%;
+  }
+}

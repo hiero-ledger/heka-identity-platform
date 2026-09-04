@@ -1,7 +1,7 @@
 import { OpenId4VciCredentialIssuerMetadataDisplay } from '@credo-ts/openid4vc'
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import { IsArray, IsEnum, IsOptional, ValidateNested } from 'class-validator'
+import { IsArray, IsEnum, IsOptional, IsString, ValidateNested } from 'class-validator'
 
 import {
   CredentialFormat,
@@ -41,7 +41,7 @@ import {
  *           "text_color": "#000000",
  *           "locale": "en-US",
  *           "logo": {
- *             "url": "https://example.com/logo.png",
+ *             "uri": "https://example.com/logo.png",
  *             "alt_text": "Example Credential Logo"
  *           }
  *         }
@@ -74,7 +74,7 @@ import {
  *           "text_color": "#000000",
  *           "locale": "en-US",
  *           "logo": {
- *             "url": "https://example.com/logo.png",
+ *             "uri": "https://example.com/logo.png",
  *             "alt_text": "Example Credential Logo"
  *           }
  *         }
@@ -89,7 +89,7 @@ import {
  *       "locale": "en-US",
  *       "logo": {
  *         "alt_text": "Example Issuer Logo",
- *         "url": "https://example.com/logo.png"
+ *         "uri": "https://example.com/logo.png"
  *       },
  *       "text_color": "#000000"
  *     }
@@ -101,8 +101,75 @@ export enum UpdateIssuerSupportedCredentialsAction {
   Replace = 'replace',
 }
 
+/**
+ * OID4VCI issuer metadata `display[].logo` / `background_image`. `uri` is the
+ * OID4VCI (draft 13+) name; `url` is kept for payloads produced by older code
+ * paths (schema display) so neither is stripped by the validation whitelist.
+ */
+export class OpenId4VciIssuerDisplayImageDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  public uri?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  public url?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  public alt_text?: string
+}
+
+/**
+ * OID4VCI issuer metadata `display[]` entry. Declared as a validated class so
+ * the global `ValidationPipe({ whitelist: true })` keeps its properties —
+ * without it, a `PUT` with `display` silently stored empty objects.
+ */
+export class OpenId4VciIssuerDisplayDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  public name?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  public locale?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  public description?: string
+
+  @ApiPropertyOptional({ type: OpenId4VciIssuerDisplayImageDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OpenId4VciIssuerDisplayImageDto)
+  public logo?: OpenId4VciIssuerDisplayImageDto
+
+  @ApiPropertyOptional({ type: OpenId4VciIssuerDisplayImageDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OpenId4VciIssuerDisplayImageDto)
+  public background_image?: OpenId4VciIssuerDisplayImageDto
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  public background_color?: string
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  public text_color?: string
+}
+
 export class OpenId4VcIssuersUpdateMetadataDto {
-  @ApiProperty({ isArray: true, type: [OpenId4VciCredentialConfigurationSupportedWithId] })
+  @ApiPropertyOptional({ isArray: true, type: [OpenId4VciCredentialConfigurationSupportedWithId] })
+  @IsOptional()
   @ValidateNested({ each: true })
   @IsArray()
   @Type(() => OpenId4VciCredentialConfigurationSupportedWithId, {
@@ -146,7 +213,12 @@ export class OpenId4VcIssuersUpdateMetadataDto {
   @IsEnum(UpdateIssuerSupportedCredentialsAction)
   public action?: UpdateIssuerSupportedCredentialsAction
 
-  @ApiPropertyOptional()
+  // Runtime shape/validation: OpenId4VciIssuerDisplayDto (via @Type); static
+  // type stays Credo's so the service can hand it straight to the agent.
+  @ApiPropertyOptional({ isArray: true, type: [OpenId4VciIssuerDisplayDto] })
   @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OpenId4VciIssuerDisplayDto)
   public display?: OpenId4VciCredentialIssuerMetadataDisplay[]
 }

@@ -26,6 +26,13 @@ export interface FileStorageDriverInterface {
    * @param path - The file path to generate the URL for.
    */
   url(path: string): string
+  /**
+   * Construct the wallet-facing public URL for the file (used in OID4VCI issuer
+   * metadata / OCA branding). Same as `url` unless the driver has a distinct
+   * public base URL configured.
+   * @param path - The file path to generate the URL for.
+   */
+  publicUrl(path: string): string
 
   /**
    * Uploads a file to the system with optional options and returns the file URL.
