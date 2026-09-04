@@ -1,0 +1,22 @@
+import { ReactNode } from 'react'
+
+import { classNames } from '@/utils/classNames'
+
+import styles from './Card.module.scss'
+
+interface CardProps {
+  title?: string
+  className?: string
+  children: ReactNode
+}
+
+function Card({ title, className, children }: CardProps) {
+  return (
+    <section className={classNames(styles.Card, {}, [className])}>
+      {title && <h2 className={styles.title}>{title}</h2>}
+      {children}
+    </section>
+  )
+}
+
+export default Card

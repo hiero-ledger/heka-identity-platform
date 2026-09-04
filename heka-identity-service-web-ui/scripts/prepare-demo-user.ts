@@ -70,7 +70,7 @@ async function main() {
   const schema = {
     name: 'Passport',
     bgColor: '#171717',
-    fields: ['name', 'surname', 'age'],
+    fields: ['given_name', 'family_name', 'birth_date', 'passport_number', 'expiry_date'],
     registrations: [
       {
         network: 'key',
@@ -100,7 +100,11 @@ async function main() {
     ],
   };
 
-  params.append('userLogo', new Blob([fs.readFileSync(imagePath)]), 'user.png');
+  params.append(
+    'userLogo',
+    new Blob([new Uint8Array(fs.readFileSync(imagePath))]),
+    'user.png',
+  );
   params.append('schemaLogo', schemaLogoBlob, 'schema.jpg');
   params.append('schemas', JSON.stringify([schema, mdlSchema]));
 

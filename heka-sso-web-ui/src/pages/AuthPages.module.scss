@@ -1,0 +1,78 @@
+@import '@/styles/mixins';
+
+.action {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  width: 100%;
+  max-width: var(--layout-action-width);
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.heading {
+  font: var(--font-headline-m);
+  color: var(--color-dark-high-emphasis);
+
+  @include mobile {
+    font: var(--font-headline-s);
+  }
+}
+
+.lead {
+  font: var(--font-body-m);
+  color: var(--color-dark-medium-emphasis);
+}
+
+.divider {
+  height: var(--border-width);
+  background: var(--color-dark-divider);
+}
+
+.hint {
+  font: var(--font-label-m);
+  color: var(--color-dark-medium-emphasis);
+}
+
+.splash {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+}
+
+.status {
+  font: var(--font-body-m);
+  color: var(--color-dark-medium-emphasis);
+}
+
+.errorCard {
+  border-left: var(--space-xxxs) solid var(--color-notification);
+}
+
+.errorHeading {
+  font: var(--font-subtitle-m);
+  color: var(--color-dark-high-emphasis);
+}
+
+.message {
+  font: var(--font-body-s);
+  color: var(--color-dark-medium-emphasis);
+
+  @include long-text-full;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-sm);
+
+  @include mobile {
+    flex-direction: column;
+  }
+}
