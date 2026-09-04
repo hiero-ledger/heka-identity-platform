@@ -56,3 +56,7 @@ node_modules/
 # Yarn Berry (regenerated on install; keep .yarn/releases & .yarn/plugins tracked)
 **/.yarn/cache
 **/.yarn/install-state.gz
+
+# Auth0 CLI session metadata — lands here when the CLI runs with HOME unset
+# (its config path $HOME/.config then resolves against the cwd)
+.config/

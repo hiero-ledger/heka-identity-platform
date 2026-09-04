@@ -19,6 +19,7 @@ import {
   OpenId4VCCredentialRegistrationFormat,
   ProtocolType,
 } from '../common/types'
+import { OID4VCRegistrationCredentials } from '../common/types/registration-credentials'
 import { UpdateIssuerSupportedCredentialsAction } from '../openid4vc/issuer/dto/update-issuer.dto'
 import { OpenId4VcIssuerService } from '../openid4vc/issuer/issuer.service'
 import { RevocationRegistryService } from '../revocation/revocation-registry/revocation-registry.service'
@@ -207,7 +208,7 @@ export class SchemaV2Service {
     {
       name: schema.name,
       logo: {
-        url: schema.logo ? this.fileStorageService.url(schema.logo) : undefined,
+        uri: schema.logo ? this.fileStorageService.publicUrl(schema.logo) : undefined,
       },
       background_color: schema.bgColor,
     },
@@ -357,15 +358,26 @@ export class SchemaV2Service {
     return schemaRegistration
   }
 
-  private async oid4vcUpdateSchemaDisplay(prop: { tenantAgent: TenantAgent; schema: Schema; did: string }) {
-    const { tenantAgent, schema, did } = prop
+  /**
+   * Re-applies the schema's display (name / logo / colour) to the credential
+   * configuration created for it in the issuer metadata. Only the configuration
+   * identified by `supportedCredentialId` is touched — the issuer holds one
+   * configuration per registered schema, and they must keep their own display.
+   */
+  private async oid4vcUpdateSchemaDisplay(prop: {
+    tenantAgent: TenantAgent
+    schema: Schema
+    did: string
+    supportedCredentialId?: string
+  }) {
+    const { tenantAgent, schema, did, supportedCredentialId } = prop
 
     const issuer = await tenantAgent.openid4vc.issuer.getIssuerByIssuerId(did)
 
     const display = {
       name: schema.name,
       logo: {
-        url: schema.logo ? this.fileStorageService.url(schema.logo) : undefined,
+        uri: schema.logo ? this.fileStorageService.publicUrl(schema.logo) : undefined,
       },
       background_color: schema.bgColor,
     }
@@ -374,7 +386,7 @@ export class SchemaV2Service {
       ([configurationId, credentialConfiguration]) => ({
         ...(credentialConfiguration as Record<string, unknown>),
         id: configurationId,
-        display: [display],
+        ...(configurationId === supportedCredentialId ? { display: [display] } : {}),
       }),
     )
 
@@ -600,7 +612,13 @@ export class SchemaV2Service {
     if (request.bgColor || logoFile) {
       const registrationsForUpdate = schema.registrations.filter((r) => r.protocol === ProtocolType.Oid4vc)
       for (const registrationsForUpdateItem of registrationsForUpdate) {
-        await this.oid4vcUpdateSchemaDisplay({ tenantAgent, schema, did: registrationsForUpdateItem.did })
+        await this.oid4vcUpdateSchemaDisplay({
+          tenantAgent,
+          schema,
+          did: registrationsForUpdateItem.did,
+          supportedCredentialId: (registrationsForUpdateItem.credentials as OID4VCRegistrationCredentials | undefined)
+            ?.supportedCredentialId,
+        })
       }
     }
 
