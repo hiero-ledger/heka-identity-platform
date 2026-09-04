@@ -1,0 +1,217 @@
+/*
+ * Heka SSO — light-touch login theme.
+ *
+ * A thin layer over Keycloak's default login CSS (doUseDefaultCss stays on):
+ * a calm background, a rounded card, rounded controls, and an identity line
+ * that tells the user they are at the identity provider, not the app.
+ *
+ * Deliberately NOT the RP's design tokens: Keycloak is a different party on a
+ * different domain and should look like one — neutral slate with a single
+ * accent, no CivicTrust petrol blue.
+ */
+:root {
+  --heka-bg-top: #eef1f5;
+  --heka-bg-bottom: #d9dfe7;
+  --heka-bg-glow: rgba(255, 255, 255, 0.85);
+  --heka-card: #ffffff;
+  --heka-card-radius: 24px;
+  --heka-card-shadow: 0 24px 48px -16px rgba(30, 41, 59, 0.25), 0 2px 6px rgba(30, 41, 59, 0.08);
+  --heka-control-radius: 12px;
+  --heka-text: #1f2937;
+  --heka-text-muted: #64748b;
+  --heka-border: #cbd5e1;
+  --heka-accent: #334155;
+  --heka-accent-hover: #1e293b;
+  --heka-accent-ring: rgba(51, 65, 85, 0.25);
+  --heka-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* --- page background ------------------------------------------------------ */
+/* Keycloak's login.css paints its polygon image via `.login-pf body`; the
+   `login-pf` class sits on <html>, so override the body with !important. */
+html.login-pf,
+.login-pf body {
+  background-color: var(--heka-bg-bottom) !important;
+  background-image: radial-gradient(60% 50% at 20% 0%, var(--heka-bg-glow), transparent 70%),
+    linear-gradient(180deg, var(--heka-bg-top) 0%, var(--heka-bg-bottom) 100%) !important;
+  background-attachment: fixed;
+  background-size: cover;
+  font-family: var(--heka-font);
+  color: var(--heka-text);
+}
+
+.login-pf-page {
+  padding: 4vh 16px 6vh;
+}
+
+.login-pf-page .login-pf-page-header {
+  margin-bottom: 20px;
+}
+
+/* --- realm name above the card -------------------------------------------- */
+.login-pf-page .login-pf-header,
+#kc-header-wrapper {
+  color: var(--heka-text);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+/* --- the card ------------------------------------------------------------- */
+.login-pf-page .card-pf {
+  border: 0;
+  border-radius: var(--heka-card-radius);
+  box-shadow: var(--heka-card-shadow);
+  background: var(--heka-card);
+  padding: 32px 36px 28px;
+}
+
+.login-pf-page .card-pf .login-pf-header h1,
+#kc-page-title {
+  font-family: var(--heka-font);
+  font-weight: 600;
+  color: var(--heka-text);
+}
+
+/* --- controls ------------------------------------------------------------- */
+.login-pf-page .pf-v5-c-form-control,
+.login-pf-page .pf-c-form-control,
+.login-pf-page input[type='text'],
+.login-pf-page input[type='password'] {
+  border-radius: var(--heka-control-radius);
+  border: 1px solid var(--heka-border);
+  padding: 10px 14px;
+  min-height: 44px;
+  box-shadow: none;
+}
+
+.login-pf-page .pf-v5-c-form-control:focus-within,
+.login-pf-page input:focus {
+  border-color: var(--heka-accent);
+  box-shadow: 0 0 0 3px var(--heka-accent-ring);
+  outline: none;
+}
+
+/* password field + reveal button share one rounded group (PF4 input group) */
+.login-pf-page .pf-c-input-group,
+.login-pf-page .pf-v5-c-input-group {
+  border-radius: var(--heka-control-radius);
+}
+
+.login-pf-page .pf-c-input-group .pf-c-form-control,
+.login-pf-page .pf-v5-c-input-group .pf-v5-c-form-control {
+  border-radius: var(--heka-control-radius) 0 0 var(--heka-control-radius);
+}
+
+.login-pf-page .pf-c-input-group .pf-c-button.pf-m-control,
+.login-pf-page .pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
+  border-radius: 0 var(--heka-control-radius) var(--heka-control-radius) 0;
+  border: 1px solid var(--heka-border);
+  border-left: 0;
+  min-height: 44px;
+  background: var(--heka-card);
+  color: var(--heka-text-muted);
+}
+
+/* One box model for every action: the <input type=submit> "Sign In" and the
+   <a> identity-provider button get the same height, font and centring, so
+   their labels sit on the same line. */
+.login-pf-page .pf-v5-c-button,
+.login-pf-page .pf-c-button,
+.login-pf-page .kc-social-item,
+.login-pf-page #kc-social-providers a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 16px;
+  line-height: 1;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--heka-font);
+  border-radius: var(--heka-control-radius);
+}
+
+.login-pf-page .pf-m-block {
+  width: 100%;
+}
+
+.login-pf-page .pf-v5-c-button.pf-m-primary,
+.login-pf-page .pf-c-button.pf-m-primary {
+  background: var(--heka-accent);
+  border-color: var(--heka-accent);
+}
+
+.login-pf-page .pf-v5-c-button.pf-m-primary:hover,
+.login-pf-page .pf-c-button.pf-m-primary:hover {
+  background: var(--heka-accent-hover);
+  border-color: var(--heka-accent-hover);
+}
+
+/* identity-provider buttons ("Sign in with wallet") — rounded secondary */
+.login-pf-page .kc-social-item,
+.login-pf-page #kc-social-providers a,
+.login-pf-page #kc-social-providers .pf-v5-c-button {
+  border: 1px solid var(--heka-border);
+  background: var(--heka-card);
+  color: var(--heka-text);
+  text-decoration: none;
+}
+
+.login-pf-page .kc-social-item:hover,
+.login-pf-page #kc-social-providers a:hover {
+  border-color: var(--heka-accent);
+  background: #f8fafc;
+}
+
+/* PatternFly "control" buttons (IdP buttons, password reveal) draw their own
+   border on an ::after pseudo-element — square corners and a blue bottom edge
+   that poke out from under the rounded button. Our border above replaces it. */
+.login-pf-page .pf-c-button.pf-m-control,
+.login-pf-page .pf-v5-c-button.pf-m-control,
+.login-pf-page .kc-social-item,
+.login-pf-page #kc-social-providers a {
+  box-shadow: none;
+}
+
+.login-pf-page .pf-c-button.pf-m-control::after,
+.login-pf-page .pf-v5-c-button.pf-m-control::after,
+.login-pf-page .kc-social-item::after,
+.login-pf-page #kc-social-providers a::after,
+.login-pf-page .pf-c-button.pf-m-control:hover::after,
+.login-pf-page .pf-c-button.pf-m-control:focus::after,
+.login-pf-page .pf-c-button.pf-m-control:active::after {
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: inherit;
+}
+
+/* --- identity line under the card ----------------------------------------- */
+.heka-identity-note {
+  margin: 20px auto 0;
+  max-width: 500px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--heka-text-muted);
+}
+
+.heka-identity-note strong {
+  color: var(--heka-text);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .login-pf-page {
+    padding-top: 4vh;
+    padding-bottom: 4vh;
+  }
+
+  .login-pf-page .card-pf {
+    border-radius: 20px;
+    padding: 24px 20px 20px;
+  }
+}

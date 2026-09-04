@@ -1,0 +1,88 @@
+import { ConfigModule, ConfigService } from '@config'
+import { OidcEntity, OidcSigningKey } from '@core/database'
+import { EntityManager } from '@mikro-orm/core'
+import { MikroOrmModule } from '@mikro-orm/nestjs'
+import { Logger, MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
+
+import { AccountClaimsStore } from './account-claims.store'
+import { InteractionAssetsController } from './assets.controller'
+import { IDENTITY_ACQUIRER, IdentityAcquirer, StubIdentityAcquirer } from './identity-acquirer'
+import { IdentityServiceEventsClient } from './identity-service-events.client'
+import { IdentityServiceTokenProvider } from './identity-service-token.provider'
+import { InteractionController } from './interaction.controller'
+import { InteractionService } from './interaction.service'
+import { LoginEventsService } from './login-events.service'
+import { MikroOrmAdapter } from './mikro-orm.adapter'
+import { noStoreMiddleware } from './no-store.middleware'
+import { OidcCleanupService } from './oidc-cleanup.service'
+import { createOidcProvider, OIDC_PROVIDER } from './provider.factory'
+import { SigningKeysService } from './signing-keys.service'
+import { VerificationSessionClient } from './verification-session.client'
+import { WalletIdentityAcquirer } from './wallet-identity-acquirer'
+
+@Module({
+  imports: [ConfigModule, MikroOrmModule.forFeature({ entities: [OidcEntity, OidcSigningKey] })],
+  controllers: [InteractionAssetsController, InteractionController],
+  providers: [
+    SigningKeysService,
+    AccountClaimsStore,
+    InteractionService,
+    OidcCleanupService,
+    IdentityServiceTokenProvider,
+    VerificationSessionClient,
+    LoginEventsService,
+    IdentityServiceEventsClient,
+    {
+      provide: OIDC_PROVIDER,
+      inject: [ConfigService, SigningKeysService, AccountClaimsStore, EntityManager],
+      useFactory: async (
+        configService: ConfigService,
+        signingKeys: SigningKeysService,
+        accountClaims: AccountClaimsStore,
+        em: EntityManager
+      ) =>
+        createOidcProvider(
+          configService.oidcConfig,
+          await signingKeys.getJwks(),
+          accountClaims,
+          // Postgres-backed storage; the adapter forks the EM per operation
+          (name: string) => new MikroOrmAdapter(name, em)
+        ),
+    },
+    {
+      provide: IDENTITY_ACQUIRER,
+      inject: [ConfigService, VerificationSessionClient, LoginEventsService, IdentityServiceEventsClient],
+      useFactory: (
+        configService: ConfigService,
+        sessions: VerificationSessionClient,
+        loginEvents: LoginEventsService,
+        identityEvents: IdentityServiceEventsClient
+      ): IdentityAcquirer | null => {
+        const logger = new Logger(OidcModule.name)
+        if (configService.oidcConfig.stubLogin) {
+          logger.warn('OIDC_STUB_LOGIN is enabled — logins are stubbed without credential verification (dev only)')
+          return new StubIdentityAcquirer()
+        }
+        const { publicVerifierId, requestSignerDid } = configService.oidcConfig.identityService
+        if (publicVerifierId && requestSignerDid) {
+          logger.log('Wallet login enabled (OID4VP via heka-identity-service verification sessions)')
+          identityEvents.start((event) => loginEvents.handleSessionEvent(event))
+          return new WalletIdentityAcquirer(sessions, configService, loginEvents)
+        }
+        logger.warn(
+          'No identity acquisition method enabled — set IDENTITY_SERVICE_PUBLIC_VERIFIER_ID + ' +
+            'IDENTITY_SERVICE_REQUEST_SIGNER_DID for wallet login (or OIDC_STUB_LOGIN=true in dev); logins will be denied'
+        )
+        return null
+      },
+    },
+  ],
+  exports: [SigningKeysService, OIDC_PROVIDER, AccountClaimsStore, LoginEventsService],
+})
+export class OidcModule implements NestModule {
+  public configure(consumer: MiddlewareConsumer): void {
+    // Per-user, per-attempt responses (login page with a single-use
+    // authorization request, cookie-bound status/complete) must never be cached.
+    consumer.apply(noStoreMiddleware).forRoutes(InteractionController)
+  }
+}
