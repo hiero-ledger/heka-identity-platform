@@ -11,15 +11,24 @@ import { PutFileOptionsInterface } from '../interfaces/put-file.options.interfac
 
 export class FileSystemDriver implements FileStorageDriverInterface {
   private readonly publicPath: string
-  private readonly publicUrl: string
+  private readonly baseUrl: string
+  private readonly publicBaseUrl: string
 
   public constructor(private readonly config: FileSystemConfig) {
     this.publicPath = this.config.path
-    this.publicUrl = this.config.url
+    this.baseUrl = this.config.url
+    this.publicBaseUrl = this.config.publicUrl
   }
 
   public root(): string {
-    const url = this.publicUrl
+    return FileSystemDriver.withTrailingSlash(this.baseUrl)
+  }
+
+  public publicUrl(path: string): string {
+    return `${FileSystemDriver.withTrailingSlash(this.publicBaseUrl)}${normalizeUrl(path)}`
+  }
+
+  private static withTrailingSlash(url: string): string {
     return url.endsWith('/') ? url : `${url}/`
   }
 

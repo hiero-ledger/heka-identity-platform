@@ -1,0 +1,15 @@
+@import '@/styles/mixins';
+
+.Row {
+  display: flex;
+  flex-direction: row;
+}
+
+.Column {
+  display: flex;
+  flex-direction: column;
+}
+
+.border {
+  @include border('all', var(--color-dark-opacity-10));
+}
