@@ -18,6 +18,9 @@ import SignUpView from '@/pages/SignUp/SignUp';
 import { VerificationFromTemplate } from '@/pages/VerifyCredential/VerificationFromTemplate/VerificationFromTemplate';
 import VerificationRequest from '@/pages/VerifyCredential/VerificationRequest/VerificationRequest';
 import VerifyCredential from '@/pages/VerifyCredential/VerifyCredential';
+import ContributorHub from '@/pages/Contributor/ContributorHub';
+import ContributorGithubCallback from '@/pages/Contributor/ContributorGithubCallback';
+import ContributorOnboarding from '@/pages/Contributor/Onboarding/ContributorOnboarding';
 
 const AuthenticatedRoutes = () => (
   <Routes>
@@ -66,10 +69,12 @@ const AuthenticatedRoutes = () => (
         path={ROUTES.VERIFICATION_REQUEST}
         element={<VerificationRequest />}
       />
-      <Route
-        path="*"
-        element={<Navigate to={ROUTES.MAIN} />}
-      />
+      <Route path="*" element={<Navigate to={ROUTES.MAIN} />} />
+
+      {/* ── Contributor routes (accessible regardless of regular auth) ── */}
+      <Route path={ROUTES.CONTRIBUTOR} element={<ContributorHub />} />
+      <Route path={ROUTES.CONTRIBUTOR_ONBOARDING} element={<ContributorOnboarding />} />
+      <Route path={ROUTES.CONTRIBUTOR_GITHUB_CALLBACK} element={<ContributorGithubCallback />} />
     </Route>
   </Routes>
 );
@@ -90,10 +95,12 @@ const UnauthenticatedRoutes = () => (
         path={ROUTES.AGE_DEMO}
         element={<AgeVerificationDemo />}
       />
-      <Route
-        path="*"
-        element={<Navigate to={ROUTES.MAIN} />}
-      />
+      <Route path="*" element={<Navigate to={ROUTES.MAIN} />} />
+
+      {/* ── Contributor routes (public — no regular auth needed) ── */}
+      <Route path={ROUTES.CONTRIBUTOR} element={<ContributorHub />} />
+      <Route path={ROUTES.CONTRIBUTOR_ONBOARDING} element={<ContributorOnboarding />} />
+      <Route path={ROUTES.CONTRIBUTOR_GITHUB_CALLBACK} element={<ContributorGithubCallback />} />
     </Route>
     <Route element={<UnauthenticatedLayout />}>
       <Route

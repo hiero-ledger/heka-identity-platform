@@ -20,6 +20,11 @@ export enum ROUTES {
   ISSUE_CREDENTIAL_FROM_TEMPLATE = '/issue-credential/from-template',
   ISSUE_TEMPLATE = '/issue-credential/template',
   VERIFY_TEMPLATE = '/verify-credential/template',
+
+  // ── Contributor onboarding ─────────────────────────────────────────────
+  CONTRIBUTOR = '/contributor',
+  CONTRIBUTOR_ONBOARDING = '/contributor/onboarding',
+  CONTRIBUTOR_GITHUB_CALLBACK = '/contributor/github/callback',
 }
 
 export default ROUTES;
