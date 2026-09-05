@@ -1,8 +1,8 @@
 import { ConfigModule, ConfigService } from '@config'
+import { correlationIdMiddleware } from '@core/correlation-id.middleware'
 import { DatabaseModule } from '@core/database'
 import { LoggerModule } from '@core/logger'
 import { ScheduledTaskModule } from '@core/scheduled-tasks/scheduled-tasks.module'
-import { CorrelationIdMiddleware } from '@eropple/nestjs-correlation-id'
 import { ClassSerializerInterceptor, INestApplication, Module, ValidationPipe, VersioningType } from '@nestjs/common'
 import { APP_GUARD, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
@@ -14,6 +14,8 @@ import { Logger, LoggerErrorInterceptor } from 'nestjs-pino'
 import { HealthModule } from './health'
 import { OAuthModule } from './oauth'
 import { UserModule } from './user'
+import { ContributorOnboardingModule } from './contributor-onboarding'
+import { GpgChallengeModule } from './gpg-challenge/gpg-challenge.module'
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { UserModule } from './user'
     OAuthModule,
     UserModule,
     HealthModule,
+    ContributorOnboardingModule,
+    GpgChallengeModule,
   ],
   providers: [
     {
@@ -48,7 +52,7 @@ export class MainModule {
   public static appConfigure = (app: INestApplication) => {
     const config = app.get(ConfigService).config
 
-    app.use(CorrelationIdMiddleware())
+    app.use(correlationIdMiddleware)
 
     app.use(bodyParser.json({ type: 'application/json', limit: config.app.requestSizeLimit }))
 
