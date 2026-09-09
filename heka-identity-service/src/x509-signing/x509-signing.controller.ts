@@ -55,7 +55,7 @@ export class X509SignerController {
   }
 
   /**
-   * Provision a per-tenant X.509 signer (P-256 key → self-signed cert + did:jwk).
+   * Provision a per-tenant X.509 signer (P-256 key → certificate + did:jwk).
    */
   @ApiOperation({ summary: 'Provision an X.509 signer' })
   @ApiOkResponse({ description: 'Signer', type: X509SignerDto })
@@ -167,7 +167,7 @@ export class X509SignerController {
     return X509SignerDto.fromSigner(identity)
   }
 
-  // ── Lifecycle (M3) ─────────────────────────────────────────────────────────
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
   // Declared after the literal `root-certificate`/`csr`/`import` routes so those win over `:id`.
 
   /**

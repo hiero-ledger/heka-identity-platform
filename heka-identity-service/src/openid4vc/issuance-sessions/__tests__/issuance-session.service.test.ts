@@ -6,6 +6,7 @@ import { ConfigType } from '@nestjs/config'
 import { TenantAgent } from 'common/agent'
 import { AuthInfo, Role } from 'common/auth'
 import AgentConfig from 'config/agent'
+import { MdocIssuerCaService } from 'mdoc-issuer-ca'
 
 import {
   didResolutionResultStub,
@@ -19,6 +20,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
   let service: OpenId4VcIssuanceSessionService
   let tenantAgent: TenantAgent
   let statusListService: StatusListService
+  let mdocIssuerCaService: MdocIssuerCaService
   let agencyConfig: ConfigType<typeof AgentConfig>
   let authInfo: AuthInfo
 
@@ -27,6 +29,9 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
   beforeEach(() => {
     statusListService = createMock<StatusListService>()
+    mdocIssuerCaService = createMock<MdocIssuerCaService>()
+    // Default: tenant has a provisioned mdoc issuer (the offer() require-provisioning guard passes).
+    vi.mocked(mdocIssuerCaService.requireProvisioned).mockResolvedValue({ id: 'iaca-1' } as never)
     agencyConfig = {
       credentialsConfiguration: {
         OpenId4VC: {
@@ -41,7 +46,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       },
     } as any
 
-    service = new OpenId4VcIssuanceSessionService(agencyConfig, statusListService)
+    service = new OpenId4VcIssuanceSessionService(agencyConfig, statusListService, mdocIssuerCaService)
 
     mockFindIssuanceSessionsByQuery.mockReset()
     mockDeleteById.mockReset()
@@ -591,7 +596,11 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       } as any
 
-      const restrictedService = new OpenId4VcIssuanceSessionService(restrictedConfig, statusListService)
+      const restrictedService = new OpenId4VcIssuanceSessionService(
+        restrictedConfig,
+        statusListService,
+        mdocIssuerCaService,
+      )
 
       const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',

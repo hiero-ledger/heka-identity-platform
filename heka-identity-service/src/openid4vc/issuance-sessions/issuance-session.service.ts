@@ -9,6 +9,8 @@ import { ConfigType } from '@nestjs/config'
 
 import { TenantAgent } from 'common/agent'
 import AgentConfig from 'config/agent'
+import { MdocIssuerCaService } from 'mdoc-issuer-ca'
+import { IssuerMode } from 'utils/oid4vc'
 
 import { AuthInfo } from '../../common/auth'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
@@ -26,6 +28,7 @@ export class OpenId4VcIssuanceSessionService {
   public constructor(
     @Inject(AgentConfig.KEY) private readonly agencyConfig: ConfigType<typeof AgentConfig>,
     private readonly statusListService: StatusListService,
+    private readonly mdocIssuerCaService: MdocIssuerCaService,
   ) {}
 
   public async offer(
@@ -63,9 +66,14 @@ export class OpenId4VcIssuanceSessionService {
         )
       }
 
+      // x5c-mode SD-JWT VC is signed with the tenant's X.509 issuer cert (HAIP), not a DID.
+      const isX5cSdJwt =
+        credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc &&
+        (credential as { issuerMode?: IssuerMode }).issuerMode === 'x5c'
+
       // MsoMdoc uses X.509 certificates, not DIDs — skip DID resolution
       let issuerDidUrl: string | undefined
-      if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
+      if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc && !isX5cSdJwt) {
         const issuerCredential = credential as { issuer: { did: string } }
         const { didDocument } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
         if (!didDocument || !didDocument.verificationMethod?.length) {
@@ -74,6 +82,11 @@ export class OpenId4VcIssuanceSessionService {
           )
         }
         issuerDidUrl = didDocument.verificationMethod[0].id
+      } else if (credential.format === OpenId4VciCredentialFormatProfile.MsoMdoc) {
+        // mso_mdoc is signed by the tenant's per-tenant DSC (chaining to its IACA). Fail fast (400)
+        // here if the tenant has no provisioned mdoc issuer, rather than deep in the credential mapper
+        // when the wallet later requests the credential.
+        await this.mdocIssuerCaService.requireProvisioned(tenantAgent.context)
       }
 
       let credentialStatus

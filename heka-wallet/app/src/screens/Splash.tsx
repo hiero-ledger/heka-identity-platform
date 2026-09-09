@@ -12,6 +12,9 @@ import {
   createPublicDidOrGetExisting,
   createPublicInvitationOrGetExisting,
   ensureExampleCredentialCreated,
+  HekaWalletAgent,
+  refreshHekaEuTrustList,
+  refreshHekaIssuerTrustList,
   setupMediatorWithPublicDidIfNeeded,
   tryRestartExistingAgent,
   createAnoncredsLinkSecretIfRequired,
@@ -68,12 +71,33 @@ export const Splash: React.FC = () => {
           return
         }
 
+        // Refresh the mdoc issuer trust anchors from the Heka VICAL. Fire-and-forget so it never
+        // blocks startup; failures degrade gracefully (the previously-trusted set is kept).
+        const refreshTrustList = (readyAgent: HekaWalletAgent): void => {
+          void refreshHekaIssuerTrustList(readyAgent)
+            .then((result) =>
+              result.ok
+                ? logger.info(`Issuer trust list refreshed: ${result.issuerCount} IACA(s)`)
+                : logger.info(`Issuer trust list refresh skipped: ${result.reason}`)
+            )
+            .catch((error) => logger.warn(`Issuer trust list refresh failed: ${error}`))
+          // Also refresh the EU trust list (curated external EU issuer anchors) into its own store slot.
+          void refreshHekaEuTrustList(readyAgent)
+            .then((result) =>
+              result.ok
+                ? logger.info(`EU trust list refreshed: ${result.issuerCount} anchor(s)`)
+                : logger.info(`EU trust list refresh skipped: ${result.reason}`)
+            )
+            .catch((error) => logger.warn(`EU trust list refresh failed: ${error}`))
+        }
+
         if (agent) {
           logger.info('Agent already initialized, restarting...')
 
           const isAgentRestarted = await tryRestartExistingAgent(agent, walletSecret)
 
           if (isAgentRestarted) {
+            refreshTrustList(agent)
             // The onboarding workflow transitions to the main stack automatically once
             // the agent is set — no navigation needed here.
             return
@@ -95,6 +119,8 @@ export const Splash: React.FC = () => {
         newAgent.didcomm.registerOutboundTransport(httpTransport)
 
         await newAgent.initialize()
+
+        refreshTrustList(newAgent)
 
         await createAnoncredsLinkSecretIfRequired(newAgent)
 

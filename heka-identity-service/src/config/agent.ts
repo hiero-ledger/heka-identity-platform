@@ -76,9 +76,76 @@ export default registerAs('agent', () => {
   const didMethods = parseDidMethods(process.env)
 
   // x509_san_dns provisioning mode for X.509 request signing: `private_ca` issues leaves under the
-  // service-wide root CA; `self_signed` mints self-signed-with-SAN leaves (stepping stone); `csr`
-  // defers to external-CA issuance via the /x509/signers/csr + /import endpoints.
-  const x509SanDnsMode = (process.env.X509_SAN_DNS_MODE ?? 'private_ca') as 'private_ca' | 'csr' | 'self_signed'
+  // service-wide root CA; `csr` defers to external-CA issuance via the /x509/signers/csr + /import
+  // endpoints. Unknown values fail fast at startup.
+  const x509SanDnsMode = (process.env.X509_SAN_DNS_MODE ?? 'private_ca') as 'private_ca' | 'csr'
+  if (!['private_ca', 'csr'].includes(x509SanDnsMode)) {
+    throw new Error(`X509_SAN_DNS_MODE has an unknown value '${x509SanDnsMode}' (allowed: private_ca, csr)`)
+  }
+
+  const mdocIssuerCountry = process.env.MDOC_ISSUER_COUNTRY ?? 'US'
+  const mdocIssuerAuthority = process.env.MDOC_ISSUER_AUTHORITY ?? 'Heka'
+  const mdocDefaultDocType = process.env.MDOC_DEFAULT_DOCTYPE ?? 'org.iso.18013.5.1.mDL'
+
+  // mdoc issuer certificate profile (credential-type × ecosystem). 'mdl' = shipped ISO 18013-5 / AAMVA
+  // path (Credo X509Api); 'eudi-pid' = EU/EUDI profile emitted via the @peculiar/x509 escape hatch
+  // (EN 319 412-1 organizationIdentifier DN + certificatePolicies). The EU profile requires an
+  // organizationIdentifier (e.g. `VATDE-…`).
+  const mdocIssuerProfile = process.env.MDOC_ISSUER_PROFILE ?? 'mdl'
+  const mdocIssuerOrganizationIdentifier = process.env.MDOC_ISSUER_ORGANIZATION_IDENTIFIER ?? ''
+  // Optional ETSI certificate-policy OID emitted on EU DSCs (omitted when empty)
+  const mdocIssuerCertificatePolicyOid = process.env.MDOC_ISSUER_CERTIFICATE_POLICY_OID ?? ''
+
+  // Curated EU issuer trust anchors (PID/EAA issuer-CA certs) the wallet should trust, republished as
+  // the signed Heka EU trust list (ETSI TS 119 602 LoTE JWT) at GET /eu-trust-list. Accepts PEM blocks
+  // or comma/whitespace-separated base64 DER; empty by default.
+  const euTrustedIssuerCertificates = process.env.EU_TRUSTED_ISSUER_CERTIFICATES ?? ''
+  const euTrustListProvider = process.env.EU_TRUST_LIST_PROVIDER ?? mdocIssuerAuthority
+
+  // Anchor sources for the published EU trust list — a comma-separated UNION (an eIDAS 2.0
+  // deployment needs QTSP anchors from 'lotl' AND LoTE anchors from 'lote' simultaneously). 'config'
+  // (default) uses the curated anchors above; 'lotl' traverses the EU List of Trusted Lists at
+  // EU_LOTL_URL (ETSI TS 119 612, XAdES-verified); 'lote' ingests the ETSI TS 119 602 Lists of
+  // Trusted Entities at EU_LOTE_URLS. Unknown values fail fast at startup.
+  const euTrustListSources = (process.env.EU_TRUST_LIST_SOURCE ?? 'config')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean) as ('config' | 'lotl' | 'lote')[]
+  for (const source of euTrustListSources) {
+    if (!['config', 'lotl', 'lote'].includes(source)) {
+      throw new Error(`EU_TRUST_LIST_SOURCE contains an unknown source '${source}' (allowed: config, lotl, lote)`)
+    }
+  }
+  // Optional comma-separated ServiceTypeIdentifier allow-list applied when extracting anchors from a
+  // traversed Trusted List; empty = accept all granted services.
+  const euTrustedListServiceTypes = process.env.EU_TRUSTED_LIST_SERVICE_TYPES ?? ''
+
+  // Source 'lotl': the EU List of Trusted Lists. EU_LOTL_SIGNER_CERTIFICATES pins the
+  // European Commission's LoTL signer — the single trust anchor of the whole traversal; the verified LoTL
+  // then declares each national TL's expected signer, so per-MS signer trust is derived from the LoTL
+  // rather than statically configured. Optional EU_LOTL_SCHEME_TERRITORIES limits the MS set (empty = all).
+  const euLotlUrl = process.env.EU_LOTL_URL ?? ''
+  const euLotlSignerCertificates = process.env.EU_LOTL_SIGNER_CERTIFICATES ?? ''
+  const euLotlSchemeTerritories = process.env.EU_LOTL_SCHEME_TERRITORIES ?? ''
+
+  // Source 'lote': ETSI TS 119 602 Lists of Trusted Entities (the EUDI-era lists: PID providers,
+  // wallet providers, registrars, pub-EAA providers). Comma-separated list URLs; each list's JWS signer
+  // (x5c leaf) must byte-match one of the pinned EU_LOTE_SIGNER_CERTIFICATES (fail-closed per list;
+  // best-effort union across lists). Optional EU_LOTE_SERVICE_TYPES filters extracted services.
+  const euLoteUrls = process.env.EU_LOTE_URLS ?? ''
+  const euLoteSignerCertificates = process.env.EU_LOTE_SIGNER_CERTIFICATES ?? ''
+  const euLoteServiceTypes = process.env.EU_LOTE_SERVICE_TYPES ?? ''
+
+  // Domain (FQDN) for the opt-in SD-JWT VC x5c issuer (HAIP): the per-tenant issuer cert carries this as
+  // a dNSName SAN and the credential `iss` is `https://<domain>`. Required only when a credential offer
+  // opts into x5c issuance.
+  const sdJwtVcIssuerDomain = process.env.SD_JWT_VC_ISSUER_DOMAIN ?? ''
+
+  // Publish an OID4VCI `signed_metadata` JWT (carrying an `x5c` chain) in the credential-issuer
+  // metadata so the wallet can authenticate the issuer at issuance.
+  const oid4vciSignedMetadataEnabled = (process.env.OID4VCI_SIGNED_METADATA_ENABLED ?? 'false') === 'true'
+  // Optional CN + dNSName SAN for the access cert (HAIP-style iss-host binding); empty = default CN, no SAN.
+  const oid4vciAccessCertificateDomain = process.env.OID4VCI_ACCESS_CERTIFICATE_DOMAIN ?? ''
 
   const indyEndorserSeed = process.env.INDY_ENDORSER_SEED ?? INSECURE_DEFAULTS.INDY_ENDORSER_SEED
   //const indyEndorserId = process.env.INDY_ENDORSER_ID ?? ''
@@ -172,6 +239,25 @@ export default registerAs('agent', () => {
     didCommConfig,
     didMethods,
     x509SanDnsMode,
+    mdocIssuerCountry,
+    mdocIssuerAuthority,
+    mdocDefaultDocType,
+    mdocIssuerProfile,
+    mdocIssuerOrganizationIdentifier,
+    mdocIssuerCertificatePolicyOid,
+    euTrustedIssuerCertificates,
+    euTrustListProvider,
+    euTrustListSources,
+    euTrustedListServiceTypes,
+    euLotlUrl,
+    euLotlSignerCertificates,
+    euLotlSchemeTerritories,
+    euLoteUrls,
+    euLoteSignerCertificates,
+    euLoteServiceTypes,
+    sdJwtVcIssuerDomain,
+    oid4vciSignedMetadataEnabled,
+    oid4vciAccessCertificateDomain,
     indyEndorserSeed,
     indyEndorserDid,
     indyBesuChainId,

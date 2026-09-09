@@ -43,7 +43,7 @@ jest.mock('../../src/utils/agent', () => ({
 }))
 
 function renderOpenIdHandlersHookValue() {
-  const { result } = renderHook(() => useOxpenIdHandlers())
+  const { result } = renderHook(() => useOpenIdHandlers())
   return result.current
 }
 

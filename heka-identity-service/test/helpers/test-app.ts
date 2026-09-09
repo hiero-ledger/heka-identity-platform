@@ -23,6 +23,7 @@ import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
 import { INestApplication } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
+import { ModuleRef } from '@nestjs/core'
 import { Test } from '@nestjs/testing'
 import { NativeAskar } from '@openwallet-foundation/askar-nodejs'
 
@@ -32,7 +33,11 @@ import AppConfig from 'config/express'
 import { TailsService } from 'revocation/revocation-registry/tails.service'
 import { AppModule } from 'src/app.module'
 import { startApp } from 'src/app.starter'
-import { AGENT_MODULES_TOKEN, getAgencyModulesMap } from 'src/common/agent/agent-modules.provider'
+import {
+  AGENT_MODULES_TOKEN,
+  buildCredentialMapperDependencies,
+  getAgencyModulesMap,
+} from 'src/common/agent/agent-modules.provider'
 import AgentConfig from 'src/config/agent'
 import FileStorageConfig from 'src/config/file-storage'
 import MikroOrmConfig from 'src/config/mikro-orm'
@@ -64,9 +69,13 @@ export async function startTestApp(): Promise<INestApplication> {
     })
     .overrideProvider(AGENT_MODULES_TOKEN)
     .useFactory({
-      factory: (appConfig: ConfigType<typeof AppConfig>, agencyConfig: ConfigType<typeof AgentConfig>) => {
+      factory: (
+        appConfig: ConfigType<typeof AppConfig>,
+        agencyConfig: ConfigType<typeof AgentConfig>,
+        moduleRef: ModuleRef,
+      ) => {
         return {
-          ...getAgencyModulesMap(appConfig, agencyConfig),
+          ...getAgencyModulesMap(appConfig, agencyConfig, moduleRef),
           askar: new AskarModule({
             askar: NativeAskar.instance,
             store: {
@@ -122,9 +131,9 @@ export async function startTestApp(): Promise<INestApplication> {
             baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             app: agencyConfig.oidConfig.app as any,
+            // The exact production mapper wiring — shared so the harness can never drift from it.
             credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(
-              agencyConfig.mdlIssuerCertificate,
-              agencyConfig.mdlIssuerPrivateKeyJwk,
+              buildCredentialMapperDependencies(moduleRef),
             ),
           }),
           openId4VcVerifier: new OpenId4VcVerifierModule({
@@ -143,7 +152,7 @@ export async function startTestApp(): Promise<INestApplication> {
           }),
         }
       },
-      inject: [AppConfig.KEY, AgentConfig.KEY],
+      inject: [AppConfig.KEY, AgentConfig.KEY, ModuleRef],
     })
     .compile()
   const app = moduleRef.createNestApplication({ bufferLogs: true })

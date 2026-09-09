@@ -20,16 +20,16 @@ type StoredRootCa = { keyId: string; certificateBase64: string; createdAt: strin
 /**
  * Provisions and loads per-tenant X.509 signers (the "key ↔ cert" capability).
  *
- * A fresh P-256 key is projected into both a self-signed signing certificate and a did:jwk that
+ * A fresh P-256 key is projected into both a signing certificate and a did:jwk that
  * share one KMS keyId. Identities are persisted in the tenant agent's `genericRecords` (Askar,
- * per-tenant). M0 mints **self-signed** certs (the `x509_hash` / stepping-stone path); CA-issued
- * (`x509_san_dns`) certs are issued under the service-wide root CA (M2); CSR / external-CA flows
- * remain pending. See `x509-context/x509-signing-implementation-plan.md` §5.1 / §6.3.
+ * per-tenant). `x509_hash` identities are **self-signed** leaves the wallet pins directly;
+ * `x509_san_dns` leaves are issued under the service-wide root CA (`private_ca`, default) or by an
+ * external CA via the CSR/import flow (`csr`).
  */
 @Injectable()
 export class X509SignerService {
   // The global (agency) agent holds the service-wide root CA key — a service-level Askar store,
-  // distinct from any tenant. Tenant `x509_san_dns` leaves are signed against it (plan §5.1).
+  // distinct from any tenant. Tenant `x509_san_dns` leaves are signed against it.
   public constructor(@Inject(AGENT_TOKEN) private readonly agent: Agent) {}
 
   public async provision(tenantAgent: TenantAgent, options: ProvisionX509SignerOptions = {}): Promise<X509Signer> {
@@ -80,7 +80,7 @@ export class X509SignerService {
   /**
    * Create a CSR for a fresh tenant P-256 key — the external-CA alternative for x509_san_dns. The
    * caller submits the returned CSR to their CA, then mounts the signed leaf via
-   * `importSignedCertificate` using the returned `keyId`. See plan §5.1 / §6.3.
+   * `importSignedCertificate` using the returned `keyId`.
    */
   public async createSigningCsr(
     tenantAgent: TenantAgent,
@@ -137,7 +137,7 @@ export class X509SignerService {
   /**
    * Load a signing certificate ready for use as an `x5c` request signer: the stored certificate is
    * parsed and its KMS keyId re-attached (`fromEncodedCertificate` does not restore it). Throws when
-   * no matching identity has been provisioned — there is no silent provisioning (plan §11 #2).
+   * no matching identity has been provisioned — there is no silent provisioning.
    */
   public async loadSigningCertificate(
     tenantAgent: TenantAgent,
@@ -176,7 +176,7 @@ export class X509SignerService {
   /**
    * Make this identity the default for its clientIdPrefix (clearing the previous default). The
    * per-(method, prefix) default is what `loadSigningCertificate` falls back to when a request omits
-   * a certificateId (plan §11 #3).
+   * a certificateId.
    */
   public async setDefault(tenantAgent: TenantAgent, id: string): Promise<X509Signer> {
     const { record, content } = await this.requireSignerRecord(tenantAgent, id)
@@ -192,7 +192,7 @@ export class X509SignerService {
    * SAN, common name and did projection, inheriting the default flag, then retire the old record and
    * its KMS key. Returns the new identity — for `x509_hash` its new fingerprint must be pushed to the
    * wallet trust list in lockstep; for `x509_san_dns` (private CA / external CA) the leaf re-chains to
-   * the same root, so no wallet change is needed (plan §5, §9 M3). Rotating an external-CA identity
+   * the same root, so no wallet change is needed. Rotating an external-CA identity
    * provisioned in `csr` mode is rejected (provision throws) — reissue via the CSR/import flow.
    */
   public async rotate(
@@ -244,10 +244,50 @@ export class X509SignerService {
   }
 
   /**
+   * Issue a certificate for `subjectPublicKey` signed by the service-wide root CA (global store) — a
+   * generic service leaf distinct from the request-signing x509_san_dns leaves. Used by the mdoc
+   * `TrustListService` to mint the VICAL signer under the shared root, so a wallet that trusts the one
+   * long-lived service root can verify the VICAL.
+   * Returns the leaf (keyId NOT attached — the caller owns the subject key) and the root cert
+   * (base64 DER) for assembling an x5chain.
+   */
+  public async issueServiceRootSignedCertificate({
+    subjectPublicKey,
+    commonName,
+    sanDnsName,
+    validityDays = DEFAULT_VALIDITY_DAYS,
+    keyUsages = [X509KeyUsage.DigitalSignature],
+  }: {
+    subjectPublicKey: Kms.PublicJwk
+    commonName: string
+    /** Optional SAN dNSName — set for HAIP SD-JWT VC x5c issuer leaves (iss host must match it). */
+    sanDnsName?: string
+    validityDays?: number
+    keyUsages?: X509KeyUsage[]
+  }): Promise<{ certificate: X509Certificate; rootCertificateBase64: string }> {
+    const rootCa = await this.ensureServiceRootCa()
+    const now = Date.now()
+    const certificate = await this.agent.x509.createCertificate({
+      authorityKey: rootCa.certificate.publicJwk, // signs with the root key (global/service store)
+      subjectPublicKey, // the caller's key is the subject; its private key is not used to sign
+      issuer: { commonName: ROOT_CA_COMMON_NAME, organizationalUnit: 'Heka' },
+      subject: { commonName },
+      validity: { notBefore: new Date(now - CLOCK_SKEW_MS), notAfter: new Date(now + validityDays * MS_PER_DAY) },
+      extensions: {
+        keyUsage: { usages: keyUsages, markAsCritical: true },
+        basicConstraints: { ca: false },
+        ...(sanDnsName ? { subjectAlternativeName: { name: [{ type: 'dns' as const, value: sanDnsName }] } } : {}),
+        authorityKeyIdentifier: { include: true },
+        subjectKeyIdentifier: { include: true },
+      },
+    })
+    return { certificate, rootCertificateBase64: rootCa.certificateBase64 }
+  }
+
+  /**
    * Build the leaf certificate for a new signer, honoring X509_SAN_DNS_MODE for the
-   * x509_san_dns prefix: `private_ca` (default) issues under the service root; `self_signed` mints a
-   * self-signed-with-SAN stepping-stone leaf; `csr` rejects (use the CSR endpoints). x509_hash is
-   * always a self-signed leaf.
+   * x509_san_dns prefix: `private_ca` (default) issues under the service root; `csr` rejects (use the
+   * CSR endpoints). x509_hash is always a self-signed leaf.
    */
   private async createLeafCertificate({
     tenantAgent,
@@ -272,13 +312,7 @@ export class X509SignerService {
             'POST /x509/signers/csr then /import',
         )
       }
-      if (mode === 'private_ca') {
-        return this.issueCaSignedLeaf({ subjectPublicKey, options, notBefore, notAfter })
-      }
-      // mode === 'self_signed' — self-signed-with-SAN stepping stone (falls through to self-signed below).
-      if (!options.sanDnsName) {
-        throw new UnprocessableEntityException('sanDnsName is required for the x509_san_dns trust model')
-      }
+      return this.issueCaSignedLeaf({ subjectPublicKey, options, notBefore, notAfter })
     }
 
     return tenantAgent.x509.createCertificate({
@@ -391,7 +425,7 @@ export class X509SignerService {
   /**
    * Find-or-create the single service-wide root CA (P-256, self-signed, long-lived) in the global
    * agent's store. NOTE: find-or-create is not atomic — concurrent first-time provisions could race
-   * to create two roots; acceptable for an infrequent admin action (plan §5.1 root-key custody).
+   * to create two roots; acceptable for an infrequent admin action.
    */
   private async ensureServiceRootCa(): Promise<{
     certificate: X509Certificate

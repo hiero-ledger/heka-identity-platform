@@ -1,8 +1,19 @@
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Length, ValidateNested } from 'class-validator'
+import {
+  IsArray,
+  IsEnum,
+  IsIn,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  ValidateNested,
+} from 'class-validator'
 
+import { ISSUER_MODES, IssuerMode } from '../../../utils/oid4vc'
 import { IsValidDynamicObject } from '../../../utils/validation'
 
 import { OpenId4VcIssuanceSessionRecordDto } from './issuance-session.dto'
@@ -93,6 +104,16 @@ export class OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions extends O
   @ApiProperty()
   @IsEnum(OpenId4VciCredentialFormatProfile)
   public format!: OpenId4VciCredentialFormatProfile.SdJwtVc
+
+  /**
+   * Issuer mode for this SD-JWT VC: `did` (default) signs with the issuer DID; `x5c` signs with the
+   * per-tenant X.509 issuer cert (HAIP) and sets `iss` to `https://<SD_JWT_VC_ISSUER_DOMAIN>`. When
+   * `x5c`, the `issuer.did` is ignored.
+   */
+  @ApiPropertyOptional({ enum: [...ISSUER_MODES], default: 'did' })
+  @IsOptional()
+  @IsIn(ISSUER_MODES)
+  public issuerMode?: IssuerMode
 
   /**
    * The payload of the credential that will be issued.

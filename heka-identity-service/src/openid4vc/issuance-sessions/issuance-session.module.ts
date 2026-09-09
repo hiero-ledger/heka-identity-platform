@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 
 import { AgentModule } from 'common/agent'
+import { MdocIssuerCaModule } from 'mdoc-issuer-ca'
 
 import { RevocationModule } from '../../revocation'
 
@@ -8,7 +9,7 @@ import { OpenId4VcIssuanceSessionController } from './issuance-session.controlle
 import { OpenId4VcIssuanceSessionService } from './issuance-session.service'
 
 @Module({
-  imports: [AgentModule, RevocationModule],
+  imports: [AgentModule, RevocationModule, MdocIssuerCaModule],
   controllers: [OpenId4VcIssuanceSessionController],
   providers: [OpenId4VcIssuanceSessionService],
   exports: [OpenId4VcIssuanceSessionService],

@@ -49,7 +49,7 @@ export async function createDcApiAgent(walletSecret: WalletSecret): Promise<Heka
       x509: new X509Module({
         trustedCertificates: [...TRUSTED_X509_CERTIFICATES],
         getTrustedCertificatesForVerification: (_agentContext, { verification }) =>
-          trustedCertificatesForVerification(verification.type),
+          trustedCertificatesForVerification(verification),
       }),
     },
   })

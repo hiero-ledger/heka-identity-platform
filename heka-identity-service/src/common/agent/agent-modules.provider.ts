@@ -1,4 +1,6 @@
 import type { AnonCredsRegistry } from '@credo-ts/anoncreds'
+import type { MdocIssuerCaService } from 'mdoc-issuer-ca'
+import type { SdJwtVcIssuerService } from 'sdjwt-vc-issuer'
 
 import {
   AnonCredsDidCommCredentialFormatService,
@@ -43,16 +45,34 @@ import { TenantsModule } from '@credo-ts/tenants'
 import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
 import { ConfigType } from '@nestjs/config'
+import { ModuleRef } from '@nestjs/core'
 import { NativeAskar } from '@openwallet-foundation/askar-nodejs'
 
 import AgentConfig from 'config/agent'
 import AppConfig from 'config/express'
-import { createCredentialRequestToCredentialMapper } from 'utils/oid4vc'
+import { MDOC_ISSUER_CA_SERVICE } from 'mdoc-issuer-ca/mdoc-issuer-ca.tokens'
+import { SDJWT_VC_ISSUER_SERVICE } from 'sdjwt-vc-issuer/sdjwt-vc-issuer.tokens'
+import { createCredentialRequestToCredentialMapper, CredentialMapperDependencies } from 'utils/oid4vc'
 
 import { TailsService } from '../../revocation/revocation-registry/tails.service'
 import { IndyBesuAnonCredsRegistry, IndyBesuDidRegistrar, IndyBesuDidResolver, IndyBesuModule } from '../indy-besu-vdr'
 
-function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConfig: ConfigType<typeof AgentConfig>) {
+export function buildCredentialMapperDependencies(moduleRef: ModuleRef): CredentialMapperDependencies {
+  return {
+    getMdocIssuerCertificate: (agentContext) =>
+      moduleRef.get<MdocIssuerCaService>(MDOC_ISSUER_CA_SERVICE, { strict: false }).loadCurrentDsc(agentContext),
+    getSdJwtVcIssuerCertificate: (agentContext) =>
+      moduleRef
+        .get<SdJwtVcIssuerService>(SDJWT_VC_ISSUER_SERVICE, { strict: false })
+        .loadIssuerCertificateChain(agentContext),
+  }
+}
+
+function getTenantModulesMap(
+  appConfig: ConfigType<typeof AppConfig>,
+  agencyConfig: ConfigType<typeof AgentConfig>,
+  moduleRef: ModuleRef,
+) {
   const credentialFormatService = new AnonCredsDidCommCredentialFormatService()
   const proofFormatService = new AnonCredsDidCommProofFormatService()
   const legacyIndyCredentialFormatService = new LegacyIndyDidCommCredentialFormatService()
@@ -137,8 +157,7 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       issuer: {
         baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
         credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(
-          agencyConfig.mdlIssuerCertificate,
-          agencyConfig.mdlIssuerPrivateKeyJwk,
+          buildCredentialMapperDependencies(moduleRef),
         ),
       },
       verifier: {
@@ -170,9 +189,10 @@ export type TenantModulesMap = ReturnType<typeof getTenantModulesMap>
 export function getAgencyModulesMap(
   appConfig: ConfigType<typeof AppConfig>,
   agencyConfig: ConfigType<typeof AgentConfig>,
+  moduleRef: ModuleRef,
 ) {
   return {
-    ...getTenantModulesMap(appConfig, agencyConfig),
+    ...getTenantModulesMap(appConfig, agencyConfig, moduleRef),
     tenants: new TenantsModule<TenantModulesMap>(),
   }
 }
@@ -186,6 +206,7 @@ export const agentModulesProvider = {
   useFactory: (
     appConfig: ConfigType<typeof AppConfig>,
     agencyConfig: ConfigType<typeof AgentConfig>,
-  ): AgencyModulesMap => getAgencyModulesMap(appConfig, agencyConfig),
-  inject: [AppConfig.KEY, AgentConfig.KEY],
+    moduleRef: ModuleRef,
+  ): AgencyModulesMap => getAgencyModulesMap(appConfig, agencyConfig, moduleRef),
+  inject: [AppConfig.KEY, AgentConfig.KEY, ModuleRef],
 }

@@ -3,7 +3,7 @@ export type X509ClientIdPrefix = 'x509_hash' | 'x509_san_dns'
 /**
  * A per-tenant X.509 signer. The KMS key, the X.509 certificate and the
  * (optional) did:jwk all share a single `keyId`, so one private key produces both `x5c` and
- * `did` request signatures. See `x509-context/x509-signing-implementation-plan.md` §4.
+ * `did` request signatures.
  */
 export interface X509Signer {
   id: string

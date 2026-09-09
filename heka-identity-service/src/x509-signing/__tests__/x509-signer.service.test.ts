@@ -253,6 +253,31 @@ describe('X509SignerService', () => {
     })
   })
 
+  describe('issueServiceRootSignedCertificate', () => {
+    test('signs a generic leaf under the service root and returns it + the root cert', async () => {
+      // existing root CA in the global store
+      const rootParsed = { publicJwk: { marker: 'root-pub' }, keyId: undefined as string | undefined }
+      vi.spyOn(X509Certificate, 'fromEncodedCertificate').mockReturnValue(rootParsed as never)
+      mockGlobalFindAllByQuery.mockResolvedValue([{ content: { keyId: 'root-key', certificateBase64: 'ROOTB64' } }])
+      const leaf = buildCert()
+      mockGlobalCreateCertificate.mockResolvedValue(leaf)
+
+      const result = await service.issueServiceRootSignedCertificate({
+        subjectPublicKey: { marker: 'vical-pub' } as never,
+        commonName: 'Heka VICAL Signer',
+      })
+
+      const opts = mockGlobalCreateCertificate.mock.calls[0][0]
+      expect(opts.authorityKey).toEqual({ marker: 'root-pub' }) // signed by the root key
+      expect(opts.subjectPublicKey).toEqual({ marker: 'vical-pub' }) // caller key is the subject
+      expect(opts.subject).toMatchObject({ commonName: 'Heka VICAL Signer' })
+      expect(opts.extensions.keyUsage).toEqual({ usages: [X509KeyUsage.DigitalSignature], markAsCritical: true })
+      expect(opts.extensions.basicConstraints).toEqual({ ca: false })
+      expect(mockGlobalCreateKey).not.toHaveBeenCalled() // reuses the existing root
+      expect(result).toEqual({ certificate: leaf, rootCertificateBase64: 'ROOTB64' })
+    })
+  })
+
   describe('createSigningCsr', () => {
     test('creates a tenant key and returns a CSR PEM + keyId', async () => {
       vi.spyOn(Kms.PublicJwk, 'fromPublicJwk').mockReturnValue({})
