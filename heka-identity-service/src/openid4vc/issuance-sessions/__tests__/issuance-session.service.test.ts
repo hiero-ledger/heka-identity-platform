@@ -2,11 +2,13 @@ import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
 import { BadRequestException, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
+import { StatusType } from '@owf/token-status-list'
 
 import { TenantAgent } from 'common/agent'
 import { AuthInfo, Role } from 'common/auth'
 import AgentConfig from 'config/agent'
 import { MdocIssuerCaService } from 'mdoc-issuer-ca'
+import { SdJwtVcIssuerService } from 'sdjwt-vc-issuer'
 
 import {
   didResolutionResultStub,
@@ -14,6 +16,7 @@ import {
   issuerRecordStub,
 } from '../../../../test/helpers/mock-records'
 import { StatusListService } from '../../../revocation/status-list/status-list.service'
+import { TokenStatusListService } from '../../../revocation/token-status-list/token-status-list.service'
 import { OpenId4VcIssuanceSessionService } from '../issuance-session.service'
 
 describe('OpenId4VcIssuanceSessionService', () => {
@@ -21,6 +24,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
   let tenantAgent: TenantAgent
   let statusListService: StatusListService
   let mdocIssuerCaService: MdocIssuerCaService
+  let tokenStatusListService: TokenStatusListService
+  let sdJwtVcIssuerService: SdJwtVcIssuerService
   let agencyConfig: ConfigType<typeof AgentConfig>
   let authInfo: AuthInfo
 
@@ -32,6 +37,13 @@ describe('OpenId4VcIssuanceSessionService', () => {
     mdocIssuerCaService = createMock<MdocIssuerCaService>()
     // Default: tenant has a provisioned mdoc issuer (the offer() require-provisioning guard passes).
     vi.mocked(mdocIssuerCaService.requireProvisioned).mockResolvedValue({ id: 'iaca-1' } as never)
+    tokenStatusListService = createMock<TokenStatusListService>()
+    vi.mocked(tokenStatusListService.allocate).mockResolvedValue({
+      id: 'tsl-1',
+      uri: 'https://example.com/token-status-lists/tsl-1',
+      idx: 42,
+    })
+    sdJwtVcIssuerService = createMock<SdJwtVcIssuerService>()
     agencyConfig = {
       credentialsConfiguration: {
         OpenId4VC: {
@@ -46,7 +58,13 @@ describe('OpenId4VcIssuanceSessionService', () => {
       },
     } as any
 
-    service = new OpenId4VcIssuanceSessionService(agencyConfig, statusListService, mdocIssuerCaService)
+    service = new OpenId4VcIssuanceSessionService(
+      agencyConfig,
+      statusListService,
+      mdocIssuerCaService,
+      tokenStatusListService,
+      sdJwtVcIssuerService,
+    )
 
     mockFindIssuanceSessionsByQuery.mockReset()
     mockDeleteById.mockReset()
@@ -68,9 +86,10 @@ describe('OpenId4VcIssuanceSessionService', () => {
           return { deleteById: mockDeleteById }
         }),
       },
-      context: {},
+      context: { contextCorrelationId: 'tenant-1' },
       dids: {
         resolve: vi.fn(),
+        resolveCreatedDidDocumentWithKeys: vi.fn(),
       },
     })
 
@@ -237,7 +256,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
     })
 
-    test('should create issuance session for SdJwtVc format without credentialStatus', async () => {
+    test('should create issuance session for SdJwtVc format with a token-status-list credentialStatus', async () => {
       const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
@@ -254,6 +273,10 @@ describe('OpenId4VcIssuanceSessionService', () => {
           },
         }),
       )
+      vi.mocked(tenantAgent.dids.resolveCreatedDidDocumentWithKeys).mockResolvedValue({
+        didDocument: {} as never,
+        keys: [{ didDocumentRelativeKeyId: '#key-1', kmsKeyId: 'kms-key-1' }],
+      })
 
       const mockSession = issuanceSessionRecordStub({
         id: 'session-new',
@@ -285,15 +308,76 @@ describe('OpenId4VcIssuanceSessionService', () => {
       const result = await service.offer(authInfo, tenantAgent, req)
 
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkGood')
+      // the list is signed with the DID's own verification-method key (same key as the credential)
+      expect(tokenStatusListService.allocate).toHaveBeenCalledWith(tenantAgent.context, authInfo, {
+        issuer: 'did:key:z6MkGood',
+        keyId: 'kms-key-1',
+        signer: { method: 'did', kid: 'did:key:z6MkGood#key-1' },
+      })
       expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
-        expect.objectContaining({ issuerId: 'issuer-1' }),
+        expect.objectContaining({
+          issuerId: 'issuer-1',
+          issuanceMetadata: {
+            credentials: [
+              expect.objectContaining({
+                credentialStatus: {
+                  type: 'token-status-list',
+                  location: 'https://example.com/token-status-lists/tsl-1',
+                  index: 42,
+                },
+              }),
+            ],
+          },
+        }),
       )
       expect(result.credentialOffer).toBe('openid-credential-offer://...')
       expect(result.issuanceSession.id).toBe('session-new')
-      // SdJwtVc does not support revocation, so addItems should NOT be called
+      // SD-JWT VC never touches the W3C bitstring list
       expect(statusListService.addItems).not.toHaveBeenCalled()
-      // statusListService.location should NOT have been called for SdJwtVc either
       expect(statusListService.location).not.toHaveBeenCalled()
+    })
+
+    test('should sign the token status list of an x5c-mode SdJwtVc with the tenant issuer certificate key', async () => {
+      const mockIssuer = issuerRecordStub({
+        issuerId: 'issuer-1',
+        credentialConfigurationsSupported: {
+          'cred-sd-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
+        },
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(sdJwtVcIssuerService.loadIssuerCertificateChain).mockResolvedValue({
+        issuerUrl: 'https://issuer.example',
+        certificateChain: [
+          { publicJwk: { hasKeyId: true, keyId: 'leaf-key' }, toString: () => 'LEAF' },
+          { publicJwk: {}, toString: () => 'ROOT' },
+        ] as never,
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://...',
+        issuanceSession: issuanceSessionRecordStub({ id: 'session-x5c', issuerId: 'issuer-1' }),
+      })
+
+      await service.offer(authInfo, tenantAgent, {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          {
+            credentialSupportedId: 'cred-sd-1',
+            format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+            issuerMode: 'x5c',
+            issuer: {},
+            payload: { some: 'payload' },
+          },
+        ],
+        baseUri: 'https://example.com',
+      } as any)
+
+      expect(tenantAgent.dids.resolve).not.toHaveBeenCalled()
+      expect(tokenStatusListService.allocate).toHaveBeenCalledWith(tenantAgent.context, authInfo, {
+        issuer: 'https://issuer.example',
+        keyId: 'leaf-key',
+        signer: { method: 'x5c', x5c: ['LEAF', 'ROOT'] },
+      })
     })
 
     test('should create issuance session for JwtVcJson format WITH credentialStatus and call addItems', async () => {
@@ -600,6 +684,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
         restrictedConfig,
         statusListService,
         mdocIssuerCaService,
+        tokenStatusListService,
+        sdJwtVcIssuerService,
       )
 
       const mockIssuer = issuerRecordStub({
@@ -656,6 +742,36 @@ describe('OpenId4VcIssuanceSessionService', () => {
       await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')).rejects.toThrow(
         'Credential does not support revocation',
       )
+    })
+
+    test('should revoke a token-status-list credential by invalidating its entry in the tenant context', async () => {
+      const mockSession = issuanceSessionRecordStub({
+        id: 'session-1',
+        issuanceMetadata: {
+          credentials: [
+            {
+              format: 'vc+sd-jwt',
+              credentialStatus: {
+                type: 'token-status-list',
+                location: 'https://example.com/token-status-lists/tsl-1',
+                index: 42,
+              },
+            },
+          ],
+        },
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(mockSession)
+
+      await service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')
+
+      expect(tokenStatusListService.setStatus).toHaveBeenCalledWith(
+        tenantAgent.context,
+        authInfo,
+        'tsl-1',
+        42,
+        StatusType.Invalid,
+      )
+      expect(statusListService.updateItems).not.toHaveBeenCalled()
     })
 
     test('should call statusListService.updateItems on successful revocation', async () => {

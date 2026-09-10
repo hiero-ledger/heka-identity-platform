@@ -20,7 +20,7 @@ Endpoints are grouped by domain:
   - `/openid4vc/issuance-session/*` — credential offer creation, lookup, revocation.
   - `/openid4vc/verifier/*` — Verifier record management.
   - `/openid4vc/verification-session/*` — proof request creation and status.
-- **Revocation** (`/revocation-registries/*`, `/revocation/tails/*`, `/credentials/status/*`, `/status-lists/*`) — revocation registries, tails files, and status-list management.
+- **Revocation** (`/revocation-registries/*`, `/revocation/tails/*`, `/credentials/status/*`, `/status-lists/*`, `/token-status-lists/*`) — revocation registries, tails files, W3C bitstring status-list management, and the public IETF Token Status Lists referenced by SD-JWT VCs (`application/statuslist+jwt`).
 - **User** (`/user/*`) — webhook / WebSocket subscription for notification events (see below).
 - **Prepare Wallet** (`/prepare-wallet`) — bootstrap a tenant wallet with default state.
 - **Health** (`/health`) — memory + database health probe.

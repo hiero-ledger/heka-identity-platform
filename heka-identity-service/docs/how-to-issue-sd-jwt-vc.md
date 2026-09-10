@@ -173,7 +173,8 @@ Example: with the body above, the holder can present a proof revealing only `age
 | `POST /openid4vc/issuance-session/offer`       | Create an offer (Step 3).                                                      |
 | `GET /openid4vc/issuance-session/{id}`         | Inspect a session's state (Step 5).                                            |
 | `DELETE /openid4vc/issuance-session/{id}`      | Cancel a pending session.                                                      |
-| `POST /openid4vc/issuance-session/{id}/revoke` | Revoke an issued credential (where supported).                                 |
+| `POST /openid4vc/issuance-session/{id}/revoke` | Revoke an issued credential. SD-JWT VCs are revoked through an IETF Token Status List: the credential carries `status.status_list.{idx, uri}`, the list is signed with the same key as the credential, and verifiers re-check it (`ttl` 300 s). |
+| `GET /token-status-lists/{id}`                 | Public download of a Status List Token (`application/statuslist+jwt`) — the `uri` inside an SD-JWT VC's `status` claim. Must be reachable by wallets and verifiers (`APP_ENDPOINT`). |
 
 ## Troubleshooting
 

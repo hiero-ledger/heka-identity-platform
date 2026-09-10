@@ -6,14 +6,20 @@ import {
 } from '@credo-ts/openid4vc'
 import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
+import { StatusType } from '@owf/token-status-list'
 
 import { TenantAgent } from 'common/agent'
 import AgentConfig from 'config/agent'
 import { MdocIssuerCaService } from 'mdoc-issuer-ca'
+import { SdJwtVcIssuerService } from 'sdjwt-vc-issuer'
 import { IssuerMode } from 'utils/oid4vc'
 
 import { AuthInfo } from '../../common/auth'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
+import {
+  TokenStatusListService,
+  TokenStatusListSignerIdentity,
+} from '../../revocation/token-status-list/token-status-list.service'
 import { CredentialIssuanceMetadata } from '../../utils/oid4vc'
 
 import {
@@ -29,6 +35,8 @@ export class OpenId4VcIssuanceSessionService {
     @Inject(AgentConfig.KEY) private readonly agencyConfig: ConfigType<typeof AgentConfig>,
     private readonly statusListService: StatusListService,
     private readonly mdocIssuerCaService: MdocIssuerCaService,
+    private readonly tokenStatusListService: TokenStatusListService,
+    private readonly sdJwtVcIssuerService: SdJwtVcIssuerService,
   ) {}
 
   public async offer(
@@ -72,9 +80,11 @@ export class OpenId4VcIssuanceSessionService {
         (credential as { issuerMode?: IssuerMode }).issuerMode === 'x5c'
 
       // MsoMdoc uses X.509 certificates, not DIDs — skip DID resolution
+      let issuerDid: string | undefined
       let issuerDidUrl: string | undefined
       if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc && !isX5cSdJwt) {
         const issuerCredential = credential as { issuer: { did: string } }
+        issuerDid = issuerCredential.issuer.did
         const { didDocument } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
         if (!didDocument || !didDocument.verificationMethod?.length) {
           throw new UnprocessableEntityException(
@@ -89,9 +99,10 @@ export class OpenId4VcIssuanceSessionService {
         await this.mdocIssuerCaService.requireProvisioned(tenantAgent.context)
       }
 
-      let credentialStatus
+      let credentialStatus: CredentialIssuanceMetadata['credentialStatus']
 
-      // sd+jwt and mso_mdoc do not support revocation
+      // W3C VCs → bitstring status list; SD-JWT VC → IETF token status list (the EUDI / HAIP mechanism);
+      // mso_mdoc → none until Credo exposes the MSO `status` claim (0.8.0).
       if (
         credential.format === OpenId4VciCredentialFormatProfile.JwtVcJson ||
         credential.format === OpenId4VciCredentialFormatProfile.JwtVcJsonLd ||
@@ -101,10 +112,15 @@ export class OpenId4VcIssuanceSessionService {
         // This keeps issued indexes within [0, size), consistent with capacity guard and per-index bound in StatusListService
         credentialIndexes.push(credentialIndex)
         credentialStatus = {
+          type: 'bitstring',
           location: this.statusListService.location(statusList.id),
           index: credentialIndex,
         }
         credentialIndex += 1
+      } else if (credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc) {
+        const signer = await this.sdJwtStatusListSigner(tenantAgent, isX5cSdJwt, issuerDid, issuerDidUrl)
+        const reference = await this.tokenStatusListService.allocate(tenantAgent.context, authInfo, signer)
+        credentialStatus = { type: 'token-status-list', location: reference.uri, index: reference.idx }
       }
 
       let type: string | string[]
@@ -228,9 +244,56 @@ export class OpenId4VcIssuanceSessionService {
     const statusListId = credential.credentialStatus.location.split('/')?.pop()
     if (!statusListId) throw new Error('Credential does not support revocation')
 
+    if (credential.credentialStatus.type === 'token-status-list') {
+      await this.tokenStatusListService.setStatus(
+        tenantAgent.context,
+        authInfo,
+        statusListId,
+        credential.credentialStatus.index,
+        StatusType.Invalid,
+      )
+      return
+    }
+
     await this.statusListService.updateItems(authInfo, statusListId, {
       indexes: [credential.credentialStatus.index],
       revoked: true,
     })
+  }
+
+  /**
+   * The identity a token status list for this SD-JWT VC issuance must be signed with: the very key that
+   * signs the credentials (Credo verifies a Status List Token with the referenced credential's issuer
+   * key). x5c mode → the tenant's issuer leaf; DID mode → the DID's verification-method key.
+   */
+  private async sdJwtStatusListSigner(
+    tenantAgent: TenantAgent,
+    isX5c: boolean,
+    issuerDid: string | undefined,
+    issuerDidUrl: string | undefined,
+  ): Promise<TokenStatusListSignerIdentity> {
+    if (isX5c) {
+      const { certificateChain, issuerUrl } = await this.sdJwtVcIssuerService.loadIssuerCertificateChain(
+        tenantAgent.context,
+      )
+      const leafJwk = certificateChain[0].publicJwk
+      if (!leafJwk.hasKeyId)
+        throw new UnprocessableEntityException('SD-JWT VC issuer certificate has no signing key bound')
+      return {
+        issuer: issuerUrl,
+        keyId: leafJwk.keyId,
+        signer: { method: 'x5c', x5c: certificateChain.map((certificate) => certificate.toString('base64')) },
+      }
+    }
+
+    if (!issuerDid || !issuerDidUrl) throw new UnprocessableEntityException('SD-JWT VC issuer DID is missing')
+    const { keys } = await tenantAgent.dids.resolveCreatedDidDocumentWithKeys(issuerDid)
+    const key = keys?.find(
+      (candidate) =>
+        issuerDidUrl === `${issuerDid}${candidate.didDocumentRelativeKeyId}` ||
+        issuerDidUrl.endsWith(candidate.didDocumentRelativeKeyId),
+    )
+    if (!key) throw new UnprocessableEntityException(`Unable to resolve the signing key for DID URL: ${issuerDidUrl}`)
+    return { issuer: issuerDid, keyId: key.kmsKeyId, signer: { method: 'did', kid: issuerDidUrl } }
   }
 }

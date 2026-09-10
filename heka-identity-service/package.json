@@ -71,6 +71,7 @@
     "@openwallet-foundation/askar-nodejs": "0.6.0",
     "@openwallet-foundation/askar-shared": "0.6.0",
     "@owf/eudi-lote": "0.3.2",
+    "@owf/token-status-list": "0.3.2",
     "@peculiar/x509": "^1.14.3",
     "@xmldom/xmldom": "^0.9.10",
     "async-mutex": "^0.5.0",

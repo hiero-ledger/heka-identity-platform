@@ -35,6 +35,14 @@ export interface CredentialMapperDependencies {
   ) => Promise<{ certificateChain: X509Certificate[]; issuerUrl: string }>
 }
 
+/** The SD-JWT VC `status.status_list` claim (draft-ietf-oauth-status-list) for a token-status-list reference. */
+export function tokenStatusListClaim(
+  credentialStatus: CredentialIssuanceMetadata['credentialStatus'],
+): { status: { status_list: { idx: number; uri: string } } } | Record<string, never> {
+  if (credentialStatus?.type !== 'token-status-list') return {}
+  return { status: { status_list: { idx: credentialStatus.index, uri: credentialStatus.location } } }
+}
+
 export interface CredentialIssuanceMetadata {
   format: string
   type: string | string[]
@@ -49,7 +57,12 @@ export interface CredentialIssuanceMetadata {
     url?: string
   }
   '@context'?: Array<string | JsonObject>
+  /**
+   * Revocation reference. `bitstring` (default when absent — pre-existing sessions) = W3C bitstring list
+   * for W3C VCs; `token-status-list` = IETF token status list, carried by SD-JWT VCs as `status.status_list`.
+   */
   credentialStatus?: {
+    type?: 'bitstring' | 'token-status-list'
     location: string
     index: number
   }
@@ -137,6 +150,7 @@ export const createCredentialRequestToCredentialMapper =
           payload: {
             vct,
             ...issuanceMetadata.payload,
+            ...tokenStatusListClaim(issuanceMetadata.credentialStatus),
           },
           disclosureFrame: issuanceMetadata.disclosureFrame,
           hashingAlgorithm: 'sha-256',
