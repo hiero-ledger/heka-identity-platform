@@ -5,3 +5,9 @@
  * import it without creating an import cycle (the service imports `common/agent`).
  */
 export const MDOC_ISSUER_CA_SERVICE = 'MdocIssuerCaService'
+
+/**
+ * DI token for {@link VerifierTrustAnchorService}: Credo's X.509 module resolves it lazily via `ModuleRef`
+ * from the `getTrustedCertificatesForVerification` hook (same cycle-avoidance as above).
+ */
+export const VERIFIER_TRUST_ANCHOR_SERVICE = 'VerifierTrustAnchorService'

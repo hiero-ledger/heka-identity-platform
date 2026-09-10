@@ -5,6 +5,8 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common'
 import { Agent, AGENT_TOKEN } from 'common/agent'
 import { ManagedCertificateService } from 'x509-signing'
 
+import { SDJWT_ISSUER_REGISTRY_RECORD_TYPE, SdJwtIssuerRegistryEntry } from './sdjwt-issuer-registry'
+
 const RECORD_TYPE = 'sdjwt-vc-issuer'
 
 const NOT_CONFIGURED_MESSAGE =
@@ -49,6 +51,37 @@ export class SdJwtVcIssuerService {
       commonName: domain,
       sanDnsName: domain, // HAIP: iss host (https://<domain>) must match this dNSName SAN
     })
+    await this.mirrorToRegistry(agentContext, domain, chain[0])
     return { certificateChain: chain, issuerUrl: `https://${domain}` }
+  }
+
+  /**
+   * Mirror the tenant's public issuer leaf to the global SD-JWT issuer registry (keyed by context id),
+   * so the scheme trust list can enumerate per-tenant issuer identities across isolated tenant stores.
+   * Keys never leave the tenant store — only the public certificate is copied; unchanged certificates
+   * are not rewritten.
+   */
+  private async mirrorToRegistry(agentContext: AgentContext, domain: string, leaf: X509Certificate): Promise<void> {
+    const tenantContextId = agentContext.contextCorrelationId
+    const content: SdJwtIssuerRegistryEntry = {
+      tenantContextId,
+      domain,
+      certificateBase64: leaf.toString('base64'),
+      notAfter: leaf.data.notAfter.toISOString(),
+    }
+    const existing = (
+      await this.agent.genericRecords.findAllByQuery({ recordType: SDJWT_ISSUER_REGISTRY_RECORD_TYPE, tenantContextId })
+    )[0]
+    if (existing) {
+      const current = existing.content as unknown as SdJwtIssuerRegistryEntry
+      if (current.certificateBase64 === content.certificateBase64 && current.domain === domain) return
+      existing.content = { ...content }
+      await this.agent.genericRecords.update(existing)
+    } else {
+      await this.agent.genericRecords.save({
+        content: { ...content },
+        tags: { recordType: SDJWT_ISSUER_REGISTRY_RECORD_TYPE, tenantContextId },
+      })
+    }
   }
 }

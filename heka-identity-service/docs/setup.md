@@ -350,6 +350,7 @@ Required when issuing `mso_mdoc` credentials (mobile driving licences and simila
 | ------------------------ | ------------ | ------------------------------------------------------------------------------------------------ |
 | `MDL_ISSUER_CERTIFICATE` | _(dev cert)_ | Base64-encoded X.509 certificate used as the mDL issuer's IACA. **Replace for non-trivial use.** |
 | `MDL_ISSUER_PRIVATE_KEY` | _(dev key)_  | JSON-encoded JWK private key matching the certificate. **Replace for non-trivial use.**          |
+| `VICAL_ENABLED`          | `false`      | Publish the ISO 18013-5 VICAL at `GET /vical` for readers that import VICALs (Multipaz and similar). Off by default: wallets and verifiers learn the same tenant issuer anchors from the scheme trust lists at `GET /trust-list/eaa-providers` / `GET /trust-list/wrpac-providers`. While off, `/vical` answers 404 and no VICAL signer is provisioned. |
 
 ### Logging
 

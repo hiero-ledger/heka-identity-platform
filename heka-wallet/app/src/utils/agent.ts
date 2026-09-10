@@ -18,7 +18,6 @@ import {
   KeyDidRegistrar,
   KeyDidResolver,
   PeerDidNumAlgo,
-  Mdoc,
   PeerDidRegistrar,
   PeerDidResolver,
   SdJwtVcRecord,
@@ -54,18 +53,23 @@ import { CredoLogger } from '../logger'
 
 import { getDidKeyVerificationMethodId } from './did'
 import { TailsService } from './revocation/TailsService'
-import { EuRefreshResult, EuTrustListAgent, refreshEuTrustList } from './trust/euTrustListService'
-import { issuerTrustStore } from './trust/issuerTrustStore'
-import { refreshIssuerTrustList, RefreshResult, TrustListAgent } from './trust/trustListService'
+import {
+  refreshTrustSources as refreshConfiguredTrustSources,
+  TrustSourceRefreshResult,
+  TrustVerifyAgent,
+} from './trust/loteTrustSource'
+import { resolveTrustAnchors } from './trust/trustResolver'
+import { TrustSourceConfig, trustSourcesFromConfig } from './trust/trustSources'
+import { trustSubjectFor, X509VerificationContext } from './trust/verificationSubject'
 
 const PUBLIC_DID_KEY = 'PUBLIC_DID'
 
 const PUBLIC_INVITATION_ID_KEY = 'PUBLIC_INVITATION_ID'
 
 /**
- * Bundled mdoc **issuer** trust anchor(s) (base64 DER). This is the **interim** anchor used until the
- * Heka VICAL is fetched and verified: {@link refreshHekaIssuerTrustList} learns the per-tenant IACA
- * anchors from the signed VICAL and adds them to the trusted set. The default value is the dev mDL
+ * Bundled (static) mdoc **issuer** trust anchor(s) (base64 DER) — the fallback set that always applies
+ * to mdoc verification, alongside the anchors learned from the configured trust sources
+ * ({@link TRUST_SOURCES}, refreshed by {@link refreshTrustSources}). The default value is the dev mDL
  * issuer cert.
  */
 export const TRUSTED_X509_CERTIFICATES = [
@@ -73,26 +77,23 @@ export const TRUSTED_X509_CERTIFICATES = [
 ] as const
 
 /**
- * The Heka service **root CA** (base64 DER) that the VICAL signer chains to. The wallet trusts
- * this one long-lived root to verify the fetched VICAL — it is NOT itself an mdoc issuer anchor.
- * Obtain it from the identity service's `GET /x509/signers/root-certificate` and set
- * `HEKA_SERVICE_ROOT_CERTIFICATE`. Empty by default = the VICAL cannot be verified yet (refresh skips).
+ * The Heka service **root CA** (base64 DER). It plays two roles: it pins the signer of the default
+ * Heka trust sources, and it is the chain root of the SD-JWT VC `x5c` issuer leaves and of the
+ * request-signing / access-certificate leaves. It is NOT itself an mdoc issuer anchor. Obtain it from
+ * the identity service's `GET /x509/signers/root-certificate` and set `HEKA_SERVICE_ROOT_CERTIFICATE`.
+ * Empty by default = the default sources cannot be verified (their refresh is skipped).
  */
 const HEKA_SERVICE_ROOT_CERTIFICATES: string[] = [Config.HEKA_SERVICE_ROOT_CERTIFICATE].filter(
   (certificate): certificate is string => Boolean(certificate)
 )
 
-/** Resolve the Heka VICAL endpoint URL: explicit `VICAL_URL`, else `<AGENCY_PROVIDER_URL>/vical`. */
-const getVicalUrl = (): string | undefined => {
-  if (Config.VICAL_URL) return Config.VICAL_URL
-  return Config.AGENCY_PROVIDER_URL ? `${Config.AGENCY_PROVIDER_URL.replace(/\/+$/, '')}/vical` : undefined
-}
-
-/** Resolve the Heka EU trust-list URL: explicit `EU_TRUST_LIST_URL`, else `<AGENCY_PROVIDER_URL>/eu-trust-list`. */
-const getEuTrustListUrl = (): string | undefined => {
-  if (Config.EU_TRUST_LIST_URL) return Config.EU_TRUST_LIST_URL
-  return Config.AGENCY_PROVIDER_URL ? `${Config.AGENCY_PROVIDER_URL.replace(/\/+$/, '')}/eu-trust-list` : undefined
-}
+/**
+ * The signed trust lists the wallet learns anchors from (ETSI TS 119 602 LoTE JWTs). `TRUST_SOURCES`
+ * (JSON) configures them explicitly; by default the two Heka scheme lists under `AGENCY_PROVIDER_URL`
+ * (`/trust-list/eaa-providers`, `/trust-list/wrpac-providers`), pinned to the service root. Each
+ * source vouches only for its role and, when classified, only for the attestation types it lists.
+ */
+export const TRUST_SOURCES: TrustSourceConfig[] = trustSourcesFromConfig(Config)
 
 /**
  * Trusted X.509 certificates for verifying OpenID4VP authorization-request **signers** (the
@@ -106,32 +107,37 @@ const getEuTrustListUrl = (): string | undefined => {
  */
 export const TRUSTED_REQUEST_SIGNER_CERTIFICATES: string[] = []
 
-/** The X509 verification context passed by Credo's X509Module (structural subset we branch on). */
-export type X509VerificationContext = { type: string; credential?: unknown }
+export type { X509VerificationContext }
 
 /**
- * Resolve trusted certificates per verification context. Three distinct trust domains:
- *  - the verifier's signed authorization request: the request-signer set;
- *  - an SD-JWT VC credential: the Heka service root (the HAIP x5c issuer leaf chains to it);
- *  - any other credential (notably mdoc/MSO): the mdoc issuer anchors (VICAL-learned per-tenant IACAs
- *    plus the interim bundled anchor).
- *
- * mdoc MSOs deliberately do NOT trust the service root (it is not an mdoc issuer anchor), keeping the
- * issuer-credential and SD-JWT-VC trust domains separate. Used by the main and lean DC API agents.
+ * Resolve trusted certificates per verification context: the anchors learned from the trust sources
+ * selected for the subject (role + classification, see `resolveTrustAnchors`) plus the static set of
+ * that trust domain:
+ *  - a signed authorization request / signed issuer metadata (access-certificate role): the
+ *    `wrpac-providers`-type sources + the service root (chain root of the request-signing and
+ *    access-certificate leaves) + the pinned request-signer set;
+ *  - an mdoc: the credential-issuer sources classified for its docType + the bundled mdoc anchors —
+ *    never the service root (a service-root-signed leaf must not be able to forge an MSO);
+ *  - an SD-JWT VC: the credential-issuer sources classified for its `vct` + the service root (the
+ *    HAIP x5c issuer leaf chains to it);
+ *  - any other credential: the unrestricted credential-issuer sources + both static sets;
+ *  - other contexts (attestations a holder never verifies): `undefined` → Credo's global set.
+ * Used by the main and lean DC API agents.
  */
-export const trustedCertificatesForVerification = (verification: X509VerificationContext): string[] => {
-  if (verification.type === 'oauth2SecuredAuthorizationRequest') {
-    return [...TRUSTED_REQUEST_SIGNER_CERTIFICATES]
+export const trustedCertificatesForVerification = (verification: X509VerificationContext): string[] | undefined => {
+  const subject = trustSubjectFor(verification)
+  if (!subject) return undefined
+  const learned = resolveTrustAnchors(TRUST_SOURCES, subject)
+
+  if (subject.role === 'access-certificate') {
+    return unique([...learned, ...HEKA_SERVICE_ROOT_CERTIFICATES, ...TRUSTED_REQUEST_SIGNER_CERTIFICATES])
   }
-  // mdoc MSOs trust ONLY the per-tenant IACAs (VICAL-learned) + interim anchor — never the service
-  // root (a service-root-signed leaf must not be able to forge an MSO).
-  if (verification.type === 'credential' && verification.credential instanceof Mdoc) {
-    return [...issuerTrustStore.getIssuerCertificates(), ...TRUSTED_X509_CERTIFICATES]
-  }
-  // SD-JWT VC x5c issuer leaves chain to the service root; other contexts (W3C, issuer metadata) are
-  // DID/issuer-anchored and ignore the extras. Union is safe: an SD-JWT leaf won't chain to an IACA.
-  return [...HEKA_SERVICE_ROOT_CERTIFICATES, ...issuerTrustStore.getIssuerCertificates(), ...TRUSTED_X509_CERTIFICATES]
+  if (subject.format === 'mso_mdoc') return unique([...learned, ...TRUSTED_X509_CERTIFICATES])
+  if (subject.format === 'dc+sd-jwt') return unique([...learned, ...HEKA_SERVICE_ROOT_CERTIFICATES])
+  return unique([...learned, ...HEKA_SERVICE_ROOT_CERTIFICATES, ...TRUSTED_X509_CERTIFICATES])
 }
+
+const unique = (certificates: string[]): string[] => [...new Set(certificates)]
 
 const EXAMPLE_CREDENTIAL_VCT = 'ExampleCredential'
 const EXAMPLE_CREDENTIAL_METADATA: OpenId4VcCredentialMetadata = {
@@ -251,30 +257,16 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
 }
 
 /**
- * Fetch + verify the Heka VICAL and refresh the mdoc issuer trust anchors (the per-tenant IACAs that
- * `trustedCertificatesForVerification` then trusts for credential/MSO verification). Best-effort:
- * returns a result rather than throwing. A no-op unless both a VICAL URL and the service root
- * (`HEKA_SERVICE_ROOT_CERTIFICATE`) are configured. Call after the agent is initialized.
+ * Fetch + verify every configured trust source ({@link TRUST_SOURCES}) and refresh the anchors that
+ * `trustedCertificatesForVerification` then trusts. Best-effort: returns one result per source rather
+ * than throwing, and a failed source keeps its previously-trusted anchors. Sources without pinned
+ * signers (no `HEKA_SERVICE_ROOT_CERTIFICATE` for the defaults) are skipped. Call after the agent is
+ * initialized.
  */
-export async function refreshHekaIssuerTrustList(agent: HekaWalletAgent): Promise<RefreshResult> {
-  // The concrete agent satisfies the loose structural TrustListAgent at runtime; the cast bridges the
+export async function refreshTrustSources(agent: HekaWalletAgent): Promise<TrustSourceRefreshResult[]> {
+  // The concrete agent satisfies the loose structural TrustVerifyAgent at runtime; the cast bridges the
   // strict Credo KMS/X509 option types to the decoupled (test-friendly) interface.
-  return refreshIssuerTrustList(agent as unknown as TrustListAgent, {
-    vicalUrl: getVicalUrl(),
-    trustedRootCertificates: HEKA_SERVICE_ROOT_CERTIFICATES,
-  })
-}
-
-/**
- * Fetch + verify the Heka EU trust list and refresh the EU slice of the issuer trust anchors (curated
- * external EU issuer CAs). Best-effort; a no-op unless both the EU trust-list URL and the service root
- * (`HEKA_SERVICE_ROOT_CERTIFICATE`) are configured. Mirrors {@link refreshHekaIssuerTrustList}.
- */
-export async function refreshHekaEuTrustList(agent: HekaWalletAgent): Promise<EuRefreshResult> {
-  return refreshEuTrustList(agent as unknown as EuTrustListAgent, {
-    euTrustListUrl: getEuTrustListUrl(),
-    trustedRootCertificates: HEKA_SERVICE_ROOT_CERTIFICATES,
-  })
+  return refreshConfiguredTrustSources(agent as unknown as TrustVerifyAgent, TRUST_SOURCES)
 }
 
 export async function createPublicDidOrGetExisting(agent: Agent): Promise<string> {

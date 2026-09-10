@@ -7,12 +7,12 @@ import { Agent, AGENT_TOKEN } from 'common/agent'
 
 import { resolveProfile } from './certificate-profiles'
 import { buildEuDsc, buildEuIaca } from './eu-certificate-builder'
+import { IACA_REGISTRY_RECORD_TYPE } from './iaca-registry'
 import { MdocDsc, MdocIaca, ProvisionIacaOptions } from './mdoc-issuer-ca.types'
 import { TrustListService } from './trust-list.service'
 
 const IACA_RECORD_TYPE = 'mdoc-iaca'
 const DSC_RECORD_TYPE = 'mdoc-dsc'
-const IACA_REGISTRY_RECORD_TYPE = 'mdoc-iaca-registry'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 // Back-date notBefore to tolerate clock skew between issuer and holder.

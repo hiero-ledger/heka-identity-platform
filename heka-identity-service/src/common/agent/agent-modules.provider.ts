@@ -1,5 +1,5 @@
 import type { AnonCredsRegistry } from '@credo-ts/anoncreds'
-import type { MdocIssuerCaService } from 'mdoc-issuer-ca'
+import type { MdocIssuerCaService, VerifierTrustAnchorService } from 'mdoc-issuer-ca'
 import type { SdJwtVcIssuerService } from 'sdjwt-vc-issuer'
 
 import {
@@ -24,6 +24,7 @@ import {
   PeerDidRegistrar,
   PeerDidResolver,
   WebDidResolver,
+  X509Module,
 } from '@credo-ts/core'
 import {
   DidCommAutoAcceptCredential,
@@ -50,7 +51,7 @@ import { NativeAskar } from '@openwallet-foundation/askar-nodejs'
 
 import AgentConfig from 'config/agent'
 import AppConfig from 'config/express'
-import { MDOC_ISSUER_CA_SERVICE } from 'mdoc-issuer-ca/mdoc-issuer-ca.tokens'
+import { MDOC_ISSUER_CA_SERVICE, VERIFIER_TRUST_ANCHOR_SERVICE } from 'mdoc-issuer-ca/mdoc-issuer-ca.tokens'
 import { SDJWT_VC_ISSUER_SERVICE } from 'sdjwt-vc-issuer/sdjwt-vc-issuer.tokens'
 import { createCredentialRequestToCredentialMapper, CredentialMapperDependencies } from 'utils/oid4vc'
 
@@ -66,6 +67,21 @@ export function buildCredentialMapperDependencies(moduleRef: ModuleRef): Credent
         .get<SdJwtVcIssuerService>(SDJWT_VC_ISSUER_SERVICE, { strict: false })
         .loadIssuerCertificateChain(agentContext),
   }
+}
+
+/**
+ * Credo's X.509 module with the service's relying-party trust provider attached: when the service
+ * verifies a presented credential, the trusted certificates come from {@link VerifierTrustAnchorService}
+ * (tenant IACA registry, curated anchors, cached EU lists) instead of one static certificate. Resolved
+ * lazily via ModuleRef at verification time for the same cycle reason as the credential mapper above.
+ */
+function buildX509Module(moduleRef: ModuleRef): X509Module {
+  return new X509Module({
+    getTrustedCertificatesForVerification: (agentContext, verificationContext) =>
+      moduleRef
+        .get<VerifierTrustAnchorService>(VERIFIER_TRUST_ANCHOR_SERVICE, { strict: false })
+        .getTrustedCertificatesForVerification(agentContext, verificationContext),
+  })
 }
 
 function getTenantModulesMap(
@@ -181,6 +197,7 @@ function getTenantModulesMap(
         },
       ],
     }),
+    x509: buildX509Module(moduleRef),
   }
 }
 

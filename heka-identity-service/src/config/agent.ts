@@ -16,6 +16,44 @@ import { CredentialsConfiguration } from './credential-configuration'
 import { FileSystemConfig } from './file-storage'
 import { INSECURE_DEFAULTS, parseDidMethods } from './insecure-defaults'
 
+/** A discovery pointer to an external trust list, served verbatim in the `/trust-list` index. */
+export interface TrustListPointer {
+  location: string
+  signerCertificates: string[]
+  loteType?: string
+  schemeOperatorName?: string
+}
+
+function parseTrustListPointers(raw: string): TrustListPointer[] {
+  if (!raw.trim()) return []
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new Error('TRUST_LIST_POINTERS must be a JSON array')
+  }
+  if (!Array.isArray(parsed)) throw new Error('TRUST_LIST_POINTERS must be a JSON array')
+  return parsed.map((entry, index) => {
+    const pointer = entry as Partial<TrustListPointer>
+    const validLocation = typeof pointer.location === 'string' && /^https?:\/\//.test(pointer.location)
+    const validSigners =
+      Array.isArray(pointer.signerCertificates) &&
+      pointer.signerCertificates.length > 0 &&
+      pointer.signerCertificates.every((certificate) => typeof certificate === 'string' && certificate.trim() !== '')
+    if (!validLocation || !validSigners) {
+      throw new Error(
+        `TRUST_LIST_POINTERS[${index}] must have an http(s) location and a non-empty signerCertificates array`,
+      )
+    }
+    return {
+      location: pointer.location as string,
+      signerCertificates: (pointer.signerCertificates as string[]).map((certificate) => certificate.trim()),
+      ...(typeof pointer.loteType === 'string' ? { loteType: pointer.loteType } : {}),
+      ...(typeof pointer.schemeOperatorName === 'string' ? { schemeOperatorName: pointer.schemeOperatorName } : {}),
+    }
+  })
+}
+
 export default registerAs('agent', () => {
   const label = process.env.AGENT_LABEL ?? 'Heka'
 
@@ -96,26 +134,22 @@ export default registerAs('agent', () => {
   // Optional ETSI certificate-policy OID emitted on EU DSCs (omitted when empty)
   const mdocIssuerCertificatePolicyOid = process.env.MDOC_ISSUER_CERTIFICATE_POLICY_OID ?? ''
 
-  // Curated EU issuer trust anchors (PID/EAA issuer-CA certs) the wallet should trust, republished as
-  // the signed Heka EU trust list (ETSI TS 119 602 LoTE JWT) at GET /eu-trust-list. Accepts PEM blocks
-  // or comma/whitespace-separated base64 DER; empty by default.
-  const euTrustedIssuerCertificates = process.env.EU_TRUSTED_ISSUER_CERTIFICATES ?? ''
-  const euTrustListProvider = process.env.EU_TRUST_LIST_PROVIDER ?? mdocIssuerAuthority
+  // The Heka **scheme trust lists** (GET /trust-list/*): TS 119 602 LoTEs of the anchors Heka is scheme
+  // operator for — the tenants' issuer certificates (IACA + SD-JWT issuer registries) plus the
+  // operator-curated partner anchors below (PEM blocks or comma/whitespace-separated base64 DER; empty by
+  // default). Nothing derived from an upstream list is republished; wallets consume those directly.
+  const trustListSchemeOperator = process.env.TRUST_LIST_SCHEME_OPERATOR ?? mdocIssuerAuthority
+  const trustListPartnerCertificates = process.env.TRUST_LIST_PARTNER_CERTIFICATES ?? ''
+  // Optional discovery pointers served in the /trust-list index — a JSON array of
+  // { location, signerCertificates: string[], loteType?, schemeOperatorName? } (e.g. the Commission LoTEs
+  // with their OJEU-published signer certificates). Invalid JSON / shape fails fast at startup.
+  const trustListPointers = parseTrustListPointers(process.env.TRUST_LIST_POINTERS ?? '')
 
-  // Anchor sources for the published EU trust list — a comma-separated UNION (an eIDAS 2.0
-  // deployment needs QTSP anchors from 'lotl' AND LoTE anchors from 'lote' simultaneously). 'config'
-  // (default) uses the curated anchors above; 'lotl' traverses the EU List of Trusted Lists at
-  // EU_LOTL_URL (ETSI TS 119 612, XAdES-verified); 'lote' ingests the ETSI TS 119 602 Lists of
-  // Trusted Entities at EU_LOTE_URLS. Unknown values fail fast at startup.
-  const euTrustListSources = (process.env.EU_TRUST_LIST_SOURCE ?? 'config')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean) as ('config' | 'lotl' | 'lote')[]
-  for (const source of euTrustListSources) {
-    if (!['config', 'lotl', 'lote'].includes(source)) {
-      throw new Error(`EU_TRUST_LIST_SOURCE contains an unknown source '${source}' (allowed: config, lotl, lote)`)
-    }
-  }
+  // Publish the ISO 18013-5 VICAL (`GET /vical`) for readers that import VICALs (Multipaz-style /
+  // ISO 18013-5 verifiers). Off by default: EUDI-shaped consumers learn the same tenant IACAs from the
+  // scheme trust list (`GET /trust-list/eaa-providers`), and the VICAL signer is only provisioned when
+  // this is on. Both exports read the same IACA registry, so they can never disagree.
+  const vicalEnabled = (process.env.VICAL_ENABLED ?? 'false') === 'true'
   // Optional comma-separated ServiceTypeIdentifier allow-list applied when extracting anchors from a
   // traversed Trusted List; empty = accept all granted services.
   const euTrustedListServiceTypes = process.env.EU_TRUSTED_LIST_SERVICE_TYPES ?? ''
@@ -135,6 +169,28 @@ export default registerAs('agent', () => {
   const euLoteUrls = process.env.EU_LOTE_URLS ?? ''
   const euLoteSignerCertificates = process.env.EU_LOTE_SIGNER_CERTIFICATES ?? ''
   const euLoteServiceTypes = process.env.EU_LOTE_SERVICE_TYPES ?? ''
+
+  // Trust anchors the service consults when IT verifies credentials (relying-party role) — a
+  // comma-separated union. 'registry' = the tenants' own issuer anchors (IACA registry for mdoc, the
+  // service root for SD-JWT VC x5c chains); 'config' = TRUST_LIST_PARTNER_CERTIFICATES; 'lotl' / 'lote' =
+  // the EU lists configured above, fetched in the background and cached (never inside a verification).
+  // MDL_ISSUER_CERTIFICATE stays a fallback for mdoc. Unknown values fail fast at startup.
+  const verifierTrustSources = (process.env.VERIFIER_TRUST_SOURCES ?? 'registry,config')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean) as ('registry' | 'config' | 'lotl' | 'lote')[]
+  for (const source of verifierTrustSources) {
+    if (!['registry', 'config', 'lotl', 'lote'].includes(source)) {
+      throw new Error(
+        `VERIFIER_TRUST_SOURCES contains an unknown source '${source}' (allowed: registry, config, lotl, lote)`,
+      )
+    }
+  }
+  // How often the EU sources of the verifier trust set are re-fetched (seconds; default hourly).
+  const verifierTrustRefreshSeconds = Number(process.env.VERIFIER_TRUST_REFRESH_SECONDS ?? '3600')
+  if (!Number.isInteger(verifierTrustRefreshSeconds) || verifierTrustRefreshSeconds <= 0) {
+    throw new Error('VERIFIER_TRUST_REFRESH_SECONDS must be a positive integer number of seconds')
+  }
 
   // Domain (FQDN) for the opt-in SD-JWT VC x5c issuer (HAIP): the per-tenant issuer cert carries this as
   // a dNSName SAN and the credential `iss` is `https://<domain>`. Required only when a credential offer
@@ -245,9 +301,10 @@ export default registerAs('agent', () => {
     mdocIssuerProfile,
     mdocIssuerOrganizationIdentifier,
     mdocIssuerCertificatePolicyOid,
-    euTrustedIssuerCertificates,
-    euTrustListProvider,
-    euTrustListSources,
+    trustListSchemeOperator,
+    trustListPartnerCertificates,
+    trustListPointers,
+    vicalEnabled,
     euTrustedListServiceTypes,
     euLotlUrl,
     euLotlSignerCertificates,
@@ -255,6 +312,8 @@ export default registerAs('agent', () => {
     euLoteUrls,
     euLoteSignerCertificates,
     euLoteServiceTypes,
+    verifierTrustSources,
+    verifierTrustRefreshSeconds,
     sdJwtVcIssuerDomain,
     oid4vciSignedMetadataEnabled,
     oid4vciAccessCertificateDomain,

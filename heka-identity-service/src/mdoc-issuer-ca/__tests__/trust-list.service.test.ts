@@ -80,7 +80,7 @@ describe('TrustListService', () => {
     agent = createMock<Agent>({
       kms: { sign: mockSign },
       genericRecords: { findAllByQuery: mockFindAllByQuery, update: mockUpdate },
-      agencyConfig: { mdocIssuerAuthority: 'Heka' },
+      agencyConfig: { mdocIssuerAuthority: 'Heka', vicalEnabled: true },
     })
 
     service = new TrustListService(agent, managedCertificateService)
@@ -137,6 +137,24 @@ describe('TrustListService', () => {
     expect(mockSign).toHaveBeenCalledTimes(2) // rebuilt
     expect(first.vicalIssueID).toBe(1)
     expect(second.vicalIssueID).toBe(2) // counter preserved on the managed record
+  })
+
+  test('while VICAL_ENABLED is off (the default), getVical rejects and no signer is ever provisioned', async () => {
+    agent = createMock<Agent>({
+      kms: { sign: mockSign },
+      genericRecords: { findAllByQuery: mockFindAllByQuery, update: mockUpdate },
+      agencyConfig: { mdocIssuerAuthority: 'Heka', vicalEnabled: false },
+    })
+    service = new TrustListService(agent, managedCertificateService)
+
+    expect(service.enabled).toBe(false)
+    await expect(service.getVical()).rejects.toThrow(/VICAL_ENABLED/)
+    service.invalidate() // a new IACA while disabled is a harmless no-op
+    await expect(service.getVical()).rejects.toThrow(/VICAL_ENABLED/)
+
+    expect(managedCertificateService.ensureCertificate).not.toHaveBeenCalled()
+    expect(mockSign).not.toHaveBeenCalled()
+    expect(await service.getVicalSignerCertificate()).toBeNull()
   })
 
   test('getVicalSignerCertificate returns the signer leaf + service root once provisioned', async () => {

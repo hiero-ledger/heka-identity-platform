@@ -13,8 +13,7 @@ import {
   createPublicInvitationOrGetExisting,
   ensureExampleCredentialCreated,
   HekaWalletAgent,
-  refreshHekaEuTrustList,
-  refreshHekaIssuerTrustList,
+  refreshTrustSources,
   setupMediatorWithPublicDidIfNeeded,
   tryRestartExistingAgent,
   createAnoncredsLinkSecretIfRequired,
@@ -71,24 +70,21 @@ export const Splash: React.FC = () => {
           return
         }
 
-        // Refresh the mdoc issuer trust anchors from the Heka VICAL. Fire-and-forget so it never
-        // blocks startup; failures degrade gracefully (the previously-trusted set is kept).
+        // Refresh the trust anchors from the configured signed trust lists (the Heka scheme lists by
+        // default). Fire-and-forget so it never blocks startup; each source degrades independently
+        // (a failed source keeps its previously-trusted anchors).
         const refreshTrustList = (readyAgent: HekaWalletAgent): void => {
-          void refreshHekaIssuerTrustList(readyAgent)
-            .then((result) =>
-              result.ok
-                ? logger.info(`Issuer trust list refreshed: ${result.issuerCount} IACA(s)`)
-                : logger.info(`Issuer trust list refresh skipped: ${result.reason}`)
-            )
-            .catch((error) => logger.warn(`Issuer trust list refresh failed: ${error}`))
-          // Also refresh the EU trust list (curated external EU issuer anchors) into its own store slot.
-          void refreshHekaEuTrustList(readyAgent)
-            .then((result) =>
-              result.ok
-                ? logger.info(`EU trust list refreshed: ${result.issuerCount} anchor(s)`)
-                : logger.info(`EU trust list refresh skipped: ${result.reason}`)
-            )
-            .catch((error) => logger.warn(`EU trust list refresh failed: ${error}`))
+          void refreshTrustSources(readyAgent)
+            .then((results) => {
+              for (const result of results) {
+                if (result.ok) {
+                  logger.info(`Trust source ${result.sourceId} refreshed: ${result.anchorCount} anchor(s)`)
+                } else {
+                  logger.info(`Trust source ${result.sourceId} refresh skipped: ${result.reason}`)
+                }
+              }
+            })
+            .catch((error) => logger.warn(`Trust source refresh failed: ${error}`))
         }
 
         if (agent) {

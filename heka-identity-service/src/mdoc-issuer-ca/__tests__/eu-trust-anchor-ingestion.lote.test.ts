@@ -3,15 +3,13 @@ import type { LoTEDocument } from '@owf/eudi-lote'
 import { webcrypto } from 'node:crypto'
 
 import { createMock } from '@golevelup/ts-vitest'
-import { Key, KeyAlgorithm } from '@openwallet-foundation/askar-nodejs'
 import { createLoTE, signLoTE } from '@owf/eudi-lote'
 import * as x509 from '@peculiar/x509'
 
 import { Agent } from 'common/agent'
 import { Logger } from 'common/logger'
-import { ManagedCertificate, ManagedCertificateService } from 'x509-signing'
 
-import { EuTrustListService } from '../eu-trust-list.service'
+import { EuTrustAnchorIngestionService } from '../eu-trust-anchor-ingestion.service'
 
 const crypto = webcrypto as unknown as Crypto
 x509.cryptoProvider.set(crypto)
@@ -25,6 +23,8 @@ const LOTE_URL = 'https://ec.example/lote/pid-providers.json'
 const SECOND_LOTE_URL = 'https://ec.example/lote/eaa-providers.json'
 
 type Cert = { keys: CryptoKeyPair; base64: string }
+/** `status: null` → the EU-profile shape (no ServiceStatus / StatusStartingTime at all). */
+type Anchor = { certificateBase64: string; status?: string | null }
 
 async function makeCert(cn: string): Promise<Cert> {
   const keys = await crypto.subtle.generateKey(alg, true, ['sign', 'verify'])
@@ -35,8 +35,8 @@ async function makeCert(cn: string): Promise<Cert> {
   return { keys, base64: Buffer.from(cert.rawData).toString('base64') }
 }
 
-/** Build a LoTE document listing the given anchors as granted PID-issuance providers. */
-function loteFixture(anchors: Array<{ certificateBase64: string; status?: string }>): LoTEDocument {
+/** Build a LoTE document listing the given anchors as PID-issuance providers. */
+function loteFixture(anchors: Anchor[]): LoTEDocument {
   return createLoTE(
     { SchemeOperatorName: [{ lang: 'en', value: 'Test Scheme Operator' }] },
     anchors.map((anchor, index) => ({
@@ -49,8 +49,9 @@ function loteFixture(anchors: Array<{ certificateBase64: string; status?: string
           ServiceInformation: {
             ServiceName: [{ lang: 'en', value: 'PID Issuance' }],
             ServiceTypeIdentifier: PID_ISSUANCE,
-            ServiceStatus: anchor.status ?? GRANTED,
-            StatusStartingTime: new Date().toISOString(),
+            ...(anchor.status === null
+              ? {}
+              : { ServiceStatus: anchor.status ?? GRANTED, StatusStartingTime: new Date().toISOString() }),
             ServiceDigitalIdentity: { X509Certificates: [{ val: anchor.certificateBase64 }] },
           },
         },
@@ -85,27 +86,20 @@ function stubFetch(routes: Record<string, string>): void {
 }
 
 function buildService(config: {
-  sources?: ('config' | 'lotl' | 'lote')[]
   loteUrls?: string
   loteSigner?: string
   serviceTypes?: string
-  configuredAnchors?: string
-}): { service: EuTrustListService; logger: Logger } {
-  const signingKey = Key.generate(KeyAlgorithm.EcSecp256r1)
-  const logger = createMock<Logger>()
+  partnerCertificates?: string
+}): { service: EuTrustAnchorIngestionService; logger: Logger } {
+  const logger: Logger = createMock<Logger>()
   const agent = createMock<Agent>({
     agencyConfig: {
-      euTrustListSources: config.sources ?? ['lote'],
       euLoteUrls: config.loteUrls ?? LOTE_URL,
       euLoteSignerCertificates: config.loteSigner ?? '',
       euLoteServiceTypes: config.serviceTypes ?? '',
-      euTrustedIssuerCertificates: config.configuredAnchors ?? '',
-      euTrustListProvider: 'Heka',
+      trustListPartnerCertificates: config.partnerCertificates ?? '',
     },
     kms: {
-      sign: vi.fn(({ data }: { data: Uint8Array }) =>
-        Promise.resolve({ signature: signingKey.signMessage({ message: Buffer.from(data) }) }),
-      ),
       // Real ES256 verification via webcrypto against the JWK the service extracted from the x5c leaf.
       verify: vi.fn(
         async ({
@@ -129,58 +123,47 @@ function buildService(config: {
           }
         },
       ),
-      createKey: vi.fn(),
     },
-    genericRecords: { update: vi.fn() },
   })
-  const managedCertificateService: ManagedCertificateService = createMock<ManagedCertificateService>()
-  vi.mocked(managedCertificateService.ensureCertificate).mockResolvedValue({
-    keyId: 'eu-key',
-    chain: [{ toString: () => 'LEAF' }, { toString: () => 'ROOT' }],
-    record: { id: 'signer-rec', content: {} },
-  } as unknown as ManagedCertificate)
-  return { service: new EuTrustListService(agent, managedCertificateService, logger), logger }
+  return { service: new EuTrustAnchorIngestionService(agent, logger), logger }
 }
 
-async function publishedAnchors(service: EuTrustListService): Promise<string[]> {
-  const jws = await service.getTrustList()
-  const payload = JSON.parse(Buffer.from(jws.split('.')[1], 'base64url').toString('utf8'))
-  return ((payload.LoTE?.TrustedEntitiesList ?? []) as Array<Record<string, any>>).flatMap((entity) =>
-    ((entity.TrustedEntityServices ?? []) as Array<Record<string, any>>).flatMap((entityService) =>
-      (
-        (entityService.ServiceInformation?.ServiceDigitalIdentity?.X509Certificates ?? []) as Array<{ val: string }>
-      ).map((certificate) => certificate.val),
-    ),
-  )
-}
+const ingestedAnchors = async (service: EuTrustAnchorIngestionService): Promise<string[]> =>
+  (await service.anchorsFromLote()).map((certificate) => certificate.toString('base64'))
 
-describe('EuTrustListService — LoTE ingestion', () => {
+describe('EuTrustAnchorIngestionService — LoTE ingestion (ETSI TS 119 602)', () => {
   let operator: Cert
   let rogue: Cert
   let pidAnchor: string
   let eaaAnchor: string
-  let configAnchor: string
+  let partnerAnchor: string
 
   beforeAll(async () => {
     operator = await makeCert('Test Scheme Operator LoTE Signer')
     rogue = await makeCert('Rogue Signer')
     pidAnchor = (await makeCert('DE PID Issuer CA')).base64
     eaaAnchor = (await makeCert('FR EAA Issuer CA')).base64
-    configAnchor = (await makeCert('Curated EU Issuer CA')).base64
+    partnerAnchor = (await makeCert('Curated Partner Issuer CA')).base64
   })
 
   afterEach(() => vi.unstubAllGlobals())
 
-  test('ingests a pinned, valid LoTE and republishes its granted anchors', async () => {
+  test('ingests a pinned, valid LoTE and returns its granted anchors', async () => {
     stubFetch({ [LOTE_URL]: await signLote(loteFixture([{ certificateBase64: pidAnchor }]), operator) })
     const { service } = buildService({ loteSigner: operator.base64 })
-    expect(await publishedAnchors(service)).toEqual([pidAnchor])
+    expect(await ingestedAnchors(service)).toEqual([pidAnchor])
+  })
+
+  test('EU-profile entries carry no ServiceStatus at all ("listed is granted") and are accepted', async () => {
+    stubFetch({ [LOTE_URL]: await signLote(loteFixture([{ certificateBase64: pidAnchor, status: null }]), operator) })
+    const { service } = buildService({ loteSigner: operator.base64 })
+    expect(await ingestedAnchors(service)).toEqual([pidAnchor])
   })
 
   test('fail-closed: a LoTE signed by an unpinned (rogue) signer is rejected', async () => {
     stubFetch({ [LOTE_URL]: await signLote(loteFixture([{ certificateBase64: pidAnchor }]), rogue) })
     const { service } = buildService({ loteSigner: operator.base64 })
-    await expect(service.getTrustList()).rejects.toThrow(/not a pinned trust anchor/)
+    await expect(service.anchorsFromLote()).rejects.toThrow(/not a pinned trust anchor/)
   })
 
   test('fail-closed: a JWS with the wrong typ is rejected', async () => {
@@ -189,7 +172,7 @@ describe('EuTrustListService — LoTE ingestion', () => {
     const wrongTyp = `${Buffer.from(JSON.stringify({ alg: 'ES256', typ: 'jwt', x5c: [operator.base64] })).toString('base64url')}.${payloadB64}.${sigB64}`
     stubFetch({ [LOTE_URL]: wrongTyp })
     const { service } = buildService({ loteSigner: operator.base64 })
-    await expect(service.getTrustList()).rejects.toThrow(/unexpected typ/)
+    await expect(service.anchorsFromLote()).rejects.toThrow(/unexpected typ/)
   })
 
   test('fail-closed: a schema-invalid LoTE payload is rejected after signature verification', async () => {
@@ -203,7 +186,7 @@ describe('EuTrustListService — LoTE ingestion', () => {
     ).toString('base64url')
     stubFetch({ [LOTE_URL]: `${header}.${payload}.${signature}` })
     const { service } = buildService({ loteSigner: operator.base64 })
-    await expect(service.getTrustList()).rejects.toThrow()
+    await expect(service.anchorsFromLote()).rejects.toThrow()
   })
 
   test('a withdrawn service is excluded from the extracted anchors', async () => {
@@ -213,18 +196,18 @@ describe('EuTrustListService — LoTE ingestion', () => {
     ])
     stubFetch({ [LOTE_URL]: await signLote(document, operator) })
     const { service } = buildService({ loteSigner: operator.base64 })
-    expect(await publishedAnchors(service)).toEqual([pidAnchor])
+    expect(await ingestedAnchors(service)).toEqual([pidAnchor])
   })
 
-  test('multi-source union: curated config anchors + LoTE anchors are published together', async () => {
+  test('partner (config) anchors and LoTE anchors are separate sources a consumer unions', async () => {
     stubFetch({ [LOTE_URL]: await signLote(loteFixture([{ certificateBase64: pidAnchor }]), operator) })
-    const { service } = buildService({
-      sources: ['config', 'lote'],
-      loteSigner: operator.base64,
-      configuredAnchors: configAnchor,
-    })
-    const anchors = await publishedAnchors(service)
-    expect(new Set(anchors)).toEqual(new Set([configAnchor, pidAnchor]))
+    const { service } = buildService({ loteSigner: operator.base64, partnerCertificates: partnerAnchor })
+    const configured = service.configuredAnchors().map((certificate) => certificate.toString('base64'))
+    const union = service.dedupeByDer([...service.configuredAnchors(), ...(await service.anchorsFromLote())])
+    expect(configured).toEqual([partnerAnchor])
+    expect(new Set(union.map((certificate) => certificate.toString('base64')))).toEqual(
+      new Set([partnerAnchor, pidAnchor]),
+    )
   })
 
   test('best-effort union across lists: an unreachable LoTE is skipped (and logged), the rest served', async () => {
@@ -236,12 +219,12 @@ describe('EuTrustListService — LoTE ingestion', () => {
       loteUrls: `${LOTE_URL},${SECOND_LOTE_URL}`,
       loteSigner: operator.base64,
     })
-    expect(await publishedAnchors(service)).toEqual([pidAnchor])
+    expect(await ingestedAnchors(service)).toEqual([pidAnchor])
     expect(logger.warn).toHaveBeenCalled()
   })
 
-  test('requires EU_LOTE_URLS when the sources include lote', async () => {
+  test('requires EU_LOTE_URLS', async () => {
     const { service } = buildService({ loteUrls: '', loteSigner: operator.base64 })
-    await expect(service.getTrustList()).rejects.toThrow(/EU_LOTE_URLS is required/)
+    await expect(service.anchorsFromLote()).rejects.toThrow(/EU_LOTE_URLS is required/)
   })
 })

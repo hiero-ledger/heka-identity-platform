@@ -1,7 +1,6 @@
 import { webcrypto } from 'node:crypto'
 
 import { createMock } from '@golevelup/ts-vitest'
-import { Key, KeyAlgorithm } from '@openwallet-foundation/askar-nodejs'
 import * as x509 from '@peculiar/x509'
 import { DOMImplementation, DOMParser, XMLSerializer } from '@xmldom/xmldom'
 import * as xadesjs from 'xadesjs'
@@ -9,10 +8,9 @@ import { setNodeDependencies } from 'xml-core'
 
 import { Agent } from 'common/agent'
 import { Logger } from 'common/logger'
-import { ManagedCertificate, ManagedCertificateService } from 'x509-signing'
 
 import { EU_GENERIC_TSL_TYPE } from '../etsi-tsl.parser'
-import { EuTrustListService } from '../eu-trust-list.service'
+import { EuTrustAnchorIngestionService } from '../eu-trust-anchor-ingestion.service'
 
 const crypto = webcrypto as unknown as Crypto
 xadesjs.Application.setEngine('NodeJS', crypto)
@@ -91,51 +89,25 @@ function stubFetch(routes: Record<string, string>): void {
 }
 
 function buildService(config: { lotlUrl?: string; lotlSigner?: string; territories?: string }): {
-  service: EuTrustListService
+  service: EuTrustAnchorIngestionService
   logger: Logger
 } {
-  const signingKey = Key.generate(KeyAlgorithm.EcSecp256r1)
-  const logger = createMock<Logger>()
+  const logger: Logger = createMock<Logger>()
   const agent = createMock<Agent>({
     agencyConfig: {
-      euTrustListSources: ['lotl'],
       euLotlUrl: config.lotlUrl ?? LOTL_URL,
       euLotlSignerCertificates: config.lotlSigner ?? '',
       euLotlSchemeTerritories: config.territories ?? '',
       euTrustedListServiceTypes: '',
-      euTrustListProvider: 'Heka',
     },
-    kms: {
-      sign: vi.fn(({ data }: { data: Uint8Array }) =>
-        Promise.resolve({ signature: signingKey.signMessage({ message: Buffer.from(data) }) }),
-      ),
-      createKey: vi.fn(),
-    },
-    genericRecords: { update: vi.fn() },
   })
-  const managedCertificateService: ManagedCertificateService = createMock<ManagedCertificateService>()
-  vi.mocked(managedCertificateService.ensureCertificate).mockResolvedValue({
-    keyId: 'eu-key',
-    chain: [{ toString: () => 'LEAF' }, { toString: () => 'ROOT' }],
-    record: { id: 'signer-rec', content: {} },
-  } as unknown as ManagedCertificate)
-  return { service: new EuTrustListService(agent, managedCertificateService, logger), logger }
+  return { service: new EuTrustAnchorIngestionService(agent, logger), logger }
 }
 
-async function publishedAnchors(service: EuTrustListService): Promise<string[]> {
-  const jws = await service.getTrustList()
-  const payload = JSON.parse(Buffer.from(jws.split('.')[1], 'base64url').toString('utf8'))
-  // The published list is a TS 119 602 LoTE — walk entities → services → X509Certificates.
-  return ((payload.LoTE?.TrustedEntitiesList ?? []) as Array<Record<string, any>>).flatMap((entity) =>
-    ((entity.TrustedEntityServices ?? []) as Array<Record<string, any>>).flatMap((entityService) =>
-      (
-        (entityService.ServiceInformation?.ServiceDigitalIdentity?.X509Certificates ?? []) as Array<{ val: string }>
-      ).map((certificate) => certificate.val),
-    ),
-  )
-}
+const ingestedAnchors = async (service: EuTrustAnchorIngestionService): Promise<string[]> =>
+  (await service.anchorsFromLotl()).map((certificate) => certificate.toString('base64'))
 
-describe('EuTrustListService — LoTL traversal', () => {
+describe('EuTrustAnchorIngestionService — LoTL traversal (ETSI TS 119 612)', () => {
   let commission: Cert
   let deSigner: Cert
   let frSigner: Cert
@@ -166,7 +138,7 @@ describe('EuTrustListService — LoTL traversal', () => {
     })
     const { service } = buildService({ lotlSigner: commission.base64 })
 
-    const anchors = await publishedAnchors(service)
+    const anchors = await ingestedAnchors(service)
     expect(anchors).toHaveLength(2)
     expect(new Set(anchors)).toEqual(new Set([deAnchor, frAnchor]))
   })
@@ -184,7 +156,7 @@ describe('EuTrustListService — LoTL traversal', () => {
     })
     const { service, logger } = buildService({ lotlSigner: commission.base64 })
 
-    const anchors = await publishedAnchors(service)
+    const anchors = await ingestedAnchors(service)
     expect(anchors).toEqual([deAnchor]) // FR's anchor is excluded, never injected
     expect(logger.warn).toHaveBeenCalledTimes(1)
     const [payload, message] = (logger.warn as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]
@@ -203,7 +175,7 @@ describe('EuTrustListService — LoTL traversal', () => {
       // FR_URL intentionally unrouted → HTTP 404.
     })
     const { service } = buildService({ lotlSigner: commission.base64 })
-    expect(await publishedAnchors(service)).toEqual([deAnchor])
+    expect(await ingestedAnchors(service)).toEqual([deAnchor])
   })
 
   test('fail-closed at the root: a LoTL not signed by the pinned Commission signer aborts the whole traversal', async () => {
@@ -211,12 +183,12 @@ describe('EuTrustListService — LoTL traversal', () => {
     stubFetch({ [LOTL_URL]: signedLotl, [DE_URL]: await signXml(nationalTl(deAnchor), deSigner) })
     // Pin a DIFFERENT signer than the one that actually signed the LoTL.
     const { service } = buildService({ lotlSigner: rogue.base64 })
-    await expect(service.getTrustList()).rejects.toThrow(/not a configured scheme-operator anchor/)
+    await expect(service.anchorsFromLotl()).rejects.toThrow(/not a configured scheme-operator anchor/)
   })
 
-  test('requires EU_LOTL_URL when the source is lotl', async () => {
+  test('requires EU_LOTL_URL', async () => {
     const { service } = buildService({ lotlUrl: '', lotlSigner: commission.base64 })
-    await expect(service.getTrustList()).rejects.toThrow(/EU_LOTL_URL is required/)
+    await expect(service.anchorsFromLotl()).rejects.toThrow(/EU_LOTL_URL is required/)
   })
 
   test('honours the SchemeTerritory allow-list (only listed Member States are traversed)', async () => {
@@ -230,6 +202,6 @@ describe('EuTrustListService — LoTL traversal', () => {
       [FR_URL]: await signXml(nationalTl(frAnchor), frSigner),
     })
     const { service } = buildService({ lotlSigner: commission.base64, territories: 'DE' })
-    expect(await publishedAnchors(service)).toEqual([deAnchor])
+    expect(await ingestedAnchors(service)).toEqual([deAnchor])
   })
 })

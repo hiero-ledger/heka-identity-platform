@@ -49,13 +49,19 @@ export interface ExtractLoteAnchorOptions {
   serviceTypes?: string[]
 }
 
-/** A `ServiceStatus` is considered active when its URI ends in `granted` (TS 119 612 §5.5.4 posture). */
-function isGranted(status: string): boolean {
+/**
+ * A service is active when it carries no `ServiceStatus` at all — the EU LoTE profiles omit the status
+ * ("listed is granted", `StatusDeterminationApproach` …/StatusDetn/EU) — or when its status URI ends in
+ * `granted` (the TS 119 612 §5.5.4 vocabulary used by generic-profile lists such as Heka's).
+ */
+function isActive(status: string | undefined): boolean {
+  if (status === undefined || status.trim() === '') return true
   return status.trim().toLowerCase().endsWith('granted')
 }
 
 /**
- * Extract granted trust-anchor certificates (base64 DER, whitespace-stripped, deduplicated) from a
+ * Extract the active (granted, or EU-profile status-less) trust-anchor certificates (base64 DER,
+ * whitespace-stripped, deduplicated) from a
  * schema-validated LoTE document: `TrustedEntitiesList[] → TrustedEntityServices[] →
  * ServiceInformation → ServiceDigitalIdentity.X509Certificates[].val`.
  */
@@ -67,7 +73,7 @@ export function extractLoteAnchors(document: LoTEDocument, options: ExtractLoteA
     for (const entityService of entity.TrustedEntityServices ?? []) {
       const info = entityService.ServiceInformation
       if (!info) continue
-      if (!isGranted(info.ServiceStatus ?? '')) continue
+      if (!isActive(info.ServiceStatus)) continue
       if (
         allowedTypes.length > 0 &&
         (!info.ServiceTypeIdentifier || !allowedTypes.includes(info.ServiceTypeIdentifier))

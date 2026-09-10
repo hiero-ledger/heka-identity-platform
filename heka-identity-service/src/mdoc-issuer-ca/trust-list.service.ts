@@ -6,11 +6,11 @@ import { Inject, Injectable } from '@nestjs/common'
 import { Agent, AGENT_TOKEN } from 'common/agent'
 import { ManagedCertificateService } from 'x509-signing'
 
+import { IACA_REGISTRY_RECORD_TYPE } from './iaca-registry'
 import { MdocIaca } from './mdoc-issuer-ca.types'
 import { buildSignedVical, VicalCertificateInfo } from './vical/vical'
 
 const VICAL_SIGNER_RECORD_TYPE = 'mdoc-vical-signer'
-const IACA_REGISTRY_RECORD_TYPE = 'mdoc-iaca-registry'
 const VICAL_SIGNER_COMMON_NAME = 'Heka VICAL Signer'
 const VICAL_VERSION = '1.0'
 const MS_PER_DAY = 24 * 60 * 60 * 1000
@@ -56,6 +56,11 @@ function hexToBytes(hex?: string): Uint8Array {
  *
  * Freshness: the signed VICAL is cached and rebuilt on demand when invalidated (a new IACA was
  * provisioned) or when the ~7-day `nextUpdate` window has passed.
+ *
+ * **Optional export, off by default** (`VICAL_ENABLED`): the VICAL is not an EUDI mechanism — EUDI-shaped
+ * consumers learn the same tenant IACAs from the scheme trust list (`SchemeTrustListService`,
+ * `GET /trust-list/eaa-providers`). It exists for ISO 18013-5 readers that import VICALs (Multipaz and
+ * similar). While disabled, {@link getVical} rejects and the VICAL signer is never provisioned.
  */
 @Injectable()
 export class TrustListService {
@@ -68,13 +73,21 @@ export class TrustListService {
     private readonly managedCertificateService: ManagedCertificateService,
   ) {}
 
+  /** Whether VICAL publication is on (`VICAL_ENABLED=true`). Off = `GET /vical` is 404, no signer is minted. */
+  public get enabled(): boolean {
+    return this.agent.agencyConfig.vicalEnabled
+  }
+
   /** Mark the cached VICAL stale so the next {@link getVical} rebuilds it (called after a new IACA). */
   public invalidate(): void {
     this.dirty = true
   }
 
-  /** The current signed VICAL (COSE_Sign1 CBOR bytes), rebuilt lazily when stale. */
+  /** The current signed VICAL (COSE_Sign1 CBOR bytes), rebuilt lazily when stale. Rejects while disabled. */
   public async getVical(): Promise<Uint8Array> {
+    if (!this.enabled) {
+      throw new Error('VICAL publication is disabled (set VICAL_ENABLED=true to enable it)')
+    }
     if (this.cached && !this.dirty && Date.now() < this.cached.expiresAtMs) {
       return this.cached.bytes
     }
