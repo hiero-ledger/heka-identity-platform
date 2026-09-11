@@ -1,9 +1,20 @@
 import { DidJwk, GenericRecord, JwkDidCreateOptions, Kms, X509Certificate, X509KeyUsage } from '@credo-ts/core'
-import { Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common'
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common'
 
 import { Agent, AGENT_TOKEN, TenantAgent } from 'common/agent'
 
-import { ProvisionX509SignerOptions, X509ClientIdPrefix, X509Signer } from './x509-signer.types'
+import {
+  ProvisionX509SignerOptions,
+  X509ClientIdPrefix,
+  X509Signer,
+  X509_SIGNER_MAX_VALIDITY_DAYS,
+} from './x509-signer.types'
 
 const RECORD_TYPE = 'x509-signer'
 const ROOT_CA_RECORD_TYPE = 'x509-service-root-ca'
@@ -33,6 +44,16 @@ export class X509SignerService {
   public constructor(@Inject(AGENT_TOKEN) private readonly agent: Agent) {}
 
   public async provision(tenantAgent: TenantAgent, options: ProvisionX509SignerOptions = {}): Promise<X509Signer> {
+    if (
+      options.validityDays !== undefined &&
+      (!Number.isInteger(options.validityDays) ||
+        options.validityDays < 1 ||
+        options.validityDays > X509_SIGNER_MAX_VALIDITY_DAYS)
+    ) {
+      throw new UnprocessableEntityException(
+        `validityDays must be a whole number of days between 1 and ${X509_SIGNER_MAX_VALIDITY_DAYS}`,
+      )
+    }
     const clientIdPrefix: X509ClientIdPrefix = options.clientIdPrefix ?? 'x509_hash'
     const validityDays = options.validityDays ?? DEFAULT_VALIDITY_DAYS
 
@@ -123,6 +144,18 @@ export class X509SignerService {
     },
   ): Promise<X509Signer> {
     const leaf = X509Certificate.fromEncodedCertificate(certificate)
+    // The certificate must certify the tenant key it is being bound to: an unrelated leaf (someone
+    // else's certificate, or one issued for a different CSR) would otherwise be presented as this
+    // tenant's signer while every request is signed with `keyId` (M2).
+    const boundKey = await tenantAgent.kms.getPublicKey({ keyId })
+    if (!boundKey || boundKey.kty === 'oct') {
+      throw new BadRequestException(`No asymmetric key '${keyId}' exists in the tenant key store`)
+    }
+    if (!Kms.PublicJwk.fromPublicJwk(boundKey).equals(leaf.publicJwk)) {
+      throw new BadRequestException(
+        `The certificate's subject public key does not match key '${keyId}' (the CSR key it must certify)`,
+      )
+    }
     leaf.keyId = keyId
     return this.persistSigner(tenantAgent, {
       certificate: leaf,
@@ -137,25 +170,24 @@ export class X509SignerService {
   /**
    * Load a signing certificate ready for use as an `x5c` request signer: the stored certificate is
    * parsed and its KMS keyId re-attached (`fromEncodedCertificate` does not restore it). Throws when
-   * no matching identity has been provisioned — there is no silent provisioning.
+   * no matching identity has been provisioned — there is no silent provisioning. An explicit
+   * `certificateId` must name one of the tenant's request-signing records: any other generic record
+   * (an IACA, a DSC, an SD-JWT issuer certificate) is "not found", never signed with (M2).
    */
   public async loadSigningCertificate(
     tenantAgent: TenantAgent,
     { clientIdPrefix, certificateId }: { clientIdPrefix: X509ClientIdPrefix; certificateId?: string },
   ): Promise<X509Certificate> {
-    const record = certificateId
-      ? await tenantAgent.genericRecords.findById(certificateId)
-      : await this.findDefaultRecord(tenantAgent, clientIdPrefix)
+    const content = certificateId
+      ? (await this.requireSignerRecord(tenantAgent, certificateId)).content
+      : ((await this.findDefaultRecord(tenantAgent, clientIdPrefix))?.content as unknown as StoredSigner | undefined)
 
-    if (!record) {
+    if (!content) {
       throw new UnprocessableEntityException(
-        `No X.509 signer found for clientIdPrefix '${clientIdPrefix}'${
-          certificateId ? ` (id '${certificateId}')` : ''
-        }. Provision one first.`,
+        `No X.509 signer found for clientIdPrefix '${clientIdPrefix}'. Provision one first.`,
       )
     }
 
-    const content = record.content as unknown as StoredSigner
     const certificate = X509Certificate.fromEncodedCertificate(content.certificateBase64)
     certificate.keyId = content.keyId
     return certificate
@@ -407,6 +439,13 @@ export class X509SignerService {
       throw new UnprocessableEntityException('sanDnsName is required for the x509_san_dns trust model')
     }
     const rootCa = await this.ensureServiceRootCa()
+    // A leaf outliving its CA fails chain validation as soon as the root expires — refuse it up front.
+    const rootNotAfter = rootCa.certificate.data.notAfter
+    if (notAfter > rootNotAfter) {
+      throw new UnprocessableEntityException(
+        `validityDays exceeds the service root CA lifetime (the root expires ${rootNotAfter.toISOString()})`,
+      )
+    }
     return this.agent.x509.createCertificate({
       authorityKey: rootCa.certificate.publicJwk, // signs with the root key (global/service store)
       subjectPublicKey, // the tenant key is the subject; its private key is not used to sign

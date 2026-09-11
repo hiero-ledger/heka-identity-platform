@@ -41,3 +41,9 @@ export interface ProvisionX509SignerOptions {
   /** Certificate validity in days. Defaults to 365. */
   validityDays?: number
 }
+
+/**
+ * Longest validity a request-signing certificate may be requested with (the service root CA itself
+ * lives 10 years; root-signed leaves are additionally capped at the root's remaining lifetime).
+ */
+export const X509_SIGNER_MAX_VALIDITY_DAYS = 365 * 10

@@ -1,6 +1,6 @@
 import { DidJwk, Kms, X509Certificate, X509KeyUsage } from '@credo-ts/core'
 import { createMock } from '@golevelup/ts-vitest'
-import { NotFoundException, UnprocessableEntityException } from '@nestjs/common'
+import { BadRequestException, NotFoundException, UnprocessableEntityException } from '@nestjs/common'
 
 import { Agent, TenantAgent } from 'common/agent'
 
@@ -24,12 +24,14 @@ describe('X509SignerService', () => {
   const mockGlobalCreateKey = vi.fn()
   const mockGlobalCreateCertificate = vi.fn()
   const mockCreateCsr = vi.fn()
+  const mockGetPublicKey = vi.fn()
 
   let globalAgent: Agent
 
   const buildCert = () => ({
     keyId: undefined as string | undefined,
     publicJwk: { marker: 'cert-public-jwk' },
+    data: { notBefore: new Date('2026-01-01T00:00:00Z'), notAfter: new Date('2036-01-01T00:00:00Z') },
     getThumbprintInHex: vi.fn().mockResolvedValue('abcd1234'),
     toString: vi.fn().mockReturnValue('BASE64_CERT'),
   })
@@ -46,7 +48,7 @@ describe('X509SignerService', () => {
     service = new X509SignerService(globalAgent)
 
     tenantAgent = createMock<TenantAgent>({
-      kms: { createKey: mockCreateKey, deleteKey: mockDeleteKey },
+      kms: { createKey: mockCreateKey, deleteKey: mockDeleteKey, getPublicKey: mockGetPublicKey },
       x509: { createCertificate: mockCreateCertificate, createCertificateSigningRequest: mockCreateCsr },
       dids: { create: mockDidsCreate },
       genericRecords: {
@@ -107,6 +109,11 @@ describe('X509SignerService', () => {
       expect(identity).toMatchObject({ id: 'rec-1', clientIdPrefix: 'x509_hash', keyId: 'kms-1', did: 'did:jwk:abc' })
     })
 
+    test.each([0, -7, 1.5, 365 * 10 + 1])('M7: rejects validityDays %p before creating a key', async (validityDays) => {
+      await expect(service.provision(tenantAgent, { validityDays })).rejects.toThrow(UnprocessableEntityException)
+      expect(mockCreateKey).not.toHaveBeenCalled()
+    })
+
     test('skips did creation when alsoCreateDid is false', async () => {
       mockCreateCertificate.mockResolvedValue(buildCert())
 
@@ -151,7 +158,10 @@ describe('X509SignerService', () => {
     test('loads a specific identity by certificateId', async () => {
       const parsed = { keyId: undefined as string | undefined }
       const spy = vi.spyOn(X509Certificate, 'fromEncodedCertificate').mockReturnValue(parsed as never)
-      mockFindById.mockResolvedValue({ id: 'rec-9', content: { certificateBase64: 'B9', keyId: 'kms-9' } })
+      mockFindById.mockResolvedValue({
+        id: 'rec-9',
+        content: { certificateBase64: 'B9', keyId: 'kms-9', purpose: 'request-signing' },
+      })
 
       const cert = await service.loadSigningCertificate(tenantAgent, {
         clientIdPrefix: 'x509_hash',
@@ -161,6 +171,19 @@ describe('X509SignerService', () => {
       expect(mockFindById).toHaveBeenCalledWith('rec-9')
       expect(spy).toHaveBeenCalledWith('B9')
       expect(cert.keyId).toBe('kms-9')
+    })
+
+    test('M2: a certificateId naming a record of another purpose (an IACA, a DSC…) is not found, never signed with', async () => {
+      const spy = vi.spyOn(X509Certificate, 'fromEncodedCertificate')
+      mockFindById.mockResolvedValue({
+        id: 'iaca-rec',
+        content: { certificateBase64: 'IACA', keyId: 'iaca-key', purpose: 'mdoc-iaca' },
+      })
+
+      await expect(
+        service.loadSigningCertificate(tenantAgent, { clientIdPrefix: 'x509_san_dns', certificateId: 'iaca-rec' }),
+      ).rejects.toThrow(NotFoundException)
+      expect(spy).not.toHaveBeenCalled()
     })
   })
 
@@ -217,6 +240,20 @@ describe('X509SignerService', () => {
         sanDnsName: 'verifier.example.com',
       })
       expect(identity.clientIdPrefix).toBe('x509_san_dns')
+    })
+
+    test('M7: refuses a root-signed leaf that would outlive the service root CA', async () => {
+      // the (mock) root expires 2036-01-01; ten years from now is later than that
+      await expect(
+        service.provision(tenantAgent, {
+          clientIdPrefix: 'x509_san_dns',
+          sanDnsName: 'verifier.example.com',
+          validityDays: 365 * 10,
+        }),
+      ).rejects.toThrow(/exceeds the service root CA lifetime/)
+      // the root was created, but no leaf was issued and nothing persisted for the tenant
+      expect(mockGlobalCreateCertificate).toHaveBeenCalledTimes(1)
+      expect(mockSave).not.toHaveBeenCalled()
     })
 
     test('reuses an existing root CA instead of creating a second one', async () => {
@@ -297,15 +334,27 @@ describe('X509SignerService', () => {
   })
 
   describe('importSignedCertificate', () => {
+    const leafPublicJwk = { marker: 'leaf-public-jwk' }
+    const leaf = () => ({
+      keyId: undefined as string | undefined,
+      publicJwk: leafPublicJwk,
+      sanDnsNames: ['verifier.example.com'],
+      data: { notAfter: new Date('2030-01-01T00:00:00Z') },
+      getThumbprintInHex: vi.fn().mockResolvedValue('leaffp'),
+      toString: vi.fn().mockReturnValue('LEAFB64'),
+    })
+
+    beforeEach(() => {
+      mockGetPublicKey.mockResolvedValue({ kty: 'EC', crv: 'P-256', x: 'x', y: 'y', kid: 'csr-key' })
+      // The KMS key wraps to a PublicJwk whose `equals` decides the binding check.
+      vi.spyOn(Kms.PublicJwk, 'fromPublicJwk').mockReturnValue({
+        equals: (other: unknown) => other === leafPublicJwk,
+      })
+    })
+
     test('binds the keyId to the signed leaf and persists it as an x509_san_dns identity', async () => {
-      const leaf = {
-        keyId: undefined as string | undefined,
-        sanDnsNames: ['verifier.example.com'],
-        data: { notAfter: new Date('2030-01-01T00:00:00Z') },
-        getThumbprintInHex: vi.fn().mockResolvedValue('leaffp'),
-        toString: vi.fn().mockReturnValue('LEAFB64'),
-      }
-      vi.spyOn(X509Certificate, 'fromEncodedCertificate').mockReturnValue(leaf as never)
+      const parsedLeaf = leaf()
+      vi.spyOn(X509Certificate, 'fromEncodedCertificate').mockReturnValue(parsedLeaf as never)
       mockFindAllByQuery.mockResolvedValue([]) // no existing default
       mockSave.mockImplementation(({ content }) => ({ id: 'imp-1', content }))
 
@@ -314,7 +363,8 @@ describe('X509SignerService', () => {
         certificate: '-----BEGIN CERTIFICATE-----',
       })
 
-      expect(leaf.keyId).toBe('csr-key')
+      expect(mockGetPublicKey).toHaveBeenCalledWith({ keyId: 'csr-key' })
+      expect(parsedLeaf.keyId).toBe('csr-key')
       expect(identity).toMatchObject({
         id: 'imp-1',
         clientIdPrefix: 'x509_san_dns',
@@ -322,6 +372,28 @@ describe('X509SignerService', () => {
         sanDnsName: 'verifier.example.com',
       })
       expect(mockSave.mock.calls[0][0].content.certificateBase64).toBe('LEAFB64')
+    })
+
+    test('M2: rejects a certificate whose subject key is not the tenant key it is bound to', async () => {
+      vi.spyOn(X509Certificate, 'fromEncodedCertificate').mockReturnValue({
+        ...leaf(),
+        publicJwk: { marker: 'someone-elses-key' },
+      } as never)
+
+      await expect(
+        service.importSignedCertificate(tenantAgent, { keyId: 'csr-key', certificate: 'LEAF' }),
+      ).rejects.toThrow(BadRequestException)
+      expect(mockSave).not.toHaveBeenCalled()
+    })
+
+    test('M2: rejects an import for a key the tenant store does not hold', async () => {
+      vi.spyOn(X509Certificate, 'fromEncodedCertificate').mockReturnValue(leaf() as never)
+      mockGetPublicKey.mockResolvedValue(null)
+
+      await expect(
+        service.importSignedCertificate(tenantAgent, { keyId: 'unknown-key', certificate: 'LEAF' }),
+      ).rejects.toThrow(BadRequestException)
+      expect(mockSave).not.toHaveBeenCalled()
     })
   })
 

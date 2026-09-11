@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsBoolean, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator'
+import { IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator'
 
-import { X509ClientIdPrefix, X509Signer } from '../x509-signer.types'
+import { X509_SIGNER_MAX_VALIDITY_DAYS, X509ClientIdPrefix, X509Signer } from '../x509-signer.types'
 
 export class ProvisionX509SignerDto {
   @ApiPropertyOptional({ enum: ['x509_hash', 'x509_san_dns'], default: 'x509_hash' })
@@ -29,9 +29,17 @@ export class ProvisionX509SignerDto {
   @IsBoolean()
   public makeDefault?: boolean
 
-  @ApiPropertyOptional({ default: 365, description: 'Certificate validity in days.' })
+  @ApiPropertyOptional({
+    default: 365,
+    minimum: 1,
+    maximum: X509_SIGNER_MAX_VALIDITY_DAYS,
+    description:
+      'Certificate validity in whole days. Root-signed (x509_san_dns) leaves must also expire before the service root CA.',
+  })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(X509_SIGNER_MAX_VALIDITY_DAYS)
   public validityDays?: number
 }
 
@@ -151,8 +159,15 @@ export class ImportSignedCertificateDto {
 }
 
 export class RotateX509SignerDto {
-  @ApiPropertyOptional({ default: 365, description: 'Validity in days for the reissued certificate.' })
+  @ApiPropertyOptional({
+    default: 365,
+    minimum: 1,
+    maximum: X509_SIGNER_MAX_VALIDITY_DAYS,
+    description: 'Validity in whole days for the reissued certificate (same bounds as provisioning).',
+  })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(X509_SIGNER_MAX_VALIDITY_DAYS)
   public validityDays?: number
 }
