@@ -24,7 +24,12 @@ import { handleError } from '@/shared/api/utils/error';
 import { getUserId } from '@/shared/api/utils/token';
 import { DcApiProtocolIdentifier, RequestSignerSelection } from '@/shared/lib/dcApi';
 
-export type DcApiErrorCode = 'cancelled' | 'unsupported' | 'failed';
+/**
+ * `rejected` = the verifier refused to create the presentation request (HTTP 4xx from the identity
+ * service, e.g. the chosen X.509 signer is missing or expired) — a configuration problem on this side,
+ * not a wallet or browser problem.
+ */
+export type DcApiErrorCode = 'cancelled' | 'unsupported' | 'failed' | 'rejected';
 
 export class DcApiError extends Error {
   public readonly code: DcApiErrorCode;
@@ -186,10 +191,19 @@ const requestOpenId4VcPresentationDcApi = async (
     expectedOrigins: [window.location.origin],
   });
 
-  const response = await api.post<RequestOpenIdPresentationDcApiResponse>(
-    agencyEndpoints.requestOpenIdPresentation,
-    body,
-  );
+  let response;
+  try {
+    response = await api.post<RequestOpenIdPresentationDcApiResponse>(
+      agencyEndpoints.requestOpenIdPresentation,
+      body,
+    );
+  } catch (error) {
+    const status = (error as { response?: { status?: number } }).response?.status;
+    if (status !== undefined && status >= 400 && status < 500) {
+      throw new DcApiError('rejected');
+    }
+    throw error;
+  }
 
   const { verificationSession, authorizationRequestObject } = response.data;
 

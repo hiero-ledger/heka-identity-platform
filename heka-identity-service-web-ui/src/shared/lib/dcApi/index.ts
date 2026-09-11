@@ -77,6 +77,9 @@ const envDefaultSelection: RequestSignerSelection =
     ? { method: 'x5c', clientIdPrefix: x509ClientIdPrefix }
     : { method: 'did' };
 
+/** Whether the build-time default request signer is an X.509 identity (`DC_API_SIGNER=x5c`). */
+export const isEnvDefaultSignerX5c = (): boolean => dcApiSignerMethod === 'x5c';
+
 export const getDcApiRequestSigner = (
   did: string,
   selection: RequestSignerSelection = envDefaultSelection,

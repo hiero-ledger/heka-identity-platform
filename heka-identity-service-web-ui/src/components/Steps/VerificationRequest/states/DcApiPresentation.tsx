@@ -9,7 +9,7 @@ import {
   fetchX509Signers,
   X509Signer,
 } from '@/entities/X509Signer';
-import { RequestSignerSelection } from '@/shared/lib/dcApi';
+import { isEnvDefaultSignerX5c } from '@/shared/lib/dcApi';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
 import { Column, Row } from '@/shared/ui/Grid';
@@ -17,10 +17,12 @@ import { Loader } from '@/shared/ui/Loader/Loader';
 import { Select, SelectOption } from '@/shared/ui/Select';
 
 import * as cls from '../VerificationRequest.module.scss';
-
-// Picker keys for the two non-X.509 choices; any other key is an X.509 identity id.
-const SIGNER_DEFAULT = 'default';
-const SIGNER_DID = 'did';
+import {
+  reconcileSignerKey,
+  resolveSignerSelection,
+  SIGNER_DEFAULT,
+  SIGNER_DID,
+} from './signerSelection';
 
 interface DcApiPresentationProps {
   context: PresentationRequestContext;
@@ -41,14 +43,14 @@ export const DcApiPresentation = ({
   const [signerKey, setSignerKey] = useState<string>(SIGNER_DEFAULT);
 
   // List the verifier's X.509 signers to offer them as signers. Degrades silently to the
-  // DID-only flow when none are provisioned (or the list can't be read).
+  // DID-only flow when none are provisioned (or the list can't be read). The request is aborted
+  // when the step unmounts before it answers.
   useEffect(() => {
     let active = true;
+    const request = dispatch(fetchX509Signers({ useDemo: context.useDemo }));
 
     const loadIdentities = async () => {
-      const result = await dispatch(
-        fetchX509Signers({ useDemo: context.useDemo }),
-      );
+      const result = await request;
       if (active && fetchX509Signers.fulfilled.match(result)) {
         setIdentities(result.payload.identities);
       }
@@ -58,8 +60,15 @@ export const DcApiPresentation = ({
 
     return () => {
       active = false;
+      request.abort();
     };
   }, [dispatch, context.useDemo]);
+
+  // A chosen X.509 identity that disappeared (or expired) with a reload falls back to the default,
+  // so what the picker shows is always what the request is sent with.
+  useEffect(() => {
+    setSignerKey((current) => reconcileSignerKey(current, identities));
+  }, [identities]);
 
   const signerItems = useMemo<Array<SelectOption>>(() => {
     const identityOption = (identity: X509Signer): SelectOption => {
@@ -74,7 +83,8 @@ export const DcApiPresentation = ({
         }) +
         (identity.isDefault ? t('PresentationOptions.signer.defaultTag') : '') +
         (identity.expired ? t('PresentationOptions.signer.expiredTag') : '');
-      return { value: identity.id, content };
+      // An expired certificate cannot sign a request the wallet would accept — shown, not selectable.
+      return { value: identity.id, content, isDisabled: identity.expired };
     };
 
     return [
@@ -84,22 +94,10 @@ export const DcApiPresentation = ({
     ];
   }, [identities, t]);
 
-  const resolveSignerSelection = (): RequestSignerSelection | undefined => {
-    if (signerKey === SIGNER_DEFAULT) {
-      return undefined; // use the build-time .env default
-    }
-    if (signerKey === SIGNER_DID) {
-      return { method: 'did' };
-    }
-    const identity = identities.find((item) => item.id === signerKey);
-    return identity
-      ? {
-          method: 'x5c',
-          clientIdPrefix: identity.clientIdPrefix,
-          certificateId: identity.id,
-        }
-      : undefined;
-  };
+  // The picker is offered whenever there is something to choose from, or when the build default is an
+  // X.509 signer that has not been provisioned yet (then the DID option is the only working choice).
+  const noSignerForX5cDefault = identities.length === 0 && isEnvDefaultSignerX5c();
+  const showSignerPicker = identities.length > 0 || noSignerForX5cDefault;
 
   const onPresent = async () => {
     if (!context.protocolType || !context.credentialType || !context.schema) {
@@ -118,7 +116,7 @@ export const DcApiPresentation = ({
         did: context.did,
         useDemo: context.useDemo,
         useDcApi: true,
-        requestSignerSelection: resolveSignerSelection(),
+        requestSignerSelection: resolveSignerSelection(signerKey, identities),
       }),
     );
     requestRef.current = request;
@@ -134,6 +132,8 @@ export const DcApiPresentation = ({
         setError(t('PresentationOptions.errors.cancelled'));
       } else if (code === 'unsupported') {
         setError(t('PresentationOptions.errors.unsupported'));
+      } else if (code === 'rejected') {
+        setError(t('PresentationOptions.errors.rejected'));
       } else {
         setError(t('PresentationOptions.errors.failed'));
       }
@@ -173,13 +173,20 @@ export const DcApiPresentation = ({
           </Column>
         ) : (
           <Column className={cls.buttonGroup}>
-            {identities.length > 0 && (
+            {showSignerPicker && (
               <Select
                 items={signerItems}
-                defaultSelectedKey={SIGNER_DEFAULT}
+                // Controlled by the parent state: the Select mounts only after the list loaded and
+                // must show the choice that will actually be sent, not a fresh default.
+                defaultSelectedKey={signerKey}
                 onSelect={setSignerKey}
                 placeholder={t('PresentationOptions.signer.label')}
               />
+            )}
+            {noSignerForX5cDefault && (
+              <Row className={cls.description}>
+                <p>{t('PresentationOptions.signer.noneProvisioned')}</p>
+              </Row>
             )}
             <Button
               buttonType="filled"
