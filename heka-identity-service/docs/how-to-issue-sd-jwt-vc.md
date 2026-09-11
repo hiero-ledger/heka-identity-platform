@@ -129,6 +129,7 @@ This produces the credential offer URL the wallet consumes.
 - `credentialSupportedId` — must match the `id` you set in Step 2.
 - `format` — must match the format from Step 2 (`vc+sd-jwt`).
 - `issuer.didUrl` — a DID URL of an issuer key. Typically the verification method of the public DID created in Step 1. The DID method must be one of those listed in `cryptographic_binding_methods_supported`.
+- `issuerMode` — `did` (default) or `x5c`. With `x5c` the credential is signed with the tenant's X.509 issuer certificate (HAIP) instead of a DID: `iss` becomes `https://<SD_JWT_VC_ISSUER_DOMAIN>`, the `issuer` object may be omitted, and the credential's token status list is signed with the same key. Requires `SD_JWT_VC_ISSUER_DOMAIN` (see [setup](setup.md#x509-request-signing-and-sd-jwt-vc-issuer-certificates)).
 - `payload` — the actual claims to include in the credential. The `vct` claim is added automatically; if you include it explicitly it must match Step 2.
 - `disclosureFrame._sd` — claim paths that should be **selectively disclosable**. Holders can prove these claims individually without revealing the rest.
 
@@ -163,18 +164,18 @@ Example: with the body above, the holder can present a proof revealing only `age
 
 ## Useful Endpoints
 
-| Endpoint                                       | Purpose                                                                        |
-| ---------------------------------------------- | ------------------------------------------------------------------------------ |
-| `POST /prepare-wallet`                         | Bootstrap a tenant (Step 1).                                                   |
-| `GET /dids`                                    | List the tenant's DIDs.                                                        |
-| `POST /openid4vc/issuer`                       | Create an Issuer record (Step 2).                                              |
-| `GET /openid4vc/issuer/supported-credentials`  | Inspect the credentials advertised by an Issuer.                               |
-| `PUT /openid4vc/issuer/{issuerId}`             | Update an Issuer's metadata (overwrite — include all fields you want to keep). |
-| `POST /openid4vc/issuance-session/offer`       | Create an offer (Step 3).                                                      |
-| `GET /openid4vc/issuance-session/{id}`         | Inspect a session's state (Step 5).                                            |
-| `DELETE /openid4vc/issuance-session/{id}`      | Cancel a pending session.                                                      |
+| Endpoint                                       | Purpose                                                                                                                                                                                                                                         |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /prepare-wallet`                         | Bootstrap a tenant (Step 1).                                                                                                                                                                                                                    |
+| `GET /dids`                                    | List the tenant's DIDs.                                                                                                                                                                                                                         |
+| `POST /openid4vc/issuer`                       | Create an Issuer record (Step 2).                                                                                                                                                                                                               |
+| `GET /openid4vc/issuer/supported-credentials`  | Inspect the credentials advertised by an Issuer.                                                                                                                                                                                                |
+| `PUT /openid4vc/issuer/{issuerId}`             | Update an Issuer's metadata (overwrite — include all fields you want to keep).                                                                                                                                                                  |
+| `POST /openid4vc/issuance-session/offer`       | Create an offer (Step 3).                                                                                                                                                                                                                       |
+| `GET /openid4vc/issuance-session/{id}`         | Inspect a session's state (Step 5).                                                                                                                                                                                                             |
+| `DELETE /openid4vc/issuance-session/{id}`      | Cancel a pending session.                                                                                                                                                                                                                       |
 | `POST /openid4vc/issuance-session/{id}/revoke` | Revoke an issued credential. SD-JWT VCs are revoked through an IETF Token Status List: the credential carries `status.status_list.{idx, uri}`, the list is signed with the same key as the credential, and verifiers re-check it (`ttl` 300 s). |
-| `GET /token-status-lists/{id}`                 | Public download of a Status List Token (`application/statuslist+jwt`) — the `uri` inside an SD-JWT VC's `status` claim. Must be reachable by wallets and verifiers (`APP_ENDPOINT`). |
+| `GET /token-status-lists/{id}`                 | Public download of a Status List Token (`application/statuslist+jwt`) — the `uri` inside an SD-JWT VC's `status` claim. Must be reachable by wallets and verifiers (`APP_ENDPOINT`).                                                            |
 
 ## Troubleshooting
 
