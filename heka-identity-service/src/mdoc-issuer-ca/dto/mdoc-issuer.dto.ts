@@ -1,7 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsNumber, IsOptional, IsString, Length } from 'class-validator'
+import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Length, Matches, Max, Min } from 'class-validator'
 
+import { IACA_MAX_VALIDITY_DAYS, PROFILE_NAMES, ProfileName } from '../certificate-profiles'
 import { MdocDsc, MdocIaca } from '../mdoc-issuer-ca.types'
+
+/** Dotted-decimal OID, e.g. `1.3.6.1.4.1.99999.1.1` (EN 319 412-2 §4.3.3 certificate-policy identifier). */
+const OID_PATTERN = /^[0-2](\.(0|[1-9]\d*))+$/
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
@@ -32,10 +36,48 @@ export class ProvisionIacaDto {
   @IsString()
   public docType?: string
 
-  @ApiPropertyOptional({ default: 365 * 5, description: 'IACA validity in days (ISO/AAMVA cap ≤9 years).' })
+  @ApiPropertyOptional({
+    default: 365 * 5,
+    minimum: 1,
+    maximum: IACA_MAX_VALIDITY_DAYS,
+    description: `IACA validity in whole days, 1..${IACA_MAX_VALIDITY_DAYS} (ISO 18013-5 / AAMVA cap of 9 years).`,
+  })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(IACA_MAX_VALIDITY_DAYS)
   public validityDays?: number
+
+  @ApiPropertyOptional({
+    enum: PROFILE_NAMES,
+    description:
+      'Certificate profile: `mdl` (ISO 18013-5 / AAMVA, default), `mdl-eu`, `eudi-pid` (ETSI TS 119 412-6 PID ' +
+      'Provider sign/seal certificate) or `eudi-eaa`. Defaults to MDOC_ISSUER_PROFILE. EU profiles require ' +
+      '`organizationIdentifier` and `certificatePolicyOid` (here or service-wide).',
+  })
+  @IsOptional()
+  @IsIn(PROFILE_NAMES)
+  public profile?: ProfileName
+
+  @ApiPropertyOptional({
+    description:
+      'EN 319 412-1 `organizationIdentifier` of this tenant (the legal person), e.g. `VATDE-0123456789`. EU ' +
+      'profiles only; defaults to MDOC_ISSUER_ORGANIZATION_IDENTIFIER.',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  public organizationIdentifier?: string
+
+  @ApiPropertyOptional({
+    description:
+      'Dotted-decimal `certificatePolicies` OID every DSC under this IACA carries (EN 319 412-2 §4.3.3). EU ' +
+      'profiles only; defaults to MDOC_ISSUER_CERTIFICATE_POLICY_OID.',
+    example: '1.3.6.1.4.1.99999.1.1',
+  })
+  @IsOptional()
+  @Matches(OID_PATTERN, { message: 'certificatePolicyOid must be a dotted-decimal OID' })
+  public certificatePolicyOid?: string
 }
 
 export class MdocIacaDto {
@@ -60,6 +102,17 @@ export class MdocIacaDto {
   @ApiProperty({ description: 'Default mdoc docType this IACA is authoritative for.' })
   public docType!: string
 
+  @ApiProperty({
+    description: 'Certificate profile the IACA was minted under (`mdl-us`, `mdl-eu`, `eudi-pid`, `eudi-eaa`).',
+  })
+  public profile!: string
+
+  @ApiPropertyOptional({ description: 'EN 319 412-1 organizationIdentifier in the EU DN (EU profiles).' })
+  public organizationIdentifier?: string
+
+  @ApiPropertyOptional({ description: 'certificatePolicies OID carried by every DSC under this IACA (EU profiles).' })
+  public certificatePolicyOid?: string
+
   @ApiProperty()
   public createdAt!: string
 
@@ -82,6 +135,9 @@ export class MdocIacaDto {
     dto.country = iaca.country
     dto.authorityName = iaca.authorityName
     dto.docType = iaca.docType
+    dto.profile = iaca.profile ?? 'mdl-us' // legacy records predate profiles → the shipped mDL profile
+    dto.organizationIdentifier = iaca.organizationIdentifier
+    dto.certificatePolicyOid = iaca.certificatePolicyOid
     dto.createdAt = iaca.createdAt
     dto.notAfter = iaca.notAfter
     Object.assign(dto, expiry(iaca.notAfter))

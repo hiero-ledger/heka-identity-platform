@@ -8,10 +8,13 @@ import * as x509 from '@peculiar/x509'
 import request from 'supertest'
 
 import { Agent, AGENT_TOKEN } from 'src/common/agent'
+import { Role } from 'src/common/auth'
 import { assessEuSigningCertificate, ID_ETSI_QCT_PID_OID, MdocIssuerCaService } from 'src/mdoc-issuer-ca'
+import { uuid } from 'src/utils/misc'
 import { sleep } from 'src/utils/timers'
 
 import { initializeMikroOrm, startTestApp } from './helpers'
+import { createAuthToken } from './helpers/jwt'
 
 const PID_DOCTYPE = 'eu.europa.ec.eudi.pid.1'
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
@@ -150,5 +153,52 @@ describe('mdoc issuer CA — EUDI PID certificate profile (TS 119 412-6)', () =>
     } finally {
       await verifierAgent.endSession()
     }
+  })
+
+  test('H3: a tenant provisions its own EU IACA through the API — profile, legal-person id and policy OID are honoured', async () => {
+    const tenantPolicyOid = '1.3.6.1.4.1.99999.2.1'
+    const authToken = await createAuthToken(uuid(), Role.Admin)
+
+    // a malformed policy OID is rejected by DTO validation before anything is minted
+    await request(app)
+      .post('/mdoc-issuers')
+      .auth(authToken, { type: 'bearer' })
+      .send({ profile: 'eudi-eaa', organizationIdentifier: 'VATFR-9876543210', certificatePolicyOid: 'not-an-oid' })
+      .expect(400)
+    await request(app).get('/mdoc-issuers/iaca').auth(authToken, { type: 'bearer' }).expect(404)
+
+    // the tenant's own values win over the service-wide eudi-pid / VATDE-… / POLICY_OID defaults
+    const provisioned = await request(app)
+      .post('/mdoc-issuers')
+      .auth(authToken, { type: 'bearer' })
+      .send({ profile: 'eudi-eaa', organizationIdentifier: 'VATFR-9876543210', certificatePolicyOid: tenantPolicyOid })
+      .expect(200)
+    expect(provisioned.body.iaca).toMatchObject({
+      profile: 'eudi-eaa',
+      organizationIdentifier: 'VATFR-9876543210',
+      certificatePolicyOid: tenantPolicyOid,
+      commonName: 'Heka EAA IACA',
+    })
+    expect(provisioned.body.iaca.keyId).toBeUndefined()
+
+    const iaca = new x509.X509Certificate(Buffer.from(provisioned.body.iaca.certificateBase64 as string, 'base64'))
+    expect(iaca.subject).toContain('2.5.4.97=VATFR-9876543210')
+    expect(iaca.subject).not.toContain('VATDE-0123456789')
+
+    // the DSC minted under it is an EN 319 412-3 legal-person EAA certificate carrying the tenant's policy
+    expect(provisioned.body.dscs).toHaveLength(1)
+    const dsc = new x509.X509Certificate(Buffer.from(provisioned.body.dscs[0].certificateBase64 as string, 'base64'))
+    expect(dsc.subject).toContain('2.5.4.97=VATFR-9876543210')
+    expect(dsc.subject).toContain('CN=Heka EAA DSC')
+    expect(dsc.getExtension(x509.CertificatePolicyExtension)?.policies).toEqual([tenantPolicyOid])
+    expect(assessEuSigningCertificate(dsc).violations).toEqual([])
+
+    // and the read model reports the same provisioning facts
+    const shown = await request(app).get('/mdoc-issuers/iaca').auth(authToken, { type: 'bearer' }).expect(200)
+    expect(shown.body).toMatchObject({
+      profile: 'eudi-eaa',
+      organizationIdentifier: 'VATFR-9876543210',
+      certificatePolicyOid: tenantPolicyOid,
+    })
   })
 })

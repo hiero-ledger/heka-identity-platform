@@ -9,7 +9,7 @@ import { ConfigType } from '@nestjs/config'
 import { Agent, AGENT_TOKEN } from 'common/agent'
 import ExpressConfig from 'config/express'
 
-import { resolveProfile } from './certificate-profiles'
+import { IACA_MAX_VALIDITY_DAYS, resolveProfile } from './certificate-profiles'
 import { buildEuDsc, buildEuIaca } from './eu-certificate-builder'
 import { IACA_REGISTRY_RECORD_TYPE, readIacaRegistry } from './iaca-registry'
 import { MdocDsc, MdocIaca, ProvisionIacaOptions } from './mdoc-issuer-ca.types'
@@ -107,6 +107,11 @@ export class MdocIssuerCaService {
     const certificatePolicyOid = options.certificatePolicyOid ?? this.agent.agencyConfig.mdocIssuerCertificatePolicyOid
     const commonName = options.commonName ?? `${authorityName} ${profile.credentialLabel} IACA`
     const validityDays = options.validityDays ?? profile.iacaValidityDays
+    if (!Number.isInteger(validityDays) || validityDays < 1 || validityDays > IACA_MAX_VALIDITY_DAYS) {
+      throw new BadRequestException(
+        `IACA validityDays must be a whole number of days between 1 and ${IACA_MAX_VALIDITY_DAYS} (ISO 18013-5 / AAMVA cap)`,
+      )
+    }
 
     const kms = agentContext.resolve(Kms.KeyManagementApi)
     const key = await kms.createKey({ type: { kty: 'EC', crv: 'P-256' } })

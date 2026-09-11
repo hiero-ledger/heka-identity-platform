@@ -172,6 +172,21 @@ describe('MdocIssuerCaService', () => {
       expect(certOpts.issuer).toMatchObject({ commonName: 'Acme IACA', countryName: 'DE', organizationalUnit: 'Acme' })
     })
 
+    test.each([0, -1, 1.5, 365 * 9 + 1])(
+      'M7: rejects validityDays %p before minting anything',
+      async (validityDays) => {
+        await expect(service.provisionIaca(agentContext, { validityDays })).rejects.toThrow(BadRequestException)
+        expect(mockCreateKey).not.toHaveBeenCalled()
+      },
+    )
+
+    test('M7: accepts the ISO 18013-5 / AAMVA maximum of 9 years', async () => {
+      mockCreateCertificate.mockResolvedValue(buildCert())
+      await service.provisionIaca(agentContext, { validityDays: 365 * 9 })
+      const { validity } = mockCreateCertificate.mock.calls[0][0] as { validity: { notBefore: Date; notAfter: Date } }
+      expect(validity.notAfter.getTime() - validity.notBefore.getTime()).toBeGreaterThan(365 * 9 * 24 * 3600 * 1000)
+    })
+
     test('is idempotent — returns the existing IACA without minting a new one', async () => {
       iacaRecords = [{ id: 'iaca-rec', content: iacaContent() }]
 
