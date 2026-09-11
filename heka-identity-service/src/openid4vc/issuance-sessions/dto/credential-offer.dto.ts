@@ -3,6 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import {
   IsArray,
+  IsDefined,
   IsEnum,
   IsIn,
   IsNotEmpty,
@@ -10,6 +11,7 @@ import {
   IsOptional,
   IsString,
   Length,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator'
 
@@ -90,14 +92,20 @@ export class OpenId4VcIssuanceSessionCreateOfferCredentialOptions {
   public format!: OpenId4VciCredentialFormatProfile
 
   /**
-   * The issuer of the credential.
-   *
-   * Only DID based issuance is supported at the moment.
+   * The DID issuer of the credential. Required for every DID-signed credential; not applicable — and
+   * therefore optional — for an SD-JWT VC offered with `issuerMode: 'x5c'`, which is signed with the
+   * tenant's X.509 issuer certificate instead (M9).
    */
-  @ApiProperty({ type: CredentialIssuer })
+  @ApiProperty({
+    type: CredentialIssuer,
+    required: false,
+    description: 'The DID issuer. Required unless the credential is an SD-JWT VC with `issuerMode: "x5c"`.',
+  })
+  @ValidateIf((options: { issuerMode?: IssuerMode }) => options.issuerMode !== 'x5c')
+  @IsDefined()
   @ValidateNested()
   @Type(() => CredentialIssuer)
-  public issuer!: CredentialIssuer
+  public issuer?: CredentialIssuer
 }
 
 export class OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions extends OpenId4VcIssuanceSessionCreateOfferCredentialOptions {

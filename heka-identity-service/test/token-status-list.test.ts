@@ -9,6 +9,7 @@ import request from 'supertest'
 
 import { DidKeyRegistrar } from 'common/did-registrar/methods'
 import { Role } from 'src/common/auth'
+import { TokenStatusList } from 'src/common/entities'
 import { TokenStatus } from 'src/revocation'
 import { uuid } from 'src/utils/misc'
 import { sleep } from 'src/utils/timers'
@@ -157,5 +158,88 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     // only the JWT format exists for now
     await request(app).get(`/token-status-lists/${listId}`).set('Accept', 'application/statuslist+cwt').expect(406)
     await request(app).get('/token-status-lists/unknown').expect(404)
+  })
+
+  test('H2: concurrent offers never share a status-list index and concurrent revocations both stick', async () => {
+    const issuerAccountAuthToken = await createAuthToken(uuid(), Role.Admin)
+    const postDidResponse = await request(app)
+      .post('/dids')
+      .auth(issuerAccountAuthToken, { type: 'bearer' })
+      .send({ method: 'key' })
+      .expect(201)
+    const issuerDid = postDidResponse.body.id as string
+    await request(app)
+      .post('/openid4vc/issuer')
+      .auth(issuerAccountAuthToken, { type: 'bearer' })
+      .send({
+        publicIssuerId: issuerDid,
+        credentialsSupported: [
+          {
+            id: 'SdJwtVcExample',
+            format: 'vc+sd-jwt',
+            vct: 'https://example.com/vct',
+            proof_types_supported: {
+              jwt: { proof_signing_alg_values_supported: [Kms.KnownJwaSignatureAlgorithms.EdDSA] },
+            },
+          },
+        ],
+      })
+      .expect(200)
+    const offer = () =>
+      request(app)
+        .post('/openid4vc/issuance-session/offer')
+        .auth(issuerAccountAuthToken, { type: 'bearer' })
+        .send({
+          publicIssuerId: issuerDid,
+          credentials: [
+            {
+              credentialSupportedId: 'SdJwtVcExample',
+              format: 'vc+sd-jwt',
+              issuer: { method: 'did', did: issuerDid },
+              payload: { first_name: 'Jane' },
+            },
+          ],
+        })
+    const referenceOf = (response: request.Response) => {
+      const metadata = response.body.issuanceSession.issuanceMetadata as {
+        credentials: { credentialStatus: { location: string; index: number } }[]
+      }
+      return metadata.credentials[0].credentialStatus
+    }
+
+    // the first offer creates the key's list; the 20 concurrent ones then all allocate from that one row
+    const first = await offer().expect(200)
+    const concurrent = await Promise.all(Array.from({ length: 20 }, () => offer()))
+    for (const response of concurrent) expect(response.statusCode).toBe(200)
+    const references = [first, ...concurrent].map(referenceOf)
+
+    expect(new Set(references.map((reference) => reference.location)).size).toBe(1)
+    expect(new Set(references.map((reference) => reference.index)).size).toBe(21)
+
+    // the persisted bitmap agrees: 21 allocations, 21 bits — no lost read-modify-write
+    const listId = references[0].location.split('/').pop() as string
+    const list = await orm.em.fork().findOneOrFail(TokenStatusList, { id: listId })
+    expect(list.allocatedCount).toBe(21)
+    const bitsSet = Buffer.from(list.allocated, 'base64').reduce(
+      (count, byte) => count + byte.toString(2).replace(/0/g, '').length,
+      0,
+    )
+    expect(bitsSet).toBe(21)
+
+    // two revocations racing on the same list both land in the re-signed token
+    const [revokeA, revokeB] = concurrent
+    await Promise.all(
+      [revokeA, revokeB].map((response) =>
+        request(app)
+          .post(`/openid4vc/issuance-session/${response.body.issuanceSession.id as string}/revoke`)
+          .auth(issuerAccountAuthToken, { type: 'bearer' })
+          .expect(200),
+      ),
+    )
+    const token = await request(app).get(`/token-status-lists/${listId}`).expect(200)
+    const statusList = getListFromStatusListJWT(token.text)
+    expect(statusList.getStatus(referenceOf(revokeA).index)).toBe(TokenStatus.Invalid)
+    expect(statusList.getStatus(referenceOf(revokeB).index)).toBe(TokenStatus.Invalid)
+    expect(statusList.getStatus(referenceOf(first).index)).toBe(TokenStatus.Valid)
   })
 })

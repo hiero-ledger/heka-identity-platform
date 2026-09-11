@@ -1,11 +1,15 @@
 import { createMock } from '@golevelup/ts-vitest'
-import { EntityManager } from '@mikro-orm/core'
+import { EntityManager, LockMode } from '@mikro-orm/core'
 import { BadRequestException, InternalServerErrorException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
 import { entityStub } from '../../../../test/helpers/mock-records'
 import { AuthInfo, Role } from '../../../common/auth'
-import { CredentialStatusList, StatusListPurpose } from '../../../common/entities/credential-status-list.entity'
+import {
+  CredentialStatusList,
+  defaultCredentialStatusListSize,
+  StatusListPurpose,
+} from '../../../common/entities/credential-status-list.entity'
 import ExpressConfig from '../../../config/express'
 import { StatusListService } from '../status-list.service'
 
@@ -54,6 +58,8 @@ describe('StatusListService', () => {
     mockEncodeBits.mockResolvedValue('encoded-bitstring')
 
     em = createMock<EntityManager>()
+    // Every read-modify-write runs inside `em.transactional`; the callback receives the forked em.
+    vi.mocked(em.transactional).mockImplementation((callback) => Promise.resolve(callback(em)))
     appConfig = createMock<ConfigType<typeof ExpressConfig>>({
       appEndpoint,
     })
@@ -218,69 +224,86 @@ describe('StatusListService', () => {
     })
   })
 
-  describe('addItems', () => {
-    test('should update the encoded list and last index', async () => {
-      const id = 'status-list-1'
+  describe('reserveIndexes', () => {
+    const issuer = 'did:example:issuer'
+
+    test('H2: reserves consecutive indexes under a row lock, in one transaction, and advances lastIndex', async () => {
       const statusListEntity = entityStub<CredentialStatusList>({
-        id,
+        id: 'status-list-1',
         encodedList: 'uoriginal-encoded',
         lastIndex: 5,
         size: 100,
         owner: mockUser,
       })
-
-      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
-
+      vi.mocked(em.find).mockResolvedValue([statusListEntity])
       mockEncodeBits.mockResolvedValue('updated-encoded')
 
-      await service.addItems(authInfo, id, [5, 6, 7])
+      const reserved = await service.reserveIndexes(authInfo, issuer, 3)
 
-      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id, owner: mockUser })
+      expect(em.transactional).toHaveBeenCalledTimes(1)
+      expect(em.find).toHaveBeenCalledWith(
+        CredentialStatusList,
+        { owner: mockUser },
+        { lockMode: LockMode.PESSIMISTIC_WRITE },
+      )
+      // 0-based: lastIndex 5 is the next free index
+      expect(reserved).toEqual({ id: 'status-list-1', indexes: [5, 6, 7] })
+      expect(mockSet).toHaveBeenCalledWith(5, false)
+      expect(mockSet).toHaveBeenCalledWith(7, false)
       expect(statusListEntity.encodedList).toBe('uupdated-encoded')
-      expect(statusListEntity.lastIndex).toBe(8) // 5 + 3
+      expect(statusListEntity.lastIndex).toBe(8)
       expect(em.flush).toHaveBeenCalled()
     })
 
-    test('should propagate error when entity not found', async () => {
-      vi.mocked(em.findOneOrFail).mockRejectedValue(new Error('Entity not found'))
-
-      await expect(service.addItems(authInfo, 'bad-id', [0])).rejects.toThrow('Entity not found')
-      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id: 'bad-id', owner: mockUser })
-    })
-
-    test('should throw BadRequestException when there are not enough free indexes', async () => {
-      const id = 'status-list-1'
-      const statusListEntity = entityStub<CredentialStatusList>({
-        id,
-        encodedList: 'uoriginal-encoded',
-        lastIndex: 99,
+    test('creates a new list when no existing list has room for the whole reservation', async () => {
+      const nearlyFull = entityStub<CredentialStatusList>({
+        id: 'full-list',
+        encodedList: 'encoded',
+        lastIndex: 98,
         size: 100,
         owner: mockUser,
       })
+      vi.mocked(em.find).mockResolvedValue([nearlyFull])
+      vi.mocked(em.flush).mockResolvedValue(undefined)
 
-      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
+      // Two entries (98, 99) would still fit; three do not
+      const reserved = await service.reserveIndexes(authInfo, issuer, 3)
 
-      // Only 1 free slot remains (lastIndex 99 of size 100), so adding 2 items must be rejected.
-      // The indexes are deliberately in-range so that only the capacity guard can reject them —
-      // out-of-range indexes would also trip the per-index bound and mask its removal.
-      await expect(service.addItems(authInfo, id, [0, 99])).rejects.toThrow(BadRequestException)
+      expect(reserved.id).not.toBe('full-list')
+      expect(reserved.indexes).toEqual([0, 1, 2])
+      expect(nearlyFull.lastIndex).toBe(98)
+      expect(em.persist).toHaveBeenCalledTimes(1)
+    })
+
+    test('rejects a non-positive count', async () => {
+      await expect(service.reserveIndexes(authInfo, issuer, 0)).rejects.toThrow(BadRequestException)
+      expect(em.transactional).not.toHaveBeenCalled()
+    })
+
+    test('should throw BadRequestException when a reservation cannot fit even in a fresh list', async () => {
+      vi.mocked(em.find).mockResolvedValue([])
+      vi.mocked(em.flush).mockResolvedValue(undefined)
+
+      // No existing list has room, a new one is created, and even that one is too small: the capacity guard
+      // rejects before any bit is set (the transaction discards the new list).
+      await expect(service.reserveIndexes(authInfo, issuer, defaultCredentialStatusListSize + 1)).rejects.toThrow(
+        BadRequestException,
+      )
       expect(mockSet).not.toHaveBeenCalled()
-      expect(em.flush).not.toHaveBeenCalled()
     })
 
     test('should fail as a server error when the stored list is not Multibase-encoded', async () => {
-      const id = 'status-list-1'
       const statusListEntity = entityStub<CredentialStatusList>({
-        id,
+        id: 'status-list-1',
         encodedList: 'H4sIunprefixed-legacy-value',
         lastIndex: 5,
         size: 100,
         owner: mockUser,
       })
 
-      vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
+      vi.mocked(em.find).mockResolvedValue([statusListEntity])
 
-      await expect(service.addItems(authInfo, id, [10])).rejects.toThrow(InternalServerErrorException)
+      await expect(service.reserveIndexes(authInfo, issuer, 1)).rejects.toThrow(InternalServerErrorException)
       expect(mockSet).not.toHaveBeenCalled()
       expect(em.flush).not.toHaveBeenCalled()
     })
@@ -303,6 +326,13 @@ describe('StatusListService', () => {
 
       await service.updateItems(authInfo, id, { indexes: [2, 5], revoked: true })
 
+      // H2: the revocation write holds a row lock inside one transaction
+      expect(em.transactional).toHaveBeenCalledTimes(1)
+      expect(em.findOneOrFail).toHaveBeenCalledWith(
+        CredentialStatusList,
+        { id, owner: mockUser },
+        { lockMode: LockMode.PESSIMISTIC_WRITE },
+      )
       expect(statusListEntity.encodedList).toBe('urevoked-encoded')
       expect(mockSet).toHaveBeenCalledWith(2, true)
       expect(mockSet).toHaveBeenCalledWith(5, true)

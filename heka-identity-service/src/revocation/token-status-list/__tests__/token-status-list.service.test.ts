@@ -2,7 +2,7 @@ import { generateKeyPairSync } from 'node:crypto'
 
 import { AgentContext, Kms } from '@credo-ts/core'
 import { createMock } from '@golevelup/ts-vitest'
-import { EntityManager } from '@mikro-orm/core'
+import { EntityManager, LockMode } from '@mikro-orm/core'
 import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 import { getListFromStatusListJWT } from '@sd-jwt/jwt-status-list'
@@ -57,6 +57,8 @@ describe('TokenStatusListService', () => {
         return em
       }),
       flush: vi.fn().mockResolvedValue(undefined),
+      // The service runs every read-modify-write inside `em.transactional`; the callback gets the forked em.
+      transactional: vi.fn((callback: (em: EntityManager) => Promise<unknown>) => callback(em)),
     } as never)
 
     // The KMS: a real P-256 public key (so the JWA algorithm resolves to ES256) and a fake signature.
@@ -77,6 +79,14 @@ describe('TokenStatusListService', () => {
 
   test('allocate creates a signed list on first use and reserves a random index in it', async () => {
     const reference = await service.allocate(agentContext, authInfo, identity)
+
+    // H2: the allocation is one transaction holding a row lock on the key's lists (SELECT … FOR UPDATE)
+    expect(em.transactional).toHaveBeenCalledTimes(1)
+    expect(em.find).toHaveBeenCalledWith(
+      TokenStatusList,
+      { owner: authInfo.user, signerKeyId: 'kms-key-1' },
+      { lockMode: LockMode.PESSIMISTIC_WRITE },
+    )
 
     expect(stored).toHaveLength(1)
     const list = stored[0]
@@ -123,6 +133,54 @@ describe('TokenStatusListService', () => {
     expect(first.idx).not.toBe(second.idx)
     // reserving indexes does not change any status → no re-signing
     expect(sign).toHaveBeenCalledTimes(1)
+  })
+
+  test('M4: allocateMany reserves N distinct entries of one list in one locked transaction, without re-signing', async () => {
+    const batch = await service.allocateMany(agentContext, authInfo, identity, 3)
+
+    expect(stored).toHaveLength(1)
+    expect(batch.id).toBe(stored[0].id)
+    expect(batch.indexes).toHaveLength(3)
+    expect(new Set(batch.indexes).size).toBe(3)
+    expect(stored[0].allocatedCount).toBe(3)
+    expect(em.transactional).toHaveBeenCalledTimes(1)
+    expect(sign).toHaveBeenCalledTimes(1) // creation only
+
+    const later = await service.allocate(agentContext, authInfo, identity)
+    expect(later.id).toBe(batch.id)
+    expect(batch.indexes).not.toContain(later.idx)
+  })
+
+  test('allocateMany rejects a count below one', async () => {
+    await expect(service.allocateMany(agentContext, authInfo, identity, 0)).rejects.toBeInstanceOf(BadRequestException)
+    expect(em.transactional).not.toHaveBeenCalled()
+  })
+
+  test('M4: setStatuses flips every entry of a batch and re-signs the token once', async () => {
+    const batch = await service.allocateMany(agentContext, authInfo, identity, 3)
+    const untouched = await service.allocate(agentContext, authInfo, identity)
+
+    await service.setStatuses(agentContext, authInfo, batch.id, batch.indexes, TokenStatus.Invalid)
+
+    expect(sign).toHaveBeenCalledTimes(2)
+    const list = getListFromStatusListJWT(stored[0].token!)
+    for (const idx of batch.indexes) expect(list.getStatus(idx)).toBe(TokenStatus.Invalid)
+    expect(list.getStatus(untouched.idx)).toBe(TokenStatus.Valid)
+  })
+
+  test('setStatuses rejects the whole batch when any index is out of range', async () => {
+    const batch = await service.allocateMany(agentContext, authInfo, identity, 2)
+    const before = stored[0].token
+    await expect(
+      service.setStatuses(
+        agentContext,
+        authInfo,
+        batch.id,
+        [...batch.indexes, defaultTokenStatusListSize],
+        TokenStatus.Invalid,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException)
+    expect(stored[0].token).toBe(before)
   })
 
   test('a different signing key (rotated issuer certificate) starts a separate list', async () => {

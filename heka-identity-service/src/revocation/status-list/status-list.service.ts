@@ -1,5 +1,5 @@
 import { Bitstring } from '@digitalcredentials/bitstring'
-import { EntityManager } from '@mikro-orm/core'
+import { EntityManager, LockMode } from '@mikro-orm/core'
 import { BadRequestException, Inject, Injectable, InternalServerErrorException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
@@ -31,6 +31,19 @@ function fromMultibaseBase64url(encodedList: string): string {
   return encodedList.slice(MULTIBASE_BASE64URL_PREFIX.length)
 }
 
+/** Indexes reserved for one issuance, all in the same list. */
+export interface ReservedStatusListIndexes {
+  id: string
+  indexes: number[]
+}
+
+/**
+ * W3C Bitstring Status Lists for W3C VCs (SD-JWT VCs use the IETF token status list instead).
+ *
+ * Every read-modify-write of a list (`encodedList`, `lastIndex`) runs in one transaction holding a row lock
+ * (`SELECT … FOR UPDATE`): two concurrent offers must never be handed the same index, and two concurrent
+ * revocations must never drop each other's bit (H2).
+ */
 @Injectable()
 export class StatusListService {
   public constructor(
@@ -39,7 +52,11 @@ export class StatusListService {
     private readonly appConfig: ConfigType<typeof ExpressConfig>,
   ) {}
 
-  public async create(authInfo: AuthInfo, req: CreateStatusListRequest): Promise<CredentialStatusList> {
+  public async create(
+    authInfo: AuthInfo,
+    req: CreateStatusListRequest,
+    em: EntityManager = this.em,
+  ): Promise<CredentialStatusList> {
     const size = req.size ?? defaultCredentialStatusListSize
 
     const bitstring = new Bitstring({ length: size })
@@ -53,8 +70,8 @@ export class StatusListService {
       owner: authInfo.user,
     })
 
-    this.em.persist(statusList)
-    await this.em.flush()
+    em.persist(statusList)
+    await em.flush()
 
     return statusList
   }
@@ -96,28 +113,55 @@ export class StatusListService {
     }
   }
 
-  public async addItems(authInfo: AuthInfo, id: string, indexes: Array<number>): Promise<void> {
-    const statusList = await this.em.findOneOrFail(CredentialStatusList, { id, owner: authInfo.user })
+  /**
+   * Reserve `count` consecutive indexes for credentials about to be issued, atomically: the owner's lists
+   * are locked, the first list with room takes the reservation (a new list is created when none has), and
+   * `lastIndex` advances in the same transaction — so concurrent offers never share an index. Indexes are
+   * 0-based: `lastIndex` is the next free index, so a list of `size` bits holds the indexes `0 … size - 1`.
+   */
+  public async reserveIndexes(authInfo: AuthInfo, issuer: string, count: number): Promise<ReservedStatusListIndexes> {
+    if (!Number.isInteger(count) || count < 1) {
+      throw new BadRequestException('At least one status list index must be reserved')
+    }
+    return this.em.transactional(async (em) => {
+      const lists = await em.find(
+        CredentialStatusList,
+        { owner: authInfo.user },
+        { lockMode: LockMode.PESSIMISTIC_WRITE },
+      )
+      let statusList = lists.find((candidate) => candidate.lastIndex + count <= candidate.size)
+      if (!statusList) {
+        statusList = await this.create(authInfo, { issuer }, em)
+        // A reservation larger than a whole list can never be satisfied; the transaction discards the new list.
+        this.assertHasFreeIndexes(statusList, count)
+      }
 
-    this.assertHasFreeIndexes(statusList, indexes.length)
+      const indexes = Array.from({ length: count }, (_, offset) => statusList.lastIndex + offset)
+      statusList.encodedList = await this.updatedBitstring(statusList.encodedList, statusList.size, indexes, false)
+      statusList.lastIndex += count
+      await em.flush()
 
-    statusList.encodedList = await this.updatedBitstring(statusList.encodedList, statusList.size, indexes, false)
-    statusList.lastIndex += indexes.length
-
-    await this.em.flush()
+      return { id: statusList.id, indexes }
+    })
   }
 
   public async updateItems(authInfo: AuthInfo, id: string, data: UpdateStatusListRequest): Promise<void> {
-    const statusList = await this.em.findOneOrFail(CredentialStatusList, { id, owner: authInfo.user })
+    await this.em.transactional(async (em) => {
+      const statusList = await em.findOneOrFail(
+        CredentialStatusList,
+        { id, owner: authInfo.user },
+        { lockMode: LockMode.PESSIMISTIC_WRITE },
+      )
 
-    statusList.encodedList = await this.updatedBitstring(
-      statusList.encodedList,
-      statusList.size,
-      data.indexes,
-      data.revoked,
-    )
+      statusList.encodedList = await this.updatedBitstring(
+        statusList.encodedList,
+        statusList.size,
+        data.indexes,
+        data.revoked,
+      )
 
-    await this.em.flush()
+      await em.flush()
+    })
   }
 
   public async getItemDetails(id: string): Promise<GetCredentialStatusListResponse> {

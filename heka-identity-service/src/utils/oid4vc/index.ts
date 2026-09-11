@@ -1,6 +1,14 @@
-import type { AgentContext, JsonObject, X509Certificate } from '@credo-ts/core'
+import type { AgentContext, JsonObject } from '@credo-ts/core'
 
-import { ClaimFormat, SdJwtVcPayload, W3cCredential, W3cCredentialSubject, w3cDate } from '@credo-ts/core'
+import {
+  ClaimFormat,
+  Kms,
+  SdJwtVcPayload,
+  W3cCredential,
+  W3cCredentialSubject,
+  w3cDate,
+  X509Certificate,
+} from '@credo-ts/core'
 import {
   OpenId4VciCredentialFormatProfile,
   OpenId4VciCredentialRequestToCredentialMapper,
@@ -35,12 +43,55 @@ export interface CredentialMapperDependencies {
   ) => Promise<{ certificateChain: X509Certificate[]; issuerUrl: string }>
 }
 
-/** The SD-JWT VC `status.status_list` claim (draft-ietf-oauth-status-list) for a token-status-list reference. */
+/**
+ * The SD-JWT VC `status.status_list` claim (draft-ietf-oauth-status-list) for the credential at `position`
+ * of the issuance: entry `indexes[position]` (a batch reserves one entry per holder binding key at offer
+ * time — two credentials must never share an entry, or revoking one revokes the other, M4). Sessions from
+ * before batch support carry a single `index`. Throws when the batch is larger than what was reserved.
+ */
 export function tokenStatusListClaim(
   credentialStatus: CredentialIssuanceMetadata['credentialStatus'],
+  position = 0,
 ): { status: { status_list: { idx: number; uri: string } } } | Record<string, never> {
   if (credentialStatus?.type !== 'token-status-list') return {}
-  return { status: { status_list: { idx: credentialStatus.index, uri: credentialStatus.location } } }
+  const indexes = credentialStatus.indexes ?? [credentialStatus.index]
+  const idx = indexes[position]
+  if (idx === undefined) {
+    throw new Error(
+      `Batch issuance requested credential ${position + 1} but only ${indexes.length} status-list entr${
+        indexes.length === 1 ? 'y was' : 'ies were'
+      } reserved at offer time`,
+    )
+  }
+  return { status: { status_list: { idx, uri: credentialStatus.location } } }
+}
+
+/** The x5c signing identity pinned to an SD-JWT VC issuance at offer time (base64 DER chain, leaf first). */
+export interface PinnedIssuerSigner {
+  /** KMS key id of the leaf's private key (tenant store). */
+  keyId: string
+  /** `[leaf, …, root]` as base64 DER. */
+  x5c: string[]
+  /** The credential `iss` (`https://<issuer domain>`). */
+  issuer: string
+}
+
+/**
+ * Rebuild the pinned signing chain with the leaf's key bound. The key must still exist: renewal never
+ * deletes superseded keys, so a pin normally outlives a rotation; a deleted key means the offer must be
+ * re-created rather than silently signed with another identity.
+ */
+async function pinnedIssuerChain(agentContext: AgentContext, signer: PinnedIssuerSigner): Promise<X509Certificate[]> {
+  const kms = agentContext.resolve(Kms.KeyManagementApi)
+  const key = await kms.getPublicKey({ keyId: signer.keyId })
+  if (!key) {
+    throw new Error(
+      `The SD-JWT VC issuer key pinned at offer time (${signer.keyId}) no longer exists in the tenant key store; create a new offer`,
+    )
+  }
+  const chain = signer.x5c.map((certificate) => X509Certificate.fromEncodedCertificate(certificate))
+  chain[0].keyId = signer.keyId
+  return chain
 }
 
 export interface CredentialIssuanceMetadata {
@@ -49,6 +100,13 @@ export interface CredentialIssuanceMetadata {
   credentialSupportedId: string
   /** SD-JWT VC issuer mode — see {@link ISSUER_MODES}. */
   issuerMode?: IssuerMode
+  /**
+   * x5c mode: the signing identity **pinned at offer time** — the certificate chain and KMS key the token
+   * status list entry was allocated under. A certificate renewal between offer and credential request
+   * must not split the credential from its status list (Credo verifies the list with the credential's
+   * issuer key, M3). Absent on sessions created before the pin existed: the current chain is used.
+   */
+  issuerSigner?: PinnedIssuerSigner
   issuer: {
     did?: string
     didUrl?: string
@@ -64,7 +122,10 @@ export interface CredentialIssuanceMetadata {
   credentialStatus?: {
     type?: 'bitstring' | 'token-status-list'
     location: string
+    /** Entry of the first credential of the issuance (the only one for W3C VCs and pre-batch sessions). */
     index: number
+    /** One entry per credential of a batch issuance — `indexes[i]` belongs to holder binding key `i`. */
+    indexes?: number[]
   }
   credentialSubject?: Record<string, unknown>
   payload?: SdJwtVcPayload
@@ -134,8 +195,15 @@ export const createCredentialRequestToCredentialMapper =
       // Default stays DID-based.
       let sdJwtVcIssuer: { method: 'did'; didUrl: string } | { method: 'x5c'; x5c: X509Certificate[]; issuer: string }
       if (issuanceMetadata.issuerMode === 'x5c') {
-        const { certificateChain, issuerUrl } = await getSdJwtVcIssuerCertificate(agentContext)
-        sdJwtVcIssuer = { method: 'x5c', x5c: certificateChain, issuer: issuerUrl }
+        if (issuanceMetadata.issuerSigner) {
+          // The identity pinned at offer time — the same key the token status list was allocated under.
+          const signer = issuanceMetadata.issuerSigner
+          sdJwtVcIssuer = { method: 'x5c', x5c: await pinnedIssuerChain(agentContext, signer), issuer: signer.issuer }
+        } else {
+          // Sessions created before the pin existed: the current chain.
+          const { certificateChain, issuerUrl } = await getSdJwtVcIssuerCertificate(agentContext)
+          sdJwtVcIssuer = { method: 'x5c', x5c: certificateChain, issuer: issuerUrl }
+        }
       } else {
         if (!verificationMethod) throw new Error(`Invalid credential issuance metadata: 'didUrl' is missing`)
         sdJwtVcIssuer = { method: 'did', didUrl: verificationMethod }
@@ -144,13 +212,13 @@ export const createCredentialRequestToCredentialMapper =
       return {
         type: 'credentials' as const,
         format: ClaimFormat.SdJwtDc,
-        credentials: holderBinding.keys.map((binding) => ({
+        credentials: holderBinding.keys.map((binding, position) => ({
           holder: binding,
           issuer: sdJwtVcIssuer,
           payload: {
             vct,
             ...issuanceMetadata.payload,
-            ...tokenStatusListClaim(issuanceMetadata.credentialStatus),
+            ...tokenStatusListClaim(issuanceMetadata.credentialStatus, position),
           },
           disclosureFrame: issuanceMetadata.disclosureFrame,
           hashingAlgorithm: 'sha-256',

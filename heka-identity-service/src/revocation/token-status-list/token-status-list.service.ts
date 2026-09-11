@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto'
 
 import { AgentContext, Kms } from '@credo-ts/core'
-import { EntityManager } from '@mikro-orm/core'
+import { EntityManager, LockMode } from '@mikro-orm/core'
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 import { BitsPerStatus, createHeaderAndPayload, StatusList } from '@sd-jwt/jwt-status-list'
@@ -33,6 +33,13 @@ export interface TokenStatusListReference {
   idx: number
 }
 
+/** The entries reserved for one (batch) issuance — all in the same list, one per credential. */
+export interface TokenStatusListBatchReference {
+  id: string
+  uri: string
+  indexes: number[]
+}
+
 /** `ttl` claim: how long a verifier may cache a token before re-fetching. */
 export const TOKEN_STATUS_LIST_TTL_SECONDS = 300
 
@@ -60,6 +67,9 @@ export enum TokenStatus {
  * - The signed token is stored on the entity and served verbatim by the tenant-less public route, so
  *   signing happens only inside tenant-context operations (offer / revoke) where the key is reachable.
  * - Tokens carry `iat` + `ttl` and no `exp` (an unchanged list stays valid; verifiers re-fetch per ttl).
+ * - Every read-modify-write of a list (`allocated` bitmap, `statuses`) runs in one transaction holding a
+ *   row lock (`SELECT … FOR UPDATE`): concurrent offers must never be handed the same index and concurrent
+ *   revocations must never drop each other's bit (H2).
  */
 @Injectable()
 export class TokenStatusListService {
@@ -82,21 +92,50 @@ export class TokenStatusListService {
     authInfo: AuthInfo,
     identity: TokenStatusListSignerIdentity,
   ): Promise<TokenStatusListReference> {
-    const lists = await this.em.find(TokenStatusList, { owner: authInfo.user, signerKeyId: identity.keyId })
-    let list = lists.find((candidate) => candidate.allocatedCount < candidate.size)
-    if (!list) {
-      list = await this.create(agentContext, authInfo, identity)
+    const { id, uri, indexes } = await this.allocateMany(agentContext, authInfo, identity, 1)
+    return { id, uri, idx: indexes[0] }
+  }
+
+  /**
+   * Reserve `count` distinct indexes — one per credential of a batch issuance — in a single list of
+   * `identity`'s key (creating a list when none has room). One locked transaction, so concurrent offers
+   * never share an entry (H2) and the credentials of one batch never do either (M4).
+   */
+  public async allocateMany(
+    agentContext: AgentContext,
+    authInfo: AuthInfo,
+    identity: TokenStatusListSignerIdentity,
+    count: number,
+  ): Promise<TokenStatusListBatchReference> {
+    if (!Number.isInteger(count) || count < 1) {
+      throw new BadRequestException('At least one status list entry must be reserved')
     }
+    return this.em.transactional(async (em) => {
+      // Lock the key's lists for the duration of the read-modify-write of the `allocated` bitmap.
+      const lists = await em.find(
+        TokenStatusList,
+        { owner: authInfo.user, signerKeyId: identity.keyId },
+        { lockMode: LockMode.PESSIMISTIC_WRITE },
+      )
+      let list = lists.find((candidate) => candidate.allocatedCount + count <= candidate.size)
+      if (!list) {
+        list = await this.create(em, agentContext, authInfo, identity)
+      }
 
-    const allocated = fromBase64(list.allocated)
-    const idx = pickFreeIndex(allocated, list.size)
-    setBit(allocated, idx)
-    list.allocated = toBase64(allocated)
-    list.allocatedCount += 1
-    await this.em.flush()
+      const allocated = fromBase64(list.allocated)
+      const indexes: number[] = []
+      for (let reserved = 0; reserved < count; reserved += 1) {
+        const idx = pickFreeIndex(allocated, list.size)
+        setBit(allocated, idx)
+        indexes.push(idx)
+      }
+      list.allocated = toBase64(allocated)
+      list.allocatedCount += count
+      await em.flush()
 
-    this.logger.child('allocate').debug({ id: list.id, idx }, 'index reserved')
-    return { id: list.id, uri: this.location(list.id), idx }
+      this.logger.child('allocate').debug({ id: list.id, indexes }, 'indexes reserved')
+      return { id: list.id, uri: this.location(list.id), indexes }
+    })
   }
 
   /** Set one entry's status (e.g. `TokenStatus.Invalid` to revoke) and re-sign the token. */
@@ -107,19 +146,39 @@ export class TokenStatusListService {
     idx: number,
     status: TokenStatus,
   ): Promise<void> {
-    const list = await this.em.findOneOrFail(TokenStatusList, { id, owner: authInfo.user })
-    if (!Number.isInteger(idx) || idx < 0 || idx >= list.size) {
-      throw new BadRequestException('Status list index is out of bounds')
-    }
-    // The library does not range-check values on `setStatus`; an oversized one would corrupt the bit packing.
-    if (!Number.isInteger(status) || status < 0 || status >= 2 ** list.bitsPerStatus) {
-      throw new BadRequestException(`Status ${status} does not fit a ${list.bitsPerStatus}-bit status list`)
-    }
-    const statusList = this.decode(list)
-    statusList.setStatus(idx, status)
-    list.statuses = encodeStatuses(statusList)
-    await this.sign(agentContext, list, statusList)
-    await this.em.flush()
+    await this.setStatuses(agentContext, authInfo, id, [idx], status)
+  }
+
+  /** Set the status of several entries of one list (all credentials of a batch) and re-sign the token once. */
+  public async setStatuses(
+    agentContext: AgentContext,
+    authInfo: AuthInfo,
+    id: string,
+    indexes: readonly number[],
+    status: TokenStatus,
+  ): Promise<void> {
+    if (indexes.length === 0) throw new BadRequestException('At least one status list index is required')
+    await this.em.transactional(async (em) => {
+      const list = await em.findOneOrFail(
+        TokenStatusList,
+        { id, owner: authInfo.user },
+        { lockMode: LockMode.PESSIMISTIC_WRITE },
+      )
+      for (const idx of indexes) {
+        if (!Number.isInteger(idx) || idx < 0 || idx >= list.size) {
+          throw new BadRequestException('Status list index is out of bounds')
+        }
+      }
+      // The library does not range-check values on `setStatus`; an oversized one would corrupt the bit packing.
+      if (!Number.isInteger(status) || status < 0 || status >= 2 ** list.bitsPerStatus) {
+        throw new BadRequestException(`Status ${status} does not fit a ${list.bitsPerStatus}-bit status list`)
+      }
+      const statusList = this.decode(list)
+      for (const idx of indexes) statusList.setStatus(idx, status)
+      list.statuses = encodeStatuses(statusList)
+      await this.sign(agentContext, list, statusList)
+      await em.flush()
+    })
   }
 
   /** The current signed Status List Token of a list (public, tenant-less). */
@@ -130,6 +189,7 @@ export class TokenStatusListService {
   }
 
   private async create(
+    em: EntityManager,
     agentContext: AgentContext,
     authInfo: AuthInfo,
     identity: TokenStatusListSignerIdentity,
@@ -149,8 +209,8 @@ export class TokenStatusListService {
       owner: authInfo.user,
     })
     await this.sign(agentContext, list, statusList)
-    this.em.persist(list)
-    await this.em.flush()
+    em.persist(list)
+    await em.flush()
     this.logger.child('create').info({ id: list.id, issuer: identity.issuer }, 'token status list created')
     return list
   }
