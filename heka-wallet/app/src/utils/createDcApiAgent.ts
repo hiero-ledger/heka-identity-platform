@@ -18,6 +18,7 @@ import { CredoLogger } from '../logger'
 import {
   ensureTrustAnchors,
   HekaWalletAgent,
+  TRUST_CONFIGURATION_ERRORS,
   TRUSTED_MDOC_ISSUER_CERTIFICATES,
   trustedCertificatesForVerification,
 } from './agent'
@@ -73,6 +74,7 @@ export async function createDcApiAgent(walletSecret: WalletSecret): Promise<Heka
   // runtime), so load the on-device cache of the signed trust lists (re-verified) and, only when a
   // source has no usable cache at all, await one bounded network refresh. Best-effort: the overlay
   // still opens without anchors (verification then fails closed, as before).
+  for (const error of TRUST_CONFIGURATION_ERRORS) agent.config.logger.warn(`Trust configuration error — ${error}`)
   try {
     const trust = await ensureTrustAnchors(agent as unknown as HekaWalletAgent)
     agent.config.logger.info(`Trust anchors — ${summarizeTrustBootstrap(trust)}`)

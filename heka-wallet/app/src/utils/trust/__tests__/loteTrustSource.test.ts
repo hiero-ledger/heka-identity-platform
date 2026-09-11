@@ -6,7 +6,13 @@ jest.mock('@credo-ts/core', () => ({
   },
 }))
 
-import { loadCachedTrustSource, refreshTrustSource, refreshTrustSources, TrustVerifyAgent } from '../loteTrustSource'
+import {
+  loadCachedTrustSource,
+  refreshTrustSource,
+  refreshTrustSources,
+  resetTrustSequenceMemory,
+  TrustVerifyAgent,
+} from '../loteTrustSource'
 import { trustAnchorStore } from '../trustAnchorStore'
 import { createTrustSourceCache, inMemoryTrustCacheStorage } from '../trustSourceCache'
 import { TrustSourceConfig } from '../trustSources'
@@ -22,10 +28,14 @@ const b64url = (obj: unknown): string => Buffer.from(JSON.stringify(obj)).toStri
 type Anchor = { certificate: string; status?: string | null; serviceType?: string }
 type Pointer = { location: string; signers?: string[] }
 
-const lotePayload = (anchors: Anchor[], pointers?: Pointer[]) => ({
+type Scheme = { nextUpdate?: string; sequenceNumber?: number }
+
+const lotePayload = (anchors: Anchor[], pointers?: Pointer[], scheme: Scheme = {}) => ({
   LoTE: {
     ListAndSchemeInformation: {
       SchemeOperatorName: [{ lang: 'en', value: 'Heka' }],
+      ...(scheme.nextUpdate ? { NextUpdate: scheme.nextUpdate } : {}),
+      ...(scheme.sequenceNumber !== undefined ? { LoTESequenceNumber: scheme.sequenceNumber } : {}),
       ...(pointers
         ? {
             PointersToOtherLoTE: pointers.map((pointer) => ({
@@ -49,9 +59,11 @@ const lotePayload = (anchors: Anchor[], pointers?: Pointer[]) => ({
   },
 })
 
-function buildJws(overrides: { typ?: string; x5c?: unknown; anchors?: Anchor[]; pointers?: Pointer[] } = {}): string {
+function buildJws(
+  overrides: { typ?: string; x5c?: unknown; anchors?: Anchor[]; pointers?: Pointer[]; scheme?: Scheme } = {}
+): string {
   const header = { alg: 'ES256', typ: overrides.typ ?? 'trustlist+jwt', x5c: overrides.x5c ?? ['LEAF', 'ROOT'] }
-  const payload = lotePayload(overrides.anchors ?? [{ certificate: ANCHOR }], overrides.pointers)
+  const payload = lotePayload(overrides.anchors ?? [{ certificate: ANCHOR }], overrides.pointers, overrides.scheme)
   return `${b64url(header)}.${b64url(payload)}.${Buffer.from('sig').toString('base64url')}`
 }
 
@@ -88,6 +100,93 @@ const accessSource: TrustSourceConfig = {
 
 const refresh = (source: TrustSourceConfig, jws: string, agent = buildAgent()) =>
   refreshTrustSource(agent, source, { fetchImpl: fetchByUrl({ [source.url]: jwsResponse(jws) }) })
+
+beforeEach(() => resetTrustSequenceMemory())
+
+describe('M1 freshness and replay', () => {
+  const NOW = 1_700_000_000_000
+  const iso = (ms: number) => new Date(ms).toISOString()
+  const refreshAt = (jws: string, cache?: ReturnType<typeof createTrustSourceCache>) =>
+    refreshTrustSource(buildAgent(), issuerSource, {
+      fetchImpl: fetchByUrl({ [URL]: jwsResponse(jws) }),
+      now: () => NOW,
+      ...(cache ? { cache } : {}),
+    })
+
+  beforeEach(() => trustAnchorStore.clear())
+
+  test('a list past its NextUpdate is rejected; the slice and the cache stay untouched', async () => {
+    trustAnchorStore.set(issuerSource.id, ['MIID_OLD'])
+    const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
+    await cache.write(issuerSource.id, { jws: 'OLD', fetchedAt: 1 })
+
+    const result = await refreshAt(buildJws({ scheme: { nextUpdate: iso(NOW - 60 * 60 * 1000) } }), cache)
+
+    expect(result).toEqual({ sourceId: issuerSource.id, ok: false, reason: 'stale-list' })
+    expect(trustAnchorStore.get(issuerSource.id)).toEqual(['MIID_OLD'])
+    expect((await cache.read(issuerSource.id))?.fetchedAt).toBe(1)
+  })
+
+  test('a NextUpdate that passed within the grace window is still accepted', async () => {
+    const result = await refreshAt(buildJws({ scheme: { nextUpdate: iso(NOW - 2 * 60 * 1000) } }))
+    expect(result).toMatchObject({ ok: true, anchorCount: 1 })
+  })
+
+  test('a lower LoTESequenceNumber than the last accepted one is a replay and is rejected; equal or higher is accepted', async () => {
+    expect(await refreshAt(buildJws({ scheme: { sequenceNumber: 5 } }))).toMatchObject({ ok: true })
+    trustAnchorStore.set(issuerSource.id, ['MIID_CURRENT'])
+
+    expect(await refreshAt(buildJws({ anchors: [{ certificate: 'MIID_REPLAYED' }], scheme: { sequenceNumber: 4 } }))).toEqual({
+      sourceId: issuerSource.id,
+      ok: false,
+      reason: 'sequence-regression',
+    })
+    expect(trustAnchorStore.get(issuerSource.id)).toEqual(['MIID_CURRENT'])
+
+    expect(await refreshAt(buildJws({ scheme: { sequenceNumber: 5 } }))).toMatchObject({ ok: true })
+    expect(await refreshAt(buildJws({ scheme: { sequenceNumber: 6 } }))).toMatchObject({ ok: true })
+  })
+
+  test('the accepted sequence is persisted in the cache and seeds the replay baseline of a fresh runtime', async () => {
+    const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
+    await refreshAt(buildJws({ scheme: { sequenceNumber: 7 } }), cache)
+    expect((await cache.read(issuerSource.id))?.sequenceNumber).toBe(7)
+
+    // a new runtime (the DC API overlay): no memory, only the cache
+    resetTrustSequenceMemory()
+    expect(await refreshAt(buildJws({ scheme: { sequenceNumber: 6 } }), cache)).toMatchObject({
+      ok: false,
+      reason: 'sequence-regression',
+    })
+
+    // loading the cache also seeds the baseline, even when no cache is passed to the later refresh
+    resetTrustSequenceMemory()
+    await loadCachedTrustSource(buildAgent(), issuerSource, cache, () => NOW)
+    expect(await refreshAt(buildJws({ scheme: { sequenceNumber: 6 } }))).toMatchObject({
+      ok: false,
+      reason: 'sequence-regression',
+    })
+  })
+
+  test('a followed pointer list that is stale fails that pointer only', async () => {
+    const POINTER_URL = 'https://other.example/lote'
+    const primary = buildJws({ pointers: [{ location: POINTER_URL, signers: ['OTHER_ROOT'] }] })
+    const stalePointed = buildJws({
+      anchors: [{ certificate: 'MIID_POINTED' }],
+      scheme: { nextUpdate: iso(NOW - 60 * 60 * 1000) },
+    })
+    const result = await refreshTrustSource(
+      buildAgent(),
+      { ...issuerSource, followPointers: true },
+      { fetchImpl: fetchByUrl({ [URL]: jwsResponse(primary), [POINTER_URL]: jwsResponse(stalePointed) }), now: () => NOW }
+    )
+    expect(result).toMatchObject({
+      ok: true,
+      anchorCount: 1,
+      pointers: [{ location: POINTER_URL, ok: false, reason: 'stale-list' }],
+    })
+  })
+})
 
 describe('refreshTrustSource', () => {
   beforeEach(() => trustAnchorStore.clear())

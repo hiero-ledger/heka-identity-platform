@@ -60,11 +60,11 @@ import {
   TrustSourceRefreshResult,
   TrustVerifyAgent,
 } from './trust/loteTrustSource'
-import { staticAnchorsFromConfig } from './trust/staticAnchors'
 import { ensureTrustAnchors as bootstrapTrustAnchors, TrustBootstrapResult } from './trust/trustBootstrap'
-import { resolveTrustAnchors } from './trust/trustResolver'
+import { composeTrustedCertificates } from './trust/trustComposition'
+import { loadTrustConfiguration } from './trust/trustConfiguration'
 import { createTrustSourceCache } from './trust/trustSourceCache'
-import { TrustSourceConfig, trustSourcesFromConfig } from './trust/trustSources'
+import { TrustSourceConfig } from './trust/trustSources'
 import { trustSubjectFor, X509VerificationContext } from './trust/verificationSubject'
 
 const PUBLIC_DID_KEY = 'PUBLIC_DID'
@@ -72,12 +72,20 @@ const PUBLIC_DID_KEY = 'PUBLIC_DID'
 const PUBLIC_INVITATION_ID_KEY = 'PUBLIC_INVITATION_ID'
 
 /**
- * Static trust anchors from configuration (`TRUSTED_MDOC_ISSUER_CERTIFICATES`,
- * `TRUSTED_REQUEST_SIGNER_CERTIFICATES`: base64 DER, comma-separated, empty by default). Nothing is
+ * The X.509 trust configuration (`TRUSTED_MDOC_ISSUER_CERTIFICATES`, `TRUSTED_REQUEST_SIGNER_CERTIFICATES`,
+ * `HEKA_SERVICE_ROOT_CERTIFICATE`, `TRUST_SOURCES`), parsed and validated once at startup. Nothing is
  * bundled in code — a build trusts only what its configuration says, so a real deployment can never
- * inherit the identity service's dev mDL issuer key. Parsed once at startup; an invalid value throws.
+ * inherit the identity service's dev mDL issuer key. An invalid value is logged as a startup error
+ * and contributes nothing (see {@link TRUST_CONFIGURATION_ERRORS}) instead of crashing module evaluation.
  */
-const STATIC_ANCHORS = staticAnchorsFromConfig(Config)
+const TRUST_CONFIGURATION = loadTrustConfiguration(Config, (message) =>
+  new CredoLogger('Trust configuration').error(message)
+)
+
+/** Messages of the trust settings that failed to parse at startup (empty when all are valid). */
+export const TRUST_CONFIGURATION_ERRORS: readonly string[] = TRUST_CONFIGURATION.errors
+
+const STATIC_ANCHORS = TRUST_CONFIGURATION.staticAnchors
 
 /**
  * Static mdoc **issuer** trust anchors (base64 DER) — the fallback set that always applies to mdoc
@@ -96,9 +104,7 @@ export const TRUSTED_MDOC_ISSUER_CERTIFICATES: readonly string[] = STATIC_ANCHOR
  * the identity service's `GET /x509/signers/root-certificate` and set `HEKA_SERVICE_ROOT_CERTIFICATE`.
  * Empty by default = the default sources cannot be verified (their refresh is skipped).
  */
-const HEKA_SERVICE_ROOT_CERTIFICATES: string[] = [Config.HEKA_SERVICE_ROOT_CERTIFICATE].filter(
-  (certificate): certificate is string => Boolean(certificate)
-)
+const HEKA_SERVICE_ROOT_CERTIFICATES: readonly string[] = TRUST_CONFIGURATION.serviceRoots
 
 /**
  * The signed trust lists the wallet learns anchors from (ETSI TS 119 602 LoTE JWTs). `TRUST_SOURCES`
@@ -106,7 +112,7 @@ const HEKA_SERVICE_ROOT_CERTIFICATES: string[] = [Config.HEKA_SERVICE_ROOT_CERTI
  * (`/trust-list/eaa-providers`, `/trust-list/wrpac-providers`), pinned to the service root. Each
  * source vouches only for its role and, when classified, only for the attestation types it lists.
  */
-export const TRUST_SOURCES: TrustSourceConfig[] = trustSourcesFromConfig(Config)
+export const TRUST_SOURCES: TrustSourceConfig[] = TRUST_CONFIGURATION.sources
 
 /**
  * On-device cache of the signed trust-list documents (AsyncStorage). Every successful refresh writes
@@ -130,34 +136,22 @@ export const TRUSTED_REQUEST_SIGNER_CERTIFICATES: readonly string[] = STATIC_ANC
 export type { X509VerificationContext }
 
 /**
- * Resolve trusted certificates per verification context: the anchors learned from the trust sources
- * selected for the subject (role + classification, see `resolveTrustAnchors`) plus the static set of
- * that trust domain:
- *  - a signed authorization request / signed issuer metadata (access-certificate role): the
- *    `wrpac-providers`-type sources + the service root (chain root of the request-signing and
- *    access-certificate leaves) + the pinned request-signer set;
- *  - an mdoc: the credential-issuer sources classified for its docType + the static mdoc anchors —
- *    never the service root (a service-root-signed leaf must not be able to forge an MSO);
- *  - an SD-JWT VC: the credential-issuer sources classified for its `vct` + the service root (the
- *    HAIP x5c issuer leaf chains to it);
- *  - any other credential: the unrestricted credential-issuer sources + both static sets;
- *  - other contexts (attestations a holder never verifies): `undefined` → Credo's global set.
- * Used by the main and lean DC API agents.
+ * Resolve trusted certificates per verification context (see `composeTrustedCertificates`): the
+ * anchors learned from the trust sources selected for the subject (role + classification) plus the
+ * static set of that trust domain — except for a credential type **classified** by a configured
+ * source, which is trusted through its classifying sources only (the static sets, service root
+ * included, apply to unclassified types only). Contexts a holder never verifies (attestations)
+ * resolve to `undefined` → Credo's global set. Used by the main and lean DC API agents.
  */
 export const trustedCertificatesForVerification = (verification: X509VerificationContext): string[] | undefined => {
   const subject = trustSubjectFor(verification)
   if (!subject) return undefined
-  const learned = resolveTrustAnchors(TRUST_SOURCES, subject)
-
-  if (subject.role === 'access-certificate') {
-    return unique([...learned, ...HEKA_SERVICE_ROOT_CERTIFICATES, ...TRUSTED_REQUEST_SIGNER_CERTIFICATES])
-  }
-  if (subject.format === 'mso_mdoc') return unique([...learned, ...TRUSTED_MDOC_ISSUER_CERTIFICATES])
-  if (subject.format === 'dc+sd-jwt') return unique([...learned, ...HEKA_SERVICE_ROOT_CERTIFICATES])
-  return unique([...learned, ...HEKA_SERVICE_ROOT_CERTIFICATES, ...TRUSTED_MDOC_ISSUER_CERTIFICATES])
+  return composeTrustedCertificates(TRUST_SOURCES, subject, {
+    mdocIssuers: TRUSTED_MDOC_ISSUER_CERTIFICATES,
+    requestSigners: TRUSTED_REQUEST_SIGNER_CERTIFICATES,
+    serviceRoots: HEKA_SERVICE_ROOT_CERTIFICATES,
+  })
 }
-
-const unique = (certificates: string[]): string[] => [...new Set(certificates)]
 
 const EXAMPLE_CREDENTIAL_VCT = 'ExampleCredential'
 const EXAMPLE_CREDENTIAL_METADATA: OpenId4VcCredentialMetadata = {

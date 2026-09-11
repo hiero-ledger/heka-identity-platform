@@ -45,6 +45,19 @@ function classifies(
   return false
 }
 
+/**
+ * Whether a credential subject's type is **classified** by at least one source of its role — such a
+ * type is trusted only through those sources: neither an unrestricted source nor a static anchor set
+ * may vouch for it (the classification is authoritative, see `composeTrustedCertificates`).
+ */
+export function isClassifiedSubject(sources: TrustSourceConfig[], subject: TrustSubject): boolean {
+  if (subject.role !== 'credential-issuer' || subject.credentialType === undefined) return false
+  const { format, credentialType } = subject
+  return sources.some(
+    (source) => source.role === subject.role && classifies(source.classification, format, credentialType)
+  )
+}
+
 /** The learned anchors (base64 DER, de-duplicated) of the sources selected for `subject`. */
 export function resolveTrustAnchors(
   sources: TrustSourceConfig[],

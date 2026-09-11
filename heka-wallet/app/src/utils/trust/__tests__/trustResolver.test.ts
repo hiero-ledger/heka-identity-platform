@@ -1,5 +1,5 @@
 import { trustAnchorStore } from '../trustAnchorStore'
-import { resolveTrustAnchors, selectTrustSources } from '../trustResolver'
+import { isClassifiedSubject, resolveTrustAnchors, selectTrustSources } from '../trustResolver'
 import { TrustSourceConfig } from '../trustSources'
 
 const heka: TrustSourceConfig = {
@@ -119,5 +119,40 @@ describe('selectTrustSources', () => {
       }).map((s) => s.id)
     ).toEqual([heka.id])
     expect(selectTrustSources(sources, { role: 'access-certificate' }).map((s) => s.id)).toEqual([wrpac.id])
+  })
+})
+
+describe('isClassifiedSubject', () => {
+  test('true for a docType / vct some source of the role classifies', () => {
+    expect(
+      isClassifiedSubject(sources, {
+        role: 'credential-issuer',
+        format: 'mso_mdoc',
+        credentialType: 'eu.europa.ec.eudi.pid.1',
+      })
+    ).toBe(true)
+    expect(
+      isClassifiedSubject(sources, { role: 'credential-issuer', format: 'dc+sd-jwt', credentialType: 'urn:eudi:pid:1' })
+    ).toBe(true)
+  })
+
+  test('false for unclassified types, typeless formats and the access-certificate role', () => {
+    expect(
+      isClassifiedSubject(sources, {
+        role: 'credential-issuer',
+        format: 'mso_mdoc',
+        credentialType: 'org.iso.18013.5.1.mDL',
+      })
+    ).toBe(false)
+    // a docType classification does not classify the same string as a vct
+    expect(
+      isClassifiedSubject(sources, {
+        role: 'credential-issuer',
+        format: 'dc+sd-jwt',
+        credentialType: 'eu.europa.ec.eudi.pid.1',
+      })
+    ).toBe(false)
+    expect(isClassifiedSubject(sources, { role: 'credential-issuer', format: 'other' })).toBe(false)
+    expect(isClassifiedSubject(sources, { role: 'access-certificate' })).toBe(false)
   })
 })

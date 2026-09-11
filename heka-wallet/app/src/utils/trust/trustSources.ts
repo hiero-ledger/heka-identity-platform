@@ -6,6 +6,8 @@
  * sources here: no source is privileged by code.
  */
 
+import { parseCertificate } from './staticAnchors'
+
 /** What a source's anchors are used for — see `resolveTrustAnchors`. */
 export type TrustRole = 'credential-issuer' | 'access-certificate'
 
@@ -58,8 +60,8 @@ export function defaultTrustSources(
 ): TrustSourceConfig[] {
   if (!env.AGENCY_PROVIDER_URL) return []
   const base = env.AGENCY_PROVIDER_URL.replace(/\/+$/, '')
-  const pinnedSigners = env.HEKA_SERVICE_ROOT_CERTIFICATE
-    ? [normalizeCertificate(env.HEKA_SERVICE_ROOT_CERTIFICATE)]
+  const pinnedSigners = env.HEKA_SERVICE_ROOT_CERTIFICATE?.trim()
+    ? [parseCertificate(env.HEKA_SERVICE_ROOT_CERTIFICATE, 'HEKA_SERVICE_ROOT_CERTIFICATE')]
     : []
   return [
     {
@@ -121,7 +123,7 @@ function validateTrustSource(entry: unknown, index: number): TrustSourceConfig {
     throw new Error(`${at}.pinnedSigners: must be a non-empty array of base64 DER certificates`)
   }
   const pinnedSigners = record.pinnedSigners.map((certificate, i) =>
-    normalizeCertificate(nonEmptyString(certificate, `${at}.pinnedSigners[${i}]`))
+    parseCertificate(nonEmptyString(certificate, `${at}.pinnedSigners[${i}]`), `${at}.pinnedSigners[${i}]`)
   )
 
   const source: TrustSourceConfig = { id, role: role as TrustRole, url, pinnedSigners }
@@ -152,9 +154,4 @@ function nonEmptyString(value: unknown, at: string): string {
 function stringArray(value: unknown, at: string): string[] {
   if (!Array.isArray(value)) throw new Error(`${at}: must be an array of strings`)
   return value.map((item, i) => nonEmptyString(item, `${at}[${i}]`))
-}
-
-/** Certificates are compared byte-for-byte as base64 — strip PEM-style line breaks / whitespace. */
-function normalizeCertificate(certificate: string): string {
-  return certificate.replace(/\s+/g, '')
 }

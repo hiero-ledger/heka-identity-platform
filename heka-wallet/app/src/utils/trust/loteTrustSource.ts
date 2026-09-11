@@ -76,6 +76,21 @@ export interface TrustCacheLoadResult {
 /** A cached list without a usable `NextUpdate` counts as stale after this long. */
 export const TRUST_CACHE_STALE_AFTER_MS = 24 * 60 * 60 * 1000
 
+/** Grace after a fetched list's `NextUpdate` before it is rejected as stale (publisher clock skew, lag). */
+export const TRUST_LIST_STALE_GRACE_MS = 5 * 60 * 1000
+
+/**
+ * Last accepted `LoTESequenceNumber` per list location in this runtime (seeded from the cache on load).
+ * A refresh that fetches a *lower* sequence than this is a replay of an older issue and is rejected: a
+ * validly signed old list must not bring a since-delisted issuer back (M1).
+ */
+const lastAcceptedSequence = new Map<string, number>()
+
+/** Forget the accepted sequence numbers (tests). */
+export function resetTrustSequenceMemory(): void {
+  lastAcceptedSequence.clear()
+}
+
 /** JWS `typ` a TS 119 602 LoTE JWT is published under (`@owf/eudi-lote`'s `signLoTE`). */
 const LOTE_JWT_TYP = 'trustlist+jwt'
 
@@ -100,6 +115,7 @@ interface LotePayload {
   LoTE?: {
     ListAndSchemeInformation?: {
       NextUpdate?: unknown
+      LoTESequenceNumber?: unknown
       PointersToOtherLoTE?: Array<{
         LoTELocation?: unknown
         ServiceDigitalIdentities?: Array<{ X509Certificates?: Array<{ val?: unknown }> }>
@@ -127,6 +143,8 @@ interface VerifiedLote {
   pointers: LotePointer[]
   /** `ListAndSchemeInformation.NextUpdate` as epoch ms, when present and parseable. */
   nextUpdate?: number
+  /** `ListAndSchemeInformation.LoTESequenceNumber`, when present. */
+  sequenceNumber?: number
 }
 
 type LoadOutcome = { ok: true; lote: VerifiedLote; jws: string } | { ok: false; reason: string }
@@ -196,6 +214,33 @@ function nextUpdateOf(payload: LotePayload): number | undefined {
   return Number.isNaN(time) ? undefined : time
 }
 
+/** `ListAndSchemeInformation.LoTESequenceNumber` when it is a non-negative integer. */
+function sequenceNumberOf(payload: LotePayload): number | undefined {
+  const raw = payload.LoTE?.ListAndSchemeInformation?.LoTESequenceNumber
+  return typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 ? raw : undefined
+}
+
+/**
+ * Freshness and replay check of a *verified* list from `location` (M1): stale past `NextUpdate` plus grace,
+ * or a sequence number below the last accepted one (`baseline`). On acceptance the sequence is remembered.
+ */
+function acceptFreshList(
+  location: string,
+  lote: VerifiedLote,
+  now: number,
+  baseline: number | undefined
+): { ok: true } | { ok: false; reason: 'stale-list' | 'sequence-regression' } {
+  if (lote.nextUpdate !== undefined && lote.nextUpdate + TRUST_LIST_STALE_GRACE_MS < now) {
+    return { ok: false, reason: 'stale-list' }
+  }
+  if (lote.sequenceNumber !== undefined) {
+    const last = Math.max(baseline ?? -1, lastAcceptedSequence.get(location) ?? -1)
+    if (last >= 0 && lote.sequenceNumber < last) return { ok: false, reason: 'sequence-regression' }
+    lastAcceptedSequence.set(location, lote.sequenceNumber)
+  }
+  return { ok: true }
+}
+
 /**
  * Verify one LoTE JWT (compact JWS) against `pinnedSigners` and extract the anchors of `role`. This is
  * the single trust decision for a list, shared by the network path and the on-device cache: a cached
@@ -243,6 +288,7 @@ export async function verifySignedLote(
         anchors: extractAnchors(payload, role),
         pointers: extractPointers(payload),
         nextUpdate: nextUpdateOf(payload),
+        sequenceNumber: sequenceNumberOf(payload),
       },
     }
   } catch (error) {
@@ -289,6 +335,14 @@ export async function refreshTrustSource(
   const primary = await fetchSignedLote(agent, source.url, source.pinnedSigners, role, doFetch)
   if (!primary.ok) return { sourceId, ok: false, reason: primary.reason }
 
+  // A validly signed list can still be an old one replayed: reject it (slice and cache stay as they are).
+  const now = (options.now ?? Date.now)()
+  const cachedSequence = options.cache
+    ? (await options.cache.read(sourceId).catch(() => undefined))?.sequenceNumber
+    : undefined
+  const freshness = acceptFreshList(source.url, primary.lote, now, cachedSequence)
+  if (!freshness.ok) return { sourceId, ok: false, reason: freshness.reason }
+
   const anchors = [...primary.lote.anchors]
   const verifiedPointers: Array<{ location: string; jws: string }> = []
   let pointers: PointerRefreshResult[] | undefined
@@ -300,12 +354,17 @@ export async function refreshTrustSource(
         continue
       }
       const followed = await fetchSignedLote(agent, pointer.location, pointer.pinnedSigners, role, doFetch)
-      if (followed.ok) {
+      const accepted = followed.ok ? acceptFreshList(pointer.location, followed.lote, now, undefined) : followed
+      if (followed.ok && accepted.ok) {
         anchors.push(...followed.lote.anchors)
         verifiedPointers.push({ location: pointer.location, jws: followed.jws })
         pointers.push({ location: pointer.location, ok: true, anchorCount: followed.lote.anchors.length })
       } else {
-        pointers.push({ location: pointer.location, ok: false, reason: followed.reason })
+        pointers.push({
+          location: pointer.location,
+          ok: false,
+          reason: accepted.ok ? 'unknown-error' : accepted.reason,
+        })
       }
     }
   }
@@ -316,7 +375,12 @@ export async function refreshTrustSource(
   let cached: boolean | undefined
   if (options.cache) {
     cached = await options.cache
-      .write(sourceId, { jws: primary.jws, pointers: verifiedPointers, fetchedAt: (options.now ?? Date.now)() })
+      .write(sourceId, {
+        jws: primary.jws,
+        pointers: verifiedPointers,
+        fetchedAt: now,
+        ...(primary.lote.sequenceNumber !== undefined ? { sequenceNumber: primary.lote.sequenceNumber } : {}),
+      })
       .then(
         () => true,
         () => false
@@ -376,6 +440,11 @@ export async function loadCachedTrustSource(
 
   const unique = [...new Set(anchors)]
   trustAnchorStore.set(sourceId, unique)
+  // The cached issue becomes the replay baseline for the next network refresh.
+  const knownSequence = Math.max(entry.sequenceNumber ?? -1, primary.lote.sequenceNumber ?? -1)
+  if (knownSequence >= 0) {
+    lastAcceptedSequence.set(source.url, Math.max(knownSequence, lastAcceptedSequence.get(source.url) ?? -1))
+  }
 
   const current = now()
   const stale =

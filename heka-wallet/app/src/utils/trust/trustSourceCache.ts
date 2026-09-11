@@ -12,6 +12,8 @@ export interface CachedTrustSource {
   pointers?: Array<{ location: string; jws: string }>
   /** Epoch ms of the fetch that produced this entry. */
   fetchedAt: number
+  /** The list's `LoTESequenceNumber` at that fetch — the replay baseline a later refresh must not regress below. */
+  sequenceNumber?: number
 }
 
 /** The key-value storage the cache needs: `AsyncStorage` in the app, a Map in tests. */
@@ -46,7 +48,12 @@ function parseEntry(raw: string): CachedTrustSource {
           typeof pointer?.location === 'string' && typeof pointer?.jws === 'string'
       )
     : undefined
-  return { jws: parsed.jws, fetchedAt: parsed.fetchedAt, ...(pointers ? { pointers } : {}) }
+  return {
+    jws: parsed.jws,
+    fetchedAt: parsed.fetchedAt,
+    ...(pointers ? { pointers } : {}),
+    ...(typeof parsed.sequenceNumber === 'number' ? { sequenceNumber: parsed.sequenceNumber } : {}),
+  }
 }
 
 export function createTrustSourceCache(storage: TrustCacheStorage): TrustSourceCache {

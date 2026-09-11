@@ -1,3 +1,14 @@
+jest.mock('@credo-ts/core', () => ({
+  X509Certificate: {
+    // The wallet test environment has no WebCrypto for real DER parsing; the parser is exercised by
+    // its failure mode — any entry containing INVALID is "not a certificate".
+    fromEncodedCertificate: jest.fn((certificate: string) => {
+      if (certificate.includes('INVALID')) throw new Error('ASN.1 parse error')
+      return {}
+    }),
+  },
+}))
+
 import {
   defaultTrustSources,
   HEKA_EAA_PROVIDERS_SOURCE_ID,
@@ -6,7 +17,7 @@ import {
   trustSourcesFromConfig,
 } from '../trustSources'
 
-const ROOT = 'MIID_ROOT'
+const ROOT = 'MIIDROOT'
 
 describe('defaultTrustSources', () => {
   test('derives the two Heka scheme lists from the agency URL, pinned to the service root', () => {
@@ -28,6 +39,21 @@ describe('defaultTrustSources', () => {
         pinnedSigners: [ROOT],
       },
     ])
+  })
+
+  test('accepts the service root as a PEM block and pins its normalized base64 DER', () => {
+    const pem = `-----BEGIN CERTIFICATE-----\n${ROOT.slice(0, 4)}\n${ROOT.slice(4)}\n-----END CERTIFICATE-----\n`
+    const sources = defaultTrustSources({ AGENCY_PROVIDER_URL: 'https://heka.example', HEKA_SERVICE_ROOT_CERTIFICATE: pem })
+    expect(sources.map((source) => source.pinnedSigners)).toEqual([[ROOT], [ROOT]])
+  })
+
+  test('M8: a service root that is not a certificate, or holds several, is a configuration error', () => {
+    expect(() =>
+      defaultTrustSources({ AGENCY_PROVIDER_URL: 'https://heka.example', HEKA_SERVICE_ROOT_CERTIFICATE: 'INVALID' })
+    ).toThrow('HEKA_SERVICE_ROOT_CERTIFICATE is not a valid X.509 certificate: ASN.1 parse error')
+    expect(() =>
+      defaultTrustSources({ AGENCY_PROVIDER_URL: 'https://heka.example', HEKA_SERVICE_ROOT_CERTIFICATE: `${ROOT},MIIDOTHER` })
+    ).toThrow('HEKA_SERVICE_ROOT_CERTIFICATE must hold exactly one certificate (found 2)')
   })
 
   test('without a service root the defaults exist but pin nothing (refresh will skip them)', () => {
@@ -97,6 +123,16 @@ describe('parseTrustSources', () => {
     ['non-http url', JSON.stringify([{ ...valid, url: 'ftp://x' }]), /\[0\]\.url/],
     ['empty pinnedSigners', JSON.stringify([{ ...valid, pinnedSigners: [] }]), /\[0\]\.pinnedSigners/],
     ['blank pinned signer', JSON.stringify([{ ...valid, pinnedSigners: [' '] }]), /pinnedSigners\[0\]/],
+    [
+      'pinned signer that is not a certificate (M8)',
+      JSON.stringify([{ ...valid, pinnedSigners: ['MIIDINVALID'] }]),
+      /pinnedSigners\[0\] is not a valid X\.509 certificate/,
+    ],
+    [
+      'pinned signer that is not base64',
+      JSON.stringify([{ ...valid, pinnedSigners: ['<paste here>'] }]),
+      /pinnedSigners\[0\] is not a base64 DER/,
+    ],
     ['classification not an object', JSON.stringify([{ ...valid, classification: [] }]), /classification: must/],
     ['docTypes not an array', JSON.stringify([{ ...valid, classification: { docTypes: 'x' } }]), /docTypes/],
     ['followPointers not a boolean', JSON.stringify([{ ...valid, followPointers: 'yes' }]), /followPointers/],

@@ -1,4 +1,15 @@
-import { parseCertificateList, staticAnchorsFromConfig } from '../staticAnchors'
+jest.mock('@credo-ts/core', () => ({
+  X509Certificate: {
+    // The wallet test environment has no WebCrypto for real DER parsing; the parser is exercised by
+    // its failure mode — any entry containing INVALID is "not a certificate".
+    fromEncodedCertificate: jest.fn((certificate: string) => {
+      if (certificate.includes('INVALID')) throw new Error('ASN.1 parse error')
+      return {}
+    }),
+  },
+}))
+
+import { parseCertificate, parseCertificateList, staticAnchorsFromConfig } from '../staticAnchors'
 
 const CERT_A = 'MIIBwDCCAWWgAwIBAgIUSMdjaVc1KHI+3o6qJXhSC4sJh+c='
 const CERT_B = 'MIIBxTCCAWugAwIBAgIUb2/0Zm9vYmFy'
@@ -30,6 +41,22 @@ describe('parseCertificateList', () => {
     expect(() =>
       parseCertificateList(`${CERT_A},<paste certificate here>`, 'TRUSTED_MDOC_ISSUER_CERTIFICATES')
     ).toThrow('TRUSTED_MDOC_ISSUER_CERTIFICATES[1] is not a base64 DER (or PEM) certificate')
+  })
+})
+
+describe('parseCertificateList — M8: every entry must decode as an X.509 certificate', () => {
+  test('rejects a base64 entry that is not a certificate, naming the variable and position', () => {
+    expect(() => parseCertificateList(`${CERT_A},MIIBINVALID`, 'TRUSTED_REQUEST_SIGNER_CERTIFICATES')).toThrow(
+      'TRUSTED_REQUEST_SIGNER_CERTIFICATES[1] is not a valid X.509 certificate: ASN.1 parse error'
+    )
+  })
+
+  test('parseCertificate accepts exactly one certificate (PEM or base64) and rejects zero or several', () => {
+    expect(parseCertificate(`-----BEGIN CERTIFICATE-----\n${CERT_A}\n-----END CERTIFICATE-----`, 'ROOT')).toBe(CERT_A)
+    expect(() => parseCertificate('', 'ROOT')).toThrow('ROOT must hold exactly one certificate (found 0)')
+    expect(() => parseCertificate(`${CERT_A},${CERT_B}`, 'ROOT')).toThrow(
+      'ROOT must hold exactly one certificate (found 2)'
+    )
   })
 })
 
