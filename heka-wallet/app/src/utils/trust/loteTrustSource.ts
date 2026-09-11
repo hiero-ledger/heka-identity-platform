@@ -1,6 +1,7 @@
 import { X509Certificate } from '@credo-ts/core'
 
 import { trustAnchorStore } from './trustAnchorStore'
+import { TrustSourceCache } from './trustSourceCache'
 import { TrustRole, TrustSourceConfig } from './trustSources'
 
 /**
@@ -9,6 +10,10 @@ import { TrustRole, TrustSourceConfig } from './trustSources'
  * certificates, ES256 over the JWS signing input) → extract the anchors of the source's role →
  * optionally follow the list's in-spec pointers one level → replace the source's slice of the store.
  * Best-effort and total: never throws; a failed source keeps its previously-trusted slice.
+ *
+ * The signed documents can also be cached on device (`TrustSourceCache`) and re-loaded without the
+ * network — through the very same verification — so a fresh JavaScript runtime (the DC API overlay)
+ * or the main app right after unlock trusts the last verified lists immediately.
  */
 
 /**
@@ -32,6 +37,10 @@ export interface TrustVerifyAgent {
 export interface TrustRefreshOptions {
   /** Override for tests; defaults to the global `fetch`. */
   fetchImpl?: typeof fetch
+  /** When set, every successfully verified list (and followed pointer list) is written to this cache. */
+  cache?: TrustSourceCache
+  /** Clock override for tests; defaults to `Date.now`. */
+  now?: () => number
 }
 
 export interface PointerRefreshResult {
@@ -49,7 +58,23 @@ export interface TrustSourceRefreshResult {
   anchorCount?: number
   /** Per-pointer outcomes when `followPointers` is on. A failed pointer never fails the source. */
   pointers?: PointerRefreshResult[]
+  /** Whether the verified documents were written to the cache (only reported when a cache is configured). */
+  cached?: boolean
 }
+
+export interface TrustCacheLoadResult {
+  sourceId: string
+  ok: boolean
+  reason?: string
+  anchorCount?: number
+  /** Epoch ms the cached list was fetched. */
+  fetchedAt?: number
+  /** Past the list's `NextUpdate`, or older than {@link TRUST_CACHE_STALE_AFTER_MS}: refresh soon. */
+  stale?: boolean
+}
+
+/** A cached list without a usable `NextUpdate` counts as stale after this long. */
+export const TRUST_CACHE_STALE_AFTER_MS = 24 * 60 * 60 * 1000
 
 /** JWS `typ` a TS 119 602 LoTE JWT is published under (`@owf/eudi-lote`'s `signLoTE`). */
 const LOTE_JWT_TYP = 'trustlist+jwt'
@@ -74,6 +99,7 @@ const SERVICE_TYPES_BY_ROLE: Record<TrustRole, ReadonlySet<string>> = {
 interface LotePayload {
   LoTE?: {
     ListAndSchemeInformation?: {
+      NextUpdate?: unknown
       PointersToOtherLoTE?: Array<{
         LoTELocation?: unknown
         ServiceDigitalIdentities?: Array<{ X509Certificates?: Array<{ val?: unknown }> }>
@@ -99,9 +125,11 @@ interface LotePointer {
 interface VerifiedLote {
   anchors: string[]
   pointers: LotePointer[]
+  /** `ListAndSchemeInformation.NextUpdate` as epoch ms, when present and parseable. */
+  nextUpdate?: number
 }
 
-type LoadOutcome = { ok: true; lote: VerifiedLote } | { ok: false; reason: string }
+type LoadOutcome = { ok: true; lote: VerifiedLote; jws: string } | { ok: false; reason: string }
 
 // base64url → bytes / string via Buffer (present in RN via the Credo/askar stack).
 function base64UrlToBytes(input: string): Uint8Array {
@@ -159,20 +187,29 @@ function extractPointers(payload: LotePayload): LotePointer[] {
   return pointers
 }
 
-/** Fetch one LoTE JWT, verify it against `pinnedSigners`, and extract the anchors of `role`. */
-async function loadSignedLote(
+/** `ListAndSchemeInformation.NextUpdate` — an ISO 8601 string (or the EU `{ dateTime }` object) → epoch ms. */
+function nextUpdateOf(payload: LotePayload): number | undefined {
+  const raw = payload.LoTE?.ListAndSchemeInformation?.NextUpdate
+  const value = typeof raw === 'string' ? raw : (raw as { dateTime?: unknown } | undefined)?.dateTime
+  if (typeof value !== 'string') return undefined
+  const time = Date.parse(value)
+  return Number.isNaN(time) ? undefined : time
+}
+
+/**
+ * Verify one LoTE JWT (compact JWS) against `pinnedSigners` and extract the anchors of `role`. This is
+ * the single trust decision for a list, shared by the network path and the on-device cache: a cached
+ * document is trusted only if it passes exactly what a freshly fetched one must pass.
+ */
+export async function verifySignedLote(
   agent: TrustVerifyAgent,
-  url: string,
+  jws: string,
   pinnedSigners: string[],
-  role: TrustRole,
-  doFetch: typeof fetch
+  role: TrustRole
 ): Promise<LoadOutcome> {
   try {
-    const response = await doFetch(url)
-    if (!response.ok) return { ok: false, reason: `http-${response.status}` }
-
-    const jws = (await response.text()).trim()
-    const parts = jws.split('.')
+    const compact = jws.trim()
+    const parts = compact.split('.')
     if (parts.length !== 3) return { ok: false, reason: 'malformed-jws' }
     const [headerB64, payloadB64, signatureB64] = parts
 
@@ -199,16 +236,44 @@ async function loadSignedLote(
 
     // 3) Only now is the (verified) content trusted.
     const payload = JSON.parse(base64UrlToString(payloadB64)) as LotePayload
-    return { ok: true, lote: { anchors: extractAnchors(payload, role), pointers: extractPointers(payload) } }
+    return {
+      ok: true,
+      jws: compact,
+      lote: {
+        anchors: extractAnchors(payload, role),
+        pointers: extractPointers(payload),
+        nextUpdate: nextUpdateOf(payload),
+      },
+    }
   } catch (error) {
     return { ok: false, reason: error instanceof Error ? error.message : 'unknown-error' }
   }
 }
 
+/** Fetch one LoTE JWT and hand it to {@link verifySignedLote}. */
+async function fetchSignedLote(
+  agent: TrustVerifyAgent,
+  url: string,
+  pinnedSigners: string[],
+  role: TrustRole,
+  doFetch: typeof fetch
+): Promise<LoadOutcome> {
+  let jws: string
+  try {
+    const response = await doFetch(url)
+    if (!response.ok) return { ok: false, reason: `http-${response.status}` }
+    jws = await response.text()
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : 'unknown-error' }
+  }
+  return verifySignedLote(agent, jws, pinnedSigners, role)
+}
+
 /**
  * Refresh one source: verify its list, optionally follow its in-spec pointers one level (each pinned
- * to the pointer's own signer certificates; a pointer's pointers are never followed), and replace the
- * source's slice of the trust anchor store. Never throws; on failure the previous slice is kept.
+ * to the pointer's own signer certificates; a pointer's pointers are never followed), replace the
+ * source's slice of the trust anchor store and, when a cache is configured, store the verified
+ * documents. Never throws; on failure the previous slice (and cache entry) is kept.
  */
 export async function refreshTrustSource(
   agent: TrustVerifyAgent,
@@ -221,10 +286,11 @@ export async function refreshTrustSource(
   if (!source.url) return { sourceId, ok: false, reason: 'no-url' }
   if (source.pinnedSigners.length === 0) return { sourceId, ok: false, reason: 'no-pinned-signers' }
 
-  const primary = await loadSignedLote(agent, source.url, source.pinnedSigners, role, doFetch)
+  const primary = await fetchSignedLote(agent, source.url, source.pinnedSigners, role, doFetch)
   if (!primary.ok) return { sourceId, ok: false, reason: primary.reason }
 
   const anchors = [...primary.lote.anchors]
+  const verifiedPointers: Array<{ location: string; jws: string }> = []
   let pointers: PointerRefreshResult[] | undefined
   if (source.followPointers) {
     pointers = []
@@ -233,9 +299,10 @@ export async function refreshTrustSource(
         pointers.push({ location: pointer.location, ok: false, reason: 'no-pinned-signers' })
         continue
       }
-      const followed = await loadSignedLote(agent, pointer.location, pointer.pinnedSigners, role, doFetch)
+      const followed = await fetchSignedLote(agent, pointer.location, pointer.pinnedSigners, role, doFetch)
       if (followed.ok) {
         anchors.push(...followed.lote.anchors)
+        verifiedPointers.push({ location: pointer.location, jws: followed.jws })
         pointers.push({ location: pointer.location, ok: true, anchorCount: followed.lote.anchors.length })
       } else {
         pointers.push({ location: pointer.location, ok: false, reason: followed.reason })
@@ -245,7 +312,23 @@ export async function refreshTrustSource(
 
   const unique = [...new Set(anchors)]
   trustAnchorStore.set(sourceId, unique)
-  return { sourceId, ok: true, anchorCount: unique.length, ...(pointers ? { pointers } : {}) }
+
+  let cached: boolean | undefined
+  if (options.cache) {
+    cached = await options.cache
+      .write(sourceId, { jws: primary.jws, pointers: verifiedPointers, fetchedAt: (options.now ?? Date.now)() })
+      .then(
+        () => true,
+        () => false
+      )
+  }
+  return {
+    sourceId,
+    ok: true,
+    anchorCount: unique.length,
+    ...(pointers ? { pointers } : {}),
+    ...(cached !== undefined ? { cached } : {}),
+  }
 }
 
 /** Refresh every configured source concurrently; each source degrades independently. */
@@ -255,4 +338,58 @@ export function refreshTrustSources(
   options: TrustRefreshOptions = {}
 ): Promise<TrustSourceRefreshResult[]> {
   return Promise.all(sources.map((source) => refreshTrustSource(agent, source, options)))
+}
+
+/**
+ * Load one source from the on-device cache — no network. The cached documents go through
+ * {@link verifySignedLote} with the source's *configured* pins (a followed pointer list is verified
+ * against the pins the verified parent list declares for it, never against anything cached); an entry
+ * that fails is evicted. On success the source's slice is replaced and the entry's staleness reported.
+ */
+export async function loadCachedTrustSource(
+  agent: TrustVerifyAgent,
+  source: TrustSourceConfig,
+  cache: TrustSourceCache,
+  now: () => number = Date.now
+): Promise<TrustCacheLoadResult> {
+  const { id: sourceId, role } = source
+  if (source.pinnedSigners.length === 0) return { sourceId, ok: false, reason: 'no-pinned-signers' }
+
+  const entry = await cache.read(sourceId).catch(() => undefined)
+  if (!entry) return { sourceId, ok: false, reason: 'no-cache' }
+
+  const primary = await verifySignedLote(agent, entry.jws, source.pinnedSigners, role)
+  if (!primary.ok) {
+    await cache.evict(sourceId).catch(() => undefined)
+    return { sourceId, ok: false, reason: primary.reason }
+  }
+
+  const anchors = [...primary.lote.anchors]
+  if (source.followPointers) {
+    for (const cachedPointer of entry.pointers ?? []) {
+      const pointer = primary.lote.pointers.find((candidate) => candidate.location === cachedPointer.location)
+      if (!pointer || pointer.pinnedSigners.length === 0) continue
+      const followed = await verifySignedLote(agent, cachedPointer.jws, pointer.pinnedSigners, role)
+      if (followed.ok) anchors.push(...followed.lote.anchors)
+    }
+  }
+
+  const unique = [...new Set(anchors)]
+  trustAnchorStore.set(sourceId, unique)
+
+  const current = now()
+  const stale =
+    (primary.lote.nextUpdate !== undefined && primary.lote.nextUpdate < current) ||
+    current - entry.fetchedAt > TRUST_CACHE_STALE_AFTER_MS
+  return { sourceId, ok: true, anchorCount: unique.length, fetchedAt: entry.fetchedAt, stale }
+}
+
+/** Load every configured source from the cache concurrently; each source degrades independently. */
+export function loadCachedTrustSources(
+  agent: TrustVerifyAgent,
+  sources: TrustSourceConfig[],
+  cache: TrustSourceCache,
+  now: () => number = Date.now
+): Promise<TrustCacheLoadResult[]> {
+  return Promise.all(sources.map((source) => loadCachedTrustSource(agent, source, cache, now)))
 }

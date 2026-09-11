@@ -6,8 +6,9 @@ jest.mock('@credo-ts/core', () => ({
   },
 }))
 
-import { refreshTrustSource, refreshTrustSources, TrustVerifyAgent } from '../loteTrustSource'
+import { loadCachedTrustSource, refreshTrustSource, refreshTrustSources, TrustVerifyAgent } from '../loteTrustSource'
 import { trustAnchorStore } from '../trustAnchorStore'
+import { createTrustSourceCache, inMemoryTrustCacheStorage } from '../trustSourceCache'
 import { TrustSourceConfig } from '../trustSources'
 
 const ANCHOR = 'MIID_ANCHOR'
@@ -29,9 +30,7 @@ const lotePayload = (anchors: Anchor[], pointers?: Pointer[]) => ({
         ? {
             PointersToOtherLoTE: pointers.map((pointer) => ({
               LoTELocation: pointer.location,
-              ServiceDigitalIdentities: [
-                { X509Certificates: (pointer.signers ?? []).map((val) => ({ val })) },
-              ],
+              ServiceDigitalIdentities: [{ X509Certificates: (pointer.signers ?? []).map((val) => ({ val })) }],
             })),
           }
         : {}),
@@ -216,10 +215,14 @@ describe('refreshTrustSource', () => {
       expect(fetchImpl).toHaveBeenCalledTimes(1)
     })
 
-    test('follows one level, pinned to the pointer\'s own signer certificates, and unions the anchors', async () => {
+    test("follows one level, pinned to the pointer's own signer certificates, and unions the anchors", async () => {
       const validate = jest.fn().mockResolvedValue([])
       const fetchImpl = fetchByUrl({ [URL]: jwsResponse(withPointer), [POINTED]: jwsResponse(pointedList) })
-      const result = await refreshTrustSource(buildAgent({ validate }), { ...issuerSource, followPointers: true }, { fetchImpl })
+      const result = await refreshTrustSource(
+        buildAgent({ validate }),
+        { ...issuerSource, followPointers: true },
+        { fetchImpl }
+      )
 
       expect(result).toEqual({
         sourceId: issuerSource.id,
@@ -230,7 +233,10 @@ describe('refreshTrustSource', () => {
       expect(trustAnchorStore.get(issuerSource.id)).toEqual([ANCHOR, 'MIID_POINTED'])
       expect(validate).toHaveBeenNthCalledWith(
         2,
-        expect.objectContaining({ certificateChain: ['POINTED_LEAF', 'POINTED_SIGNER'], trustedCertificates: ['POINTED_SIGNER'] })
+        expect.objectContaining({
+          certificateChain: ['POINTED_LEAF', 'POINTED_SIGNER'],
+          trustedCertificates: ['POINTED_SIGNER'],
+        })
       )
       // depth 1: the pointed list's own pointer is never fetched
       expect(fetchImpl).toHaveBeenCalledTimes(2)
@@ -238,10 +244,7 @@ describe('refreshTrustSource', () => {
 
     test('a pointer without signer certificates is skipped and a failing pointer never fails the source', async () => {
       const unpinned = buildJws({
-        pointers: [
-          { location: POINTED },
-          { location: 'https://ec.example/broken', signers: ['X'] },
-        ],
+        pointers: [{ location: POINTED }, { location: 'https://ec.example/broken', signers: ['X'] }],
       })
       const fetchImpl = fetchByUrl({ [URL]: jwsResponse(unpinned) })
       const result = await refreshTrustSource(buildAgent(), { ...issuerSource, followPointers: true }, { fetchImpl })
@@ -276,5 +279,114 @@ describe('refreshTrustSources', () => {
     ])
     expect(trustAnchorStore.get(issuerSource.id)).toEqual([ANCHOR])
     expect(trustAnchorStore.has(accessSource.id)).toBe(false)
+  })
+})
+
+describe('on-device cache', () => {
+  const POINTER_URL = 'https://other.example/lote'
+  const NOW = 1_700_000_000_000
+  const pointerSource: TrustSourceConfig = { ...issuerSource, followPointers: true }
+
+  beforeEach(() => trustAnchorStore.clear())
+
+  test('a refresh stores the verified list and only the pointer lists that verified', async () => {
+    const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
+    const primary = buildJws({
+      pointers: [
+        { location: POINTER_URL, signers: ['OTHER_ROOT'] },
+        { location: 'https://broken.example/lote', signers: ['X'] },
+      ],
+    })
+    const pointed = buildJws({ anchors: [{ certificate: 'MIID_POINTED' }] })
+    const fetchImpl = fetchByUrl({ [URL]: jwsResponse(primary), [POINTER_URL]: jwsResponse(pointed) })
+
+    const result = await refreshTrustSource(buildAgent(), pointerSource, { fetchImpl, cache, now: () => NOW })
+
+    expect(result).toMatchObject({ ok: true, anchorCount: 2, cached: true })
+    expect(await cache.read(issuerSource.id)).toEqual({
+      jws: primary,
+      pointers: [{ location: POINTER_URL, jws: pointed }],
+      fetchedAt: NOW,
+    })
+  })
+
+  test('a failed refresh leaves the cache entry untouched', async () => {
+    const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
+    await cache.write(issuerSource.id, { jws: buildJws(), fetchedAt: NOW })
+
+    await refreshTrustSource(buildAgent(), issuerSource, { fetchImpl: fetchByUrl({}), cache })
+
+    expect((await cache.read(issuerSource.id))?.fetchedAt).toBe(NOW)
+  })
+
+  test('loads a cached list through the same verification and fills the slice without any network', async () => {
+    const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
+    await cache.write(issuerSource.id, { jws: buildJws(), fetchedAt: NOW - 1000 })
+    const validate = jest.fn().mockResolvedValue([])
+
+    const result = await loadCachedTrustSource(buildAgent({ validate }), issuerSource, cache, () => NOW)
+
+    expect(result).toEqual({ sourceId: issuerSource.id, ok: true, anchorCount: 1, fetchedAt: NOW - 1000, stale: false })
+    expect(trustAnchorStore.get(issuerSource.id)).toEqual([ANCHOR])
+    expect(validate).toHaveBeenCalledWith({ certificateChain: ['LEAF', 'ROOT'], trustedCertificates: ['ROOT'] })
+  })
+
+  test('reports no-cache when nothing is stored and skips a source without pins', async () => {
+    const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
+
+    expect(await loadCachedTrustSource(buildAgent(), issuerSource, cache)).toEqual({
+      sourceId: issuerSource.id,
+      ok: false,
+      reason: 'no-cache',
+    })
+    expect(await loadCachedTrustSource(buildAgent(), { ...issuerSource, pinnedSigners: [] }, cache)).toEqual({
+      sourceId: issuerSource.id,
+      ok: false,
+      reason: 'no-pinned-signers',
+    })
+  })
+
+  test('a cached document that no longer verifies (wrong typ / changed pins) is rejected and evicted', async () => {
+    const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
+    await cache.write(issuerSource.id, { jws: buildJws({ typ: 'jwt' }), fetchedAt: NOW })
+
+    expect(await loadCachedTrustSource(buildAgent(), issuerSource, cache)).toEqual({
+      sourceId: issuerSource.id,
+      ok: false,
+      reason: 'unexpected-typ',
+    })
+    expect(await cache.read(issuerSource.id)).toBeUndefined()
+
+    await cache.write(issuerSource.id, { jws: buildJws(), fetchedAt: NOW })
+    const validate = jest.fn().mockRejectedValue(new Error('No trusted certificate found'))
+
+    expect(await loadCachedTrustSource(buildAgent({ validate }), issuerSource, cache)).toMatchObject({ ok: false })
+    expect(await cache.read(issuerSource.id)).toBeUndefined()
+    expect(trustAnchorStore.get(issuerSource.id)).toEqual([])
+  })
+
+  test('cached pointer lists are verified against the pins the verified parent list declares', async () => {
+    const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
+    const primary = buildJws({ pointers: [{ location: POINTER_URL, signers: ['OTHER_ROOT'] }] })
+    const pointed = buildJws({ anchors: [{ certificate: 'MIID_POINTED' }] })
+    await cache.write(issuerSource.id, {
+      jws: primary,
+      pointers: [
+        { location: POINTER_URL, jws: pointed },
+        { location: 'https://stale.example/lote', jws: buildJws({ anchors: [{ certificate: 'MIID_STALE' }] }) },
+      ],
+      fetchedAt: NOW,
+    })
+    const validate = jest.fn().mockResolvedValue([])
+
+    const result = await loadCachedTrustSource(buildAgent({ validate }), pointerSource, cache, () => NOW)
+
+    expect(result).toMatchObject({ ok: true, anchorCount: 2 })
+    expect(trustAnchorStore.get(issuerSource.id)).toEqual([ANCHOR, 'MIID_POINTED'])
+    expect(validate).toHaveBeenLastCalledWith({
+      certificateChain: ['LEAF', 'ROOT'],
+      trustedCertificates: ['OTHER_ROOT'],
+    })
+    expect(validate).toHaveBeenCalledTimes(2)
   })
 })

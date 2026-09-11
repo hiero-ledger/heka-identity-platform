@@ -15,7 +15,13 @@ import { NativeAskar } from '@openwallet-foundation/askar-react-native'
 
 import { CredoLogger } from '../logger'
 
-import { HekaWalletAgent, TRUSTED_X509_CERTIFICATES, trustedCertificatesForVerification } from './agent'
+import {
+  ensureTrustAnchors,
+  HekaWalletAgent,
+  TRUSTED_MDOC_ISSUER_CERTIFICATES,
+  trustedCertificatesForVerification,
+} from './agent'
+import { summarizeTrustBootstrap } from './trust/trustBootstrap'
 
 /**
  * Creates and initializes a minimal Credo agent for the Digital Credentials API overlay.
@@ -47,7 +53,7 @@ export async function createDcApiAgent(walletSecret: WalletSecret): Promise<Heka
         resolvers: [new WebDidResolver(), new KeyDidResolver(), new JwkDidResolver(), new PeerDidResolver()],
       }),
       x509: new X509Module({
-        trustedCertificates: [...TRUSTED_X509_CERTIFICATES],
+        trustedCertificates: [...TRUSTED_MDOC_ISSUER_CERTIFICATES],
         getTrustedCertificatesForVerification: (_agentContext, { verification }) =>
           trustedCertificatesForVerification(verification),
       }),
@@ -61,6 +67,17 @@ export async function createDcApiAgent(walletSecret: WalletSecret): Promise<Heka
     // must not leave a partially-opened Askar store behind.
     await agent.shutdown().catch(() => undefined)
     throw error
+  }
+
+  // This React root starts with an empty trust-anchor store (the main app's refresh lives in another
+  // runtime), so load the on-device cache of the signed trust lists (re-verified) and, only when a
+  // source has no usable cache at all, await one bounded network refresh. Best-effort: the overlay
+  // still opens without anchors (verification then fails closed, as before).
+  try {
+    const trust = await ensureTrustAnchors(agent as unknown as HekaWalletAgent)
+    agent.config.logger.info(`Trust anchors — ${summarizeTrustBootstrap(trust)}`)
+  } catch (error) {
+    agent.config.logger.warn(`Trust anchor bootstrap failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 
   return agent as unknown as HekaWalletAgent

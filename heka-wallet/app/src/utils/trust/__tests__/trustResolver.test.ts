@@ -37,13 +37,21 @@ describe('resolveTrustAnchors', () => {
 
   test('an unclassified mdoc docType is covered by the unrestricted issuer sources only', () => {
     expect(
-      resolveTrustAnchors(sources, { role: 'credential-issuer', format: 'mso_mdoc', credentialType: 'org.iso.18013.5.1.mDL' })
+      resolveTrustAnchors(sources, {
+        role: 'credential-issuer',
+        format: 'mso_mdoc',
+        credentialType: 'org.iso.18013.5.1.mDL',
+      })
     ).toEqual(['TENANT_IACA', 'SHARED'])
   })
 
   test('a classified mdoc docType is trusted ONLY through the sources classifying it', () => {
     expect(
-      resolveTrustAnchors(sources, { role: 'credential-issuer', format: 'mso_mdoc', credentialType: 'eu.europa.ec.eudi.pid.1' })
+      resolveTrustAnchors(sources, {
+        role: 'credential-issuer',
+        format: 'mso_mdoc',
+        credentialType: 'eu.europa.ec.eudi.pid.1',
+      })
     ).toEqual(['PID_PROVIDER', 'SHARED'])
   })
 
@@ -51,7 +59,11 @@ describe('resolveTrustAnchors', () => {
     trustAnchorStore.clear()
     trustAnchorStore.set(heka.id, ['TENANT_IACA'])
     expect(
-      resolveTrustAnchors(sources, { role: 'credential-issuer', format: 'mso_mdoc', credentialType: 'eu.europa.ec.eudi.pid.1' })
+      resolveTrustAnchors(sources, {
+        role: 'credential-issuer',
+        format: 'mso_mdoc',
+        credentialType: 'eu.europa.ec.eudi.pid.1',
+      })
     ).toEqual([])
   })
 
@@ -61,12 +73,19 @@ describe('resolveTrustAnchors', () => {
     ).toEqual(['PID_PROVIDER', 'SHARED'])
     // the PID docType string is not a vct → unrestricted sources apply
     expect(
-      resolveTrustAnchors(sources, { role: 'credential-issuer', format: 'dc+sd-jwt', credentialType: 'eu.europa.ec.eudi.pid.1' })
+      resolveTrustAnchors(sources, {
+        role: 'credential-issuer',
+        format: 'dc+sd-jwt',
+        credentialType: 'eu.europa.ec.eudi.pid.1',
+      })
     ).toEqual(['TENANT_IACA', 'SHARED'])
   })
 
   test('other credential formats (no type) use the unrestricted issuer sources', () => {
-    expect(resolveTrustAnchors(sources, { role: 'credential-issuer', format: 'other' })).toEqual(['TENANT_IACA', 'SHARED'])
+    expect(resolveTrustAnchors(sources, { role: 'credential-issuer', format: 'other' })).toEqual([
+      'TENANT_IACA',
+      'SHARED',
+    ])
   })
 
   test('anchors are de-duplicated across sources', () => {
@@ -86,10 +105,18 @@ describe('resolveTrustAnchors', () => {
 describe('selectTrustSources', () => {
   test('returns the classifying sources for a classified type and the unrestricted ones otherwise', () => {
     expect(
-      selectTrustSources(sources, { role: 'credential-issuer', format: 'mso_mdoc', credentialType: 'eu.europa.ec.eudi.pid.1' }).map((s) => s.id)
+      selectTrustSources(sources, {
+        role: 'credential-issuer',
+        format: 'mso_mdoc',
+        credentialType: 'eu.europa.ec.eudi.pid.1',
+      }).map((s) => s.id)
     ).toEqual([euPid.id])
     expect(
-      selectTrustSources(sources, { role: 'credential-issuer', format: 'mso_mdoc', credentialType: 'org.iso.18013.5.1.mDL' }).map((s) => s.id)
+      selectTrustSources(sources, {
+        role: 'credential-issuer',
+        format: 'mso_mdoc',
+        credentialType: 'org.iso.18013.5.1.mDL',
+      }).map((s) => s.id)
     ).toEqual([heka.id])
     expect(selectTrustSources(sources, { role: 'access-certificate' }).map((s) => s.id)).toEqual([wrpac.id])
   })

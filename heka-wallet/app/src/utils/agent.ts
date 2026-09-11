@@ -54,11 +54,16 @@ import { CredoLogger } from '../logger'
 import { getDidKeyVerificationMethodId } from './did'
 import { TailsService } from './revocation/TailsService'
 import {
+  loadCachedTrustSources as loadConfiguredTrustCache,
   refreshTrustSources as refreshConfiguredTrustSources,
+  TrustCacheLoadResult,
   TrustSourceRefreshResult,
   TrustVerifyAgent,
 } from './trust/loteTrustSource'
+import { staticAnchorsFromConfig } from './trust/staticAnchors'
+import { ensureTrustAnchors as bootstrapTrustAnchors, TrustBootstrapResult } from './trust/trustBootstrap'
 import { resolveTrustAnchors } from './trust/trustResolver'
+import { createTrustSourceCache } from './trust/trustSourceCache'
 import { TrustSourceConfig, trustSourcesFromConfig } from './trust/trustSources'
 import { trustSubjectFor, X509VerificationContext } from './trust/verificationSubject'
 
@@ -67,14 +72,22 @@ const PUBLIC_DID_KEY = 'PUBLIC_DID'
 const PUBLIC_INVITATION_ID_KEY = 'PUBLIC_INVITATION_ID'
 
 /**
- * Bundled (static) mdoc **issuer** trust anchor(s) (base64 DER) — the fallback set that always applies
- * to mdoc verification, alongside the anchors learned from the configured trust sources
- * ({@link TRUST_SOURCES}, refreshed by {@link refreshTrustSources}). The default value is the dev mDL
- * issuer cert.
+ * Static trust anchors from configuration (`TRUSTED_MDOC_ISSUER_CERTIFICATES`,
+ * `TRUSTED_REQUEST_SIGNER_CERTIFICATES`: base64 DER, comma-separated, empty by default). Nothing is
+ * bundled in code — a build trusts only what its configuration says, so a real deployment can never
+ * inherit the identity service's dev mDL issuer key. Parsed once at startup; an invalid value throws.
  */
-export const TRUSTED_X509_CERTIFICATES = [
-  'MIIBwDCCAWWgAwIBAgIUSMdjaVc1KHI+3o6qJXhSC4sJh+cwCgYIKoZIzj0EAwIwNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMB4XDTI2MDMyNzIxNDA1NloXDTM2MDMyNDIxNDA1NlowNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1nIrm3O9VX8MdPrKWMhqqV0QMS4UtxKj6uUc8IdGE2fSsWyi7XQN3HoE1Ln9TDtOIHvSyW8Eyr98MlWGBBF/vqNTMFEwHQYDVR0OBBYEFNfkrHxd2nwtni96XrrYhaMgUFImMB8GA1UdIwQYMBaAFNfkrHxd2nwtni96XrrYhaMgUFImMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAP0V5EW7j6Pb+lJktzdWrtEqhI3mYs9Fd+qh0p2kNXJPAiEAqK+q7Wk+t5e2yzvO3b6t3P5nIEnoQt3cvDsaUZY1dT0=',
-] as const
+const STATIC_ANCHORS = staticAnchorsFromConfig(Config)
+
+/**
+ * Static mdoc **issuer** trust anchors (base64 DER) — the fallback set that always applies to mdoc
+ * verification, alongside the anchors learned from the configured trust sources
+ * ({@link TRUST_SOURCES}, refreshed by {@link refreshTrustSources}). Empty unless
+ * `TRUSTED_MDOC_ISSUER_CERTIFICATES` is set: tenant issuers are learned from the Heka scheme list, so
+ * this is only for an issuer that publishes no trust list (e.g. the identity service's legacy
+ * service-wide `MDL_ISSUER_CERTIFICATE` in local development).
+ */
+export const TRUSTED_MDOC_ISSUER_CERTIFICATES: readonly string[] = STATIC_ANCHORS.mdocIssuers
 
 /**
  * The Heka service **root CA** (base64 DER). It plays two roles: it pins the signer of the default
@@ -96,16 +109,23 @@ const HEKA_SERVICE_ROOT_CERTIFICATES: string[] = [Config.HEKA_SERVICE_ROOT_CERTI
 export const TRUST_SOURCES: TrustSourceConfig[] = trustSourcesFromConfig(Config)
 
 /**
+ * On-device cache of the signed trust-list documents (AsyncStorage). Every successful refresh writes
+ * it; `loadCachedTrustSources` / `ensureTrustAnchors` re-verify the documents on load, so the cache is
+ * a latency optimisation, never a trust assumption.
+ */
+const trustSourceCache = createTrustSourceCache(AsyncStorage)
+
+/**
  * Trusted X.509 certificates for verifying OpenID4VP authorization-request **signers** (the
  * verifier's `x5c` request signature). This is a DISTINCT trust domain from
- * `TRUSTED_X509_CERTIFICATES`, which is the mDL **issuer** anchor used to verify credential (MSO)
- * signatures — do not conflate them.
+ * `TRUSTED_MDOC_ISSUER_CERTIFICATES`, which anchors credential (MSO) signatures — do not conflate them.
  *
- * Populate with the verifier's request-signing **leaf** cert (base64 DER) for the `x509_hash` trust
- * model, or its **root/CA** for `x509_san_dns`. Obtain the cert from the verifier's
- * `/x509/signers` endpoint. Empty by default = no request signer is trusted yet.
+ * Set `TRUSTED_REQUEST_SIGNER_CERTIFICATES` to the verifier's request-signing **leaf** cert (base64
+ * DER) for the `x509_hash` trust model, or its **root/CA** for `x509_san_dns` — obtainable from the
+ * verifier's `/x509/signers` endpoint. Empty by default = only the learned access-certificate anchors
+ * and the service root are trusted.
  */
-export const TRUSTED_REQUEST_SIGNER_CERTIFICATES: string[] = []
+export const TRUSTED_REQUEST_SIGNER_CERTIFICATES: readonly string[] = STATIC_ANCHORS.requestSigners
 
 export type { X509VerificationContext }
 
@@ -116,7 +136,7 @@ export type { X509VerificationContext }
  *  - a signed authorization request / signed issuer metadata (access-certificate role): the
  *    `wrpac-providers`-type sources + the service root (chain root of the request-signing and
  *    access-certificate leaves) + the pinned request-signer set;
- *  - an mdoc: the credential-issuer sources classified for its docType + the bundled mdoc anchors —
+ *  - an mdoc: the credential-issuer sources classified for its docType + the static mdoc anchors —
  *    never the service root (a service-root-signed leaf must not be able to forge an MSO);
  *  - an SD-JWT VC: the credential-issuer sources classified for its `vct` + the service root (the
  *    HAIP x5c issuer leaf chains to it);
@@ -132,9 +152,9 @@ export const trustedCertificatesForVerification = (verification: X509Verificatio
   if (subject.role === 'access-certificate') {
     return unique([...learned, ...HEKA_SERVICE_ROOT_CERTIFICATES, ...TRUSTED_REQUEST_SIGNER_CERTIFICATES])
   }
-  if (subject.format === 'mso_mdoc') return unique([...learned, ...TRUSTED_X509_CERTIFICATES])
+  if (subject.format === 'mso_mdoc') return unique([...learned, ...TRUSTED_MDOC_ISSUER_CERTIFICATES])
   if (subject.format === 'dc+sd-jwt') return unique([...learned, ...HEKA_SERVICE_ROOT_CERTIFICATES])
-  return unique([...learned, ...HEKA_SERVICE_ROOT_CERTIFICATES, ...TRUSTED_X509_CERTIFICATES])
+  return unique([...learned, ...HEKA_SERVICE_ROOT_CERTIFICATES, ...TRUSTED_MDOC_ISSUER_CERTIFICATES])
 }
 
 const unique = (certificates: string[]): string[] => [...new Set(certificates)]
@@ -248,7 +268,7 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
         ],
       }),
       x509: new X509Module({
-        trustedCertificates: [...TRUSTED_X509_CERTIFICATES],
+        trustedCertificates: [...TRUSTED_MDOC_ISSUER_CERTIFICATES],
         getTrustedCertificatesForVerification: (_agentContext, { verification }) =>
           trustedCertificatesForVerification(verification),
       }),
@@ -266,7 +286,24 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
 export async function refreshTrustSources(agent: HekaWalletAgent): Promise<TrustSourceRefreshResult[]> {
   // The concrete agent satisfies the loose structural TrustVerifyAgent at runtime; the cast bridges the
   // strict Credo KMS/X509 option types to the decoupled (test-friendly) interface.
-  return refreshConfiguredTrustSources(agent as unknown as TrustVerifyAgent, TRUST_SOURCES)
+  return refreshConfiguredTrustSources(agent as unknown as TrustVerifyAgent, TRUST_SOURCES, { cache: trustSourceCache })
+}
+
+/**
+ * Load the last verified trust lists from the on-device cache (re-verified, no network) into this
+ * runtime's anchor store. Call after the agent is initialized, before the network refresh.
+ */
+export async function loadCachedTrustSources(agent: HekaWalletAgent): Promise<TrustCacheLoadResult[]> {
+  return loadConfiguredTrustCache(agent as unknown as TrustVerifyAgent, TRUST_SOURCES, trustSourceCache)
+}
+
+/**
+ * Cache-first trust bootstrap for a fresh runtime (the DC API overlay): load the cache; await one
+ * bounded network refresh only when a source has no usable cache; refresh in the background when the
+ * cache is merely stale. See `ensureTrustAnchors` in `trust/trustBootstrap.ts`.
+ */
+export async function ensureTrustAnchors(agent: HekaWalletAgent): Promise<TrustBootstrapResult> {
+  return bootstrapTrustAnchors(agent as unknown as TrustVerifyAgent, TRUST_SOURCES, { cache: trustSourceCache })
 }
 
 export async function createPublicDidOrGetExisting(agent: Agent): Promise<string> {

@@ -13,6 +13,7 @@ import {
   createPublicInvitationOrGetExisting,
   ensureExampleCredentialCreated,
   HekaWalletAgent,
+  loadCachedTrustSources,
   refreshTrustSources,
   setupMediatorWithPublicDidIfNeeded,
   tryRestartExistingAgent,
@@ -70,11 +71,23 @@ export const Splash: React.FC = () => {
           return
         }
 
-        // Refresh the trust anchors from the configured signed trust lists (the Heka scheme lists by
-        // default). Fire-and-forget so it never blocks startup; each source degrades independently
-        // (a failed source keeps its previously-trusted anchors).
+        // Trust anchors: first load the on-device cache of the signed trust lists (re-verified, no
+        // network) so trust is in place right after unlock, then refresh from the configured sources
+        // (the Heka scheme lists by default). Fire-and-forget so it never blocks startup; each source
+        // degrades independently (a failed source keeps its previously-trusted anchors).
         const refreshTrustList = (readyAgent: HekaWalletAgent): void => {
-          void refreshTrustSources(readyAgent)
+          void loadCachedTrustSources(readyAgent)
+            .then((loaded) => {
+              for (const entry of loaded) {
+                if (entry.ok) {
+                  logger.info(
+                    `Trust source ${entry.sourceId} loaded from cache: ${entry.anchorCount} anchor(s)${entry.stale ? ' (stale)' : ''}`
+                  )
+                }
+              }
+            })
+            .catch((error) => logger.warn(`Trust cache load failed: ${error}`))
+            .then(() => refreshTrustSources(readyAgent))
             .then((results) => {
               for (const result of results) {
                 if (result.ok) {
