@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto'
+
 import { GenericRecordsApi, Kms, X509Api, X509Certificate, X509ExtendedKeyUsage, X509KeyUsage } from '@credo-ts/core'
 import { createMock } from '@golevelup/ts-vitest'
 import { BadRequestException } from '@nestjs/common'
 
 import { Agent } from 'common/agent'
 
+import { ID_ETSI_QCT_PID_OID, MDL_DOCUMENT_SIGNER_EKU_OID } from '../certificate-profiles'
 import { buildEuDsc, buildEuIaca } from '../eu-certificate-builder'
 import { MdocIssuerCaService } from '../mdoc-issuer-ca.service'
 import { TrustListService } from '../trust-list.service'
@@ -14,6 +17,8 @@ vi.mock('../eu-certificate-builder', () => ({
   buildEuIaca: vi.fn(),
   buildEuDsc: vi.fn(),
 }))
+
+const POLICY_OID = '1.3.6.1.4.1.99999.2'
 
 describe('MdocIssuerCaService', () => {
   let service: MdocIssuerCaService
@@ -91,7 +96,9 @@ describe('MdocIssuerCaService', () => {
         mdocDefaultDocType: 'org.iso.18013.5.1.mDL',
       },
     })
-    service = new MdocIssuerCaService(globalAgent, createMock<TrustListService>())
+    service = new MdocIssuerCaService(globalAgent, createMock<TrustListService>(), {
+      appEndpoint: 'https://heka.example',
+    } as never)
 
     agentContext = {
       contextCorrelationId: 'tenant-1',
@@ -338,28 +345,53 @@ describe('MdocIssuerCaService', () => {
     })
 
     test('provisionIaca throws when the EU profile lacks an organizationIdentifier', async () => {
-      await expect(service.provisionIaca(agentContext, { profile: 'eudi-pid' })).rejects.toThrow(BadRequestException)
+      await expect(
+        service.provisionIaca(agentContext, { profile: 'eudi-pid', certificatePolicyOid: POLICY_OID }),
+      ).rejects.toThrow(BadRequestException)
       expect(buildEuIaca).not.toHaveBeenCalled()
     })
 
-    test('provisionIaca routes to the EU builder (not the Credo path) and stores profile + organizationIdentifier', async () => {
-      await service.provisionIaca(agentContext, { profile: 'eudi-pid', organizationIdentifier: 'VATDE-0123456789' })
+    test('provisionIaca throws when the EU profile lacks a certificate-policy OID (EN 319 412-2 §4.3.3)', async () => {
+      await expect(
+        service.provisionIaca(agentContext, { profile: 'eudi-pid', organizationIdentifier: 'VATDE-0123456789' }),
+      ).rejects.toThrow(/certificate-policy OID/)
+      expect(buildEuIaca).not.toHaveBeenCalled()
+    })
+
+    test('provisionIaca routes to the EU builder (not the Credo path) and stores profile, organizationIdentifier and policy', async () => {
+      await service.provisionIaca(agentContext, {
+        profile: 'eudi-pid',
+        organizationIdentifier: 'VATDE-0123456789',
+        certificatePolicyOid: POLICY_OID,
+      })
 
       expect(buildEuIaca).toHaveBeenCalledTimes(1)
       expect(mockCreateCertificate).not.toHaveBeenCalled() // shipped Credo mDL path NOT used
-      expect(vi.mocked(buildEuIaca).mock.calls[0][1].dn.organizationIdentifier).toBe('VATDE-0123456789')
+      expect(vi.mocked(buildEuIaca).mock.calls[0][1].dn).toMatchObject({
+        organizationIdentifier: 'VATDE-0123456789',
+        commonName: 'Heka PID IACA',
+      })
 
       const tenantSave = mockSave.mock.calls[0][0]
       expect(tenantSave.content).toMatchObject({
         profile: 'eudi-pid',
         organizationIdentifier: 'VATDE-0123456789',
+        certificatePolicyOid: POLICY_OID,
         certificateBase64: 'EU_IACA_B64',
       })
     })
 
-    test('issueDsc uses the EU builder when the IACA was minted under the EU profile', async () => {
+    test('issueDsc builds a TS 119 412-6 PID sign/seal certificate: policies, QcType pid, AIA → the IACA download, no EKU', async () => {
       iacaRecords = [
-        { id: 'iaca-rec', content: iacaContent({ profile: 'eudi-pid', organizationIdentifier: 'VATDE-0123456789' }) },
+        {
+          id: 'iaca-rec',
+          content: iacaContent({
+            profile: 'eudi-pid',
+            organizationIdentifier: 'VATDE-0123456789',
+            certificatePolicyOid: POLICY_OID,
+            fingerprint: 'eu-iaca-fp',
+          }),
+        },
       ]
       vi.spyOn(X509Certificate, 'fromEncodedCertificate').mockImplementation(
         () => ({ keyId: undefined, publicJwk: { marker: 'parsed-iaca' } }) as never,
@@ -370,7 +402,73 @@ describe('MdocIssuerCaService', () => {
 
       expect(buildEuDsc).toHaveBeenCalledTimes(1)
       expect(mockCreateCertificate).not.toHaveBeenCalled()
+      expect(vi.mocked(buildEuDsc).mock.calls[0][1]).toMatchObject({
+        subjectDn: { organizationIdentifier: 'VATDE-0123456789', commonName: 'Heka PID DSC' },
+        extendedKeyUsage: undefined,
+        certificatePolicyOids: [POLICY_OID],
+        qcTypes: [ID_ETSI_QCT_PID_OID],
+        authorityInfoAccessCaIssuers: 'https://heka.example/mdoc-issuers/certificates/eu-iaca-fp',
+      })
       expect(dsc).toMatchObject({ keyId: 'eu-dsc-key', iacaId: 'iaca-rec', isCurrent: true })
+    })
+
+    test('issueDsc under the EU mDL profile keeps the critical ISO mdlDS EKU and adds the EU bits, without a QcType', async () => {
+      iacaRecords = [
+        {
+          id: 'iaca-rec',
+          content: iacaContent({
+            profile: 'mdl-eu',
+            organizationIdentifier: 'VATDE-0123456789',
+            certificatePolicyOid: POLICY_OID,
+          }),
+        },
+      ]
+      vi.spyOn(X509Certificate, 'fromEncodedCertificate').mockImplementation(
+        () => ({ keyId: undefined, publicJwk: { marker: 'parsed-iaca' } }) as never,
+      )
+      mockCreateKey.mockResolvedValue({ keyId: 'eu-dsc-key', publicJwk: { kty: 'EC', crv: 'P-256' } })
+
+      await service.issueDsc(agentContext)
+
+      expect(vi.mocked(buildEuDsc).mock.calls[0][1]).toMatchObject({
+        subjectDn: { commonName: 'Heka mDL DSC' },
+        extendedKeyUsage: { oids: [MDL_DOCUMENT_SIGNER_EKU_OID], critical: true },
+        certificatePolicyOids: [POLICY_OID],
+        qcTypes: undefined,
+      })
+    })
+
+    test('issueDsc refuses an EU IACA without a certificate-policy OID anywhere', async () => {
+      iacaRecords = [
+        { id: 'iaca-rec', content: iacaContent({ profile: 'eudi-pid', organizationIdentifier: 'VATDE-0123456789' }) },
+      ]
+      vi.spyOn(X509Certificate, 'fromEncodedCertificate').mockImplementation(
+        () => ({ keyId: undefined, publicJwk: { marker: 'parsed-iaca' } }) as never,
+      )
+      mockCreateKey.mockResolvedValue({ keyId: 'eu-dsc-key', publicJwk: { kty: 'EC', crv: 'P-256' } })
+
+      await expect(service.issueDsc(agentContext)).rejects.toThrow(/certificate-policy OID/)
+      expect(buildEuDsc).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('findRegisteredIacaCertificate (the AIA caIssuers target)', () => {
+    const der = Buffer.from('3003020100', 'hex') // any DER bytes — the registry stores public certs verbatim
+    const fingerprint = createHash('sha256').update(der).digest('hex')
+
+    test('serves a registered IACA by its recorded fingerprint, and by a computed one for legacy entries', async () => {
+      mockGlobalFindAllByQuery.mockResolvedValue([
+        { content: { certificateBase64: der.toString('base64'), fingerprint: 'recorded-fp' } },
+        { content: { certificateBase64: der.toString('base64') } }, // mirrored before fingerprints were recorded
+      ])
+
+      expect(Buffer.from((await service.findRegisteredIacaCertificate('RECORDED-FP'))!)).toEqual(der)
+      expect(Buffer.from((await service.findRegisteredIacaCertificate(fingerprint))!)).toEqual(der)
+      expect(await service.findRegisteredIacaCertificate('unknown')).toBeNull()
+    })
+
+    test('iacaCertificateLocation is the public route under the app endpoint', () => {
+      expect(service.iacaCertificateLocation('abc')).toBe('https://heka.example/mdoc-issuers/certificates/abc')
     })
   })
 })

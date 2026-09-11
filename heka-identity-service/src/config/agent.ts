@@ -126,12 +126,15 @@ export default registerAs('agent', () => {
   const mdocDefaultDocType = process.env.MDOC_DEFAULT_DOCTYPE ?? 'org.iso.18013.5.1.mDL'
 
   // mdoc issuer certificate profile (credential-type × ecosystem). 'mdl' = shipped ISO 18013-5 / AAMVA
-  // path (Credo X509Api); 'eudi-pid' = EU/EUDI profile emitted via the @peculiar/x509 escape hatch
-  // (EN 319 412-1 organizationIdentifier DN + certificatePolicies). The EU profile requires an
-  // organizationIdentifier (e.g. `VATDE-…`).
+  // path (Credo X509Api); 'mdl-eu' / 'eudi-pid' / 'eudi-eaa' = EU/EUDI profiles (ETSI TS 119 412-6 V1.1.1,
+  // CIR 2026/1731) emitted via the @peculiar/x509 escape hatch: EN 319 412-3 legal-person DN
+  // (organizationIdentifier), certificatePolicies, AIA caIssuers → the public IACA download, and the
+  // `id-etsi-qct-pid` QcType on PID certificates. EU profiles require both values below.
   const mdocIssuerProfile = process.env.MDOC_ISSUER_PROFILE ?? 'mdl'
   const mdocIssuerOrganizationIdentifier = process.env.MDOC_ISSUER_ORGANIZATION_IDENTIFIER ?? ''
-  // Optional ETSI certificate-policy OID emitted on EU DSCs (omitted when empty)
+  // The operator's certificate-policy OID (EN 319 412-2 §4.3.3 — the extension is mandatory on EU sign/seal
+  // certificates; typical values are the EN 319 411-1 NCP / LCP identifiers or a private arc). Required for
+  // EU profiles; ignored by the mDL/US profile.
   const mdocIssuerCertificatePolicyOid = process.env.MDOC_ISSUER_CERTIFICATE_POLICY_OID ?? ''
 
   // The Heka **scheme trust lists** (GET /trust-list/*): TS 119 602 LoTEs of the anchors Heka is scheme

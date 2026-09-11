@@ -18,7 +18,6 @@ import {
   IndyVdrIndyDidResolver,
   IndyVdrModule,
 } from '@credo-ts/indy-vdr'
-import { OpenId4VcIssuerModule, OpenId4VcVerifierModule } from '@credo-ts/openid4vc'
 import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
 import { INestApplication } from '@nestjs/common'
@@ -33,15 +32,10 @@ import AppConfig from 'config/express'
 import { TailsService } from 'revocation/revocation-registry/tails.service'
 import { AppModule } from 'src/app.module'
 import { startApp } from 'src/app.starter'
-import {
-  AGENT_MODULES_TOKEN,
-  buildCredentialMapperDependencies,
-  getAgencyModulesMap,
-} from 'src/common/agent/agent-modules.provider'
+import { AGENT_MODULES_TOKEN, getAgencyModulesMap } from 'src/common/agent/agent-modules.provider'
 import AgentConfig from 'src/config/agent'
 import FileStorageConfig from 'src/config/file-storage'
 import MikroOrmConfig from 'src/config/mikro-orm'
-import { createCredentialRequestToCredentialMapper } from 'src/utils/oid4vc'
 import TestAgentConfig from 'test/config/agent'
 import TestFileStorageConfig from 'test/config/file-storage'
 import TestMikroOrmConfig from 'test/config/mikro-orm'
@@ -74,6 +68,11 @@ export async function startTestApp(): Promise<INestApplication> {
         agencyConfig: ConfigType<typeof AgentConfig>,
         moduleRef: ModuleRef,
       ) => {
+        // The production module map as-is — including the combined `openid4vc` module (issuer + verifier
+        // on the shared Express app, exact production mapper wiring). Do not add the standalone
+        // `OpenId4VcIssuerModule` / `OpenId4VcVerifierModule` next to it: Credo initialises every module in
+        // the map, so a second issuer module registers every OID4VCI route twice on the same Express app and
+        // each request is then handled twice (`ERR_HTTP_HEADERS_SENT` noise, sessions flipped to `Error`).
         return {
           ...getAgencyModulesMap(appConfig, agencyConfig, moduleRef),
           askar: new AskarModule({
@@ -126,20 +125,6 @@ export async function startTestApp(): Promise<INestApplication> {
           ledgerSdk: new IndyVdrModule({
             indyVdr,
             networks: agencyConfig.networks,
-          }),
-          openId4VcIssuer: new OpenId4VcIssuerModule({
-            baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            app: agencyConfig.oidConfig.app as any,
-            // The exact production mapper wiring — shared so the harness can never drift from it.
-            credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(
-              buildCredentialMapperDependencies(moduleRef),
-            ),
-          }),
-          openId4VcVerifier: new OpenId4VcVerifierModule({
-            baseUrl: agencyConfig.oidConfig.verificationEndpoint,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            app: agencyConfig.oidConfig.app as any,
           }),
           hedera: new HederaModule({
             networks: [

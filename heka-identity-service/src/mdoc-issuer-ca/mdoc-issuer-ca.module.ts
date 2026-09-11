@@ -4,6 +4,7 @@ import { AgentModule } from 'common/agent'
 import { X509SigningModule } from 'x509-signing'
 
 import { EuTrustAnchorIngestionService } from './eu-trust-anchor-ingestion.service'
+import { IacaCertificatePublicController } from './iaca-certificate.public.controller'
 import { MdocIssuerCaController } from './mdoc-issuer-ca.controller'
 import { MdocIssuerCaService } from './mdoc-issuer-ca.service'
 import { MDOC_ISSUER_CA_SERVICE, VERIFIER_TRUST_ANCHOR_SERVICE } from './mdoc-issuer-ca.tokens'
@@ -16,7 +17,7 @@ import { VicalController } from './vical.controller'
 @Module({
   // X509SigningModule provides X509SignerService — the VICAL + scheme-list signers are leaves under its service root CA.
   imports: [AgentModule, X509SigningModule],
-  controllers: [MdocIssuerCaController, VicalController, SchemeTrustListController],
+  controllers: [MdocIssuerCaController, IacaCertificatePublicController, VicalController, SchemeTrustListController],
   providers: [
     MdocIssuerCaService,
     TrustListService,

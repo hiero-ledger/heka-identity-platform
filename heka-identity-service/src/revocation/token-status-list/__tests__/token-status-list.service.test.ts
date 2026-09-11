@@ -5,14 +5,14 @@ import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
 import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
-import { getListFromStatusListJWT, StatusType } from '@owf/token-status-list'
+import { getListFromStatusListJWT } from '@sd-jwt/jwt-status-list'
 
 import { AuthInfo } from 'common/auth'
 import { defaultTokenStatusListSize, TokenStatusList } from 'common/entities'
 import { Logger } from 'common/logger'
 import ExpressConfig from 'config/express'
 
-import { TokenStatusListService, TokenStatusListSignerIdentity } from '../token-status-list.service'
+import { TokenStatus, TokenStatusListService, TokenStatusListSignerIdentity } from '../token-status-list.service'
 
 const b64url = (value: string | Uint8Array): string => Buffer.from(value).toString('base64url')
 const decodeJwt = (jwt: string) => {
@@ -110,7 +110,7 @@ describe('TokenStatusListService', () => {
       ttl: 300,
       status_list: { bits: 1, lst: expect.any(String) },
     })
-    expect(getListFromStatusListJWT(list.token!).getStatus(reference.idx)).toBe(StatusType.Valid)
+    expect(getListFromStatusListJWT(list.token!).getStatus(reference.idx)).toBe(TokenStatus.Valid)
   })
 
   test('allocate reuses the list of the same signing key and never hands out an index twice', async () => {
@@ -152,28 +152,38 @@ describe('TokenStatusListService', () => {
     const reference = await service.allocate(agentContext, authInfo, identity)
     const before = stored[0].token
 
-    await service.setStatus(agentContext, authInfo, reference.id, reference.idx, StatusType.Invalid)
+    await service.setStatus(agentContext, authInfo, reference.id, reference.idx, TokenStatus.Invalid)
 
     expect(sign).toHaveBeenCalledTimes(2)
     expect(stored[0].token).not.toBe(before)
     const list = getListFromStatusListJWT(stored[0].token!)
-    expect(list.getStatus(reference.idx)).toBe(StatusType.Invalid)
-    expect(list.getStatus((reference.idx + 1) % defaultTokenStatusListSize)).toBe(StatusType.Valid)
+    expect(list.getStatus(reference.idx)).toBe(TokenStatus.Invalid)
+    expect(list.getStatus((reference.idx + 1) % defaultTokenStatusListSize)).toBe(TokenStatus.Valid)
     expect(await service.getToken(reference.id)).toBe(stored[0].token)
   })
 
   test('setStatus rejects an out-of-range index', async () => {
     const reference = await service.allocate(agentContext, authInfo, identity)
     await expect(
-      service.setStatus(agentContext, authInfo, reference.id, defaultTokenStatusListSize, StatusType.Invalid),
+      service.setStatus(agentContext, authInfo, reference.id, defaultTokenStatusListSize, TokenStatus.Invalid),
     ).rejects.toBeInstanceOf(BadRequestException)
+  })
+
+  test('setStatus rejects a status that does not fit the list (Suspended on a 1-bit list)', async () => {
+    const reference = await service.allocate(agentContext, authInfo, identity)
+    const before = stored[0].token
+    await expect(
+      service.setStatus(agentContext, authInfo, reference.id, reference.idx, TokenStatus.Suspended),
+    ).rejects.toBeInstanceOf(BadRequestException)
+    expect(sign).toHaveBeenCalledTimes(1)
+    expect(stored[0].token).toBe(before)
   })
 
   test('re-signing is refused outside the tenant context that owns the key', async () => {
     const reference = await service.allocate(agentContext, authInfo, identity)
     const otherContext = { ...agentContext, contextCorrelationId: 'tenant-2' } as unknown as AgentContext
     await expect(
-      service.setStatus(otherContext, authInfo, reference.id, reference.idx, StatusType.Invalid),
+      service.setStatus(otherContext, authInfo, reference.id, reference.idx, TokenStatus.Invalid),
     ).rejects.toBeInstanceOf(BadRequestException)
   })
 

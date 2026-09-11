@@ -6,7 +6,6 @@ import {
 } from '@credo-ts/openid4vc'
 import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
-import { StatusType } from '@owf/token-status-list'
 
 import { TenantAgent } from 'common/agent'
 import AgentConfig from 'config/agent'
@@ -17,6 +16,7 @@ import { IssuerMode } from 'utils/oid4vc'
 import { AuthInfo } from '../../common/auth'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
 import {
+  TokenStatus,
   TokenStatusListService,
   TokenStatusListSignerIdentity,
 } from '../../revocation/token-status-list/token-status-list.service'
@@ -250,7 +250,7 @@ export class OpenId4VcIssuanceSessionService {
         authInfo,
         statusListId,
         credential.credentialStatus.index,
-        StatusType.Invalid,
+        TokenStatus.Invalid,
       )
       return
     }

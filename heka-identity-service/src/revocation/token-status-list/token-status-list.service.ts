@@ -4,13 +4,7 @@ import { AgentContext, Kms } from '@credo-ts/core'
 import { EntityManager } from '@mikro-orm/core'
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
-import {
-  BitsPerStatus,
-  createHeaderAndPayload,
-  JWT_STATUS_LIST_TYPE,
-  StatusList,
-  StatusType,
-} from '@owf/token-status-list'
+import { BitsPerStatus, createHeaderAndPayload, StatusList } from '@sd-jwt/jwt-status-list'
 
 import { AuthInfo } from 'common/auth'
 import {
@@ -42,9 +36,22 @@ export interface TokenStatusListReference {
 /** `ttl` claim: how long a verifier may cache a token before re-fetching. */
 export const TOKEN_STATUS_LIST_TTL_SECONDS = 300
 
+/** Media type of a Status List Token in JWT format (draft-ietf-oauth-status-list). */
+export const STATUS_LIST_JWT_MEDIA_TYPE = 'application/statuslist+jwt'
+
+/** Status values (draft-ietf-oauth-status-list §7.1). `Suspended` needs a 2-bit list. */
+export enum TokenStatus {
+  Valid = 0,
+  Invalid = 1,
+  Suspended = 2,
+}
+
 /**
  * IETF Token Status Lists (draft-ietf-oauth-status-list) for SD-JWT VCs — the EUDI / HAIP revocation
  * mechanism, replacing the W3C bitstring list for that format (`StatusListService` stays for W3C VCs).
+ * Built on `@sd-jwt/jwt-status-list` (the library Credo itself verifies status lists with); the OWF
+ * `token-status-list` package was dropped because its `@owf/cose` dependency registers cbor-x tag extensions
+ * that collide with `@owf/mdoc` and break every mdoc decode in the process.
  *
  * - One list per (owner, signing key). Credo verifies a Status List Token with the **referenced
  *   credential's issuer key**, so the list is signed with exactly the key that signed the credentials
@@ -92,17 +99,21 @@ export class TokenStatusListService {
     return { id: list.id, uri: this.location(list.id), idx }
   }
 
-  /** Set one entry's status (e.g. `StatusType.Invalid` to revoke) and re-sign the token. */
+  /** Set one entry's status (e.g. `TokenStatus.Invalid` to revoke) and re-sign the token. */
   public async setStatus(
     agentContext: AgentContext,
     authInfo: AuthInfo,
     id: string,
     idx: number,
-    status: StatusType,
+    status: TokenStatus,
   ): Promise<void> {
     const list = await this.em.findOneOrFail(TokenStatusList, { id, owner: authInfo.user })
     if (!Number.isInteger(idx) || idx < 0 || idx >= list.size) {
       throw new BadRequestException('Status list index is out of bounds')
+    }
+    // The library does not range-check values on `setStatus`; an oversized one would corrupt the bit packing.
+    if (!Number.isInteger(status) || status < 0 || status >= 2 ** list.bitsPerStatus) {
+      throw new BadRequestException(`Status ${status} does not fit a ${list.bitsPerStatus}-bit status list`)
     }
     const statusList = this.decode(list)
     statusList.setStatus(idx, status)
@@ -125,7 +136,7 @@ export class TokenStatusListService {
   ): Promise<TokenStatusList> {
     const size = defaultTokenStatusListSize
     const bits = defaultTokenStatusListBits as BitsPerStatus
-    const statusList = new StatusList(new Array<number>(size).fill(StatusType.Valid), bits)
+    const statusList = new StatusList(new Array<number>(size).fill(TokenStatus.Valid), bits)
     const list = new TokenStatusList({
       issuer: identity.issuer,
       signerKeyId: identity.keyId,
@@ -145,7 +156,7 @@ export class TokenStatusListService {
   }
 
   private decode(list: TokenStatusList): StatusList {
-    return StatusList.decompressStatusListFromBytes(fromBase64(list.statuses), list.bitsPerStatus as BitsPerStatus)
+    return StatusList.decompressStatusList(list.statuses, list.bitsPerStatus as BitsPerStatus)
   }
 
   /** Sign `statuslist+jwt` with the list's key, in the tenant context that holds it. */
@@ -172,7 +183,7 @@ export class TokenStatusListService {
       },
       {
         alg,
-        typ: JWT_STATUS_LIST_TYPE,
+        typ: 'statuslist+jwt',
         ...(list.signer.method === 'x5c' ? { x5c: list.signer.x5c } : { kid: list.signer.kid }),
       },
     )
@@ -190,8 +201,9 @@ export class TokenStatusListService {
   }
 }
 
+/** The compressed status array as the library's base64url string (the `lst` bytes). */
 function encodeStatuses(statusList: StatusList): string {
-  return toBase64(statusList.compressStatusListToBytes())
+  return statusList.compressStatusList()
 }
 
 function base64Url(value: string | Uint8Array): string {

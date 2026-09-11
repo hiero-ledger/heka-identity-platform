@@ -18,3 +18,16 @@ export {
 } from './verifier-trust-anchor.service'
 export { MDOC_ISSUER_CA_SERVICE, VERIFIER_TRUST_ANCHOR_SERVICE } from './mdoc-issuer-ca.tokens'
 export { MdocDsc, MdocIaca, ProvisionIacaOptions } from './mdoc-issuer-ca.types'
+export {
+  CertificateProfile,
+  EU_MDL_PROFILE,
+  EUDI_EAA_PROFILE,
+  EUDI_PID_PROFILE,
+  ID_ETSI_QCT_PID_OID,
+  ID_PE_QC_STATEMENTS_OID,
+  MDL_PROFILE,
+  PROFILE_NAMES,
+  resolveProfile,
+} from './certificate-profiles'
+export { assessEuSigningCertificate, CertificateAssessment } from './eu-certificate-profile-assessment'
+export { decodeQcTypes } from './eu-certificate-builder'

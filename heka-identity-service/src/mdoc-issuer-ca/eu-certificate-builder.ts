@@ -16,12 +16,76 @@
  */
 import type { AgentContext, Kms } from '@credo-ts/core'
 
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 
 import { CredoWebCrypto, CredoWebCryptoKey, publicJwkToCryptoKeyAlgorithm, X509Certificate } from '@credo-ts/core'
+import { AsnArray, AsnConvert, AsnProp, AsnPropTypes, AsnType, AsnTypeTypes } from '@peculiar/asn1-schema'
 import * as x509 from '@peculiar/x509'
 
-import { ORGANIZATION_IDENTIFIER_OID } from './certificate-profiles'
+import { ID_ETSI_QCS_QC_TYPE_OID, ID_PE_QC_STATEMENTS_OID, ORGANIZATION_IDENTIFIER_OID } from './certificate-profiles'
+
+// --- qcStatements (RFC 3739 §3.2.6 / EN 319 412-5) ---------------------------------------------------
+// `@peculiar/x509` ships no QC-statements extension class, so the structure is declared here with the same
+// ASN.1 schema decorators peculiar itself uses (`@peculiar/asn1-schema`).
+
+/** `QCStatement ::= SEQUENCE { statementId OBJECT IDENTIFIER, statementInfo ANY DEFINED BY statementId OPTIONAL }` */
+export class QcStatement {
+  @AsnProp({ type: AsnPropTypes.ObjectIdentifier })
+  public statementId = ''
+
+  @AsnProp({ type: AsnPropTypes.Any, optional: true })
+  public statementInfo?: ArrayBuffer
+
+  public constructor(params: Partial<QcStatement> = {}) {
+    Object.assign(this, params)
+  }
+}
+
+/** `QCStatements ::= SEQUENCE OF QCStatement` */
+@AsnType({ type: AsnTypeTypes.Sequence, itemType: QcStatement })
+export class QcStatements extends AsnArray<QcStatement> {
+  public constructor(items?: QcStatement[]) {
+    super(items)
+    Object.setPrototypeOf(this, QcStatements.prototype)
+  }
+}
+
+/** EN 319 412-5 §4.2.3 `QcType ::= SEQUENCE OF OBJECT IDENTIFIER` (the statementInfo of `id-etsi-qcs-QcType`). */
+@AsnType({ type: AsnTypeTypes.Sequence, itemType: AsnPropTypes.ObjectIdentifier })
+export class QcTypeIdentifiers extends AsnArray<string> {
+  public constructor(items?: string[]) {
+    super(items)
+    Object.setPrototypeOf(this, QcTypeIdentifiers.prototype)
+  }
+}
+
+/** DER of a `qcStatements` value carrying one `QcType` statement with the given type identifiers. */
+export function encodeQcStatements(qcTypes: readonly string[]): ArrayBuffer {
+  const qcType = new QcStatement({
+    statementId: ID_ETSI_QCS_QC_TYPE_OID,
+    statementInfo: AsnConvert.serialize(new QcTypeIdentifiers([...qcTypes])),
+  })
+  return AsnConvert.serialize(new QcStatements([qcType]))
+}
+
+/** The `QcType` identifiers of a DER `qcStatements` value (empty when the statement is absent). */
+export function decodeQcTypes(qcStatementsDer: BufferSource): string[] {
+  const statements = AsnConvert.parse(qcStatementsDer, QcStatements)
+  const qcType = statements.find((statement) => statement.statementId === ID_ETSI_QCS_QC_TYPE_OID)
+  if (!qcType?.statementInfo) return []
+  return [...AsnConvert.parse(qcType.statementInfo, QcTypeIdentifiers)]
+}
+
+/**
+ * RFC 5280 §4.1.2.2: serial numbers are positive integers, unique per CA. 20 random bytes with the top
+ * bit cleared (and a non-zero leading octet, so the DER INTEGER is minimal) — the reference-wallet
+ * profile check (`positiveSerialNumber`) rejects anything else.
+ */
+export function randomPositiveSerialNumberHex(): string {
+  const serial = randomBytes(20)
+  serial[0] = serial[0] & 0x7f || 0x01
+  return serial.toString('hex')
+}
 
 /** A minimal EC public JWK (P-256) as returned by `Kms.PublicJwk.toJson()`. */
 export interface EcPublicJwk {
@@ -81,26 +145,39 @@ export function buildIacaExtensions({ subjectJwk }: IacaExtensionParams): x509.E
 export interface DscExtensionParams {
   subjectJwk: EcPublicJwk
   authorityJwk: EcPublicJwk
-  /** Document-signer EKU OID(s). Omitted when undefined/empty (EU PID profile default — see profile note). */
-  extendedKeyUsageOids?: readonly string[]
-  /** `certificatePolicies` OID(s). Omitted when undefined/empty. */
+  /** Document-signer EKU. Omitted when undefined/empty (TS 119 412-6 defines none for PID / EAA certificates). */
+  extendedKeyUsage?: { oids: readonly string[]; critical: boolean }
+  /** `certificatePolicies` OID(s) (EN 319 412-2 §4.3.3). Omitted when undefined/empty. */
   certificatePolicyOids?: readonly string[]
+  /** `qcStatements` QcType identifiers (TS 119 412-6 PID-4.5-01). Omitted when undefined/empty. */
+  qcTypes?: readonly string[]
+  /** AIA `id-ad-caIssuers` http(s) location of the issuing IACA (TS 119 412-6 PID-4.4.3). Omitted when undefined. */
+  authorityInfoAccessCaIssuers?: string
 }
 
 /**
- * End-entity DSC extensions: SKI, keyUsage(digitalSignature), optional EKU, optional certificatePolicies,
- * AKI→IACA. `basicConstraints` is intentionally omitted (end-entity). Pure.
+ * End-entity DSC extensions: SKI, keyUsage(digitalSignature, critical), optional EKU, optional
+ * certificatePolicies, optional qcStatements, optional AIA, AKI→IACA. `basicConstraints` is intentionally
+ * omitted (end-entity). Only keyUsage is critical (TS 119 412-6 PID-4.1-02). Pure.
  */
 export function buildDscExtensions(params: DscExtensionParams): x509.Extension[] {
   const extensions: x509.Extension[] = [
     new x509.SubjectKeyIdentifierExtension(ecKeyIdentifierHex(params.subjectJwk)),
     new x509.KeyUsagesExtension(x509.KeyUsageFlags.digitalSignature, true),
   ]
-  if (params.extendedKeyUsageOids && params.extendedKeyUsageOids.length > 0) {
-    extensions.push(new x509.ExtendedKeyUsageExtension([...params.extendedKeyUsageOids], true))
+  if (params.extendedKeyUsage && params.extendedKeyUsage.oids.length > 0) {
+    extensions.push(
+      new x509.ExtendedKeyUsageExtension([...params.extendedKeyUsage.oids], params.extendedKeyUsage.critical),
+    )
   }
   if (params.certificatePolicyOids && params.certificatePolicyOids.length > 0) {
     extensions.push(new x509.CertificatePolicyExtension([...params.certificatePolicyOids], false))
+  }
+  if (params.qcTypes && params.qcTypes.length > 0) {
+    extensions.push(new x509.Extension(ID_PE_QC_STATEMENTS_OID, false, encodeQcStatements(params.qcTypes)))
+  }
+  if (params.authorityInfoAccessCaIssuers) {
+    extensions.push(new x509.AuthorityInfoAccessExtension({ caIssuers: params.authorityInfoAccessCaIssuers }, false))
   }
   extensions.push(new x509.AuthorityKeyIdentifierExtension(ecKeyIdentifierHex(params.authorityJwk), false))
   return extensions
@@ -120,6 +197,7 @@ interface GenerateCertificateParams {
   notBefore: Date
   notAfter: Date
   extensions: x509.Extension[]
+  /** Hex serial; defaults to a fresh positive random serial (RFC 5280 §4.1.2.2). */
   serialNumber?: string
 }
 
@@ -135,6 +213,7 @@ async function generateKmsSignedCertificate(
   const signingKey = new CredoWebCryptoKey(params.authorityKey, algorithm, false, 'private', ['sign'])
   const publicKey = new CredoWebCryptoKey(params.subjectPublicKey, algorithm, true, 'public', ['verify'])
   const webCrypto = new CredoWebCrypto(agentContext)
+  const serialNumber = params.serialNumber ?? randomPositiveSerialNumberHex()
 
   const peculiarCertificate = params.selfSigned
     ? await x509.X509CertificateGenerator.createSelfSigned(
@@ -144,7 +223,7 @@ async function generateKmsSignedCertificate(
           notBefore: params.notBefore,
           notAfter: params.notAfter,
           extensions: params.extensions,
-          serialNumber: params.serialNumber,
+          serialNumber,
         },
         webCrypto,
       )
@@ -158,7 +237,7 @@ async function generateKmsSignedCertificate(
           notBefore: params.notBefore,
           notAfter: params.notAfter,
           extensions: params.extensions,
-          serialNumber: params.serialNumber,
+          serialNumber,
         },
         webCrypto,
       )
@@ -202,8 +281,10 @@ export interface BuildEuDscParams {
   subjectDn: DistinguishedNameParams
   notBefore: Date
   notAfter: Date
-  extendedKeyUsageOids?: readonly string[]
+  extendedKeyUsage?: { oids: readonly string[]; critical: boolean }
   certificatePolicyOids?: readonly string[]
+  qcTypes?: readonly string[]
+  authorityInfoAccessCaIssuers?: string
 }
 
 /** Build an EU/EUDI DSC (document signer) chaining to the IACA, signed by the tenant IACA KMS key. */
@@ -222,8 +303,10 @@ export async function buildEuDsc(agentContext: AgentContext, params: BuildEuDscP
     extensions: buildDscExtensions({
       subjectJwk,
       authorityJwk,
-      extendedKeyUsageOids: params.extendedKeyUsageOids,
+      extendedKeyUsage: params.extendedKeyUsage,
       certificatePolicyOids: params.certificatePolicyOids,
+      qcTypes: params.qcTypes,
+      authorityInfoAccessCaIssuers: params.authorityInfoAccessCaIssuers,
     }),
   })
 }

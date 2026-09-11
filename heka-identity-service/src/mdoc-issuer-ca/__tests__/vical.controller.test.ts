@@ -1,5 +1,5 @@
 import { createMock } from '@golevelup/ts-vitest'
-import { NotFoundException } from '@nestjs/common'
+import { NotFoundException, StreamableFile } from '@nestjs/common'
 
 import { Logger } from 'common/logger'
 
@@ -27,8 +27,11 @@ describe('VicalController', () => {
 
     const body = await controller.getVical()
 
-    expect(Buffer.isBuffer(body)).toBe(true)
-    expect([...body]).toEqual([0xd2, 0x84])
+    expect(body).toBeInstanceOf(StreamableFile)
+    expect(body.getHeaders().type).toBe('application/cbor')
+    const chunks: Buffer[] = []
+    for await (const chunk of body.getStream()) chunks.push(Buffer.from(chunk as Uint8Array))
+    expect([...Buffer.concat(chunks)]).toEqual([0xd2, 0x84])
     expect(trustListService.getVical).toHaveBeenCalledTimes(1)
   })
 })

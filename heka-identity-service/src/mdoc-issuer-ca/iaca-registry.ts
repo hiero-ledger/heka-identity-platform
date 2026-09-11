@@ -12,6 +12,8 @@ export const IACA_REGISTRY_RECORD_TYPE = 'mdoc-iaca-registry'
 export interface IacaRegistryEntry {
   tenantContextId?: string
   certificateBase64: string
+  /** Hex SHA-256 thumbprint of the certificate (absent on entries mirrored before it was recorded). */
+  fingerprint?: string
   authorityName: string
   country: string
   docType: string

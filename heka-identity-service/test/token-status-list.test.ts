@@ -4,11 +4,12 @@ import { Agent, DidKey, KeyDidCreateOptions, Kms, SdJwtVcRecord } from '@credo-t
 import { MikroORM } from '@mikro-orm/core'
 import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
-import { getListFromStatusListJWT, StatusType } from '@owf/token-status-list'
+import { getListFromStatusListJWT } from '@sd-jwt/jwt-status-list'
 import request from 'supertest'
 
 import { DidKeyRegistrar } from 'common/did-registrar/methods'
 import { Role } from 'src/common/auth'
+import { TokenStatus } from 'src/revocation'
 import { uuid } from 'src/utils/misc'
 import { sleep } from 'src/utils/timers'
 
@@ -134,7 +135,7 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     const { header, payload } = decodeJwt(before.text)
     expect(header).toMatchObject({ typ: 'statuslist+jwt', alg: 'EdDSA', kid: expect.stringContaining(issuerDid) })
     expect(payload).toMatchObject({ iss: issuerDid, sub: status.status_list.uri, ttl: 300, status_list: { bits: 1 } })
-    expect(getListFromStatusListJWT(before.text).getStatus(status.status_list.idx)).toBe(StatusType.Valid)
+    expect(getListFromStatusListJWT(before.text).getStatus(status.status_list.idx)).toBe(TokenStatus.Valid)
 
     // a Credo verifier fetches the list and accepts the credential
     const verified = await agent.sdJwtVc.verify({ compactSdJwtVc: credential.compact })
@@ -148,7 +149,7 @@ describe('Token status list (SD-JWT VC revocation)', () => {
 
     const after = await request(app).get(`/token-status-lists/${listId}`).expect(200)
     expect(after.text).not.toBe(before.text)
-    expect(getListFromStatusListJWT(after.text).getStatus(status.status_list.idx)).toBe(StatusType.Invalid)
+    expect(getListFromStatusListJWT(after.text).getStatus(status.status_list.idx)).toBe(TokenStatus.Invalid)
 
     const reverified = await agent.sdJwtVc.verify({ compactSdJwtVc: credential.compact })
     expect(reverified.isValid).toBe(false)

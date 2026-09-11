@@ -1,4 +1,4 @@
-import { Controller, Get, Header, NotFoundException } from '@nestjs/common'
+import { Controller, Get, Header, NotFoundException, StreamableFile } from '@nestjs/common'
 import { ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 
 import { InjectLogger, Logger } from 'common/logger'
@@ -33,7 +33,7 @@ export class VicalController {
   @ApiNotFoundResponse({ description: 'VICAL publication is disabled (`VICAL_ENABLED` is not `true`)' })
   @Get()
   @Header('Content-Type', 'application/cbor')
-  public async getVical(): Promise<Buffer> {
+  public async getVical(): Promise<StreamableFile> {
     const logger = this.logger.child('getVical')
     logger.trace('>')
 
@@ -45,6 +45,7 @@ export class VicalController {
     const vical = await this.trustListService.getVical()
 
     logger.trace('<')
-    return Buffer.from(vical)
+    // A returned Buffer would be JSON-serialised by Nest; a StreamableFile is sent as raw bytes.
+    return new StreamableFile(Buffer.from(vical), { type: 'application/cbor' })
   }
 }

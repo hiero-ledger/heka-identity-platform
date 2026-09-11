@@ -1,10 +1,13 @@
 import { Controller, Get, Header, Headers, NotAcceptableException, Param } from '@nestjs/common'
 import { ApiNotAcceptableResponse, ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { MediaTypes } from '@owf/token-status-list'
 
 import { InjectLogger, Logger } from 'common/logger'
 
-import { TOKEN_STATUS_LIST_TTL_SECONDS, TokenStatusListService } from './token-status-list.service'
+import {
+  STATUS_LIST_JWT_MEDIA_TYPE,
+  TOKEN_STATUS_LIST_TTL_SECONDS,
+  TokenStatusListService,
+} from './token-status-list.service'
 
 /** Whether an `Accept` header admits the JWT status list token. Absent = accept anything. */
 export function acceptsStatusListJwt(accept: string | undefined): boolean {
@@ -12,7 +15,9 @@ export function acceptsStatusListJwt(accept: string | undefined): boolean {
   return accept
     .split(',')
     .map((entry) => entry.split(';')[0].trim().toLowerCase())
-    .some((mediaType) => mediaType === MediaTypes.StatusListJwt || mediaType === 'application/*' || mediaType === '*/*')
+    .some(
+      (mediaType) => mediaType === STATUS_LIST_JWT_MEDIA_TYPE || mediaType === 'application/*' || mediaType === '*/*',
+    )
 }
 
 /**
@@ -39,14 +44,14 @@ export class TokenStatusListPublicController {
   @ApiNotFoundResponse({ description: 'Unknown status list' })
   @ApiNotAcceptableResponse({ description: 'Only the JWT format is available (CWT lands with mdoc status support)' })
   @Get(':id')
-  @Header('Content-Type', MediaTypes.StatusListJwt)
+  @Header('Content-Type', STATUS_LIST_JWT_MEDIA_TYPE)
   @Header('Cache-Control', `max-age=${TOKEN_STATUS_LIST_TTL_SECONDS}`)
   public async get(@Param('id') id: string, @Headers('accept') accept?: string): Promise<string> {
     const logger = this.logger.child('get', { id })
     logger.trace('>')
 
     if (!acceptsStatusListJwt(accept)) {
-      throw new NotAcceptableException(`Only ${MediaTypes.StatusListJwt} is available for this status list`)
+      throw new NotAcceptableException(`Only ${STATUS_LIST_JWT_MEDIA_TYPE} is available for this status list`)
     }
     const token = await this.tokenStatusListService.getToken(id)
 

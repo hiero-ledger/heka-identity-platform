@@ -2,13 +2,15 @@ import { webcrypto } from 'node:crypto'
 
 import * as x509 from '@peculiar/x509'
 
-import { ORGANIZATION_IDENTIFIER_OID } from '../certificate-profiles'
+import { ID_ETSI_QCT_PID_OID, ID_PE_QC_STATEMENTS_OID, ORGANIZATION_IDENTIFIER_OID } from '../certificate-profiles'
 import {
   buildDistinguishedName,
   buildDscExtensions,
   buildIacaExtensions,
+  decodeQcTypes,
   ecKeyIdentifierHex,
   type EcPublicJwk,
+  randomPositiveSerialNumberHex,
 } from '../eu-certificate-builder'
 
 /**
@@ -65,11 +67,43 @@ describe('eu-certificate-builder — pure helpers', () => {
     const full = buildDscExtensions({
       subjectJwk,
       authorityJwk,
-      extendedKeyUsageOids: [TEST_EKU_OID],
+      extendedKeyUsage: { oids: [TEST_EKU_OID], critical: false },
       certificatePolicyOids: [TEST_POLICY_OID],
     })
     expect(full.some((e) => e instanceof x509.ExtendedKeyUsageExtension)).toBe(true)
     expect(full.some((e) => e instanceof x509.CertificatePolicyExtension)).toBe(true)
+  })
+
+  test('buildDscExtensions emits qcStatements (QcType) and AIA caIssuers, both non-critical, when supplied', async () => {
+    const { jwk: subjectJwk } = await generateP256()
+    const { jwk: authorityJwk } = await generateP256()
+
+    const extensions = buildDscExtensions({
+      subjectJwk,
+      authorityJwk,
+      qcTypes: [ID_ETSI_QCT_PID_OID],
+      authorityInfoAccessCaIssuers: 'https://heka.example/mdoc-issuers/certificates/abc',
+    })
+    const qcStatements = extensions.find((e) => e.type === ID_PE_QC_STATEMENTS_OID)
+    expect(qcStatements?.critical).toBe(false)
+    expect(decodeQcTypes(qcStatements!.value)).toEqual([ID_ETSI_QCT_PID_OID])
+    const aia = extensions.find(
+      (e): e is x509.AuthorityInfoAccessExtension => e instanceof x509.AuthorityInfoAccessExtension,
+    )
+    expect(aia?.critical).toBe(false)
+    expect(aia?.caIssuers.map((name) => name.value)).toEqual(['https://heka.example/mdoc-issuers/certificates/abc'])
+    // only keyUsage is critical (TS 119 412-6 PID-4.1-02)
+    expect(extensions.filter((e) => e.critical).map((e) => e.type)).toEqual(['2.5.29.15'])
+  })
+
+  test('randomPositiveSerialNumberHex yields 20-byte serials with a positive, non-zero leading octet', () => {
+    for (let i = 0; i < 200; i++) {
+      const hex = randomPositiveSerialNumberHex()
+      expect(hex).toHaveLength(40)
+      const leading = parseInt(hex.slice(0, 2), 16)
+      expect(leading).toBeGreaterThan(0)
+      expect(leading).toBeLessThan(0x80)
+    }
   })
 })
 
@@ -123,7 +157,7 @@ describe('eu-certificate-builder — generated IACA→DSC chain (peculiar-native
         extensions: buildDscExtensions({
           subjectJwk: dsc.jwk,
           authorityJwk: iaca.jwk,
-          extendedKeyUsageOids: [TEST_EKU_OID],
+          extendedKeyUsage: { oids: [TEST_EKU_OID], critical: false },
           certificatePolicyOids: [TEST_POLICY_OID],
         }),
       },

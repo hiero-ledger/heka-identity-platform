@@ -2195,18 +2195,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@owf/cose@npm:0.3.2":
-  version: 0.3.2
-  resolution: "@owf/cose@npm:0.3.2"
-  dependencies:
-    "@owf/identity-common": "npm:0.3.2"
-    cbor-x: "npm:^1.6.4"
-    zod: "npm:^4.4.3"
-    zod-validation-error: "npm:^5.0.0"
-  checksum: 10c0/2abbb9beb9ff03d8772f4a9c14150c7e7620be15eeb027dd606feda61eda82db209b3b9ac514f6ff11ab937a9fd27a4ae11e654592c903ebffc16a8f98a8d114
-  languageName: node
-  linkType: hard
-
 "@owf/crypto@npm:0.3.2":
   version: 0.3.2
   resolution: "@owf/crypto@npm:0.3.2"
@@ -2243,19 +2231,6 @@ __metadata:
     zod: "npm:^4.3.6"
     zod-validation-error: "npm:^5.0.0"
   checksum: 10c0/6cb0f32eab2bd87b4b86eba8972cd8193039af27163f5c4842d72003d52d05c3caa5767e6b5f473dd9db8e098f22f84b21fba000f37ed2ef7f5ed81b0ac55060
-  languageName: node
-  linkType: hard
-
-"@owf/token-status-list@npm:0.3.2":
-  version: 0.3.2
-  resolution: "@owf/token-status-list@npm:0.3.2"
-  dependencies:
-    "@owf/cose": "npm:0.3.2"
-    "@owf/identity-common": "npm:0.3.2"
-    cbor-x: "npm:^1.6.4"
-    pako: "npm:^3.0.1"
-    zod: "npm:^4.4.3"
-  checksum: 10c0/75a1227621820ab1b58ec2276303a5eef3f3a45a1dfcbf4e5c67f0c50353d661d3f75e64da64aa5e98bfa615842ecbba4fbcc06ac7938abe715714b9395de03a
   languageName: node
   linkType: hard
 
@@ -2366,6 +2341,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@peculiar/asn1-schema@npm:2.6.0, @peculiar/asn1-schema@npm:^2.6.0":
+  version: 2.6.0
+  resolution: "@peculiar/asn1-schema@npm:2.6.0"
+  dependencies:
+    asn1js: "npm:^3.0.6"
+    pvtsutils: "npm:^1.3.6"
+    tslib: "npm:^2.8.1"
+  checksum: 10c0/8c283b10a2e4aca4cb20d242cde773c9a798ea15a6c221d1474ef483e182d48195aeb5dde3f7b518f236eceb7808ae4438539d41a3aa9ed6d20aa4d36a21a0c2
+  languageName: node
+  linkType: hard
+
 "@peculiar/asn1-schema@npm:^2.3.13":
   version: 2.4.0
   resolution: "@peculiar/asn1-schema@npm:2.4.0"
@@ -2374,17 +2360,6 @@ __metadata:
     pvtsutils: "npm:^1.3.6"
     tslib: "npm:^2.8.1"
   checksum: 10c0/07a825348bd6be668793fc7bfec54628883d8dcf7c447facdba9bc9c2518f1cc9de37b9f907977ed927895505490868adcb2c1a5b0a19c5a1bc01e3cc5dc2e65
-  languageName: node
-  linkType: hard
-
-"@peculiar/asn1-schema@npm:^2.6.0":
-  version: 2.6.0
-  resolution: "@peculiar/asn1-schema@npm:2.6.0"
-  dependencies:
-    asn1js: "npm:^3.0.6"
-    pvtsutils: "npm:^1.3.6"
-    tslib: "npm:^2.8.1"
-  checksum: 10c0/8c283b10a2e4aca4cb20d242cde773c9a798ea15a6c221d1474ef483e182d48195aeb5dde3f7b518f236eceb7808ae4438539d41a3aa9ed6d20aa4d36a21a0c2
   languageName: node
   linkType: hard
 
@@ -6232,8 +6207,9 @@ __metadata:
     "@openwallet-foundation/askar-nodejs": "npm:0.6.0"
     "@openwallet-foundation/askar-shared": "npm:0.6.0"
     "@owf/eudi-lote": "npm:0.3.2"
-    "@owf/token-status-list": "npm:0.3.2"
+    "@peculiar/asn1-schema": "npm:2.6.0"
     "@peculiar/x509": "npm:^1.14.3"
+    "@sd-jwt/jwt-status-list": "npm:0.19.0"
     "@types/express": "npm:^5.0.0"
     "@types/fs-extra": "npm:^11.0.2"
     "@types/jsonwebtoken": "npm:^9.0.10"
@@ -7707,13 +7683,6 @@ __metadata:
   version: 2.1.0
   resolution: "pako@npm:2.1.0"
   checksum: 10c0/8e8646581410654b50eb22a5dfd71159cae98145bd5086c9a7a816ec0370b5f72b4648d08674624b3870a521e6a3daffd6c2f7bc00fdefc7063c9d8232ff5116
-  languageName: node
-  linkType: hard
-
-"pako@npm:^3.0.1":
-  version: 3.0.1
-  resolution: "pako@npm:3.0.1"
-  checksum: 10c0/1292b2ffcbdf42f95be5519ffc11c4cb8daf065f7681936a5b0fe2028753396fbaea0c22cb22e54a4f12bb0c3217513f6b2261fa77e4dbf8c9bd76efe3eca2cc
   languageName: node
   linkType: hard
 

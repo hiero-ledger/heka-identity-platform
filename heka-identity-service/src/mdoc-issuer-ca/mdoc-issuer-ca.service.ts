@@ -1,13 +1,17 @@
 import type { AgentContext, GenericRecord } from '@credo-ts/core'
 
+import { createHash } from 'node:crypto'
+
 import { GenericRecordsApi, Kms, X509Api, X509Certificate, X509ExtendedKeyUsage, X509KeyUsage } from '@credo-ts/core'
 import { BadRequestException, Inject, Injectable } from '@nestjs/common'
+import { ConfigType } from '@nestjs/config'
 
 import { Agent, AGENT_TOKEN } from 'common/agent'
+import ExpressConfig from 'config/express'
 
 import { resolveProfile } from './certificate-profiles'
 import { buildEuDsc, buildEuIaca } from './eu-certificate-builder'
-import { IACA_REGISTRY_RECORD_TYPE } from './iaca-registry'
+import { IACA_REGISTRY_RECORD_TYPE, readIacaRegistry } from './iaca-registry'
 import { MdocDsc, MdocIaca, ProvisionIacaOptions } from './mdoc-issuer-ca.types'
 import { TrustListService } from './trust-list.service'
 
@@ -28,6 +32,11 @@ const NOT_PROVISIONED_MESSAGE =
 const EU_ORGANIZATION_IDENTIFIER_REQUIRED_MESSAGE =
   'The EU/EUDI mdoc issuer profile requires an organizationIdentifier (EN 319 412-1, e.g. `VATDE-…`). ' +
   'Set MDOC_ISSUER_ORGANIZATION_IDENTIFIER or pass `organizationIdentifier` when provisioning.'
+
+const EU_CERTIFICATE_POLICY_REQUIRED_MESSAGE =
+  'The EU/EUDI mdoc issuer profile requires a certificate-policy OID (EN 319 412-2 §4.3.3: certificatePolicies ' +
+  'is mandatory on sign/seal certificates). Set MDOC_ISSUER_CERTIFICATE_POLICY_OID or pass `certificatePolicyOid` ' +
+  'when provisioning.'
 
 type StoredIaca = Omit<MdocIaca, 'id'>
 type StoredDsc = Omit<MdocDsc, 'id'>
@@ -54,7 +63,28 @@ export class MdocIssuerCaService {
   public constructor(
     @Inject(AGENT_TOKEN) private readonly agent: Agent,
     private readonly trustListService: TrustListService,
+    @Inject(ExpressConfig.KEY)
+    private readonly appConfig: ConfigType<typeof ExpressConfig>,
   ) {}
+
+  /**
+   * Public download URL of a registered IACA certificate — the AIA `id-ad-caIssuers` location carried by
+   * EU-profile DSCs (ETSI TS 119 412-6 PID-4.4.3). Served by `IacaCertificatePublicController`.
+   */
+  public iacaCertificateLocation(fingerprint: string): string {
+    return `${this.appConfig.appEndpoint}/mdoc-issuers/certificates/${fingerprint}`
+  }
+
+  /** The DER of the registered (public) IACA certificate with this SHA-256 fingerprint, or null. */
+  public async findRegisteredIacaCertificate(fingerprint: string): Promise<Uint8Array | null> {
+    const wanted = fingerprint.toLowerCase()
+    for (const entry of await readIacaRegistry(this.agent)) {
+      const der = Buffer.from(entry.certificateBase64, 'base64')
+      const entryFingerprint = (entry.fingerprint ?? createHash('sha256').update(der).digest('hex')).toLowerCase()
+      if (entryFingerprint === wanted) return Uint8Array.from(der)
+    }
+    return null
+  }
 
   /**
    * Find-or-create the tenant's single IACA (idempotent). Mints a P-256 key + self-signed CA
@@ -74,8 +104,8 @@ export class MdocIssuerCaService {
     const docType = options.docType ?? this.agent.agencyConfig.mdocDefaultDocType
     const organizationIdentifier =
       options.organizationIdentifier ?? this.agent.agencyConfig.mdocIssuerOrganizationIdentifier
-    const credentialLabel = profile.credentialType === 'mdl' ? 'mDL' : 'PID'
-    const commonName = options.commonName ?? `${authorityName} ${credentialLabel} IACA`
+    const certificatePolicyOid = options.certificatePolicyOid ?? this.agent.agencyConfig.mdocIssuerCertificatePolicyOid
+    const commonName = options.commonName ?? `${authorityName} ${profile.credentialLabel} IACA`
     const validityDays = options.validityDays ?? profile.iacaValidityDays
 
     const kms = agentContext.resolve(Kms.KeyManagementApi)
@@ -92,6 +122,9 @@ export class MdocIssuerCaService {
       // organizationIdentifier DN attribute. See eu-certificate-builder.ts.
       if (!organizationIdentifier) {
         throw new BadRequestException(EU_ORGANIZATION_IDENTIFIER_REQUIRED_MESSAGE)
+      }
+      if (profile.requiresCertificatePolicies && !certificatePolicyOid) {
+        throw new BadRequestException(EU_CERTIFICATE_POLICY_REQUIRED_MESSAGE)
       }
       certificate = await buildEuIaca(agentContext, {
         authorityKey: publicJwk,
@@ -126,6 +159,7 @@ export class MdocIssuerCaService {
       docType,
       profile: profile.name,
       organizationIdentifier: organizationIdentifier || undefined,
+      certificatePolicyOid: profile.ecosystem === 'eu' && certificatePolicyOid ? certificatePolicyOid : undefined,
       createdAt: new Date(now).toISOString(),
       notAfter: notAfter.toISOString(),
     }
@@ -175,8 +209,12 @@ export class MdocIssuerCaService {
 
     let certificate: X509Certificate
     if (profile.ecosystem === 'eu') {
-      // EU profile: the @peculiar/x509 escape hatch (organizationIdentifier DN + certificatePolicies).
-      const configuredPolicyOid = this.agent.agencyConfig.mdocIssuerCertificatePolicyOid
+      // EU profile: the @peculiar/x509 escape hatch — ETSI TS 119 412-6 sign/seal certificate: EN 319 412-3
+      // legal-person DN, certificatePolicies, QcType (PID), AIA caIssuers → the public IACA download.
+      const certificatePolicyOid = iaca.certificatePolicyOid ?? this.agent.agencyConfig.mdocIssuerCertificatePolicyOid
+      if (profile.requiresCertificatePolicies && !certificatePolicyOid) {
+        throw new BadRequestException(EU_CERTIFICATE_POLICY_REQUIRED_MESSAGE)
+      }
       const dn = {
         countryName: iaca.country,
         organizationName: iaca.authorityName,
@@ -187,11 +225,15 @@ export class MdocIssuerCaService {
         subjectPublicKey, // the DSC key is the subject; its private key never signs here
         subjectKeyId: key.keyId,
         issuerDn: { ...dn, commonName: iaca.commonName },
-        subjectDn: { ...dn, commonName: `${iaca.authorityName} PID DSC` },
+        subjectDn: { ...dn, commonName: `${iaca.authorityName} ${profile.credentialLabel} DSC` },
         notBefore,
         notAfter,
-        extendedKeyUsageOids: profile.dscExtendedKeyUsageOids,
-        certificatePolicyOids: configuredPolicyOid ? [configuredPolicyOid] : profile.certificatePolicyOids,
+        extendedKeyUsage: profile.dscExtendedKeyUsage,
+        certificatePolicyOids: certificatePolicyOid ? [certificatePolicyOid] : undefined,
+        qcTypes: profile.dscQcTypes,
+        authorityInfoAccessCaIssuers: profile.requiresAuthorityInformationAccess
+          ? this.iacaCertificateLocation(iaca.fingerprint)
+          : undefined,
       })
     } else {
       // mDL profile: shipped Credo path, unchanged.

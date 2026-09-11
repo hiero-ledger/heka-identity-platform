@@ -2,7 +2,6 @@ import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
 import { BadRequestException, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
-import { StatusType } from '@owf/token-status-list'
 
 import { TenantAgent } from 'common/agent'
 import { AuthInfo, Role } from 'common/auth'
@@ -16,7 +15,7 @@ import {
   issuerRecordStub,
 } from '../../../../test/helpers/mock-records'
 import { StatusListService } from '../../../revocation/status-list/status-list.service'
-import { TokenStatusListService } from '../../../revocation/token-status-list/token-status-list.service'
+import { TokenStatus, TokenStatusListService } from '../../../revocation/token-status-list/token-status-list.service'
 import { OpenId4VcIssuanceSessionService } from '../issuance-session.service'
 
 describe('OpenId4VcIssuanceSessionService', () => {
@@ -769,7 +768,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
         authInfo,
         'tsl-1',
         42,
-        StatusType.Invalid,
+        TokenStatus.Invalid,
       )
       expect(statusListService.updateItems).not.toHaveBeenCalled()
     })

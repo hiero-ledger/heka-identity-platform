@@ -68,7 +68,7 @@ export class TokenStatusList extends Identified {
   @Property({ nullable: false, type: 'text' })
   public allocated: string
 
-  /** Base64 of the deflate-compressed status array (the `lst` bytes). */
+  /** The deflate-compressed status array as base64url (the token's `lst` value, as the status-list library emits it). */
   @Property({ nullable: false, type: 'text' })
   public statuses: string
 

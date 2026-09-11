@@ -1,24 +1,48 @@
 /**
  * mdoc issuer **certificate profiles** — a "credential-type × ecosystem" model.
  *
- * A profile describes the *contents* of the IACA/DSC certificates (validity, EKU, DN shape, policies),
- * independent of the shared IACA→DSC signing *structure* (Layer 1, unchanged). Two profiles ship:
+ * A profile describes the *contents* of the IACA/DSC certificates (validity, EKU, DN shape, policies,
+ * qcStatements, AIA), independent of the shared IACA→DSC signing *structure* (Layer 1, unchanged).
+ * Four profiles ship:
  *
  *   - `MDL_PROFILE`      (mDL × US/AAMVA)  — the shipped ISO 18013-5 / AAMVA mDL profile. Emitted via
  *                                            Credo's typed `X509Api.createCertificate` (unchanged path).
- *   - `EUDI_PID_PROFILE` (PID/EAA × EU)    — the EU/EUDI profile (EN 319 412-1 `organizationIdentifier`
- *                                            DN, optional `certificatePolicies`, no ISO `mdlDS` EKU).
- *                                            Emitted via the `@peculiar/x509` escape hatch (see
- *                                            `eu-certificate-builder.ts`) because Credo's `X509Api`
- *                                            cannot emit those extensions/DN attributes.
+ *   - `EU_MDL_PROFILE`   (mDL × EU)        — ISO `mdlDS` EKU + mDL docType (ISO 18013-5 mandates both for
+ *                                            any mDL) with the EU DN, policies and AIA.
+ *   - `EUDI_PID_PROFILE` (PID × EU)        — ETSI TS 119 412-6 clause 4 "PID Provider sign/seal certificate".
+ *   - `EUDI_EAA_PROFILE` (EAA × EU)        — ETSI TS 119 412-6 clause 6 "EAA Provider attribute sign/seal
+ *                                            certificate" (non-qualified).
  *
- * A future `EU_MDL_PROFILE` (mDL × EU) is the natural third combination: it keeps the ISO `mdlDS` EKU +
- * mDL docType but swaps in the EU DN (`organizationIdentifier`) + `certificatePolicies` — because
- * `mdlDS` is a *credential-type* property (ISO 18013-5 mandates it for any mDL), **not** a US artifact.
+ * The EU profiles are emitted via the `@peculiar/x509` escape hatch (see `eu-certificate-builder.ts`)
+ * because Credo's `X509Api` cannot emit those extensions / DN attributes.
+ *
+ * ## Conformance — ETSI TS 119 412-6 V1.1.1 (2025-09), the version referenced by CIR (EU) 2026/1731
+ *
+ * Re-checked 2026-09-10 against the published text (E1.1). V1.2.1 (2026-04) only clarifies the same
+ * requirements (key-usage types A/B/C/F; AIA "as specified in EN 319 412-2 §4.4.1"; QcType "at least").
+ *
+ * | Requirement | What it demands | Where it is satisfied |
+ * |---|---|---|
+ * | PID-4.1-01 | fields per EN 319 412-2, amended here | builder + this profile |
+ * | PID-4.1-02 | extensions non-critical unless allowed | builder: only keyUsage / basicConstraints critical |
+ * | PID-4.2-01 | issuer per EN 319 412-2 §4.2.3, or = subject if self-signed | IACA DN = DSC issuer DN |
+ * | PID-4.3-02 | legal-person subject per EN 319 412-3 §4.2.1 | DN = C, O, organizationIdentifier, CN |
+ * | PID-4.4.1-01/02 | key usage per EN 319 412-3 §4.3.1 (Type A ok; C allowed for ISO 18013-5) | DSC keyUsage = digitalSignature, critical |
+ * | PID-4.4.2-01 | Subject Key Identifier present (RFC 5280 §4.2.1.2) | builder SKI |
+ * | PID-4.4.3-01..03 | CA-issued cert: AIA with id-ad-caIssuers http(s) location | `requiresAuthorityInformationAccess` → `GET /mdoc-issuers/certificates/:fingerprint` |
+ * | PID-4.5-01 | qcStatements with QcType `id-etsi-qct-pid` | `dscQcTypes` |
+ * | EN 319 412-2 §4.3.3 (via PID-4.1-01) | certificatePolicies present (TSP-defined OID) | `requiresCertificatePolicies` → `MDOC_ISSUER_CERTIFICATE_POLICY_OID` |
+ * | EAA-6.1-02 | EN 319 412-3 profile for legal persons | `EUDI_EAA_PROFILE` (no QcType) |
+ * | QEA-7 / PSB-8 | qualified sign/seal certificates issued by a QTSP, QcPSB statement | **out of scope** — never self-provisioned (E4 CSR path) |
+ *
+ * No clause of TS 119 412-6 or TS 119 472-1 caps the certificate validity; the ISO 18013-5 caps are
+ * kept as the conservative default for every profile. TS 119 412-6 defines no extendedKeyUsage for
+ * PID / EAA certificates, so the EU PID / EAA profiles emit none; Credo's mdoc verification does not
+ * require the ISO `mdlDS` EKU either.
  */
 
-/** Credential-type axis: an mDL vs a PID/EAA attestation. */
-export type CredentialType = 'mdl' | 'pid-eaa'
+/** Credential-type axis: an mDL vs a PID vs a (non-qualified) EAA. */
+export type CredentialType = 'mdl' | 'pid' | 'eaa'
 /** Ecosystem axis: US/AAMVA vs EU/EUDI trust infrastructure. */
 export type Ecosystem = 'us' | 'eu'
 
@@ -30,85 +54,138 @@ export const MDL_DOCUMENT_SIGNER_EKU_OID = '1.0.18013.5.1.2'
 /** EN 319 412-1 `organizationIdentifier` attribute (subject/issuer RDN), e.g. `VATDE-…`, `NTRDE-…`. */
 export const ORGANIZATION_IDENTIFIER_OID = '2.5.4.97'
 
-/**
- * EU/EUDI document-signer EKU OID for PID/EAA attestations.
- *
- * ⚠️ **VERIFY before production use.** The normative ETSI TS 119 472-x / EUDI ARF document-signer EKU for
- * PID/EAA is still stabilizing at time of writing. The
- * shipped `EUDI_PID_PROFILE` therefore **omits** the EKU by default (`dscExtendedKeyUsageOids: undefined`)
- * rather than emit a guessed OID. Set a verified value here (or via config) and switch the profile on once
- * confirmed. The `@peculiar/x509` builder already supports emitting an arbitrary EKU OID.
- */
-export const EU_DOCUMENT_SIGNER_EKU_OID_PLACEHOLDER = undefined
+/** RFC 3739 §3.2.6 / EN 319 412-5 `qcStatements` extension (id-pe-qcStatements). */
+export const ID_PE_QC_STATEMENTS_OID = '1.3.6.1.5.5.7.1.3'
+
+/** EN 319 412-5 §4.2.3 `QcType` statement (id-etsi-qcs-QcType, esi4-qcStatement-6). */
+export const ID_ETSI_QCS_QC_TYPE_OID = '0.4.0.1862.1.6'
+
+/** TS 119 412-6 Annex A `id-etsi-qct-pid` — QcType of a PID Provider sign/seal certificate (PID-4.5-01). */
+export const ID_ETSI_QCT_PID_OID = '0.4.0.194126.1.1'
+
+/** TS 119 412-6 Annex A `id-etsi-qct-wal` — QcType of a Wallet Provider sign/seal certificate (WAL-5.2-01). */
+export const ID_ETSI_QCT_WAL_OID = '0.4.0.194126.1.2'
 
 // --- Profile shape ----------------------------------------------------------------------------------
 
+export interface ExtendedKeyUsageProfile {
+  readonly oids: readonly string[]
+  /** ISO 18013-5 marks `mdlDS` critical; ETSI profiles keep every non-mandated extension non-critical. */
+  readonly critical: boolean
+}
+
 export interface CertificateProfile {
-  /** Stable identifier, e.g. `'mdl-us'` | `'eudi-pid'`. */
+  /** Stable identifier, e.g. `'mdl-us'` | `'mdl-eu'` | `'eudi-pid'` | `'eudi-eaa'`. */
   readonly name: string
   readonly credentialType: CredentialType
   readonly ecosystem: Ecosystem
+  /** Subject-CN label: `<authority> <label> IACA` / `<authority> <label> DSC`. */
+  readonly credentialLabel: string
   readonly iacaValidityDays: number
   readonly dscValidityDays: number
+  /** DSC `extendedKeyUsage`. mDL → `mdlDS` (critical); EU PID / EAA → none. `undefined` omits the extension. */
+  readonly dscExtendedKeyUsage?: ExtendedKeyUsageProfile
   /**
-   * DSC `extendedKeyUsage` OID(s). mDL → `[mdlDS]`; EU PID/EAA → typically dropped (`undefined`) until the
-   * normative ETSI EKU is confirmed. `undefined` omits the extension entirely.
+   * EN 319 412-2 §4.3.3 / EN 319 412-3 §4.3.2: `certificatePolicies` shall be present on EU end-entity
+   * certificates with a TSP-defined policy OID — supplied per deployment (`MDOC_ISSUER_CERTIFICATE_POLICY_OID`
+   * or the provisioning option); provisioning fails without it when this is set.
    */
-  readonly dscExtendedKeyUsageOids?: readonly string[]
+  readonly requiresCertificatePolicies: boolean
+  /** QcType values of the DSC `qcStatements` (TS 119 412-6 PID-4.5-01). `undefined` omits the extension. */
+  readonly dscQcTypes?: readonly string[]
   /**
-   * `certificatePolicies` OID(s) emitted on the DSC (EU profiles). `undefined` omits the extension; the
-   * effective value can also be supplied per-deployment via config (see the builder). The exact ETSI
-   * policy OID is deployment/policy-specific — hence configurable rather than hardcoded.
+   * TS 119 412-6 PID-4.4.3-01 / EN 319 412-2 §4.4.1: a CA-issued end-entity certificate carries an AIA
+   * `caIssuers` location of its issuing CA certificate — the public IACA download route.
    */
-  readonly certificatePolicyOids?: readonly string[]
+  readonly requiresAuthorityInformationAccess: boolean
   /** Whether the IACA/DSC subject/issuer DN carries an EN 319 412-1 `organizationIdentifier` RDN. */
   readonly usesOrganizationIdentifier: boolean
 }
 
 // --- Shipped profiles -------------------------------------------------------------------------------
 
-const IACA_VALIDITY_DAYS_MDL = 365 * 5 // ISO 18013-5 / AAMVA cap is ≤9 years
-const DSC_VALIDITY_DAYS_MDL = 457 // ISO 18013-5 maximum DSC lifetime
+const IACA_VALIDITY_DAYS = 365 * 5 // ISO 18013-5 / AAMVA cap is ≤9 years; no ETSI cap (see header)
+const DSC_VALIDITY_DAYS = 457 // ISO 18013-5 maximum DSC lifetime; no ETSI cap (see header)
 
 /** mDL × US/AAMVA — the shipped profile. Values mirror the module constants in `mdoc-issuer-ca.service.ts`. */
 export const MDL_PROFILE: CertificateProfile = {
   name: 'mdl-us',
   credentialType: 'mdl',
   ecosystem: 'us',
-  iacaValidityDays: IACA_VALIDITY_DAYS_MDL,
-  dscValidityDays: DSC_VALIDITY_DAYS_MDL,
-  dscExtendedKeyUsageOids: [MDL_DOCUMENT_SIGNER_EKU_OID],
+  credentialLabel: 'mDL',
+  iacaValidityDays: IACA_VALIDITY_DAYS,
+  dscValidityDays: DSC_VALIDITY_DAYS,
+  dscExtendedKeyUsage: { oids: [MDL_DOCUMENT_SIGNER_EKU_OID], critical: true },
+  requiresCertificatePolicies: false,
+  requiresAuthorityInformationAccess: false,
   usesOrganizationIdentifier: false,
 }
 
 /**
- * PID/EAA × EU/EUDI. High-confidence delta vs mDL: `organizationIdentifier` in the DN + no `mdlDS` EKU.
- * `certificatePolicies` / EKU OIDs are left configurable (see the OID notes) because their normative values
- * are still stabilizing; the builder can emit them when supplied. Validity mirrors ISO for now — the exact
- * ETSI TS 119 472 caps are TBD (VERIFY).
+ * mDL × EU/EUDI. The ISO 18013-5 credential-type properties (`mdlDS` EKU, critical) with the EU
+ * ecosystem properties (EN 319 412-3 legal-person DN, certificatePolicies, AIA). No QcType: an mDL is
+ * not a PID; qualified (QEAA / PuB-EAA) mDL seals come from a QTSP, not from this CA.
  */
-export const EUDI_PID_PROFILE: CertificateProfile = {
-  name: 'eudi-pid',
-  credentialType: 'pid-eaa',
+export const EU_MDL_PROFILE: CertificateProfile = {
+  name: 'mdl-eu',
+  credentialType: 'mdl',
   ecosystem: 'eu',
-  iacaValidityDays: IACA_VALIDITY_DAYS_MDL, // TODO(verify): ETSI TS 119 472 issuer-CA validity
-  dscValidityDays: DSC_VALIDITY_DAYS_MDL, // TODO(verify): ETSI TS 119 472 DSC validity
-  dscExtendedKeyUsageOids: EU_DOCUMENT_SIGNER_EKU_OID_PLACEHOLDER, // omitted until the ETSI EKU is confirmed
-  certificatePolicyOids: undefined, // supply the ETSI policy OID via config when known
+  credentialLabel: 'mDL',
+  iacaValidityDays: IACA_VALIDITY_DAYS,
+  dscValidityDays: DSC_VALIDITY_DAYS,
+  dscExtendedKeyUsage: { oids: [MDL_DOCUMENT_SIGNER_EKU_OID], critical: true },
+  requiresCertificatePolicies: true,
+  requiresAuthorityInformationAccess: true,
   usesOrganizationIdentifier: true,
 }
 
+/** PID × EU/EUDI — TS 119 412-6 clause 4 (see the conformance table in the header). */
+export const EUDI_PID_PROFILE: CertificateProfile = {
+  name: 'eudi-pid',
+  credentialType: 'pid',
+  ecosystem: 'eu',
+  credentialLabel: 'PID',
+  iacaValidityDays: IACA_VALIDITY_DAYS,
+  dscValidityDays: DSC_VALIDITY_DAYS,
+  dscExtendedKeyUsage: undefined, // TS 119 412-6 defines none for PID certificates
+  requiresCertificatePolicies: true,
+  dscQcTypes: [ID_ETSI_QCT_PID_OID],
+  requiresAuthorityInformationAccess: true,
+  usesOrganizationIdentifier: true,
+}
+
+/** (Non-qualified) EAA × EU/EUDI — TS 119 412-6 clause 6: EN 319 412-3 legal-person profile, no QcType. */
+export const EUDI_EAA_PROFILE: CertificateProfile = {
+  name: 'eudi-eaa',
+  credentialType: 'eaa',
+  ecosystem: 'eu',
+  credentialLabel: 'EAA',
+  iacaValidityDays: IACA_VALIDITY_DAYS,
+  dscValidityDays: DSC_VALIDITY_DAYS,
+  dscExtendedKeyUsage: undefined,
+  requiresCertificatePolicies: true,
+  requiresAuthorityInformationAccess: true,
+  usesOrganizationIdentifier: true,
+}
+
+/** Named presets accepted by provisioning / `MDOC_ISSUER_PROFILE`. */
+export type ProfileName = 'mdl' | 'mdl-us' | 'mdl-eu' | 'eudi' | 'eudi-pid' | 'eudi-eaa'
+
 /** Selector accepted by provisioning: a named preset or the explicit two-axis pair. */
 export type ProfileSelector =
-  | { readonly profile: 'mdl' | 'eudi-pid' }
-  | { readonly credentialType: CredentialType; readonly ecosystem: Ecosystem }
+  | { readonly profile: ProfileName }
+  | { readonly credentialType: CredentialType | 'pid-eaa'; readonly ecosystem: Ecosystem }
 
-const NAMED_PROFILES: Record<string, CertificateProfile> = {
+const NAMED_PROFILES: Record<ProfileName, CertificateProfile> = {
   mdl: MDL_PROFILE,
   'mdl-us': MDL_PROFILE,
+  'mdl-eu': EU_MDL_PROFILE,
   'eudi-pid': EUDI_PID_PROFILE,
   eudi: EUDI_PID_PROFILE,
+  'eudi-eaa': EUDI_EAA_PROFILE,
 }
+
+export const PROFILE_NAMES: readonly ProfileName[] = Object.keys(NAMED_PROFILES) as ProfileName[]
 
 /**
  * Resolve a {@link CertificateProfile} from a selector (named preset or credential-type × ecosystem pair).
@@ -116,13 +193,15 @@ const NAMED_PROFILES: Record<string, CertificateProfile> = {
  */
 export function resolveProfile(selector?: ProfileSelector | string): CertificateProfile {
   if (!selector) return MDL_PROFILE
-  if (typeof selector === 'string') return NAMED_PROFILES[selector] ?? MDL_PROFILE
+  if (typeof selector === 'string') return NAMED_PROFILES[selector as ProfileName] ?? MDL_PROFILE
   if ('profile' in selector) return NAMED_PROFILES[selector.profile] ?? MDL_PROFILE
 
-  // Two-axis form: match the shipped presets; extend here when EU_MDL / US-PID presets are added.
   const { credentialType, ecosystem } = selector
-  if (credentialType === 'pid-eaa' && ecosystem === 'eu') return EUDI_PID_PROFILE
-  if (credentialType === 'mdl' && ecosystem === 'us') return MDL_PROFILE
-  // mDL × EU and PID × US are not yet shipped as distinct presets — fall back to the closest by ecosystem.
-  return ecosystem === 'eu' ? EUDI_PID_PROFILE : MDL_PROFILE
+  if (ecosystem === 'eu') {
+    if (credentialType === 'mdl') return EU_MDL_PROFILE
+    if (credentialType === 'eaa') return EUDI_EAA_PROFILE
+    return EUDI_PID_PROFILE // 'pid' and the legacy 'pid-eaa' alias
+  }
+  // No US PID / EAA ecosystem profile exists — the shipped mDL profile is the closest.
+  return MDL_PROFILE
 }

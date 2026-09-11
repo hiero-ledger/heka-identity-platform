@@ -22,10 +22,12 @@ export interface MdocIaca {
   authorityName: string
   /** Default mdoc docType this IACA is authoritative for (VICAL `docType`), e.g. the mDL docType. */
   docType: string
-  /** Certificate profile this IACA was minted under (`'mdl-us'` | `'eudi-pid'`). Absent on legacy records → mDL. */
+  /** Certificate profile this IACA was minted under (`'mdl-us'` | `'mdl-eu'` | `'eudi-pid'` | `'eudi-eaa'`). Absent on legacy records → mDL. */
   profile?: string
   /** EN 319 412-1 `organizationIdentifier` baked into the EU DN; reused verbatim for EU DSC issuance. */
   organizationIdentifier?: string
+  /** `certificatePolicies` OID every DSC under this IACA carries (EU profiles, EN 319 412-2 §4.3.3). */
+  certificatePolicyOid?: string
   createdAt: string
   notAfter: string
 }
@@ -59,8 +61,8 @@ export interface ProvisionIacaOptions {
   /** IACA validity in days. Defaults to the selected profile's IACA validity. */
   validityDays?: number
   /**
-   * Certificate profile: `'mdl'` (default, ISO 18013-5 / AAMVA) or `'eudi-pid'` (EU/EUDI, emitted via the
-   * `@peculiar/x509` escape hatch). Defaults to the service-wide `MDOC_ISSUER_PROFILE`.
+   * Certificate profile: `'mdl'` (default, ISO 18013-5 / AAMVA), `'mdl-eu'`, `'eudi-pid'` or `'eudi-eaa'`
+   * (EU/EUDI, emitted via the `@peculiar/x509` escape hatch). Defaults to the service-wide `MDOC_ISSUER_PROFILE`.
    */
   profile?: string
   /**
@@ -68,4 +70,10 @@ export interface ProvisionIacaOptions {
    * service-wide `MDOC_ISSUER_ORGANIZATION_IDENTIFIER`. Required (non-empty) when the profile is EU.
    */
   organizationIdentifier?: string
+  /**
+   * `certificatePolicies` OID for EU profiles (EN 319 412-2 §4.3.3 requires the extension on every EU
+   * sign/seal certificate; the OID is the operator's TSP policy identifier). Defaults to the service-wide
+   * `MDOC_ISSUER_CERTIFICATE_POLICY_OID`. Required (non-empty) when the profile is EU.
+   */
+  certificatePolicyOid?: string
 }

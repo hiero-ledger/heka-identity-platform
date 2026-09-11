@@ -350,6 +350,9 @@ Required when issuing `mso_mdoc` credentials (mobile driving licences and simila
 | ------------------------ | ------------ | ------------------------------------------------------------------------------------------------ |
 | `MDL_ISSUER_CERTIFICATE` | _(dev cert)_ | Base64-encoded X.509 certificate used as the mDL issuer's IACA. **Replace for non-trivial use.** |
 | `MDL_ISSUER_PRIVATE_KEY` | _(dev key)_  | JSON-encoded JWK private key matching the certificate. **Replace for non-trivial use.**          |
+| `MDOC_ISSUER_PROFILE`    | `mdl`        | IACA / DSC certificate profile: `mdl` (ISO 18013-5 / AAMVA, US), `mdl-eu` (mDL under the EU profile), `eudi-pid` (ETSI TS 119 412-6 PID Provider sign/seal certificate) or `eudi-eaa` (non-qualified EAA Provider certificate). EU profiles emit the EN 319 412-3 legal-person DN, `certificatePolicies`, an AIA `caIssuers` pointer to `GET /mdoc-issuers/certificates/{fingerprint}` and, for `eudi-pid`, the `id-etsi-qct-pid` QcType. |
+| `MDOC_ISSUER_ORGANIZATION_IDENTIFIER` | _(unset)_ | EN 319 412-1 `organizationIdentifier` of the issuing legal person (e.g. `VATDE-0123456789`, `NTRDE-…`, `LEIXG-…`). **Required for EU profiles**; provisioning fails without it. |
+| `MDOC_ISSUER_CERTIFICATE_POLICY_OID` | _(unset)_ | The operator's certificate-policy OID carried in `certificatePolicies` of every EU DSC (EN 319 412-2 §4.3.3). **Required for EU profiles**; provisioning fails without it. |
 | `VICAL_ENABLED`          | `false`      | Publish the ISO 18013-5 VICAL at `GET /vical` for readers that import VICALs (Multipaz and similar). Off by default: wallets and verifiers learn the same tenant issuer anchors from the scheme trust lists at `GET /trust-list/eaa-providers` / `GET /trust-list/wrpac-providers`. While off, `/vical` answers 404 and no VICAL signer is provisioned. |
 
 ### Logging
