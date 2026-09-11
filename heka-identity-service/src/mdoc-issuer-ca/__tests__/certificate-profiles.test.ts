@@ -3,6 +3,7 @@ import {
   EUDI_EAA_PROFILE,
   EUDI_PID_PROFILE,
   ID_ETSI_QCT_PID_OID,
+  isProfileName,
   MDL_DOCUMENT_SIGNER_EKU_OID,
   MDL_PROFILE,
   PROFILE_NAMES,
@@ -67,7 +68,6 @@ describe('certificate profiles — TS 119 412-6 V1.1.1 intent', () => {
     ['eudi', 'eudi-pid'],
     ['eudi-pid', 'eudi-pid'],
     ['eudi-eaa', 'eudi-eaa'],
-    ['unknown', 'mdl-us'],
     [{ profile: 'eudi-eaa' }, 'eudi-eaa'],
     [{ credentialType: 'mdl', ecosystem: 'eu' }, 'mdl-eu'],
     [{ credentialType: 'pid', ecosystem: 'eu' }, 'eudi-pid'],
@@ -80,5 +80,33 @@ describe('certificate profiles — TS 119 412-6 V1.1.1 intent', () => {
 
   test('every named preset resolves to itself', () => {
     for (const name of PROFILE_NAMES) expect(resolveProfile(name)).toBe(resolveProfile({ profile: name }))
+  })
+
+  test.each(['unknown', 'eudi_pid', 'EUDI-PID', 'toString', ''])(
+    'H5: an unknown preset name %j throws instead of degrading to the mDL profile',
+    (name) => {
+      if (name === '') {
+        // Empty = "nothing specified" → the shipped default, same as undefined.
+        expect(resolveProfile(name).name).toBe('mdl-us')
+        return
+      }
+      expect(() => resolveProfile(name)).toThrow(/Unknown certificate profile "[^"]*" \(expected one of mdl, mdl-us/)
+      expect(() => resolveProfile({ profile: name as never })).toThrow(/Unknown certificate profile/)
+    },
+  )
+
+  test('H5: an unknown credential-type / ecosystem pair throws', () => {
+    expect(() => resolveProfile({ credentialType: 'mdl', ecosystem: 'xx' as never })).toThrow(
+      /Unknown certificate profile selector/,
+    )
+    expect(() => resolveProfile({ credentialType: 'passport' as never, ecosystem: 'eu' })).toThrow(
+      /Unknown certificate profile selector/,
+    )
+  })
+
+  test('isProfileName accepts exactly the named presets', () => {
+    for (const name of PROFILE_NAMES) expect(isProfileName(name)).toBe(true)
+    expect(isProfileName('eudi_pid')).toBe(false)
+    expect(isProfileName('constructor')).toBe(false)
   })
 })

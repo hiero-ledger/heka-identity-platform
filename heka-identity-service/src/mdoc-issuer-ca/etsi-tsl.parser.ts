@@ -1,11 +1,14 @@
 import { XMLParser } from 'fast-xml-parser'
 
+import { EU_TL_ISSUER_SERVICE_TYPES } from './eu-service-types'
+
 /**
  * Parser for **ETSI TS 119 612 trust-status lists**. Both eIDAS document flavours share the same root
  * type (`TrustServiceStatusList`) and digital-identity encoding, so both parse entry points live here:
  *
  *   - {@link parseTrustedListAnchors} — a (national) **Trusted List**: extracts the issuer **trust
- *     anchors** — the `X509Certificate` of each `TSPService` whose status is *granted*.
+ *     anchors** — the `X509Certificate` of each `TSPService` whose status is *granted* **and whose
+ *     service type is a credential-issuer type** ({@link EU_TL_ISSUER_SERVICE_TYPES} by default).
  *   - {@link parseLotlPointers} — the EU **List of Trusted Lists** (clause 5.3): extracts each
  *     Member-State pointer — the national TL's location **and the certificate that TL's signature must
  *     match** — the entry point of the eIDAS trust-anchor traversal. Trust in the ~27 national
@@ -72,15 +75,18 @@ function isGranted(status: string): boolean {
 
 export interface ParseTrustedListOptions {
   /**
-   * If non-empty, only include services whose `ServiceTypeIdentifier` is in this allow-list (e.g. the
-   * PID/EAA / QC provider service-type URIs). If empty/omitted, every granted service is included.
+   * Allow-list of `ServiceTypeIdentifier`s. Defaults to {@link EU_TL_ISSUER_SERVICE_TYPES} — the
+   * credential-issuer services (qualified CAs, QEAA / PuB-EAA issuance) — so the time-stamping, QWAC /
+   * QSeal, validation and other services a Trusted List also carries never become issuer anchors (H4).
+   * An explicit empty list yields no anchors.
    */
-  serviceTypes?: string[]
+  serviceTypes?: readonly string[]
 }
 
 /**
- * Extract granted issuer trust-anchor certificates (base64 DER, whitespace-stripped) from an ETSI
- * TS 119 612 Trusted List XML document. Deduplicated. Returns `[]` for empty/unrecognized input.
+ * Extract the granted **credential-issuer** trust-anchor certificates (base64 DER, whitespace-stripped)
+ * from an ETSI TS 119 612 Trusted List XML document. Deduplicated. Returns `[]` for empty/unrecognized
+ * input.
  *
  * SECURITY: the returned anchors are only trustworthy if the caller has verified the TL's XAdES
  * signature first. This function performs no signature validation.
@@ -91,7 +97,7 @@ export function parseTrustedListAnchors(xml: string, options: ParseTrustedListOp
 
   const providerList = (list?.TrustServiceProviderList ?? {}) as Record<string, unknown>
   const providers = toArray(providerList?.TrustServiceProvider)
-  const allowedTypes = options.serviceTypes?.filter(Boolean) ?? []
+  const allowedTypes = options.serviceTypes ?? EU_TL_ISSUER_SERVICE_TYPES
 
   const anchors: string[] = []
   for (const provider of providers) {
@@ -104,14 +110,53 @@ export function parseTrustedListAnchors(xml: string, options: ParseTrustedListOp
       const status = String(info.ServiceStatus ?? '')
       if (!isGranted(status)) continue
 
-      const serviceType = String(info.ServiceTypeIdentifier ?? '')
-      if (allowedTypes.length > 0 && !allowedTypes.includes(serviceType)) continue
+      const serviceType = String(info.ServiceTypeIdentifier ?? '').trim()
+      if (!allowedTypes.includes(serviceType)) continue
 
       anchors.push(...collectCertificates(toArray(info.ServiceDigitalIdentity)))
     }
   }
 
   return [...new Set(anchors)]
+}
+
+// --- Trusted List / LoTL: freshness and versioning --------------------------------------------------
+
+/** The `SchemeInformation` fields a consumer judges freshness and replay by (TS 119 612 clause 5.3). */
+export interface TrustedListInfo {
+  /** `TSLSequenceNumber` — increases with every new issue of the list. */
+  sequenceNumber?: number
+  /** `ListIssueDateTime`. */
+  issuedAt?: Date
+  /** `NextUpdate/dateTime` — absent when the list declares none (a closed list carries an empty element). */
+  nextUpdate?: Date
+}
+
+function parseDateValue(value: unknown): Date | undefined {
+  if (typeof value !== 'string' || value.trim() === '') return undefined
+  const time = Date.parse(value)
+  return Number.isNaN(time) ? undefined : new Date(time)
+}
+
+/**
+ * Read the sequence number, issue time and `NextUpdate` of a TL or LoTL. Pure, like the other parsers:
+ * meaningful only for a document whose signature the caller verified.
+ */
+export function parseTrustedListInfo(xml: string): TrustedListInfo {
+  const list = parseTslRoot(xml)
+  if (!list) return {}
+  const scheme = (list?.SchemeInformation ?? {}) as Record<string, unknown>
+  const sequence = Number(scheme.TSLSequenceNumber)
+  const nextUpdate = scheme.NextUpdate
+  const nextUpdateValue =
+    nextUpdate !== null && typeof nextUpdate === 'object'
+      ? (nextUpdate as Record<string, unknown>).dateTime
+      : nextUpdate
+  return {
+    ...(Number.isInteger(sequence) && sequence >= 0 ? { sequenceNumber: sequence } : {}),
+    ...(parseDateValue(scheme.ListIssueDateTime) ? { issuedAt: parseDateValue(scheme.ListIssueDateTime) } : {}),
+    ...(parseDateValue(nextUpdateValue) ? { nextUpdate: parseDateValue(nextUpdateValue) } : {}),
+  }
 }
 
 // --- LoTL: national-TL pointer extraction -----------------------------------------------------------

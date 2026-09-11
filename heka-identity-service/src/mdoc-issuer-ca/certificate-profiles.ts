@@ -104,8 +104,11 @@ export interface CertificateProfile {
 
 // --- Shipped profiles -------------------------------------------------------------------------------
 
-const IACA_VALIDITY_DAYS = 365 * 5 // ISO 18013-5 / AAMVA cap is ≤9 years; no ETSI cap (see header)
+const IACA_VALIDITY_DAYS = 365 * 5 // conservative default; the ISO 18013-5 / AAMVA cap is below
 const DSC_VALIDITY_DAYS = 457 // ISO 18013-5 maximum DSC lifetime; no ETSI cap (see header)
+
+/** ISO 18013-5 Annex B / AAMVA: an IACA certificate is valid for at most 9 years (no ETSI cap, see header). */
+export const IACA_MAX_VALIDITY_DAYS = 365 * 9
 
 /** mDL × US/AAMVA — the shipped profile. Values mirror the module constants in `mdoc-issuer-ca.service.ts`. */
 export const MDL_PROFILE: CertificateProfile = {
@@ -187,16 +190,32 @@ const NAMED_PROFILES: Record<ProfileName, CertificateProfile> = {
 
 export const PROFILE_NAMES: readonly ProfileName[] = Object.keys(NAMED_PROFILES) as ProfileName[]
 
+const CREDENTIAL_TYPES: readonly string[] = ['mdl', 'pid', 'eaa', 'pid-eaa']
+const ECOSYSTEMS: readonly string[] = ['us', 'eu']
+
+/** Whether `name` is one of the named presets (`MDOC_ISSUER_PROFILE` / provisioning `profile`). */
+export function isProfileName(name: string): name is ProfileName {
+  return (PROFILE_NAMES as readonly string[]).includes(name)
+}
+
 /**
  * Resolve a {@link CertificateProfile} from a selector (named preset or credential-type × ecosystem pair).
- * Defaults to {@link MDL_PROFILE} — the shipped behaviour — when nothing is specified.
+ * Defaults to {@link MDL_PROFILE} — the shipped behaviour — when nothing is specified. An unknown
+ * preset name or axis value **throws**: silently minting an mDL IACA for a misspelt EU profile would
+ * produce a certificate without any of the EU bits (H5).
  */
 export function resolveProfile(selector?: ProfileSelector | string): CertificateProfile {
   if (!selector) return MDL_PROFILE
-  if (typeof selector === 'string') return NAMED_PROFILES[selector as ProfileName] ?? MDL_PROFILE
-  if ('profile' in selector) return NAMED_PROFILES[selector.profile] ?? MDL_PROFILE
+  if (typeof selector === 'string') return namedProfile(selector)
+  if ('profile' in selector) return namedProfile(selector.profile)
 
   const { credentialType, ecosystem } = selector
+  if (!CREDENTIAL_TYPES.includes(credentialType) || !ECOSYSTEMS.includes(ecosystem)) {
+    throw new Error(
+      `Unknown certificate profile selector credentialType="${String(credentialType)}" ecosystem="${String(ecosystem)}" ` +
+        `(expected credentialType one of ${CREDENTIAL_TYPES.join(', ')} and ecosystem one of ${ECOSYSTEMS.join(', ')})`,
+    )
+  }
   if (ecosystem === 'eu') {
     if (credentialType === 'mdl') return EU_MDL_PROFILE
     if (credentialType === 'eaa') return EUDI_EAA_PROFILE
@@ -204,4 +223,11 @@ export function resolveProfile(selector?: ProfileSelector | string): Certificate
   }
   // No US PID / EAA ecosystem profile exists — the shipped mDL profile is the closest.
   return MDL_PROFILE
+}
+
+function namedProfile(name: string): CertificateProfile {
+  if (!isProfileName(name)) {
+    throw new Error(`Unknown certificate profile "${name}" (expected one of ${PROFILE_NAMES.join(', ')})`)
+  }
+  return NAMED_PROFILES[name]
 }

@@ -1,5 +1,7 @@
 import type { LoTEDocument } from '@owf/eudi-lote'
 
+import { EU_LOTE_ISSUER_SERVICE_TYPES } from './eu-service-types'
+
 /**
  * Helpers for **ETSI TS 119 602 Lists of Trusted Entities (LoTE)** — the EUDI-era trust lists (PID
  * providers, wallet providers, registrars, pub-EAA providers) and the format the published Heka EU
@@ -41,12 +43,37 @@ export function decodeLoteJws(jws: string): DecodedLoteJws {
   }
 }
 
+/** The `ListAndSchemeInformation` fields a consumer judges freshness and replay by. */
+export interface LoteListInfo {
+  /** `LoTESequenceNumber` — increases with every new issue of the list. */
+  sequenceNumber?: number
+  issuedAt?: Date
+  nextUpdate?: Date
+}
+
+/** Read the sequence number, issue time and `NextUpdate` of a schema-validated LoTE document. */
+export function loteListInfo(document: LoTEDocument): LoteListInfo {
+  const info = document.LoTE.ListAndSchemeInformation
+  const parse = (value: unknown): Date | undefined => {
+    if (typeof value !== 'string') return undefined
+    const time = Date.parse(value)
+    return Number.isNaN(time) ? undefined : new Date(time)
+  }
+  return {
+    ...(Number.isInteger(info.LoTESequenceNumber) ? { sequenceNumber: info.LoTESequenceNumber } : {}),
+    ...(parse(info.ListIssueDateTime) ? { issuedAt: parse(info.ListIssueDateTime) } : {}),
+    ...(parse(info.NextUpdate) ? { nextUpdate: parse(info.NextUpdate) } : {}),
+  }
+}
+
 export interface ExtractLoteAnchorOptions {
   /**
-   * If non-empty, only include services whose `ServiceTypeIdentifier` is in this allow-list. If
-   * empty/omitted, every granted service is included (services without a type identifier included).
+   * Allow-list of `ServiceTypeIdentifier`s. Defaults to {@link EU_LOTE_ISSUER_SERVICE_TYPES} — EAA / PID /
+   * PuB-EAA issuance — so the wallet-provider, registrar and WRPAC access-certificate services a LoTE also
+   * carries never become issuer anchors (H4). Services without a type identifier are excluded. An explicit
+   * empty list yields no anchors.
    */
-  serviceTypes?: string[]
+  serviceTypes?: readonly string[]
 }
 
 /**
@@ -60,13 +87,14 @@ function isActive(status: string | undefined): boolean {
 }
 
 /**
- * Extract the active (granted, or EU-profile status-less) trust-anchor certificates (base64 DER,
- * whitespace-stripped, deduplicated) from a
- * schema-validated LoTE document: `TrustedEntitiesList[] → TrustedEntityServices[] →
- * ServiceInformation → ServiceDigitalIdentity.X509Certificates[].val`.
+ * Extract the active (granted, or EU-profile status-less) **credential-issuer** trust-anchor certificates
+ * (base64 DER, whitespace-stripped, deduplicated) from a schema-validated LoTE document:
+ * `TrustedEntitiesList[] → TrustedEntityServices[] → ServiceInformation →
+ * ServiceDigitalIdentity.X509Certificates[].val`, gated on the service type (see
+ * {@link ExtractLoteAnchorOptions.serviceTypes}).
  */
 export function extractLoteAnchors(document: LoTEDocument, options: ExtractLoteAnchorOptions = {}): string[] {
-  const allowedTypes = options.serviceTypes?.filter(Boolean) ?? []
+  const allowedTypes = options.serviceTypes ?? EU_LOTE_ISSUER_SERVICE_TYPES
   const anchors: string[] = []
 
   for (const entity of document.LoTE.TrustedEntitiesList ?? []) {
@@ -74,12 +102,7 @@ export function extractLoteAnchors(document: LoTEDocument, options: ExtractLoteA
       const info = entityService.ServiceInformation
       if (!info) continue
       if (!isActive(info.ServiceStatus)) continue
-      if (
-        allowedTypes.length > 0 &&
-        (!info.ServiceTypeIdentifier || !allowedTypes.includes(info.ServiceTypeIdentifier))
-      ) {
-        continue
-      }
+      if (!info.ServiceTypeIdentifier || !allowedTypes.includes(info.ServiceTypeIdentifier.trim())) continue
       for (const certificate of info.ServiceDigitalIdentity?.X509Certificates ?? []) {
         if (typeof certificate.val === 'string' && certificate.val.trim()) {
           anchors.push(certificate.val.replace(/\s+/g, ''))

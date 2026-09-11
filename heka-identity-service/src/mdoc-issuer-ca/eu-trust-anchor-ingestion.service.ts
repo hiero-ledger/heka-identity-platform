@@ -6,12 +6,35 @@ import { Agent, AGENT_TOKEN } from 'common/agent'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { parseConfiguredAnchors, parseSignerCertificates, normalizeBase64Certificate } from './certificate-list'
-import { parseLotlPointers, parseTrustedListAnchors } from './etsi-tsl.parser'
-import { decodeLoteJws, DecodedLoteJws, extractLoteAnchors, LOTE_JWT_TYP } from './eu-lote'
+import { parseLotlPointers, parseTrustedListAnchors, parseTrustedListInfo, TrustedListInfo } from './etsi-tsl.parser'
+import { decodeLoteJws, DecodedLoteJws, extractLoteAnchors, LOTE_JWT_TYP, loteListInfo } from './eu-lote'
+import { EU_LOTE_ISSUER_SERVICE_TYPES, EU_TL_ISSUER_SERVICE_TYPES, narrowIssuerServiceTypes } from './eu-service-types'
 import { verifyTrustedListSignature } from './eu-trusted-list.verify'
 
 /** The external anchor sources the service can ingest. */
 export type EuTrustAnchorSource = 'config' | 'lotl' | 'lote'
+
+/** Network limits for the trust documents (fetched in the background, never inside a verification). */
+export interface TrustDocumentLimits {
+  /** Per-request timeout, headers and body included. */
+  timeoutMs: number
+  /** Maximum size of a TS 119 612 XML document (the LoTL or a national Trusted List). */
+  trustedListBytes: number
+  /** Maximum size of a TS 119 602 LoTE JWS. */
+  loteBytes: number
+  /** How many national Trusted Lists are fetched at once during a LoTL traversal. */
+  concurrency: number
+}
+
+/** Grace after a list's `NextUpdate` before it counts as stale (publisher clock skew, publication lag). */
+export const TRUST_LIST_STALE_GRACE_MS = 5 * 60 * 1000
+
+export const DEFAULT_TRUST_DOCUMENT_LIMITS: Readonly<TrustDocumentLimits> = {
+  timeoutMs: 15_000,
+  trustedListBytes: 20 * 1024 * 1024,
+  loteBytes: 5 * 1024 * 1024,
+  concurrency: 4,
+}
 
 /**
  * **Ingestion** of EU trust anchors — the one place that fetches, verifies and parses the official
@@ -22,9 +45,28 @@ export type EuTrustAnchorSource = 'config' | 'lotl' | 'lote'
  *
  * Every list is individually FAIL-CLOSED (a tampered or unverifiable list only excludes its own anchors,
  * never injects any); across lists of one source the union is BEST-EFFORT and logged.
+ *
+ * Only **credential-issuer** services become anchors: the hard-coded issuer service types of each list
+ * format (`eu-service-types.ts`) gate the extraction, and `EU_TRUSTED_LIST_SERVICE_TYPES` /
+ * `EU_LOTE_SERVICE_TYPES` may only narrow that set — a TSA, QWAC CA, wallet provider or WRPAC access CA can
+ * never be configured in (H4).
+ *
+ * Every fetch is bounded ({@link TrustDocumentLimits}: timeout, body size, traversal concurrency) so a slow
+ * or oversized upstream can neither stall the refresh nor exhaust memory (M6).
+ *
+ * A validly signed list is still rejected when it is **stale** (past its `NextUpdate` plus grace) or when
+ * its sequence number is lower than the last one accepted from the same location: replaying an old list
+ * must not keep a since-delisted issuer trusted (M1). Rejection only prevents the snapshot from being
+ * replaced — an already-cached list keeps serving until a fresh one verifies.
  */
 @Injectable()
 export class EuTrustAnchorIngestionService {
+  /** Mutable so tests can tighten the limits; production uses the defaults. */
+  public limits: TrustDocumentLimits = { ...DEFAULT_TRUST_DOCUMENT_LIMITS }
+
+  /** Last accepted `TSLSequenceNumber` / `LoTESequenceNumber` per list location (this process only). */
+  private readonly lastSequenceByLocation = new Map<string, number>()
+
   public constructor(
     @Inject(AGENT_TOKEN) private readonly agent: Agent,
     @InjectLogger(EuTrustAnchorIngestionService) private readonly logger: Logger,
@@ -58,24 +100,36 @@ export class EuTrustAnchorIngestionService {
     if (!lotlUrl) {
       throw new Error('EU_LOTL_URL is required when a trust source list includes lotl')
     }
-    const lotlXml = await this.fetchTrustDocument(lotlUrl, 'the EU List of Trusted Lists')
+    const lotlXml = await this.fetchTrustDocument(lotlUrl, 'the EU List of Trusted Lists', this.limits.trustedListBytes)
     // FAIL-CLOSED at the root: the whole traversal is only as trustworthy as the LoTL's own signature.
     await verifyTrustedListSignature(lotlXml, parseSignerCertificates(this.agent.agencyConfig.euLotlSignerCertificates))
+    this.assertFreshList(lotlUrl, 'the EU List of Trusted Lists', parseTrustedListInfo(lotlXml))
 
     const schemeTerritories = this.splitConfigList(this.agent.agencyConfig.euLotlSchemeTerritories)
     const pointers = parseLotlPointers(lotlXml, { schemeTerritories })
+    const serviceTypes = narrowIssuerServiceTypes(
+      this.splitConfigList(this.agent.agencyConfig.euTrustedListServiceTypes),
+      EU_TL_ISSUER_SERVICE_TYPES,
+      'EU_TRUSTED_LIST_SERVICE_TYPES',
+    )
 
     const anchors: X509Certificate[] = []
     const dropped: { territory: string; location: string; reason: string }[] = []
-    for (const pointer of pointers) {
+    await mapWithConcurrency(pointers, this.limits.concurrency, async (pointer) => {
       try {
         const tlXml = await this.fetchTrustDocument(
           pointer.location,
           `national Trusted List ${pointer.schemeTerritory || pointer.location}`,
+          this.limits.trustedListBytes,
         )
         // Chain-based signer trust: the pin is the signer the (verified) LoTL declared for THIS TL.
         await verifyTrustedListSignature(tlXml, pointer.expectedSigners)
-        anchors.push(...this.extractAnchors(tlXml))
+        this.assertFreshList(
+          pointer.location,
+          `national Trusted List ${pointer.schemeTerritory || pointer.location}`,
+          parseTrustedListInfo(tlXml),
+        )
+        anchors.push(...this.extractAnchors(tlXml, serviceTypes))
       } catch (error) {
         dropped.push({
           territory: pointer.schemeTerritory || '(unknown)',
@@ -83,7 +137,7 @@ export class EuTrustAnchorIngestionService {
           reason: error instanceof Error ? error.message : String(error),
         })
       }
-    }
+    })
 
     if (dropped.length > 0) {
       // Best-effort union MUST NOT silently under-cover — name every skipped Member State.
@@ -109,16 +163,21 @@ export class EuTrustAnchorIngestionService {
       throw new Error('EU_LOTE_URLS is required when a trust source list includes lote')
     }
     const pinnedSigners = parseSignerCertificates(this.agent.agencyConfig.euLoteSignerCertificates)
-    const serviceTypes = this.splitConfigList(this.agent.agencyConfig.euLoteServiceTypes)
+    const serviceTypes = narrowIssuerServiceTypes(
+      this.splitConfigList(this.agent.agencyConfig.euLoteServiceTypes),
+      EU_LOTE_ISSUER_SERVICE_TYPES,
+      'EU_LOTE_SERVICE_TYPES',
+    )
 
     const anchors: X509Certificate[] = []
     const dropped: { url: string; reason: string }[] = []
     for (const url of urls) {
       try {
-        const jws = await this.fetchTrustDocument(url, `LoTE ${url}`)
+        const jws = await this.fetchTrustDocument(url, `LoTE ${url}`, this.limits.loteBytes)
         const decoded = decodeLoteJws(jws)
         await this.verifyLoteSignature(decoded, pinnedSigners)
         assertValidLoTE(decoded.payload)
+        this.assertFreshList(url, `LoTE ${url}`, loteListInfo(decoded.payload))
         anchors.push(
           ...extractLoteAnchors(decoded.payload, { serviceTypes }).map((base64) =>
             X509Certificate.fromEncodedCertificate(base64),
@@ -141,6 +200,25 @@ export class EuTrustAnchorIngestionService {
       )
     }
     return anchors
+  }
+
+  /**
+   * Freshness and replay guard for one **signature-verified** list (M1): reject a list past its `NextUpdate`
+   * (plus {@link TRUST_LIST_STALE_GRACE_MS}) and a sequence number lower than the last one accepted from the
+   * same location; record the sequence on acceptance. A list without a `NextUpdate` (a closed list) or
+   * without a sequence number is not judged on that criterion.
+   */
+  private assertFreshList(location: string, label: string, info: TrustedListInfo): void {
+    if (info.nextUpdate && info.nextUpdate.getTime() + TRUST_LIST_STALE_GRACE_MS < Date.now()) {
+      throw new Error(`${label} is stale: its NextUpdate ${info.nextUpdate.toISOString()} has passed`)
+    }
+    if (info.sequenceNumber !== undefined) {
+      const last = this.lastSequenceByLocation.get(location)
+      if (last !== undefined && info.sequenceNumber < last) {
+        throw new Error(`${label} sequence number regressed: got ${info.sequenceNumber}, last accepted ${last}`)
+      }
+      this.lastSequenceByLocation.set(location, info.sequenceNumber)
+    }
   }
 
   /** De-duplicate certificates by base64 DER (two sources/lists may carry the same cross-border CA). */
@@ -187,18 +265,37 @@ export class EuTrustAnchorIngestionService {
     }
   }
 
-  /** Fetch a trust-list document (TL/LoTL XML or LoTE JWS), throwing a labelled error on network/HTTP failure. */
-  private async fetchTrustDocument(url: string, label: string): Promise<string> {
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ${label} (${url}): HTTP ${response.status}`)
+  /**
+   * Fetch a trust-list document (TL/LoTL XML or LoTE JWS) within the limits: the request times out after
+   * `limits.timeoutMs`, and a body larger than `maxBytes` — declared or streamed — is abandoned. Throws a
+   * labelled error on any failure.
+   */
+  private async fetchTrustDocument(url: string, label: string, maxBytes: number): Promise<string> {
+    const where = `${label} (${url})`
+    let response: Response
+    try {
+      response = await fetch(url, { signal: AbortSignal.timeout(this.limits.timeoutMs) })
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.name === 'TimeoutError'
+          ? `timed out after ${this.limits.timeoutMs} ms`
+          : error instanceof Error
+            ? error.message
+            : String(error)
+      throw new Error(`Failed to fetch ${where}: ${reason}`, { cause: error })
     }
-    return response.text()
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${where}: HTTP ${response.status}`)
+    }
+    const declaredLength = Number(response.headers?.get?.('content-length') ?? Number.NaN)
+    if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+      throw new Error(`${where} is too large: ${declaredLength} bytes declared (limit ${maxBytes})`)
+    }
+    return readBodyBounded(response, maxBytes, where)
   }
 
-  /** Parse the granted issuer anchors from a (already signature-verified) Trusted List XML. */
-  private extractAnchors(xml: string): X509Certificate[] {
-    const serviceTypes = this.splitConfigList(this.agent.agencyConfig.euTrustedListServiceTypes)
+  /** Parse the granted issuer anchors of the given service types from a (already signature-verified) Trusted List XML. */
+  private extractAnchors(xml: string, serviceTypes: readonly string[]): X509Certificate[] {
     return parseTrustedListAnchors(xml, { serviceTypes }).map((base64) =>
       X509Certificate.fromEncodedCertificate(base64),
     )
@@ -210,4 +307,49 @@ export class EuTrustAnchorIngestionService {
       .map((value) => value.trim())
       .filter(Boolean)
   }
+}
+
+/**
+ * Read a response body as UTF-8 text, giving up as soon as more than `maxBytes` have arrived (the stream
+ * is cancelled, nothing further is buffered). Falls back to `text()` for bodies that expose no stream.
+ */
+async function readBodyBounded(response: Response, maxBytes: number, where: string): Promise<string> {
+  const tooLarge = () => new Error(`${where} is too large: more than ${maxBytes} bytes (limit ${maxBytes})`)
+  const body = response.body
+  if (!body || typeof body.getReader !== 'function') {
+    const text = await response.text()
+    if (Buffer.byteLength(text, 'utf8') > maxBytes) throw tooLarge()
+    return text
+  }
+  const reader = body.getReader()
+  const chunks: Buffer[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined)
+      throw tooLarge()
+    }
+    chunks.push(Buffer.from(value))
+  }
+  return Buffer.concat(chunks).toString('utf8')
+}
+
+/** Run `work` over `items` with at most `limit` in flight; `work` must handle its own errors. */
+async function mapWithConcurrency<T>(
+  items: readonly T[],
+  limit: number,
+  work: (item: T) => Promise<void>,
+): Promise<void> {
+  let next = 0
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (next < items.length) {
+      const item = items[next]
+      next += 1
+      await work(item)
+    }
+  })
+  await Promise.all(workers)
 }

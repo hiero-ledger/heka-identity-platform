@@ -18,13 +18,16 @@ const alg = { name: 'ECDSA', namedCurve: 'P-256', hash: 'SHA-256' } as const
 const GRANTED = 'http://uri.etsi.org/TrstSvc/Svcstatus/granted'
 const WITHDRAWN = 'http://uri.etsi.org/TrstSvc/Svcstatus/withdrawn'
 const PID_ISSUANCE = 'http://uri.etsi.org/19602/SvcType/PID/Issuance'
+const EAA_ISSUANCE = 'http://uri.etsi.org/19602/SvcType/EAA/Issuance'
+const WRPAC_ISSUANCE = 'http://uri.etsi.org/19602/SvcType/WRPAC/Issuance'
+const WALLET_SOLUTION_ISSUANCE = 'http://uri.etsi.org/19602/SvcType/WalletSolution/Issuance'
 
 const LOTE_URL = 'https://ec.example/lote/pid-providers.json'
 const SECOND_LOTE_URL = 'https://ec.example/lote/eaa-providers.json'
 
 type Cert = { keys: CryptoKeyPair; base64: string }
 /** `status: null` → the EU-profile shape (no ServiceStatus / StatusStartingTime at all). */
-type Anchor = { certificateBase64: string; status?: string | null }
+type Anchor = { certificateBase64: string; status?: string | null; serviceType?: string }
 
 async function makeCert(cn: string): Promise<Cert> {
   const keys = await crypto.subtle.generateKey(alg, true, ['sign', 'verify'])
@@ -35,10 +38,13 @@ async function makeCert(cn: string): Promise<Cert> {
   return { keys, base64: Buffer.from(cert.rawData).toString('base64') }
 }
 
-/** Build a LoTE document listing the given anchors as PID-issuance providers. */
-function loteFixture(anchors: Anchor[]): LoTEDocument {
+/** Optional `ListAndSchemeInformation` freshness fields of a LoTE fixture. */
+type SchemeFields = { LoTESequenceNumber?: number; NextUpdate?: string }
+
+/** Build a LoTE document listing the given anchors as PID-issuance providers (or the given service type). */
+function loteFixture(anchors: Anchor[], scheme: SchemeFields = {}): LoTEDocument {
   return createLoTE(
-    { SchemeOperatorName: [{ lang: 'en', value: 'Test Scheme Operator' }] },
+    { SchemeOperatorName: [{ lang: 'en', value: 'Test Scheme Operator' }], ...scheme },
     anchors.map((anchor, index) => ({
       TrustedEntityInformation: {
         TEName: [{ lang: 'en', value: `Provider ${index + 1}` }],
@@ -48,7 +54,7 @@ function loteFixture(anchors: Anchor[]): LoTEDocument {
         {
           ServiceInformation: {
             ServiceName: [{ lang: 'en', value: 'PID Issuance' }],
-            ServiceTypeIdentifier: PID_ISSUANCE,
+            ServiceTypeIdentifier: anchor.serviceType ?? PID_ISSUANCE,
             ...(anchor.status === null
               ? {}
               : { ServiceStatus: anchor.status ?? GRANTED, StatusStartingTime: new Date().toISOString() }),
@@ -74,13 +80,26 @@ async function signLote(document: LoTEDocument, signer: Cert): Promise<string> {
   return jws
 }
 
-function stubFetch(routes: Record<string, string>): void {
+const textResponse = (body: string, headers: Record<string, string> = {}): Response =>
+  ({ ok: true, status: 200, headers: new Headers(headers), text: () => Promise.resolve(body) }) as unknown as Response
+
+type Route = string | Response | (() => Response | Promise<Response>)
+/** Stub `fetch` by URL: a string body, a Response-like object, or a function producing one; unknown → 404. */
+function stubFetch(routes: Record<string, Route>): void {
   vi.stubGlobal(
     'fetch',
-    vi.fn((url: string) => {
-      const body = routes[url]
-      if (body == null) return { ok: false, status: 404, text: () => Promise.resolve('') } as unknown as Response
-      return { ok: true, status: 200, text: () => Promise.resolve(body) } as unknown as Response
+    vi.fn((url: string): Promise<Response> => {
+      const route = routes[url]
+      if (route == null) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          headers: new Headers(),
+          text: () => Promise.resolve(''),
+        } as unknown as Response)
+      }
+      if (typeof route === 'string') return Promise.resolve(textResponse(route))
+      return Promise.resolve(typeof route === 'function' ? route() : route)
     }),
   )
 }
@@ -221,6 +240,80 @@ describe('EuTrustAnchorIngestionService — LoTE ingestion (ETSI TS 119 602)', (
     })
     expect(await ingestedAnchors(service)).toEqual([pidAnchor])
     expect(logger.warn).toHaveBeenCalled()
+  })
+
+  test('H4: WRPAC access-certificate and wallet-solution services never become issuer anchors', async () => {
+    const wrpacAnchor = (await makeCert('EU Access CA')).base64
+    const walletAnchor = (await makeCert('EU Wallet Solution Provider')).base64
+    const document = loteFixture([
+      { certificateBase64: pidAnchor },
+      { certificateBase64: eaaAnchor, serviceType: EAA_ISSUANCE },
+      { certificateBase64: wrpacAnchor, serviceType: WRPAC_ISSUANCE },
+      { certificateBase64: walletAnchor, serviceType: WALLET_SOLUTION_ISSUANCE },
+    ])
+    stubFetch({ [LOTE_URL]: await signLote(document, operator) })
+    const { service } = buildService({ loteSigner: operator.base64 })
+    expect(new Set(await ingestedAnchors(service))).toEqual(new Set([pidAnchor, eaaAnchor]))
+  })
+
+  test('EU_LOTE_SERVICE_TYPES only narrows the issuer set; a non-issuer type is refused', async () => {
+    const document = loteFixture([
+      { certificateBase64: pidAnchor },
+      { certificateBase64: eaaAnchor, serviceType: EAA_ISSUANCE },
+    ])
+    stubFetch({ [LOTE_URL]: await signLote(document, operator) })
+    const narrowed = buildService({ loteSigner: operator.base64, serviceTypes: EAA_ISSUANCE })
+    expect(await ingestedAnchors(narrowed.service)).toEqual([eaaAnchor])
+
+    const widened = buildService({ loteSigner: operator.base64, serviceTypes: `${PID_ISSUANCE},${WRPAC_ISSUANCE}` })
+    await expect(widened.service.anchorsFromLote()).rejects.toThrow(
+      /EU_LOTE_SERVICE_TYPES may only narrow the credential-issuer service types/,
+    )
+  })
+
+  test('M6: an oversized or timed-out LoTE is skipped, the rest served', async () => {
+    const third = 'https://ec.example/lote/pub-eaa-providers.json'
+    stubFetch({
+      [LOTE_URL]: await signLote(loteFixture([{ certificateBase64: pidAnchor }]), operator),
+      [SECOND_LOTE_URL]: textResponse(await signLote(loteFixture([{ certificateBase64: eaaAnchor }]), operator), {
+        'content-length': String(6 * 1024 * 1024),
+      }),
+      [third]: () => Promise.reject(Object.assign(new Error('The operation was aborted'), { name: 'TimeoutError' })),
+    })
+    const { service, logger } = buildService({
+      loteUrls: `${LOTE_URL},${SECOND_LOTE_URL},${third}`,
+      loteSigner: operator.base64,
+    })
+    expect(await ingestedAnchors(service)).toEqual([pidAnchor])
+    const [payload] = (logger.warn as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]
+    const reasons = (payload as { dropped: { reason: string }[] }).dropped.map((drop) => drop.reason)
+    expect(reasons).toEqual([
+      expect.stringMatching(/too large: 6291456 bytes declared/),
+      expect.stringMatching(/timed out after 15000 ms/),
+    ])
+  })
+
+  test('M1: a LoTE past its NextUpdate is rejected even though its signature verifies', async () => {
+    const anHourAgo = new Date(Date.now() - 3600 * 1000).toISOString()
+    stubFetch({
+      [LOTE_URL]: await signLote(loteFixture([{ certificateBase64: pidAnchor }], { NextUpdate: anHourAgo }), operator),
+    })
+    const { service } = buildService({ loteSigner: operator.base64 })
+    await expect(service.anchorsFromLote()).rejects.toThrow(/is stale: its NextUpdate .* has passed/)
+  })
+
+  test('M1: a replayed LoTE with a lower LoTESequenceNumber than the last accepted one is rejected', async () => {
+    const { service } = buildService({ loteSigner: operator.base64 })
+    const ingest = async (LoTESequenceNumber: number) => {
+      stubFetch({
+        [LOTE_URL]: await signLote(loteFixture([{ certificateBase64: pidAnchor }], { LoTESequenceNumber }), operator),
+      })
+      return service.anchorsFromLote()
+    }
+    await expect(ingest(5)).resolves.toHaveLength(1)
+    await expect(ingest(4)).rejects.toThrow(/sequence number regressed: got 4, last accepted 5/)
+    await expect(ingest(5)).resolves.toHaveLength(1)
+    await expect(ingest(6)).resolves.toHaveLength(1)
   })
 
   test('requires EU_LOTE_URLS', async () => {

@@ -1,6 +1,7 @@
 import { EU_GENERIC_TSL_TYPE, parseLotlPointers, parseTrustedListAnchors } from '../etsi-tsl.parser'
+import { EU_TL_SERVICE_TYPE } from '../eu-service-types'
 
-const QC = 'http://uri.etsi.org/TrstSvc/Svctype/CA/QC'
+const QC = EU_TL_SERVICE_TYPE.caQc
 const OTHER = 'http://uri.etsi.org/TrstSvc/Svctype/other'
 const GRANTED = 'http://uri.etsi.org/TrstSvc/Svcstatus/granted'
 const WITHDRAWN = 'http://uri.etsi.org/TrstSvc/Svcstatus/withdrawn'
@@ -49,18 +50,39 @@ const lotl = (...pointers: string[]) => `<?xml version="1.0" encoding="UTF-8"?>
 </TrustServiceStatusList>`
 
 describe('parseTrustedListAnchors', () => {
-  test('extracts only the granted X509 anchors', () => {
+  test('extracts only the granted X509 anchors of credential-issuer service types', () => {
     const xml = trustedList(
       service(QC, GRANTED, 'MIIB_QC'),
       service(QC, WITHDRAWN, 'MIIB_WITHDRAWN'),
       service(OTHER, GRANTED, 'MIIB_OTHER'),
     )
-    expect(parseTrustedListAnchors(xml)).toEqual(['MIIB_QC', 'MIIB_OTHER'])
+    expect(parseTrustedListAnchors(xml)).toEqual(['MIIB_QC'])
+  })
+
+  test('H4: the default gate admits qualified CAs and QEAA / PuB-EAA issuance, never TSAs, QWAC CAs, roots or validators', () => {
+    const xml = trustedList(
+      service(EU_TL_SERVICE_TYPE.caQc, GRANTED, 'MIIB_CA_QC'),
+      service(EU_TL_SERVICE_TYPE.eaaQ, GRANTED, 'MIIB_QEAA'),
+      service(EU_TL_SERVICE_TYPE.pubEaa, GRANTED, 'MIIB_PUB_EAA'),
+      service(EU_TL_SERVICE_TYPE.eaa, GRANTED, 'MIIB_EAA_NONQ'),
+      service(EU_TL_SERVICE_TYPE.tsa, GRANTED, 'MIIB_TSA'),
+      service(EU_TL_SERVICE_TYPE.qtst, GRANTED, 'MIIB_QTST'),
+      service(EU_TL_SERVICE_TYPE.caPkc, GRANTED, 'MIIB_QWAC_CA'),
+      service(EU_TL_SERVICE_TYPE.nationalRootCaQc, GRANTED, 'MIIB_NATIONAL_ROOT'),
+      service(EU_TL_SERVICE_TYPE.eaaValidation, GRANTED, 'MIIB_VALIDATOR'),
+    )
+    expect(parseTrustedListAnchors(xml)).toEqual(['MIIB_CA_QC', 'MIIB_QEAA', 'MIIB_PUB_EAA'])
   })
 
   test('filters by ServiceTypeIdentifier when an allow-list is given', () => {
     const xml = trustedList(service(QC, GRANTED, 'MIIB_QC'), service(OTHER, GRANTED, 'MIIB_OTHER'))
     expect(parseTrustedListAnchors(xml, { serviceTypes: [QC] })).toEqual(['MIIB_QC'])
+    expect(parseTrustedListAnchors(xml, { serviceTypes: [OTHER] })).toEqual(['MIIB_OTHER'])
+  })
+
+  test('an explicit empty allow-list yields no anchors (never "everything")', () => {
+    const xml = trustedList(service(QC, GRANTED, 'MIIB_QC'), service(OTHER, GRANTED, 'MIIB_OTHER'))
+    expect(parseTrustedListAnchors(xml, { serviceTypes: [] })).toEqual([])
   })
 
   test('strips whitespace inside a certificate and deduplicates', () => {

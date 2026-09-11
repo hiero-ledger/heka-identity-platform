@@ -11,6 +11,13 @@ import { registerAs } from '@nestjs/config'
 import express from 'express'
 
 import { AriesCredentialFormat, ProtocolType } from 'common/types'
+import { isProfileName, PROFILE_NAMES } from 'mdoc-issuer-ca/certificate-profiles'
+import {
+  EU_LOTE_ISSUER_SERVICE_TYPES,
+  EU_TL_ISSUER_SERVICE_TYPES,
+  narrowIssuerServiceTypes,
+  splitServiceTypeList,
+} from 'mdoc-issuer-ca/eu-service-types'
 
 import { CredentialsConfiguration } from './credential-configuration'
 import { FileSystemConfig } from './file-storage'
@@ -129,8 +136,14 @@ export default registerAs('agent', () => {
   // path (Credo X509Api); 'mdl-eu' / 'eudi-pid' / 'eudi-eaa' = EU/EUDI profiles (ETSI TS 119 412-6 V1.1.1,
   // CIR 2026/1731) emitted via the @peculiar/x509 escape hatch: EN 319 412-3 legal-person DN
   // (organizationIdentifier), certificatePolicies, AIA caIssuers → the public IACA download, and the
-  // `id-etsi-qct-pid` QcType on PID certificates. EU profiles require both values below.
+  // `id-etsi-qct-pid` QcType on PID certificates. EU profiles require both values below. Unknown names
+  // fail fast: a misspelt EU profile must not silently mint a US mDL IACA without the EU bits (H5).
   const mdocIssuerProfile = process.env.MDOC_ISSUER_PROFILE ?? 'mdl'
+  if (!isProfileName(mdocIssuerProfile)) {
+    throw new Error(
+      `MDOC_ISSUER_PROFILE has an unknown value '${mdocIssuerProfile}' (allowed: ${PROFILE_NAMES.join(', ')})`,
+    )
+  }
   const mdocIssuerOrganizationIdentifier = process.env.MDOC_ISSUER_ORGANIZATION_IDENTIFIER ?? ''
   // The operator's certificate-policy OID (EN 319 412-2 §4.3.3 — the extension is mandatory on EU sign/seal
   // certificates; typical values are the EN 319 411-1 NCP / LCP identifiers or a private arc). Required for
@@ -153,9 +166,16 @@ export default registerAs('agent', () => {
   // scheme trust list (`GET /trust-list/eaa-providers`), and the VICAL signer is only provisioned when
   // this is on. Both exports read the same IACA registry, so they can never disagree.
   const vicalEnabled = (process.env.VICAL_ENABLED ?? 'false') === 'true'
-  // Optional comma-separated ServiceTypeIdentifier allow-list applied when extracting anchors from a
-  // traversed Trusted List; empty = accept all granted services.
+  // Optional comma-separated narrowing of the credential-issuer service types whose anchors are taken
+  // from a traversed Trusted List. Default = the hard-coded issuer set (qualified CAs, QEAA and PuB-EAA
+  // issuance — EU_TL_ISSUER_SERVICE_TYPES); only members of that set may be listed, so time-stamping,
+  // QWAC/QSeal or validation services can never be widened in (H4). Validated at startup.
   const euTrustedListServiceTypes = process.env.EU_TRUSTED_LIST_SERVICE_TYPES ?? ''
+  narrowIssuerServiceTypes(
+    splitServiceTypeList(euTrustedListServiceTypes),
+    EU_TL_ISSUER_SERVICE_TYPES,
+    'EU_TRUSTED_LIST_SERVICE_TYPES',
+  )
 
   // Source 'lotl': the EU List of Trusted Lists. EU_LOTL_SIGNER_CERTIFICATES pins the
   // European Commission's LoTL signer — the single trust anchor of the whole traversal; the verified LoTL
@@ -168,10 +188,17 @@ export default registerAs('agent', () => {
   // Source 'lote': ETSI TS 119 602 Lists of Trusted Entities (the EUDI-era lists: PID providers,
   // wallet providers, registrars, pub-EAA providers). Comma-separated list URLs; each list's JWS signer
   // (x5c leaf) must byte-match one of the pinned EU_LOTE_SIGNER_CERTIFICATES (fail-closed per list;
-  // best-effort union across lists). Optional EU_LOTE_SERVICE_TYPES filters extracted services.
+  // best-effort union across lists). Optional EU_LOTE_SERVICE_TYPES narrows the credential-issuer
+  // service types (default: EAA / PID / PuB-EAA issuance — EU_LOTE_ISSUER_SERVICE_TYPES); wallet-provider,
+  // registrar and WRPAC access-certificate services can never be widened in (H4). Validated at startup.
   const euLoteUrls = process.env.EU_LOTE_URLS ?? ''
   const euLoteSignerCertificates = process.env.EU_LOTE_SIGNER_CERTIFICATES ?? ''
   const euLoteServiceTypes = process.env.EU_LOTE_SERVICE_TYPES ?? ''
+  narrowIssuerServiceTypes(
+    splitServiceTypeList(euLoteServiceTypes),
+    EU_LOTE_ISSUER_SERVICE_TYPES,
+    'EU_LOTE_SERVICE_TYPES',
+  )
 
   // Trust anchors the service consults when IT verifies credentials (relying-party role) — a
   // comma-separated union. 'registry' = the tenants' own issuer anchors (IACA registry for mdoc, the
@@ -188,6 +215,18 @@ export default registerAs('agent', () => {
         `VERIFIER_TRUST_SOURCES contains an unknown source '${source}' (allowed: registry, config, lotl, lote)`,
       )
     }
+  }
+  // An enabled EU source without its URL or pinned signer could never verify a list and would silently
+  // contribute nothing (every refresh fails) — refuse to start instead.
+  if (verifierTrustSources.includes('lotl') && (!euLotlUrl.trim() || !euLotlSignerCertificates.trim())) {
+    throw new Error(
+      'VERIFIER_TRUST_SOURCES includes lotl, which requires EU_LOTL_URL and EU_LOTL_SIGNER_CERTIFICATES to be set',
+    )
+  }
+  if (verifierTrustSources.includes('lote') && (!euLoteUrls.trim() || !euLoteSignerCertificates.trim())) {
+    throw new Error(
+      'VERIFIER_TRUST_SOURCES includes lote, which requires EU_LOTE_URLS and EU_LOTE_SIGNER_CERTIFICATES to be set',
+    )
   }
   // How often the EU sources of the verifier trust set are re-fetched (seconds; default hourly).
   const verifierTrustRefreshSeconds = Number(process.env.VERIFIER_TRUST_REFRESH_SECONDS ?? '3600')
