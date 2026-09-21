@@ -5,6 +5,7 @@ import { TenantAgent } from 'common/agent'
 import { AuthInfo } from 'common/auth'
 import { User } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
+import { WebhookEgressService } from 'common/webhook/webhook-egress.service'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
 
 import { FileStorageService } from '../common/file-storage/file-storage.service'
@@ -20,6 +21,7 @@ export class UserService {
     private readonly logger: Logger,
     private readonly openId4VcIssuerService: OpenId4VcIssuerService,
     private readonly fileStorageService: FileStorageService,
+    private readonly webhookEgress: WebhookEgressService,
   ) {
     this.logger.child('constructor').trace('<>')
   }
@@ -61,6 +63,7 @@ export class UserService {
     }
 
     if (req.webHook) {
+      await this.webhookEgress.assertCallbackUrlAllowed(req.webHook)
       user.webHook = req.webHook
     }
 
