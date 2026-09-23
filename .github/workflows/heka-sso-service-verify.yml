@@ -13,6 +13,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     defaults:
@@ -38,12 +41,12 @@ jobs:
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
       - name: Prepare Github Runner
-        uses: pandaswhocode/initialize-github-job@ffb7446339e8e6007b942312ac95457d1a20b6cf # v1.0.4
+        uses: pandaswhocode/initialize-github-job@0ed960ecaed898893e404ad55c7aa12fdc3b2a53 # v1.4.0
         with:
           checkout: 'true'
           checkout-ref: '${{ github.ref }}'
@@ -71,3 +74,13 @@ jobs:
 
       - name: Run tests
         run: env FORCE_COLOR=1 yarn test
+
+      # e2e suites drop and recreate their schema (SchemaGenerator.refresh) —
+      # given their own database so that's never done to the one above.
+      - name: Create e2e database
+        run: PGPASSWORD=heka1 psql -h localhost -p 5432 -U heka -d heka-sso-service -c 'CREATE DATABASE "heka-sso-service-e2e";'
+
+      - name: Run e2e tests
+        run: env FORCE_COLOR=1 yarn test:e2e
+        env:
+          MIKRO_ORM_PORT: 5432

@@ -61,6 +61,7 @@ describe('OidcConfig', () => {
         {
           id: 'default',
           verificationTemplate: 'pid-template',
+          dcqlQuery: { credentials: [{ id: 'pid', format: 'dc+sd-jwt', claims: [{ path: ['given_name'] }] }] },
           claimMapping: { 'pid.given_name': 'given_name' },
         },
       ]),
@@ -92,6 +93,7 @@ describe('OidcConfig', () => {
         {
           id: 'branded',
           verificationTemplate: 'pid-template',
+          dcqlQuery: { credentials: [{ id: 'pid', format: 'dc+sd-jwt', claims: [{ path: ['given_name'] }] }] },
           claimMapping: {},
           branding: {
             productName: 'Acme ID',
@@ -158,9 +160,10 @@ describe('OidcConfig', () => {
       expect(config.loginConfigs[0].dcqlProblems()).toEqual([])
     })
 
-    test('does not check configs without an inline dcqlQuery (stub login / template by id)', () => {
-      const config = new OidcConfig(loginConfig({ dcqlQuery: undefined, claimMapping: { 'pid.given_name': 'x' } }))
-      expect(config.loginConfigs[0].credentialQueryIds).toEqual([])
+    test('rejects a login configuration without a dcqlQuery', () => {
+      expect(() => new OidcConfig(loginConfig({ dcqlQuery: undefined, claimMapping: { 'pid.given_name': 'x' } }))).toThrow(
+        /dcqlQuery is required/
+      )
     })
 
     test('rejects a dcqlQuery without credential queries', () => {

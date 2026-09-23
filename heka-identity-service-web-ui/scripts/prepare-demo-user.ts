@@ -70,6 +70,19 @@ async function main() {
   const schema = {
     name: 'Passport',
     bgColor: '#171717',
+    fields: ['name', 'surname', 'age'],
+    registrations: [
+      {
+        network: 'key',
+        credentialFormat: 'vc+sd-jwt',
+        protocol: 'OpenId4VC',
+      },
+    ],
+  };
+
+  const passportV2Schema = {
+    name: 'Passport v2',
+    bgColor: '#171717',
     fields: ['given_name', 'family_name', 'birth_date', 'passport_number', 'expiry_date'],
     registrations: [
       {
@@ -106,7 +119,7 @@ async function main() {
     'user.png',
   );
   params.append('schemaLogo', schemaLogoBlob, 'schema.jpg');
-  params.append('schemas', JSON.stringify([schema, mdlSchema]));
+  params.append('schemas', JSON.stringify([schema, passportV2Schema, mdlSchema]));
 
   // 3. Create DID
   const prepareResponse = await fetch(agencyEndpoint + '/prepare-wallet', {

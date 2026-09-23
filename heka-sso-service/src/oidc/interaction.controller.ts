@@ -1,5 +1,4 @@
-import { BAD_REQUEST, SUCCESS } from '@const'
-import { Body, Controller, Get, Inject, Logger, Post, Req, Res } from '@nestjs/common'
+import { Body, Controller, Get, HttpStatus, Inject, Logger, Post, Req, Res } from '@nestjs/common'
 import { ApiExcludeController } from '@nestjs/swagger'
 import { Request, Response } from 'express'
 import type Provider from 'oidc-provider'
@@ -33,7 +32,7 @@ export class InteractionController {
       case 'login': {
         const outcome = await this.interactions.beginLogin(details)
         if (outcome.kind === 'page') {
-          res.status(SUCCESS).type('html').send(outcome.html)
+          res.status(HttpStatus.OK).type('html').send(outcome.html)
           return
         }
         return await this.finish(req, res, outcome.results)
@@ -89,7 +88,7 @@ export class InteractionController {
       details = await this.provider.interactionDetails(req, res)
     } catch (error) {
       this.logger.warn(`Interaction status check failed: ${error}`)
-      res.status(BAD_REQUEST).json({ status: 'error', message: 'The sign-in attempt is no longer valid.' })
+      res.status(HttpStatus.BAD_REQUEST).json({ status: 'error', message: 'The sign-in attempt is no longer valid.' })
       return
     }
 
@@ -97,7 +96,7 @@ export class InteractionController {
       res.json(await this.interactions.loginStatus(details))
     } catch (error) {
       if (error instanceof InteractionApiError) {
-        res.status(BAD_REQUEST).json({ status: 'error', message: error.message })
+        res.status(HttpStatus.BAD_REQUEST).json({ status: 'error', message: error.message })
         return
       }
       this.logger.warn(`Interaction ${details.uid}: login status read failed, still pending: ${error}`)
@@ -121,19 +120,19 @@ export class InteractionController {
       details = await this.provider.interactionDetails(req, res)
     } catch (error) {
       this.logger.warn(`Interaction lookup failed: ${error}`)
-      res.status(BAD_REQUEST).json({ status: 'error', message: 'The sign-in attempt is no longer valid.' })
+      res.status(HttpStatus.BAD_REQUEST).json({ status: 'error', message: 'The sign-in attempt is no longer valid.' })
       return
     }
 
     try {
-      res.status(SUCCESS).json(await handler(details))
+      res.status(HttpStatus.OK).json(await handler(details))
     } catch (error) {
       if (error instanceof InteractionApiError) {
-        res.status(BAD_REQUEST).json({ status: 'error', message: error.message })
+        res.status(HttpStatus.BAD_REQUEST).json({ status: 'error', message: error.message })
         return
       }
       this.logger.error(`Interaction ${details.uid}: page API call failed: ${error}`)
-      res.status(BAD_REQUEST).json({ status: 'error', message: 'The sign-in attempt could not be started.' })
+      res.status(HttpStatus.BAD_REQUEST).json({ status: 'error', message: 'The sign-in attempt could not be started.' })
     }
   }
 

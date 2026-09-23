@@ -190,9 +190,8 @@ export class OidcLoginConfig {
   @Length(1, 255)
   public verificationTemplate!: string
 
-  @IsOptional()
   @IsObject()
-  public dcqlQuery?: Record<string, unknown>
+  public dcqlQuery: Record<string, unknown>
 
   @IsObject()
   public claimMapping: Record<string, string>
@@ -231,14 +230,17 @@ export class OidcLoginConfig {
   }
 
   public get credentialQueryIds(): string[] {
-    const credentials = (this.dcqlQuery as { credentials?: unknown } | undefined)?.credentials
+    const credentials = (this.dcqlQuery as { credentials?: unknown }).credentials
     if (!Array.isArray(credentials)) return []
     return credentials.map((credential) => (credential as { id?: unknown } | null)?.id).filter((id): id is string => typeof id === 'string')
   }
 
   public dcqlProblems(): string[] {
-    if (this.dcqlQuery === undefined) return []
     const problems: string[] = []
+    if (this.dcqlQuery === undefined || this.dcqlQuery === null) {
+      problems.push('dcqlQuery is required')
+      return problems
+    }
     const credentials = (this.dcqlQuery as { credentials?: unknown }).credentials
     if (!Array.isArray(credentials) || credentials.length === 0) {
       problems.push('dcqlQuery.credentials must be a non-empty array of credential queries')
@@ -400,7 +402,7 @@ export class OidcConfig {
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
     const nodeEnv = (env.NODE_ENV ?? process.env.NODE_ENV)?.toString().toLowerCase()
-    const isProduction = nodeEnv === 'production'
+    const isProduction = !nodeEnv || nodeEnv === 'production'
     const problems: string[] = []
 
     const requireInProduction = (key: OidcConfigKeys): boolean => {

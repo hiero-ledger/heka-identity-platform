@@ -61,6 +61,7 @@ const buildApp = (identityAcquirer: IdentityAcquirer | null) => {
       {
         id: 'default',
         verificationTemplate: 'default',
+        dcqlQuery: { credentials: [{ id: 'pid', format: 'dc+sd-jwt', claims: [{ path: ['given_name'] }] }] },
         claimMapping: { 'pid.given_name': 'given_name', 'pid.family_name': 'family_name', 'pid.email': 'email' },
         staticClaims: { department: 'QA' },
         subStrategy: 'derived',

@@ -14,6 +14,7 @@ updates:
     directories:
       - "/heka-auth-service"
       - "/heka-identity-service"
+      - "/heka-sso-service"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10

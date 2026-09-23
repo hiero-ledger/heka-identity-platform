@@ -49,9 +49,6 @@ export class VerificationSessionClient {
           'authorization requests are always signed, there is no unsigned fallback'
       )
     }
-    if (!loginConfig.dcqlQuery) {
-      throw new Error(`login configuration '${loginConfig.id}' has no DCQL query (dcqlQuery) — nothing to request from the wallet`)
-    }
 
     const response = await this.request<{
       verificationSession: { id: string }
@@ -78,9 +75,6 @@ export class VerificationSessionClient {
         'IDENTITY_SERVICE_PUBLIC_VERIFIER_ID and IDENTITY_SERVICE_REQUEST_SIGNER_DID must be configured — ' +
           'DC API authorization requests are signed like every other session'
       )
-    }
-    if (!loginConfig.dcqlQuery) {
-      throw new Error(`login configuration '${loginConfig.id}' has no DCQL query (dcqlQuery) — nothing to request from the wallet`)
     }
 
     const response = await this.request<{

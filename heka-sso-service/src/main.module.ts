@@ -87,7 +87,7 @@ export class MainModule {
         credentials: false,
         methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
         maxAge: 3600,
-        // origin: config.app.allowedOrigins,
+        origin: config.app.allowedOrigins,
         exposedHeaders: ['Content-Disposition'],
       })
     }

@@ -73,6 +73,7 @@ describe('logout', () => {
         {
           id: 'default',
           verificationTemplate: 'default',
+          dcqlQuery: { credentials: [{ id: 'pid', format: 'dc+sd-jwt', claims: [{ path: ['given_name'] }] }] },
           claimMapping: { 'pid.given_name': 'given_name' },
           subStrategy: 'derived',
           issuerAllowlist: [],
@@ -272,6 +273,7 @@ describe('logout confirmation dialog (default — OIDC_LOGOUT_AUTO_CONFIRM off)'
       {
         id: 'default',
         verificationTemplate: 'default',
+        dcqlQuery: { credentials: [{ id: 'pid', format: 'dc+sd-jwt', claims: [{ path: ['given_name'] }] }] },
         claimMapping: { 'pid.given_name': 'given_name' },
         subStrategy: 'derived',
         issuerAllowlist: [],

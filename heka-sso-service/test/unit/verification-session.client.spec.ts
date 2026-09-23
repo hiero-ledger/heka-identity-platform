@@ -91,13 +91,6 @@ describe('VerificationSessionClient', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  test('rejects a login configuration without a DCQL query', async () => {
-    const withoutQuery = new OidcLoginConfig({ id: 'no-query', verificationTemplate: 'default' })
-
-    await expect(buildClient().createSignedRequest(withoutQuery)).rejects.toThrow(/no DCQL query/)
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
   test('DC API: creates a signed dc_api session bound to the calling origin', async () => {
     fetchMock.mockResolvedValue(
       fetchResponse({

@@ -8,6 +8,7 @@ name: 'Heka Identity Platform CodeQL config'
 paths:
   - heka-identity-service
   - heka-auth-service
+  - heka-sso-service
 
 paths-ignore:
   # Dependencies, build output and coverage reports are not committed, but stay

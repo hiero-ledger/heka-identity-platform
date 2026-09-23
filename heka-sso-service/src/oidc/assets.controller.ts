@@ -1,8 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 
-import { NOT_FOUND } from '@const'
-import { Controller, Get, Logger, Param, Res } from '@nestjs/common'
+import { Controller, Get, HttpStatus, Logger, Param, Res } from '@nestjs/common'
 import { ApiExcludeController } from '@nestjs/swagger'
 import { Response } from 'express'
 
@@ -29,7 +28,7 @@ export class InteractionAssetsController {
   public async file(@Param('file') file: string, @Res() res: Response): Promise<void> {
     const contentType = InteractionAssetsController.contentTypes[extname(file).toLowerCase()]
     if (!contentType || basename(file) !== file || !/^[\w.-]+$/.test(file) || file.includes('..')) {
-      res.sendStatus(NOT_FOUND)
+      res.sendStatus(HttpStatus.NOT_FOUND)
       return
     }
 
@@ -44,6 +43,6 @@ export class InteractionAssetsController {
       }
     }
     this.logger.warn(`asset '${file}' not found`)
-    res.sendStatus(NOT_FOUND)
+    res.sendStatus(HttpStatus.NOT_FOUND)
   }
 }

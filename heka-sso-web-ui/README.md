@@ -31,11 +31,11 @@ In the realm (`master` by default), create client `heka-sso-web-ui`:
 - Valid post-logout redirect URIs: `http://localhost:5173/*`
 - Web origins: `http://localhost:5173`
 
-The `heka-sso` identity provider (the bridge) is configured separately — see [INTEGRATION.md §1](../heka-sso-service/docs/INTEGRATION.md).
+The `heka-sso` identity provider (the bridge) is configured separately — see the [heka-sso-service README](../heka-sso-service/README.md).
 
 ## Auth0 application setup
 
-With `VITE_AUTH_PROVIDER=auth0` the app talks to an Auth0 tenant instead (see [AUTH0-PLAN.md](../heka-sso-service/docs/AUTH0-PLAN.md)). In the tenant, create a **Single Page Application** and set for `http://localhost:5173`: Allowed Callback URLs, Allowed Logout URLs, and Allowed Web Origins. Enable the `heka-sso` enterprise OIDC connection for the application; `VITE_AUTH0_CONNECTION=heka-sso` then skips Auth0's login widget and forwards straight to the bridge. Note that non-standard brokered claims (`amr`, `vc_presented_attributes`, …) reach the app's tokens only via a post-login Action emitting them as namespaced custom claims.
+With `VITE_AUTH_PROVIDER=auth0` the app talks to an Auth0 tenant instead. In the tenant, create a **Single Page Application** and set for `http://localhost:5173`: Allowed Callback URLs, Allowed Logout URLs, and Allowed Web Origins. Enable the `heka-sso` enterprise OIDC connection for the application; `VITE_AUTH0_CONNECTION=heka-sso` then skips Auth0's login widget and forwards straight to the bridge. Note that non-standard brokered claims (`amr`, `vc_presented_attributes`, …) reach the app's tokens only via a post-login Action emitting them as namespaced custom claims.
 
 ## Run
 

@@ -2,11 +2,9 @@
 
 ## Description
 
-"Sign in with wallet" OIDC bridge for the Heka Identity Platform. The service will act as a standard OIDC provider (built on `node-oidc-provider`) whose sole authentication method is a verifiable-credential presentation (OID4VP), verified by the [Heka Identity Service](../heka-identity-service). Customer IdPs (Keycloak first) broker logins to it via standard OIDC.
+"Sign in with wallet" OIDC bridge for the Heka Identity Platform. The service acts as a standard OIDC provider (built on `node-oidc-provider`) whose sole authentication method is a verifiable-credential presentation (OID4VP), verified by the [Heka Identity Service](../heka-identity-service). Customer IdPs (Keycloak first) broker logins to it via standard OIDC.
 
-See [INTEGRATION.md](docs/INTEGRATION.md) for the design, platform decisions, and the phased implementation plan. The current state is the **Phase 0 scaffold**: platform component skeleton (config, logging, health, database/migrations, Docker, CI) — the OP core, adapter, and wallet-login interaction land in Phase 1.
-
-This service is deliberately separate from [heka-auth-service](../heka-auth-service) (login/password JWT issuance, unchanged): no shared code, database tables, or keys — see INTEGRATION.md §4.5.
+This service is deliberately separate from [heka-auth-service](../heka-auth-service) (login/password JWT issuance, unchanged): no shared code, database tables, or keys.
 
 ## Quick Start
 
@@ -47,7 +45,7 @@ This service is deliberately separate from [heka-auth-service](../heka-auth-serv
 
 The service listens on port `3005` by default. The whole service is the OIDC provider: the `node-oidc-provider` instance is mounted at the app root and owns every path except the Nest-served ones below.
 
-- **OIDC provider** (app root) — discovery at `/.well-known/openid-configuration`, `/authorize`, `/token`, `/jwks` (public halves of the persisted signing keys), `/userinfo`. Client registration and the wallet-login interaction land with the remaining Phase 1 PRs — see [INTEGRATION.md](docs/INTEGRATION.md) §6. Until the MikroORM adapter PR, provider state (sessions, codes) is in-memory.
+- **OIDC provider** (app root) — discovery at `/.well-known/openid-configuration`, `/authorize`, `/token`, `/jwks` (public halves of the persisted signing keys), `/userinfo`, and the wallet-login interaction at `/interaction/:uid`. Clients are registered via the `OIDC_CLIENTS` static configuration (see below). Provider state (sessions, codes) is persisted via the MikroORM adapter.
 - **Health** (`/health`, Nest/Terminus) — memory + database health probe for use as a Kubernetes readiness/liveness check or a Compose healthcheck.
 - **Swagger UI** (`/api/docs`, Nest).
 
@@ -80,7 +78,7 @@ The service is configured via environment variables. Values can be set in `env/.
 
 ### OIDC provider
 
-Secrets in this section have **no compiled-in defaults** (see [INTEGRATION.md](docs/INTEGRATION.md) §5-Decide-4). In **production** (`NODE_ENV=production`) the service **fails fast at startup** when they are unset, too weak, or equal to one of the known dev-default values shipped in `env/.env` / docker-compose. Outside production, unset secrets are generated fresh on every start (sessions and derived `sub` values then do not survive a restart — set explicit dev values when that matters).
+Secrets in this section have **no compiled-in defaults**. In **production** (`NODE_ENV=production`) the service **fails fast at startup** when they are unset, too weak, or equal to one of the known dev-default values shipped in `env/.env` / docker-compose. Outside production, unset secrets are generated fresh on every start (sessions and derived `sub` values then do not survive a restart — set explicit dev values when that matters).
 
 | Variable                       | Default                       | Description                                                                                 |
 |--------------------------------|-------------------------------|---------------------------------------------------------------------------------------------|
@@ -111,7 +109,7 @@ Secrets in this section have **no compiled-in defaults** (see [INTEGRATION.md](d
 
 #### Protocol policy
 
-The OP speaks the IdP-broker common denominator (INTEGRATION.md §1) and nothing more:
+The OP speaks the IdP-broker common denominator and nothing more:
 
 - **Authorization code flow only** — `response_types_supported` is `["code"]`; no implicit or hybrid flows.
 - **PKCE**: **S256 is the only accepted `code_challenge_method`**. The requirement is currently relaxed (`pkce.required` → false) because Keycloak's identity-provider config does not send PKCE unless explicitly enabled — to be re-tightened once the demo realm (P1.7) pins PKCE S256 on the IdP side.
@@ -132,7 +130,7 @@ The OP speaks the IdP-broker common denominator (INTEGRATION.md §1) and nothing
 
 `backchannelLogoutUri` (optional, P2.5) is where the bridge POSTs the OIDC Back-Channel Logout `logout_token` when a session ends; when set, id_tokens and logout_tokens carry `sid` so the receiver can match the exact session (`backchannelLogoutSessionRequired` defaults to `true`). Keycloak's realm-level receiver is shown above.
 
-`OIDC_LOGIN_CONFIGS` — JSON array of declarative login configurations (INTEGRATION.md §4.2): which credentials to ask for, how disclosed claims map to OIDC claims, the `sub` strategy (`derived` default, `credential-claim`, `ephemeral`), and the trusted credential issuers:
+`OIDC_LOGIN_CONFIGS` — JSON array of declarative login configurations: which credentials to ask for, how disclosed claims map to OIDC claims, the `sub` strategy (`derived` default, `credential-claim`, `ephemeral`), and the trusted credential issuers:
 
 ```json
 [{
@@ -149,7 +147,7 @@ The OP speaks the IdP-broker common denominator (INTEGRATION.md §1) and nothing
 
 #### Stub login (dev only)
 
-With `OIDC_STUB_LOGIN=true`, the wallet-login interaction at `/interaction/:uid` completes **immediately, without any credential verification** (INTEGRATION.md P1.3): a fixed dev identity is pushed through the real claims pipeline (claim mapping, `derived` `sub` computation, claim-set storage), so the full broker loop — RP → Keycloak → bridge → back — runs end-to-end before the OID4VP wallet integration lands (P1.6). Stub logins carry `amr: ["stub"]` (never `["vc"]`) so brokered tokens can't be mistaken for verified presentations. The flag is **refused at startup in production**, like the dev-default secrets. When the flag is off and no other acquisition method is available, logins are denied with `access_denied`.
+With `OIDC_STUB_LOGIN=true`, the wallet-login interaction at `/interaction/:uid` completes **immediately, without any credential verification**: a fixed dev identity is pushed through the real claims pipeline (claim mapping, `derived` `sub` computation, claim-set storage), so the full broker loop — RP → Keycloak → bridge → back — can be exercised without a wallet. Stub logins carry `amr: ["stub"]` (never `["vc"]`) so brokered tokens can't be mistaken for verified presentations. The flag is **refused at startup in production**, like the dev-default secrets. When the flag is off and no other acquisition method is available, logins are denied with `access_denied`.
 
 #### Signing keys (JWKS)
 
@@ -172,7 +170,7 @@ IdPs cache the JWKS, so rotation must overlap — never swap keys abruptly (an a
                  where o.alg = k.alg and o.retired_at is null and o.kid <> k.kid);
    ```
 
-Every signing-key operation (first-start generation, rotate, retire) runs inside a transaction holding a Postgres advisory lock (`docs/toctou-remediation-plan.md`), so concurrent replicas serialize instead of racing: two instances booting against an empty database create exactly one key per algorithm and publish identical JWKS.
+Every signing-key operation (first-start generation, rotate, retire) runs inside a transaction holding a Postgres advisory lock (see `test/toctou.e2e.test.ts`), so concurrent replicas serialize instead of racing: two instances booting against an empty database create exactly one key per algorithm and publish identical JWKS.
 
 Until the Phase 2 admin API exposes these operations, rotation is performed via the service methods or SQL. Retired keys stay in the table for audit; they are never republished.
 
@@ -186,7 +184,7 @@ Until the Phase 2 admin API exposes these operations, rotation is performed via 
 
 ### Throttling
 
-Applies to Nest controllers only (see INTEGRATION.md §5 — provider endpoints get rate limits at the reverse proxy):
+Applies to Nest controllers only — provider endpoints get rate limits at the reverse proxy:
 
 | Variable         | Default | Description                                 |
 |------------------|---------|---------------------------------------------|
@@ -206,7 +204,7 @@ Applies to Nest controllers only (see INTEGRATION.md §5 — provider endpoints 
 
 | Variable   | Default   | Description                                                              |
 |------------|-----------|--------------------------------------------------------------------------|
-| `NODE_ENV` | _(unset locally; `production` in the Docker image)_ | Selects the deployment mode. `production` arms the startup guards on the secrets above and switches the logger to non-pretty JSON output; anything else (including unset) is development. Build the image with `--build-arg NODE_ENV=development` for a dev image, or override it per container as both compose files do. |
+| `NODE_ENV` | `production` (including when unset) | Selects the deployment mode. `production` arms the startup guards on the secrets above and switches the logger to non-pretty JSON output; only `development` relaxes them (`test` also skips the dev-secret warning). Set `NODE_ENV=development` for local dev, as both compose files do. |
 
 ## Migrations
 
