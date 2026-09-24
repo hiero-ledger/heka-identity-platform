@@ -1,0 +1,214 @@
+// ContributorHub.module.scss
+// ── Design tokens (Hiero brand) ──────────────────────────────────────────
+$pink: #c6136a;
+$pink-dark: #9e0f56;
+$pink-tint: #fdf0f5;
+$black: #141115;
+$gray-900: #18161b;
+$gray-600: #6f6b74;
+$gray-200: #e9e5ea;
+$white: #ffffff;
+$gradient: linear-gradient(135deg, #ff8a3d 0%, #ef3e7f 55%, #8b5cf6 100%);
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 56px 24px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+/* ── Hero panel ─────────────────────────────────────────────────────────── */
+.heroPanel {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding: 52px 32px 44px;
+  border-radius: 28px;
+  background: linear-gradient(160deg, $pink 0%, $pink-dark 100%);
+  box-shadow: 0 24px 48px -16px rgba($pink, 0.4);
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    pointer-events: none;
+  }
+  &::before { width: 220px; height: 220px; top: -110px; right: -60px; }
+  &::after  { width: 160px; height: 160px; bottom: -90px; left: -40px; }
+}
+
+.heroIconWrap {
+  position: relative;
+  z-index: 1;
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(6px);
+}
+
+.heroIcon { font-size: 38px; line-height: 1; }
+
+.heroTitle {
+  position: relative;
+  z-index: 1;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: $white;
+  margin: 0 0 12px;
+}
+
+.heroSubtitle {
+  position: relative;
+  z-index: 1;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.7;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* ── Steps ──────────────────────────────────────────────────────────────── */
+.sectionLabel {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: $pink;
+  margin: 0 0 16px 4px;
+}
+
+.stepsGrid { display: flex; flex-direction: column; }
+
+.stepRow { display: flex; gap: 18px; }
+
+.stepNumCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.stepNum {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: $gradient;
+  color: $white;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(#ef3e7f, 0.35);
+}
+
+.stepLine {
+  width: 2px;
+  flex: 1;
+  min-height: 24px;
+  margin: 6px 0;
+  background: linear-gradient(to bottom, rgba($pink, 0.25), transparent);
+}
+
+.stepCard {
+  flex: 1;
+  background: $white;
+  border: 1px solid $gray-200;
+  border-radius: 18px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px -12px rgba(0, 0, 0, 0.12);
+    border-color: rgba($pink, 0.3);
+  }
+}
+
+.stepTitle { font-size: 15px; font-weight: 700; color: $gray-900; margin: 0 0 4px; }
+.stepText  { font-size: 13px; color: $gray-600; line-height: 1.6; margin: 0; }
+
+/* ── Wallet notice ──────────────────────────────────────────────────────── */
+.walletNotice {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  background: $pink-tint;
+  border: 1px solid rgba($pink, 0.15);
+  border-radius: 18px;
+  padding: 20px 22px;
+}
+
+.walletIconWrap {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: $white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba($pink, 0.15);
+}
+
+.walletIcon { font-size: 19px; }
+.walletTitle { font-size: 14px; font-weight: 700; color: $gray-900; margin: 0 0 4px; }
+.walletText  { font-size: 13px; color: $gray-600; line-height: 1.6; margin: 0; }
+
+.link {
+  color: $pink;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid rgba($pink, 0.35);
+  transition: border-color 0.15s;
+  &:hover { border-color: $pink; }
+}
+
+/* ── CTA button ─────────────────────────────────────────────────────────── */
+.startBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px 32px;
+  background: $black;
+  border: none;
+  border-radius: 999px;
+  color: $white;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+  box-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.45);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    background: lighten($black, 8%);
+    box-shadow: 0 16px 32px -10px rgba(0, 0, 0, 0.5);
+    .btnArrow { transform: translateX(4px); }
+  }
+  &:active { transform: translateY(0); }
+}
+
+.btnArrow { display: inline-block; transition: transform 0.15s ease; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .container { padding: 40px 16px 56px; gap: 32px; }
+  .heroPanel { padding: 40px 20px 36px; border-radius: 22px; }
+  .heroTitle { font-size: 24px; }
+  .startBtn { width: 100%; padding: 16px 24px; }
+}

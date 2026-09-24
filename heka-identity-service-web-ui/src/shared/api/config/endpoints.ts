@@ -45,6 +45,15 @@ export const agencyEndpoints = {
   getSingleVerificationTemplate: (id: string) =>
     `/verification-templates/${id}`,
   prepareWallet: '/prepare-wallet',
+
+  // ── Contributor onboarding ───────────────────────────────────────────────
+  contributorGithubAuthorizationUrl:
+    '/contributor-onboarding/github/authorization-url',
+  contributorGithubCallback: '/contributor-onboarding/github/callback',
+  contributorOnboardingStatus: '/contributor-onboarding/status',
+  requestContributorGpgChallenge: '/gpg-challenge/request',
+  verifyContributorGpgChallenge: '/gpg-challenge/verify',
+  contributorCredentialOffer: '/v2/contributor-credential/offer',
 };
 
 export const authEndpoints = {
@@ -55,4 +64,11 @@ export const authEndpoints = {
   profile: `/user/profile`,
   requestChangePassword: '/user/password/change-request',
   changePassword: '/user/password/change',
+  // Contributor onboarding (GitHub OAuth + GPG) — served by heka-auth-service
+  githubAuthorizationUrl: `/contributor-onboarding/github/authorization-url`,
+  githubCallback: `/contributor-onboarding/github/callback`,
+  contributorOnboardingStatus: `/contributor-onboarding/status`,
+  requestGpgChallenge: `/gpg-challenge/request`,
+  verifyGpgChallenge: `/gpg-challenge/verify`,
+  gpgChallengeStatus: (username: string) => `/gpg-challenge/status/${username}`,
 };

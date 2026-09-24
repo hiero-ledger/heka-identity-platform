@@ -1,3 +1,5 @@
+import { ContributorAuditEvent } from '../../contributor-onboarding/contributor-audit-event.entity'
+import { ContributorBinding } from '../../contributor-onboarding/contributor-binding.entity'
 import { CredentialStatusList } from './credential-status-list.entity'
 import { Identified } from './identified.entity'
 import { IssuanceTemplateField } from './issuance-template-field.entity'
@@ -22,6 +24,8 @@ export {
   VerificationTemplate,
   VerificationTemplateField,
   CredentialStatusList,
+  ContributorBinding,
+  ContributorAuditEvent,
 }
 
 export default [
@@ -36,4 +40,6 @@ export default [
   VerificationTemplate,
   VerificationTemplateField,
   CredentialStatusList,
+  ContributorBinding,
+  ContributorAuditEvent,
 ]

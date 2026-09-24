@@ -26,8 +26,13 @@ export const handleError = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dispatch?: Dispatch<any>,
 ) => {
-  const apiErrorMessage =
-    (error as ApiError).response?.data.message ?? 'Unknown server error';
+  let apiErrorMessage = 'Unknown server error';
+  
+  if ((error as any).isAxiosError && !(error as ApiError).response) {
+    apiErrorMessage = 'Network Error: Could not connect to the backend server. Is it running?';
+  } else if ((error as ApiError).response?.data?.message) {
+    apiErrorMessage = (error as ApiError).response.data.message as unknown as string;
+  }
 
   const message = errorMessage(apiErrorMessage);
   if (message) toast.error(message);
