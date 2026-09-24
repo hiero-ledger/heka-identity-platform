@@ -1,4 +1,4 @@
-FROM node:22-bullseye-slim@sha256:5736e7ef1f3f2109be7ef8aea0cbdf931804aee9a18c6760507b8ded078b25a9
+FROM node:26-bullseye-slim@sha256:ce69d6017624735163d253581f6bfa3c8bf6c1eb1640ca71393be122c0716838
 
 ARG EXPRESS_PORT
 
