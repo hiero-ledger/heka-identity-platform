@@ -12,6 +12,47 @@ export interface Tokens {
   refreshToken: string | null;
 }
 
+export type ContributorVerificationStatus =
+  | 'GitHubConnected'
+  | 'GpgVerified'
+  | 'NotConnected';
+
+export interface ContributorGithubIdentity {
+  accountId: string;
+  username: string;
+}
+
+export interface ContributorBinding {
+  githubAccountId: string;
+  githubUsername: string;
+  walletId: string;
+  gpgFingerprint?: string;
+  verifiedAt?: string;
+  updatedAt: string;
+}
+
+export interface ContributorAuditEvent {
+  id: string;
+  eventType:
+    | 'ChallengeRequested'
+    | 'ProofAccepted'
+    | 'ProofRejected'
+    | 'BindingUpdated';
+  githubAccountId?: string;
+  githubUsername?: string;
+  walletId?: string;
+  gpgFingerprint?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ContributorOnboardingStatus {
+  github?: ContributorGithubIdentity;
+  binding?: ContributorBinding;
+  verificationStatus: ContributorVerificationStatus;
+  auditEvents: ContributorAuditEvent[];
+}
+
 export interface User {
   name?: string | null;
   tokens?: Tokens;

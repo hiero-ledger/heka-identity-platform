@@ -55,4 +55,11 @@ export const authEndpoints = {
   profile: `/user/profile`,
   requestChangePassword: '/user/password/change-request',
   changePassword: '/user/password/change',
+  // Contributor onboarding (GitHub OAuth + GPG) — served by heka-auth-service
+  githubAuthorizationUrl: `/contributor-onboarding/github/authorization-url`,
+  githubCallback: `/contributor-onboarding/github/callback`,
+  contributorOnboardingStatus: `/contributor-onboarding/status`,
+  requestGpgChallenge: `/gpg-challenge/request`,
+  verifyGpgChallenge: `/gpg-challenge/verify`,
+  gpgChallengeStatus: (username: string) => `/gpg-challenge/status/${username}`,
 };
