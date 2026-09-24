@@ -11,8 +11,8 @@ import {
 } from '@nestjs/swagger'
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
-import { JwtAuthGuard, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { JwtAuthGuard } from 'common/auth'
+import { Capability, RequireCapability, RoleGuard } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { OpenId4VcVerifierCreateDto, OpenId4VcVerifierRecordDto, FindVerifierDto } from './dto'
@@ -41,9 +41,9 @@ export class OpenId4VcVerifierController {
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiUnprocessableEntityResponse({ description: 'Unprocessable Entity' })
+  @RequireCapability(Capability.Verify)
   @Post()
   @HttpCode(HttpStatus.OK)
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Verifier)
   public async create(
     @ReqTenantAgent() tenantAgent: TenantAgent,
     @Body() req: OpenId4VcVerifierCreateDto,
@@ -63,6 +63,7 @@ export class OpenId4VcVerifierController {
   @ApiOperation({ summary: 'Get verifier records' })
   @ApiOkResponse({ description: 'Verifier records', isArray: true, type: OpenId4VcVerifierRecordDto })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @RequireCapability(Capability.Read)
   @Get()
   public async find(
     @ReqTenantAgent() tenantAgent: TenantAgent,

@@ -1,7 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { ThunkConfig } from '@/app/providers/StoreProvider';
-import { userRole } from '@/const/user';
 import { authEndpoints } from '@/shared/api/config/endpoints';
 import { handleError } from '@/shared/api/utils/error';
 
@@ -16,10 +15,7 @@ export const signUp = createAsyncThunk<void, SignUpParams, ThunkConfig<string>>(
     const { extra, rejectWithValue, dispatch } = thunkAPI;
 
     try {
-      await extra.authApi.post(authEndpoints.register, {
-        ...body,
-        role: userRole,
-      });
+      await extra.authApi.post(authEndpoints.register, body);
     } catch (error) {
       return handleError(error, rejectWithValue, dispatch);
     }

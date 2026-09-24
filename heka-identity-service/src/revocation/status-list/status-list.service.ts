@@ -3,7 +3,7 @@ import { EntityManager } from '@mikro-orm/core'
 import { BadRequestException, Inject, Injectable, InternalServerErrorException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
-import { CredentialStatusList } from 'common/entities'
+import { CredentialStatusList, Wallet } from 'common/entities'
 
 import { AuthInfo } from '../../common/auth'
 import { defaultCredentialStatusListSize } from '../../common/entities/credential-status-list.entity'
@@ -50,7 +50,7 @@ export class StatusListService {
       size,
       purpose: req.purpose,
       issuer: req.issuer,
-      owner: authInfo.user,
+      owner: this.em.getReference(Wallet, authInfo.walletId),
     })
 
     this.em.persist(statusList)
@@ -60,7 +60,10 @@ export class StatusListService {
   }
 
   public async get(authInfo: AuthInfo, id: string): Promise<StatusList> {
-    const credentialStatusList = await this.em.findOneOrFail(CredentialStatusList, { id, owner: authInfo.user })
+    const credentialStatusList = await this.em.findOneOrFail(CredentialStatusList, {
+      id,
+      owner: this.em.getReference(Wallet, authInfo.walletId),
+    })
     return new StatusList({
       encodedList: credentialStatusList.encodedList,
       lastIndex: credentialStatusList.lastIndex,
@@ -70,7 +73,9 @@ export class StatusListService {
   }
 
   public async find(authInfo: AuthInfo): Promise<Array<StatusList>> {
-    const credentialStatusLists = await this.em.find(CredentialStatusList, { owner: authInfo.user })
+    const credentialStatusLists = await this.em.find(CredentialStatusList, {
+      owner: this.em.getReference(Wallet, authInfo.walletId),
+    })
     return credentialStatusLists.map(
       (credentialStatusList) =>
         new StatusList({
@@ -84,7 +89,7 @@ export class StatusListService {
 
   public async getOrCreate(authInfo: AuthInfo, issuer: string): Promise<CredentialStatusList> {
     const lists = await this.em.find(CredentialStatusList, {
-      owner: authInfo.user,
+      owner: this.em.getReference(Wallet, authInfo.walletId),
     })
     const list = lists.find((list) => list.lastIndex < list.size)
     return list ?? (await this.create(authInfo, { issuer }))
@@ -97,7 +102,10 @@ export class StatusListService {
   }
 
   public async addItems(authInfo: AuthInfo, id: string, indexes: Array<number>): Promise<void> {
-    const statusList = await this.em.findOneOrFail(CredentialStatusList, { id, owner: authInfo.user })
+    const statusList = await this.em.findOneOrFail(CredentialStatusList, {
+      id,
+      owner: this.em.getReference(Wallet, authInfo.walletId),
+    })
 
     this.assertHasFreeIndexes(statusList, indexes.length)
 
@@ -108,7 +116,10 @@ export class StatusListService {
   }
 
   public async updateItems(authInfo: AuthInfo, id: string, data: UpdateStatusListRequest): Promise<void> {
-    const statusList = await this.em.findOneOrFail(CredentialStatusList, { id, owner: authInfo.user })
+    const statusList = await this.em.findOneOrFail(CredentialStatusList, {
+      id,
+      owner: this.em.getReference(Wallet, authInfo.walletId),
+    })
 
     statusList.encodedList = await this.updatedBitstring(
       statusList.encodedList,

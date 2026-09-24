@@ -2,6 +2,8 @@ import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
 import {
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
   InternalServerErrorException,
   NotFoundException,
   UnprocessableEntityException,
@@ -9,7 +11,8 @@ import {
 import { ConfigType } from '@nestjs/config'
 
 import { Agent, TenantAgent } from 'common/agent'
-import { Role } from 'common/auth'
+import { AuthInfo, Role } from 'common/auth'
+import { AuthorizationService } from 'common/authz'
 import { DidRegistrarService } from 'common/did-registrar'
 import { User, Wallet } from 'common/entities'
 import { Logger } from 'common/logger'
@@ -34,7 +37,14 @@ describe('DidService', () => {
     em = createMock<EntityManager>()
     logger = createMock<Logger>()
     didRegistrarService = createMock<DidRegistrarService>()
-    didService = new DidService(agent, em, logger, didRegistrarService, agentConfig)
+    didService = new DidService(
+      agent,
+      em,
+      logger,
+      didRegistrarService,
+      agentConfig,
+      new AuthorizationService({ enabled: true }),
+    )
     tenantAgent = createMock<TenantAgent>({
       dids: {
         getCreatedDids: vi.fn(),
@@ -149,69 +159,114 @@ describe('DidService', () => {
   })
 
   describe('create', () => {
-    const baseAuthInfo = {
+    const makeAuthInfo = (role: Role, walletId: string, orgId?: string): AuthInfo => ({
       userId: 'user-1',
       user: entityStub<User>({}),
       userName: 'testuser',
-      walletId: 'wallet-1',
+      role,
+      orgId,
+      walletId,
       tenantId: 'tenant-1',
-    }
-
-    test('throws when wallet already has a publicDid', async () => {
-      vi.mocked(em.findOneOrFail).mockResolvedValue(
-        entityStub<Wallet>({ id: 'wallet-1', publicDid: 'did:indy:existing' }),
-      )
-
-      const authInfo = { ...baseAuthInfo, role: Role.Admin }
-
-      await expect(didService.create(authInfo, { method: 'indy' })).rejects.toThrow(
-        'The wallet already contains created public DID: did:indy:existing',
-      )
-      expect(em.findOneOrFail).toHaveBeenCalledWith(Wallet, { id: 'wallet-1' })
     })
 
-    test('creates DID via didRegistrarService when no controller wallet is required (Admin role)', async () => {
-      vi.mocked(em.findOneOrFail).mockResolvedValue(entityStub<Wallet>({ id: 'wallet-1', publicDid: undefined }))
+    const makeService = (enabled: boolean) =>
+      new DidService(agent, em, logger, didRegistrarService, agentConfig, new AuthorizationService({ enabled }))
 
-      const didDocument = didDocumentStub({
-        id: 'did:indy:test-ns:newdid',
-        verificationMethod: [{ id: 'did:indy:test-ns:newdid#key-1' }],
-      })
-      vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocument)
-      vi.mocked(em.flush).mockResolvedValue(undefined)
+    test('creates the main-method DID in the caller tenant and persists it as the wallet public DID', async () => {
+      const wallet = entityStub<Wallet>({ id: 'Administration', publicDid: undefined })
+      vi.mocked(em.findOneOrFail).mockResolvedValue(wallet)
+      vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocumentStub({ id: 'did:key:root' }))
 
-      const authInfo = { ...baseAuthInfo, role: Role.Admin }
+      const result = await didService.create(makeAuthInfo(Role.Admin, 'Administration'), {})
 
-      const result = await didService.create(authInfo, { method: 'indy' })
-
-      expect(em.findOneOrFail).toHaveBeenCalledWith(Wallet, { id: 'wallet-1' })
-      expect(result.id).toBe('did:indy:test-ns:newdid')
-      expect(didRegistrarService.createDid).toHaveBeenCalledWith('tenant-1', 'indy', {
-        namespace: 'test-ns',
-      })
+      expect(result.id).toBe('did:key:root')
+      expect(didRegistrarService.createDid).toHaveBeenCalledWith('tenant-1', 'key', { namespace: 'test-ns' })
+      expect(wallet.publicDid).toBe('did:key:root')
       expect(em.flush).toHaveBeenCalled()
     })
 
-    test('throws UnprocessableEntityException when didControllerWallet is not found', async () => {
-      vi.mocked(em.findOneOrFail).mockResolvedValue(entityStub<Wallet>({ id: 'wallet-1', publicDid: undefined }))
-      vi.mocked(em.findOne).mockResolvedValue(null)
+    test('creates a non-main DID without touching the wallet public DID', async () => {
+      const wallet = entityStub<Wallet>({ id: 'Administration', publicDid: 'did:key:root' })
+      vi.mocked(em.findOneOrFail).mockResolvedValue(wallet)
+      vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocumentStub({ id: 'did:indy:test-ns:own' }))
 
-      const authInfo = { ...baseAuthInfo, role: Role.OrgAdmin, orgId: 'org-1' }
+      const result = await didService.create(makeAuthInfo(Role.Admin, 'Administration'), { method: 'indy' })
 
-      await expect(didService.create(authInfo, { method: 'indy' })).rejects.toThrow(UnprocessableEntityException)
-      expect(em.findOneOrFail).toHaveBeenCalledWith(Wallet, { id: 'wallet-1' })
-      expect(em.findOne).toHaveBeenCalledWith(Wallet, { id: 'Administration' })
+      expect(result.id).toBe('did:indy:test-ns:own')
+      expect(wallet.publicDid).toBe('did:key:root')
     })
 
-    test('throws UnprocessableEntityException when didControllerWallet has no publicDid', async () => {
-      vi.mocked(em.findOneOrFail).mockResolvedValue(entityStub<Wallet>({ id: 'wallet-1', publicDid: undefined }))
-      vi.mocked(em.findOne).mockResolvedValue(entityStub<Wallet>({ id: 'Administration', publicDid: undefined }))
+    test('1. rejects a role without the did capability before anything else', async () => {
+      await expect(didService.create(makeAuthInfo(Role.OrgManager, 'Organization_org-1', 'org-1'), {})).rejects.toThrow(
+        ForbiddenException,
+      )
+      expect(em.findOneOrFail).not.toHaveBeenCalled()
+      expect(didRegistrarService.createDid).not.toHaveBeenCalled()
+    })
 
-      const authInfo = { ...baseAuthInfo, role: Role.OrgAdmin, orgId: 'org-1' }
+    test('2. returns 409 when the wallet already has its main-method DID, before the controller check', async () => {
+      vi.mocked(em.findOneOrFail).mockResolvedValue(
+        entityStub<Wallet>({ id: 'Member_user-1_in_Organization_org-1', publicDid: 'did:key:existing' }),
+      )
 
-      await expect(didService.create(authInfo, { method: 'indy' })).rejects.toThrow(UnprocessableEntityException)
-      expect(em.findOneOrFail).toHaveBeenCalledWith(Wallet, { id: 'wallet-1' })
-      expect(em.findOne).toHaveBeenCalledWith(Wallet, { id: 'Administration' })
+      await expect(
+        didService.create(makeAuthInfo(Role.Issuer, 'Member_user-1_in_Organization_org-1', 'org-1'), {}),
+      ).rejects.toThrow(ConflictException)
+      expect(em.findOne).not.toHaveBeenCalled()
+    })
+
+    test.each([
+      [Role.OrgAdmin, 'Organization_org-1', 'Administration'],
+      [Role.Issuer, 'Member_user-1_in_Organization_org-1', 'Organization_org-1'],
+      [Role.Verifier, 'Member_user-1_in_Organization_org-1', 'Organization_org-1'],
+    ])('3. %s gets 422 until its controller %s has a public DID', async (role, walletId, controllerId) => {
+      vi.mocked(em.findOneOrFail).mockResolvedValue(entityStub<Wallet>({ id: walletId, publicDid: undefined }))
+      vi.mocked(em.findOne).mockResolvedValue(entityStub<Wallet>({ id: controllerId, publicDid: undefined }))
+
+      await expect(didService.create(makeAuthInfo(role, walletId, 'org-1'), {})).rejects.toThrow(
+        UnprocessableEntityException,
+      )
+      expect(em.findOne).toHaveBeenCalledWith(Wallet, { id: controllerId })
+      expect(didRegistrarService.createDid).not.toHaveBeenCalled()
+    })
+
+    test('3. once the controller has a public DID, the DID is created in the caller tenant', async () => {
+      vi.mocked(em.findOneOrFail).mockResolvedValue(
+        entityStub<Wallet>({ id: 'Member_user-1_in_Organization_org-1', publicDid: undefined }),
+      )
+      vi.mocked(em.findOne).mockResolvedValue(
+        entityStub<Wallet>({ id: 'Organization_org-1', publicDid: 'did:key:org', tenantId: 'org-tenant' }),
+      )
+      vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocumentStub({ id: 'did:indy:test-ns:issuer' }))
+
+      await didService.create(makeAuthInfo(Role.Issuer, 'Member_user-1_in_Organization_org-1', 'org-1'), {
+        method: 'indy',
+      })
+
+      expect(didRegistrarService.createDid).toHaveBeenCalledWith('tenant-1', 'indy', { namespace: 'test-ns' })
+    })
+
+    test('4. an unsupported method is rejected by the registrar after the authorization checks', async () => {
+      vi.mocked(em.findOneOrFail).mockResolvedValue(entityStub<Wallet>({ id: 'Administration', publicDid: undefined }))
+      vi.mocked(didRegistrarService.createDid).mockRejectedValue(
+        new BadRequestException("DID Method 'foo' is not supported"),
+      )
+
+      await expect(didService.create(makeAuthInfo(Role.Admin, 'Administration'), { method: 'foo' })).rejects.toThrow(
+        BadRequestException,
+      )
+    })
+
+    test('simplified mode skips the capability and controller checks', async () => {
+      const service = makeService(false)
+      const wallet = entityStub<Wallet>({ id: 'Member_user-1_in_Organization_org-1', publicDid: undefined })
+      vi.mocked(em.findOneOrFail).mockResolvedValue(wallet)
+      vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocumentStub({ id: 'did:key:member' }))
+
+      await service.create(makeAuthInfo(Role.OrgMember, 'Member_user-1_in_Organization_org-1', 'org-1'), {})
+
+      expect(em.findOne).not.toHaveBeenCalled()
+      expect(wallet.publicDid).toBe('did:key:member')
     })
   })
 })

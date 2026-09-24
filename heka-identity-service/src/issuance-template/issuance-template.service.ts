@@ -2,7 +2,7 @@ import { EntityManager } from '@mikro-orm/core'
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 
 import { AuthInfo } from 'common/auth'
-import { IssuanceTemplate, IssuanceTemplateField, Schema } from 'common/entities'
+import { IssuanceTemplate, IssuanceTemplateField, Schema, Wallet } from 'common/entities'
 import { FileStorageService } from 'common/file-storage/file-storage.service'
 import { InjectLogger, Logger } from 'common/logger'
 import {
@@ -136,7 +136,7 @@ export class IssuanceTemplateService {
   public getTemplateById = async (authInfo: AuthInfo, id: string): Promise<IssuanceTemplateResponse> => {
     const template = await this.em.findOne(
       IssuanceTemplate,
-      { owner: authInfo.user, id },
+      { owner: this.em.getReference(Wallet, authInfo.walletId), id },
       {
         populate: ['owner', 'schema', 'schema.fields', 'schema.registrations', 'fields', 'fields.schemaField'],
       },
@@ -193,7 +193,7 @@ export class IssuanceTemplateService {
 
     const conditions = []
 
-    conditions.push({ owner: authInfo.user })
+    conditions.push({ owner: this.em.getReference(Wallet, authInfo.walletId) })
 
     if (request.text) {
       conditions.push({ name: { $like: `%${request.text}%` } })
@@ -291,7 +291,7 @@ export class IssuanceTemplateService {
     const logger = this.logger.child('create')
     logger.trace('>')
 
-    const owner = authInfo.user
+    const owner = this.em.getReference(Wallet, authInfo.walletId)
 
     // check unique
     if (await this.em.findOne(IssuanceTemplate, { owner, name: request.name }, { populate: ['owner'] })) {
@@ -368,7 +368,7 @@ export class IssuanceTemplateService {
     const logger = this.logger.child('patch')
     logger.trace('>')
 
-    const owner = authInfo.user
+    const owner = this.em.getReference(Wallet, authInfo.walletId)
 
     const template = await this.em.findOne(
       IssuanceTemplate,
@@ -459,7 +459,7 @@ export class IssuanceTemplateService {
 
     const template = await this.em.findOne(
       IssuanceTemplate,
-      { id, owner: authInfo.user },
+      { id, owner: this.em.getReference(Wallet, authInfo.walletId) },
       { populate: ['owner', 'fields'] },
     )
     if (!template) {

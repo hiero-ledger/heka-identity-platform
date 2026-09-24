@@ -279,15 +279,23 @@ API requests must carry a Bearer token signed with `JWT_SECRET`. The default val
 
 The token strategy (`src/common/auth/jwt.strategy.ts`) and validator (`src/common/auth/auth.service.ts`) expect:
 
-| Claim         | Required | Description                                                                                                                                                      |
-| ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sub`         | Yes      | Stable user identifier. Used to provision and look up the user record.                                                                                           |
-| `roles`       | Yes      | Array of role strings. The first entry is taken as the primary role. Valid values: `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User`. |
-| `name`        | Yes      | User-facing display name; also used as the wallet label on first sight.                                                                                          |
-| `org_id`      | No       | Optional organization identifier. Required when issuing org-scoped credentials.                                                                                  |
-| `iss` / `aud` | Yes      | Standard JWT claims; must match `JWT_VERIFY_OPTIONS_ISSUER` / `_AUDIENCE`.                                                                                       |
+| Claim         | Required | Description                                                                                                                                                                                                                  |
+| ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sub`         | Yes      | Stable user identifier. Used to provision and look up the user record.                                                                                                                                                       |
+| `roles`       | Yes      | Array with exactly one role. Valid values: `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User`. It decides the wallet in both modes, and permissions when the [role model](#role-model) is enabled. |
+| `name`        | Yes      | User-facing display name; also used as the wallet label on first sight.                                                                                                                                                      |
+| `org_id`      | Depends  | Organization identifier. Required for `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer` and `Verifier`; rejected for `Admin` and `User`.                                                                                       |
+| `iss` / `aud` | Yes      | Standard JWT claims; must match `JWT_VERIFY_OPTIONS_ISSUER` / `_AUDIENCE`.                                                                                                                                                   |
 
 The `tenantId` is **not** a JWT claim — it is derived internally from `(role, sub, org_id)` on first request and persisted with the auto-provisioned wallet. See [Concepts and Glossary — Multi-Tenancy](concepts.md#multi-tenancy).
+
+### Role model
+
+| Variable             | Default | Description                                                                                                             |
+| -------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ROLE_MODEL_ENABLED` | `false` | Set to `true` to enforce role capabilities. When disabled, every user has every capability over the wallet they act in. |
+
+The flag doesn't change roles, organizations or wallets, so it can be changed with a restart without affecting data. See [Concepts — Role model](concepts.md#role-model).
 
 ### Ledger / DID methods
 

@@ -84,7 +84,7 @@ export class OCAFilesService {
       new MetaOverlay({
         captureBase: capture_base.digest,
         name: schema.name ?? undefined,
-        issuer: schema.owner?.name ?? undefined,
+        issuer: schema.owner?.displayName ?? undefined,
         language: 'en',
       }),
     )

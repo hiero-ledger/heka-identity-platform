@@ -73,11 +73,7 @@ describe('UserService', () => {
     it('should register a new user with a hashed password', async () => {
       userRepository.findOne.mockResolvedValue(null)
 
-      const result = await service.register({
-        name: 'alice',
-        password: 'StrongP@ss1',
-        role: UserRole.Issuer,
-      })
+      const result = await service.register({ name: 'alice', password: 'StrongP@ss1' })
 
       expect(userRepository.findOne).toHaveBeenCalledWith({ name: 'alice' })
       expect(hashPassword).toHaveBeenCalledWith('StrongP@ss1')
@@ -86,7 +82,6 @@ describe('UserService', () => {
       const persistedUser = userRepository.persistAndFlush.mock.calls[0]?.[0]
       expect(persistedUser?.name).toBe('alice')
       expect(persistedUser?.password).toBe('hashed-password')
-      expect(persistedUser?.role).toBe(UserRole.Issuer)
       expect(result).toBeDefined()
     })
 
@@ -100,13 +95,13 @@ describe('UserService', () => {
       expect(userRepository.persistAndFlush).not.toHaveBeenCalled()
     })
 
-    it('should default to User role when no role is provided', async () => {
+    it('should always register the user as an OrgMember of the platform organization', async () => {
       userRepository.findOne.mockResolvedValue(null)
 
       await service.register({ name: 'bob', password: 'StrongP@ss1' })
 
       const persistedUser = userRepository.persistAndFlush.mock.calls[0]?.[0]
-      expect(persistedUser?.role).toBe(UserRole.User)
+      expect(persistedUser?.role).toBe(UserRole.OrgMember)
     })
   })
 

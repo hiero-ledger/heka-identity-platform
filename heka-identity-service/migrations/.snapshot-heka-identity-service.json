@@ -152,7 +152,7 @@
           "referencedColumnNames": [
             "id"
           ],
-          "referencedTableName": "public.user",
+          "referencedTableName": "public.wallet",
           "updateRule": "cascade"
         }
       },
@@ -377,7 +377,7 @@
           "referencedColumnNames": [
             "id"
           ],
-          "referencedTableName": "public.user",
+          "referencedTableName": "public.wallet",
           "updateRule": "cascade"
         },
         "issuance_template_schema_id_foreign": {
@@ -688,7 +688,7 @@
           "referencedColumnNames": [
             "id"
           ],
-          "referencedTableName": "public.user",
+          "referencedTableName": "public.wallet",
           "updateRule": "cascade"
         }
       },
@@ -1425,7 +1425,7 @@
           "referencedColumnNames": [
             "id"
           ],
-          "referencedTableName": "public.user",
+          "referencedTableName": "public.wallet",
           "updateRule": "cascade"
         },
         "verification_template_schema_id_foreign": {
@@ -1565,6 +1565,23 @@
       "name": "wallet",
       "schema": "public",
       "columns": {
+        "display_name": {
+          "name": "display_name",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
         "id": {
           "name": "id",
           "type": "varchar(255)",

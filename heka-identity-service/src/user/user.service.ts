@@ -3,9 +3,10 @@ import { Injectable } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
 import { AuthInfo } from 'common/auth'
-import { User } from 'common/entities'
+import { User, Wallet } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
+import { administersWallet } from 'utils/auth'
 
 import { FileStorageService } from '../common/file-storage/file-storage.service'
 
@@ -80,15 +81,22 @@ export class UserService {
       user.registeredAt = new Date()
     }
 
-    const issuerLogoPath = newLogoPath ?? user.logo
-    const issuerLogoUrl = issuerLogoPath ? this.fileStorageService.url(issuerLogoPath) : undefined
-    await this.openId4VcIssuerService.applyUserDisplay(tenantAgent, {
-      logo: {
-        url: issuerLogoUrl,
-      },
-      background_color: user.backgroundColor,
-      name: user.name ?? authInfo.userId,
-    })
+    // The issuer display belongs to the wallet, so only an actor who administers it writes it
+    if (administersWallet(authInfo.role)) {
+      const issuerLogoPath = newLogoPath ?? user.logo
+      const issuerLogoUrl = issuerLogoPath ? this.fileStorageService.url(issuerLogoPath) : undefined
+      const displayName = user.name ?? authInfo.userId
+      await this.openId4VcIssuerService.applyUserDisplay(tenantAgent, {
+        logo: {
+          url: issuerLogoUrl,
+        },
+        background_color: user.backgroundColor,
+        name: displayName,
+      })
+
+      const wallet = await this.em.findOneOrFail(Wallet, { id: authInfo.walletId })
+      wallet.displayName = displayName
+    }
     await this.em.flush()
 
     const res = this.userToUserDto(user)

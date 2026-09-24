@@ -7,6 +7,7 @@ import { ConfigModule, ConfigType } from '@nestjs/config'
 import { AgentModule } from 'common/agent'
 import { AnoncredsRegistryModule } from 'common/anoncreds-registry'
 import { AuthModule } from 'common/auth'
+import { AuthzModule } from 'common/authz'
 import entities from 'common/entities'
 import { LoggerProvider } from 'common/logger'
 import { NotificationModule } from 'common/notification'
@@ -40,6 +41,7 @@ import { MikroOrmMiddleware } from './mikro-orm'
     AgentModule,
     NotificationModule,
     AuthModule,
+    AuthzModule,
     ExceptionMapperModule,
     DidRegistrarModule,
     AnoncredsRegistryModule,

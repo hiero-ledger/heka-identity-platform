@@ -95,7 +95,7 @@ describe('E2E verification session', () => {
 
   test('create request with PEX', async () => {
     const firstAdminId = uuid()
-    const firstAdminAuthToken = await createAuthToken(firstAdminId, Role.Admin)
+    const firstAdminAuthToken = await createAuthToken(firstAdminId, Role.OrgMember, uuid())
 
     const postDidResponse = await request(app).post('/dids').auth(firstAdminAuthToken, { type: 'bearer' }).send({})
     expect(postDidResponse.statusCode).toBe(201)
@@ -191,7 +191,7 @@ describe('E2E verification session', () => {
 
   test('create request with DCQL', async () => {
     const firstAdminId = uuid()
-    const firstAdminAuthToken = await createAuthToken(firstAdminId, Role.Admin)
+    const firstAdminAuthToken = await createAuthToken(firstAdminId, Role.OrgMember, uuid())
 
     const postDidResponse = await request(app).post('/dids').auth(firstAdminAuthToken, { type: 'bearer' }).send({})
     expect(postDidResponse.statusCode).toBe(201)

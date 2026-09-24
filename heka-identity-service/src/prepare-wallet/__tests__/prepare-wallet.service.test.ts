@@ -1,7 +1,11 @@
 import { createMock } from '@golevelup/ts-vitest'
+import { EntityManager } from '@mikro-orm/core'
+import { ForbiddenException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
-import { Role } from 'common/auth'
+import { AuthInfo, Role } from 'common/auth'
+import { AuthorizationService } from 'common/authz'
+import { Wallet } from 'common/entities'
 import { Logger } from 'common/logger'
 import { DidService } from 'did/did.service'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
@@ -20,16 +24,29 @@ describe('PrepareWalletService', () => {
   let schemaV2Service: SchemaV2Service
   let userService: UserService
   let tenantAgent: TenantAgent
+  let em: EntityManager
+  let wallet: Wallet
 
-  const authInfo = {
+  const authInfo: AuthInfo = {
     userId: 'user-1',
     user: { id: 'user-1' } as any,
     userName: 'testuser',
     role: Role.Admin,
-    orgId: '1',
-    walletId: 'Administration_user-1',
+    walletId: 'Administration',
     tenantId: 'tenant-1',
   }
+
+  const makeService = (enabled: boolean) =>
+    new PrepareWalletService(
+      logger,
+      em,
+      new AuthorizationService({ enabled }),
+      didService,
+      issuerService,
+      verifierService,
+      schemaV2Service,
+      userService,
+    )
 
   beforeEach(() => {
     logger = createMock<Logger>()
@@ -38,23 +55,19 @@ describe('PrepareWalletService', () => {
     verifierService = createMock<OpenId4VcVerifierService>()
     schemaV2Service = createMock<SchemaV2Service>()
     userService = createMock<UserService>()
-    prepareWalletService = new PrepareWalletService(
-      logger,
-      didService,
-      issuerService,
-      verifierService,
-      schemaV2Service,
-      userService,
-    )
+    wallet = { id: 'Administration', publicDid: undefined } as Wallet
+    em = createMock<EntityManager>()
+    vi.mocked(em.findOneOrFail).mockResolvedValue(wallet)
+    prepareWalletService = makeService(true)
     tenantAgent = createMock<TenantAgent>()
   })
 
   test('returns existing DID when wallet is already prepared', async () => {
-    vi.mocked(didService.find).mockResolvedValue([{ id: 'did:key:existing' }] as any)
+    wallet.publicDid = 'did:key:existing'
 
     const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {})
 
-    expect(didService.find).toHaveBeenCalledWith(tenantAgent, expect.objectContaining({ method: 'key', own: true }))
+    expect(em.findOneOrFail).toHaveBeenCalledWith(Wallet, { id: 'Administration' })
     expect(result.did).toBe('did:key:existing')
     expect(didService.create).not.toHaveBeenCalled()
   })
@@ -85,14 +98,13 @@ describe('PrepareWalletService', () => {
     )
   })
 
-  test('throws when main DID method (key) fails to create', async () => {
+  test('returns the main DID error as is when the main method fails', async () => {
     vi.mocked(didService.find).mockResolvedValue([])
     vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
-    vi.mocked(didService.create).mockRejectedValue(new Error('KMS failure'))
+    const error = new Error('KMS failure')
+    vi.mocked(didService.create).mockRejectedValue(error)
 
-    await expect(prepareWalletService.prepareWallet(authInfo, tenantAgent, {})).rejects.toThrow(
-      'Failed to create DID for main method key',
-    )
+    await expect(prepareWalletService.prepareWallet(authInfo, tenantAgent, {})).rejects.toBe(error)
     expect(didService.create).toHaveBeenCalledWith(authInfo, { method: 'key' })
   })
 
@@ -234,6 +246,7 @@ describe('PrepareWalletService', () => {
   test('continues with remaining registrations when a DID lookup fails', async () => {
     // the wallet is already prepared (main 'key' DID resolves); the 'hedera'
     // lookup throws, which must not abort the still-valid 'key' registration
+    wallet.publicDid = 'did:key:z1'
     vi.mocked(didService.find).mockImplementation((_agent, req: any) => {
       if (req.method === 'hedera') return Promise.reject(new Error('wallet lookup failure'))
       return Promise.resolve([{ id: 'did:key:z1' }] as any)
@@ -262,5 +275,57 @@ describe('PrepareWalletService', () => {
       'schema-1',
       expect.objectContaining({ network: 'key', did: 'did:key:z1' }),
     )
+  })
+
+  describe('nested operations are authorized by their own capability (role model enabled)', () => {
+    const memberAuthInfo = (role: Role): AuthInfo => ({
+      ...authInfo,
+      role,
+      orgId: 'org-1',
+      walletId: 'Member_user-1_in_Organization_org-1',
+    })
+
+    beforeEach(() => {
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+      vi.mocked(didService.create).mockResolvedValue({ id: 'did:key:z1' } as any)
+    })
+
+    test('an Issuer gets issuer records only', async () => {
+      await prepareWalletService.prepareWallet(memberAuthInfo(Role.Issuer), tenantAgent, {})
+
+      expect(issuerService.createIssuer).toHaveBeenCalledTimes(1)
+      expect(verifierService.createVerifier).not.toHaveBeenCalled()
+    })
+
+    test('a Verifier gets verifier records only', async () => {
+      await prepareWalletService.prepareWallet(memberAuthInfo(Role.Verifier), tenantAgent, {})
+
+      expect(issuerService.createIssuer).not.toHaveBeenCalled()
+      expect(verifierService.createVerifier).toHaveBeenCalledTimes(1)
+    })
+
+    test('a Verifier requesting schemas gets 403 before anything is created', async () => {
+      await expect(
+        prepareWalletService.prepareWallet(memberAuthInfo(Role.Verifier), tenantAgent, {
+          schemas: [{ name: 'TestSchema', fields: [{ name: 'field1' }] } as any],
+        }),
+      ).rejects.toThrow(ForbiddenException)
+
+      expect(em.findOneOrFail).not.toHaveBeenCalled()
+      expect(didService.create).not.toHaveBeenCalled()
+      expect(schemaV2Service.create).not.toHaveBeenCalled()
+    })
+
+    test('with the role model disabled a Verifier gets both records and may request schemas', async () => {
+      vi.mocked(schemaV2Service.create).mockResolvedValue({ id: 'schema-1' } as any)
+
+      await makeService(false).prepareWallet(memberAuthInfo(Role.Verifier), tenantAgent, {
+        schemas: [{ name: 'TestSchema', fields: [{ name: 'field1' }] } as any],
+      })
+
+      expect(issuerService.createIssuer).toHaveBeenCalledTimes(1)
+      expect(verifierService.createVerifier).toHaveBeenCalledTimes(1)
+      expect(schemaV2Service.create).toHaveBeenCalledTimes(1)
+    })
   })
 })

@@ -3,7 +3,7 @@ import { EntityManager } from '@mikro-orm/core'
 
 import { TenantAgent } from 'common/agent'
 import { Role } from 'common/auth'
-import { MessageDeliveryType, User } from 'common/entities'
+import { MessageDeliveryType, User, Wallet } from 'common/entities'
 import { Logger } from 'common/logger'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
 
@@ -24,7 +24,7 @@ describe('UserService', () => {
     userName: 'test',
     role: Role.Issuer,
     orgId: '7',
-    walletId: 'Issuer_11_in_Organization_7',
+    walletId: 'Member_11_in_Organization_7',
     tenantId: '123',
   }
 
@@ -139,6 +139,42 @@ describe('UserService', () => {
 
       expect(em.findOneOrFail).toHaveBeenCalledWith(User, { id: '11' })
       expect(user.registeredAt).toBe(existingDate)
+    })
+  })
+
+  describe('issuer display belongs to the wallet', () => {
+    const mockEntities = (user: User, wallet: Wallet) =>
+      vi
+        .mocked(em.findOneOrFail)
+        .mockImplementation(((entity: unknown) => Promise.resolve(entity === Wallet ? wallet : user)) as never)
+
+    test('an actor who administers the wallet writes the display and the wallet display name', async () => {
+      const user = new User({ id: '11' })
+      const wallet = new Wallet({ id: 'Member_11_in_Organization_7', tenantId: '123' })
+      mockEntities(user, wallet)
+
+      await userService.patchMe(authInfo, tenantAgent, { name: 'Alice' })
+
+      expect(issuerService.applyUserDisplay).toHaveBeenCalledWith(
+        tenantAgent,
+        expect.objectContaining({ name: 'Alice' }),
+      )
+      expect(wallet.displayName).toBe('Alice')
+    })
+
+    test('an OrgManager updates only their own profile, not the organization display', async () => {
+      const user = new User({ id: '11' })
+      const wallet = new Wallet({ id: 'Organization_7', tenantId: '123' })
+      wallet.displayName = 'Org'
+      mockEntities(user, wallet)
+
+      await userService.patchMe({ ...authInfo, role: Role.OrgManager, walletId: 'Organization_7' }, tenantAgent, {
+        name: 'Bob',
+      })
+
+      expect(user.name).toBe('Bob')
+      expect(issuerService.applyUserDisplay).not.toHaveBeenCalled()
+      expect(wallet.displayName).toBe('Org')
     })
   })
 })

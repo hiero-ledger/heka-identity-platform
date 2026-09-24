@@ -47,6 +47,8 @@ The service exposes a REST API at port `3004` by default. Swagger UI is availabl
 - **User** (`/api/v1/user/*`) — user management.
 - **Health** (`/health`) — memory + database health probe for use as a Kubernetes readiness/liveness check or a Compose healthcheck.
 
+`POST /api/v1/user/register` is anonymous: the request carries only a name and a password (any other field, such as `role`, is rejected). Every sign-up becomes an `OrgMember` of the platform organization configured by `ORG_ID`. Other roles (`Admin`, `OrgAdmin`, `OrgManager`, `Issuer`, `Verifier`, `User`) are assigned by an operator in the `auth_user.role` column and take effect on the user's next token. Whether roles restrict access is decided by the Identity Service's [role model](../heka-identity-service/docs/setup.md#role-model).
+
 ## Configuration
 
 The service is configured via environment variables. Values can be set in a `.env` file at the repo root. All variables are optional — defaults are compiled in (see the tables below).

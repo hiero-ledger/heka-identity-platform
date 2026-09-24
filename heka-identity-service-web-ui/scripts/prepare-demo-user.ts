@@ -15,7 +15,6 @@ assert(agencyEndpoint, 'Agency endpoint is not specified');
 const userCredentials = {
   name: 'demo',
   password: 'Password1234!',
-  role: 'Admin',
 };
 
 // Define the path to your .env file

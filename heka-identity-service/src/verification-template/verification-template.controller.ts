@@ -13,7 +13,7 @@ import {
 
 import { TenantAgentInterceptor } from 'common/agent'
 import { AuthInfo, JwtAuthGuard, ReqAuthInfo } from 'common/auth'
-import { RoleGuard } from 'common/authz'
+import { Capability, RequireCapability, RoleGuard } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { ApiListResponse } from '../common/dto'
@@ -47,6 +47,7 @@ export class VerificationTemplateController {
 
   @ApiOperation({ summary: 'Get templates list' })
   @ApiListResponse({ listItemType: GetVerificationTemplatesListItem, description: 'List of templates' })
+  @RequireCapability(Capability.Read)
   @Get()
   public async getTemplatesList(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -62,6 +63,7 @@ export class VerificationTemplateController {
   @ApiOperation({ summary: 'Get template details' })
   @ApiParam({ name: 'id', format: 'uuid', type: 'string', description: 'Template id' })
   @ApiResponse({ type: GetVerificationTemplateResponse, description: 'Template details' })
+  @RequireCapability(Capability.Read)
   @Get(':id')
   public async getTemplateById(
     @Param('id') id: string,
@@ -77,6 +79,7 @@ export class VerificationTemplateController {
   @ApiOperation({ summary: 'Create template' })
   @ApiBody({ type: CreateVerificationTemplateRequest })
   @ApiResponse({ type: CreateVerificationTemplateResponse, description: 'Created template id' })
+  @RequireCapability(Capability.Verify)
   @Post('')
   public async createTemplate(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -93,6 +96,7 @@ export class VerificationTemplateController {
   @ApiParam({ name: 'id', format: 'uuid', type: 'string', description: 'Template id' })
   @ApiBody({ type: PatchVerificationTemplateRequest })
   @ApiOkResponse()
+  @RequireCapability(Capability.Verify)
   @Patch(':id')
   public async patchTemplate(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -108,6 +112,7 @@ export class VerificationTemplateController {
   @ApiOperation({ summary: 'Delete template' })
   @ApiParam({ name: 'id', format: 'uuid', type: 'string', description: 'Template id' })
   @ApiOkResponse()
+  @RequireCapability(Capability.Verify)
   @Delete(':id')
   public async deleteTemplate(@ReqAuthInfo() authInfo: AuthInfo, @Param('id') id: string): Promise<void> {
     const logger = this.logger.child('deleteTemplate', { authInfo })

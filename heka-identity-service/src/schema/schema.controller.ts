@@ -13,8 +13,8 @@ import {
 } from '@nestjs/swagger'
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
-import { JwtAuthGuard, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { JwtAuthGuard } from 'common/auth'
+import { Capability, RequireCapability, RoleGuard } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { CreateSchemaDto, FindSchemasDto, SchemaDto } from './dto'
@@ -37,6 +37,7 @@ export class SchemaController {
 
   @ApiOperation({ summary: 'Get created schemas' })
   @ApiOkResponse({ description: 'Schema Records', type: [SchemaDto] })
+  @RequireCapability(Capability.Read)
   @Get()
   public async find(@ReqTenantAgent() tenantAgent: TenantAgent, @Query() query: FindSchemasDto): Promise<SchemaDto[]> {
     const logger = this.logger.child('find', { tenantAgent, query })
@@ -52,8 +53,8 @@ export class SchemaController {
   @ApiBody({ type: CreateSchemaDto })
   @ApiCreatedResponse({ description: 'Created schema', type: SchemaDto })
   @ApiUnprocessableEntityResponse({ description: 'Unprocessable Entity' })
+  @RequireCapability(Capability.Issue)
   @Post()
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager)
   public async create(@ReqTenantAgent() tenantAgent: TenantAgent, @Body() req: CreateSchemaDto): Promise<SchemaDto> {
     const logger = this.logger.child('create', { req })
     logger.trace('>')
@@ -68,6 +69,7 @@ export class SchemaController {
   @ApiParam({ name: 'id', type: String })
   @ApiOkResponse({ description: 'Schema Record', type: SchemaDto })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @RequireCapability(Capability.Read)
   @Get(':id')
   public async get(@ReqTenantAgent() tenantAgent: TenantAgent, @Param('id') id: string): Promise<SchemaDto> {
     const logger = this.logger.child('get', { id })

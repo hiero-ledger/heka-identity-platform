@@ -28,7 +28,7 @@ describe('E2E public DIDs creation', () => {
   beforeEach(async () => {
     await ormSchemaGenerator.refresh()
 
-    nestApp = await startTestApp()
+    nestApp = await startTestApp({ roleModelEnabled: true })
     app = nestApp.getHttpServer() as Server
   })
 
@@ -45,113 +45,50 @@ describe('E2E public DIDs creation', () => {
     await orm.close(true)
   })
 
-  test.skip('only one public DID per wallet can be created', async () => {
-    let postDidResponse: request.Response
+  const postDid = (token: string, method?: string) =>
+    request(app)
+      .post('/dids')
+      .send(method ? { method } : {})
+      .auth(token, { type: 'bearer' })
 
-    const firstAdminId = uuid()
-    const firstAdminAuthToken = await createAuthToken(firstAdminId, Role.Admin)
+  test('only one main-method (key) DID per wallet; other methods are not limited', async () => {
+    const firstAdminToken = await createAuthToken(uuid(), Role.Admin)
+    const secondAdminToken = await createAuthToken(uuid(), Role.Admin)
 
-    postDidResponse = await request(app).post('/dids').auth(firstAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    postDidResponse = await request(app).post('/dids').auth(firstAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(409)
-
-    const secondAdminId = uuid()
-    const secondAdminAuthToken = await createAuthToken(secondAdminId, Role.Admin)
-
-    postDidResponse = await request(app).post('/dids').auth(secondAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(409)
-
-    const firstOrgId = uuid()
-    const firstOrgAdminId = uuid()
-    const firstOrgAdminAuthToken = await createAuthToken(firstOrgAdminId, Role.OrgAdmin, firstOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(firstOrgAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    postDidResponse = await request(app).post('/dids').auth(firstOrgAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(409)
-
-    const firstIssuerId = uuid()
-    const firstIssuerInFirstOrgAuthToken = await createAuthToken(firstIssuerId, Role.Issuer, firstOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(firstIssuerInFirstOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    postDidResponse = await request(app).post('/dids').auth(firstIssuerInFirstOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(409)
-
-    const secondIssuerId = uuid()
-    const secondIssuerInFirstOrgAuthToken = await createAuthToken(secondIssuerId, Role.Issuer, firstOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(secondIssuerInFirstOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    const secondOrgId = uuid()
-    const secondOrgAdminId = uuid()
-    const secondOrgAdminAuthToken = await createAuthToken(secondOrgAdminId, Role.OrgAdmin, secondOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(secondOrgAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    const firstIssuerInSecondOrgAuthToken = await createAuthToken(firstIssuerId, Role.Issuer, secondOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(firstIssuerInSecondOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
+    expect((await postDid(firstAdminToken)).status).toBe(201)
+    // Every Admin acts in the shared Administration wallet, which already has its main DID
+    expect((await postDid(secondAdminToken)).status).toBe(409)
+    expect((await postDid(secondAdminToken, 'indy')).status).toBe(201)
   })
 
-  test.skip('public DID cannot be created if DID controller is required but has not been created yet', async () => {
-    let postDidResponse: request.Response
+  test('roles without the did capability cannot create a public DID', async () => {
+    const orgId = uuid()
+    for (const token of [
+      await createAuthToken(uuid(), Role.OrgManager, orgId),
+      await createAuthToken(uuid(), Role.OrgMember, orgId),
+      await createAuthToken(uuid(), Role.User),
+    ]) {
+      expect((await postDid(token)).status).toBe(403)
+    }
+  })
 
-    const firstOrgId = uuid()
+  test('the DID controller chain Admin -> OrgAdmin -> Issuer / Verifier is a prerequisite', async () => {
+    const orgId = uuid()
+    const adminToken = await createAuthToken(uuid(), Role.Admin)
+    const orgAdminToken = await createAuthToken(uuid(), Role.OrgAdmin, orgId)
+    const issuerToken = await createAuthToken(uuid(), Role.Issuer, orgId)
+    const verifierToken = await createAuthToken(uuid(), Role.Verifier, orgId)
 
-    const issuerId = uuid()
-    const issuerInFirstOrgAuthToken = await createAuthToken(issuerId, Role.Issuer, firstOrgId)
+    expect((await postDid(orgAdminToken)).status).toBe(422)
+    expect((await postDid(issuerToken)).status).toBe(422)
+    expect((await postDid(verifierToken)).status).toBe(422)
 
-    postDidResponse = await request(app).post('/dids').auth(issuerInFirstOrgAuthToken, { type: 'bearer' })
+    expect((await postDid(adminToken)).status).toBe(201)
+    expect((await postDid(issuerToken)).status).toBe(422)
 
-    expect(postDidResponse.status).toBe(422)
-
-    const firstOrgAdminId = uuid()
-    const firstOrgAdminAuthToken = await createAuthToken(firstOrgAdminId, Role.OrgAdmin, firstOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(firstOrgAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(422)
-
-    const adminId = uuid()
-    const adminAuthToken = await createAuthToken(adminId, Role.Admin)
-
-    postDidResponse = await request(app).post('/dids').auth(adminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    postDidResponse = await request(app).post('/dids').auth(firstOrgAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    const secondOrgId = uuid()
-
-    const issuerInSecondOrgAuthToken = await createAuthToken(issuerId, Role.Issuer, secondOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(issuerInSecondOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(422)
-
-    postDidResponse = await request(app).post('/dids').auth(issuerInFirstOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
+    expect((await postDid(orgAdminToken)).status).toBe(201)
+    expect((await postDid(issuerToken)).status).toBe(201)
+    expect((await postDid(verifierToken)).status).toBe(201)
   })
 
   async function testDidCreation(testCase: { method: string; expected: string }) {

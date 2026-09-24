@@ -1,38 +1,54 @@
-import { UnauthorizedException } from '@nestjs/common'
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common'
 
 import { Role } from 'common/auth'
 
+export const ADMINISTRATION_WALLET_ID = 'Administration'
+
+export function getOrganizationWalletId(orgId: string): string {
+  return `Organization_${orgId}`
+}
+
+/**
+ * The wallet a token acts in. It depends only on the token, never on the role model mode:
+ * - `Admin`: the platform identity wallet, shared by every Admin;
+ * - `OrgAdmin` / `OrgManager`: the organization identity wallet;
+ * - `OrgMember` / `Issuer` / `Verifier`: the member's personal wallet in the organization, the same for all three roles;
+ * - `User`: the holder's personal wallet.
+ */
 export function getWalletId({ role, userId, orgId }: { role: Role; userId: string; orgId?: string }): string {
   switch (role) {
     case Role.Admin:
       if (orgId) {
         throw new UnauthorizedException()
       }
-      // FIXME: In web app demo we create users with `Admin` role
-      return `Administration_${userId}`
+      return ADMINISTRATION_WALLET_ID
     case Role.OrgAdmin:
     case Role.OrgManager:
-    case Role.OrgMember:
       if (!orgId) {
         throw new UnauthorizedException()
       }
-      return `Organization_${orgId}`
+      return getOrganizationWalletId(orgId)
+    case Role.OrgMember:
     case Role.Issuer:
     case Role.Verifier:
       if (!orgId) {
         throw new UnauthorizedException()
       }
-      return `${role}_${userId}_in_Organization_${orgId}`
+      return `Member_${userId}_in_Organization_${orgId}`
     case Role.User:
       if (orgId) {
         throw new UnauthorizedException()
       }
       return `${role}_${userId}`
     default:
-      throw new Error(`Role '${role}' is not supported`)
+      throw new UnauthorizedException()
   }
 }
 
+/**
+ * The wallet whose public DID must exist before this role may create one. It is an authorization
+ * prerequisite only: the DID is always created in the caller's own wallet.
+ */
 export function getDidControllerWalletId({ role, orgId }: { role: Role; orgId?: string }): string | null {
   switch (role) {
     case Role.Admin:
@@ -44,13 +60,23 @@ export function getDidControllerWalletId({ role, orgId }: { role: Role; orgId?: 
       if (!orgId) {
         throw new UnauthorizedException()
       }
-      return `Administration`
+      return ADMINISTRATION_WALLET_ID
     case Role.Issuer:
+    case Role.Verifier:
       if (!orgId) {
         throw new UnauthorizedException()
       }
-      return `Organization_${orgId}`
+      return getOrganizationWalletId(orgId)
     default:
-      throw new Error(`Cannot get DID controller because '${role}' role does not support public DID creation`)
+      throw new ForbiddenException(`Role '${role}' cannot create a public DID`)
   }
+}
+
+/**
+ * Whether the role administers the wallet it acts in, i.e. may write the wallet's issuer display.
+ * Personal wallets are administered by their only user; `OrgManager` operates the organization
+ * wallet without administering it.
+ */
+export function administersWallet(role: Role): boolean {
+  return role !== Role.OrgManager
 }

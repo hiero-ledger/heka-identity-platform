@@ -10,8 +10,8 @@ import {
 } from '@nestjs/swagger'
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from '../../common/agent'
-import { JwtAuthGuard, Role } from '../../common/auth'
-import { RoleGuard, Roles } from '../../common/authz'
+import { JwtAuthGuard } from '../../common/auth'
+import { Capability, RequireCapability, RoleGuard } from '../../common/authz'
 import { InjectLogger, Logger } from '../../common/logger'
 
 import {
@@ -40,8 +40,8 @@ export class RevocationRegistryController {
   @ApiOkResponse({ type: CreateRevocationRegistryResponse })
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @RequireCapability(Capability.Issue)
   @Post()
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
   @UseInterceptors(TenantAgentInterceptor)
   public async create(
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -60,8 +60,8 @@ export class RevocationRegistryController {
   @ApiOkResponse({ type: GetRevocationRegistryResponse })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiQuery({ name: 'timestamp', type: String, required: false })
+  @RequireCapability(Capability.Read)
   @Get(':id')
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Verifier)
   @UseInterceptors(TenantAgentInterceptor)
   public async get(
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -81,6 +81,7 @@ export class RevocationRegistryController {
   @ApiQuery({ name: 'credDefId', type: String, required: false })
   @ApiOkResponse({ type: [RevocationRegistry] })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @RequireCapability(Capability.Read)
   @Get()
   public async find(
     @ReqTenantAgent() tenantAgent: TenantAgent,

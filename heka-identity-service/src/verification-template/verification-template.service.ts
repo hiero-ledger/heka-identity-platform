@@ -4,7 +4,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectLogger, Logger } from 'common/logger'
 
 import { AuthInfo } from '../common/auth'
-import { Schema, VerificationTemplate, VerificationTemplateField } from '../common/entities'
+import { Schema, VerificationTemplate, VerificationTemplateField, Wallet } from '../common/entities'
 import { FileStorageService } from '../common/file-storage/file-storage.service'
 import { CredentialFormat, OpenId4VcCredentialFormat, ProtocolType } from '../common/types'
 import { IssuanceTemplateSchema } from '../issuance-template/dto/common/issuance-template'
@@ -129,7 +129,7 @@ export class VerificationTemplateService {
   public getTemplateById = async (authInfo: AuthInfo, id: string): Promise<VerificationTemplateResponse> => {
     const template = await this.em.findOne(
       VerificationTemplate,
-      { owner: authInfo.user, id },
+      { owner: this.em.getReference(Wallet, authInfo.walletId), id },
       { populate: ['owner', 'schema', 'schema.fields', 'schema.registrations', 'fields', 'fields.schemaField'] },
     )
     if (!template) {
@@ -182,7 +182,7 @@ export class VerificationTemplateService {
 
     const conditions = []
 
-    conditions.push({ owner: authInfo.user })
+    conditions.push({ owner: this.em.getReference(Wallet, authInfo.walletId) })
 
     if (request.text) {
       conditions.push({ name: { $like: `%${request.text}%` } })
@@ -279,7 +279,7 @@ export class VerificationTemplateService {
     const logger = this.logger.child('create')
     logger.trace('>')
 
-    const owner = authInfo.user
+    const owner = this.em.getReference(Wallet, authInfo.walletId)
 
     // check network
     if (request.protocol === ProtocolType.Aries && !request.network) {
@@ -340,7 +340,7 @@ export class VerificationTemplateService {
     const logger = this.logger.child('patch')
     logger.trace('>')
 
-    const owner = authInfo.user
+    const owner = this.em.getReference(Wallet, authInfo.walletId)
 
     const template = await this.em.findOne(
       VerificationTemplate,
@@ -408,7 +408,7 @@ export class VerificationTemplateService {
     const logger = this.logger.child('delete')
     logger.trace('>')
 
-    const owner = authInfo.user
+    const owner = this.em.getReference(Wallet, authInfo.walletId)
 
     const template = await this.em.findOne(VerificationTemplate, { owner, id }, { populate: ['owner', 'fields'] })
     if (!template) {

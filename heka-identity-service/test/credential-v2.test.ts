@@ -185,7 +185,7 @@ describe('Credential V2 tests', () => {
 
     test('Test Aries issuance by template', async () => {
       const issuerToken = await UserUtilities.register(app, { role: Role.Admin })
-      const holderToken = await UserUtilities.register(app, { role: Role.Admin })
+      const holderToken = await UserUtilities.register(app, { role: Role.User })
       expect(issuerToken).toBeDefined()
 
       verifier = request(app)
@@ -340,7 +340,7 @@ describe('Credential V2 tests', () => {
 
     test('Test Aries verification by template', async () => {
       const verifierToken = await UserUtilities.register(app, { role: Role.Admin })
-      const holderToken = await UserUtilities.register(app, { role: Role.Admin })
+      const holderToken = await UserUtilities.register(app, { role: Role.User })
       expect(verifierToken).toBeDefined()
 
       verifier = request(app)
