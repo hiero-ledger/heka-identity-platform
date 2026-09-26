@@ -122,6 +122,7 @@
     "eslint-plugin-prettier": "^5.5.6",
     "globals": "^17.6.0",
     "jsonwebtoken": "^9.0.0",
+    "lefthook": "^2.1.9",
     "nodemon": "^2.0.22",
     "patch-package": "^8.0.0",
     "postinstall-postinstall": "^2.1.0",

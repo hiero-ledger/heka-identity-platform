@@ -1,8 +1,8 @@
-import js from '@eslint/js';
-import importX from 'eslint-plugin-import-x';
-import prettierRecommended from 'eslint-plugin-prettier/recommended';
-import globals from 'globals';
-import tseslint from 'typescript-eslint';
+import js from '@eslint/js'
+import importX from 'eslint-plugin-import-x'
+import prettierRecommended from 'eslint-plugin-prettier/recommended'
+import globals from 'globals'
+import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
@@ -87,4 +87,4 @@ export default tseslint.config(
     },
   },
   prettierRecommended,
-);
+)

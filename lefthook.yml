@@ -1,0 +1,67 @@
+pre-commit:
+  parallel: true
+  commands:
+    auth-check-types:
+      root: "heka-auth-service/"
+      glob: "heka-auth-service/**/*.ts"
+      run: yarn check-types
+    auth-lint:
+      root: "heka-auth-service/"
+      glob: "heka-auth-service/**/*.ts"
+      run: yarn lint-check
+    auth-format:
+      root: "heka-auth-service/"
+      glob: "heka-auth-service/**/*.ts"
+      run: yarn format-check
+    identity-check-types:
+      root: "heka-identity-service/"
+      glob: "heka-identity-service/**/*.ts"
+      run: yarn check-types
+    identity-lint:
+      root: "heka-identity-service/"
+      glob: "heka-identity-service/**/*.ts"
+      run: yarn lint-check
+    identity-format:
+      root: "heka-identity-service/"
+      glob: "heka-identity-service/**/*.ts"
+      run: yarn prettier --check "src/**/*.ts"
+    web-ui-lint-ts:
+      root: "heka-identity-service-web-ui/"
+      glob: "heka-identity-service-web-ui/**/*.{ts,tsx}"
+      run: yarn lint:ts --max-warnings=-1
+    web-ui-lint-scss:
+      root: "heka-identity-service-web-ui/"
+      glob: "heka-identity-service-web-ui/**/*.scss"
+      run: yarn lint:scss
+    web-ui-format:
+      root: "heka-identity-service-web-ui/"
+      glob: "heka-identity-service-web-ui/**/*.{ts,tsx,scss}"
+      run: npx prettier --check {staged_files}
+    # wallet-check-types:
+    #   root: "heka-wallet/"
+    #   glob: "heka-wallet/**/*.{ts,tsx}"
+    #   run: yarn typecheck
+    # wallet-lint:
+    #   root: "heka-wallet/"
+    #   glob: "heka-wallet/**/*.{ts,tsx}"
+    #   run: yarn lint
+
+pre-push:
+  parallel: true
+  commands:
+    auth-test:
+      root: "heka-auth-service/"
+      glob: "heka-auth-service/**/*.ts"
+      run: yarn test test/unit
+    identity-test:
+      root: "heka-identity-service/"
+      glob: "heka-identity-service/**/*.ts"
+      run: yarn test:unit
+    web-ui-test:
+      root: "heka-identity-service-web-ui/"
+      glob: "heka-identity-service-web-ui/**/*.{ts,tsx}"
+      run: yarn test:unit
+    # wallet-test:
+    #   root: "heka-wallet/"
+    #   glob: "heka-wallet/**/*.{ts,tsx}"
+    #   run: yarn test
