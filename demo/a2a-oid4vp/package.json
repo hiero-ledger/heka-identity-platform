@@ -5,11 +5,12 @@
   "scripts": {
     "agent": "tsx src/agent/index.ts",
     "client": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
     "format": "prettier --write ."
   },
   "license": "Apache-2.0",
   "dependencies": {
-    "@a2a-js/sdk": "^0.3.10",
+    "@a2a-js/sdk": "^1.0.1",
     "@credo-ts/askar": "^0.6.2",
     "@credo-ts/core": "^0.6.2",
     "@credo-ts/didcomm": "^0.6.2",
@@ -17,15 +18,18 @@
     "@genkit-ai/compat-oai": "^1.28.0",
     "@openwallet-foundation/askar-nodejs": "^0.4.3",
     "@openwallet-foundation/askar-shared": "^0.4.3",
-    "@types/express": "^5.0.6",
     "axios": "^1.13.5",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "genkit": "^1.28.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/ws": "^8.18.1",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "ws": "^8.19.0"
+    "typescript": "^5.9.3"
   },
   "packageManager": "yarn@4.16.0"
 }
