@@ -1,5 +1,7 @@
 import { IsNumber, IsString, Max, Min } from 'class-validator'
 
+import { INSECURE_DEFAULTS } from '../insecure-defaults'
+
 export enum OrmConfigKeys {
   host = 'DB_HOST',
   port = 'DB_PORT',
@@ -8,12 +10,12 @@ export enum OrmConfigKeys {
   password = 'DB_PASSWORD',
 }
 
-const dbConfigDefaults = {
+export const dbConfigDefaults = {
   host: 'localhost',
   port: 5433,
   name: 'heka-auth-service',
   user: 'heka',
-  password: 'heka1',
+  password: INSECURE_DEFAULTS.DB_PASSWORD,
 }
 
 export class DbConfig {

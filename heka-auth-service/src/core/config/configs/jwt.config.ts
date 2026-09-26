@@ -1,5 +1,7 @@
 import { IsInt, IsString, Min } from 'class-validator'
 
+import { INSECURE_DEFAULTS } from '../insecure-defaults'
+
 export enum JwtConfigKeys {
   issuer = 'JWT_ISSUER',
   audience = 'JWT_AUDIENCE',
@@ -12,7 +14,7 @@ export enum JwtConfigKeys {
 export const jwtConfigDefaults = {
   issuer: 'Heka',
   audience: 'Heka Identity Service',
-  secret: 'test',
+  secret: INSECURE_DEFAULTS.JWT_SECRET,
   accessExpiry: 60 * 60, // 1h
   refreshExpiry: 86400, // 24h
   demoUserTokenExpiry: 60 * 60 * 24 * 365, // ~1 year validity for Demo User

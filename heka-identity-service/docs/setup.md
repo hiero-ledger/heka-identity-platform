@@ -213,6 +213,28 @@ yarn format
 
 This section is the canonical reference for runtime configuration. Defaults match the values committed in `src/config/`.
 
+### Security-sensitive variables
+
+The defaults of the following variables are development/test credentials that are publicly visible in this repository (`src/config/insecure-defaults.ts`). They are convenient for local exploration but **must be replaced in any real deployment**.
+
+| Variable                         | Checked when                                       |
+| -------------------------------- | -------------------------------------------------- |
+| `JWT_SECRET`                     | Always                                             |
+| `MIKRO_ORM_PASSWORD`             | Always                                             |
+| `WALLET_POSTGRES_PASSWORD`       | Always                                             |
+| `MDL_ISSUER_PRIVATE_KEY`         | Always (`mso_mdoc` issuance is enabled by default) |
+| `INDY_ENDORSER_SEED`             | `DID_METHODS` contains `indy`                      |
+| `INDY_BESU_ENDORSER_PRIVATE_KEY` | `DID_METHODS` contains `indybesu`                  |
+| `HEDERA_OPERATOR_KEY`            | `DID_METHODS` contains `hedera`                    |
+| `FILE_STORAGE_MINIO_SECRET_KEY`  | `FILE_STORAGE_TARGET` is `minio`                   |
+
+At startup the service checks whether any of these is unset, empty, or still equal to its default:
+
+- when `NODE_ENV` is unset, empty, `development` or `test` (case-insensitive, surrounding whitespace ignored), a warning naming the affected variables is logged and the service starts (local development and tests);
+- with any other `NODE_ENV` value, including `production` in any casing, typos such as `prod`, or custom names such as `staging`, the service **refuses to start** and lists the variables that must be set.
+
+Real deployments should set `NODE_ENV=production` explicitly: an unset `NODE_ENV` is treated as local development and only produces the warning.
+
 ### HTTP server (Express)
 
 | Variable               | Default     | Description                                                 |
@@ -331,11 +353,11 @@ Required when issuing `mso_mdoc` credentials (mobile driving licences and simila
 
 ### Logging
 
-| Variable                | Default            | Description                                                              |
-| ----------------------- | ------------------ | ------------------------------------------------------------------------ |
-| `PINO_LEVEL`            | `info`             | Logger level. One of `trace`, `debug`, `info`, `warn`, `error`, `fatal`. |
-| `PINO_FILE_DESTINATION` | _(unset — stdout)_ | Path to write logs to instead of stdout.                                 |
-| `NODE_ENV`              | _(unset)_          | When set to `production`, switches the logger to non-pretty JSON output. |
+| Variable                | Default            | Description                                                                                                                                                                                                                                                                                                                             |
+| ----------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PINO_LEVEL`            | `info`             | Logger level. One of `trace`, `debug`, `info`, `warn`, `error`, `fatal`.                                                                                                                                                                                                                                                                |
+| `PINO_FILE_DESTINATION` | _(unset — stdout)_ | Path to write logs to instead of stdout.                                                                                                                                                                                                                                                                                                |
+| `NODE_ENV`              | _(unset)_          | When set to exactly `production`, switches the logger to non-pretty JSON output. Unless `NODE_ENV` is unset, empty, `development` or `test` (case-insensitive, surrounding whitespace ignored), the service refuses to start with [insecure default credentials](#security-sensitive-variables); in those cases it only logs a warning. |
 
 ### Health
 

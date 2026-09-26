@@ -4,6 +4,7 @@ import { Type } from 'class-transformer'
 import { ValidateNested, validateSync } from 'class-validator'
 
 import { AppConfig, HealthConfig, JwtConfig, LoggerConfig, ThrottleConfig } from './configs'
+import { assertSecureConfiguration } from './insecure-defaults'
 
 export class Config {
   @ValidateNested()
@@ -52,6 +53,9 @@ export function validate(configuration: Record<string, any>): Config {
   if (errors.length > 0) {
     throw new Error(`\n${errors.map((err) => err.toString(false, true, err.target?.constructor.name, true)).join('')}`)
   }
+
+  // Warns about publicly known default secrets and refuses to start unless NODE_ENV is unset, empty, development or test
+  assertSecureConfiguration(configuration)
 
   return config
 }

@@ -13,6 +13,7 @@ import express from 'express'
 import { AriesCredentialFormat, ProtocolType } from 'common/types'
 
 import { CredentialsConfiguration } from './credential-configuration'
+import { INSECURE_DEFAULTS, parseDidMethods } from './insecure-defaults'
 import { FileSystemConfig } from './file-storage'
 
 export default registerAs('agent', () => {
@@ -61,7 +62,7 @@ export default registerAs('agent', () => {
   const walletPostgresHost = process.env.WALLET_POSTGRES_HOST ?? 'localhost'
   const walletPostgresPort = process.env.WALLET_POSTGRES_PORT ? parseInt(process.env.WALLET_POSTGRES_PORT, 10) : 5432
   const walletPostgresUser = process.env.WALLET_POSTGRES_USER ?? 'heka'
-  const walletPostgresPass = process.env.WALLET_POSTGRES_PASSWORD ?? 'heka1'
+  const walletPostgresPass = process.env.WALLET_POSTGRES_PASSWORD ?? INSECURE_DEFAULTS.WALLET_POSTGRES_PASSWORD
 
   // Public endpoints advertised to wallets and DIDComm peers. For anything
   // beyond a same-host setup, set the AGENT_*_ENDPOINT variables in .env
@@ -72,9 +73,9 @@ export default registerAs('agent', () => {
   const oid4VciEndpoint = process.env.AGENT_OID4VCI_ENDPOINT ?? `http://${host}:${oid4VcPort}`
 
   // FIXME: Add `indybesu` DID method once we get public network deployed
-  const didMethods = process.env.DID_METHODS ? process.env.DID_METHODS.split(',') : ['indy', 'key', 'hedera']
+  const didMethods = parseDidMethods(process.env)
 
-  const indyEndorserSeed = process.env.INDY_ENDORSER_SEED ?? 'afjdemoverysecure000000000000002'
+  const indyEndorserSeed = process.env.INDY_ENDORSER_SEED ?? INSECURE_DEFAULTS.INDY_ENDORSER_SEED
   //const indyEndorserId = process.env.INDY_ENDORSER_ID ?? ''
   const indyEndorserDid = process.env.INDY_ENDORSER_DID ?? 'did:indy:bcovrin:test:4bbYgjU6JbV4DShPbGoQcA'
 
@@ -82,15 +83,13 @@ export default registerAs('agent', () => {
   const indyBesuNodeAddress = process.env.INDY_BESU_NODE_ADDRESS ?? 'http://localhost:8545'
   const indyBesuNetwork = process.env.INDY_BESU_NETWORK ?? 'testnet'
   const indyBesuEndorserPrivateKey =
-    process.env.INDY_BESU_ENDORSER_PRIVATE_KEY ?? 'c87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3'
+    process.env.INDY_BESU_ENDORSER_PRIVATE_KEY ?? INSECURE_DEFAULTS.INDY_BESU_ENDORSER_PRIVATE_KEY
   const indyBesuEndorserPublicKey =
     process.env.INDY_BESU_ENDORSER_PUBLIC_KEY ?? '03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d'
 
   const hederaNetwork: HederaNetwork = (process.env.HEDERA_NETWORK as HederaNetwork) ?? 'testnet'
   const hederaOperatorId = process.env.HEDERA_OPERATOR_ID ?? '0.0.5489553'
-  const hederaOperatorKey =
-    process.env.HEDERA_OPERATOR_KEY ??
-    '302e020100300506032b6570042204209f54b75b6238ced43e41b1463999cb40bf2f7dd2c9fd4fd3ef780027c016a138'
+  const hederaOperatorKey = process.env.HEDERA_OPERATOR_KEY ?? INSECURE_DEFAULTS.HEDERA_OPERATOR_KEY
 
   // The OID4VC router is the only surface that has to be publicly reachable
   // over https (wallets reject non-https `display[].logo.uri`). Serve uploaded
@@ -135,11 +134,9 @@ export default registerAs('agent', () => {
   const mdlIssuerCertificate =
     process.env.MDL_ISSUER_CERTIFICATE ??
     'MIIBwDCCAWWgAwIBAgIUSMdjaVc1KHI+3o6qJXhSC4sJh+cwCgYIKoZIzj0EAwIwNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMB4XDTI2MDMyNzIxNDA1NloXDTM2MDMyNDIxNDA1NlowNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1nIrm3O9VX8MdPrKWMhqqV0QMS4UtxKj6uUc8IdGE2fSsWyi7XQN3HoE1Ln9TDtOIHvSyW8Eyr98MlWGBBF/vqNTMFEwHQYDVR0OBBYEFNfkrHxd2nwtni96XrrYhaMgUFImMB8GA1UdIwQYMBaAFNfkrHxd2nwtni96XrrYhaMgUFImMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAP0V5EW7j6Pb+lJktzdWrtEqhI3mYs9Fd+qh0p2kNXJPAiEAqK+q7Wk+t5e2yzvO3b6t3P5nIEnoQt3cvDsaUZY1dT0='
-  const mdlIssuerPrivateKeyJwk = process.env.MDL_ISSUER_PRIVATE_KEY
-    ? (JSON.parse(process.env.MDL_ISSUER_PRIVATE_KEY) as Record<string, string>)
-    : (JSON.parse(
-        '{"kty":"EC","x":"1nIrm3O9VX8MdPrKWMhqqV0QMS4UtxKj6uUc8IdGE2c","y":"0rFsou10Ddx6BNS5_Uw7TiB70slvBMq_fDJVhgQRf74","crv":"P-256","d":"ioXmEeGGMTLWF8AZwFwufaR5e_oGTfxR2IrZSQ9niLA","kid":"4f138202-31fb-4f13-b779-8f61b2bef253"}',
-      ) as Record<string, string>)
+  const mdlIssuerPrivateKeyJwk = JSON.parse(
+    process.env.MDL_ISSUER_PRIVATE_KEY || INSECURE_DEFAULTS.MDL_ISSUER_PRIVATE_KEY,
+  ) as Record<string, string>
 
   const credentialsConfiguration: CredentialsConfiguration = {
     [ProtocolType.Oid4vc]: {

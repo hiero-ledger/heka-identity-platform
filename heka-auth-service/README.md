@@ -72,7 +72,7 @@ The service is configured via environment variables. Values can be set in a `.en
 | `DB_PORT`     | `5433`              | Database port.                                                |
 | `DB_NAME`     | `heka-auth-service` | Database name.                                                |
 | `DB_USER`     | `heka`              | Database user.                                                |
-| `DB_PASSWORD` | `heka1`             | Database password. **Replace in any non-trivial deployment.** |
+| `DB_PASSWORD` | `heka1`             | Database password. **Replace in any non-trivial deployment** — a startup warning is logged while the default is used; the service refuses to start unless `NODE_ENV` is unset, empty, `development` or `test` (case-insensitive, surrounding whitespace ignored), e.g. with `NODE_ENV=production`. |
 
 ### Authentication (JWT)
 
@@ -80,7 +80,7 @@ The service is configured via environment variables. Values can be set in a `.en
 |-----------------------------|-------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | `JWT_ISSUER`                | `Heka`                  | Value emitted in the `iss` claim.                                                                                             |
 | `JWT_AUDIENCE`              | `Heka Identity Service` | Value emitted in the `aud` claim.                                                                                             |
-| `JWT_SECRET`                | `test`                  | HMAC secret used to sign tokens. **Replace in any non-trivial deployment.**                                                   |
+| `JWT_SECRET`                | `test`                  | HMAC secret used to sign tokens. **Replace in any non-trivial deployment** — a startup warning is logged while the default is used; the service refuses to start unless `NODE_ENV` is unset, empty, `development` or `test` (case-insensitive, surrounding whitespace ignored), e.g. with `NODE_ENV=production`. |
 | `JWT_ACCESS_EXPIRY`         | `3600` (1 h)            | Access-token lifetime in seconds.                                                                                             |
 | `JWT_REFRESH_EXPIRY`        | `86400` (24 h)          | Refresh-token lifetime in seconds.                                                                                            |
 | `DEMO_USER`                 | _(unset)_               | Optional pre-provisioned demo user identifier. When set, tokens for this user are issued with an extended lifetime (~1 year). |
@@ -119,7 +119,7 @@ Tokens issued by this service include the claims `sub`, `roles[]`, `name`, and o
 
 | Variable   | Default   | Description                                                              |
 |------------|-----------|--------------------------------------------------------------------------|
-| `NODE_ENV` | _(unset)_ | When set to `production`, switches the logger to non-pretty JSON output. |
+| `NODE_ENV` | _(unset)_ | When set to `production`, switches the logger to non-pretty JSON output. Unless `NODE_ENV` is unset, empty, `development` or `test` (case-insensitive), the service refuses to start while `JWT_SECRET` or `DB_PASSWORD` are unset or left at their defaults; unrecognized values such as `staging` or typos are treated as production. Real deployments should set `NODE_ENV=production` explicitly. |
 
 ## Migrations
 

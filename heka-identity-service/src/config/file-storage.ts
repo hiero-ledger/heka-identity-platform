@@ -1,5 +1,7 @@
 import { registerAs } from '@nestjs/config'
 
+import { INSECURE_DEFAULTS } from './insecure-defaults'
+
 export enum FileStorageTarget {
   FileSystem = 'file_system',
   Minio = 'minio',
@@ -16,7 +18,7 @@ export const fileStorageConfigDefaults = {
     port: 9000,
     useSSL: true,
     accessKey: 'access_key',
-    secretKey: 'secret_key',
+    secretKey: INSECURE_DEFAULTS.FILE_STORAGE_MINIO_SECRET_KEY,
     basketName: 'heka-identity-service',
     region: 'eu-west-1',
   },
