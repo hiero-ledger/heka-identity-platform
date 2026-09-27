@@ -7,14 +7,6 @@ import {
   ContributorCredentialOfferResponseDto,
 } from './dto/contributor-credential-offer.dto'
 
-/**
- * ContributorCredentialController
- *
- * Exposes the OID4VCI credential offer endpoint for the
- * `GithubContributorCredential` SD-JWT VC.
- *
- * All routes require a valid Heka JWT (issued after GitHub OAuth login).
- */
 @ApiTags('Contributor Credential')
 @ApiBearerAuth()
 @Controller('contributor-credential')
@@ -23,11 +15,6 @@ export class ContributorCredentialController {
 
   /**
    * Create an OID4VCI credential offer for a verified contributor.
-   *
-   * Looks up the verified `ContributorBinding` by `githubAccountId`,
-   * builds an SD-JWT VC payload with the Week 2 disclosure policy, and
-   * returns an `openid-credential-offer://` URI the contributor's wallet
-   * can use to retrieve the credential.
    *
    * **Requirements:** The contributor must have:
    *   1. Completed GitHub OAuth login (`/contributor-onboarding/github/callback`)

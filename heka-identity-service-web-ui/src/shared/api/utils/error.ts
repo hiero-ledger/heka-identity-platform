@@ -18,6 +18,16 @@ export interface ApiError extends Error {
 export const errorMessage = (error: string | string[]) =>
   Array.isArray(error) ? error.join(', ') : error;
 
+function isAxiosNetworkError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'isAxiosError' in error &&
+    (error as { isAxiosError: boolean }).isAxiosError === true &&
+    !('response' in error && (error as { response: unknown }).response)
+  );
+}
+
 export const handleError = (
   error: Error,
   // RejectWithValue type is not public
@@ -27,8 +37,8 @@ export const handleError = (
   dispatch?: Dispatch<any>,
 ) => {
   let apiErrorMessage = 'Unknown server error';
-  
-  if ((error as any).isAxiosError && !(error as ApiError).response) {
+
+  if (isAxiosNetworkError(error)) {
     apiErrorMessage = 'Network Error: Could not connect to the backend server. Is it running?';
   } else if ((error as ApiError).response?.data?.message) {
     apiErrorMessage = (error as ApiError).response.data.message as unknown as string;

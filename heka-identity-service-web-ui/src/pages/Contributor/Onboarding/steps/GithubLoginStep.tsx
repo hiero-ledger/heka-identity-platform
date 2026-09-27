@@ -1,5 +1,4 @@
 import React, { useCallback } from 'react';
-import { useSelector } from 'react-redux';
 
 import { getGithubAuthorizationUrl } from '@/entities/User/model/services/getGithubAuthorizationUrl';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
@@ -65,7 +64,7 @@ const GithubLoginStep: React.FC<Props> = () => {
       </button>
 
       <p className={cls.privacyNote}>
-        By continuing, you agree to Hiera's{' '}
+        By continuing, you agree to Hiera&apos;s{' '}
         <a
           href="https://hiero.org/privacy"
           target="_blank"

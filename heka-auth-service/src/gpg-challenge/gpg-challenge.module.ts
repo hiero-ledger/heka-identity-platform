@@ -1,11 +1,10 @@
+import { ConfigModule, ConfigService } from '@config'
 import { MikroOrmModule } from '@mikro-orm/nestjs'
 import { HttpModule } from '@nestjs/axios'
 import { Module } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
 
-import { ConfigModule, ConfigService } from '@config'
 import { ContributorOnboardingModule } from '../contributor-onboarding'
-
 import { GpgChallengeController } from './gpg-challenge.controller'
 import { GpgChallenge } from './gpg-challenge.entity'
 import { GpgChallengeService } from './gpg-challenge.service'

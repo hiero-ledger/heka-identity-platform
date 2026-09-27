@@ -1,4 +1,6 @@
+import { ConfigService } from '@config'
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, UseGuards } from '@nestjs/common'
+import { JwtService } from '@nestjs/jwt'
 import {
   ApiBearerAuth,
   ApiNotFoundResponse,
@@ -12,14 +14,11 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger'
 import type { Request } from 'express'
-import { JwtService } from '@nestjs/jwt'
 
-import { BearerGuard, extractTokenFromRequest } from '../oauth/guards'
-import { ConfigService } from '@config'
 import type { AuthInfo } from '../contributor-onboarding/contributor-onboarding.types'
-
+import { BearerGuard, extractTokenFromRequest } from '../oauth/guards'
 import { GetStatusParamsDto, VerifySignatureDto } from './dto'
-import { GpgChallengeService, ContributorStatus, VerificationResult } from './gpg-challenge.service'
+import { ContributorStatus, GpgChallengeService, VerificationResult } from './gpg-challenge.service'
 
 /**
  * HTTP interface for the GPG challenge-response ownership-proof flow.

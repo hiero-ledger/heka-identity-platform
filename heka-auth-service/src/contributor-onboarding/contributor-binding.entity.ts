@@ -1,6 +1,5 @@
-import { Entity, Index, Property, Unique } from '@mikro-orm/decorators/legacy'
-
 import { CustomBaseEntity } from '@core/database/entities/custom-base-entity'
+import { Entity, Index, Property, Unique } from '@mikro-orm/decorators/legacy'
 
 @Entity({ tableName: 'contributor_bindings' })
 @Unique({ properties: ['githubAccountId'] })
@@ -28,8 +27,10 @@ export class ContributorBinding extends CustomBaseEntity {
   @Property({ onCreate: () => new Date(), onUpdate: () => new Date(), type: 'Date' })
   public updatedAt: Date = new Date()
 
-  public constructor(props: Pick<ContributorBinding, 'githubAccountId' | 'githubUsername' | 'walletId'> &
-    Partial<Pick<ContributorBinding, 'gpgFingerprint' | 'verifiedAt'>>) {
+  public constructor(
+    props: Pick<ContributorBinding, 'githubAccountId' | 'githubUsername' | 'walletId'> &
+      Partial<Pick<ContributorBinding, 'gpgFingerprint' | 'verifiedAt'>>,
+  ) {
     super()
     Object.assign(this, props)
   }

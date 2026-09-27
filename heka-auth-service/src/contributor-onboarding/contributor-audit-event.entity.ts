@@ -1,6 +1,5 @@
-import { Entity, Enum, Index, Property } from '@mikro-orm/decorators/legacy'
-
 import { CustomBaseEntity } from '@core/database/entities/custom-base-entity'
+import { Entity, Enum, Index, Property } from '@mikro-orm/decorators/legacy'
 
 export enum ContributorAuditEventType {
   ChallengeRequested = 'ChallengeRequested',
@@ -34,8 +33,12 @@ export class ContributorAuditEvent extends CustomBaseEntity {
   @Property({ onCreate: () => new Date(), type: 'Date' })
   public createdAt: Date = new Date()
 
-  public constructor(props: Pick<ContributorAuditEvent, 'eventType'> &
-    Partial<Pick<ContributorAuditEvent, 'githubAccountId' | 'githubUsername' | 'walletId' | 'gpgFingerprint' | 'metadata'>>) {
+  public constructor(
+    props: Pick<ContributorAuditEvent, 'eventType'> &
+      Partial<
+        Pick<ContributorAuditEvent, 'githubAccountId' | 'githubUsername' | 'walletId' | 'gpgFingerprint' | 'metadata'>
+      >,
+  ) {
     super()
     Object.assign(this, props)
   }

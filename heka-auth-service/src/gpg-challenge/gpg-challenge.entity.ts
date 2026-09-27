@@ -1,5 +1,4 @@
 import { Entity, PrimaryKey, Property } from '@mikro-orm/decorators/legacy'
-
 import { v4 as uuid } from 'uuid'
 
 /**

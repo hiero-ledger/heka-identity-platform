@@ -1,13 +1,12 @@
+import { ConfigService } from '@config'
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req, UseGuards } from '@nestjs/common'
+import { JwtService } from '@nestjs/jwt'
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger'
 import type { Request } from 'express'
-import { JwtService } from '@nestjs/jwt'
 
 import { BearerGuard, extractTokenFromRequest } from '../oauth/guards'
-import { ConfigService } from '@config'
-
 import { ContributorOnboardingService } from './contributor-onboarding.service'
-import { ContributorOnboardingStatusDto, type AuthInfo } from './contributor-onboarding.types'
+import { type AuthInfo, ContributorOnboardingStatusDto } from './contributor-onboarding.types'
 import { GithubOAuthCallbackDto, GithubOAuthUrlQueryDto } from './dto'
 
 @ApiTags('Contributor Onboarding')

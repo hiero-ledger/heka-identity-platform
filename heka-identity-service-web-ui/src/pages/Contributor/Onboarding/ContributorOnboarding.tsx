@@ -2,26 +2,25 @@
 import React, { useCallback, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
 
 import ROUTES from '@/app/routes/RoutePaths';
-import { contributorSlice } from '@/entities/Contributor/model/contributorSlice';
 import {
-  getContributorStep,
-  getContributorCompletedSteps,
   getContributorActiveChallenge,
   getContributorBinding,
+  getContributorCompletedSteps,
   getContributorCredentialIssued,
   getContributorError,
   getContributorGithubUsername,
   getContributorIsLoading,
+  getContributorStep,
 } from '@/entities/Contributor/model/contributorSelectors';
+import { contributorSlice } from '@/entities/Contributor/model/contributorSlice';
 import { getContributorOnboardingStatus } from '@/entities/User/model/services/getContributorOnboardingStatus';
-import { agencyEndpoints } from '@/shared/api/config/endpoints';
+import { OnboardingStepper } from '@/pages/Contributor/components/OnboardingStepper';
 import { $agencyApi } from '@/shared/api/config/api';
+import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { getAccessToken } from '@/shared/api/utils/token';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
-import { OnboardingStepper } from '@/pages/Contributor/components/OnboardingStepper';
 
 import ChallengeStep from './steps/ChallengeStep';
 import GithubLoginStep from './steps/GithubLoginStep';

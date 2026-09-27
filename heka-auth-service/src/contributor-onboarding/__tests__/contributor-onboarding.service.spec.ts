@@ -1,9 +1,8 @@
+import { ConfigService } from '@config'
 import { EntityManager } from '@mikro-orm/core'
 import { HttpService } from '@nestjs/axios'
 import { JwtService } from '@nestjs/jwt'
 import { of } from 'rxjs'
-
-import { ConfigService } from '@config'
 
 import { ContributorAuditEvent, ContributorAuditEventType } from '../contributor-audit-event.entity'
 import { ContributorBinding } from '../contributor-binding.entity'

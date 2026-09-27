@@ -88,7 +88,7 @@ const SignStep: React.FC<Props> = ({ challenge, onVerified }) => {
 
       {/* Help callout */}
       <div className={cls.helpBox}>
-        <strong>Don't have a GPG key on GitHub?</strong>
+        <strong>Don&apos;t have a GPG key on GitHub?</strong>
         <p>
           Follow{' '}
           <a
@@ -97,7 +97,7 @@ const SignStep: React.FC<Props> = ({ challenge, onVerified }) => {
             rel="noopener noreferrer"
             className={cls.link}
           >
-            GitHub's GPG key guide
+            GitHub&apos;s GPG key guide
           </a>{' '}
           to generate and add a key, then come back here.
         </p>
@@ -130,7 +130,7 @@ const SignStep: React.FC<Props> = ({ challenge, onVerified }) => {
           </li>
           <li>
             <strong>expired challenge</strong> — Challenges expire after 10 minutes. Click
-            "Generate Challenge" again to get a fresh one.
+            &quot;Generate Challenge&quot; again to get a fresh one.
           </li>
           <li>
             <strong>missing GPG key</strong> — Your GitHub account must have at least one

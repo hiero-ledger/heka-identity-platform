@@ -60,10 +60,8 @@ export class GithubConfig {
     this.oauthClientId = config?.[GithubConfigKeys.oauthClientId]
     this.oauthClientSecret = config?.[GithubConfigKeys.oauthClientSecret]
     this.oauthRedirectUri = config?.[GithubConfigKeys.oauthRedirectUri]
-    this.oauthAuthorizeUrl =
-      config?.[GithubConfigKeys.oauthAuthorizeUrl] ?? 'https://github.com/login/oauth/authorize'
-    this.oauthTokenUrl =
-      config?.[GithubConfigKeys.oauthTokenUrl] ?? 'https://github.com/login/oauth/access_token'
+    this.oauthAuthorizeUrl = config?.[GithubConfigKeys.oauthAuthorizeUrl] ?? 'https://github.com/login/oauth/authorize'
+    this.oauthTokenUrl = config?.[GithubConfigKeys.oauthTokenUrl] ?? 'https://github.com/login/oauth/access_token'
     // No 'test' fallback — an absent secret must fail at boot rather than
     // silently signing state with a known key that voids CSRF protection.
     this.oauthStateSecret = config?.[GithubConfigKeys.oauthStateSecret] ?? config?.['JWT_SECRET']

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
+import { ConfigService } from '@config'
 import { EntityRepository } from '@mikro-orm/postgresql'
 import { HttpService } from '@nestjs/axios'
 import {
@@ -13,17 +13,13 @@ import * as openpgp from 'openpgp'
 import { of, throwError } from 'rxjs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ConfigService } from '@config'
-
+import { ContributorOnboardingService } from '../../contributor-onboarding'
 import { GpgChallenge } from '../gpg-challenge.entity'
 import { GpgChallengeService } from '../gpg-challenge.service'
-import { ContributorOnboardingService } from '../../contributor-onboarding'
 
 function createMock<T extends object>(overrides: Partial<T> = {}): T {
   return overrides as T
 }
-
-
 
 /**
  * Builds a fake GpgChallenge entity with sensible defaults.
@@ -66,8 +62,6 @@ function axiosNetworkError(): AxiosError {
   // err.response is intentionally undefined
   return err
 }
-
-
 
 describe('GpgChallengeService', () => {
   let service: GpgChallengeService
@@ -115,8 +109,6 @@ describe('GpgChallengeService', () => {
 
     service = new GpgChallengeService(challengeRepo, httpService, contributorOnboardingService, configService)
   })
-
-
 
   describe('createChallenge', () => {
     it('persists a challenge with a 64-character hex nonce', async () => {
@@ -166,8 +158,6 @@ describe('GpgChallengeService', () => {
     })
   })
 
-
-
   describe('verifySignature guard failures', () => {
     it('throws NotFoundException for an unknown challengeId', async () => {
       vi.mocked(challengeRepo.findOne).mockResolvedValue(null)
@@ -191,8 +181,6 @@ describe('GpgChallengeService', () => {
       )
     })
   })
-
-
 
   describe('verifySignature burn-before-verify ordering', () => {
     it('atomically claims the challenge via nativeUpdate BEFORE making any GitHub API call', async () => {
@@ -224,8 +212,6 @@ describe('GpgChallengeService', () => {
       )
     })
   })
-
-
 
   describe('verifySignature GitHub API failures', () => {
     beforeEach(() => {

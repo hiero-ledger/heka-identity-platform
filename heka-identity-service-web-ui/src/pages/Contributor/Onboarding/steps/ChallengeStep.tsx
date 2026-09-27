@@ -1,5 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useCallback } from 'react';
 
 import { requestContributorGpgChallenge } from '@/entities/User/model/services/requestContributorGpgChallenge';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';

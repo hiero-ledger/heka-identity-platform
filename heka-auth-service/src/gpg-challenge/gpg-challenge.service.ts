@@ -1,5 +1,4 @@
-import * as crypto from 'crypto'
-
+import { ConfigService } from '@config'
 import { InjectRepository } from '@mikro-orm/nestjs'
 import { EntityRepository } from '@mikro-orm/postgresql'
 import { HttpService } from '@nestjs/axios'
@@ -13,13 +12,11 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common'
 import axios from 'axios'
+import * as crypto from 'crypto'
 import * as openpgp from 'openpgp'
 import { firstValueFrom } from 'rxjs'
 
 import { ContributorOnboardingService } from '../contributor-onboarding'
-
-import { ConfigService } from '@config'
-
 import { GpgChallenge } from './gpg-challenge.entity'
 
 /** Nonce TTL in minutes. */
@@ -219,11 +216,7 @@ export class GpgChallengeService {
     // challenge. This prevents two concurrent verify requests from both passing
     // the consumed = false guard and proceeding to signature verification.
     const em = this.challengeRepo.getEntityManager()
-    const updated = await em.nativeUpdate(
-      GpgChallenge,
-      { id: challengeId, consumed: false },
-      { consumed: true },
-    )
+    const updated = await em.nativeUpdate(GpgChallenge, { id: challengeId, consumed: false }, { consumed: true })
     if (updated === 0) {
       // Another concurrent request consumed it between our findOne and here.
       throw new BadRequestException(
@@ -434,7 +427,9 @@ export class GpgChallengeService {
     if (signedText !== expectedNonce) {
       // Do not log the signedText value — it is caller-controlled and may contain
       // sensitive or malicious content that would pollute logs.
-      this.logger.warn(`Cross-challenge reuse attempt detected for challenge (expected nonce did not match signed content)`)
+      this.logger.warn(
+        `Cross-challenge reuse attempt detected for challenge (expected nonce did not match signed content)`,
+      )
       return { isValid: false }
     }
 

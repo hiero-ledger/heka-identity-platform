@@ -1,9 +1,8 @@
+import { ConfigModule, ConfigService } from '@config'
 import { MikroOrmModule } from '@mikro-orm/nestjs'
 import { HttpModule } from '@nestjs/axios'
 import { Module } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
-
-import { ConfigModule, ConfigService } from '@config'
 
 import { ContributorAuditEvent } from './contributor-audit-event.entity'
 import { ContributorBinding } from './contributor-binding.entity'

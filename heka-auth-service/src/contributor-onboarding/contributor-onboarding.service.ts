@@ -1,5 +1,4 @@
-import * as crypto from 'crypto'
-
+import { ConfigService } from '@config'
 import { EntityManager } from '@mikro-orm/core'
 import { HttpService } from '@nestjs/axios'
 import {
@@ -12,9 +11,8 @@ import {
 } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
+import * as crypto from 'crypto'
 import { firstValueFrom } from 'rxjs'
-
-import { ConfigService } from '@config'
 
 import { ContributorAuditEvent, ContributorAuditEventType } from './contributor-audit-event.entity'
 import { ContributorBinding } from './contributor-binding.entity'
@@ -404,7 +402,10 @@ export class ContributorOnboardingService {
 
   private signOAuthState(payload: OAuthStatePayload): string {
     const body = Buffer.from(JSON.stringify(payload)).toString('base64url')
-    const signature = crypto.createHmac('sha256', this.configService.githubConfig.oauthStateSecret).update(body).digest('base64url')
+    const signature = crypto
+      .createHmac('sha256', this.configService.githubConfig.oauthStateSecret)
+      .update(body)
+      .digest('base64url')
 
     return `${body}.${signature}`
   }

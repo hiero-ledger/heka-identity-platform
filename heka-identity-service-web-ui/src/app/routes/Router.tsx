@@ -7,6 +7,9 @@ import AuthenticatedLayout from '@/components/Layout/AuthenticatedLayout';
 import UnauthenticatedLayout from '@/components/Layout/UnauthenticatedLayout';
 import { getUserIsSignedIn } from '@/entities/User/model/selectors/userSelector';
 import AgeVerificationDemo from '@/pages/AgeVerificationDemo/AgeVerificationDemo';
+import ContributorGithubCallback from '@/pages/Contributor/ContributorGithubCallback';
+import ContributorHub from '@/pages/Contributor/ContributorHub';
+import ContributorOnboarding from '@/pages/Contributor/Onboarding/ContributorOnboarding';
 import Demo from '@/pages/Demo/Demo';
 import Home from '@/pages/Home/Home';
 import CredentialOffer from '@/pages/IssueCredential/CredentialOffer/CredentialOffer';
@@ -18,9 +21,6 @@ import SignUpView from '@/pages/SignUp/SignUp';
 import { VerificationFromTemplate } from '@/pages/VerifyCredential/VerificationFromTemplate/VerificationFromTemplate';
 import VerificationRequest from '@/pages/VerifyCredential/VerificationRequest/VerificationRequest';
 import VerifyCredential from '@/pages/VerifyCredential/VerifyCredential';
-import ContributorHub from '@/pages/Contributor/ContributorHub';
-import ContributorGithubCallback from '@/pages/Contributor/ContributorGithubCallback';
-import ContributorOnboarding from '@/pages/Contributor/Onboarding/ContributorOnboarding';
 
 const AuthenticatedRoutes = () => (
   <Routes>
@@ -71,7 +71,7 @@ const AuthenticatedRoutes = () => (
       />
       <Route path="*" element={<Navigate to={ROUTES.MAIN} />} />
 
-      {/* ── Contributor routes (accessible regardless of regular auth) ── */}
+      {/* Contributor routes (accessible regardless of regular auth) */}
       <Route path={ROUTES.CONTRIBUTOR} element={<ContributorHub />} />
       <Route path={ROUTES.CONTRIBUTOR_ONBOARDING} element={<ContributorOnboarding />} />
       <Route path={ROUTES.CONTRIBUTOR_GITHUB_CALLBACK} element={<ContributorGithubCallback />} />
@@ -97,7 +97,7 @@ const UnauthenticatedRoutes = () => (
       />
       <Route path="*" element={<Navigate to={ROUTES.MAIN} />} />
 
-      {/* ── Contributor routes (public — no regular auth needed) ── */}
+      {/* Contributor routes (public — no regular auth needed) */}
       <Route path={ROUTES.CONTRIBUTOR} element={<ContributorHub />} />
       <Route path={ROUTES.CONTRIBUTOR_ONBOARDING} element={<ContributorOnboarding />} />
       <Route path={ROUTES.CONTRIBUTOR_GITHUB_CALLBACK} element={<ContributorGithubCallback />} />
