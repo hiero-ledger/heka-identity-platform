@@ -1,0 +1,55 @@
+@mixin outline {
+  outline: var(--color-primary) solid var(--outline-width);
+  outline-offset: var(--outline-width);
+}
+
+@mixin border($side: 'all', $color: var(--color-surface-grey-2)) {
+  @if $side == 'all' {
+    border: 1px solid $color;
+  } @else if $side == 'top' {
+    border-top: 1px solid $color;
+  } @else if $side == 'right' {
+    border-right: 1px solid $color;
+  } @else if $side == 'bottom' {
+    border-bottom: 1px solid $color;
+  } @else if $side == 'left' {
+    border-left: 1px solid $color;
+  }
+}
+
+@mixin mobile {
+  @media (width <= 640px) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (width >= 640px) and (width < 1024px) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (width >= 1024px) {
+    @content;
+  }
+}
+
+@mixin not-mobile {
+  @media (width > 640px) {
+    @content;
+  }
+}
+
+@mixin long-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-wrap: nowrap;
+  scrollbar-width: none;
+}
+
+@mixin long-text-full {
+  text-overflow: ellipsis;
+  text-wrap: auto;
+  overflow-wrap: anywhere;
+}

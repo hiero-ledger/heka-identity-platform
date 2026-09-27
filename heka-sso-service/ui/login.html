@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in with wallet</title>
+    <script type="module" src="/src/login.ts"></script>
+  </head>
+  <body>
+    <header class="top-bar">
+      <div class="brand">
+        <img id="brand-logo" src="/interaction/assets/logo.svg" alt="" />
+        <span id="brand-name" class="brand-name">Heka</span>
+      </div>
+    </header>
+    <main>
+      <div class="card">
+        <h1>Sign in with your wallet</h1>
+        <!-- Mobile (DC API) -->
+        <section id="dc-api" hidden>
+          <button id="dc-api-button" type="button">Sign in with the wallet on this device</button>
+          <p id="dc-api-status" role="status"></p>
+        </section>
+        <!-- Desktop -->
+        <section id="qr" hidden>
+          <p class="muted">Scan the QR code with the wallet app on your phone.</p>
+          <img id="qr-image" alt="Wallet sign-in QR code" width="260" height="260" hidden />
+          <p><a id="dc-api-link" href="#" hidden>Open on another device</a></p>
+          <p><a id="deep-link" hidden>Open wallet on this device</a></p>
+          <p id="qr-status" role="status">Loading&hellip;</p>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

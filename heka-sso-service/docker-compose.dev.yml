@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:15
+    ports:
+      - '5434:5432'
+    environment:
+      - POSTGRES_USER=heka
+      - POSTGRES_PASSWORD=heka1
+      - POSTGRES_DB=heka-sso-service
+  # Rebuilds the heka-keycloak-theme jar on every `docker compose up`
+  keycloak-theme-builder:
+    build:
+      context: ../demo/heka-keycloak-theme
+      dockerfile: Dockerfile.builder
+    working_dir: /theme
+    command: >
+      sh -c "yarn install
+      && yarn build-keycloak-theme
+      && cp dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar /out/heka-theme.jar"
+    volumes:
+      - ../demo/heka-keycloak-theme:/theme
+      - keycloak-theme-node-modules:/theme/node_modules
+      - keycloak-theme:/out
+  # Keycloak with the pre-configured `heka` realm
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3
+    command: start-dev --import-realm --spi-theme-static-max-age=-1 --spi-theme-cache-themes=false --spi-theme-cache-templates=false
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+    ports:
+      - '8080:8080'
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+      - keycloak-theme:/opt/keycloak/providers:ro
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      keycloak-theme-builder:
+        condition: service_completed_successfully
+  heka-sso-service:
+    image: heka-sso-service:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=development
+      - APP_VERSION=0.0.1
+      - APP_PORT=3005
+      - APP_ENABLE_CORS=true
+      - LOG_LEVEL=trace
+      - LOG_EXCLUDE_URLS=/version,/health
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=heka-sso-service
+      - DB_USER=heka
+      - DB_PASSWORD=heka1
+      - OIDC_ISSUER_URL=http://localhost:3005
+      - OIDC_COOKIE_KEYS=dev-only-cookie-key-do-not-use-in-production
+      - OIDC_SUB_HMAC_SALT=dev-only-sub-hmac-salt-do-not-use-in-production
+      - IDENTITY_SERVICE_BASE_URL=http://localhost:3000
+      - OIDC_CLIENTS=[{"clientId":"keycloak-broker","clientSecret":"dev-only-broker-secret-do-not-use-in-production","redirectUris":["http://localhost:8080/realms/heka/broker/heka-sso/endpoint","http://localhost:8080/realms/master/broker/heka-sso/endpoint"],"postLogoutRedirectUris":["http://localhost:8080/realms/heka/broker/heka-sso/endpoint/logout_response","http://localhost:8080/realms/master/broker/heka-sso/endpoint/logout_response"],"loginConfigId":"default"}]
+      - OIDC_LOGIN_CONFIGS=[{"id":"default","verificationTemplate":"default","claimMapping":{"mdl.given_name":"given_name","mdl.family_name":"family_name","mdl.age_over_18":"age_over_18"},"subStrategy":"derived","issuerAllowlist":[]}]
+      # Dev-only stub login — refused in production
+      - OIDC_STUB_LOGIN=true
+    ports:
+      - '3005:3005'
+    depends_on:
+      - postgres
+
+volumes:
+  keycloak-theme:
+  keycloak-theme-node-modules:

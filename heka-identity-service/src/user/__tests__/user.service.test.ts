@@ -63,9 +63,9 @@ describe('UserService', () => {
 
   describe('patchMe', () => {
     test('updates user name, backgroundColor, and sets registeredAt', async () => {
-      const user = new User({ id: '11', backgroundColor: '#000', name: 'Old' })
+      const user = new User({ id: '11', backgroundColor: '#000', name: 'Old', logo: 'users_logo/old.png' })
       vi.mocked(em.findOneOrFail).mockResolvedValue(user)
-      vi.mocked(fileStorageService.url).mockReturnValue('https://logo.png')
+      vi.mocked(fileStorageService.publicUrl).mockReturnValue('https://logo.png')
 
       const result = await userService.patchMe(authInfo, tenantAgent, {
         name: 'NewName',
@@ -82,8 +82,11 @@ describe('UserService', () => {
         expect.objectContaining({
           name: 'NewName',
           background_color: '#fff',
+          // OID4VCI draft 13+ key — wallets ignore `url` and reject non-https values
+          logo: { uri: 'https://logo.png' },
         }),
       )
+      expect(fileStorageService.publicUrl).toHaveBeenCalledWith('users_logo/old.png')
       expect(result.name).toBe('NewName')
     })
 

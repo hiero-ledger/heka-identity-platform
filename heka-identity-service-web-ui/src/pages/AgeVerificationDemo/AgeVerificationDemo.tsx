@@ -177,7 +177,6 @@ const AgeVerificationFields = ({
 };
 
 const AgeVerificationDemo = () => {
-  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const schemas = useSelector(getSchemas);
   const isPresentationCompleted = useSelector(getIsPresentationCompleted);

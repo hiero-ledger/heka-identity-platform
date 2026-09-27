@@ -90,6 +90,10 @@ export class MinioDriver implements FileStorageDriverInterface {
     return `${this.root()}${normalizeUrl(path)}`
   }
 
+  public publicUrl(path: string): string {
+    return this.url(path)
+  }
+
   public async put(file: Express.Multer.File, options?: PutFileOptionsInterface): Promise<string> {
     try {
       const ext = extname(file.originalname)

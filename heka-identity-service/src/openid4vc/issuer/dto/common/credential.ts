@@ -34,6 +34,9 @@ export class DisplayMetadata {
   @ApiPropertyOptional()
   @IsOptional()
   public logo?: {
+    /** OID4VCI draft 13+ name; wallets require an https:// or data: URL. */
+    uri?: string
+    /** Legacy (pre-draft-13) name, kept for stored payloads. */
     url?: string
     alt_text?: string
     [key: string]: unknown

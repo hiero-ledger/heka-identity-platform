@@ -55,7 +55,7 @@ const SignInView: React.FC = () => {
         /* empty */
       }
     },
-    [dispatch],
+    [dispatch, resetApplicationState],
   );
 
   const handleCreateAccount = useCallback(() => {

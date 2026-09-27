@@ -1,0 +1,55 @@
+name: Verify Heka SSO Web UI changes
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'heka-sso-web-ui/**'
+      - '.github/workflows/heka-sso-web-ui-verify.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    defaults:
+      run:
+        working-directory: ./heka-sso-web-ui
+    name: Build and check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Prepare Github Runner
+        uses: pandaswhocode/initialize-github-job@0ed960ecaed898893e404ad55c7aa12fdc3b2a53 # v1.4.0
+        with:
+          checkout: 'true'
+          checkout-ref: '${{ github.ref }}'
+          checkout-token: '${{ secrets.GITHUB_TOKEN }}'
+          setup-node: 'true'
+          node-version: '22'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+        shell: bash
+
+      - name: Run build
+        run: yarn build
+
+      - name: Run ESLint
+        run: yarn lint-check
+
+      - name: Run Prettier check
+        run: yarn format-check

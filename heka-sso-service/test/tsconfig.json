@@ -1,0 +1,9 @@
+{
+  // IDE association only: the TS language server picks the nearest file named
+  // tsconfig.json, and the root one covers src/ without the vitest globals —
+  // without this file, test sources show "Cannot find name 'describe'" in the
+  // editor. Command-line type-checking is unchanged (`yarn check-types:test`
+  // runs the root tsconfig.test.json this extends).
+  "extends": "../tsconfig.test.json",
+  "include": ["./**/*"]
+}

@@ -1,3 +1,4 @@
+/// <reference lib="es2022.error" />
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { ThunkConfig } from '@/app/providers/StoreProvider';
@@ -24,7 +25,7 @@ const requestChangePassword = async (
     });
   } catch (error) {
     if (error.response && error.response.status === 401) {
-      throw new Error('Current password is incorrect.');
+      throw new Error('Current password is incorrect.', { cause: error });
     } else {
       throw error;
     }

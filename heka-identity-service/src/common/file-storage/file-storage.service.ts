@@ -33,6 +33,8 @@ export class FileStorageService implements FileStorageDriverInterface {
 
   public url = (path: string): string => this.driver.url(path)
 
+  public publicUrl = (path: string): string => this.driver.publicUrl(path)
+
   public put = async (file: Express.Multer.File, options?: PutFileOptionsInterface): Promise<string> =>
     this.driver.put(file, options)
 

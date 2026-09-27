@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -96,11 +96,16 @@ const AdvancedVerification = ({
     }
   }, [verificationTemplate, onChangeContextProperty]);
 
+  const onChangeNetwork = useMemo(
+    () => onChangeContextProperty('network'),
+    [onChangeContextProperty],
+  );
+
   const onSelectProtocol = useCallback(() => {
     if (flowContext?.protocolType === ProtocolType.Oid4vc) {
-      flowContext.network = undefined;
+      onChangeContextProperty('network')(undefined);
     }
-    flowContext.did = undefined;
+    onChangeContextProperty('did')(undefined);
 
     const nextStep =
       flowContext?.protocolType === ProtocolType.Oid4vc
@@ -108,7 +113,7 @@ const AdvancedVerification = ({
         : VerifyCredentialSteps.SelectNetwork;
 
     onChangeStep(nextStep);
-  }, [flowContext?.protocolType, onChangeStep]);
+  }, [flowContext?.protocolType, onChangeStep, onChangeContextProperty]);
 
   const onRequest = useCallback(
     (attributes: Array<string>) => {
@@ -126,7 +131,7 @@ const AdvancedVerification = ({
 
   useEffect(() => {
     onChangeContextProperty('schema')(singleSchema);
-  }, [singleSchema]);
+  }, [singleSchema, onChangeContextProperty]);
 
   return (
     <PreparationStepLayout
@@ -151,7 +156,7 @@ const AdvancedVerification = ({
           protocolType={flowContext.protocolType}
           did={flowContext.did}
           network={flowContext.network}
-          onChangeNetwork={onChangeContextProperty('network')}
+          onChangeNetwork={onChangeNetwork}
           onPrev={() => onChangeStep(VerifyCredentialSteps.SelectProtocolType)}
           onNext={() => onChangeStep(VerifyCredentialSteps.SelectSchema)}
           didOptional={flowContext.protocolType === ProtocolType.Aries}

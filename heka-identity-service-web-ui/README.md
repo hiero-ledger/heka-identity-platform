@@ -40,16 +40,17 @@ The application structure is inspired by [Feature-Sliced Design](https://feature
 As mentioned above, **Demo** flow can be run under an unauthorized user, but you must perform the next preparation
 steps before running or deploying the application:
 
+- Copy [.env.example](./.env.example) to `.env` if you haven't already.
 - Update values of predefined constants if needed: [authServiceEndpoint, agencyEndpoint, userCredentials](./scripts/prepare-demo-user.ts)
 - Initialize Demo user running the following command:
   ```
   npx ts-node  scripts/prepare-demo-user.ts
   ```
-- Update `REACT_APP_DEMO_*` environment variables in [.env](./.env) file with generated values.
+- The script updates the `REACT_APP_DEMO_*` variables in `.env` with the generated values.
 
 ## Configuration
 
-The Web UI is configured via environment variables read by webpack at build time. Set them in the `.env` file at the package root.
+The Web UI is configured via environment variables read by webpack at build time. Copy [.env.example](./.env.example) to `.env` at the package root and set them there.
 
 | Variable                            | Default                 | Description                                                                                                                                                                                                        |
 | ----------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -91,7 +92,7 @@ Cross-device on desktop Chrome may require the `chrome://flags#web-identity-digi
 
 ### How to Start
 
-- Update [environment variables defining the endpoints of Agency and Auth services](./.env) if needed
+- Copy [.env.example](./.env.example) to `.env` and update the endpoints of Agency and Auth services if needed
   ```
   REACT_APP_AGENCY_ENDPOINT=http://localhost:3000
   REACT_APP_AUTH_SERVICE_ENDPOINT=http://localhost:3004
@@ -108,7 +109,7 @@ Cross-device on desktop Chrome may require the `chrome://flags#web-identity-digi
 
 ## How to Deploy
 
-- Update [environment variables defining the endpoints of Agency and Auth services](./.env) if needed
+- Copy [.env.example](./.env.example) to `.env` and update the endpoints of Agency and Auth services if needed
   ```
   REACT_APP_AGENCY_ENDPOINT=http://localhost:3000
   REACT_APP_AUTH_SERVICE_ENDPOINT=http://localhost:3004

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -100,6 +100,16 @@ export const AdvancedIssue = ({ type = 'issue' }: AdvancedIssueProps) => {
     }
   }, [issuanceTemplate, onChangeContextProperty]);
 
+  const onChangeDid = useMemo(
+    () => onChangeContextProperty('did'),
+    [onChangeContextProperty],
+  );
+
+  const onChangeNetwork = useMemo(
+    () => onChangeContextProperty('network'),
+    [onChangeContextProperty],
+  );
+
   const onSelectSchema = useCallback(() => {
     const nextStep = getRegistration(flowContext.schema!, {
       ...flowContext!,
@@ -129,7 +139,7 @@ export const AdvancedIssue = ({ type = 'issue' }: AdvancedIssueProps) => {
 
   useEffect(() => {
     onChangeContextProperty('schema')(singleSchema);
-  }, [singleSchema]);
+  }, [singleSchema, onChangeContextProperty]);
 
   return (
     <PreparationStepLayout
@@ -154,8 +164,8 @@ export const AdvancedIssue = ({ type = 'issue' }: AdvancedIssueProps) => {
           protocolType={flowContext.protocolType}
           did={flowContext.did}
           network={flowContext.network}
-          onChangeDid={onChangeContextProperty('did')}
-          onChangeNetwork={onChangeContextProperty('network')}
+          onChangeDid={onChangeDid}
+          onChangeNetwork={onChangeNetwork}
           onPrev={() => onChangeStep(IssueCredentialSteps.SelectProtocolType)}
           onNext={() => onChangeStep(IssueCredentialSteps.SelectSchema)}
         />

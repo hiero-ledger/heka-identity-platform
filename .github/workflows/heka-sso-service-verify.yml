@@ -1,0 +1,86 @@
+name: Verify Heka SSO Service changes
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'heka-sso-service/**'
+      - '.github/workflows/heka-sso-service-verify.yml'
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    defaults:
+      run:
+        working-directory: ./heka-sso-service
+    name: Build and check
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: heka-sso-service
+          POSTGRES_USER: heka
+          POSTGRES_PASSWORD: heka1
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Prepare Github Runner
+        uses: pandaswhocode/initialize-github-job@0ed960ecaed898893e404ad55c7aa12fdc3b2a53 # v1.4.0
+        with:
+          checkout: 'true'
+          checkout-ref: '${{ github.ref }}'
+          checkout-token: '${{ secrets.GITHUB_TOKEN }}'
+          setup-node: 'true'
+          node-version: '22'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+        shell: bash
+
+      # the login page is a built artifact — the service tests serve
+      # and assert it, so it must exist before `yarn test`
+      - name: Build login page UI
+        run: yarn ui:build
+
+      - name: Run typecheck
+        run: yarn check-types
+
+      - name: Run ESLint
+        run: yarn lint-check
+
+      - name: Run tests
+        run: env FORCE_COLOR=1 yarn test
+
+      # e2e suites drop and recreate their schema (SchemaGenerator.refresh) —
+      # given their own database so that's never done to the one above.
+      - name: Create e2e database
+        run: PGPASSWORD=heka1 psql -h localhost -p 5432 -U heka -d heka-sso-service -c 'CREATE DATABASE "heka-sso-service-e2e";'
+
+      - name: Run e2e tests
+        run: env FORCE_COLOR=1 yarn test:e2e
+        env:
+          MIKRO_ORM_PORT: 5432

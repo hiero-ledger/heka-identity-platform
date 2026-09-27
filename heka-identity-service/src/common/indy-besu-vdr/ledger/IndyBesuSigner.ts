@@ -1,5 +1,6 @@
 import { TypedArrayEncoder, Kms } from '@credo-ts/core'
 import { BytesLike, computeAddress, getBytes } from 'ethers'
+
 import { Transaction, TransactionEndorsingData } from 'indybesu-vdr'
 
 export class IndyBesuSigner {

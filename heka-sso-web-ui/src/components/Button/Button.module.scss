@@ -1,0 +1,121 @@
+@import '@/styles/mixins';
+
+.Button {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  color: var(--color-light-high-emphasis);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-xs);
+
+  font: var(--font-label-l);
+  outline: none;
+
+  @include long-text;
+
+  &[data-focus-visible] {
+    @include outline;
+  }
+}
+
+.filled {
+  background-color: var(--color-primary);
+  border: none;
+  outline: none;
+
+  &[data-hovered] {
+    background-color: var(--color-primary-hover);
+  }
+
+  &[data-pressed] {
+    background-color: var(--color-primary-pressed);
+  }
+
+  &[data-disabled] {
+    background-color: var(--color-dark-opacity-05);
+    color: var(--color-dark-disabled);
+  }
+}
+
+.outlined {
+  background: none;
+  outline: none;
+  border: var(--border-width) solid var(--color-dark-high-emphasis);
+  color: var(--color-dark-high-emphasis);
+
+  &[data-hovered] {
+    background-color: var(--color-dark-opacity-05);
+  }
+
+  &[data-pressed] {
+    background-color: var(--color-dark-opacity-08);
+  }
+
+  &[data-disabled] {
+    background: none;
+    color: var(--color-dark-disabled);
+    border-color: var(--color-dark-disabled);
+  }
+}
+
+.tonal {
+  outline: none;
+  border: none;
+  background-color: var(--color-primary-opacity-6);
+  color: var(--color-text-on-surface);
+
+  &[data-hovered] {
+    background-color: var(--color-primary-opacity-9);
+  }
+
+  &[data-pressed] {
+    background-color: var(--color-primary-opacity-12);
+  }
+
+  &[data-disabled] {
+    background-color: var(--color-dark-opacity-05);
+    color: var(--color-dark-disabled);
+  }
+}
+
+.text {
+  outline: none;
+  border: none;
+  background: none;
+  color: var(--color-dark-high-emphasis);
+
+  &[data-hovered] {
+    background-color: var(--color-dark-opacity-05);
+  }
+
+  &[data-pressed] {
+    background-color: var(--color-dark-opacity-08);
+  }
+
+  &[data-disabled] {
+    color: var(--color-dark-disabled);
+  }
+}
+
+.small {
+  border-radius: var(--radius-sm);
+  padding: var(--space-xxxs);
+  gap: var(--space-xxxs);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.leftAligned {
+  justify-content: flex-start;
+}
+
+.icon {
+  width: var(--space-xl);
+  height: var(--space-xl);
+  min-width: var(--space-xl);
+  flex-shrink: 0;
+}

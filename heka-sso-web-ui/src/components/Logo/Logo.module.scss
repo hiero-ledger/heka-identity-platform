@@ -1,0 +1,29 @@
+@import '@/styles/mixins';
+
+.Logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-md) 0;
+  cursor: default;
+  outline: none;
+
+  &[data-focus-visible] {
+    @include outline;
+  }
+}
+
+button.Logo {
+  cursor: pointer;
+}
+
+.mark {
+  height: var(--space-xxl);
+  width: auto;
+  flex-shrink: 0;
+}
+
+.wordmark {
+  font: var(--font-headline-s);
+  color: var(--color-primary);
+}

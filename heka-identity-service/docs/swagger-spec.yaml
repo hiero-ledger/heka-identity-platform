@@ -3518,11 +3518,11 @@ components:
             - add
             - replace
         display:
-          type: array
           items:
-            type: string
-      required:
-        - credentialsSupported
+            type: array
+            items:
+              type: openId4VciIssuerDisplayDto
+          type: array
     OpenId4VciTxCode:
       type: object
       properties:
@@ -3821,6 +3821,9 @@ components:
           type: string
         size:
           type: number
+          default: 131072
+          minimum: 1
+          maximum: 8388608
         purpose:
           type: string
           enum:

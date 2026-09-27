@@ -1,4 +1,5 @@
 import { injectable } from '@credo-ts/core'
+
 import { IndyDidRegistry, LedgerClient } from 'indybesu-vdr'
 
 import { IndyBesuSigner } from '../IndyBesuSigner'

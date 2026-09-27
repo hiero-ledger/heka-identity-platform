@@ -1,0 +1,229 @@
+@import '@/styles/mixins';
+
+@keyframes shell-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.shell {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  min-height: var(--visual-viewport-height, 100dvh);
+  background: var(--color-surface-2);
+  padding: max(var(--layout-body-inset), env(safe-area-inset-top)) max(var(--layout-body-inset), env(safe-area-inset-right))
+    max(var(--layout-body-inset), env(safe-area-inset-bottom)) max(var(--layout-body-inset), env(safe-area-inset-left));
+  animation: shell-enter var(--motion-duration-enter) var(--motion-easing-standard) both;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
+  @include desktop {
+    height: 100vh;
+    height: var(--visual-viewport-height, 100dvh);
+    overflow: hidden;
+  }
+
+  @include stacked {
+    flex-direction: column;
+  }
+}
+
+.appShell {
+  padding-left: 0;
+
+  @include stacked {
+    padding-left: max(var(--layout-body-inset), env(safe-area-inset-left));
+  }
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  background: var(--color-surface-deep);
+  border-radius: var(--layout-body-radius);
+  padding: var(--layout-body-inset);
+
+  @include stacked {
+    flex-direction: column;
+  }
+}
+
+.sidebar {
+  flex: 0 0 var(--layout-sidebar-width);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-xl);
+  position: sticky;
+  top: var(--layout-body-inset);
+  align-self: flex-start;
+  height: calc(100vh - 2 * var(--layout-body-inset));
+  height: calc(var(--visual-viewport-height, 100dvh) - 2 * var(--layout-body-inset));
+}
+
+.sidebarNav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxxs);
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  font: var(--font-body-s);
+}
+
+.navItemActive {
+  background-color: var(--color-primary-opacity-6);
+}
+
+.navIcon {
+  width: var(--space-xl);
+  height: var(--space-xl);
+  flex-shrink: 0;
+}
+
+.navItemIcon {
+  color: var(--color-accent-nav);
+}
+
+.sidebarFooter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxxs);
+}
+
+.userName {
+  @include long-text;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 0 var(--space-md);
+}
+
+.headerPanel {
+  position: relative;
+  flex: 0 0 var(--layout-header-panel-width);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  padding: var(--space-xxxxl) var(--space-xxxl);
+}
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.headerEyebrow {
+  font: var(--font-label-m);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--font-letter-spacing-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-primary-soft);
+}
+
+.headerTitle {
+  font: var(--font-headline-l);
+  color: var(--color-primary);
+
+  @include stacked {
+    font: var(--font-headline-m);
+  }
+}
+
+.headerIllustration {
+  position: absolute;
+  left: var(--space-xxl);
+  bottom: var(--space-md);
+  width: var(--layout-illustration-size);
+  max-width: none;
+  height: auto;
+  pointer-events: none;
+}
+
+.topPanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 0 var(--layout-content-padding-mobile);
+
+  @include tablet {
+    padding: 0 var(--layout-content-padding-tablet);
+  }
+}
+
+.topPanelIllustration {
+  width: var(--layout-illustration-size-mobile);
+  height: auto;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  padding: var(--layout-content-padding);
+
+  @include desktop {
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  @include tablet {
+    padding: var(--layout-content-padding-tablet);
+  }
+
+  @include mobile {
+    padding: var(--layout-content-padding-mobile);
+  }
+}
+
+.contentTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: var(--space-xxxxl);
+}
+
+.contentBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xl);
+
+  @include stacked {
+    justify-content: flex-start;
+  }
+}

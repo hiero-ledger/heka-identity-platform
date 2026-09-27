@@ -80,6 +80,19 @@ async function main() {
     ],
   };
 
+  const passportV2Schema = {
+    name: 'Passport v2',
+    bgColor: '#171717',
+    fields: ['given_name', 'family_name', 'birth_date', 'passport_number', 'expiry_date'],
+    registrations: [
+      {
+        network: 'key',
+        credentialFormat: 'vc+sd-jwt',
+        protocol: 'OpenId4VC',
+      },
+    ],
+  };
+
   const mdlSchema = {
     name: 'mDL',
     bgColor: '#1a3a5c',
@@ -100,9 +113,13 @@ async function main() {
     ],
   };
 
-  params.append('userLogo', new Blob([fs.readFileSync(imagePath)]), 'user.png');
+  params.append(
+    'userLogo',
+    new Blob([new Uint8Array(fs.readFileSync(imagePath))]),
+    'user.png',
+  );
   params.append('schemaLogo', schemaLogoBlob, 'schema.jpg');
-  params.append('schemas', JSON.stringify([schema, mdlSchema]));
+  params.append('schemas', JSON.stringify([schema, passportV2Schema, mdlSchema]));
 
   // 3. Create DID
   const prepareResponse = await fetch(agencyEndpoint + '/prepare-wallet', {

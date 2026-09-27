@@ -109,7 +109,7 @@ const handleApiError = async (api: AxiosInstance, error: unknown) => {
     });
 
     return Promise.reject(error);
-  } catch (refreshError) {
+  } catch {
     // Token refresh failed - don't log error details as they may contain sensitive data
     console.error('[API] Token refresh failed for request:', {
       url: originalConfig.url,

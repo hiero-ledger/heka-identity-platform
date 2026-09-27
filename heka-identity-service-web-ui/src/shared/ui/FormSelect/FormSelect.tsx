@@ -44,3 +44,5 @@ export const FormSelect = React.forwardRef(
     );
   },
 );
+
+FormSelect.displayName = 'FormSelect';

@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 
 import { injectable } from '@credo-ts/core'
+
 import { LedgerClient, Transaction, TransactionEndorsingData, Endorsement } from 'indybesu-vdr'
 
 import { IndyBesuSigner } from '../IndyBesuSigner'
