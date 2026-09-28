@@ -13,7 +13,7 @@ import { IACA_MAX_VALIDITY_DAYS, resolveProfile } from './certificate-profiles'
 import { buildEuDsc, buildEuIaca } from './eu-certificate-builder'
 import { IACA_REGISTRY_RECORD_TYPE, readIacaRegistry } from './iaca-registry'
 import { MdocDsc, MdocIaca, ProvisionIacaOptions } from './mdoc-issuer-ca.types'
-import { TrustListService } from './trust-list.service'
+import { VicalService } from './vical.service'
 
 const IACA_RECORD_TYPE = 'mdoc-iaca'
 const DSC_RECORD_TYPE = 'mdoc-dsc'
@@ -60,7 +60,7 @@ export class MdocIssuerCaService {
   // The global (agency) agent holds the cross-tenant IACA registry — distinct from any tenant store.
   public constructor(
     @Inject(AGENT_TOKEN) private readonly agent: Agent,
-    private readonly trustListService: TrustListService,
+    private readonly vicalService: VicalService,
     @Inject(ExpressConfig.KEY)
     private readonly appConfig: ConfigType<typeof ExpressConfig>,
   ) {}
@@ -173,7 +173,7 @@ export class MdocIssuerCaService {
 
     await this.mirrorIacaToRegistry(agentContext, content)
     // A new tenant anchor changed the trust list — rebuild the VICAL on the next fetch.
-    this.trustListService.invalidate()
+    this.vicalService.invalidate()
     return { id: record.id, ...content }
   }
 
@@ -280,7 +280,7 @@ export class MdocIssuerCaService {
    * Called from `prepare-wallet` so every prepared tenant gets an mdoc issuer identity, mirroring how
    * the main did:key is created. Safe to call repeatedly.
    */
-  public async ensure(agentContext: AgentContext): Promise<{ iaca: MdocIaca; dsc: MdocDsc }> {
+  public async ensureIssuer(agentContext: AgentContext): Promise<{ iaca: MdocIaca; dsc: MdocDsc }> {
     const iaca = await this.provisionIaca(agentContext)
     const dsc = await this.ensureCurrentDsc(agentContext)
     return { iaca, dsc }

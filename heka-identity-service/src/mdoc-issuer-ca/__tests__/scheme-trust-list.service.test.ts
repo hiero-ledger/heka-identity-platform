@@ -11,8 +11,9 @@ import { Logger } from 'common/logger'
 import { SDJWT_ISSUER_REGISTRY_RECORD_TYPE } from 'sdjwt-vc-issuer'
 import { ManagedCertificate, ManagedCertificateService, X509SignerService } from 'x509-signing'
 
+import { EU_LOTE_SERVICE_TYPE } from '../eu-service-types'
 import { IACA_REGISTRY_RECORD_TYPE } from '../iaca-registry'
-import { EU_SERVICE_TYPE, HEKA_LOTE, SchemeTrustListService } from '../scheme-trust-list.service'
+import { HEKA_LOTE, SchemeTrustListService } from '../scheme-trust-list.service'
 
 const crypto = webcrypto as unknown as Crypto
 x509.cryptoProvider.set(crypto)
@@ -173,7 +174,7 @@ describe('SchemeTrustListService — the Heka scheme trust lists', () => {
     )
     const services = servicesOf(jws)
     expect(
-      services.every((entry) => entry.ServiceInformation.ServiceTypeIdentifier === EU_SERVICE_TYPE.eaaIssuance),
+      services.every((entry) => entry.ServiceInformation.ServiceTypeIdentifier === EU_LOTE_SERVICE_TYPE.eaaIssuance),
     ).toBe(true)
     expect(new Set(certsOf(jws))).toEqual(new Set([iacaA, iacaB, sdJwtA, partner]))
 
@@ -203,7 +204,7 @@ describe('SchemeTrustListService — the Heka scheme trust lists', () => {
     const jws = await service.getList('wrpac-providers')
     const services = servicesOf(jws)
     expect(services).toHaveLength(1)
-    expect(services[0].ServiceInformation.ServiceTypeIdentifier).toBe(EU_SERVICE_TYPE.wrpacIssuance)
+    expect(services[0].ServiceInformation.ServiceTypeIdentifier).toBe(EU_LOTE_SERVICE_TYPE.wrpacIssuance)
     expect(certsOf(jws)).toEqual([rootB64])
     expect(services[0].ServiceInformation.ServiceInformationExtensions?.[0]).toMatchObject({ origin: 'operator' })
     expect(decodePayload(jws).LoTE.ListAndSchemeInformation.LoTEType).toBe(HEKA_LOTE.type['wrpac-providers'])

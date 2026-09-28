@@ -48,7 +48,7 @@ export type X509ClientIdPrefix = 'x509_hash' | 'x509_san_dns';
  *
  * - `did` — sign with the verifier DID (`requestSigner: { method: 'did', did }`).
  * - `x5c` — sign with the verifier's X.509 signer. The backend resolves the certificate
- *   from `certificateId` when given, else the tenant's default identity for `clientIdPrefix`.
+ *   from `certificateId` when given, else the tenant's default signer for `clientIdPrefix`.
  */
 export type DcApiRequestSigner =
   | { method: 'did'; did: string }
@@ -77,7 +77,7 @@ const envDefaultSelection: RequestSignerSelection =
     ? { method: 'x5c', clientIdPrefix: x509ClientIdPrefix }
     : { method: 'did' };
 
-/** Whether the build-time default request signer is an X.509 identity (`DC_API_SIGNER=x5c`). */
+/** Whether the build-time default request signer is an X.509 signer (`DC_API_SIGNER=x5c`). */
 export const isEnvDefaultSignerX5c = (): boolean => dcApiSignerMethod === 'x5c';
 
 export const getDcApiRequestSigner = (

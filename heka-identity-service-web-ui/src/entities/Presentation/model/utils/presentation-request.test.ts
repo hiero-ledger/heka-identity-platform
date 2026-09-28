@@ -206,7 +206,7 @@ describe('buildOpenIdPresentationRequest — DC API (DCQL)', () => {
     expect(req.expectedOrigins).toEqual(['https://verifier.example.com']);
   });
 
-  it('uses an x5c signer with certificateId when the picker selects an X.509 identity', () => {
+  it('uses an x5c signer with certificateId when the picker selects an X.509 signer', () => {
     const req: any = buildOpenIdPresentationRequest({
       ...baseParams,
       format: Openid4CredentialFormat.MsoMdoc,

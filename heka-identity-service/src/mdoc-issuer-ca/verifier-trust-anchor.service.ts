@@ -7,6 +7,7 @@ import { Agent, AGENT_TOKEN } from 'common/agent'
 import { InjectLogger, Logger } from 'common/logger'
 import { X509SignerService } from 'x509-signing'
 
+import { dedupeCertificates } from './certificate-list'
 import { EuTrustAnchorIngestionService } from './eu-trust-anchor-ingestion.service'
 import { readIacaRegistry } from './iaca-registry'
 
@@ -97,7 +98,7 @@ export class VerifierTrustAnchorService implements OnModuleInit, OnModuleDestroy
     }
 
     if (sources.includes('config')) {
-      anchors.push(...this.ingestion.configuredAnchors().map((certificate) => certificate.toString('base64')))
+      anchors.push(...this.ingestion.anchorsFromConfig().map((certificate) => certificate.toString('base64')))
     }
     if (this.euSources.length > 0) {
       anchors.push(...(await this.euAnchors()))
@@ -125,7 +126,7 @@ export class VerifierTrustAnchorService implements OnModuleInit, OnModuleDestroy
         const anchors = await this.ingestion.anchorsFromSource(source)
         this.euSnapshots.set(
           source,
-          this.ingestion.dedupeByDer(anchors).map((certificate) => certificate.toString('base64')),
+          dedupeCertificates(anchors).map((certificate) => certificate.toString('base64')),
         )
       } catch (error) {
         failed.push({ source, reason: error instanceof Error ? error.message : String(error) })

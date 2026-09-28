@@ -345,7 +345,7 @@ export class X509SignerService {
             'POST /x509/signers/csr then /import',
         )
       }
-      return this.issueCaSignedLeaf({ subjectPublicKey, options, notBefore, notAfter })
+      return this.issueRootSignedRequestSignerLeaf({ subjectPublicKey, options, notBefore, notAfter })
     }
 
     return tenantAgent.x509.createCertificate({
@@ -425,7 +425,7 @@ export class X509SignerService {
    * the root key lives; the tenant key is only the cert subject, so its private key never leaves the
    * tenant store. Requires sanDnsName — the leaf SAN the wallet matches against the request origin.
    */
-  private async issueCaSignedLeaf({
+  private async issueRootSignedRequestSignerLeaf({
     subjectPublicKey,
     options,
     notBefore,

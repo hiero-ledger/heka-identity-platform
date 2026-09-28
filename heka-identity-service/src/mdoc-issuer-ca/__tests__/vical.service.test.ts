@@ -4,12 +4,12 @@ import { createMock } from '@golevelup/ts-vitest'
 import { Agent } from 'common/agent'
 import { ManagedCertificate, ManagedCertificateService } from 'x509-signing'
 
-import { TrustListService } from '../trust-list.service'
 import { decodeCoseSign1 } from '../vical/cose-sign1'
 import { decodeVicalPayload } from '../vical/vical'
+import { VicalService } from '../vical.service'
 
-describe('TrustListService', () => {
-  let service: TrustListService
+describe('VicalService', () => {
+  let service: VicalService
   let agent: Agent
   let managedCertificateService: ManagedCertificateService
 
@@ -83,7 +83,7 @@ describe('TrustListService', () => {
       agencyConfig: { mdocIssuerAuthority: 'Heka', vicalEnabled: true },
     })
 
-    service = new TrustListService(agent, managedCertificateService)
+    service = new VicalService(agent, managedCertificateService)
   })
 
   afterEach(() => {
@@ -145,7 +145,7 @@ describe('TrustListService', () => {
       genericRecords: { findAllByQuery: mockFindAllByQuery, update: mockUpdate },
       agencyConfig: { mdocIssuerAuthority: 'Heka', vicalEnabled: false },
     })
-    service = new TrustListService(agent, managedCertificateService)
+    service = new VicalService(agent, managedCertificateService)
 
     expect(service.enabled).toBe(false)
     await expect(service.getVical()).rejects.toThrow(/VICAL_ENABLED/)

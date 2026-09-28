@@ -1,17 +1,6 @@
 import { trustAnchorStore } from './trustAnchorStore'
 import { TrustClassification, TrustSourceConfig } from './trustSources'
-
-export type CredentialFormat = 'mso_mdoc' | 'dc+sd-jwt' | 'other'
-
-/** What is being verified, in trust terms — derived from Credo's X509 verification context. */
-export type TrustSubject =
-  | {
-      role: 'credential-issuer'
-      format: CredentialFormat
-      /** The mdoc `docType` or SD-JWT VC `vct`; absent for other formats. */
-      credentialType?: string
-    }
-  | { role: 'access-certificate' }
+import { CredentialFormat, TrustSubject } from './trustSubject'
 
 /**
  * The sources allowed to vouch for a subject:
@@ -23,7 +12,7 @@ export type TrustSubject =
  */
 export function selectTrustSources(sources: TrustSourceConfig[], subject: TrustSubject): TrustSourceConfig[] {
   const ofRole = sources.filter((source) => source.role === subject.role)
-  if (subject.role === 'access-certificate') return ofRole
+  if (subject.role === 'access-certificate-authority') return ofRole
 
   const { format, credentialType } = subject
   const classified =

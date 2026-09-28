@@ -1,19 +1,8 @@
+import { StaticAnchors } from './staticAnchors'
 import { trustAnchorStore } from './trustAnchorStore'
-import { isClassifiedSubject, resolveTrustAnchors, TrustSubject } from './trustResolver'
+import { isClassifiedSubject, resolveTrustAnchors } from './trustResolver'
 import { TrustSourceConfig } from './trustSources'
-
-/** The configuration-supplied certificate sets that complement the learned anchors. */
-export interface StaticTrustSets {
-  /** mdoc issuer anchors (`TRUSTED_MDOC_ISSUER_CERTIFICATES`). */
-  mdocIssuers: readonly string[]
-  /** OpenID4VP request-signer anchors (`TRUSTED_REQUEST_SIGNER_CERTIFICATES`). */
-  requestSigners: readonly string[]
-  /**
-   * The Heka service root CA (`HEKA_SERVICE_ROOT_CERTIFICATE`): chain root of the SD-JWT VC `x5c`
-   * issuer leaves and of the request-signing / access-certificate leaves. Never an mdoc issuer anchor.
-   */
-  serviceRoots: readonly string[]
-}
+import { TrustSubject } from './trustSubject'
 
 /**
  * The trusted certificates for one verification subject: the anchors learned from the sources selected
@@ -31,11 +20,11 @@ export interface StaticTrustSets {
 export function composeTrustedCertificates(
   sources: TrustSourceConfig[],
   subject: TrustSubject,
-  staticSets: StaticTrustSets,
+  staticSets: StaticAnchors,
   store: Pick<typeof trustAnchorStore, 'get'> = trustAnchorStore
 ): string[] {
   const learned = resolveTrustAnchors(sources, subject, store)
-  if (subject.role === 'access-certificate') {
+  if (subject.role === 'access-certificate-authority') {
     return unique([...learned, ...staticSets.serviceRoots, ...staticSets.requestSigners])
   }
   if (isClassifiedSubject(sources, subject)) return unique(learned)

@@ -10,7 +10,7 @@ import {
   loadCachedTrustSource,
   refreshTrustSource,
   refreshTrustSources,
-  resetTrustSequenceMemory,
+  resetAcceptedSequences,
   TrustVerifyAgent,
 } from '../loteTrustSource'
 import { trustAnchorStore } from '../trustAnchorStore'
@@ -93,7 +93,7 @@ const issuerSource: TrustSourceConfig = {
 }
 const accessSource: TrustSourceConfig = {
   id: 'heka-wrpac-providers',
-  role: 'access-certificate',
+  role: 'access-certificate-authority',
   url: 'https://heka.example/trust-list/wrpac-providers',
   pinnedSigners: ['ROOT'],
 }
@@ -101,7 +101,7 @@ const accessSource: TrustSourceConfig = {
 const refresh = (source: TrustSourceConfig, jws: string, agent = buildAgent()) =>
   refreshTrustSource(agent, source, { fetchImpl: fetchByUrl({ [source.url]: jwsResponse(jws) }) })
 
-beforeEach(() => resetTrustSequenceMemory())
+beforeEach(() => resetAcceptedSequences())
 
 describe('freshness and replay', () => {
   const NOW = 1_700_000_000_000
@@ -153,14 +153,14 @@ describe('freshness and replay', () => {
     expect((await cache.read(issuerSource.id))?.sequenceNumber).toBe(7)
 
     // a new runtime (the DC API overlay): no memory, only the cache
-    resetTrustSequenceMemory()
+    resetAcceptedSequences()
     expect(await refreshAt(buildJws({ scheme: { sequenceNumber: 6 } }), cache)).toMatchObject({
       ok: false,
       reason: 'sequence-regression',
     })
 
     // loading the cache also seeds the baseline, even when no cache is passed to the later refresh
-    resetTrustSequenceMemory()
+    resetAcceptedSequences()
     await loadCachedTrustSource(buildAgent(), issuerSource, cache, () => NOW)
     expect(await refreshAt(buildJws({ scheme: { sequenceNumber: 6 } }))).toMatchObject({
       ok: false,

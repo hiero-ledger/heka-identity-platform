@@ -4,7 +4,7 @@ import { ApiNotAcceptableResponse, ApiNotFoundResponse, ApiOkResponse, ApiOperat
 import { InjectLogger, Logger } from 'common/logger'
 
 import {
-  STATUS_LIST_JWT_MEDIA_TYPE,
+  TOKEN_STATUS_LIST_JWT_MEDIA_TYPE,
   TOKEN_STATUS_LIST_TTL_SECONDS,
   TokenStatusListService,
 } from './token-status-list.service'
@@ -16,7 +16,8 @@ export function acceptsStatusListJwt(accept: string | undefined): boolean {
     .split(',')
     .map((entry) => entry.split(';')[0].trim().toLowerCase())
     .some(
-      (mediaType) => mediaType === STATUS_LIST_JWT_MEDIA_TYPE || mediaType === 'application/*' || mediaType === '*/*',
+      (mediaType) =>
+        mediaType === TOKEN_STATUS_LIST_JWT_MEDIA_TYPE || mediaType === 'application/*' || mediaType === '*/*',
     )
 }
 
@@ -43,14 +44,14 @@ export class TokenStatusListPublicController {
   @ApiNotFoundResponse({ description: 'Unknown status list' })
   @ApiNotAcceptableResponse({ description: 'Only the JWT format is available' })
   @Get(':id')
-  @Header('Content-Type', STATUS_LIST_JWT_MEDIA_TYPE)
+  @Header('Content-Type', TOKEN_STATUS_LIST_JWT_MEDIA_TYPE)
   @Header('Cache-Control', `max-age=${TOKEN_STATUS_LIST_TTL_SECONDS}`)
   public async get(@Param('id') id: string, @Headers('accept') accept?: string): Promise<string> {
     const logger = this.logger.child('get', { id })
     logger.trace('>')
 
     if (!acceptsStatusListJwt(accept)) {
-      throw new NotAcceptableException(`Only ${STATUS_LIST_JWT_MEDIA_TYPE} is available for this status list`)
+      throw new NotAcceptableException(`Only ${TOKEN_STATUS_LIST_JWT_MEDIA_TYPE} is available for this status list`)
     }
     const token = await this.tokenStatusListService.getToken(id)
 

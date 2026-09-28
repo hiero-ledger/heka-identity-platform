@@ -8,7 +8,7 @@ import {
   buildDscExtensions,
   buildIacaExtensions,
   type EcPublicJwk,
-  encodeQcStatements,
+  encodeQcTypeStatement,
   randomPositiveSerialNumberHex,
 } from '../eu-certificate-builder'
 import { assessEuSigningCertificate } from '../eu-certificate-profile-assessment'
@@ -186,7 +186,7 @@ describe('assessEuSigningCertificate', () => {
   })
 
   test('qcStatements round-trips through the encoder (DER SEQUENCE OF QCStatement)', async () => {
-    const der = encodeQcStatements([ID_ETSI_QCT_PID_OID])
+    const der = encodeQcTypeStatement([ID_ETSI_QCT_PID_OID])
     const certificate = await dsc({
       extensions: (subjectJwk) =>
         buildDscExtensions({

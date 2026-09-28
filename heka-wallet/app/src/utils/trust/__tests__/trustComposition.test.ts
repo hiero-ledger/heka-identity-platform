@@ -1,5 +1,6 @@
 import { trustAnchorStore } from '../trustAnchorStore'
-import { composeTrustedCertificates, StaticTrustSets } from '../trustComposition'
+import { StaticAnchors } from '../staticAnchors'
+import { composeTrustedCertificates } from '../trustComposition'
 import { TrustSourceConfig } from '../trustSources'
 
 const heka: TrustSourceConfig = {
@@ -17,13 +18,13 @@ const euPid: TrustSourceConfig = {
 }
 const wrpac: TrustSourceConfig = {
   id: 'heka-wrpac-providers',
-  role: 'access-certificate',
+  role: 'access-certificate-authority',
   url: 'https://heka.example/trust-list/wrpac-providers',
   pinnedSigners: ['ROOT'],
 }
 const sources = [heka, euPid, wrpac]
 
-const staticSets: StaticTrustSets = {
+const staticSets: StaticAnchors = {
   mdocIssuers: ['STATIC_IACA'],
   requestSigners: ['PINNED_VERIFIER_LEAF'],
   serviceRoots: ['SERVICE_ROOT'],
@@ -38,7 +39,7 @@ describe('composeTrustedCertificates', () => {
   })
 
   test('access-certificate: learned access CAs + the service root + the pinned request signers', () => {
-    expect(composeTrustedCertificates(sources, { role: 'access-certificate' }, staticSets)).toEqual([
+    expect(composeTrustedCertificates(sources, { role: 'access-certificate-authority' }, staticSets)).toEqual([
       'ACCESS_CA',
       'SERVICE_ROOT',
       'PINNED_VERIFIER_LEAF',
@@ -107,7 +108,7 @@ describe('composeTrustedCertificates', () => {
 
   test('de-duplicates an anchor that is both learned and static', () => {
     trustAnchorStore.set(wrpac.id, ['SERVICE_ROOT'])
-    expect(composeTrustedCertificates(sources, { role: 'access-certificate' }, staticSets)).toEqual([
+    expect(composeTrustedCertificates(sources, { role: 'access-certificate-authority' }, staticSets)).toEqual([
       'SERVICE_ROOT',
       'PINNED_VERIFIER_LEAF',
     ])

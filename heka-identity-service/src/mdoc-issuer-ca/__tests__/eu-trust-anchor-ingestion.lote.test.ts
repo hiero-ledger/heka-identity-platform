@@ -9,6 +9,7 @@ import * as x509 from '@peculiar/x509'
 import { Agent } from 'common/agent'
 import { Logger } from 'common/logger'
 
+import { dedupeCertificates } from '../certificate-list'
 import { EuTrustAnchorIngestionService } from '../eu-trust-anchor-ingestion.service'
 
 const crypto = webcrypto as unknown as Crypto
@@ -221,8 +222,8 @@ describe('EuTrustAnchorIngestionService — LoTE ingestion (ETSI TS 119 602)', (
   test('partner (config) anchors and LoTE anchors are separate sources a consumer unions', async () => {
     stubFetch({ [LOTE_URL]: await signLote(loteFixture([{ certificateBase64: pidAnchor }]), operator) })
     const { service } = buildService({ loteSigner: operator.base64, partnerCertificates: partnerAnchor })
-    const configured = service.configuredAnchors().map((certificate) => certificate.toString('base64'))
-    const union = service.dedupeByDer([...service.configuredAnchors(), ...(await service.anchorsFromLote())])
+    const configured = service.anchorsFromConfig().map((certificate) => certificate.toString('base64'))
+    const union = dedupeCertificates([...service.anchorsFromConfig(), ...(await service.anchorsFromLote())])
     expect(configured).toEqual([partnerAnchor])
     expect(new Set(union.map((certificate) => certificate.toString('base64')))).toEqual(
       new Set([partnerAnchor, pidAnchor]),

@@ -220,7 +220,7 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     const listId = references[0].location.split('/').pop() as string
     const list = await orm.em.fork().findOneOrFail(TokenStatusList, { id: listId })
     expect(list.allocatedCount).toBe(21)
-    const bitsSet = Buffer.from(list.allocated, 'base64').reduce(
+    const bitsSet = Buffer.from(list.allocatedBitmap, 'base64').reduce(
       (count, byte) => count + byte.toString(2).replace(/0/g, '').length,
       0,
     )

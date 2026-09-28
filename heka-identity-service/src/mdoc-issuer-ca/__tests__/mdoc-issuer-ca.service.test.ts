@@ -9,7 +9,7 @@ import { Agent } from 'common/agent'
 import { ID_ETSI_QCT_PID_OID, MDL_DOCUMENT_SIGNER_EKU_OID } from '../certificate-profiles'
 import { buildEuDsc, buildEuIaca } from '../eu-certificate-builder'
 import { MdocIssuerCaService } from '../mdoc-issuer-ca.service'
-import { TrustListService } from '../trust-list.service'
+import { VicalService } from '../vical.service'
 
 // Mock the EU certificate builder (real peculiar + KMS) so this stays a pure unit test; the builder itself
 // is covered by eu-certificate-builder.test.ts.
@@ -96,7 +96,7 @@ describe('MdocIssuerCaService', () => {
         mdocDefaultDocType: 'org.iso.18013.5.1.mDL',
       },
     })
-    service = new MdocIssuerCaService(globalAgent, createMock<TrustListService>(), {
+    service = new MdocIssuerCaService(globalAgent, createMock<VicalService>(), {
       appEndpoint: 'https://heka.example',
     } as never)
 
@@ -319,7 +319,7 @@ describe('MdocIssuerCaService', () => {
         () => ({ keyId: undefined, publicJwk: { marker: 'parsed' } }) as never,
       )
 
-      const { iaca, dsc } = await service.ensure(agentContext)
+      const { iaca, dsc } = await service.ensureIssuer(agentContext)
 
       expect(iaca).toMatchObject({ keyId: 'iaca-key' })
       expect(dsc).toMatchObject({ keyId: 'dsc-key', isCurrent: true })

@@ -60,11 +60,11 @@ export class MdocIssuerCaController {
     logger.trace('>')
 
     const iaca = await this.mdocIssuerCaService.provisionIaca(tenantAgent.context, req)
-    await this.mdocIssuerCaService.ensure(tenantAgent.context)
+    await this.mdocIssuerCaService.ensureIssuer(tenantAgent.context)
     const dscs = await this.mdocIssuerCaService.listDsc(tenantAgent.context)
 
     logger.trace('<')
-    return MdocIssuerDto.from(iaca, dscs)
+    return MdocIssuerDto.fromIssuer(iaca, dscs)
   }
 
   /**
@@ -87,7 +87,7 @@ export class MdocIssuerCaController {
     const dscs = await this.mdocIssuerCaService.listDsc(tenantAgent.context)
 
     logger.trace('<')
-    return MdocIssuerDto.from(iaca, dscs)
+    return MdocIssuerDto.fromIssuer(iaca, dscs)
   }
 
   /**

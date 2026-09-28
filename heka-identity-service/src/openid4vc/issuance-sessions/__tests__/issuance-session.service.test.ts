@@ -40,7 +40,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
     // Default: tenant has a provisioned mdoc issuer (the offer() require-provisioning guard passes).
     vi.mocked(mdocIssuerCaService.requireProvisioned).mockResolvedValue({ id: 'iaca-1' } as never)
     tokenStatusListService = createMock<TokenStatusListService>()
-    vi.mocked(tokenStatusListService.allocateMany).mockResolvedValue({
+    vi.mocked(tokenStatusListService.reserveIndexes).mockResolvedValue({
       id: 'tsl-1',
       uri: 'https://example.com/token-status-lists/tsl-1',
       indexes: [42],
@@ -314,7 +314,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkGood')
       // the list is signed with the DID's own verification-method key (same key as the credential)
-      expect(tokenStatusListService.allocateMany).toHaveBeenCalledWith(
+      expect(tokenStatusListService.reserveIndexes).toHaveBeenCalledWith(
         tenantAgent.context,
         authInfo,
         {
@@ -408,7 +408,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
         await service.offer(authInfo, tenantAgent, req)
 
         expect(tenantAgent.kms.getPublicKey).toHaveBeenCalledWith({ keyId: legacyKeyId })
-        expect(tokenStatusListService.allocateMany).toHaveBeenCalledWith(
+        expect(tokenStatusListService.reserveIndexes).toHaveBeenCalledWith(
           tenantAgent.context,
           authInfo,
           {
@@ -424,7 +424,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
         vi.mocked(tenantAgent.kms.getPublicKey).mockResolvedValue(null as never)
 
         await expect(service.offer(authInfo, tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
-        expect(tokenStatusListService.allocateMany).not.toHaveBeenCalled()
+        expect(tokenStatusListService.reserveIndexes).not.toHaveBeenCalled()
       })
     })
 
@@ -464,7 +464,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       } as any)
 
       expect(tenantAgent.dids.resolve).not.toHaveBeenCalled()
-      expect(tokenStatusListService.allocateMany).toHaveBeenCalledWith(
+      expect(tokenStatusListService.reserveIndexes).toHaveBeenCalledWith(
         tenantAgent.context,
         authInfo,
         {
@@ -506,7 +506,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
         didDocument: {} as never,
         keys: [{ didDocumentRelativeKeyId: '#key-1', kmsKeyId: 'kms-key-1' }],
       })
-      vi.mocked(tokenStatusListService.allocateMany).mockResolvedValue({
+      vi.mocked(tokenStatusListService.reserveIndexes).mockResolvedValue({
         id: 'tsl-1',
         uri: 'https://example.com/token-status-lists/tsl-1',
         indexes: [7, 8, 9],
@@ -529,7 +529,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
         baseUri: 'https://example.com',
       } as any)
 
-      expect(tokenStatusListService.allocateMany).toHaveBeenCalledWith(
+      expect(tokenStatusListService.reserveIndexes).toHaveBeenCalledWith(
         tenantAgent.context,
         authInfo,
         expect.objectContaining({ keyId: 'kms-key-1' }),

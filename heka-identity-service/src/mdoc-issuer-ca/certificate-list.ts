@@ -33,3 +33,16 @@ export function parseSignerCertificates(raw: string): string[] {
 export function parseConfiguredAnchors(raw: string): X509Certificate[] {
   return tokenizeCertificateList(raw).map((token) => X509Certificate.fromEncodedCertificate(token.trim()))
 }
+
+/** De-duplicate certificates by base64 DER (two sources/lists may carry the same cross-border CA). */
+export function dedupeCertificates(certificates: X509Certificate[]): X509Certificate[] {
+  const seen = new Set<string>()
+  const unique: X509Certificate[] = []
+  for (const certificate of certificates) {
+    const der = certificate.toString('base64')
+    if (seen.has(der)) continue
+    seen.add(der)
+    unique.push(certificate)
+  }
+  return unique
+}

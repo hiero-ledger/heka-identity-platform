@@ -7,7 +7,7 @@ import {
   buildDistinguishedName,
   buildDscExtensions,
   buildIacaExtensions,
-  decodeQcTypes,
+  decodeQcTypeStatement,
   ecKeyIdentifierHex,
   type EcPublicJwk,
   randomPositiveSerialNumberHex,
@@ -86,7 +86,7 @@ describe('eu-certificate-builder — pure helpers', () => {
     })
     const qcStatements = extensions.find((e) => e.type === ID_PE_QC_STATEMENTS_OID)
     expect(qcStatements?.critical).toBe(false)
-    expect(decodeQcTypes(qcStatements!.value)).toEqual([ID_ETSI_QCT_PID_OID])
+    expect(decodeQcTypeStatement(qcStatements!.value)).toEqual([ID_ETSI_QCT_PID_OID])
     const aia = extensions.find(
       (e): e is x509.AuthorityInfoAccessExtension => e instanceof x509.AuthorityInfoAccessExtension,
     )

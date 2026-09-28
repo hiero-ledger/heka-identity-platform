@@ -29,8 +29,7 @@ describe('loadTrustConfiguration', () => {
       log
     )
     expect(configuration).toEqual({
-      staticAnchors: { mdocIssuers: [IACA], requestSigners: [LEAF] },
-      serviceRoots: [ROOT],
+      staticAnchors: { mdocIssuers: [IACA], requestSigners: [LEAF], serviceRoots: [ROOT] },
       sources: [
         expect.objectContaining({ id: HEKA_EAA_PROVIDERS_SOURCE_ID, pinnedSigners: [ROOT] }),
         expect.objectContaining({ id: HEKA_WRPAC_PROVIDERS_SOURCE_ID, pinnedSigners: [ROOT] }),
@@ -42,8 +41,7 @@ describe('loadTrustConfiguration', () => {
 
   test('everything unset: empty sets, no root, no sources, no errors', () => {
     expect(loadTrustConfiguration({})).toEqual({
-      staticAnchors: { mdocIssuers: [], requestSigners: [] },
-      serviceRoots: [],
+      staticAnchors: { mdocIssuers: [], requestSigners: [], serviceRoots: [] },
       sources: [],
       errors: [],
     })
@@ -60,8 +58,7 @@ describe('loadTrustConfiguration', () => {
       },
       log
     )
-    expect(configuration.staticAnchors).toEqual({ mdocIssuers: [], requestSigners: [LEAF] })
-    expect(configuration.serviceRoots).toEqual([ROOT])
+    expect(configuration.staticAnchors).toEqual({ mdocIssuers: [], requestSigners: [LEAF], serviceRoots: [ROOT] })
     expect(configuration.sources).toHaveLength(2)
     expect(configuration.errors).toEqual([
       'TRUSTED_MDOC_ISSUER_CERTIFICATES[0] is not a valid X.509 certificate: ASN.1 parse error',
@@ -76,7 +73,7 @@ describe('loadTrustConfiguration', () => {
       AGENCY_PROVIDER_URL: 'https://heka.example',
       HEKA_SERVICE_ROOT_CERTIFICATE: '<paste root here>',
     })
-    expect(configuration.serviceRoots).toEqual([])
+    expect(configuration.staticAnchors.serviceRoots).toEqual([])
     expect(configuration.sources.map((source) => source.pinnedSigners)).toEqual([[], []])
     expect(configuration.errors).toEqual(['HEKA_SERVICE_ROOT_CERTIFICATE is not a base64 DER (or PEM) certificate'])
   })
@@ -88,7 +85,7 @@ describe('loadTrustConfiguration', () => {
       TRUST_SOURCES: '[{"id":"x"}]',
     })
     expect(configuration.sources).toEqual([])
-    expect(configuration.serviceRoots).toEqual([ROOT])
-    expect(configuration.errors).toEqual(['TRUST_SOURCES[0].role: must be one of credential-issuer, access-certificate'])
+    expect(configuration.staticAnchors.serviceRoots).toEqual([ROOT])
+    expect(configuration.errors).toEqual(['TRUST_SOURCES[0].role: must be one of credential-issuer, access-certificate-authority'])
   })
 })

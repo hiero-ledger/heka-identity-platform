@@ -9,9 +9,9 @@ import { setNodeDependencies } from 'xml-core'
 import { Agent } from 'common/agent'
 import { Logger } from 'common/logger'
 
-import { EU_GENERIC_TSL_TYPE } from '../etsi-tsl.parser'
 import { EU_TL_SERVICE_TYPE } from '../eu-service-types'
 import { EuTrustAnchorIngestionService } from '../eu-trust-anchor-ingestion.service'
+import { EU_GENERIC_TSL_TYPE } from '../eu-trusted-list-parser'
 
 const crypto = webcrypto as unknown as Crypto
 xadesjs.Application.setEngine('NodeJS', crypto)

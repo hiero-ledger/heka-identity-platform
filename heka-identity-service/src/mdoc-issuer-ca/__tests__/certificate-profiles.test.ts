@@ -1,11 +1,11 @@
 import {
-  EU_MDL_PROFILE,
+  MDL_EU_PROFILE,
   EUDI_EAA_PROFILE,
   EUDI_PID_PROFILE,
   ID_ETSI_QCT_PID_OID,
   isProfileName,
   MDL_DOCUMENT_SIGNER_EKU_OID,
-  MDL_PROFILE,
+  MDL_US_PROFILE,
   PROFILE_NAMES,
   resolveProfile,
 } from '../certificate-profiles'
@@ -37,16 +37,16 @@ describe('certificate profiles — TS 119 412-6 V1.1.1 intent', () => {
   })
 
   test('mDL keeps the ISO mdlDS EKU (critical) in both ecosystems; only the EU variant adds the EU bits', () => {
-    for (const profile of [MDL_PROFILE, EU_MDL_PROFILE]) {
+    for (const profile of [MDL_US_PROFILE, MDL_EU_PROFILE]) {
       expect(profile.dscExtendedKeyUsage).toEqual({ oids: [MDL_DOCUMENT_SIGNER_EKU_OID], critical: true })
       expect(profile.dscQcTypes).toBeUndefined()
     }
-    expect(MDL_PROFILE).toMatchObject({
+    expect(MDL_US_PROFILE).toMatchObject({
       requiresCertificatePolicies: false,
       requiresAuthorityInformationAccess: false,
       usesOrganizationIdentifier: false,
     })
-    expect(EU_MDL_PROFILE).toMatchObject({
+    expect(MDL_EU_PROFILE).toMatchObject({
       requiresCertificatePolicies: true,
       requiresAuthorityInformationAccess: true,
       usesOrganizationIdentifier: true,
@@ -54,7 +54,7 @@ describe('certificate profiles — TS 119 412-6 V1.1.1 intent', () => {
   })
 
   test('validity keeps the ISO 18013-5 caps for every profile (no ETSI cap exists)', () => {
-    for (const profile of [MDL_PROFILE, EU_MDL_PROFILE, EUDI_PID_PROFILE, EUDI_EAA_PROFILE]) {
+    for (const profile of [MDL_US_PROFILE, MDL_EU_PROFILE, EUDI_PID_PROFILE, EUDI_EAA_PROFILE]) {
       expect(profile.dscValidityDays).toBeLessThanOrEqual(457)
       expect(profile.iacaValidityDays).toBeLessThanOrEqual(365 * 9)
     }
@@ -65,13 +65,11 @@ describe('certificate profiles — TS 119 412-6 V1.1.1 intent', () => {
     ['mdl', 'mdl-us'],
     ['mdl-us', 'mdl-us'],
     ['mdl-eu', 'mdl-eu'],
-    ['eudi', 'eudi-pid'],
     ['eudi-pid', 'eudi-pid'],
     ['eudi-eaa', 'eudi-eaa'],
     [{ profile: 'eudi-eaa' }, 'eudi-eaa'],
     [{ credentialType: 'mdl', ecosystem: 'eu' }, 'mdl-eu'],
     [{ credentialType: 'pid', ecosystem: 'eu' }, 'eudi-pid'],
-    [{ credentialType: 'pid-eaa', ecosystem: 'eu' }, 'eudi-pid'],
     [{ credentialType: 'eaa', ecosystem: 'eu' }, 'eudi-eaa'],
     [{ credentialType: 'pid', ecosystem: 'us' }, 'mdl-us'],
   ] as const)('resolveProfile(%j) → %s', (selector, expected) => {

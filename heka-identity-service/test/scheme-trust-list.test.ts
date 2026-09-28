@@ -6,7 +6,7 @@ import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 
 import { Agent, AGENT_TOKEN } from 'src/common/agent'
-import { EU_SERVICE_TYPE, HEKA_LOTE, MdocIssuerCaService } from 'src/mdoc-issuer-ca'
+import { EU_LOTE_SERVICE_TYPE, HEKA_LOTE, MdocIssuerCaService } from 'src/mdoc-issuer-ca'
 import { sleep } from 'src/utils/timers'
 import { X509SignerService } from 'src/x509-signing'
 
@@ -66,7 +66,7 @@ describe('Scheme trust lists', () => {
     const tenantAgent = await agent.modules.tenants.getTenantAgent({ tenantId: tenant.id })
     let iacaBase64: string
     try {
-      const { iaca } = await nestApp.get(MdocIssuerCaService).ensure(tenantAgent.context)
+      const { iaca } = await nestApp.get(MdocIssuerCaService).ensureIssuer(tenantAgent.context)
       iacaBase64 = iaca.certificateBase64
     } finally {
       await tenantAgent.endSession()
@@ -84,7 +84,7 @@ describe('Scheme trust lists', () => {
     const tenantService = eaaServices.find(
       (service) => service.ServiceInformation.ServiceDigitalIdentity?.X509Certificates?.[0].val === iacaBase64,
     )
-    expect(tenantService?.ServiceInformation.ServiceTypeIdentifier).toBe(EU_SERVICE_TYPE.eaaIssuance)
+    expect(tenantService?.ServiceInformation.ServiceTypeIdentifier).toBe(EU_LOTE_SERVICE_TYPE.eaaIssuance)
     expect(tenantService?.ServiceInformation.ServiceInformationExtensions?.[0]).toMatchObject({ origin: 'tenant' })
 
     const root = await nestApp.get(X509SignerService).getServiceRootCertificate()
@@ -94,7 +94,7 @@ describe('Scheme trust lists', () => {
       (entity) => entity.TrustedEntityServices,
     )
     expect(wrpacServices).toHaveLength(1)
-    expect(wrpacServices[0].ServiceInformation.ServiceTypeIdentifier).toBe(EU_SERVICE_TYPE.wrpacIssuance)
+    expect(wrpacServices[0].ServiceInformation.ServiceTypeIdentifier).toBe(EU_LOTE_SERVICE_TYPE.wrpacIssuance)
     expect(wrpacServices[0].ServiceInformation.ServiceDigitalIdentity?.X509Certificates?.[0].val).toBe(
       root?.certificateBase64,
     )

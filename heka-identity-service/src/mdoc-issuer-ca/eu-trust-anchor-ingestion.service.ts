@@ -6,13 +6,23 @@ import { Agent, AGENT_TOKEN } from 'common/agent'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { parseConfiguredAnchors, parseSignerCertificates, normalizeBase64Certificate } from './certificate-list'
-import { parseLotlPointers, parseTrustedListAnchors, parseTrustedListInfo, TrustedListInfo } from './etsi-tsl.parser'
-import { decodeLoteJws, DecodedLoteJws, extractLoteAnchors, LOTE_JWT_TYP, loteListInfo } from './eu-lote'
-import { EU_LOTE_ISSUER_SERVICE_TYPES, EU_TL_ISSUER_SERVICE_TYPES, narrowIssuerServiceTypes } from './eu-service-types'
-import { verifyTrustedListSignature } from './eu-trusted-list.verify'
+import { decodeLoteJws, DecodedLoteJws, extractLoteAnchors, LOTE_JWT_TYP, readLoteListInfo } from './eu-lote'
+import {
+  EU_LOTE_ISSUER_SERVICE_TYPES,
+  EU_TL_ISSUER_SERVICE_TYPES,
+  narrowIssuerServiceTypes,
+  splitCommaList,
+} from './eu-service-types'
+import {
+  parseLotlPointers,
+  parseTrustedListAnchors,
+  parseTrustedListInfo,
+  ListIssueInfo,
+} from './eu-trusted-list-parser'
+import { verifyTrustedListSignature } from './eu-trusted-list-signature'
 
 /** The external anchor sources the service can ingest. */
-export type EuTrustAnchorSource = 'config' | 'lotl' | 'lote'
+export type IngestedTrustSource = 'config' | 'lotl' | 'lote'
 
 /** Network limits for the trust documents (fetched in the background, never inside a verification). */
 export interface TrustDocumentLimits {
@@ -27,7 +37,7 @@ export interface TrustDocumentLimits {
 }
 
 /** Grace after a list's `NextUpdate` before it counts as stale (publisher clock skew, publication lag). */
-export const TRUST_LIST_STALE_GRACE_MS = 5 * 60 * 1000
+export const LIST_NEXT_UPDATE_GRACE_MS = 5 * 60 * 1000
 
 export const DEFAULT_TRUST_DOCUMENT_LIMITS: Readonly<TrustDocumentLimits> = {
   timeoutMs: 15_000,
@@ -46,7 +56,7 @@ export const DEFAULT_TRUST_DOCUMENT_LIMITS: Readonly<TrustDocumentLimits> = {
  * Every list is individually FAIL-CLOSED (a tampered or unverifiable list only excludes its own anchors,
  * never injects any); across lists of one source the union is BEST-EFFORT and logged. Only
  * credential-issuer services become anchors (`eu-service-types.ts`), every fetch is bounded by
- * {@link TrustDocumentLimits}, and stale or replayed lists are rejected (`assertFreshList`).
+ * {@link TrustDocumentLimits}, and stale or replayed lists are rejected (`checkFreshnessAndRecordSequence`).
  */
 @Injectable()
 export class EuTrustAnchorIngestionService {
@@ -62,14 +72,14 @@ export class EuTrustAnchorIngestionService {
   ) {}
 
   /** Resolve one source's anchors. */
-  public async anchorsFromSource(source: EuTrustAnchorSource): Promise<X509Certificate[]> {
+  public async anchorsFromSource(source: IngestedTrustSource): Promise<X509Certificate[]> {
     if (source === 'lotl') return this.anchorsFromLotl()
     if (source === 'lote') return this.anchorsFromLote()
-    return this.configuredAnchors()
+    return this.anchorsFromConfig()
   }
 
   /** The operator-curated partner anchors from `TRUST_LIST_PARTNER_CERTIFICATES` (no network). */
-  public configuredAnchors(): X509Certificate[] {
+  public anchorsFromConfig(): X509Certificate[] {
     return parseConfiguredAnchors(this.agent.agencyConfig.trustListPartnerCertificates)
   }
 
@@ -91,12 +101,12 @@ export class EuTrustAnchorIngestionService {
     }
     const lotlXml = await this.fetchTrustDocument(lotlUrl, 'the EU List of Trusted Lists', this.limits.trustedListBytes)
     await verifyTrustedListSignature(lotlXml, parseSignerCertificates(this.agent.agencyConfig.euLotlSignerCertificates))
-    this.assertFreshList(lotlUrl, 'the EU List of Trusted Lists', parseTrustedListInfo(lotlXml))
+    this.checkFreshnessAndRecordSequence(lotlUrl, 'the EU List of Trusted Lists', parseTrustedListInfo(lotlXml))
 
-    const schemeTerritories = this.splitConfigList(this.agent.agencyConfig.euLotlSchemeTerritories)
+    const schemeTerritories = splitCommaList(this.agent.agencyConfig.euLotlSchemeTerritories)
     const pointers = parseLotlPointers(lotlXml, { schemeTerritories })
     const serviceTypes = narrowIssuerServiceTypes(
-      this.splitConfigList(this.agent.agencyConfig.euTrustedListServiceTypes),
+      splitCommaList(this.agent.agencyConfig.euTrustedListServiceTypes),
       EU_TL_ISSUER_SERVICE_TYPES,
       'EU_TRUSTED_LIST_SERVICE_TYPES',
     )
@@ -111,7 +121,7 @@ export class EuTrustAnchorIngestionService {
           this.limits.trustedListBytes,
         )
         await verifyTrustedListSignature(tlXml, pointer.expectedSigners)
-        this.assertFreshList(
+        this.checkFreshnessAndRecordSequence(
           pointer.location,
           `national Trusted List ${pointer.schemeTerritory || pointer.location}`,
           parseTrustedListInfo(tlXml),
@@ -145,13 +155,13 @@ export class EuTrustAnchorIngestionService {
    * configured list failed.
    */
   public async anchorsFromLote(): Promise<X509Certificate[]> {
-    const urls = this.splitConfigList(this.agent.agencyConfig.euLoteUrls)
+    const urls = splitCommaList(this.agent.agencyConfig.euLoteUrls)
     if (urls.length === 0) {
       throw new Error('EU_LOTE_URLS is required when a trust source list includes lote')
     }
     const pinnedSigners = parseSignerCertificates(this.agent.agencyConfig.euLoteSignerCertificates)
     const serviceTypes = narrowIssuerServiceTypes(
-      this.splitConfigList(this.agent.agencyConfig.euLoteServiceTypes),
+      splitCommaList(this.agent.agencyConfig.euLoteServiceTypes),
       EU_LOTE_ISSUER_SERVICE_TYPES,
       'EU_LOTE_SERVICE_TYPES',
     )
@@ -164,7 +174,7 @@ export class EuTrustAnchorIngestionService {
         const decoded = decodeLoteJws(jws)
         await this.verifyLoteSignature(decoded, pinnedSigners)
         assertValidLoTE(decoded.payload)
-        this.assertFreshList(url, `LoTE ${url}`, loteListInfo(decoded.payload))
+        this.checkFreshnessAndRecordSequence(url, `LoTE ${url}`, readLoteListInfo(decoded.payload))
         anchors.push(
           ...extractLoteAnchors(decoded.payload, { serviceTypes }).map((base64) =>
             X509Certificate.fromEncodedCertificate(base64),
@@ -191,12 +201,12 @@ export class EuTrustAnchorIngestionService {
 
   /**
    * Freshness and replay guard for one **signature-verified** list: reject a list past its `NextUpdate`
-   * (plus {@link TRUST_LIST_STALE_GRACE_MS}) and a sequence number lower than the last one accepted from the
+   * (plus {@link LIST_NEXT_UPDATE_GRACE_MS}) and a sequence number lower than the last one accepted from the
    * same location; record the sequence on acceptance. A list without a `NextUpdate` (a closed list) or
    * without a sequence number is not judged on that criterion.
    */
-  private assertFreshList(location: string, label: string, info: TrustedListInfo): void {
-    if (info.nextUpdate && info.nextUpdate.getTime() + TRUST_LIST_STALE_GRACE_MS < Date.now()) {
+  private checkFreshnessAndRecordSequence(location: string, label: string, info: ListIssueInfo): void {
+    if (info.nextUpdate && info.nextUpdate.getTime() + LIST_NEXT_UPDATE_GRACE_MS < Date.now()) {
       throw new Error(`${label} is stale: its NextUpdate ${info.nextUpdate.toISOString()} has passed`)
     }
     if (info.sequenceNumber !== undefined) {
@@ -206,19 +216,6 @@ export class EuTrustAnchorIngestionService {
       }
       this.lastSequenceByLocation.set(location, info.sequenceNumber)
     }
-  }
-
-  /** De-duplicate certificates by base64 DER (two sources/lists may carry the same cross-border CA). */
-  public dedupeByDer(certificates: X509Certificate[]): X509Certificate[] {
-    const seen = new Set<string>()
-    const unique: X509Certificate[] = []
-    for (const certificate of certificates) {
-      const der = certificate.toString('base64')
-      if (seen.has(der)) continue
-      seen.add(der)
-      unique.push(certificate)
-    }
-    return unique
   }
 
   /**
@@ -286,13 +283,6 @@ export class EuTrustAnchorIngestionService {
     return parseTrustedListAnchors(xml, { serviceTypes }).map((base64) =>
       X509Certificate.fromEncodedCertificate(base64),
     )
-  }
-
-  private splitConfigList(raw: string): string[] {
-    return (raw ?? '')
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean)
   }
 }
 

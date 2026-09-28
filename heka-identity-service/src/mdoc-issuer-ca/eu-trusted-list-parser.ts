@@ -57,7 +57,7 @@ function collectCertificates(identities: unknown[]): string[] {
 // --- Trusted List: granted-anchor extraction --------------------------------------------------------
 
 /** A `ServiceStatus` is considered active when its URI ends in `granted` (ETSI TS 119 612 §5.5.4). */
-function isGranted(status: string): boolean {
+function isGrantedStatus(status: string): boolean {
   return status.trim().toLowerCase().endsWith('granted')
 }
 
@@ -94,7 +94,7 @@ export function parseTrustedListAnchors(xml: string, options: ParseTrustedListOp
       if (!info) continue
 
       const status = String(info.ServiceStatus ?? '')
-      if (!isGranted(status)) continue
+      if (!isGrantedStatus(status)) continue
 
       const serviceType = String(info.ServiceTypeIdentifier ?? '').trim()
       if (!allowedTypes.includes(serviceType)) continue
@@ -108,9 +108,12 @@ export function parseTrustedListAnchors(xml: string, options: ParseTrustedListOp
 
 // --- Trusted List / LoTL: freshness and versioning --------------------------------------------------
 
-/** The `SchemeInformation` fields a consumer judges freshness and replay by (TS 119 612 clause 5.3). */
-export interface TrustedListInfo {
-  /** `TSLSequenceNumber` — increases with every new issue of the list. */
+/**
+ * The scheme-information fields a consumer judges freshness and replay by — TS 119 612 `SchemeInformation`
+ * (clause 5.3) and TS 119 602 `ListAndSchemeInformation` alike.
+ */
+export interface ListIssueInfo {
+  /** `TSLSequenceNumber` / `LoTESequenceNumber` — increases with every new issue of the list. */
   sequenceNumber?: number
   /** `ListIssueDateTime`. */
   issuedAt?: Date
@@ -128,7 +131,7 @@ function parseDateValue(value: unknown): Date | undefined {
  * Read the sequence number, issue time and `NextUpdate` of a TL or LoTL. Pure, like the other parsers:
  * meaningful only for a document whose signature the caller verified.
  */
-export function parseTrustedListInfo(xml: string): TrustedListInfo {
+export function parseTrustedListInfo(xml: string): ListIssueInfo {
   const list = parseTslRoot(xml)
   if (!list) return {}
   const scheme = (list?.SchemeInformation ?? {}) as Record<string, unknown>

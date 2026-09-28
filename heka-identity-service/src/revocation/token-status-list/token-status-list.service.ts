@@ -26,15 +26,8 @@ export interface TokenStatusListSignerIdentity {
   signer: TokenStatusListSigner
 }
 
-/** What a credential carries in its `status.status_list` claim. */
-export interface TokenStatusListReference {
-  id: string
-  uri: string
-  idx: number
-}
-
 /** The entries reserved for one (batch) issuance — all in the same list, one per credential. */
-export interface TokenStatusListBatchReference {
+export interface ReservedTokenStatusListIndexes {
   id: string
   uri: string
   indexes: number[]
@@ -44,7 +37,7 @@ export interface TokenStatusListBatchReference {
 export const TOKEN_STATUS_LIST_TTL_SECONDS = 300
 
 /** Media type of a Status List Token in JWT format (draft-ietf-oauth-status-list). */
-export const STATUS_LIST_JWT_MEDIA_TYPE = 'application/statuslist+jwt'
+export const TOKEN_STATUS_LIST_JWT_MEDIA_TYPE = 'application/statuslist+jwt'
 
 /** Status values (draft-ietf-oauth-status-list §7.1). `Suspended` needs a 2-bit list. */
 export enum TokenStatus {
@@ -86,27 +79,17 @@ export class TokenStatusListService {
     return `${this.appConfig.appEndpoint}/token-status-lists/${id}`
   }
 
-  /** Reserve one index for a credential about to be issued under `identity` (creating a list on first use). */
-  public async allocate(
-    agentContext: AgentContext,
-    authInfo: AuthInfo,
-    identity: TokenStatusListSignerIdentity,
-  ): Promise<TokenStatusListReference> {
-    const { id, uri, indexes } = await this.allocateMany(agentContext, authInfo, identity, 1)
-    return { id, uri, idx: indexes[0] }
-  }
-
   /**
    * Reserve `count` distinct indexes — one per credential of a batch issuance — in a single list of
    * `identity`'s key (creating a list when none has room). One locked transaction, so concurrent offers
    * never share an entry and neither do the credentials of one batch.
    */
-  public async allocateMany(
+  public async reserveIndexes(
     agentContext: AgentContext,
     authInfo: AuthInfo,
     identity: TokenStatusListSignerIdentity,
     count: number,
-  ): Promise<TokenStatusListBatchReference> {
+  ): Promise<ReservedTokenStatusListIndexes> {
     if (!Number.isInteger(count) || count < 1) {
       throw new BadRequestException('At least one status list entry must be reserved')
     }
@@ -121,14 +104,14 @@ export class TokenStatusListService {
         list = await this.create(em, agentContext, authInfo, identity)
       }
 
-      const allocated = fromBase64(list.allocated)
+      const allocated = fromBase64(list.allocatedBitmap)
       const indexes: number[] = []
       for (let reserved = 0; reserved < count; reserved += 1) {
         const idx = pickFreeIndex(allocated, list.size)
         setBit(allocated, idx)
         indexes.push(idx)
       }
-      list.allocated = toBase64(allocated)
+      list.allocatedBitmap = toBase64(allocated)
       list.allocatedCount += count
       await em.flush()
 
@@ -138,16 +121,6 @@ export class TokenStatusListService {
   }
 
   /** Set one entry's status (e.g. `TokenStatus.Invalid` to revoke) and re-sign the token. */
-  public async setStatus(
-    agentContext: AgentContext,
-    authInfo: AuthInfo,
-    id: string,
-    idx: number,
-    status: TokenStatus,
-  ): Promise<void> {
-    await this.setStatuses(agentContext, authInfo, id, [idx], status)
-  }
-
   /** Set the status of several entries of one list (all credentials of a batch) and re-sign the token once. */
   public async setStatuses(
     agentContext: AgentContext,
@@ -174,7 +147,7 @@ export class TokenStatusListService {
       }
       const statusList = this.decode(list)
       for (const idx of indexes) statusList.setStatus(idx, status)
-      list.statuses = encodeStatuses(statusList)
+      list.encodedStatuses = encodeStatuses(statusList)
       await this.sign(agentContext, list, statusList)
       await em.flush()
     })
@@ -203,8 +176,8 @@ export class TokenStatusListService {
       signer: identity.signer,
       bitsPerStatus: bits,
       size,
-      allocated: toBase64(new Uint8Array(Math.ceil(size / 8))),
-      statuses: encodeStatuses(statusList),
+      allocatedBitmap: toBase64(new Uint8Array(Math.ceil(size / 8))),
+      encodedStatuses: encodeStatuses(statusList),
       owner: authInfo.user,
     })
     await this.sign(agentContext, list, statusList)
@@ -215,7 +188,7 @@ export class TokenStatusListService {
   }
 
   private decode(list: TokenStatusList): StatusList {
-    return StatusList.decompressStatusList(list.statuses, list.bitsPerStatus as BitsPerStatus)
+    return StatusList.decompressStatusList(list.encodedStatuses, list.bitsPerStatus as BitsPerStatus)
   }
 
   /** Sign `statuslist+jwt` with the list's key, in the tenant context that holds it. */

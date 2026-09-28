@@ -34,7 +34,7 @@ describe('defaultTrustSources', () => {
       },
       {
         id: HEKA_WRPAC_PROVIDERS_SOURCE_ID,
-        role: 'access-certificate',
+        role: 'access-certificate-authority',
         url: 'https://heka.example/trust-list/wrpac-providers',
         pinnedSigners: [ROOT],
       },

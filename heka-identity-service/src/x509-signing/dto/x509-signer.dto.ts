@@ -1,12 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator'
 
-import { X509_SIGNER_MAX_VALIDITY_DAYS, X509ClientIdPrefix, X509Signer } from '../x509-signer.types'
+import {
+  X509_CLIENT_ID_PREFIXES,
+  X509_SIGNER_MAX_VALIDITY_DAYS,
+  X509ClientIdPrefix,
+  X509Signer,
+} from '../x509-signer.types'
 
 export class ProvisionX509SignerDto {
-  @ApiPropertyOptional({ enum: ['x509_hash', 'x509_san_dns'], default: 'x509_hash' })
+  @ApiPropertyOptional({ enum: [...X509_CLIENT_ID_PREFIXES], default: 'x509_hash' })
   @IsOptional()
-  @IsIn(['x509_hash', 'x509_san_dns'])
+  @IsIn(X509_CLIENT_ID_PREFIXES)
   public clientIdPrefix?: X509ClientIdPrefix
 
   @ApiPropertyOptional({ description: 'Certificate subject/issuer common name.' })
@@ -47,7 +52,7 @@ export class X509SignerDto {
   @ApiProperty()
   public id!: string
 
-  @ApiProperty({ enum: ['x509_hash', 'x509_san_dns'] })
+  @ApiProperty({ enum: [...X509_CLIENT_ID_PREFIXES] })
   public clientIdPrefix!: X509ClientIdPrefix
 
   @ApiProperty({ description: 'Hex SHA-256 thumbprint of the leaf certificate.' })
@@ -142,9 +147,9 @@ export class ImportSignedCertificateDto {
   @IsNotEmpty()
   public certificate!: string
 
-  @ApiPropertyOptional({ enum: ['x509_hash', 'x509_san_dns'], default: 'x509_san_dns' })
+  @ApiPropertyOptional({ enum: [...X509_CLIENT_ID_PREFIXES], default: 'x509_san_dns' })
   @IsOptional()
-  @IsIn(['x509_hash', 'x509_san_dns'])
+  @IsIn(X509_CLIENT_ID_PREFIXES)
   public clientIdPrefix?: X509ClientIdPrefix
 
   @ApiPropertyOptional()

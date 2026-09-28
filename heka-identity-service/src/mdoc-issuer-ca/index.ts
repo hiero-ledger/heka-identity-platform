@@ -1,9 +1,9 @@
 export { MdocIssuerCaModule } from './mdoc-issuer-ca.module'
 export { MdocIssuerCaService } from './mdoc-issuer-ca.service'
-export { TrustListService } from './trust-list.service'
+export { VicalService } from './vical.service'
 export { EuTrustAnchorIngestionService } from './eu-trust-anchor-ingestion.service'
+export { EU_LOTE_SERVICE_TYPE } from './eu-service-types'
 export {
-  EU_SERVICE_TYPE,
   HEKA_LOTE,
   SCHEME_LIST_IDS,
   SchemeListId,
@@ -20,14 +20,14 @@ export { MDOC_ISSUER_CA_SERVICE, VERIFIER_TRUST_ANCHOR_SERVICE } from './mdoc-is
 export { MdocDsc, MdocIaca, ProvisionIacaOptions } from './mdoc-issuer-ca.types'
 export {
   CertificateProfile,
-  EU_MDL_PROFILE,
+  MDL_EU_PROFILE,
   EUDI_EAA_PROFILE,
   EUDI_PID_PROFILE,
   ID_ETSI_QCT_PID_OID,
   ID_PE_QC_STATEMENTS_OID,
-  MDL_PROFILE,
+  MDL_US_PROFILE,
   PROFILE_NAMES,
   resolveProfile,
 } from './certificate-profiles'
 export { assessEuSigningCertificate, CertificateAssessment } from './eu-certificate-profile-assessment'
-export { decodeQcTypes } from './eu-certificate-builder'
+export { decodeQcTypeStatement } from './eu-certificate-builder'

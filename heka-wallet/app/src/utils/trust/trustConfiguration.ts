@@ -1,11 +1,10 @@
-import { parseCertificate, parseCertificateList, StaticAnchorEnv, StaticAnchors } from './staticAnchors'
+import { validateCertificate, validateCertificateList } from './certificateConfig'
+import { StaticAnchorEnv, StaticAnchors } from './staticAnchors'
 import { TrustSourceConfig, TrustSourceEnv, trustSourcesFromConfig } from './trustSources'
 
 /** Everything the wallet's X.509 trust is configured from, loaded once at startup. */
 export interface TrustConfiguration {
   staticAnchors: StaticAnchors
-  /** The Heka service root CA (`HEKA_SERVICE_ROOT_CERTIFICATE`): zero or one entry. */
-  serviceRoots: string[]
   sources: TrustSourceConfig[]
   /** One message per invalid setting; the affected set is left empty (fail closed). */
   errors: string[]
@@ -34,14 +33,14 @@ export function loadTrustConfiguration(
   }
 
   const mdocIssuers = attempt([] as string[], () =>
-    parseCertificateList(env.TRUSTED_MDOC_ISSUER_CERTIFICATES, 'TRUSTED_MDOC_ISSUER_CERTIFICATES')
+    validateCertificateList(env.TRUSTED_MDOC_ISSUER_CERTIFICATES, 'TRUSTED_MDOC_ISSUER_CERTIFICATES')
   )
   const requestSigners = attempt([] as string[], () =>
-    parseCertificateList(env.TRUSTED_REQUEST_SIGNER_CERTIFICATES, 'TRUSTED_REQUEST_SIGNER_CERTIFICATES')
+    validateCertificateList(env.TRUSTED_REQUEST_SIGNER_CERTIFICATES, 'TRUSTED_REQUEST_SIGNER_CERTIFICATES')
   )
   const serviceRoots = attempt([] as string[], () =>
     env.HEKA_SERVICE_ROOT_CERTIFICATE?.trim()
-      ? [parseCertificate(env.HEKA_SERVICE_ROOT_CERTIFICATE, 'HEKA_SERVICE_ROOT_CERTIFICATE')]
+      ? [validateCertificate(env.HEKA_SERVICE_ROOT_CERTIFICATE, 'HEKA_SERVICE_ROOT_CERTIFICATE')]
       : []
   )
   const sources = attempt([] as TrustSourceConfig[], () =>
@@ -53,5 +52,5 @@ export function loadTrustConfiguration(
   )
 
   for (const error of errors) log(`Trust configuration error — ${error}`)
-  return { staticAnchors: { mdocIssuers, requestSigners }, serviceRoots, sources, errors }
+  return { staticAnchors: { mdocIssuers, requestSigners, serviceRoots }, sources, errors }
 }

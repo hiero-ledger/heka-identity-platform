@@ -4,7 +4,7 @@ import { AgentContext, X509Certificate } from '@credo-ts/core'
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import * as x509 from '@peculiar/x509'
 
-import { createCredentialRequestToCredentialMapper, CredentialIssuanceMetadata } from '../index'
+import { createCredentialRequestToCredentialMapper, CredentialIssuanceMetadata } from '../credential-mapper'
 
 const crypto = webcrypto as unknown as Crypto
 x509.cryptoProvider.set(crypto)

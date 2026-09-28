@@ -61,7 +61,7 @@ export interface TrustSourceRefreshResult {
   cached?: boolean
 }
 
-export interface TrustCacheLoadResult {
+export interface TrustSourceCacheLoadResult {
   sourceId: string
   ok: boolean
   reason?: string
@@ -86,7 +86,7 @@ export const TRUST_LIST_STALE_GRACE_MS = 5 * 60 * 1000
 const lastAcceptedSequence = new Map<string, number>()
 
 /** Forget the accepted sequence numbers (tests). */
-export function resetTrustSequenceMemory(): void {
+export function resetAcceptedSequences(): void {
   lastAcceptedSequence.clear()
 }
 
@@ -106,7 +106,7 @@ const SERVICE_TYPES_BY_ROLE: Record<TrustRole, ReadonlySet<string>> = {
     `${SVC_TYPE_PREFIX}PID/Issuance`,
     `${SVC_TYPE_PREFIX}PubEAA/Issuance`,
   ]),
-  'access-certificate': new Set([`${SVC_TYPE_PREFIX}WRPAC/Issuance`]),
+  'access-certificate-authority': new Set([`${SVC_TYPE_PREFIX}WRPAC/Issuance`]),
 }
 
 /** Minimal structural view of a LoTE payload — the fields the anchor / pointer extraction walks. */
@@ -223,7 +223,7 @@ function sequenceNumberOf(payload: LotePayload): number | undefined {
  * Freshness and replay check of a *verified* list from `location`: stale past `NextUpdate` plus grace,
  * or a sequence number below the last accepted one (`baseline`). On acceptance the sequence is remembered.
  */
-function acceptFreshList(
+function checkFreshnessAndRecordSequence(
   location: string,
   lote: VerifiedLote,
   now: number,
@@ -339,7 +339,7 @@ export async function refreshTrustSource(
   const cachedSequence = options.cache
     ? (await options.cache.read(sourceId).catch(() => undefined))?.sequenceNumber
     : undefined
-  const freshness = acceptFreshList(source.url, primary.lote, now, cachedSequence)
+  const freshness = checkFreshnessAndRecordSequence(source.url, primary.lote, now, cachedSequence)
   if (!freshness.ok) return { sourceId, ok: false, reason: freshness.reason }
 
   const anchors = [...primary.lote.anchors]
@@ -353,7 +353,9 @@ export async function refreshTrustSource(
         continue
       }
       const followed = await fetchSignedLote(agent, pointer.location, pointer.pinnedSigners, role, doFetch)
-      const accepted = followed.ok ? acceptFreshList(pointer.location, followed.lote, now, undefined) : followed
+      const accepted = followed.ok
+        ? checkFreshnessAndRecordSequence(pointer.location, followed.lote, now, undefined)
+        : followed
       if (followed.ok && accepted.ok) {
         anchors.push(...followed.lote.anchors)
         verifiedPointers.push({ location: pointer.location, jws: followed.jws })
@@ -414,7 +416,7 @@ export async function loadCachedTrustSource(
   source: TrustSourceConfig,
   cache: TrustSourceCache,
   now: () => number = Date.now
-): Promise<TrustCacheLoadResult> {
+): Promise<TrustSourceCacheLoadResult> {
   const { id: sourceId, role } = source
   if (source.pinnedSigners.length === 0) return { sourceId, ok: false, reason: 'no-pinned-signers' }
 
@@ -458,6 +460,6 @@ export function loadCachedTrustSources(
   sources: TrustSourceConfig[],
   cache: TrustSourceCache,
   now: () => number = Date.now
-): Promise<TrustCacheLoadResult[]> {
+): Promise<TrustSourceCacheLoadResult[]> {
   return Promise.all(sources.map((source) => loadCachedTrustSource(agent, source, cache, now)))
 }

@@ -10,7 +10,7 @@ export interface FetchX509SignersParams {
 }
 
 export interface FetchX509SignersResult {
-  identities: Array<X509Signer>;
+  signers: Array<X509Signer>;
 }
 
 /**
@@ -43,5 +43,5 @@ export const getX509Signers = async (
     agencyEndpoints.getX509Signers,
   );
 
-  return { identities: response.data };
+  return { signers: response.data };
 };

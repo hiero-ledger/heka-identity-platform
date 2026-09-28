@@ -16,7 +16,7 @@ import {
   EU_LOTE_ISSUER_SERVICE_TYPES,
   EU_TL_ISSUER_SERVICE_TYPES,
   narrowIssuerServiceTypes,
-  splitServiceTypeList,
+  splitCommaList,
 } from 'mdoc-issuer-ca/eu-service-types'
 
 import { CredentialsConfiguration } from './credential-configuration'
@@ -158,13 +158,13 @@ export default registerAs('agent', () => {
   // with their OJEU-published signer certificates). Invalid JSON / shape fails fast at startup.
   const trustListPointers = parseTrustListPointers(process.env.TRUST_LIST_POINTERS ?? '')
 
-  // Publish the ISO 18013-5 VICAL at GET /vical (off by default; see TrustListService).
+  // Publish the ISO 18013-5 VICAL at GET /vical (off by default; see VicalService).
   const vicalEnabled = (process.env.VICAL_ENABLED ?? 'false') === 'true'
   // Optional comma-separated narrowing of EU_TL_ISSUER_SERVICE_TYPES (validated at startup, see
   // mdoc-issuer-ca/eu-service-types.ts).
   const euTrustedListServiceTypes = process.env.EU_TRUSTED_LIST_SERVICE_TYPES ?? ''
   narrowIssuerServiceTypes(
-    splitServiceTypeList(euTrustedListServiceTypes),
+    splitCommaList(euTrustedListServiceTypes),
     EU_TL_ISSUER_SERVICE_TYPES,
     'EU_TRUSTED_LIST_SERVICE_TYPES',
   )
@@ -183,11 +183,7 @@ export default registerAs('agent', () => {
   const euLoteUrls = process.env.EU_LOTE_URLS ?? ''
   const euLoteSignerCertificates = process.env.EU_LOTE_SIGNER_CERTIFICATES ?? ''
   const euLoteServiceTypes = process.env.EU_LOTE_SERVICE_TYPES ?? ''
-  narrowIssuerServiceTypes(
-    splitServiceTypeList(euLoteServiceTypes),
-    EU_LOTE_ISSUER_SERVICE_TYPES,
-    'EU_LOTE_SERVICE_TYPES',
-  )
+  narrowIssuerServiceTypes(splitCommaList(euLoteServiceTypes), EU_LOTE_ISSUER_SERVICE_TYPES, 'EU_LOTE_SERVICE_TYPES')
 
   // Trust anchors the service consults when IT verifies credentials (relying-party role) — a
   // comma-separated union. 'registry' = the tenants' own issuer anchors (IACA registry for mdoc, the

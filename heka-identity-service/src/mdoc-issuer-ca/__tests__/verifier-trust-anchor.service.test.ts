@@ -66,8 +66,7 @@ describe('VerifierTrustAnchorService — trust anchors for the service as Relyin
         : { certificateBase64: options.serviceRoot ?? SERVICE_ROOT, fingerprint: 'fp' },
     )
     const ingestion: EuTrustAnchorIngestionService = createMock<EuTrustAnchorIngestionService>()
-    vi.mocked(ingestion.configuredAnchors).mockReturnValue([fakeCertificate(CONFIG_ANCHOR)])
-    vi.mocked(ingestion.dedupeByDer).mockImplementation((certificates) => certificates)
+    vi.mocked(ingestion.anchorsFromConfig).mockReturnValue([fakeCertificate(CONFIG_ANCHOR)])
     vi.mocked(ingestion.anchorsFromSource).mockImplementation((source) => {
       if (source === 'lotl') return Promise.resolve([fakeCertificate(LOTL_ANCHOR)])
       if (source === 'lote') return Promise.resolve([fakeCertificate(LOTE_ANCHOR)])
@@ -115,7 +114,7 @@ describe('VerifierTrustAnchorService — trust anchors for the service as Relyin
     await expect(
       registryOnly.service.getTrustedCertificatesForVerification(agentContext, mdocContext()),
     ).resolves.toEqual([IACA_A, IACA_B])
-    expect(registryOnly.ingestion.configuredAnchors).not.toHaveBeenCalled()
+    expect(registryOnly.ingestion.anchorsFromConfig).not.toHaveBeenCalled()
     expect(ingestion.anchorsFromSource).not.toHaveBeenCalled()
   })
 

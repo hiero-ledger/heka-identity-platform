@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Length, Matches, Max, Min } from 'class-validator'
 
-import { IACA_MAX_VALIDITY_DAYS, PROFILE_NAMES, ProfileName } from '../certificate-profiles'
+import { DEFAULT_IACA_VALIDITY_DAYS, IACA_MAX_VALIDITY_DAYS, PROFILE_NAMES, ProfileName } from '../certificate-profiles'
 import { MdocDsc, MdocIaca } from '../mdoc-issuer-ca.types'
 
 /** Dotted-decimal OID, e.g. `1.3.6.1.4.1.99999.1.1` (EN 319 412-2 §4.3.3 certificate-policy identifier). */
@@ -40,7 +40,7 @@ export class ProvisionIacaDto {
   public docType?: string
 
   @ApiPropertyOptional({
-    default: 365 * 5,
+    default: DEFAULT_IACA_VALIDITY_DAYS,
     minimum: 1,
     maximum: IACA_MAX_VALIDITY_DAYS,
     description: `IACA validity in whole days, 1..${IACA_MAX_VALIDITY_DAYS} (ISO 18013-5 / AAMVA cap of 9 years).`,
@@ -197,7 +197,7 @@ export class MdocIssuerDto {
   @ApiProperty({ type: MdocDscDto, isArray: true })
   public dscs!: MdocDscDto[]
 
-  public static from(iaca: MdocIaca, dscs: MdocDsc[]): MdocIssuerDto {
+  public static fromIssuer(iaca: MdocIaca, dscs: MdocDsc[]): MdocIssuerDto {
     const dto = new MdocIssuerDto()
     dto.iaca = MdocIacaDto.fromIaca(iaca)
     dto.dscs = dscs.map((dsc) => MdocDscDto.fromDsc(dsc))

@@ -7,7 +7,7 @@ jest.mock('@credo-ts/core', () => ({
 }))
 
 import { TrustVerifyAgent } from '../loteTrustSource'
-import { ensureTrustAnchors, summarizeTrustBootstrap } from '../trustBootstrap'
+import { bootstrapTrustAnchors, summarizeTrustBootstrap } from '../trustBootstrap'
 import { trustAnchorStore } from '../trustAnchorStore'
 import { createTrustSourceCache, inMemoryTrustCacheStorage } from '../trustSourceCache'
 import { TrustSourceConfig } from '../trustSources'
@@ -44,14 +44,14 @@ const never: typeof fetch = jest.fn(() => new Promise<Response>(() => undefined)
 const DAY = 24 * 60 * 60 * 1000
 const NOW = Date.parse('2026-09-10T12:00:00Z')
 
-describe('ensureTrustAnchors', () => {
+describe('bootstrapTrustAnchors', () => {
   beforeEach(() => trustAnchorStore.clear())
 
   test('no cache: awaits one network refresh, which fills the store and the cache', async () => {
     const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
     const fetchImpl = respond(buildJws(['A1']))
 
-    const result = await ensureTrustAnchors(agent, [source], { cache, fetchImpl, now: () => NOW })
+    const result = await bootstrapTrustAnchors(agent, [source], { cache, fetchImpl, now: () => NOW })
 
     expect(result.refresh).toBe('awaited')
     expect(result.refreshed).toEqual([{ sourceId: 'eaa', ok: true, anchorCount: 1, cached: true }])
@@ -63,7 +63,7 @@ describe('ensureTrustAnchors', () => {
     const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
 
     const started = Date.now()
-    const result = await ensureTrustAnchors(agent, [source], { cache, fetchImpl: never, refreshTimeoutMs: 30 })
+    const result = await bootstrapTrustAnchors(agent, [source], { cache, fetchImpl: never, refreshTimeoutMs: 30 })
 
     expect(result.refresh).toBe('awaited')
     expect(result.refreshed).toBe('timed-out')
@@ -76,7 +76,7 @@ describe('ensureTrustAnchors', () => {
     await cache.write('eaa', { jws: buildJws(['A1'], '2026-09-17T12:00:00Z'), fetchedAt: NOW - DAY / 2 })
     const fetchImpl = respond(buildJws(['A2']))
 
-    const result = await ensureTrustAnchors(agent, [source], { cache, fetchImpl, now: () => NOW })
+    const result = await bootstrapTrustAnchors(agent, [source], { cache, fetchImpl, now: () => NOW })
 
     expect(result.refresh).toBe('none')
     expect(result.loaded).toEqual([
@@ -91,7 +91,7 @@ describe('ensureTrustAnchors', () => {
     await cache.write('eaa', { jws: buildJws(['A1'], '2026-09-10T11:00:00Z'), fetchedAt: NOW - DAY / 2 })
     const fetchImpl = respond(buildJws(['A2']))
 
-    const result = await ensureTrustAnchors(agent, [source], { cache, fetchImpl, now: () => NOW })
+    const result = await bootstrapTrustAnchors(agent, [source], { cache, fetchImpl, now: () => NOW })
 
     expect(result.refresh).toBe('background')
     expect(result.loaded[0]).toMatchObject({ ok: true, stale: true })
@@ -105,7 +105,7 @@ describe('ensureTrustAnchors', () => {
     const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
     await cache.write('eaa', { jws: buildJws(['A1']), fetchedAt: NOW - 2 * DAY })
 
-    const result = await ensureTrustAnchors(agent, [source], {
+    const result = await bootstrapTrustAnchors(agent, [source], {
       cache,
       fetchImpl: respond(buildJws(['A1'])),
       now: () => NOW,
@@ -123,7 +123,7 @@ describe('ensureTrustAnchors', () => {
       kms: { verify: jest.fn().mockResolvedValueOnce({ verified: false }).mockResolvedValue({ verified: true }) },
     }
 
-    const result = await ensureTrustAnchors(rejecting, [source], {
+    const result = await bootstrapTrustAnchors(rejecting, [source], {
       cache,
       fetchImpl: respond(buildJws(['A1'])),
       now: () => NOW,
@@ -139,7 +139,7 @@ describe('ensureTrustAnchors', () => {
     const cache = createTrustSourceCache(inMemoryTrustCacheStorage())
     const fetchImpl = respond(buildJws(['A1']))
 
-    const result = await ensureTrustAnchors(agent, [{ ...source, pinnedSigners: [] }], { cache, fetchImpl })
+    const result = await bootstrapTrustAnchors(agent, [{ ...source, pinnedSigners: [] }], { cache, fetchImpl })
 
     expect(result).toEqual({ loaded: [{ sourceId: 'eaa', ok: false, reason: 'no-pinned-signers' }], refresh: 'none' })
     expect(fetchImpl).not.toHaveBeenCalled()

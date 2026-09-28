@@ -5,7 +5,7 @@ import { DOMImplementation, DOMParser, XMLSerializer } from '@xmldom/xmldom'
 import * as xadesjs from 'xadesjs'
 import { setNodeDependencies } from 'xml-core'
 
-import { verifyTrustedListSignature } from '../eu-trusted-list.verify'
+import { verifyTrustedListSignature } from '../eu-trusted-list-signature'
 
 const crypto = webcrypto as unknown as Crypto
 xadesjs.Application.setEngine('NodeJS', crypto)

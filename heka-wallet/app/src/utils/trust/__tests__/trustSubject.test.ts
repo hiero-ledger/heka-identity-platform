@@ -6,7 +6,7 @@ jest.mock('@credo-ts/core', () => ({
 
 import { Mdoc } from '@credo-ts/core'
 
-import { trustSubjectFor } from '../verificationSubject'
+import { trustSubjectFor } from '../trustSubject'
 
 describe('trustSubjectFor', () => {
   test('an mdoc credential → credential-issuer / mso_mdoc / docType', () => {
@@ -40,7 +40,7 @@ describe('trustSubjectFor', () => {
   test.each(['oauth2SecuredAuthorizationRequest', 'openId4VciCredentialIssuerMetadata'])(
     '%s → access-certificate',
     (type) => {
-      expect(trustSubjectFor({ type })).toEqual({ role: 'access-certificate' })
+      expect(trustSubjectFor({ type })).toEqual({ role: 'access-certificate-authority' })
     }
   )
 

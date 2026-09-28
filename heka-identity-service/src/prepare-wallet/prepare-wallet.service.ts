@@ -92,7 +92,7 @@ export class PrepareWalletService {
     // Provision the tenant's mdoc issuer (IACA + DSC) so mso_mdoc credentials can be issued, mirroring
     // how the main did:key is created. Idempotent; failure must not block wallet preparation.
     try {
-      await this.mdocIssuerCaService.ensure(tenantAgent.context)
+      await this.mdocIssuerCaService.ensureIssuer(tenantAgent.context)
     } catch (error) {
       logger.error('Failed to provision the mdoc issuer (IACA/DSC) during prepare-wallet')
     }

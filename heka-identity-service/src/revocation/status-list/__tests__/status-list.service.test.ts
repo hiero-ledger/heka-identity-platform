@@ -170,60 +170,6 @@ describe('StatusListService', () => {
     })
   })
 
-  describe('getOrCreate', () => {
-    const issuer = 'did:example:issuer'
-
-    test('should return existing list when one has available capacity', async () => {
-      const existingList = entityStub<CredentialStatusList>({
-        id: 'list-1',
-        lastIndex: 50,
-        size: 100,
-        issuer,
-        encodedList: 'encoded',
-        purpose: StatusListPurpose.Revocation,
-        owner: mockUser,
-      })
-
-      vi.mocked(em.find).mockResolvedValue([existingList])
-
-      const result = await service.getOrCreate(authInfo, issuer)
-
-      expect(result).toBe(existingList)
-      expect(em.persist).not.toHaveBeenCalled()
-    })
-
-    test('should create new list when all existing lists are full', async () => {
-      const fullList = entityStub<CredentialStatusList>({
-        id: 'list-1',
-        lastIndex: 100,
-        size: 100,
-        issuer,
-        encodedList: 'encoded',
-        purpose: StatusListPurpose.Revocation,
-        owner: mockUser,
-      })
-
-      vi.mocked(em.find).mockResolvedValue([fullList])
-      vi.mocked(em.flush).mockResolvedValue(undefined)
-
-      const result = await service.getOrCreate(authInfo, issuer)
-
-      expect(result).toBeInstanceOf(CredentialStatusList)
-      expect(result.issuer).toBe(issuer)
-      expect(em.flush).toHaveBeenCalled()
-    })
-
-    test('should create new list when no existing lists found', async () => {
-      vi.mocked(em.find).mockResolvedValue([])
-      vi.mocked(em.flush).mockResolvedValue(undefined)
-
-      const result = await service.getOrCreate(authInfo, issuer)
-
-      expect(result).toBeInstanceOf(CredentialStatusList)
-      expect(em.flush).toHaveBeenCalled()
-    })
-  })
-
   describe('reserveIndexes', () => {
     const issuer = 'did:example:issuer'
 

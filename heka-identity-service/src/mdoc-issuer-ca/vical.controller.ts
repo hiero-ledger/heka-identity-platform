@@ -3,20 +3,20 @@ import { ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nest
 
 import { InjectLogger, Logger } from 'common/logger'
 
-import { TrustListService } from './trust-list.service'
+import { VicalService } from './vical.service'
 
 /**
  * Serves the Heka VICAL (ISO 18013-5 trust list). Tenant-less and **unauthenticated** — it carries
  * only public key material (per-tenant IACA certificates) signed by the VICAL signer, and wallets
  * fetch it before they have any session.
  *
- * Off by default (`VICAL_ENABLED`, see `TrustListService`): answers 404 while disabled.
+ * Off by default (`VICAL_ENABLED`, see `VicalService`): answers 404 while disabled.
  */
-@ApiTags('mdoc Issuer CA')
+@ApiTags('Trust lists')
 @Controller('vical')
 export class VicalController {
   public constructor(
-    private readonly trustListService: TrustListService,
+    private readonly vicalService: VicalService,
     @InjectLogger(VicalController)
     private readonly logger: Logger,
   ) {
@@ -34,12 +34,12 @@ export class VicalController {
     const logger = this.logger.child('getVical')
     logger.trace('>')
 
-    if (!this.trustListService.enabled) {
+    if (!this.vicalService.enabled) {
       logger.trace('< disabled')
       throw new NotFoundException('VICAL publication is disabled (VICAL_ENABLED is not true)')
     }
 
-    const vical = await this.trustListService.getVical()
+    const vical = await this.vicalService.getVical()
 
     logger.trace('<')
     // A returned Buffer would be JSON-serialised by Nest; a StreamableFile is sent as raw bytes.

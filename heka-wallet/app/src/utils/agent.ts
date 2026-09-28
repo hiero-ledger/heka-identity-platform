@@ -54,18 +54,18 @@ import { CredoLogger } from '../logger'
 import { getDidKeyVerificationMethodId } from './did'
 import { TailsService } from './revocation/TailsService'
 import {
-  loadCachedTrustSources as loadConfiguredTrustCache,
-  refreshTrustSources as refreshConfiguredTrustSources,
-  TrustCacheLoadResult,
+  loadCachedTrustSources,
+  refreshTrustSources,
+  TrustSourceCacheLoadResult,
   TrustSourceRefreshResult,
   TrustVerifyAgent,
 } from './trust/loteTrustSource'
-import { ensureTrustAnchors as bootstrapTrustAnchors, TrustBootstrapResult } from './trust/trustBootstrap'
+import { bootstrapTrustAnchors, TrustBootstrapResult } from './trust/trustBootstrap'
 import { composeTrustedCertificates } from './trust/trustComposition'
 import { loadTrustConfiguration } from './trust/trustConfiguration'
 import { createTrustSourceCache } from './trust/trustSourceCache'
 import { TrustSourceConfig } from './trust/trustSources'
-import { trustSubjectFor, X509VerificationContext } from './trust/verificationSubject'
+import { trustSubjectFor, X509VerificationContext } from './trust/trustSubject'
 
 const PUBLIC_DID_KEY = 'PUBLIC_DID'
 
@@ -93,12 +93,6 @@ const STATIC_ANCHORS = TRUST_CONFIGURATION.staticAnchors
  */
 export const TRUSTED_MDOC_ISSUER_CERTIFICATES: readonly string[] = STATIC_ANCHORS.mdocIssuers
 
-/**
- * The Heka service root CA (`HEKA_SERVICE_ROOT_CERTIFICATE`, see `StaticTrustSets.serviceRoots`). Empty =
- * the default sources are unpinned and their refresh is skipped.
- */
-const HEKA_SERVICE_ROOT_CERTIFICATES: readonly string[] = TRUST_CONFIGURATION.serviceRoots
-
 /** The configured trust sources: `TRUST_SOURCES` JSON, else the Heka defaults (see `trustSourcesFromConfig`). */
 export const TRUST_SOURCES: TrustSourceConfig[] = TRUST_CONFIGURATION.sources
 
@@ -121,11 +115,7 @@ export type { X509VerificationContext }
 export const trustedCertificatesForVerification = (verification: X509VerificationContext): string[] | undefined => {
   const subject = trustSubjectFor(verification)
   if (!subject) return undefined
-  return composeTrustedCertificates(TRUST_SOURCES, subject, {
-    mdocIssuers: TRUSTED_MDOC_ISSUER_CERTIFICATES,
-    requestSigners: TRUSTED_REQUEST_SIGNER_CERTIFICATES,
-    serviceRoots: HEKA_SERVICE_ROOT_CERTIFICATES,
-  })
+  return composeTrustedCertificates(TRUST_SOURCES, subject, STATIC_ANCHORS)
 }
 
 const EXAMPLE_CREDENTIAL_VCT = 'ExampleCredential'
@@ -252,22 +242,22 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
  * signers (no `HEKA_SERVICE_ROOT_CERTIFICATE` for the defaults) are skipped. Call after the agent is
  * initialized.
  */
-export async function refreshTrustSources(agent: HekaWalletAgent): Promise<TrustSourceRefreshResult[]> {
+export async function refreshWalletTrustSources(agent: HekaWalletAgent): Promise<TrustSourceRefreshResult[]> {
   // The concrete agent satisfies the loose structural TrustVerifyAgent at runtime; the cast bridges the
   // strict Credo KMS/X509 option types to the decoupled (test-friendly) interface.
-  return refreshConfiguredTrustSources(agent as unknown as TrustVerifyAgent, TRUST_SOURCES, { cache: trustSourceCache })
+  return refreshTrustSources(agent as unknown as TrustVerifyAgent, TRUST_SOURCES, { cache: trustSourceCache })
 }
 
 /**
  * Load the cached trust lists into this runtime's anchor store; call after `initialize()`, before
- * `refreshTrustSources`.
+ * `refreshWalletTrustSources`.
  */
-export async function loadCachedTrustSources(agent: HekaWalletAgent): Promise<TrustCacheLoadResult[]> {
-  return loadConfiguredTrustCache(agent as unknown as TrustVerifyAgent, TRUST_SOURCES, trustSourceCache)
+export async function loadWalletTrustCache(agent: HekaWalletAgent): Promise<TrustSourceCacheLoadResult[]> {
+  return loadCachedTrustSources(agent as unknown as TrustVerifyAgent, TRUST_SOURCES, trustSourceCache)
 }
 
 /** Cache-first trust bootstrap for the DC API runtime; see `trust/trustBootstrap.ts`. */
-export async function ensureTrustAnchors(agent: HekaWalletAgent): Promise<TrustBootstrapResult> {
+export async function bootstrapWalletTrust(agent: HekaWalletAgent): Promise<TrustBootstrapResult> {
   return bootstrapTrustAnchors(agent as unknown as TrustVerifyAgent, TRUST_SOURCES, { cache: trustSourceCache })
 }
 

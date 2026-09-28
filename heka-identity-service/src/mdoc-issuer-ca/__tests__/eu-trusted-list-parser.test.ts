@@ -1,5 +1,5 @@
-import { EU_GENERIC_TSL_TYPE, parseLotlPointers, parseTrustedListAnchors } from '../etsi-tsl.parser'
 import { EU_TL_SERVICE_TYPE } from '../eu-service-types'
+import { EU_GENERIC_TSL_TYPE, parseLotlPointers, parseTrustedListAnchors } from '../eu-trusted-list-parser'
 
 const QC = EU_TL_SERVICE_TYPE.caQc
 const OTHER = 'http://uri.etsi.org/TrstSvc/Svctype/other'

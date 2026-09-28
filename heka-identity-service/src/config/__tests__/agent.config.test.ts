@@ -30,7 +30,7 @@ describe('agent config — startup validation', () => {
   })
 
   describe('MDOC_ISSUER_PROFILE', () => {
-    it.each(['mdl', 'mdl-us', 'mdl-eu', 'eudi', 'eudi-pid', 'eudi-eaa'])('accepts the named preset %s', (name) => {
+    it.each(['mdl', 'mdl-us', 'mdl-eu', 'eudi-pid', 'eudi-eaa'])('accepts the named preset %s', (name) => {
       process.env.MDOC_ISSUER_PROFILE = name
       expect(agentConfig().mdocIssuerProfile).toBe(name)
     })
@@ -38,7 +38,7 @@ describe('agent config — startup validation', () => {
     it('refuses to start on an unknown profile name instead of falling back to mDL', () => {
       process.env.MDOC_ISSUER_PROFILE = 'eudi_pid'
       expect(() => agentConfig()).toThrow(
-        /MDOC_ISSUER_PROFILE has an unknown value 'eudi_pid' \(allowed: mdl, mdl-us, mdl-eu, eudi-pid, eudi, eudi-eaa\)/,
+        /MDOC_ISSUER_PROFILE has an unknown value 'eudi_pid' \(allowed: mdl, mdl-us, mdl-eu, eudi-pid, eudi-eaa\)/,
       )
     })
   })

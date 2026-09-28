@@ -1658,8 +1658,8 @@
       "name": "token_status_list",
       "schema": "public",
       "columns": {
-        "allocated": {
-          "name": "allocated",
+        "allocated_bitmap": {
+          "name": "allocated_bitmap",
           "type": "text",
           "unsigned": false,
           "autoincrement": false,
@@ -1811,8 +1811,8 @@
           "enumItems": [],
           "mappedType": "integer"
         },
-        "statuses": {
-          "name": "statuses",
+        "encoded_statuses": {
+          "name": "encoded_statuses",
           "type": "text",
           "unsigned": false,
           "autoincrement": false,

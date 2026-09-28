@@ -22,8 +22,8 @@ interface TokenStatusListProps {
   signer: TokenStatusListSigner
   bitsPerStatus?: number
   size?: number
-  allocated: string
-  statuses: string
+  allocatedBitmap: string
+  encodedStatuses: string
   owner: User
 }
 
@@ -63,11 +63,11 @@ export class TokenStatusList extends Identified {
 
   /** Base64 bitmap of the indexes handed out to credentials. */
   @Property({ nullable: false, type: 'text' })
-  public allocated: string
+  public allocatedBitmap: string
 
   /** The compressed status array as base64url — the token's `lst` value. */
   @Property({ nullable: false, type: 'text' })
-  public statuses: string
+  public encodedStatuses: string
 
   /** The last signed Status List Token (`statuslist+jwt`), served verbatim by the public route. */
   @Property({ nullable: true, type: 'text' })
@@ -88,8 +88,8 @@ export class TokenStatusList extends Identified {
     this.bitsPerStatus = props.bitsPerStatus ?? defaultTokenStatusListBits
     this.size = props.size ?? defaultTokenStatusListSize
     this.allocatedCount = 0
-    this.allocated = props.allocated
-    this.statuses = props.statuses
+    this.allocatedBitmap = props.allocatedBitmap
+    this.encodedStatuses = props.encodedStatuses
     this.owner = props.owner
   }
 }

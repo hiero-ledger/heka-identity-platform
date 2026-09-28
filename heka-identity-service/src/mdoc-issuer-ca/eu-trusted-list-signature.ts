@@ -49,7 +49,7 @@ type PinnedVerification =
  * algorithm, which for ECDSA lacks the `namedCurve` Node's WebCrypto requires. This runs the stock
  * verifier's two steps with exactly the given keys and reports which step failed.
  */
-class PinnedSignedXml extends xadesjs.SignedXml {
+class KeyBoundSignedXml extends xadesjs.SignedXml {
   public async verifyWithKeys(keys: CryptoKey[]): Promise<PinnedVerification> {
     const root = this.document?.documentElement
     if (!root) throw new TrustedListSignatureError('Trusted List document has no root element.')
@@ -98,7 +98,7 @@ export async function verifyTrustedListSignature(xml: string, trustedSignerCerti
     throw new TrustedListSignatureError('Trusted List has no XML-DSig signature.')
   }
 
-  const signedXml = new PinnedSignedXml(doc as unknown as Document)
+  const signedXml = new KeyBoundSignedXml(doc as unknown as Document)
   try {
     signedXml.LoadXml(signatures[0] as unknown as Element)
   } catch (error) {

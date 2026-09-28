@@ -125,13 +125,13 @@ export default {
       default: 'Verifier default',
       did: 'Verifier DID',
       x509: 'X.509 · {{prefix}} · {{label}}',
-      defaultTag: ' (default)',
-      expiredTag: ' (expired)',
+      defaultTag: '(default)',
+      expiredTag: '(expired)',
       noneProvisioned:
-        'The default request signer is an X.509 identity, but none is provisioned for this verifier. Provision one (POST /x509/signers) or choose the verifier DID.',
+        'The default request signer is an X.509 signer, but none is provisioned for this verifier. Provision one (POST /x509/signers) or choose the verifier DID.',
     },
     errors: {
-      rejected:
+      refused:
         'The verifier could not create the presentation request. Check the selected request signer — it may be missing or expired — and try again.',
       failed:
         'Could not get a credential via the Digital Credentials API. Make sure a compatible wallet is installed, then try again.',

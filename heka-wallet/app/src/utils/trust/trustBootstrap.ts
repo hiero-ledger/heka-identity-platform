@@ -1,7 +1,7 @@
 import {
   loadCachedTrustSources,
   refreshTrustSources,
-  TrustCacheLoadResult,
+  TrustSourceCacheLoadResult,
   TrustRefreshOptions,
   TrustSourceRefreshResult,
   TrustVerifyAgent,
@@ -19,7 +19,7 @@ export interface TrustBootstrapOptions extends TrustRefreshOptions {
 
 export interface TrustBootstrapResult {
   /** Per-source outcome of the cache load. */
-  loaded: TrustCacheLoadResult[]
+  loaded: TrustSourceCacheLoadResult[]
   /**
    * `awaited`: some refreshable source had no usable cache, so one network refresh was awaited (up to
    * the bound); `background`: every source loaded but at least one is stale, refresh fired without
@@ -50,7 +50,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | 'timed-out
  * source loaded but one is stale, refresh in the background; otherwise do nothing. A refresh that
  * outlives the bound still completes and updates the store + cache for next time. Never throws.
  */
-export async function ensureTrustAnchors(
+export async function bootstrapTrustAnchors(
   agent: TrustVerifyAgent,
   sources: TrustSourceConfig[],
   options: TrustBootstrapOptions

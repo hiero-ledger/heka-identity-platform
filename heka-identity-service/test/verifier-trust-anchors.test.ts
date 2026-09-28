@@ -62,7 +62,7 @@ describe('Verifier trust anchors (service as Relying Party)', () => {
     const tenantAgent = await agent.modules.tenants.getTenantAgent({ tenantId: tenant.id })
     try {
       const mdocIssuerCa = nestApp.get(MdocIssuerCaService)
-      await mdocIssuerCa.ensure(tenantAgent.context)
+      await mdocIssuerCa.ensureIssuer(tenantAgent.context)
       const dsc = await mdocIssuerCa.loadCurrentDsc(tenantAgent.context)
       const holderKey = await tenantAgent.kms.createKey({ type: { kty: 'EC', crv: 'P-256' } })
       const mdoc = await tenantAgent.mdoc.sign({

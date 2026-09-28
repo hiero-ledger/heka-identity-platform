@@ -12,7 +12,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
 const DEFAULT_RENEW_BEFORE_MS = 30 * MS_PER_DAY
 
 /** Declares a managed signing identity: where it is stored and what its certificate looks like. */
-export interface ManagedCertificateProfile {
+export interface ManagedCertificateSpec {
   /** GenericRecord `recordType` identifying this certificate identity within the store. */
   recordType: string
   /**
@@ -80,10 +80,7 @@ export class ManagedCertificateService {
   ) {}
 
   /** Find-or-provision (and auto-renew) the managed signing certificate for `profile`. */
-  public ensureCertificate(
-    agentContext: AgentContext,
-    profile: ManagedCertificateProfile,
-  ): Promise<ManagedCertificate> {
+  public ensureCertificate(agentContext: AgentContext, profile: ManagedCertificateSpec): Promise<ManagedCertificate> {
     const lockKey = this.lockKey(agentContext, profile)
     const inFlight = this.locks.get(lockKey)
     if (inFlight) {
@@ -94,7 +91,7 @@ export class ManagedCertificateService {
     return operation
   }
 
-  private lockKey(agentContext: AgentContext, profile: ManagedCertificateProfile): string {
+  private lockKey(agentContext: AgentContext, profile: ManagedCertificateSpec): string {
     const tagKey = Object.entries(profile.tags ?? {})
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, value]) => `${key}=${value}`)
@@ -104,7 +101,7 @@ export class ManagedCertificateService {
 
   private async resolveCertificate(
     agentContext: AgentContext,
-    profile: ManagedCertificateProfile,
+    profile: ManagedCertificateSpec,
   ): Promise<ManagedCertificate> {
     const existing = await this.findRecord(agentContext, profile)
     if (existing) {
@@ -114,12 +111,12 @@ export class ManagedCertificateService {
         return this.toManagedCertificate(existing, content)
       }
     }
-    return this.provision(agentContext, profile, existing)
+    return this.issueOrRenew(agentContext, profile, existing)
   }
 
-  private async provision(
+  private async issueOrRenew(
     agentContext: AgentContext,
-    profile: ManagedCertificateProfile,
+    profile: ManagedCertificateSpec,
     existing: GenericRecord | null,
   ): Promise<ManagedCertificate> {
     const kms = agentContext.resolve(Kms.KeyManagementApi)
@@ -159,10 +156,7 @@ export class ManagedCertificateService {
     return this.toManagedCertificate(record, content)
   }
 
-  private async findRecord(
-    agentContext: AgentContext,
-    profile: ManagedCertificateProfile,
-  ): Promise<GenericRecord | null> {
+  private async findRecord(agentContext: AgentContext, profile: ManagedCertificateSpec): Promise<GenericRecord | null> {
     const records = this.records(agentContext)
     const found = await records.findAllByQuery({ recordType: profile.recordType, ...profile.tags })
     if (found.length <= 1) {

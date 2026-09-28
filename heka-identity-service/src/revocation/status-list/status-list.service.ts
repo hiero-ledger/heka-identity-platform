@@ -99,14 +99,6 @@ export class StatusListService {
     )
   }
 
-  public async getOrCreate(authInfo: AuthInfo, issuer: string): Promise<CredentialStatusList> {
-    const lists = await this.em.find(CredentialStatusList, {
-      owner: authInfo.user,
-    })
-    const list = lists.find((list) => list.lastIndex < list.size)
-    return list ?? (await this.create(authInfo, { issuer }))
-  }
-
   public assertHasFreeIndexes(statusList: CredentialStatusList, count: number): void {
     if (statusList.lastIndex + count > statusList.size) {
       throw new BadRequestException('Status list does not have enough free indexes')

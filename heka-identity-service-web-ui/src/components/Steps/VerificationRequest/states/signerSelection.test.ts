@@ -23,7 +23,7 @@ describe('signer picker selection', () => {
     expect(reconcileSignerKey(SIGNER_DID, [valid])).toBe(SIGNER_DID);
   });
 
-  test('a chosen X.509 identity persists while listed and falls back to the default once it is gone or expired', () => {
+  test('a chosen X.509 signer persists while listed and falls back to the default once it is gone or expired', () => {
     expect(reconcileSignerKey('signer-1', [valid, expired])).toBe('signer-1');
     expect(reconcileSignerKey('signer-1', [])).toBe(SIGNER_DEFAULT);
     expect(reconcileSignerKey('signer-old', [valid, expired])).toBe(SIGNER_DEFAULT);

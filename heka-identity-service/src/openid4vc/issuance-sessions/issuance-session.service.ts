@@ -48,7 +48,7 @@ export class OpenId4VcIssuanceSessionService {
     // TODO: It is better to we move setting credential status to `credentialRequestToCredentialMapper`
     //  to change status list when credential really requested but how??
     // Positions (in mappedCredentials) of the W3C VCs; their bitstring indexes are reserved in one locked call below.
-    const bitstringPositions: number[] = []
+    const w3cCredentialPositions: number[] = []
 
     // Maps credentials, adds properties, and throws errors if needed
     const mappedCredentials: Array<CredentialIssuanceMetadata> = []
@@ -105,12 +105,12 @@ export class OpenId4VcIssuanceSessionService {
         credential.format === OpenId4VciCredentialFormatProfile.JwtVcJsonLd ||
         credential.format === OpenId4VciCredentialFormatProfile.LdpVc
       ) {
-        bitstringPositions.push(mappedCredentials.length)
+        w3cCredentialPositions.push(mappedCredentials.length)
       } else if (credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc) {
-        const signer = await this.sdJwtStatusListSigner(tenantAgent, isX5cSdJwt, issuerDid, issuerDidUrl)
+        const signer = await this.resolveSdJwtSigningIdentity(tenantAgent, isX5cSdJwt, issuerDid, issuerDidUrl)
         // One status-list entry per credential the wallet may request in a batch.
         const batchSize = issuer.batchCredentialIssuance?.batchSize ?? 1
-        const reference = await this.tokenStatusListService.allocateMany(
+        const reference = await this.tokenStatusListService.reserveIndexes(
           tenantAgent.context,
           authInfo,
           signer,
@@ -164,14 +164,14 @@ export class OpenId4VcIssuanceSessionService {
       mappedCredentials.push(credentialIssuanceMeta)
     }
 
-    if (bitstringPositions.length > 0) {
+    if (w3cCredentialPositions.length > 0) {
       const reserved = await this.statusListService.reserveIndexes(
         authInfo,
         req.publicIssuerId,
-        bitstringPositions.length,
+        w3cCredentialPositions.length,
       )
       const location = this.statusListService.location(reserved.id)
-      bitstringPositions.forEach((position, offset) => {
+      w3cCredentialPositions.forEach((position, offset) => {
         mappedCredentials[position].credentialStatus = { type: 'bitstring', location, index: reserved.indexes[offset] }
       })
     }
@@ -276,7 +276,7 @@ export class OpenId4VcIssuanceSessionService {
    * The credential-signing key of this SD-JWT VC issuance, as the status-list signer (see
    * `TokenStatusListService`): x5c → the tenant's issuer leaf, DID → the verification-method key.
    */
-  private async sdJwtStatusListSigner(
+  private async resolveSdJwtSigningIdentity(
     tenantAgent: TenantAgent,
     isX5c: boolean,
     issuerDid: string | undefined,

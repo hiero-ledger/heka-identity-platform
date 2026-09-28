@@ -12,6 +12,8 @@ import {
   ValidateNested,
 } from 'class-validator'
 
+import { X509_CLIENT_ID_PREFIXES, X509ClientIdPrefix } from 'x509-signing/x509-signer.types'
+
 import { DcqlQueryDto } from './dcql-query.dto'
 import { DifPresentationExchangeDefinitionV2 } from './presentation-exchange-definition.dto'
 import { OpenId4VcVerificationSessionRecordDto } from './verification-session.dto'
@@ -40,13 +42,13 @@ export class RequestSignerDto {
   public did?: string
 
   @ApiPropertyOptional({
-    enum: ['x509_hash', 'x509_san_dns'],
+    enum: [...X509_CLIENT_ID_PREFIXES],
     description: 'X.509 client_id prefix (method "x5c"). Defaults to x509_hash.',
   })
   @ValidateIf((o: RequestSignerDto) => o.method === 'x5c')
   @IsOptional()
-  @IsIn(['x509_hash', 'x509_san_dns'])
-  public clientIdPrefix?: 'x509_hash' | 'x509_san_dns'
+  @IsIn(X509_CLIENT_ID_PREFIXES)
+  public clientIdPrefix?: X509ClientIdPrefix
 
   @ApiPropertyOptional({
     description: 'Specific X.509 signer id (method "x5c"). Defaults to the tenant default for the prefix.',

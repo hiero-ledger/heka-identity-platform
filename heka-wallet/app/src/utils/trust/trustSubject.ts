@@ -1,6 +1,16 @@
 import { Mdoc } from '@credo-ts/core'
 
-import { CredentialFormat, TrustSubject } from './trustResolver'
+export type CredentialFormat = 'mso_mdoc' | 'dc+sd-jwt' | 'other'
+
+/** What is being verified, in trust terms — derived from Credo's X509 verification context. */
+export type TrustSubject =
+  | {
+      role: 'credential-issuer'
+      format: CredentialFormat
+      /** The mdoc `docType` or SD-JWT VC `vct`; absent for other formats. */
+      credentialType?: string
+    }
+  | { role: 'access-certificate-authority' }
 
 /** Structural subset of Credo's `X509VerificationContext['verification']` the wallet branches on. */
 export type X509VerificationContext = { type: string; credential?: unknown }
@@ -17,7 +27,7 @@ export function trustSubjectFor(verification: X509VerificationContext): TrustSub
   switch (verification.type) {
     case 'oauth2SecuredAuthorizationRequest':
     case 'openId4VciCredentialIssuerMetadata':
-      return { role: 'access-certificate' }
+      return { role: 'access-certificate-authority' }
     case 'credential':
       return { role: 'credential-issuer', ...credentialFormat(verification.credential) }
     default:

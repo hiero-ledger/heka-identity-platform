@@ -33,6 +33,12 @@ describe('TokenStatusListService', () => {
   const authInfo = { user: { id: 'user-1' } } as unknown as AuthInfo
 
   let service: TokenStatusListService
+  const allocateOne = async (context: AgentContext, auth: AuthInfo, identity: TokenStatusListSignerIdentity) => {
+    const { id, uri, indexes } = await service.reserveIndexes(context, auth, identity, 1)
+    return { id, uri, idx: indexes[0] }
+  }
+  const setOneStatus = (context: AgentContext, auth: AuthInfo, id: string, idx: number, status: TokenStatus) =>
+    service.setStatuses(context, auth, id, [idx], status)
   let em: EntityManager
   let agentContext: AgentContext
   let stored: TokenStatusList[]
@@ -78,7 +84,7 @@ describe('TokenStatusListService', () => {
   })
 
   test('allocate creates a signed list on first use and reserves a random index in it', async () => {
-    const reference = await service.allocate(agentContext, authInfo, identity)
+    const reference = await allocateOne(agentContext, authInfo, identity)
 
     // the allocation is one transaction holding a row lock on the key's lists (SELECT … FOR UPDATE)
     expect(em.transactional).toHaveBeenCalledTimes(1)
@@ -124,8 +130,8 @@ describe('TokenStatusListService', () => {
   })
 
   test('allocate reuses the list of the same signing key and never hands out an index twice', async () => {
-    const first = await service.allocate(agentContext, authInfo, identity)
-    const second = await service.allocate(agentContext, authInfo, identity)
+    const first = await allocateOne(agentContext, authInfo, identity)
+    const second = await allocateOne(agentContext, authInfo, identity)
 
     expect(stored).toHaveLength(1)
     expect(stored[0].allocatedCount).toBe(2)
@@ -135,8 +141,8 @@ describe('TokenStatusListService', () => {
     expect(sign).toHaveBeenCalledTimes(1)
   })
 
-  test('allocateMany reserves N distinct entries of one list in one locked transaction, without re-signing', async () => {
-    const batch = await service.allocateMany(agentContext, authInfo, identity, 3)
+  test('reserveIndexes reserves N distinct entries of one list in one locked transaction, without re-signing', async () => {
+    const batch = await service.reserveIndexes(agentContext, authInfo, identity, 3)
 
     expect(stored).toHaveLength(1)
     expect(batch.id).toBe(stored[0].id)
@@ -146,19 +152,21 @@ describe('TokenStatusListService', () => {
     expect(em.transactional).toHaveBeenCalledTimes(1)
     expect(sign).toHaveBeenCalledTimes(1) // creation only
 
-    const later = await service.allocate(agentContext, authInfo, identity)
+    const later = await allocateOne(agentContext, authInfo, identity)
     expect(later.id).toBe(batch.id)
     expect(batch.indexes).not.toContain(later.idx)
   })
 
-  test('allocateMany rejects a count below one', async () => {
-    await expect(service.allocateMany(agentContext, authInfo, identity, 0)).rejects.toBeInstanceOf(BadRequestException)
+  test('reserveIndexes rejects a count below one', async () => {
+    await expect(service.reserveIndexes(agentContext, authInfo, identity, 0)).rejects.toBeInstanceOf(
+      BadRequestException,
+    )
     expect(em.transactional).not.toHaveBeenCalled()
   })
 
   test('setStatuses flips every entry of a batch and re-signs the token once', async () => {
-    const batch = await service.allocateMany(agentContext, authInfo, identity, 3)
-    const untouched = await service.allocate(agentContext, authInfo, identity)
+    const batch = await service.reserveIndexes(agentContext, authInfo, identity, 3)
+    const untouched = await allocateOne(agentContext, authInfo, identity)
 
     await service.setStatuses(agentContext, authInfo, batch.id, batch.indexes, TokenStatus.Invalid)
 
@@ -169,7 +177,7 @@ describe('TokenStatusListService', () => {
   })
 
   test('setStatuses rejects the whole batch when any index is out of range', async () => {
-    const batch = await service.allocateMany(agentContext, authInfo, identity, 2)
+    const batch = await service.reserveIndexes(agentContext, authInfo, identity, 2)
     const before = stored[0].token
     await expect(
       service.setStatuses(
@@ -184,8 +192,8 @@ describe('TokenStatusListService', () => {
   })
 
   test('a different signing key (rotated issuer certificate) starts a separate list', async () => {
-    await service.allocate(agentContext, authInfo, identity)
-    await service.allocate(agentContext, authInfo, {
+    await allocateOne(agentContext, authInfo, identity)
+    await allocateOne(agentContext, authInfo, {
       ...identity,
       keyId: 'kms-key-2',
       signer: { method: 'x5c', x5c: ['LEAF2', 'ROOT'] },
@@ -195,7 +203,7 @@ describe('TokenStatusListService', () => {
   })
 
   test('a DID issuer signs with kid instead of x5c', async () => {
-    await service.allocate(agentContext, authInfo, {
+    await allocateOne(agentContext, authInfo, {
       issuer: 'did:key:z6MkIssuer',
       keyId: 'kms-key-did',
       signer: { method: 'did', kid: 'did:key:z6MkIssuer#z6MkIssuer' },
@@ -207,10 +215,10 @@ describe('TokenStatusListService', () => {
   })
 
   test('setStatus flips the entry and re-signs the token', async () => {
-    const reference = await service.allocate(agentContext, authInfo, identity)
+    const reference = await allocateOne(agentContext, authInfo, identity)
     const before = stored[0].token
 
-    await service.setStatus(agentContext, authInfo, reference.id, reference.idx, TokenStatus.Invalid)
+    await setOneStatus(agentContext, authInfo, reference.id, reference.idx, TokenStatus.Invalid)
 
     expect(sign).toHaveBeenCalledTimes(2)
     expect(stored[0].token).not.toBe(before)
@@ -221,27 +229,27 @@ describe('TokenStatusListService', () => {
   })
 
   test('setStatus rejects an out-of-range index', async () => {
-    const reference = await service.allocate(agentContext, authInfo, identity)
+    const reference = await allocateOne(agentContext, authInfo, identity)
     await expect(
-      service.setStatus(agentContext, authInfo, reference.id, defaultTokenStatusListSize, TokenStatus.Invalid),
+      setOneStatus(agentContext, authInfo, reference.id, defaultTokenStatusListSize, TokenStatus.Invalid),
     ).rejects.toBeInstanceOf(BadRequestException)
   })
 
   test('setStatus rejects a status that does not fit the list (Suspended on a 1-bit list)', async () => {
-    const reference = await service.allocate(agentContext, authInfo, identity)
+    const reference = await allocateOne(agentContext, authInfo, identity)
     const before = stored[0].token
     await expect(
-      service.setStatus(agentContext, authInfo, reference.id, reference.idx, TokenStatus.Suspended),
+      setOneStatus(agentContext, authInfo, reference.id, reference.idx, TokenStatus.Suspended),
     ).rejects.toBeInstanceOf(BadRequestException)
     expect(sign).toHaveBeenCalledTimes(1)
     expect(stored[0].token).toBe(before)
   })
 
   test('re-signing is refused outside the tenant context that owns the key', async () => {
-    const reference = await service.allocate(agentContext, authInfo, identity)
+    const reference = await allocateOne(agentContext, authInfo, identity)
     const otherContext = { ...agentContext, contextCorrelationId: 'tenant-2' } as unknown as AgentContext
     await expect(
-      service.setStatus(otherContext, authInfo, reference.id, reference.idx, TokenStatus.Invalid),
+      setOneStatus(otherContext, authInfo, reference.id, reference.idx, TokenStatus.Invalid),
     ).rejects.toBeInstanceOf(BadRequestException)
   })
 
@@ -250,10 +258,10 @@ describe('TokenStatusListService', () => {
   })
 
   test('a full list is not reused — a new one is created', async () => {
-    const reference = await service.allocate(agentContext, authInfo, identity)
+    const reference = await allocateOne(agentContext, authInfo, identity)
     stored[0].allocatedCount = stored[0].size // pretend every index is taken
 
-    const next = await service.allocate(agentContext, authInfo, identity)
+    const next = await allocateOne(agentContext, authInfo, identity)
 
     expect(stored).toHaveLength(2)
     expect(next.id).not.toBe(reference.id)

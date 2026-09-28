@@ -17,7 +17,7 @@ const euPid: TrustSourceConfig = {
 }
 const wrpac: TrustSourceConfig = {
   id: 'heka-wrpac-providers',
-  role: 'access-certificate',
+  role: 'access-certificate-authority',
   url: 'https://heka.example/trust-list/wrpac-providers',
   pinnedSigners: ['ROOT'],
 }
@@ -32,7 +32,7 @@ describe('resolveTrustAnchors', () => {
   })
 
   test('an access-certificate subject sees only access-certificate sources', () => {
-    expect(resolveTrustAnchors(sources, { role: 'access-certificate' })).toEqual(['SERVICE_ROOT'])
+    expect(resolveTrustAnchors(sources, { role: 'access-certificate-authority' })).toEqual(['SERVICE_ROOT'])
   })
 
   test('an unclassified mdoc docType is covered by the unrestricted issuer sources only', () => {
@@ -98,7 +98,7 @@ describe('resolveTrustAnchors', () => {
 
   test('an empty store yields no learned anchors', () => {
     trustAnchorStore.clear()
-    expect(resolveTrustAnchors(sources, { role: 'access-certificate' })).toEqual([])
+    expect(resolveTrustAnchors(sources, { role: 'access-certificate-authority' })).toEqual([])
   })
 })
 
@@ -118,7 +118,7 @@ describe('selectTrustSources', () => {
         credentialType: 'org.iso.18013.5.1.mDL',
       }).map((s) => s.id)
     ).toEqual([heka.id])
-    expect(selectTrustSources(sources, { role: 'access-certificate' }).map((s) => s.id)).toEqual([wrpac.id])
+    expect(selectTrustSources(sources, { role: 'access-certificate-authority' }).map((s) => s.id)).toEqual([wrpac.id])
   })
 })
 
@@ -153,6 +153,6 @@ describe('isClassifiedSubject', () => {
       })
     ).toBe(false)
     expect(isClassifiedSubject(sources, { role: 'credential-issuer', format: 'other' })).toBe(false)
-    expect(isClassifiedSubject(sources, { role: 'access-certificate' })).toBe(false)
+    expect(isClassifiedSubject(sources, { role: 'access-certificate-authority' })).toBe(false)
   })
 })

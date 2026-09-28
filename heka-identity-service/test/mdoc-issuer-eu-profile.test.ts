@@ -86,7 +86,7 @@ describe('mdoc issuer CA — EUDI PID certificate profile (TS 119 412-6)', () =>
     let iacaFingerprint: string
     let mdocBase64Url: string
     try {
-      const { iaca, dsc } = await mdocIssuerCa.ensure(issuerAgent.context)
+      const { iaca, dsc } = await mdocIssuerCa.ensureIssuer(issuerAgent.context)
       iacaBase64 = iaca.certificateBase64
       dscBase64 = dsc.certificateBase64
       iacaFingerprint = iaca.fingerprint

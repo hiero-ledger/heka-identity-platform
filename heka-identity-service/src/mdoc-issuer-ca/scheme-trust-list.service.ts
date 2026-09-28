@@ -11,6 +11,7 @@ import { ManagedCertificateService, X509SignerService } from 'x509-signing'
 
 import { parseConfiguredAnchors } from './certificate-list'
 import { SchemeTrustListIndexDto } from './dto/scheme-trust-list.dto'
+import { EU_LOTE_SERVICE_TYPE } from './eu-service-types'
 import { readIacaRegistry } from './iaca-registry'
 
 /** The scheme lists this service publishes, one per entity role (mirrors the one-list-per-type EU model). */
@@ -20,14 +21,6 @@ export type SchemeListId = (typeof SCHEME_LIST_IDS)[number]
 /** Media type of a signed list (compact JWS, `typ: trustlist+jwt`). */
 export const TRUST_LIST_MIME_TYPE = 'application/trustlist+jwt'
 
-/**
- * ETSI TS 119 602 **EU service-type vocabulary** — reused verbatim so EUDI-aware consumers classify the
- * entries natively (an EAA issuer, an access-certificate authority).
- */
-export const EU_SERVICE_TYPE = {
-  eaaIssuance: 'http://uri.etsi.org/19602/SvcType/EAA/Issuance',
-  wrpacIssuance: 'http://uri.etsi.org/19602/SvcType/WRPAC/Issuance',
-} as const
 const EU_TE_INFORMATION_URI_PREFIX: Record<SchemeListId, string> = {
   'eaa-providers': 'http://uri.etsi.org/19602/ListOfTrustedEntities/EAAProvider/',
   'wrpac-providers': 'http://uri.etsi.org/19602/ListOfTrustedEntities/WRPACProvider/',
@@ -224,7 +217,7 @@ export class SchemeTrustListService {
     for (const iaca of await readIacaRegistry(this.agent)) {
       const entry = tenantEntry(iaca.tenantContextId ?? iaca.certificateBase64, iaca.authorityName, iaca.country)
       entry.services.push(
-        this.service('mdoc issuer CA (IACA)', EU_SERVICE_TYPE.eaaIssuance, iaca.certificateBase64, {
+        this.service('mdoc issuer CA (IACA)', EU_LOTE_SERVICE_TYPE.eaaIssuance, iaca.certificateBase64, {
           origin: 'tenant',
           formats: ['mso_mdoc'],
           docTypes: [iaca.docType],
@@ -234,10 +227,15 @@ export class SchemeTrustListService {
     for (const issuer of await readSdJwtIssuerRegistry(this.agent)) {
       const entry = tenantEntry(issuer.tenantContextId, issuer.domain, defaultCountry)
       entry.services.push(
-        this.service(`SD-JWT VC issuer (${issuer.domain})`, EU_SERVICE_TYPE.eaaIssuance, issuer.certificateBase64, {
-          origin: 'tenant',
-          formats: ['dc+sd-jwt'],
-        }),
+        this.service(
+          `SD-JWT VC issuer (${issuer.domain})`,
+          EU_LOTE_SERVICE_TYPE.eaaIssuance,
+          issuer.certificateBase64,
+          {
+            origin: 'tenant',
+            formats: ['dc+sd-jwt'],
+          },
+        ),
       )
     }
 
@@ -247,9 +245,14 @@ export class SchemeTrustListService {
     for (const certificate of parseConfiguredAnchors(this.agent.agencyConfig.trustListPartnerCertificates)) {
       entities.push(
         this.entity(certificate.data.subject || 'Partner issuer CA', 'eaa-providers', defaultCountry, [
-          this.service('Partner issuer CA trust anchor', EU_SERVICE_TYPE.eaaIssuance, certificate.toString('base64'), {
-            origin: 'partner',
-          }),
+          this.service(
+            'Partner issuer CA trust anchor',
+            EU_LOTE_SERVICE_TYPE.eaaIssuance,
+            certificate.toString('base64'),
+            {
+              origin: 'partner',
+            },
+          ),
         ]),
       )
     }
@@ -265,7 +268,7 @@ export class SchemeTrustListService {
       this.entity(trustListSchemeOperator, 'wrpac-providers', mdocIssuerCountry, [
         this.service(
           'Access certificate authority (service root CA)',
-          EU_SERVICE_TYPE.wrpacIssuance,
+          EU_LOTE_SERVICE_TYPE.wrpacIssuance,
           root.certificateBase64,
           {
             origin: 'operator',

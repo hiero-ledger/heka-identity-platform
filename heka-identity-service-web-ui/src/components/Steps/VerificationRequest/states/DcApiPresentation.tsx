@@ -39,7 +39,7 @@ export const DcApiPresentation = ({
   const [error, setError] = useState<string | undefined>();
   const requestRef = useRef<{ abort: () => void } | null>(null);
 
-  const [identities, setIdentities] = useState<Array<X509Signer>>([]);
+  const [signers, setSigners] = useState<Array<X509Signer>>([]);
   const [signerKey, setSignerKey] = useState<string>(SIGNER_DEFAULT);
 
   // List the verifier's X.509 signers to offer them as signers. Degrades silently to the
@@ -52,7 +52,7 @@ export const DcApiPresentation = ({
     const loadIdentities = async () => {
       const result = await request;
       if (active && fetchX509Signers.fulfilled.match(result)) {
-        setIdentities(result.payload.identities);
+        setSigners(result.payload.signers);
       }
     };
 
@@ -64,40 +64,40 @@ export const DcApiPresentation = ({
     };
   }, [dispatch, context.useDemo]);
 
-  // A chosen X.509 identity that disappeared (or expired) with a reload falls back to the default,
+  // A chosen X.509 signer that disappeared (or expired) with a reload falls back to the default,
   // so what the picker shows is always what the request is sent with.
   useEffect(() => {
-    setSignerKey((current) => reconcileSignerKey(current, identities));
-  }, [identities]);
+    setSignerKey((current) => reconcileSignerKey(current, signers));
+  }, [signers]);
 
   const signerItems = useMemo<Array<SelectOption>>(() => {
-    const identityOption = (identity: X509Signer): SelectOption => {
+    const signerOption = (signer: X509Signer): SelectOption => {
       const label =
-        identity.commonName ??
-        identity.sanDnsName ??
-        `${identity.fingerprint.slice(0, 12)}…`;
+        signer.commonName ??
+        signer.sanDnsName ??
+        `${signer.fingerprint.slice(0, 12)}…`;
       const content =
         t('PresentationOptions.signer.x509', {
-          prefix: identity.clientIdPrefix,
+          prefix: signer.clientIdPrefix,
           label,
         }) +
-        (identity.isDefault ? t('PresentationOptions.signer.defaultTag') : '') +
-        (identity.expired ? t('PresentationOptions.signer.expiredTag') : '');
+        (signer.isDefault ? ` ${t('PresentationOptions.signer.defaultTag')}` : '') +
+        (signer.expired ? ` ${t('PresentationOptions.signer.expiredTag')}` : '');
       // An expired certificate cannot sign a request the wallet would accept — shown, not selectable.
-      return { value: identity.id, content, isDisabled: identity.expired };
+      return { value: signer.id, content, isDisabled: signer.expired };
     };
 
     return [
       { value: SIGNER_DEFAULT, content: t('PresentationOptions.signer.default') },
       { value: SIGNER_DID, content: t('PresentationOptions.signer.did') },
-      ...identities.map(identityOption),
+      ...signers.map(signerOption),
     ];
-  }, [identities, t]);
+  }, [signers, t]);
 
   // The picker is offered whenever there is something to choose from, or when the build default is an
   // X.509 signer that has not been provisioned yet (then the DID option is the only working choice).
-  const noSignerForX5cDefault = identities.length === 0 && isEnvDefaultSignerX5c();
-  const showSignerPicker = identities.length > 0 || noSignerForX5cDefault;
+  const noSignerForX5cDefault = signers.length === 0 && isEnvDefaultSignerX5c();
+  const showSignerPicker = signers.length > 0 || noSignerForX5cDefault;
 
   const onPresent = async () => {
     if (!context.protocolType || !context.credentialType || !context.schema) {
@@ -116,7 +116,7 @@ export const DcApiPresentation = ({
         did: context.did,
         useDemo: context.useDemo,
         useDcApi: true,
-        requestSignerSelection: resolveSignerSelection(signerKey, identities),
+        requestSignerSelection: resolveSignerSelection(signerKey, signers),
       }),
     );
     requestRef.current = request;
@@ -132,8 +132,8 @@ export const DcApiPresentation = ({
         setError(t('PresentationOptions.errors.cancelled'));
       } else if (code === 'unsupported') {
         setError(t('PresentationOptions.errors.unsupported'));
-      } else if (code === 'rejected') {
-        setError(t('PresentationOptions.errors.rejected'));
+      } else if (code === 'refused') {
+        setError(t('PresentationOptions.errors.refused'));
       } else {
         setError(t('PresentationOptions.errors.failed'));
       }

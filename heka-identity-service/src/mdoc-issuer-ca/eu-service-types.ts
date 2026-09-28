@@ -66,20 +66,20 @@ export const EU_LOTE_ISSUER_SERVICE_TYPES: readonly string[] = [
 /**
  * Apply an operator's optional service-type narrowing to a hard-coded issuer set: empty → the full issuer
  * set; otherwise every configured type must be one of the issuer types (anything else — a TSA, a WRPAC CA
- * — can never be widened in) and the configured subset is used. Throws naming `variable` so the check can
+ * — can never be widened in) and the configured subset is used. Throws naming `envVariableName` so the check can
  * run at startup.
  */
 export function narrowIssuerServiceTypes(
   configured: readonly string[],
   issuerServiceTypes: readonly string[],
-  variable: string,
+  envVariableName: string,
 ): string[] {
   const requested = configured.map((value) => value.trim()).filter(Boolean)
   if (requested.length === 0) return [...issuerServiceTypes]
   const unknown = requested.filter((serviceType) => !issuerServiceTypes.includes(serviceType))
   if (unknown.length > 0) {
     throw new Error(
-      `${variable} may only narrow the credential-issuer service types (allowed: ${issuerServiceTypes.join(', ')}); ` +
+      `${envVariableName} may only narrow the credential-issuer service types (allowed: ${issuerServiceTypes.join(', ')}); ` +
         `not allowed: ${unknown.join(', ')}`,
     )
   }
@@ -87,7 +87,7 @@ export function narrowIssuerServiceTypes(
 }
 
 /** Split a comma-separated environment value into trimmed, non-empty entries. */
-export function splitServiceTypeList(raw: string | undefined): string[] {
+export function splitCommaList(raw: string | undefined): string[] {
   return (raw ?? '')
     .split(',')
     .map((value) => value.trim())

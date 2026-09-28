@@ -8,9 +8,9 @@
 import * as x509 from '@peculiar/x509'
 
 import { ID_PE_QC_STATEMENTS_OID, ORGANIZATION_IDENTIFIER_OID } from './certificate-profiles'
-import { decodeQcTypes } from './eu-certificate-builder'
+import { decodeQcTypeStatement } from './eu-certificate-builder'
 
-export interface SigningCertificateAssessmentOptions {
+export interface CertificateAssessmentOptions {
   /** QcType the certificate must carry (`ID_ETSI_QCT_PID_OID` for a PID Provider certificate). Omit for EAA. */
   requiredQcType?: string
   /** Instant the certificate must be valid at. Default: now. */
@@ -85,7 +85,7 @@ function assessDistinguishedName(label: string, name: string, violations: string
  */
 export function assessEuSigningCertificate(
   certificate: x509.X509Certificate,
-  options: SigningCertificateAssessmentOptions = {},
+  options: CertificateAssessmentOptions = {},
 ): CertificateAssessment {
   const violations: string[] = []
   const at = options.at ?? new Date()
@@ -168,7 +168,7 @@ export function assessEuSigningCertificate(
   // QcType (PID-4.5-01)
   if (options.requiredQcType) {
     const qcStatements = certificate.getExtension(ID_PE_QC_STATEMENTS_OID)
-    const qcTypes = qcStatements ? decodeQcTypes(qcStatements.value) : []
+    const qcTypes = qcStatements ? decodeQcTypeStatement(qcStatements.value) : []
     if (!qcTypes.includes(options.requiredQcType)) {
       violations.push(
         `qcStatements QcType ${options.requiredQcType} is missing (PID-4.5-01); found [${qcTypes.join(', ')}]`,

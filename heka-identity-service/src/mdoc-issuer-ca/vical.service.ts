@@ -6,8 +6,7 @@ import { Inject, Injectable } from '@nestjs/common'
 import { Agent, AGENT_TOKEN } from 'common/agent'
 import { ManagedCertificateService } from 'x509-signing'
 
-import { IACA_REGISTRY_RECORD_TYPE } from './iaca-registry'
-import { MdocIaca } from './mdoc-issuer-ca.types'
+import { IacaRegistryEntry, readIacaRegistry } from './iaca-registry'
 import { buildSignedVical, VicalCertificateInfo } from './vical/vical'
 
 const VICAL_SIGNER_RECORD_TYPE = 'mdoc-vical-signer'
@@ -20,10 +19,6 @@ const VICAL_NEXT_UPDATE_DAYS = 7
 const VICAL_SIGNER_VALIDITY_DAYS = 365
 
 /** Registry entry written by MdocIssuerCaService (the public IACA mirror). */
-type StoredIacaRegistryEntry = Pick<MdocIaca, 'certificateBase64' | 'authorityName' | 'country' | 'docType'> & {
-  tenantContextId: string
-}
-
 /**
  * Content of the VICAL-signer record. The certificate fields are written/renewed by
  * {@link ManagedCertificateService}; `issueID` is this service's own counter, stored alongside them
@@ -63,7 +58,7 @@ function hexToBytes(hex?: string): Uint8Array {
  * similar). While disabled, {@link getVical} rejects and the VICAL signer is never provisioned.
  */
 @Injectable()
-export class TrustListService {
+export class VicalService {
   private cached: { bytes: Uint8Array; expiresAtMs: number } | null = null
   private dirty = true
   private building: Promise<Uint8Array> | null = null
@@ -127,10 +122,7 @@ export class TrustListService {
     const signer = await this.ensureVicalSigner()
     const issueID = await this.nextIssueId(signer.record)
 
-    const entries = await this.agent.genericRecords.findAllByQuery({ recordType: IACA_REGISTRY_RECORD_TYPE })
-    const certificateInfos = entries.map((entry) =>
-      this.toCertificateInfo(entry.content as unknown as StoredIacaRegistryEntry),
-    )
+    const certificateInfos = (await readIacaRegistry(this.agent)).map((entry) => this.toCertificateInfo(entry))
 
     const now = new Date()
     const nextUpdate = new Date(now.getTime() + VICAL_NEXT_UPDATE_DAYS * MS_PER_DAY)
@@ -152,7 +144,7 @@ export class TrustListService {
     })
   }
 
-  private toCertificateInfo(entry: StoredIacaRegistryEntry): VicalCertificateInfo {
+  private toCertificateInfo(entry: IacaRegistryEntry): VicalCertificateInfo {
     const certificate = X509Certificate.fromEncodedCertificate(entry.certificateBase64)
     return {
       certificateDer: certificate.rawCertificate,

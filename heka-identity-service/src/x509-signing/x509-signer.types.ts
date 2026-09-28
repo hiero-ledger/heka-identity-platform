@@ -1,4 +1,5 @@
-export type X509ClientIdPrefix = 'x509_hash' | 'x509_san_dns'
+export const X509_CLIENT_ID_PREFIXES = ['x509_hash', 'x509_san_dns'] as const
+export type X509ClientIdPrefix = (typeof X509_CLIENT_ID_PREFIXES)[number]
 
 /**
  * A per-tenant X.509 signer. The KMS key, the X.509 certificate and the

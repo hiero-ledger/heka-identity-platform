@@ -13,8 +13,8 @@ import {
   createPublicInvitationOrGetExisting,
   ensureExampleCredentialCreated,
   HekaWalletAgent,
-  loadCachedTrustSources,
-  refreshTrustSources,
+  loadWalletTrustCache,
+  refreshWalletTrustSources,
   TRUST_CONFIGURATION_ERRORS,
   setupMediatorWithPublicDidIfNeeded,
   tryRestartExistingAgent,
@@ -73,10 +73,10 @@ export const Splash: React.FC = () => {
         }
 
         // Load the cached trust lists, then refresh from the network; fire-and-forget so startup never blocks.
-        const refreshTrustList = (readyAgent: HekaWalletAgent): void => {
+        const bootstrapTrustSources = (readyAgent: HekaWalletAgent): void => {
           // Re-log the startup trust-configuration errors through the app logger.
           for (const error of TRUST_CONFIGURATION_ERRORS) logger.warn(`Trust configuration error — ${error}`)
-          void loadCachedTrustSources(readyAgent)
+          void loadWalletTrustCache(readyAgent)
             .then((loaded) => {
               for (const entry of loaded) {
                 if (entry.ok) {
@@ -87,7 +87,7 @@ export const Splash: React.FC = () => {
               }
             })
             .catch((error) => logger.warn(`Trust cache load failed: ${error}`))
-            .then(() => refreshTrustSources(readyAgent))
+            .then(() => refreshWalletTrustSources(readyAgent))
             .then((results) => {
               for (const result of results) {
                 if (result.ok) {
@@ -106,7 +106,7 @@ export const Splash: React.FC = () => {
           const isAgentRestarted = await tryRestartExistingAgent(agent, walletSecret)
 
           if (isAgentRestarted) {
-            refreshTrustList(agent)
+            bootstrapTrustSources(agent)
             // The onboarding workflow transitions to the main stack automatically once
             // the agent is set — no navigation needed here.
             return
@@ -129,7 +129,7 @@ export const Splash: React.FC = () => {
 
         await newAgent.initialize()
 
-        refreshTrustList(newAgent)
+        bootstrapTrustSources(newAgent)
 
         await createAnoncredsLinkSecretIfRequired(newAgent)
 

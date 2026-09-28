@@ -29,7 +29,7 @@ import { DcApiProtocolIdentifier, RequestSignerSelection } from '@/shared/lib/dc
  * service, e.g. the chosen X.509 signer is missing or expired) — a configuration problem on this side,
  * not a wallet or browser problem.
  */
-export type DcApiErrorCode = 'cancelled' | 'unsupported' | 'failed' | 'rejected';
+export type DcApiErrorCode = 'cancelled' | 'unsupported' | 'failed' | 'refused';
 
 export class DcApiError extends Error {
   public readonly code: DcApiErrorCode;
@@ -200,7 +200,7 @@ const requestOpenId4VcPresentationDcApi = async (
   } catch (error) {
     const status = (error as { response?: { status?: number } }).response?.status;
     if (status !== undefined && status >= 400 && status < 500) {
-      throw new DcApiError('rejected');
+      throw new DcApiError('refused');
     }
     throw error;
   }

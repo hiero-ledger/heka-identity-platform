@@ -5,9 +5,9 @@
  * qcStatements, AIA), independent of the shared IACA→DSC signing *structure*.
  * Four profiles ship:
  *
- *   - `MDL_PROFILE`      (mDL × US/AAMVA)  — ISO 18013-5 / AAMVA mDL profile, emitted via Credo's
+ *   - `MDL_US_PROFILE`      (mDL × US/AAMVA)  — ISO 18013-5 / AAMVA mDL profile, emitted via Credo's
  *                                            `X509Api.createCertificate`.
- *   - `EU_MDL_PROFILE`   (mDL × EU)        — ISO `mdlDS` EKU + mDL docType (ISO 18013-5 mandates both for
+ *   - `MDL_EU_PROFILE`   (mDL × EU)        — ISO `mdlDS` EKU + mDL docType (ISO 18013-5 mandates both for
  *                                            any mDL) with the EU DN, policies and AIA.
  *   - `EUDI_PID_PROFILE` (PID × EU)        — ETSI TS 119 412-6 clause 4 "PID Provider sign/seal certificate".
  *   - `EUDI_EAA_PROFILE` (EAA × EU)        — ETSI TS 119 412-6 clause 6 "EAA Provider attribute sign/seal
@@ -67,7 +67,7 @@ export const ID_ETSI_QCT_WAL_OID = '0.4.0.194126.1.2'
 
 // --- Profile shape ----------------------------------------------------------------------------------
 
-export interface ExtendedKeyUsageProfile {
+export interface ExtendedKeyUsageSpec {
   readonly oids: readonly string[]
   /** ISO 18013-5 marks `mdlDS` critical; ETSI profiles keep every non-mandated extension non-critical. */
   readonly critical: boolean
@@ -83,7 +83,7 @@ export interface CertificateProfile {
   readonly iacaValidityDays: number
   readonly dscValidityDays: number
   /** DSC `extendedKeyUsage`. mDL → `mdlDS` (critical); EU PID / EAA → none. `undefined` omits the extension. */
-  readonly dscExtendedKeyUsage?: ExtendedKeyUsageProfile
+  readonly dscExtendedKeyUsage?: ExtendedKeyUsageSpec
   /**
    * EN 319 412-2 §4.3.3 / EN 319 412-3 §4.3.2: `certificatePolicies` shall be present on EU end-entity
    * certificates with a TSP-defined policy OID — supplied per deployment (`MDOC_ISSUER_CERTIFICATE_POLICY_OID`
@@ -103,19 +103,19 @@ export interface CertificateProfile {
 
 // --- Shipped profiles -------------------------------------------------------------------------------
 
-const IACA_VALIDITY_DAYS = 365 * 5 // conservative default; the ISO 18013-5 / AAMVA cap is below
+export const DEFAULT_IACA_VALIDITY_DAYS = 365 * 5 // conservative default; the ISO 18013-5 / AAMVA cap is below
 const DSC_VALIDITY_DAYS = 457 // ISO 18013-5 maximum DSC lifetime; no ETSI cap (see header)
 
 /** ISO 18013-5 Annex B / AAMVA: an IACA certificate is valid for at most 9 years (no ETSI cap, see header). */
 export const IACA_MAX_VALIDITY_DAYS = 365 * 9
 
 /** mDL × US/AAMVA — the default profile (ISO 18013-5 Annex B). */
-export const MDL_PROFILE: CertificateProfile = {
+export const MDL_US_PROFILE: CertificateProfile = {
   name: 'mdl-us',
   credentialType: 'mdl',
   ecosystem: 'us',
   credentialLabel: 'mDL',
-  iacaValidityDays: IACA_VALIDITY_DAYS,
+  iacaValidityDays: DEFAULT_IACA_VALIDITY_DAYS,
   dscValidityDays: DSC_VALIDITY_DAYS,
   dscExtendedKeyUsage: { oids: [MDL_DOCUMENT_SIGNER_EKU_OID], critical: true },
   requiresCertificatePolicies: false,
@@ -128,12 +128,12 @@ export const MDL_PROFILE: CertificateProfile = {
  * ecosystem properties (EN 319 412-3 legal-person DN, certificatePolicies, AIA). No QcType: an mDL is
  * not a PID; qualified (QEAA / PuB-EAA) mDL seals come from a QTSP, not from this CA.
  */
-export const EU_MDL_PROFILE: CertificateProfile = {
+export const MDL_EU_PROFILE: CertificateProfile = {
   name: 'mdl-eu',
   credentialType: 'mdl',
   ecosystem: 'eu',
   credentialLabel: 'mDL',
-  iacaValidityDays: IACA_VALIDITY_DAYS,
+  iacaValidityDays: DEFAULT_IACA_VALIDITY_DAYS,
   dscValidityDays: DSC_VALIDITY_DAYS,
   dscExtendedKeyUsage: { oids: [MDL_DOCUMENT_SIGNER_EKU_OID], critical: true },
   requiresCertificatePolicies: true,
@@ -147,7 +147,7 @@ export const EUDI_PID_PROFILE: CertificateProfile = {
   credentialType: 'pid',
   ecosystem: 'eu',
   credentialLabel: 'PID',
-  iacaValidityDays: IACA_VALIDITY_DAYS,
+  iacaValidityDays: DEFAULT_IACA_VALIDITY_DAYS,
   dscValidityDays: DSC_VALIDITY_DAYS,
   dscExtendedKeyUsage: undefined, // TS 119 412-6 defines none for PID certificates
   requiresCertificatePolicies: true,
@@ -162,7 +162,7 @@ export const EUDI_EAA_PROFILE: CertificateProfile = {
   credentialType: 'eaa',
   ecosystem: 'eu',
   credentialLabel: 'EAA',
-  iacaValidityDays: IACA_VALIDITY_DAYS,
+  iacaValidityDays: DEFAULT_IACA_VALIDITY_DAYS,
   dscValidityDays: DSC_VALIDITY_DAYS,
   dscExtendedKeyUsage: undefined,
   requiresCertificatePolicies: true,
@@ -171,25 +171,24 @@ export const EUDI_EAA_PROFILE: CertificateProfile = {
 }
 
 /** Named presets accepted by provisioning / `MDOC_ISSUER_PROFILE`. */
-export type ProfileName = 'mdl' | 'mdl-us' | 'mdl-eu' | 'eudi' | 'eudi-pid' | 'eudi-eaa'
+export type ProfileName = 'mdl' | 'mdl-us' | 'mdl-eu' | 'eudi-pid' | 'eudi-eaa'
 
 /** Selector accepted by provisioning: a named preset or the explicit two-axis pair. */
 export type ProfileSelector =
   | { readonly profile: ProfileName }
-  | { readonly credentialType: CredentialType | 'pid-eaa'; readonly ecosystem: Ecosystem }
+  | { readonly credentialType: CredentialType; readonly ecosystem: Ecosystem }
 
 const NAMED_PROFILES: Record<ProfileName, CertificateProfile> = {
-  mdl: MDL_PROFILE,
-  'mdl-us': MDL_PROFILE,
-  'mdl-eu': EU_MDL_PROFILE,
+  mdl: MDL_US_PROFILE,
+  'mdl-us': MDL_US_PROFILE,
+  'mdl-eu': MDL_EU_PROFILE,
   'eudi-pid': EUDI_PID_PROFILE,
-  eudi: EUDI_PID_PROFILE,
   'eudi-eaa': EUDI_EAA_PROFILE,
 }
 
 export const PROFILE_NAMES: readonly ProfileName[] = Object.keys(NAMED_PROFILES) as ProfileName[]
 
-const CREDENTIAL_TYPES: readonly string[] = ['mdl', 'pid', 'eaa', 'pid-eaa']
+const CREDENTIAL_TYPES: readonly string[] = ['mdl', 'pid', 'eaa']
 const ECOSYSTEMS: readonly string[] = ['us', 'eu']
 
 /** Whether `name` is one of the named presets (`MDOC_ISSUER_PROFILE` / provisioning `profile`). */
@@ -199,12 +198,12 @@ export function isProfileName(name: string): name is ProfileName {
 
 /**
  * Resolve a {@link CertificateProfile} from a selector (named preset or credential-type × ecosystem pair).
- * Defaults to {@link MDL_PROFILE} when nothing is specified. An unknown
+ * Defaults to {@link MDL_US_PROFILE} when nothing is specified. An unknown
  * preset name or axis value **throws**: silently minting an mDL IACA for a misspelt EU profile would
  * produce a certificate without any of the EU bits.
  */
 export function resolveProfile(selector?: ProfileSelector | string): CertificateProfile {
-  if (!selector) return MDL_PROFILE
+  if (!selector) return MDL_US_PROFILE
   if (typeof selector === 'string') return namedProfile(selector)
   if ('profile' in selector) return namedProfile(selector.profile)
 
@@ -216,12 +215,12 @@ export function resolveProfile(selector?: ProfileSelector | string): Certificate
     )
   }
   if (ecosystem === 'eu') {
-    if (credentialType === 'mdl') return EU_MDL_PROFILE
+    if (credentialType === 'mdl') return MDL_EU_PROFILE
     if (credentialType === 'eaa') return EUDI_EAA_PROFILE
-    return EUDI_PID_PROFILE // 'pid' and the legacy 'pid-eaa' alias
+    return EUDI_PID_PROFILE
   }
   // No US PID / EAA ecosystem profile exists — the mDL profile is the closest.
-  return MDL_PROFILE
+  return MDL_US_PROFILE
 }
 
 function namedProfile(name: string): CertificateProfile {

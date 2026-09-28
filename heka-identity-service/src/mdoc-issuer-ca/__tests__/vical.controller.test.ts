@@ -3,27 +3,27 @@ import { NotFoundException, StreamableFile } from '@nestjs/common'
 
 import { Logger } from 'common/logger'
 
-import { TrustListService } from '../trust-list.service'
 import { VicalController } from '../vical.controller'
+import { VicalService } from '../vical.service'
 
 describe('VicalController', () => {
   const build = (enabled: boolean) => {
-    const trustListService = createMock<TrustListService>({
+    const vicalService = createMock<VicalService>({
       enabled,
       getVical: vi.fn().mockResolvedValue(new Uint8Array([0xd2, 0x84])),
     })
-    return { trustListService, controller: new VicalController(trustListService, createMock<Logger>()) }
+    return { vicalService, controller: new VicalController(vicalService, createMock<Logger>()) }
   }
 
   test('answers 404 while VICAL publication is disabled and never builds the list', async () => {
-    const { controller, trustListService } = build(false)
+    const { controller, vicalService } = build(false)
 
     await expect(controller.getVical()).rejects.toBeInstanceOf(NotFoundException)
-    expect(trustListService.getVical).not.toHaveBeenCalled()
+    expect(vicalService.getVical).not.toHaveBeenCalled()
   })
 
   test('serves the signed VICAL bytes when enabled', async () => {
-    const { controller, trustListService } = build(true)
+    const { controller, vicalService } = build(true)
 
     const body = await controller.getVical()
 
@@ -32,6 +32,6 @@ describe('VicalController', () => {
     const chunks: Buffer[] = []
     for await (const chunk of body.getStream()) chunks.push(Buffer.from(chunk as Uint8Array))
     expect([...Buffer.concat(chunks)]).toEqual([0xd2, 0x84])
-    expect(trustListService.getVical).toHaveBeenCalledTimes(1)
+    expect(vicalService.getVical).toHaveBeenCalledTimes(1)
   })
 })

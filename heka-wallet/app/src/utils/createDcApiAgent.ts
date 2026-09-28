@@ -16,7 +16,7 @@ import { NativeAskar } from '@openwallet-foundation/askar-react-native'
 import { CredoLogger } from '../logger'
 
 import {
-  ensureTrustAnchors,
+  bootstrapWalletTrust,
   HekaWalletAgent,
   TRUST_CONFIGURATION_ERRORS,
   TRUSTED_MDOC_ISSUER_CERTIFICATES,
@@ -70,11 +70,11 @@ export async function createDcApiAgent(walletSecret: WalletSecret): Promise<Heka
     throw error
   }
 
-  // This React root has its own, empty anchor store: bootstrap it cache-first (see `ensureTrustAnchors`).
+  // This React root has its own, empty anchor store: bootstrap it cache-first (see `bootstrapWalletTrust`).
   // Best-effort — the overlay still opens without anchors.
   for (const error of TRUST_CONFIGURATION_ERRORS) agent.config.logger.warn(`Trust configuration error — ${error}`)
   try {
-    const trust = await ensureTrustAnchors(agent as unknown as HekaWalletAgent)
+    const trust = await bootstrapWalletTrust(agent as unknown as HekaWalletAgent)
     agent.config.logger.info(`Trust anchors — ${summarizeTrustBootstrap(trust)}`)
   } catch (error) {
     agent.config.logger.warn(`Trust anchor bootstrap failed: ${error instanceof Error ? error.message : String(error)}`)

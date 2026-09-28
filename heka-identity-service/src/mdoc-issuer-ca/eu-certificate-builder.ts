@@ -59,7 +59,7 @@ export class QcTypeIdentifiers extends AsnArray<string> {
 }
 
 /** DER of a `qcStatements` value carrying one `QcType` statement with the given type identifiers. */
-export function encodeQcStatements(qcTypes: readonly string[]): ArrayBuffer {
+export function encodeQcTypeStatement(qcTypes: readonly string[]): ArrayBuffer {
   const qcType = new QcStatement({
     statementId: ID_ETSI_QCS_QC_TYPE_OID,
     statementInfo: AsnConvert.serialize(new QcTypeIdentifiers([...qcTypes])),
@@ -68,7 +68,7 @@ export function encodeQcStatements(qcTypes: readonly string[]): ArrayBuffer {
 }
 
 /** The `QcType` identifiers of a DER `qcStatements` value (empty when the statement is absent). */
-export function decodeQcTypes(qcStatementsDer: BufferSource): string[] {
+export function decodeQcTypeStatement(qcStatementsDer: BufferSource): string[] {
   const statements = AsnConvert.parse(qcStatementsDer, QcStatements)
   const qcType = statements.find((statement) => statement.statementId === ID_ETSI_QCS_QC_TYPE_OID)
   if (!qcType?.statementInfo) return []
@@ -174,7 +174,7 @@ export function buildDscExtensions(params: DscExtensionParams): x509.Extension[]
     extensions.push(new x509.CertificatePolicyExtension([...params.certificatePolicyOids], false))
   }
   if (params.qcTypes && params.qcTypes.length > 0) {
-    extensions.push(new x509.Extension(ID_PE_QC_STATEMENTS_OID, false, encodeQcStatements(params.qcTypes)))
+    extensions.push(new x509.Extension(ID_PE_QC_STATEMENTS_OID, false, encodeQcTypeStatement(params.qcTypes)))
   }
   if (params.authorityInfoAccessCaIssuers) {
     extensions.push(new x509.AuthorityInfoAccessExtension({ caIssuers: params.authorityInfoAccessCaIssuers }, false))

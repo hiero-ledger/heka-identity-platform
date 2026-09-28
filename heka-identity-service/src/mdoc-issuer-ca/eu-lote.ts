@@ -1,6 +1,7 @@
 import type { LoTEDocument } from '@owf/eudi-lote'
 
 import { EU_LOTE_ISSUER_SERVICE_TYPES } from './eu-service-types'
+import { ListIssueInfo } from './eu-trusted-list-parser'
 
 /**
  * Helpers for **ETSI TS 119 602 Lists of Trusted Entities (LoTE)** — the EUDI-era trust lists (PID
@@ -43,16 +44,8 @@ export function decodeLoteJws(jws: string): DecodedLoteJws {
   }
 }
 
-/** The `ListAndSchemeInformation` fields a consumer judges freshness and replay by. */
-export interface LoteListInfo {
-  /** `LoTESequenceNumber` — increases with every new issue of the list. */
-  sequenceNumber?: number
-  issuedAt?: Date
-  nextUpdate?: Date
-}
-
 /** Read the sequence number, issue time and `NextUpdate` of a schema-validated LoTE document. */
-export function loteListInfo(document: LoTEDocument): LoteListInfo {
+export function readLoteListInfo(document: LoTEDocument): ListIssueInfo {
   const info = document.LoTE.ListAndSchemeInformation
   const parse = (value: unknown): Date | undefined => {
     if (typeof value !== 'string') return undefined
@@ -80,7 +73,7 @@ export interface ExtractLoteAnchorOptions {
  * ("listed is granted", `StatusDeterminationApproach` …/StatusDetn/EU) — or when its status URI ends in
  * `granted` (the TS 119 612 §5.5.4 vocabulary used by generic-profile lists such as Heka's).
  */
-function isActive(status: string | undefined): boolean {
+function isGrantedOrUnstated(status: string | undefined): boolean {
   if (status === undefined || status.trim() === '') return true
   return status.trim().toLowerCase().endsWith('granted')
 }
@@ -100,7 +93,7 @@ export function extractLoteAnchors(document: LoTEDocument, options: ExtractLoteA
     for (const entityService of entity.TrustedEntityServices ?? []) {
       const info = entityService.ServiceInformation
       if (!info) continue
-      if (!isActive(info.ServiceStatus)) continue
+      if (!isGrantedOrUnstated(info.ServiceStatus)) continue
       if (!info.ServiceTypeIdentifier || !allowedTypes.includes(info.ServiceTypeIdentifier.trim())) continue
       for (const certificate of info.ServiceDigitalIdentity?.X509Certificates ?? []) {
         if (typeof certificate.val === 'string' && certificate.val.trim()) {

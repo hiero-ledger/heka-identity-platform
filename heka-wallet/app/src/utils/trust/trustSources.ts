@@ -6,17 +6,17 @@
  * privileged by code.
  */
 
-import { parseCertificate } from './staticAnchors'
+import { validateCertificate } from './certificateConfig'
 
 /**
  * What a source's anchors are used for (see `resolveTrustAnchors`): `credential-issuer` anchors verify
- * credential signatures; `access-certificate` anchors verify relying-party access certificates (WRPAC =
+ * credential signatures; `access-certificate-authority` anchors verify relying-party access certificates (WRPAC =
  * wallet-relying-party access certificate, ETSI TS 119 602 service type `WRPAC/Issuance`) — the chains
  * of signed requests and signed issuer metadata.
  */
-export type TrustRole = 'credential-issuer' | 'access-certificate'
+export type TrustRole = 'credential-issuer' | 'access-certificate-authority'
 
-export const TRUST_ROLES: readonly TrustRole[] = ['credential-issuer', 'access-certificate']
+export const TRUST_ROLES: readonly TrustRole[] = ['credential-issuer', 'access-certificate-authority']
 
 export interface TrustClassification {
   /** mdoc docTypes this source may vouch for (e.g. `eu.europa.ec.eudi.pid.1`). */
@@ -66,7 +66,7 @@ export function defaultTrustSources(
   if (!env.AGENCY_PROVIDER_URL) return []
   const base = env.AGENCY_PROVIDER_URL.replace(/\/+$/, '')
   const pinnedSigners = env.HEKA_SERVICE_ROOT_CERTIFICATE?.trim()
-    ? [parseCertificate(env.HEKA_SERVICE_ROOT_CERTIFICATE, 'HEKA_SERVICE_ROOT_CERTIFICATE')]
+    ? [validateCertificate(env.HEKA_SERVICE_ROOT_CERTIFICATE, 'HEKA_SERVICE_ROOT_CERTIFICATE')]
     : []
   return [
     {
@@ -77,7 +77,7 @@ export function defaultTrustSources(
     },
     {
       id: HEKA_WRPAC_PROVIDERS_SOURCE_ID,
-      role: 'access-certificate',
+      role: 'access-certificate-authority',
       url: `${base}/trust-list/wrpac-providers`,
       pinnedSigners,
     },
@@ -128,7 +128,7 @@ function validateTrustSource(entry: unknown, index: number): TrustSourceConfig {
     throw new Error(`${at}.pinnedSigners: must be a non-empty array of base64 DER certificates`)
   }
   const pinnedSigners = record.pinnedSigners.map((certificate, i) =>
-    parseCertificate(nonEmptyString(certificate, `${at}.pinnedSigners[${i}]`), `${at}.pinnedSigners[${i}]`)
+    validateCertificate(nonEmptyString(certificate, `${at}.pinnedSigners[${i}]`), `${at}.pinnedSigners[${i}]`)
   )
 
   const source: TrustSourceConfig = { id, role: role as TrustRole, url, pinnedSigners }
