@@ -11,6 +11,7 @@ import {
   getUserName,
 } from '@/entities/User/model/selectors/userSelector';
 import IssueIcon from '@/shared/assets/icons/dashboard-outline.svg';
+import UserIcon from '@/shared/assets/icons/user.svg';
 import VerifyIcon from '@/shared/assets/icons/verified-outline-rounded.svg';
 import WalletIcon from '@/shared/assets/icons/wallet-outline.svg';
 import { classNames } from '@/shared/lib/classNames';
@@ -66,7 +67,18 @@ const desktopMenuItems: Array<DesktopMenuItem> = [
       ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
     ],
   },
+  {
+    icon: <UserIcon {...desktopIconProps} />,
+    title: 'Contributor Hub',
+    route: ROUTES.CONTRIBUTOR,
+    active: [
+      ROUTES.CONTRIBUTOR,
+      ROUTES.CONTRIBUTOR_ONBOARDING,
+      ROUTES.CONTRIBUTOR_GITHUB_CALLBACK,
+    ],
+  },
 ];
+
 export const DesktopNavigationMenu = () => {
   const { t } = useTranslation();
 
@@ -83,7 +95,8 @@ export const DesktopNavigationMenu = () => {
 
   const onNavigate = useCallback(
     (route: string) => {
-      if (!isSignedIn && route !== ROUTES.MAIN) {
+      // Contributor Hub is public — no sign-in required
+      if (!isSignedIn && route !== ROUTES.MAIN && route !== ROUTES.CONTRIBUTOR) {
         navigate(ROUTES.SIGN_IN);
         return;
       }
@@ -178,6 +191,16 @@ const mobileMenuItems: Array<DesktopMenuItem> = [
       ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
     ],
   },
+  {
+    icon: <UserIcon {...mobileIconProps} />,
+    title: 'Contributor Hub',
+    route: ROUTES.CONTRIBUTOR,
+    active: [
+      ROUTES.CONTRIBUTOR,
+      ROUTES.CONTRIBUTOR_ONBOARDING,
+      ROUTES.CONTRIBUTOR_GITHUB_CALLBACK,
+    ],
+  },
 ];
 
 export const MobileNavigationMenu = () => {
@@ -189,7 +212,8 @@ export const MobileNavigationMenu = () => {
 
   const onNavigate = useCallback(
     (route: string) => {
-      if (!isSignedIn && route !== ROUTES.MAIN) {
+      // Contributor Hub is public — no sign-in required
+      if (!isSignedIn && route !== ROUTES.MAIN && route !== ROUTES.CONTRIBUTOR) {
         navigate(ROUTES.SIGN_IN);
         return;
       }

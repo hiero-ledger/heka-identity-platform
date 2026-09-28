@@ -275,6 +275,23 @@ API requests must carry a Bearer token signed with `JWT_SECRET`. The default val
 | `JWT_VERIFY_OPTIONS_ISSUER`   | `Heka`                  | Required value of the `iss` claim.                                                |
 | `JWT_VERIFY_OPTIONS_AUDIENCE` | `Heka Identity Service` | Required value of the `aud` claim.                                                |
 
+### Contributor GitHub OAuth
+
+Contributor onboarding uses GitHub OAuth before creating the GPG challenge. For local development, create a GitHub OAuth app and set its callback URL to `http://localhost:8000/contributor/github/callback`.
+
+| Variable                         | Default                                            | Description                                                          |
+| -------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------- |
+| `GITHUB_OAUTH_CLIENT_ID`         | _(unset)_                                          | GitHub OAuth app client ID. Required for contributor onboarding.     |
+| `GITHUB_OAUTH_CLIENT_SECRET`     | _(unset)_                                          | GitHub OAuth app client secret. Required for contributor onboarding. |
+| `GITHUB_OAUTH_REDIRECT_URI`      | _(unset)_                                          | OAuth callback URL registered with GitHub.                           |
+| `GITHUB_OAUTH_STATE_SECRET`      | `JWT_SECRET` or `test`                             | HMAC secret used to sign OAuth state values.                         |
+| `GITHUB_OAUTH_STATE_TTL_SECONDS` | `600`                                              | OAuth state lifetime in seconds.                                     |
+| `GITHUB_OAUTH_AUTHORIZE_URL`     | `https://github.com/login/oauth/authorize`         | Override only for tests or GitHub Enterprise.                        |
+| `GITHUB_OAUTH_TOKEN_URL`         | `https://github.com/login/oauth/access_token`      | Override only for tests or GitHub Enterprise.                        |
+| `GITHUB_USER_API_URL`            | `https://api.github.com/user`                      | Authenticated GitHub user endpoint.                                  |
+| `GITHUB_USERS_API_URL`           | `https://api.github.com/users`                     | Public GitHub users endpoint.                                        |
+| `GITHUB_REQUEST_TIMEOUT_MS`      | `8000`                                             | Timeout for outbound GitHub API requests.                            |
+
 #### Required JWT claims
 
 The token strategy (`src/common/auth/jwt.strategy.ts`) and validator (`src/common/auth/auth.service.ts`) expect:
