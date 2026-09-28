@@ -29,7 +29,7 @@ const sdJwt = {
   disclosureFrame: {},
 }
 
-describe('OpenId4VcIssuanceSessionsCreateOfferDto — issuer (M9)', () => {
+describe('OpenId4VcIssuanceSessionsCreateOfferDto — issuer', () => {
   test('an SD-JWT VC offered in x5c mode needs no DID issuer', async () => {
     expect(await validateOffer({ ...sdJwt, issuerMode: 'x5c' })).toHaveLength(0)
   })

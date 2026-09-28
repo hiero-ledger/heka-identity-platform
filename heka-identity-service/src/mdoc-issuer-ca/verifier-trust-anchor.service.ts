@@ -19,8 +19,8 @@ type EuSource = Extract<VerifierTrustSource, 'lotl' | 'lote'>
 /**
  * Trust anchors for the identity service **as a Relying Party** — what Credo may trust when the service
  * itself verifies a presented credential (`X509ModuleConfig.getTrustedCertificatesForVerification`).
- * This is the consumer side of the EU lists that the ARF requires of every RP (OIA_13 / OIA_15a/b) and
- * the only place the tenants' own issuer anchors reach the service's verifier.
+ * This is the consumer side of the EU lists the EUDI Architecture and Reference Framework (ARF,
+ * OIA_13 / OIA_15a/b) requires of every RP, and the only place the tenants' own issuer anchors reach the service's verifier.
  *
  * Trust set by verification context (`VERIFIER_TRUST_SOURCES` gates each part):
  *  - **mdoc** (MSO issuer chain): the tenants' IACAs from the global registry (`registry`), the curated
@@ -88,7 +88,7 @@ export class VerifierTrustAnchorService implements OnModuleInit, OnModuleDestroy
       if (sources.includes('registry')) {
         anchors.push(...(await this.registryIacaAnchors()))
       }
-      // Legacy single-anchor configuration: kept as a fallback, no longer the whole trust store.
+      // `MDL_ISSUER_CERTIFICATE`: extra mdoc anchor kept for backwards compatibility.
       const legacy = this.agent.agencyConfig.mdlIssuerCertificate
       if (legacy) anchors.push(legacy)
     } else if (sources.includes('registry')) {

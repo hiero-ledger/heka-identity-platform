@@ -3,16 +3,15 @@ import { X509Certificate } from '@credo-ts/core'
 /**
  * The wallet's **static** trust anchors — configuration-supplied certificate sets that apply next to
  * the anchors learned from the trust sources (for credential types no source classifies, see
- * `composeTrustedCertificates`). Nothing is bundled in code: a build trusts only what its
- * `react-native-config` says, and both sets are empty by default. Values are parsed once at startup and
- * every entry must be a well-formed X.509 certificate; an invalid entry throws (same policy as
- * `TRUST_SOURCES` — `loadTrustConfiguration` turns the throw into a logged startup error).
+ * `composeTrustedCertificates`). Nothing is bundled in code: both sets are empty unless configured. Every
+ * entry must be a well-formed X.509 certificate; an invalid entry throws, and `loadTrustConfiguration`
+ * turns that into a logged startup error.
  */
 export interface StaticAnchorEnv {
   /**
    * mdoc **issuer** anchors (IACA / issuer certificates, base64 DER; comma-separated, PEM accepted).
    * Only needed for an issuer that publishes no trust list — tenant issuers are learned from the Heka
-   * scheme list. Never ship the identity service's dev `MDL_ISSUER_CERTIFICATE` in a real build.
+   * scheme list.
    */
   TRUSTED_MDOC_ISSUER_CERTIFICATES?: string
   /**

@@ -126,7 +126,7 @@ export const DcApiPresentation = ({
 
     if (requestPresentation.rejected.match(result)) {
       // `meta.aborted` is set when we abort via Cancel; otherwise the payload carries the
-      // classified DcApiErrorCode ('cancelled' | 'unsupported' | 'failed') from the thunk.
+      // thunk's `DcApiErrorCode`.
       const code = result.meta.aborted ? 'cancelled' : result.payload;
       if (code === 'cancelled') {
         setError(t('PresentationOptions.errors.cancelled'));
@@ -176,8 +176,8 @@ export const DcApiPresentation = ({
             {showSignerPicker && (
               <Select
                 items={signerItems}
-                // Controlled by the parent state: the Select mounts only after the list loaded and
-                // must show the choice that will actually be sent, not a fresh default.
+                // `Select` re-syncs its value from `defaultSelectedKey` (Select.tsx), so the picker follows
+                // `signerKey` when `reconcileSignerKey` changes it.
                 defaultSelectedKey={signerKey}
                 onSelect={setSignerKey}
                 placeholder={t('PresentationOptions.signer.label')}

@@ -7,7 +7,7 @@ import { SdJwtVcIssuerService } from './sdjwt-vc-issuer.service'
 import { SDJWT_VC_ISSUER_SERVICE } from './sdjwt-vc-issuer.tokens'
 
 @Module({
-  // X509SigningModule provides X509SignerService — the SD-JWT VC issuer leaf is signed under its service root.
+  // X509SigningModule provides ManagedCertificateService (service-root-signed leaf lifecycle).
   imports: [AgentModule, X509SigningModule],
   providers: [
     SdJwtVcIssuerService,

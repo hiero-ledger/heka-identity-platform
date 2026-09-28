@@ -1,9 +1,9 @@
 import { cborDecode, cborEncode, unwrapCborTag } from './cbor'
 
 /**
- * Minimal COSE_Sign1 (RFC 9052) builder for the VICAL — Credo's internal COSE is not exported, and it
- * has no VICAL support, so this is net-new. Single-signer, ES256, with the X.509 chain carried in the
- * unprotected `x5chain` header (RFC 9360 / draft-iets-cose-x509, per ISO 18013-5 Annex C.1.7).
+ * Minimal COSE_Sign1 (RFC 9052) builder for the VICAL (Credo does not export its COSE implementation).
+ * Single-signer, ES256, with the X.509 chain carried in the
+ * unprotected `x5chain` header (RFC 9360, per ISO 18013-5 Annex C.1.7).
  */
 const COSE_SIGN1_TAG = 18
 // CBOR tag head for a tag number < 24: major type 6 (0xc0) | tag number. 0xc0 | 18 = 0xd2.
@@ -42,7 +42,7 @@ export async function buildCoseSign1Es256({
   const x5chain = certificateChain.length === 1 ? certificateChain[0] : certificateChain
   const unprotectedHeader = new Map<number, unknown>([[COSE_HEADER_X5CHAIN, x5chain]])
 
-  // Wrap the 4-element COSE_Sign1 array in the tag-18 head byte manually (no cbor-x Tag class).
+  // Wrap the 4-element COSE_Sign1 array in the tag-18 head byte manually (no cbor-x `Tag` — see cbor.ts).
   const body = cborEncode([protectedHeader, unprotectedHeader, payload, signature])
   const tagged = new Uint8Array(body.length + 1)
   tagged[0] = COSE_SIGN1_TAG_HEAD
@@ -50,17 +50,15 @@ export async function buildCoseSign1Es256({
   return tagged
 }
 
-/** Decode a COSE_Sign1 into its four elements (for tests / verification). Unwraps the tag 18 wrapper
- * structurally rather than via `instanceof Tag` (the cbor-x Tag class identity is unreliable across
- * module/test boundaries). */
+/** Decode a COSE_Sign1 into its four elements (for tests / verification); the tag-18 wrapper is unwrapped
+ * structurally (no cbor-x `Tag` — see cbor.ts). */
 export function decodeCoseSign1(bytes: Uint8Array): {
   protectedHeader: Uint8Array
   unprotectedHeader: Map<number, unknown> | Record<string, unknown>
   payload: Uint8Array
   signature: Uint8Array
 } {
-  // Strip the manually-prefixed tag-18 head byte (if present) and decode the plain 4-element array,
-  // so we never depend on cbor-x's tag *decode* behavior.
+  // Strip the tag-18 head byte (if present) and decode the plain 4-element array.
   const body = bytes[0] === COSE_SIGN1_TAG_HEAD ? bytes.subarray(1) : bytes
   const arr = unwrapCborTag(cborDecode(body)) as [
     Uint8Array,

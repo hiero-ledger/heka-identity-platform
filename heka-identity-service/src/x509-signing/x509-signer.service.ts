@@ -29,7 +29,7 @@ type StoredSigner = Omit<X509Signer, 'id'>
 type StoredRootCa = { keyId: string; certificateBase64: string; createdAt: string }
 
 /**
- * Provisions and loads per-tenant X.509 signers (the "key ↔ cert" capability).
+ * Provisions and loads per-tenant X.509 signers.
  *
  * A fresh P-256 key is projected into both a signing certificate and a did:jwk that
  * share one KMS keyId. Identities are persisted in the tenant agent's `genericRecords` (Askar,
@@ -146,7 +146,7 @@ export class X509SignerService {
     const leaf = X509Certificate.fromEncodedCertificate(certificate)
     // The certificate must certify the tenant key it is being bound to: an unrelated leaf (someone
     // else's certificate, or one issued for a different CSR) would otherwise be presented as this
-    // tenant's signer while every request is signed with `keyId` (M2).
+    // tenant's signer while every request is signed with `keyId`.
     const boundKey = await tenantAgent.kms.getPublicKey({ keyId })
     if (!boundKey || boundKey.kty === 'oct') {
       throw new BadRequestException(`No asymmetric key '${keyId}' exists in the tenant key store`)
@@ -172,7 +172,7 @@ export class X509SignerService {
    * parsed and its KMS keyId re-attached (`fromEncodedCertificate` does not restore it). Throws when
    * no matching identity has been provisioned — there is no silent provisioning. An explicit
    * `certificateId` must name one of the tenant's request-signing records: any other generic record
-   * (an IACA, a DSC, an SD-JWT issuer certificate) is "not found", never signed with (M2).
+   * (an IACA, a DSC, an SD-JWT issuer certificate) is "not found", never signed with.
    */
   public async loadSigningCertificate(
     tenantAgent: TenantAgent,
@@ -207,7 +207,7 @@ export class X509SignerService {
 
   /**
    * Make this identity the default for its clientIdPrefix (clearing the previous default). The
-   * per-(method, prefix) default is what `loadSigningCertificate` falls back to when a request omits
+   * per-clientIdPrefix default is what `loadSigningCertificate` falls back to when a request omits
    * a certificateId.
    */
   public async setDefault(tenantAgent: TenantAgent, id: string): Promise<X509Signer> {
@@ -277,8 +277,9 @@ export class X509SignerService {
 
   /**
    * Issue a certificate for `subjectPublicKey` signed by the service-wide root CA (global store) — a
-   * generic service leaf distinct from the request-signing x509_san_dns leaves. Used by the mdoc
-   * `TrustListService` to mint the VICAL signer under the shared root, so a wallet that trusts the one
+   * generic service leaf distinct from the request-signing x509_san_dns leaves. Used by
+   * `ManagedCertificateService` for every service-root-signed identity (VICAL and scheme-trust-list signers,
+   * SD-JWT VC issuer, OID4VCI access certificate), so a wallet that trusts the one
    * long-lived service root can verify the VICAL.
    * Returns the leaf (keyId NOT attached — the caller owns the subject key) and the root cert
    * (base64 DER) for assembling an x5chain.
@@ -522,7 +523,7 @@ export class X509SignerService {
    * Delete a signer record and best-effort delete its KMS key. The record (the trust/listing
    * surface) is authoritative; a key-deletion failure must not block removal, so it is swallowed — the
    * orphaned key signs nothing once its certificate record is gone. The did:jwk record is left behind
-   * intentionally (it becomes verify-only without the key; see the rotation runbook).
+   * intentionally (it becomes verify-only without the key).
    */
   private async deleteRecordAndKey(tenantAgent: TenantAgent, record: GenericRecord, keyId: string): Promise<void> {
     await tenantAgent.genericRecords.deleteById(record.id)

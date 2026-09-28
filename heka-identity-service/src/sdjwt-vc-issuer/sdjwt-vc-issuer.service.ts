@@ -20,8 +20,7 @@ const NOT_CONFIGURED_MESSAGE =
  * as a dNSName SAN; the credential `iss` is `https://<domain>`, whose host must match that SAN.
  *
  * This is a **distinct trust domain** from the mdoc IACA/DSC chain and from the verifier request-signing
- * leaves: a plain DigitalSignature leaf, **no** MdlDs EKU. Keyed on `AgentContext` like the mdoc service
- * (the credential mapper reaches it per request with only an `AgentContext`).
+ * leaves: a plain DigitalSignature leaf, **no** MdlDs EKU.
  *
  * Key/cert lifecycle (provision, 30-day renewal, locking) is delegated to {@link ManagedCertificateService};
  * the record is keyed by the configured domain, so a domain change mints a fresh issuer identity.

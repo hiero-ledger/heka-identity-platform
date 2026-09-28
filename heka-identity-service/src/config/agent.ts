@@ -132,12 +132,9 @@ export default registerAs('agent', () => {
   const mdocIssuerAuthority = process.env.MDOC_ISSUER_AUTHORITY ?? 'Heka'
   const mdocDefaultDocType = process.env.MDOC_DEFAULT_DOCTYPE ?? 'org.iso.18013.5.1.mDL'
 
-  // mdoc issuer certificate profile (credential-type × ecosystem). 'mdl' = shipped ISO 18013-5 / AAMVA
-  // path (Credo X509Api); 'mdl-eu' / 'eudi-pid' / 'eudi-eaa' = EU/EUDI profiles (ETSI TS 119 412-6 V1.1.1,
-  // CIR 2026/1731) emitted via the @peculiar/x509 escape hatch: EN 319 412-3 legal-person DN
-  // (organizationIdentifier), certificatePolicies, AIA caIssuers → the public IACA download, and the
-  // `id-etsi-qct-pid` QcType on PID certificates. EU profiles require both values below. Unknown names
-  // fail fast: a misspelt EU profile must not silently mint a US mDL IACA without the EU bits (H5).
+  // mdoc issuer certificate profile: 'mdl' (ISO 18013-5 / AAMVA) or an EU profile ('mdl-eu' / 'eudi-pid' /
+  // 'eudi-eaa', see mdoc-issuer-ca/certificate-profiles.ts). EU profiles require the two values below;
+  // unknown names fail fast.
   const mdocIssuerProfile = process.env.MDOC_ISSUER_PROFILE ?? 'mdl'
   if (!isProfileName(mdocIssuerProfile)) {
     throw new Error(
@@ -153,7 +150,7 @@ export default registerAs('agent', () => {
   // The Heka **scheme trust lists** (GET /trust-list/*): TS 119 602 LoTEs of the anchors Heka is scheme
   // operator for — the tenants' issuer certificates (IACA + SD-JWT issuer registries) plus the
   // operator-curated partner anchors below (PEM blocks or comma/whitespace-separated base64 DER; empty by
-  // default). Nothing derived from an upstream list is republished; wallets consume those directly.
+  // default).
   const trustListSchemeOperator = process.env.TRUST_LIST_SCHEME_OPERATOR ?? mdocIssuerAuthority
   const trustListPartnerCertificates = process.env.TRUST_LIST_PARTNER_CERTIFICATES ?? ''
   // Optional discovery pointers served in the /trust-list index — a JSON array of
@@ -161,15 +158,10 @@ export default registerAs('agent', () => {
   // with their OJEU-published signer certificates). Invalid JSON / shape fails fast at startup.
   const trustListPointers = parseTrustListPointers(process.env.TRUST_LIST_POINTERS ?? '')
 
-  // Publish the ISO 18013-5 VICAL (`GET /vical`) for readers that import VICALs (Multipaz-style /
-  // ISO 18013-5 verifiers). Off by default: EUDI-shaped consumers learn the same tenant IACAs from the
-  // scheme trust list (`GET /trust-list/eaa-providers`), and the VICAL signer is only provisioned when
-  // this is on. Both exports read the same IACA registry, so they can never disagree.
+  // Publish the ISO 18013-5 VICAL at GET /vical (off by default; see TrustListService).
   const vicalEnabled = (process.env.VICAL_ENABLED ?? 'false') === 'true'
-  // Optional comma-separated narrowing of the credential-issuer service types whose anchors are taken
-  // from a traversed Trusted List. Default = the hard-coded issuer set (qualified CAs, QEAA and PuB-EAA
-  // issuance — EU_TL_ISSUER_SERVICE_TYPES); only members of that set may be listed, so time-stamping,
-  // QWAC/QSeal or validation services can never be widened in (H4). Validated at startup.
+  // Optional comma-separated narrowing of EU_TL_ISSUER_SERVICE_TYPES (validated at startup, see
+  // mdoc-issuer-ca/eu-service-types.ts).
   const euTrustedListServiceTypes = process.env.EU_TRUSTED_LIST_SERVICE_TYPES ?? ''
   narrowIssuerServiceTypes(
     splitServiceTypeList(euTrustedListServiceTypes),
@@ -177,20 +169,17 @@ export default registerAs('agent', () => {
     'EU_TRUSTED_LIST_SERVICE_TYPES',
   )
 
-  // Source 'lotl': the EU List of Trusted Lists. EU_LOTL_SIGNER_CERTIFICATES pins the
-  // European Commission's LoTL signer — the single trust anchor of the whole traversal; the verified LoTL
-  // then declares each national TL's expected signer, so per-MS signer trust is derived from the LoTL
-  // rather than statically configured. Optional EU_LOTL_SCHEME_TERRITORIES limits the MS set (empty = all).
+  // Source 'lotl': the EU List of Trusted Lists. EU_LOTL_SIGNER_CERTIFICATES pins the Commission's LoTL
+  // signer; national TL signers are taken from the verified LoTL. EU_LOTL_SCHEME_TERRITORIES (optional)
+  // limits the Member States (empty = all).
   const euLotlUrl = process.env.EU_LOTL_URL ?? ''
   const euLotlSignerCertificates = process.env.EU_LOTL_SIGNER_CERTIFICATES ?? ''
   const euLotlSchemeTerritories = process.env.EU_LOTL_SCHEME_TERRITORIES ?? ''
 
-  // Source 'lote': ETSI TS 119 602 Lists of Trusted Entities (the EUDI-era lists: PID providers,
-  // wallet providers, registrars, pub-EAA providers). Comma-separated list URLs; each list's JWS signer
-  // (x5c leaf) must byte-match one of the pinned EU_LOTE_SIGNER_CERTIFICATES (fail-closed per list;
-  // best-effort union across lists). Optional EU_LOTE_SERVICE_TYPES narrows the credential-issuer
-  // service types (default: EAA / PID / PuB-EAA issuance — EU_LOTE_ISSUER_SERVICE_TYPES); wallet-provider,
-  // registrar and WRPAC access-certificate services can never be widened in (H4). Validated at startup.
+  // Source 'lote': ETSI TS 119 602 Lists of Trusted Entities (PID providers, wallet providers, registrars,
+  // pub-EAA providers). Comma-separated list URLs; each list's JWS signer (x5c leaf) must byte-match one of
+  // the pinned EU_LOTE_SIGNER_CERTIFICATES. Optional EU_LOTE_SERVICE_TYPES narrows EU_LOTE_ISSUER_SERVICE_TYPES
+  // (validated at startup, see mdoc-issuer-ca/eu-service-types.ts).
   const euLoteUrls = process.env.EU_LOTE_URLS ?? ''
   const euLoteSignerCertificates = process.env.EU_LOTE_SIGNER_CERTIFICATES ?? ''
   const euLoteServiceTypes = process.env.EU_LOTE_SERVICE_TYPES ?? ''

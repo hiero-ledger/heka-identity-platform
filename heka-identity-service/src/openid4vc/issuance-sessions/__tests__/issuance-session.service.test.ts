@@ -348,7 +348,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(statusListService.location).not.toHaveBeenCalled()
     })
 
-    describe('H6: DID records without a keys mapping (created before the Credo 0.6 key-id migration)', () => {
+    describe('DID records without a keys mapping (created before the Credo 0.6 key-id migration)', () => {
       const did = 'did:key:z6MkLegacy'
       const didUrl = `${did}#key-1`
       const publicKeyJwk = generateKeyPairSync('ec', { namedCurve: 'P-256' }).publicKey.export({ format: 'jwk' })
@@ -474,7 +474,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
         1,
       )
-      // M3: the identity the entry was allocated under is pinned to the session for the credential request
+      // the identity the entry was allocated under is pinned to the session for the credential request
       expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
         expect.objectContaining({
           issuanceMetadata: {
@@ -489,7 +489,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       )
     })
 
-    test('M4: reserves one status-list entry per credential of the issuer batch size (DID mode pins nothing)', async () => {
+    test('reserves one status-list entry per credential of the issuer batch size (DID mode pins nothing)', async () => {
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
         issuerRecordStub({
           issuerId: 'issuer-1',
@@ -938,7 +938,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(statusListService.updateItems).not.toHaveBeenCalled()
     })
 
-    test('M4: revoking a batch issuance invalidates every reserved entry in one re-signing', async () => {
+    test('revoking a batch issuance invalidates every reserved entry in one re-signing', async () => {
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(
         issuanceSessionRecordStub({
           id: 'session-batch',

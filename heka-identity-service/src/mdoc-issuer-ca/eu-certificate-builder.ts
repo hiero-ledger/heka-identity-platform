@@ -6,13 +6,12 @@
  * EU profile bypasses it and drives `@peculiar/x509`'s `X509CertificateGenerator` directly — the same
  * library Credo's `X509Service` is built on. Signing still goes through the tenant KMS via
  * `CredoWebCrypto` (the private key never leaves the store); only the *public* key material + extensions
- * are handled here. This mirrors Credo's own `X509Certificate.create` path exactly, adding the extra
- * extensions/DN attributes Credo's typed options can't express.
+ * are handled here.
  *
  * Key-identifier note: SKI/AKI are computed **synchronously from the JWK** (SHA-1 over the EC public
  * point) — the way Credo does it internally — because `CredoWebCrypto` cannot export a KMS-backed key.
  * That also keeps the extension + DN construction **pure** (given JWKs), so it is unit-testable without a
- * KMS (see the peculiar-native test).
+ * KMS (see `__tests__/eu-certificate-builder.test.ts`, which signs with native WebCrypto keys).
  */
 import type { AgentContext, Kms } from '@credo-ts/core'
 
@@ -78,8 +77,9 @@ export function decodeQcTypes(qcStatementsDer: BufferSource): string[] {
 
 /**
  * RFC 5280 §4.1.2.2: serial numbers are positive integers, unique per CA. 20 random bytes with the top
- * bit cleared (and a non-zero leading octet, so the DER INTEGER is minimal) — the reference-wallet
- * profile check (`positiveSerialNumber`) rejects anything else.
+ * bit cleared (and a non-zero leading octet, so the DER INTEGER is minimal) — the EU reference wallet's
+ * `eudi-lib-kmp-etsi-1196x2` profile check (`positiveSerialNumber`, mirrored in
+ * `eu-certificate-profile-assessment.ts`) rejects anything else.
  */
 export function randomPositiveSerialNumberHex(): string {
   const serial = randomBytes(20)

@@ -14,7 +14,7 @@ const validateProvision = async (body: Record<string, unknown>) => {
 }
 
 describe('ProvisionIacaDto', () => {
-  test('H3: keeps the EU provisioning fields through whitelist validation', async () => {
+  test('keeps the EU provisioning fields through whitelist validation', async () => {
     const { instance, errors } = await validateProvision({
       profile: 'eudi-pid',
       organizationIdentifier: 'VATDE-0123456789',
@@ -53,7 +53,7 @@ describe('ProvisionIacaDto', () => {
     },
   )
 
-  test.each([0, -1, 1.5, 365 * 9 + 1])('M7: rejects validityDays %p', async (validityDays) => {
+  test.each([0, -1, 1.5, 365 * 9 + 1])('rejects validityDays %p', async (validityDays) => {
     const { errors } = await validateProvision({ validityDays })
     expect(errors.map((error) => error.property)).toEqual(['validityDays'])
   })
@@ -96,7 +96,7 @@ describe('MdocIacaDto', () => {
     expect('keyId' in dto).toBe(false)
   })
 
-  test('reports legacy records (no stored profile) as the shipped mDL profile', () => {
+  test('reports legacy records (no stored profile) as the mDL profile', () => {
     const legacy: MdocIaca = {
       ...iaca,
       profile: undefined,

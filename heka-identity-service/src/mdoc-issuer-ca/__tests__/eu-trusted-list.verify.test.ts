@@ -92,7 +92,7 @@ describe('verifyTrustedListSignature', () => {
     )
   })
 
-  test('H1: rejects an attacker-signed TL whose KeyInfo also carries the pinned certificate', async () => {
+  test('rejects an attacker-signed TL whose KeyInfo also carries the pinned certificate', async () => {
     // The signature verifies against the attacker key advertised in KeyInfo (which is what an unbound
     // Verify() would use); the pinned certificate merely sits next to it. Must not pass.
     const attacker = await makeSigner()
@@ -102,7 +102,7 @@ describe('verifyTrustedListSignature', () => {
     )
   })
 
-  test('H1: rejects an attacker-signed TL advertising its KeyValue plus the pinned certificate', async () => {
+  test('rejects an attacker-signed TL advertising its KeyValue plus the pinned certificate', async () => {
     const attacker = await makeSigner()
     const forged = await signTrustedList('INJECTED', attacker, {
       keyValue: attacker.keys.publicKey,

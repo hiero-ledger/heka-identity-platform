@@ -25,8 +25,7 @@ export function acceptsStatusListJwt(accept: string | undefined): boolean {
  * **unauthenticated** — the token is signed, carries only status bits, and is fetched by any verifier
  * (Credo, the EUDI reference wallet) that receives an SD-JWT VC pointing at it.
  *
- * JWT format only for now: the CWT variant arrives together with mdoc `status` support (Credo 0.7.0
- * cannot yet emit it in the MSO), so an explicit CWT-only `Accept` is answered with 406.
+ * JWT format only; a CWT-only `Accept` is answered with 406.
  */
 @ApiTags('Token Status List (public)')
 @Controller('token-status-lists')
@@ -42,7 +41,7 @@ export class TokenStatusListPublicController {
   @ApiOperation({ summary: 'Download a Status List Token (IETF token status list, `application/statuslist+jwt`)' })
   @ApiOkResponse({ description: 'The signed Status List Token (compact JWS, `typ: statuslist+jwt`)' })
   @ApiNotFoundResponse({ description: 'Unknown status list' })
-  @ApiNotAcceptableResponse({ description: 'Only the JWT format is available (CWT lands with mdoc status support)' })
+  @ApiNotAcceptableResponse({ description: 'Only the JWT format is available' })
   @Get(':id')
   @Header('Content-Type', STATUS_LIST_JWT_MEDIA_TYPE)
   @Header('Cache-Control', `max-age=${TOKEN_STATUS_LIST_TTL_SECONDS}`)

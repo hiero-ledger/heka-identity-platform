@@ -11,8 +11,8 @@ import { buildEuDsc, buildEuIaca } from '../eu-certificate-builder'
 import { MdocIssuerCaService } from '../mdoc-issuer-ca.service'
 import { TrustListService } from '../trust-list.service'
 
-// The EU profile routes through the @peculiar/x509 escape hatch (real peculiar + KMS). Mock it here so the
-// service test stays a pure unit test; the builder itself is covered by eu-certificate-builder.test.ts.
+// Mock the EU certificate builder (real peculiar + KMS) so this stays a pure unit test; the builder itself
+// is covered by eu-certificate-builder.test.ts.
 vi.mock('../eu-certificate-builder', () => ({
   buildEuIaca: vi.fn(),
   buildEuDsc: vi.fn(),
@@ -172,15 +172,12 @@ describe('MdocIssuerCaService', () => {
       expect(certOpts.issuer).toMatchObject({ commonName: 'Acme IACA', countryName: 'DE', organizationalUnit: 'Acme' })
     })
 
-    test.each([0, -1, 1.5, 365 * 9 + 1])(
-      'M7: rejects validityDays %p before minting anything',
-      async (validityDays) => {
-        await expect(service.provisionIaca(agentContext, { validityDays })).rejects.toThrow(BadRequestException)
-        expect(mockCreateKey).not.toHaveBeenCalled()
-      },
-    )
+    test.each([0, -1, 1.5, 365 * 9 + 1])('rejects validityDays %p before minting anything', async (validityDays) => {
+      await expect(service.provisionIaca(agentContext, { validityDays })).rejects.toThrow(BadRequestException)
+      expect(mockCreateKey).not.toHaveBeenCalled()
+    })
 
-    test('M7: accepts the ISO 18013-5 / AAMVA maximum of 9 years', async () => {
+    test('accepts the ISO 18013-5 / AAMVA maximum of 9 years', async () => {
       mockCreateCertificate.mockResolvedValue(buildCert())
       await service.provisionIaca(agentContext, { validityDays: 365 * 9 })
       const { validity } = mockCreateCertificate.mock.calls[0][0] as { validity: { notBefore: Date; notAfter: Date } }
@@ -381,7 +378,7 @@ describe('MdocIssuerCaService', () => {
       })
 
       expect(buildEuIaca).toHaveBeenCalledTimes(1)
-      expect(mockCreateCertificate).not.toHaveBeenCalled() // shipped Credo mDL path NOT used
+      expect(mockCreateCertificate).not.toHaveBeenCalled() // the Credo X509Api path is not used
       expect(vi.mocked(buildEuIaca).mock.calls[0][1].dn).toMatchObject({
         organizationIdentifier: 'VATDE-0123456789',
         commonName: 'Heka PID IACA',

@@ -47,9 +47,7 @@ export class OpenId4VcIssuanceSessionService {
 
     // TODO: It is better to we move setting credential status to `credentialRequestToCredentialMapper`
     //  to change status list when credential really requested but how??
-    // W3C VCs get their bitstring indexes in ONE locked reservation after every credential validated (H2:
-    // no read-modify-write of `lastIndex` across concurrent offers). Positions of those credentials in
-    // `mappedCredentials` are remembered here and filled in below.
+    // Positions (in mappedCredentials) of the W3C VCs; their bitstring indexes are reserved in one locked call below.
     const bitstringPositions: number[] = []
 
     // Maps credentials, adds properties, and throws errors if needed
@@ -74,7 +72,6 @@ export class OpenId4VcIssuanceSessionService {
         )
       }
 
-      // x5c-mode SD-JWT VC is signed with the tenant's X.509 issuer cert (HAIP), not a DID.
       const isX5cSdJwt =
         credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc &&
         (credential as { issuerMode?: IssuerMode }).issuerMode === 'x5c'
@@ -93,17 +90,16 @@ export class OpenId4VcIssuanceSessionService {
         }
         issuerDidUrl = didDocument.verificationMethod[0].id
       } else if (credential.format === OpenId4VciCredentialFormatProfile.MsoMdoc) {
-        // mso_mdoc is signed by the tenant's per-tenant DSC (chaining to its IACA). Fail fast (400)
-        // here if the tenant has no provisioned mdoc issuer, rather than deep in the credential mapper
-        // when the wallet later requests the credential.
+        // Fail fast (400) if the tenant has no provisioned mdoc issuer, instead of in the credential mapper
+        // when the wallet requests the credential.
         await this.mdocIssuerCaService.requireProvisioned(tenantAgent.context)
       }
 
       let credentialStatus: CredentialIssuanceMetadata['credentialStatus']
       let issuerSigner: PinnedIssuerSigner | undefined
 
-      // W3C VCs → bitstring status list; SD-JWT VC → IETF token status list (the EUDI / HAIP mechanism);
-      // mso_mdoc → none until Credo exposes the MSO `status` claim (0.8.0).
+      // W3C VCs → bitstring status list; SD-JWT VC → IETF token status list; mso_mdoc → none (Credo does not
+      // expose the MSO `status` claim).
       if (
         credential.format === OpenId4VciCredentialFormatProfile.JwtVcJson ||
         credential.format === OpenId4VciCredentialFormatProfile.JwtVcJsonLd ||
@@ -112,7 +108,7 @@ export class OpenId4VcIssuanceSessionService {
         bitstringPositions.push(mappedCredentials.length)
       } else if (credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc) {
         const signer = await this.sdJwtStatusListSigner(tenantAgent, isX5cSdJwt, issuerDid, issuerDidUrl)
-        // One status-list entry per credential the wallet may request in a batch (M4).
+        // One status-list entry per credential the wallet may request in a batch.
         const batchSize = issuer.batchCredentialIssuance?.batchSize ?? 1
         const reference = await this.tokenStatusListService.allocateMany(
           tenantAgent.context,
@@ -126,8 +122,7 @@ export class OpenId4VcIssuanceSessionService {
           index: reference.indexes[0],
           indexes: reference.indexes,
         }
-        // x5c: pin the signing identity the entries were allocated under, so a certificate renewal between
-        // offer and request cannot split the credential from its status list (M3).
+        // x5c: pin the identity the entries were allocated under (see `CredentialIssuanceMetadata.issuerSigner`).
         if (signer.signer.method === 'x5c') {
           issuerSigner = { keyId: signer.keyId, x5c: signer.signer.x5c, issuer: signer.issuer }
         }
@@ -278,9 +273,8 @@ export class OpenId4VcIssuanceSessionService {
   }
 
   /**
-   * The identity a token status list for this SD-JWT VC issuance must be signed with: the very key that
-   * signs the credentials (Credo verifies a Status List Token with the referenced credential's issuer
-   * key). x5c mode → the tenant's issuer leaf; DID mode → the DID's verification-method key.
+   * The credential-signing key of this SD-JWT VC issuance, as the status-list signer (see
+   * `TokenStatusListService`): x5c → the tenant's issuer leaf, DID → the verification-method key.
    */
   private async sdJwtStatusListSigner(
     tenantAgent: TenantAgent,
@@ -318,7 +312,7 @@ export class OpenId4VcIssuanceSessionService {
    * DID records created before the Credo 0.6 key-id migration carry no `keys` (verification method →
    * KMS key id) mapping; Credo itself then signs the credential with the verification method's *legacy*
    * key id (`DidsApi.resolveVerificationMethodFromCreatedDidRecord`). Mirror that fallback so such DIDs
-   * can receive SD-JWT VC offers too (H6) — but only when the tenant KMS actually holds that key.
+   * can receive SD-JWT VC offers too, but only when the tenant KMS actually holds that key.
    */
   private async legacyDidKeyId(
     tenantAgent: TenantAgent,

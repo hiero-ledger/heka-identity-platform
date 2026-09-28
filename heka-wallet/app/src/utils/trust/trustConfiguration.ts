@@ -14,11 +14,10 @@ export interface TrustConfiguration {
 export type TrustConfigurationEnv = StaticAnchorEnv & TrustSourceEnv
 
 /**
- * Load and validate the trust configuration. A misconfigured value used to throw while the module
- * evaluated, which crashes the app with an opaque error before any logger exists; here every setting
- * is parsed independently, an invalid one is reported through `log` (and `errors`) and contributes
- * **nothing** — trust never widens because a value was unreadable. The default Heka sources still
- * exist without a usable service root; they are simply unpinned, so their refresh is skipped.
+ * Load and validate the trust configuration. Every setting is parsed independently; an invalid one is
+ * reported through `log` and `errors` and contributes **nothing**, so trust never widens because a value
+ * was unreadable. The default Heka sources still exist without a usable service root; they are unpinned,
+ * so their refresh is skipped.
  */
 export function loadTrustConfiguration(
   env: TrustConfigurationEnv,

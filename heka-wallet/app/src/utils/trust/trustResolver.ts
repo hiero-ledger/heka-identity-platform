@@ -46,9 +46,8 @@ function classifies(
 }
 
 /**
- * Whether a credential subject's type is **classified** by at least one source of its role — such a
- * type is trusted only through those sources: neither an unrestricted source nor a static anchor set
- * may vouch for it (the classification is authoritative, see `composeTrustedCertificates`).
+ * Whether some source of the subject's role classifies its type; such a type is trusted through those
+ * sources only (see `composeTrustedCertificates`).
  */
 export function isClassifiedSubject(sources: TrustSourceConfig[], subject: TrustSubject): boolean {
   if (subject.role !== 'credential-issuer' || subject.credentialType === undefined) return false

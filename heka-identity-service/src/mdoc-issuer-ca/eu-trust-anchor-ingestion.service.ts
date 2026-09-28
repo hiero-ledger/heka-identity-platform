@@ -41,23 +41,12 @@ export const DEFAULT_TRUST_DOCUMENT_LIMITS: Readonly<TrustDocumentLimits> = {
  * lists: the eIDAS **List of Trusted Lists** (`lotl`, ETSI TS 119 612 / XAdES, QTSPs incl. QEAA
  * providers), the **Lists of Trusted Entities** (`lote`, ETSI TS 119 602, the wallet-era actors) and the
  * operator-curated partner (`config`) anchors, for the service's own verifier trust provider
- * ({@link VerifierTrustAnchorService}). Nothing ingested here is ever republished.
+ * (`VerifierTrustAnchorService`).
  *
  * Every list is individually FAIL-CLOSED (a tampered or unverifiable list only excludes its own anchors,
- * never injects any); across lists of one source the union is BEST-EFFORT and logged.
- *
- * Only **credential-issuer** services become anchors: the hard-coded issuer service types of each list
- * format (`eu-service-types.ts`) gate the extraction, and `EU_TRUSTED_LIST_SERVICE_TYPES` /
- * `EU_LOTE_SERVICE_TYPES` may only narrow that set — a TSA, QWAC CA, wallet provider or WRPAC access CA can
- * never be configured in (H4).
- *
- * Every fetch is bounded ({@link TrustDocumentLimits}: timeout, body size, traversal concurrency) so a slow
- * or oversized upstream can neither stall the refresh nor exhaust memory (M6).
- *
- * A validly signed list is still rejected when it is **stale** (past its `NextUpdate` plus grace) or when
- * its sequence number is lower than the last one accepted from the same location: replaying an old list
- * must not keep a since-delisted issuer trusted (M1). Rejection only prevents the snapshot from being
- * replaced — an already-cached list keeps serving until a fresh one verifies.
+ * never injects any); across lists of one source the union is BEST-EFFORT and logged. Only
+ * credential-issuer services become anchors (`eu-service-types.ts`), every fetch is bounded by
+ * {@link TrustDocumentLimits}, and stale or replayed lists are rejected (`assertFreshList`).
  */
 @Injectable()
 export class EuTrustAnchorIngestionService {
@@ -101,7 +90,6 @@ export class EuTrustAnchorIngestionService {
       throw new Error('EU_LOTL_URL is required when a trust source list includes lotl')
     }
     const lotlXml = await this.fetchTrustDocument(lotlUrl, 'the EU List of Trusted Lists', this.limits.trustedListBytes)
-    // FAIL-CLOSED at the root: the whole traversal is only as trustworthy as the LoTL's own signature.
     await verifyTrustedListSignature(lotlXml, parseSignerCertificates(this.agent.agencyConfig.euLotlSignerCertificates))
     this.assertFreshList(lotlUrl, 'the EU List of Trusted Lists', parseTrustedListInfo(lotlXml))
 
@@ -122,7 +110,6 @@ export class EuTrustAnchorIngestionService {
           `national Trusted List ${pointer.schemeTerritory || pointer.location}`,
           this.limits.trustedListBytes,
         )
-        // Chain-based signer trust: the pin is the signer the (verified) LoTL declared for THIS TL.
         await verifyTrustedListSignature(tlXml, pointer.expectedSigners)
         this.assertFreshList(
           pointer.location,
@@ -203,7 +190,7 @@ export class EuTrustAnchorIngestionService {
   }
 
   /**
-   * Freshness and replay guard for one **signature-verified** list (M1): reject a list past its `NextUpdate`
+   * Freshness and replay guard for one **signature-verified** list: reject a list past its `NextUpdate`
    * (plus {@link TRUST_LIST_STALE_GRACE_MS}) and a sequence number lower than the last one accepted from the
    * same location; record the sequence on acceptance. A list without a `NextUpdate` (a closed list) or
    * without a sequence number is not judged on that criterion.

@@ -49,7 +49,7 @@ describe('loadTrustConfiguration', () => {
     })
   })
 
-  test('M8: an invalid static anchor is logged and contributes nothing — the other settings still load', () => {
+  test('an invalid static anchor is logged and contributes nothing — the other settings still load', () => {
     const log = jest.fn()
     const configuration = loadTrustConfiguration(
       {
@@ -71,7 +71,7 @@ describe('loadTrustConfiguration', () => {
     )
   })
 
-  test('M8: an invalid service root leaves the default sources unpinned (their refresh is skipped) instead of crashing', () => {
+  test('an invalid service root leaves the default sources unpinned (their refresh is skipped) instead of crashing', () => {
     const configuration = loadTrustConfiguration({
       AGENCY_PROVIDER_URL: 'https://heka.example',
       HEKA_SERVICE_ROOT_CERTIFICATE: '<paste root here>',
@@ -81,7 +81,7 @@ describe('loadTrustConfiguration', () => {
     expect(configuration.errors).toEqual(['HEKA_SERVICE_ROOT_CERTIFICATE is not a base64 DER (or PEM) certificate'])
   })
 
-  test('M8: invalid TRUST_SOURCES yields no sources at all (never a silent fallback to the defaults)', () => {
+  test('invalid TRUST_SOURCES yields no sources at all (never a silent fallback to the defaults)', () => {
     const configuration = loadTrustConfiguration({
       AGENCY_PROVIDER_URL: 'https://heka.example',
       HEKA_SERVICE_ROOT_CERTIFICATE: ROOT,

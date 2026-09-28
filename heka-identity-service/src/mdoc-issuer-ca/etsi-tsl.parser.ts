@@ -11,28 +11,16 @@ import { EU_TL_ISSUER_SERVICE_TYPES } from './eu-service-types'
  *     service type is a credential-issuer type** ({@link EU_TL_ISSUER_SERVICE_TYPES} by default).
  *   - {@link parseLotlPointers} — the EU **List of Trusted Lists** (clause 5.3): extracts each
  *     Member-State pointer — the national TL's location **and the certificate that TL's signature must
- *     match** — the entry point of the eIDAS trust-anchor traversal. Trust in the ~27 national
- *     signers is thereby *derived* from the (verified) LoTL rather than from static per-TL
- *     configuration ("chain-based signer trust").
+ *     match** — the entry point of the eIDAS trust-anchor traversal.
  *
  * Both are **pure XML→data transforms**: neither verifies the document's own XAdES signature — the
  * caller MUST do that (fail-closed) before trusting anything returned here, since an unverified TL
  * could carry attacker-injected anchors and an unverified LoTL could redirect to attacker-controlled
  * national lists / signers.
  *
- * TL structure (namespaces stripped): `TrustServiceStatusList → TrustServiceProviderList →
- * TrustServiceProvider[] → TSPServices → TSPService[] → ServiceInformation` with
- * `ServiceTypeIdentifier`, `ServiceStatus`, and `ServiceDigitalIdentity → DigitalId[] →
- * X509Certificate`. Only the `X509Certificate` form of a digital identity yields a usable
- * anchor/signer (`X509SubjectName` / `X509SKI` alone do not carry the full certificate), so those are
- * ignored.
- *
- * LoTL structure: `TrustServiceStatusList → SchemeInformation → PointersToOtherTSL →
- * OtherTSLPointer[]`, each with `TSLLocation` (the national TL URL), `ServiceDigitalIdentities →
- * ServiceDigitalIdentity[] → DigitalId[] → X509Certificate` (the expected signer cert(s) for that TL),
- * and `AdditionalInformation → OtherInformation[]` carrying `TSLType` (distinguishes national
- * `EUgeneric` pointers from the `EUlistofthelists` self-pointer and non-EU pointers) and
- * `SchemeTerritory` (the Member-State code).
+ * TL services: TS 119 612 clause 5.5; LoTL pointers: clause 5.3.13. Only the `X509Certificate` form of a
+ * digital identity yields a usable anchor/signer (`X509SubjectName` / `X509SKI` alone do not carry the
+ * full certificate), so those are ignored.
  */
 
 function toArray<T>(value: T | T[] | undefined | null): T[] {
@@ -75,10 +63,8 @@ function isGranted(status: string): boolean {
 
 export interface ParseTrustedListOptions {
   /**
-   * Allow-list of `ServiceTypeIdentifier`s. Defaults to {@link EU_TL_ISSUER_SERVICE_TYPES} — the
-   * credential-issuer services (qualified CAs, QEAA / PuB-EAA issuance) — so the time-stamping, QWAC /
-   * QSeal, validation and other services a Trusted List also carries never become issuer anchors (H4).
-   * An explicit empty list yields no anchors.
+   * Allow-list of `ServiceTypeIdentifier`s; defaults to {@link EU_TL_ISSUER_SERVICE_TYPES} (see
+   * `eu-service-types.ts`). An explicit empty list yields no anchors.
    */
   serviceTypes?: readonly string[]
 }

@@ -17,7 +17,7 @@ const valid: X509Signer = {
 };
 const expired: X509Signer = { ...valid, id: 'signer-old', isDefault: false, expiresInDays: -3, expired: true };
 
-describe('signer picker selection (M5)', () => {
+describe('signer picker selection', () => {
   test('the default and DID keys survive any identity list', () => {
     expect(reconcileSignerKey(SIGNER_DEFAULT, [])).toBe(SIGNER_DEFAULT);
     expect(reconcileSignerKey(SIGNER_DID, [valid])).toBe(SIGNER_DID);

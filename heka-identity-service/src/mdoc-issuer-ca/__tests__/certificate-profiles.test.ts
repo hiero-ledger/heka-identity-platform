@@ -83,10 +83,10 @@ describe('certificate profiles — TS 119 412-6 V1.1.1 intent', () => {
   })
 
   test.each(['unknown', 'eudi_pid', 'EUDI-PID', 'toString', ''])(
-    'H5: an unknown preset name %j throws instead of degrading to the mDL profile',
+    'an unknown preset name %j throws instead of degrading to the mDL profile',
     (name) => {
       if (name === '') {
-        // Empty = "nothing specified" → the shipped default, same as undefined.
+        // Empty = "nothing specified" → the default, same as undefined.
         expect(resolveProfile(name).name).toBe('mdl-us')
         return
       }
@@ -95,7 +95,7 @@ describe('certificate profiles — TS 119 412-6 V1.1.1 intent', () => {
     },
   )
 
-  test('H5: an unknown credential-type / ecosystem pair throws', () => {
+  test('an unknown credential-type / ecosystem pair throws', () => {
     expect(() => resolveProfile({ credentialType: 'mdl', ecosystem: 'xx' as never })).toThrow(
       /Unknown certificate profile selector/,
     )

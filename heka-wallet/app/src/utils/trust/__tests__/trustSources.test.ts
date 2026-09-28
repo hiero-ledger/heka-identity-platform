@@ -47,7 +47,7 @@ describe('defaultTrustSources', () => {
     expect(sources.map((source) => source.pinnedSigners)).toEqual([[ROOT], [ROOT]])
   })
 
-  test('M8: a service root that is not a certificate, or holds several, is a configuration error', () => {
+  test('a service root that is not a certificate, or holds several, is a configuration error', () => {
     expect(() =>
       defaultTrustSources({ AGENCY_PROVIDER_URL: 'https://heka.example', HEKA_SERVICE_ROOT_CERTIFICATE: 'INVALID' })
     ).toThrow('HEKA_SERVICE_ROOT_CERTIFICATE is not a valid X.509 certificate: ASN.1 parse error')
@@ -124,7 +124,7 @@ describe('parseTrustSources', () => {
     ['empty pinnedSigners', JSON.stringify([{ ...valid, pinnedSigners: [] }]), /\[0\]\.pinnedSigners/],
     ['blank pinned signer', JSON.stringify([{ ...valid, pinnedSigners: [' '] }]), /pinnedSigners\[0\]/],
     [
-      'pinned signer that is not a certificate (M8)',
+      'pinned signer that is not a certificate',
       JSON.stringify([{ ...valid, pinnedSigners: ['MIIDINVALID'] }]),
       /pinnedSigners\[0\] is not a valid X\.509 certificate/,
     ],

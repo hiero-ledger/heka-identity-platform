@@ -15,7 +15,10 @@ function expiry(notAfter: string): { expiresInDays: number; expired: boolean } {
 }
 
 export class ProvisionIacaDto {
-  @ApiPropertyOptional({ description: 'Certificate subject/issuer common name. Defaults to `<authority> mDL IACA`.' })
+  @ApiPropertyOptional({
+    description:
+      'Certificate subject/issuer common name. Defaults to `<authority> <mDL|PID|EAA> IACA` per the selected profile.',
+  })
   @IsOptional()
   @IsString()
   public commonName?: string
@@ -135,7 +138,7 @@ export class MdocIacaDto {
     dto.country = iaca.country
     dto.authorityName = iaca.authorityName
     dto.docType = iaca.docType
-    dto.profile = iaca.profile ?? 'mdl-us' // legacy records predate profiles → the shipped mDL profile
+    dto.profile = iaca.profile ?? 'mdl-us' // records written before profiles existed → mDL
     dto.organizationIdentifier = iaca.organizationIdentifier
     dto.certificatePolicyOid = iaca.certificatePolicyOid
     dto.createdAt = iaca.createdAt

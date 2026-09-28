@@ -53,17 +53,18 @@ interface ManagedCertificateContent {
 /**
  * Shared lifecycle for **managed signing certificates**: a KMS P-256 key + a service-root-signed leaf,
  * persisted as a GenericRecord and returned as an `[leaf, root]` chain with the leaf's `keyId` bound.
- * One implementation serves all four signing identities (SD-JWT VC issuer, OID4VCI access cert,
- * VICAL signer, EU-trust-list signer).
+ * Shared by every service-root-signed identity (SD-JWT VC issuer, OID4VCI access cert, VICAL and
+ * scheme-trust-list signers).
  *
  * Lifecycle invariants:
  * - **Single record** per (store, recordType, tags). Renewal rotates the key + certificate **into the
  *   existing record** — never a second record — while preserving caller-owned extra content fields
  *   (e.g. the VICAL `issueID` counter). Superseded certificates need no retention: every consumer
  *   embeds its chain in the signed artifact (x5c / x5chain), so verification never looks them up.
- * - **Renewal everywhere**: the renew-window check applies to every profile.
- * - **Self-healing**: duplicate records (from the pre-provider renewal leak) are resolved to the
- *   newest `notAfter`; stale ones are deleted and logged.
+ * - **Keys are never deleted on renewal**: token status lists and SD-JWT VC offers pinned to the old key
+ *   keep signing with it.
+ * - **Self-healing**: duplicate records (older releases renewed by inserting a new record) are resolved
+ *   to the newest `notAfter`; stale ones are deleted and logged.
  *
  * Keyed on `AgentContext`: tenant callers pass their tenant context, service-wide callers the global
  * agent's root context (`agent.context`) — KMS and records are resolved from it either way.
@@ -167,7 +168,7 @@ export class ManagedCertificateService {
     if (found.length <= 1) {
       return found[0] ?? null
     }
-    // Self-healing: the pre-provider renewal path could leak duplicate records. Keep the newest.
+    // Older releases renewed by inserting a new record; keep the newest, drop the rest.
     const sorted = [...found].sort((a, b) => this.notAfterMs(b) - this.notAfterMs(a))
     const [newest, ...stale] = sorted
     for (const record of stale) {

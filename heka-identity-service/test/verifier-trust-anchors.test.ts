@@ -15,7 +15,7 @@ const MDL_DOCTYPE = 'org.iso.18013.5.1.mDL'
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 /**
- * The service as Relying Party trusts its own tenants' issuers through the IACA registry (E6.1):
+ * The service as Relying Party trusts its own tenants' issuers through the IACA registry:
  * an mdoc signed by one tenant's DSC verifies in another tenant's context with NO static
  * `MDL_ISSUER_CERTIFICATE` — the trusted certificates come from `VerifierTrustAnchorService` via Credo's
  * `getTrustedCertificatesForVerification` hook. With the registry source disabled the same mdoc is

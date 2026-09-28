@@ -24,7 +24,7 @@ export enum VerificationSessionVersion {
 
 /**
  * How the OpenID4VP authorization request is signed.
- * - `did`  — sign with `did` (the shipped default).
+ * - `did`  — sign with `did` (the default).
  * - `x5c`  — sign with the tenant's X.509 signer (`clientIdPrefix` / `certificateId`).
  * - `none` — unsigned (the DC API `web-origin` fallback).
  */

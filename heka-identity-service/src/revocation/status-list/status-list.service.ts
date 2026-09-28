@@ -40,9 +40,9 @@ export interface ReservedStatusListIndexes {
 /**
  * W3C Bitstring Status Lists for W3C VCs (SD-JWT VCs use the IETF token status list instead).
  *
- * Every read-modify-write of a list (`encodedList`, `lastIndex`) runs in one transaction holding a row lock
- * (`SELECT … FOR UPDATE`): two concurrent offers must never be handed the same index, and two concurrent
- * revocations must never drop each other's bit (H2).
+ * Every read-modify-write of a list (`encodedList`, `lastIndex`) runs in one transaction holding a row lock:
+ * two concurrent offers must never be handed the same index, and two concurrent revocations must never
+ * drop each other's bit.
  */
 @Injectable()
 export class StatusListService {
@@ -114,10 +114,8 @@ export class StatusListService {
   }
 
   /**
-   * Reserve `count` consecutive indexes for credentials about to be issued, atomically: the owner's lists
-   * are locked, the first list with room takes the reservation (a new list is created when none has), and
-   * `lastIndex` advances in the same transaction — so concurrent offers never share an index. Indexes are
-   * 0-based: `lastIndex` is the next free index, so a list of `size` bits holds the indexes `0 … size - 1`.
+   * Reserve `count` consecutive indexes in one locked transaction, creating a list when none has room.
+   * Indexes are 0-based: `lastIndex` is the next free index, so a list of `size` bits holds `0 … size - 1`.
    */
   public async reserveIndexes(authInfo: AuthInfo, issuer: string, count: number): Promise<ReservedStatusListIndexes> {
     if (!Number.isInteger(count) || count < 1) {

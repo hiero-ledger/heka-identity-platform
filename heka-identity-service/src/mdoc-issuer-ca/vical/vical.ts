@@ -2,15 +2,13 @@ import { cborDecode, cborEncode } from './cbor'
 import { buildCoseSign1Es256, CoseEs256Signer } from './cose-sign1'
 
 /**
- * Heka VICAL (trust list) encoder. Structure follows ISO/IEC 18013-5 Annex C — the published-2021
- * `Vical` field names (the 2020 DIS calls it `MasterList`); the encoding has not yet been validated
- * against an external AAMVA/EU sample. Field names are centralized here so they can be corrected
- * against a real `Vical` sample without touching the service.
+ * Heka VICAL (trust list) encoder. Field names follow ISO/IEC 18013-5:2021 Annex C.1.7 (`Vical`); the
+ * encoding is not yet interop-tested against a third-party VICAL consumer.
  *
  * `date`/`notBefore`/`notAfter` are encoded as native CBOR time (a `Date` → standard CBOR time tag);
- * `serialNumber` is a CBOR (big)uint; `certificate`/`ski` are byte strings. NOTE: cbor-x emits epoch
- * time (tag 1) for a `Date`; ISO `tdate` prefers the tag-0 RFC 3339 string — a follow-up for external
- * interop alongside the external-sample validation (the Heka service↔wallet round-trip is unaffected).
+ * `serialNumber` is a CBOR (big)uint; `certificate`/`ski` are byte strings. TODO: encode `date` /
+ * `notBefore` / `notAfter` as tag-0 RFC 3339 strings (ISO 18013-5 `tdate`); cbor-x currently emits tag-1
+ * epoch time for a `Date`. The service↔wallet round-trip is unaffected.
  */
 
 export interface VicalCertificateInfo {

@@ -23,7 +23,6 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
 const CLOCK_SKEW_MS = 5 * 60 * 1000
 // Reissue the DSC this long before it expires so the mapper always signs with a valid leaf.
 const DSC_RENEW_BEFORE_MS = 30 * MS_PER_DAY
-// Validity windows now live on the certificate profile (see certificate-profiles.ts).
 
 const NOT_PROVISIONED_MESSAGE =
   'No mdoc issuer is provisioned for this tenant. Provision one via POST /mdoc-issuers ' +
@@ -45,9 +44,8 @@ type StoredDsc = Omit<MdocDsc, 'id'>
  * Provisions and loads each tenant's mdoc (ISO 18013-5) issuer PKI: a self-signed **IACA** trust
  * anchor that signs short-lived **DSCs**, and the current DSC used to sign every issued MSO.
  *
- * Keys live in the tenant's Askar store; the IACA signs the DSC inside the tenant agent (the
- * cross-key pattern from `X509SignerService.issueCaSignedLeaf`). The public IACA cert is mirrored to
- * the global store so the VICAL builder can aggregate across the isolated tenant stores.
+ * Keys live in the tenant's Askar store; the IACA signs the DSC inside the tenant agent. The public IACA
+ * cert is mirrored to the global store so the VICAL builder can aggregate across the isolated tenant stores.
  *
  * The OpenID4VCI credential mapper reaches {@link loadCurrentDsc} per request (it has only an
  * `AgentContext`), so every method here is keyed on `AgentContext` rather than a `TenantAgent` —
@@ -90,7 +88,7 @@ export class MdocIssuerCaService {
    * Find-or-create the tenant's single IACA (idempotent). Mints a P-256 key + self-signed CA
    * certificate in the tenant store and mirrors the public cert to the global registry. NOTE:
    * find-or-create is not atomic — concurrent first-time provisions could race; acceptable for an
-   * infrequent admin / prepare-wallet action (mirrors `X509SignerService.ensureServiceRootCa`).
+   * infrequent admin / prepare-wallet action.
    */
   public async provisionIaca(agentContext: AgentContext, options: ProvisionIacaOptions = {}): Promise<MdocIaca> {
     const existing = await this.findIacaRecord(agentContext)
@@ -123,8 +121,7 @@ export class MdocIssuerCaService {
 
     let certificate: X509Certificate
     if (profile.ecosystem === 'eu') {
-      // EU profile: the @peculiar/x509 escape hatch — Credo's X509Api cannot emit the EN 319 412-1
-      // organizationIdentifier DN attribute. See eu-certificate-builder.ts.
+      // EU profile → eu-certificate-builder.ts
       if (!organizationIdentifier) {
         throw new BadRequestException(EU_ORGANIZATION_IDENTIFIER_REQUIRED_MESSAGE)
       }
@@ -139,7 +136,7 @@ export class MdocIssuerCaService {
         notAfter,
       })
     } else {
-      // mDL profile: shipped Credo path, unchanged.
+      // mDL profile: Credo X509Api.
       const x509 = agentContext.resolve(X509Api)
       certificate = await x509.createCertificate({
         authorityKey: publicJwk, // self-signed: subjectPublicKey omitted
@@ -212,10 +209,10 @@ export class MdocIssuerCaService {
     const notBefore = new Date(now - CLOCK_SKEW_MS)
     const notAfter = new Date(now + profile.dscValidityDays * MS_PER_DAY)
 
+    // The IACA key (carrying its keyId) signs; the DSC key is only the subject and never signs here.
     let certificate: X509Certificate
     if (profile.ecosystem === 'eu') {
-      // EU profile: the @peculiar/x509 escape hatch — ETSI TS 119 412-6 sign/seal certificate: EN 319 412-3
-      // legal-person DN, certificatePolicies, QcType (PID), AIA caIssuers → the public IACA download.
+      // EU profile → eu-certificate-builder.ts
       const certificatePolicyOid = iaca.certificatePolicyOid ?? this.agent.agencyConfig.mdocIssuerCertificatePolicyOid
       if (profile.requiresCertificatePolicies && !certificatePolicyOid) {
         throw new BadRequestException(EU_CERTIFICATE_POLICY_REQUIRED_MESSAGE)
@@ -226,8 +223,8 @@ export class MdocIssuerCaService {
         organizationIdentifier: iaca.organizationIdentifier,
       }
       certificate = await buildEuDsc(agentContext, {
-        authorityKey: iacaCertificate.publicJwk, // IACA key signs (carries its keyId)
-        subjectPublicKey, // the DSC key is the subject; its private key never signs here
+        authorityKey: iacaCertificate.publicJwk,
+        subjectPublicKey,
         subjectKeyId: key.keyId,
         issuerDn: { ...dn, commonName: iaca.commonName },
         subjectDn: { ...dn, commonName: `${iaca.authorityName} ${profile.credentialLabel} DSC` },
@@ -241,11 +238,11 @@ export class MdocIssuerCaService {
           : undefined,
       })
     } else {
-      // mDL profile: shipped Credo path, unchanged.
+      // mDL profile: Credo X509Api.
       const x509 = agentContext.resolve(X509Api)
       certificate = await x509.createCertificate({
-        authorityKey: iacaCertificate.publicJwk, // IACA key signs (carries its keyId)
-        subjectPublicKey, // the DSC key is the subject; its private key never signs here
+        authorityKey: iacaCertificate.publicJwk,
+        subjectPublicKey,
         issuer: { commonName: iaca.commonName, countryName: iaca.country, organizationalUnit: iaca.authorityName },
         subject: { commonName: `${iaca.authorityName} mDL DSC`, countryName: iaca.country },
         validity: { notBefore, notAfter },

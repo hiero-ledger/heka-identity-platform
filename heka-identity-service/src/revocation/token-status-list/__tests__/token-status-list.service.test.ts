@@ -80,7 +80,7 @@ describe('TokenStatusListService', () => {
   test('allocate creates a signed list on first use and reserves a random index in it', async () => {
     const reference = await service.allocate(agentContext, authInfo, identity)
 
-    // H2: the allocation is one transaction holding a row lock on the key's lists (SELECT … FOR UPDATE)
+    // the allocation is one transaction holding a row lock on the key's lists (SELECT … FOR UPDATE)
     expect(em.transactional).toHaveBeenCalledTimes(1)
     expect(em.find).toHaveBeenCalledWith(
       TokenStatusList,
@@ -135,7 +135,7 @@ describe('TokenStatusListService', () => {
     expect(sign).toHaveBeenCalledTimes(1)
   })
 
-  test('M4: allocateMany reserves N distinct entries of one list in one locked transaction, without re-signing', async () => {
+  test('allocateMany reserves N distinct entries of one list in one locked transaction, without re-signing', async () => {
     const batch = await service.allocateMany(agentContext, authInfo, identity, 3)
 
     expect(stored).toHaveLength(1)
@@ -156,7 +156,7 @@ describe('TokenStatusListService', () => {
     expect(em.transactional).not.toHaveBeenCalled()
   })
 
-  test('M4: setStatuses flips every entry of a batch and re-signs the token once', async () => {
+  test('setStatuses flips every entry of a batch and re-signs the token once', async () => {
     const batch = await service.allocateMany(agentContext, authInfo, identity, 3)
     const untouched = await service.allocate(agentContext, authInfo, identity)
 

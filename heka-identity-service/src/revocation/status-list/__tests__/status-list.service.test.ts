@@ -227,7 +227,7 @@ describe('StatusListService', () => {
   describe('reserveIndexes', () => {
     const issuer = 'did:example:issuer'
 
-    test('H2: reserves consecutive indexes under a row lock, in one transaction, and advances lastIndex', async () => {
+    test('reserves consecutive indexes under a row lock, in one transaction, and advances lastIndex', async () => {
       const statusListEntity = entityStub<CredentialStatusList>({
         id: 'status-list-1',
         encodedList: 'uoriginal-encoded',
@@ -326,7 +326,7 @@ describe('StatusListService', () => {
 
       await service.updateItems(authInfo, id, { indexes: [2, 5], revoked: true })
 
-      // H2: the revocation write holds a row lock inside one transaction
+      // the revocation write holds a row lock inside one transaction
       expect(em.transactional).toHaveBeenCalledTimes(1)
       expect(em.findOneOrFail).toHaveBeenCalledWith(
         CredentialStatusList,

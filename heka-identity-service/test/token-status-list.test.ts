@@ -27,7 +27,7 @@ const decodeJwt = (jwt: string) => {
 }
 
 /**
- * E7 over the real stack: an SD-JWT VC issued through OID4VCI carries an IETF token-status-list
+ * Over the real stack: an SD-JWT VC issued through OID4VCI carries an IETF token-status-list
  * reference; the public token is signed with the credential's own issuer key; revoking the issuance
  * session flips the entry, and a Credo holder/verifier that re-fetches the list now rejects the credential.
  */
@@ -160,7 +160,7 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     await request(app).get('/token-status-lists/unknown').expect(404)
   })
 
-  test('H2: concurrent offers never share a status-list index and concurrent revocations both stick', async () => {
+  test('concurrent offers never share a status-list index and concurrent revocations both stick', async () => {
     const issuerAccountAuthToken = await createAuthToken(uuid(), Role.Admin)
     const postDidResponse = await request(app)
       .post('/dids')

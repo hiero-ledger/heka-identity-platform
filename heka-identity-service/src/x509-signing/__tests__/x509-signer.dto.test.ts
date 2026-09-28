@@ -11,7 +11,7 @@ const validateWith = async (dto: typeof ProvisionX509SignerDto | typeof RotateX5
 describe.each([
   ['ProvisionX509SignerDto', ProvisionX509SignerDto],
   ['RotateX509SignerDto', RotateX509SignerDto],
-])('%s.validityDays (M7)', (_name, dto) => {
+])('%s.validityDays', (_name, dto) => {
   test.each([0, -5, 1.5, 365 * 10 + 1, 'a year'])('rejects %p', async (validityDays) => {
     const errors = await validateWith(dto, { validityDays })
     expect(errors.map((error) => error.property)).toEqual(['validityDays'])

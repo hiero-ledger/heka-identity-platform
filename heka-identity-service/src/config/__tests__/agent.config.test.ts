@@ -29,7 +29,7 @@ describe('agent config — startup validation', () => {
     expect(() => agentConfig()).not.toThrow()
   })
 
-  describe('MDOC_ISSUER_PROFILE (H5)', () => {
+  describe('MDOC_ISSUER_PROFILE', () => {
     it.each(['mdl', 'mdl-us', 'mdl-eu', 'eudi', 'eudi-pid', 'eudi-eaa'])('accepts the named preset %s', (name) => {
       process.env.MDOC_ISSUER_PROFILE = name
       expect(agentConfig().mdocIssuerProfile).toBe(name)
@@ -43,7 +43,7 @@ describe('agent config — startup validation', () => {
     })
   })
 
-  describe('EU verifier trust sources (H4 / m6)', () => {
+  describe('EU verifier trust sources', () => {
     it('lotl requires EU_LOTL_URL and EU_LOTL_SIGNER_CERTIFICATES', () => {
       process.env.VERIFIER_TRUST_SOURCES = 'registry,lotl'
       expect(() => agentConfig()).toThrow(/includes lotl, which requires EU_LOTL_URL and EU_LOTL_SIGNER_CERTIFICATES/)

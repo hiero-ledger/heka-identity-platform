@@ -16,7 +16,7 @@ import {
 import { InjectLogger, Logger } from 'common/logger'
 import ExpressConfig from 'config/express'
 
-/** The signing identity of the credentials a list is created for — the list is signed with the same key. */
+/** The credential-signing identity a list is created for. */
 export interface TokenStatusListSignerIdentity {
   /** `iss` of the referenced credentials (DID or https issuer URL). */
   issuer: string
@@ -56,20 +56,20 @@ export enum TokenStatus {
 /**
  * IETF Token Status Lists (draft-ietf-oauth-status-list) for SD-JWT VCs — the EUDI / HAIP revocation
  * mechanism, replacing the W3C bitstring list for that format (`StatusListService` stays for W3C VCs).
- * Built on `@sd-jwt/jwt-status-list` (the library Credo itself verifies status lists with); the OWF
- * `token-status-list` package was dropped because its `@owf/cose` dependency registers cbor-x tag extensions
- * that collide with `@owf/mdoc` and break every mdoc decode in the process.
+ * Built on `@sd-jwt/jwt-status-list`, the library Credo itself verifies status lists with. Do not swap in
+ * `@owf/token-status-list`: its `@owf/cose` dependency registers cbor-x tag extensions that break
+ * `@owf/mdoc` decoding.
  *
  * - One list per (owner, signing key). Credo verifies a Status List Token with the **referenced
  *   credential's issuer key**, so the list is signed with exactly the key that signed the credentials
- *   pointing to it; a rotated issuer certificate simply starts a new list.
+ *   pointing to it; a rotated issuer certificate simply starts a new list (the old key is kept — see
+ *   `ManagedCertificateService`).
  * - Indexes are drawn at random from the list (herd privacy); a list is full when every index is taken.
  * - The signed token is stored on the entity and served verbatim by the tenant-less public route, so
  *   signing happens only inside tenant-context operations (offer / revoke) where the key is reachable.
- * - Tokens carry `iat` + `ttl` and no `exp` (an unchanged list stays valid; verifiers re-fetch per ttl).
  * - Every read-modify-write of a list (`allocated` bitmap, `statuses`) runs in one transaction holding a
- *   row lock (`SELECT … FOR UPDATE`): concurrent offers must never be handed the same index and concurrent
- *   revocations must never drop each other's bit (H2).
+ *   row lock: concurrent offers must never be handed the same index and concurrent revocations must never
+ *   drop each other's bit.
  */
 @Injectable()
 export class TokenStatusListService {
@@ -99,7 +99,7 @@ export class TokenStatusListService {
   /**
    * Reserve `count` distinct indexes — one per credential of a batch issuance — in a single list of
    * `identity`'s key (creating a list when none has room). One locked transaction, so concurrent offers
-   * never share an entry (H2) and the credentials of one batch never do either (M4).
+   * never share an entry and neither do the credentials of one batch.
    */
   public async allocateMany(
     agentContext: AgentContext,
@@ -111,7 +111,6 @@ export class TokenStatusListService {
       throw new BadRequestException('At least one status list entry must be reserved')
     }
     return this.em.transactional(async (em) => {
-      // Lock the key's lists for the duration of the read-modify-write of the `allocated` bitmap.
       const lists = await em.find(
         TokenStatusList,
         { owner: authInfo.user, signerKeyId: identity.keyId },
@@ -248,8 +247,7 @@ export class TokenStatusListService {
       },
     )
 
-    // Compact JWS over the JSON header + payload, signed with the credential-signing key (same pattern
-    // as the scheme trust-list signer: KMS sign over the JWS signing input).
+    // createHeaderAndPayload does not sign: KMS-sign the JWS signing input ourselves.
     const signingInput = `${base64Url(JSON.stringify({ ...header, alg }))}.${base64Url(JSON.stringify(payload))}`
     const { signature } = await kms.sign({
       keyId: list.signerKeyId,
@@ -261,7 +259,7 @@ export class TokenStatusListService {
   }
 }
 
-/** The compressed status array as the library's base64url string (the `lst` bytes). */
+/** The token's `lst` value. */
 function encodeStatuses(statusList: StatusList): string {
   return statusList.compressStatusList()
 }

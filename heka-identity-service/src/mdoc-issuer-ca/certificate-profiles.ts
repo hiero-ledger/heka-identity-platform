@@ -2,23 +2,22 @@
  * mdoc issuer **certificate profiles** — a "credential-type × ecosystem" model.
  *
  * A profile describes the *contents* of the IACA/DSC certificates (validity, EKU, DN shape, policies,
- * qcStatements, AIA), independent of the shared IACA→DSC signing *structure* (Layer 1, unchanged).
+ * qcStatements, AIA), independent of the shared IACA→DSC signing *structure*.
  * Four profiles ship:
  *
- *   - `MDL_PROFILE`      (mDL × US/AAMVA)  — the shipped ISO 18013-5 / AAMVA mDL profile. Emitted via
- *                                            Credo's typed `X509Api.createCertificate` (unchanged path).
+ *   - `MDL_PROFILE`      (mDL × US/AAMVA)  — ISO 18013-5 / AAMVA mDL profile, emitted via Credo's
+ *                                            `X509Api.createCertificate`.
  *   - `EU_MDL_PROFILE`   (mDL × EU)        — ISO `mdlDS` EKU + mDL docType (ISO 18013-5 mandates both for
  *                                            any mDL) with the EU DN, policies and AIA.
  *   - `EUDI_PID_PROFILE` (PID × EU)        — ETSI TS 119 412-6 clause 4 "PID Provider sign/seal certificate".
  *   - `EUDI_EAA_PROFILE` (EAA × EU)        — ETSI TS 119 412-6 clause 6 "EAA Provider attribute sign/seal
  *                                            certificate" (non-qualified).
  *
- * The EU profiles are emitted via the `@peculiar/x509` escape hatch (see `eu-certificate-builder.ts`)
- * because Credo's `X509Api` cannot emit those extensions / DN attributes.
+ * The EU profiles are built by `eu-certificate-builder.ts`.
  *
  * ## Conformance — ETSI TS 119 412-6 V1.1.1 (2025-09), the version referenced by CIR (EU) 2026/1731
  *
- * Re-checked 2026-09-10 against the published text (E1.1). V1.2.1 (2026-04) only clarifies the same
+ * V1.2.1 (2026-04) only clarifies the same
  * requirements (key-usage types A/B/C/F; AIA "as specified in EN 319 412-2 §4.4.1"; QcType "at least").
  *
  * | Requirement | What it demands | Where it is satisfied |
@@ -33,7 +32,7 @@
  * | PID-4.5-01 | qcStatements with QcType `id-etsi-qct-pid` | `dscQcTypes` |
  * | EN 319 412-2 §4.3.3 (via PID-4.1-01) | certificatePolicies present (TSP-defined OID) | `requiresCertificatePolicies` → `MDOC_ISSUER_CERTIFICATE_POLICY_OID` |
  * | EAA-6.1-02 | EN 319 412-3 profile for legal persons | `EUDI_EAA_PROFILE` (no QcType) |
- * | QEA-7 / PSB-8 | qualified sign/seal certificates issued by a QTSP, QcPSB statement | **out of scope** — never self-provisioned (E4 CSR path) |
+ * | QEA-7 / PSB-8 | qualified sign/seal certificates issued by a QTSP, QcPSB statement | **out of scope** — qualified certificates are issued by a QTSP, never by this CA |
  *
  * No clause of TS 119 412-6 or TS 119 472-1 caps the certificate validity; the ISO 18013-5 caps are
  * kept as the conservative default for every profile. TS 119 412-6 defines no extendedKeyUsage for
@@ -110,7 +109,7 @@ const DSC_VALIDITY_DAYS = 457 // ISO 18013-5 maximum DSC lifetime; no ETSI cap (
 /** ISO 18013-5 Annex B / AAMVA: an IACA certificate is valid for at most 9 years (no ETSI cap, see header). */
 export const IACA_MAX_VALIDITY_DAYS = 365 * 9
 
-/** mDL × US/AAMVA — the shipped profile. Values mirror the module constants in `mdoc-issuer-ca.service.ts`. */
+/** mDL × US/AAMVA — the default profile (ISO 18013-5 Annex B). */
 export const MDL_PROFILE: CertificateProfile = {
   name: 'mdl-us',
   credentialType: 'mdl',
@@ -200,9 +199,9 @@ export function isProfileName(name: string): name is ProfileName {
 
 /**
  * Resolve a {@link CertificateProfile} from a selector (named preset or credential-type × ecosystem pair).
- * Defaults to {@link MDL_PROFILE} — the shipped behaviour — when nothing is specified. An unknown
+ * Defaults to {@link MDL_PROFILE} when nothing is specified. An unknown
  * preset name or axis value **throws**: silently minting an mDL IACA for a misspelt EU profile would
- * produce a certificate without any of the EU bits (H5).
+ * produce a certificate without any of the EU bits.
  */
 export function resolveProfile(selector?: ProfileSelector | string): CertificateProfile {
   if (!selector) return MDL_PROFILE
@@ -221,7 +220,7 @@ export function resolveProfile(selector?: ProfileSelector | string): Certificate
     if (credentialType === 'eaa') return EUDI_EAA_PROFILE
     return EUDI_PID_PROFILE // 'pid' and the legacy 'pid-eaa' alias
   }
-  // No US PID / EAA ecosystem profile exists — the shipped mDL profile is the closest.
+  // No US PID / EAA ecosystem profile exists — the mDL profile is the closest.
   return MDL_PROFILE
 }
 

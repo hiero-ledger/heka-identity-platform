@@ -16,7 +16,7 @@ const VICAL_VERSION = '1.0'
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 // The VICAL is re-signed/refreshed weekly; wallets refresh on this cadence.
 const VICAL_NEXT_UPDATE_DAYS = 7
-// ISO 18013-5 Annex C Table C.2 caps the ML signer cert at ≤39 months; a year is a safe dev default.
+// ISO 18013-5 Annex C Table C.2 caps the VICAL signer certificate at ≤39 months; a year is a safe dev default.
 const VICAL_SIGNER_VALIDITY_DAYS = 365
 
 /** Registry entry written by MdocIssuerCaService (the public IACA mirror). */

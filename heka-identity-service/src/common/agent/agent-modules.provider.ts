@@ -58,6 +58,11 @@ import { createCredentialRequestToCredentialMapper, CredentialMapperDependencies
 import { TailsService } from '../../revocation/revocation-registry/tails.service'
 import { IndyBesuAnonCredsRegistry, IndyBesuDidRegistrar, IndyBesuDidResolver, IndyBesuModule } from '../indy-besu-vdr'
 
+/**
+ * Tenant services the credential mapper needs, resolved through `ModuleRef` at call time: this provider is
+ * built before `MdocIssuerCaService` / `SdJwtVcIssuerService` exist (they depend on the agent), so direct
+ * injection would be a cycle.
+ */
 export function buildCredentialMapperDependencies(moduleRef: ModuleRef): CredentialMapperDependencies {
   return {
     getMdocIssuerCertificate: (agentContext) =>
@@ -73,7 +78,7 @@ export function buildCredentialMapperDependencies(moduleRef: ModuleRef): Credent
  * Credo's X.509 module with the service's relying-party trust provider attached: when the service
  * verifies a presented credential, the trusted certificates come from {@link VerifierTrustAnchorService}
  * (tenant IACA registry, curated anchors, cached EU lists) instead of one static certificate. Resolved
- * lazily via ModuleRef at verification time for the same cycle reason as the credential mapper above.
+ * lazily via ModuleRef at verification time for the same cycle reason as `buildCredentialMapperDependencies`.
  */
 function buildX509Module(moduleRef: ModuleRef): X509Module {
   return new X509Module({

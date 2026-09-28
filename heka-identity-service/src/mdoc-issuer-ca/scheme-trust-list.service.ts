@@ -34,7 +34,7 @@ const EU_TE_INFORMATION_URI_PREFIX: Record<SchemeListId, string> = {
 }
 
 /**
- * Heka **scheme identifiers**. This is a *scheme operator's* list (posture c — Heka vouching for its own
+ * Heka **scheme identifiers**. This is a *scheme operator's* list (Heka vouching for its own
  * ecosystem), NOT a Commission list: the EU `LoTEType` / `StatusDeterminationApproach` /
  * `SchemeTypeCommunityRules` URIs are deliberately not claimed, only the EU service-type vocabulary is.
  */

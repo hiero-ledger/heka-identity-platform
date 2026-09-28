@@ -103,7 +103,7 @@ const refresh = (source: TrustSourceConfig, jws: string, agent = buildAgent()) =
 
 beforeEach(() => resetTrustSequenceMemory())
 
-describe('M1 freshness and replay', () => {
+describe('freshness and replay', () => {
   const NOW = 1_700_000_000_000
   const iso = (ms: number) => new Date(ms).toISOString()
   const refreshAt = (jws: string, cache?: ReturnType<typeof createTrustSourceCache>) =>

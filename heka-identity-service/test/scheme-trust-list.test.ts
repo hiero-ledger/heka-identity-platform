@@ -28,7 +28,7 @@ const decodePayload = (jws: string) =>
   }
 
 /**
- * The scheme trust lists over the real stack (E6.2): a provisioned tenant IACA shows up in
+ * The scheme trust lists over the real stack: a provisioned tenant IACA shows up in
  * `/trust-list/eaa-providers` as an EU `EAA/Issuance` service tagged `origin: tenant`, the service root
  * shows up in `/trust-list/wrpac-providers` as the access-certificate authority, and the index announces
  * both. Nothing from any upstream list is in either.
@@ -108,7 +108,7 @@ describe('Scheme trust lists', () => {
 
     await request(app).get('/trust-list/qtsp-providers').expect(404)
 
-    // The ISO VICAL export is optional and off by default (E6.4): EUDI-shaped consumers use the scheme
+    // The ISO VICAL export is optional and off by default: EUDI-shaped consumers use the scheme
     // lists above, which publish the same IACA registry.
     await request(app).get('/vical').expect(404)
   })

@@ -11,9 +11,8 @@ import { TrustRole, TrustSourceConfig } from './trustSources'
  * optionally follow the list's in-spec pointers one level → replace the source's slice of the store.
  * Best-effort and total: never throws; a failed source keeps its previously-trusted slice.
  *
- * The signed documents can also be cached on device (`TrustSourceCache`) and re-loaded without the
- * network — through the very same verification — so a fresh JavaScript runtime (the DC API overlay)
- * or the main app right after unlock trusts the last verified lists immediately.
+ * Verified documents can be cached on device (`TrustSourceCache`) and reloaded through the same
+ * verification.
  */
 
 /**
@@ -82,7 +81,7 @@ export const TRUST_LIST_STALE_GRACE_MS = 5 * 60 * 1000
 /**
  * Last accepted `LoTESequenceNumber` per list location in this runtime (seeded from the cache on load).
  * A refresh that fetches a *lower* sequence than this is a replay of an older issue and is rejected: a
- * validly signed old list must not bring a since-delisted issuer back (M1).
+ * validly signed old list must not bring a since-delisted issuer back.
  */
 const lastAcceptedSequence = new Map<string, number>()
 
@@ -159,7 +158,7 @@ function base64UrlToString(input: string): string {
 
 /**
  * A service is active when it carries no `ServiceStatus` (the EU LoTE profiles omit it — "listed is
- * granted") or when its status URI ends in `granted` (mirrors the identity-service rule).
+ * granted") or when its status URI ends in `granted`.
  */
 const isActive = (status: string | undefined): boolean =>
   status === undefined || status.trim() === '' ? true : status.trim().toLowerCase().endsWith('granted')
@@ -221,7 +220,7 @@ function sequenceNumberOf(payload: LotePayload): number | undefined {
 }
 
 /**
- * Freshness and replay check of a *verified* list from `location` (M1): stale past `NextUpdate` plus grace,
+ * Freshness and replay check of a *verified* list from `location`: stale past `NextUpdate` plus grace,
  * or a sequence number below the last accepted one (`baseline`). On acceptance the sequence is remembered.
  */
 function acceptFreshList(

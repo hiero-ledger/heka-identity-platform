@@ -13,14 +13,12 @@ const DEFAULT_COMMON_NAME = 'Heka OID4VCI Access Certificate'
  * published in the credential-issuer metadata (so the wallet can authenticate the issuer at issuance).
  *
  * This is a **distinct trust identity**: its own P-256 key + Askar record + lifecycle — deliberately
- * NOT the mdoc IACA/DSC signing chain, nor the SD-JWT VC issuer cert. Keyed on `AgentContext` like those
- * services (per tenant). OFF unless `OID4VCI_SIGNED_METADATA_ENABLED` — `loadAccessCertificateChain` then
- * returns `undefined`, and issuance stays byte-identical to today.
+ * NOT the mdoc IACA/DSC signing chain, nor the SD-JWT VC issuer cert. OFF unless `OID4VCI_SIGNED_METADATA_ENABLED` — `loadAccessCertificateChain` then
+ * returns `undefined`, and issuance is unaffected.
  *
  * STAND-IN anchor: the leaf is signed by the Heka **service root** as a placeholder for a real
  * Member-State **Access CA** anchor. The `signed_metadata` *shape* is exercised end-to-end, but the trust
- * is not real until that anchor is issued and listed on an EU trusted list; swapping in a real Access CA
- * is a follow-up.
+ * is not real until that anchor is issued and listed on an EU trusted list.
  *
  * Key/cert lifecycle (provision, 30-day renewal, locking) is delegated to {@link ManagedCertificateService}.
  */

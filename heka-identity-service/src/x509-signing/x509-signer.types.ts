@@ -11,7 +11,7 @@ export interface X509Signer {
   clientIdPrefix: X509ClientIdPrefix
   /** KMS key id, re-attached to the parsed certificate on load so Credo can sign with it. */
   keyId: string
-  /** Base64 DER certificate chain, leaf first. */
+  /** Base64 DER of the leaf certificate; the service root for `x509_san_dns` chains comes from `getServiceRootCertificate`. */
   certificateBase64: string
   /** Hex SHA-256 thumbprint of the leaf certificate. */
   fingerprint: string

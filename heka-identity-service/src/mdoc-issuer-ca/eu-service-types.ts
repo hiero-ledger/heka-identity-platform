@@ -7,7 +7,7 @@
  * TS 119 602 LoTEs carry wallet providers, registrars and access-certificate (WRPAC) CAs. None of those
  * may ever become an anchor for verifying an mdoc or SD-JWT VC issuer, whatever the operator configures,
  * so the consumers gate on the **issuer types below** and treat the `EU_*_SERVICE_TYPES` variables as an
- * additional *narrowing* only (H4).
+ * additional *narrowing* only.
  */
 
 const TL_PREFIX = 'http://uri.etsi.org/TrstSvc/Svctype/'

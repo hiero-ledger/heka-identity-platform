@@ -44,7 +44,7 @@ describe('parseCertificateList', () => {
   })
 })
 
-describe('parseCertificateList — M8: every entry must decode as an X.509 certificate', () => {
+describe('parseCertificateList — every entry must decode as an X.509 certificate', () => {
   test('rejects a base64 entry that is not a certificate, naming the variable and position', () => {
     expect(() => parseCertificateList(`${CERT_A},MIIBINVALID`, 'TRUSTED_REQUEST_SIGNER_CERTIFICATES')).toThrow(
       'TRUSTED_REQUEST_SIGNER_CERTIFICATES[1] is not a valid X.509 certificate: ASN.1 parse error'

@@ -18,7 +18,7 @@ export interface MdocIaca {
   commonName: string
   /** ISO 3166-1 alpha-2 country code carried in the cert subject and the VICAL entry. */
   country: string
-  /** Issuing authority name (VICAL `issuingAuthority`); also the cert organizational unit. */
+  /** Issuing authority name (VICAL `issuingAuthority`); also the cert O (EU profiles) / OU (mDL profile). */
   authorityName: string
   /** Default mdoc docType this IACA is authoritative for (VICAL `docType`), e.g. the mDL docType. */
   docType: string
@@ -50,7 +50,7 @@ export interface MdocDsc {
 }
 
 export interface ProvisionIacaOptions {
-  /** Certificate subject/issuer common name. Defaults to `<authorityName> mDL IACA`. */
+  /** Certificate subject/issuer common name. Defaults to `<authorityName> <mDL|PID|EAA> IACA` per the selected profile. */
   commonName?: string
   /** ISO 3166-1 alpha-2 country code. Defaults to the service-wide `MDOC_ISSUER_COUNTRY`. */
   country?: string
@@ -62,7 +62,7 @@ export interface ProvisionIacaOptions {
   validityDays?: number
   /**
    * Certificate profile: `'mdl'` (default, ISO 18013-5 / AAMVA), `'mdl-eu'`, `'eudi-pid'` or `'eudi-eaa'`
-   * (EU/EUDI, emitted via the `@peculiar/x509` escape hatch). Defaults to the service-wide `MDOC_ISSUER_PROFILE`.
+   * (EU/EUDI). Defaults to the service-wide `MDOC_ISSUER_PROFILE`.
    */
   profile?: string
   /**

@@ -1,14 +1,19 @@
 /**
- * Trust-source configuration: the N signed trust lists (ETSI TS 119 602 LoTE JWTs) the wallet
- * learns trust anchors from, modelled on the EU reference wallet's trust pipeline — one loader per
- * list, each pinned to its own signer certificates, each vouching only for the attestation types it
- * is classified for, and a static bundled set as fallback. The Heka scheme lists are ordinary
- * sources here: no source is privileged by code.
+ * Trust-source configuration: the N signed trust lists (ETSI TS 119 602 LoTE JWTs) the wallet learns
+ * trust anchors from — one loader per list, each pinned to its own signer certificates, each vouching
+ * only for the attestation types it is classified for, plus configuration-supplied static anchors for the
+ * attestation types no source classifies. The Heka scheme lists are ordinary sources here: no source is
+ * privileged by code.
  */
 
 import { parseCertificate } from './staticAnchors'
 
-/** What a source's anchors are used for — see `resolveTrustAnchors`. */
+/**
+ * What a source's anchors are used for (see `resolveTrustAnchors`): `credential-issuer` anchors verify
+ * credential signatures; `access-certificate` anchors verify relying-party access certificates (WRPAC =
+ * wallet-relying-party access certificate, ETSI TS 119 602 service type `WRPAC/Issuance`) — the chains
+ * of signed requests and signed issuer metadata.
+ */
 export type TrustRole = 'credential-issuer' | 'access-certificate'
 
 export const TRUST_ROLES: readonly TrustRole[] = ['credential-issuer', 'access-certificate']
@@ -53,7 +58,7 @@ export const HEKA_WRPAC_PROVIDERS_SOURCE_ID = 'heka-wrpac-providers'
 /**
  * The default sources: the Heka scheme lists published by the identity service
  * (`GET /trust-list/eaa-providers` — credential issuers; `GET /trust-list/wrpac-providers` —
- * access-certificate authorities), both pinned to the bundled service root. No agency URL = no sources.
+ * access-certificate authorities), both pinned to the configured service root. No agency URL = no sources.
  */
 export function defaultTrustSources(
   env: Pick<TrustSourceEnv, 'AGENCY_PROVIDER_URL' | 'HEKA_SERVICE_ROOT_CERTIFICATE'>

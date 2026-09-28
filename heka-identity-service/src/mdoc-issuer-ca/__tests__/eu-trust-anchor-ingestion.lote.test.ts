@@ -242,7 +242,7 @@ describe('EuTrustAnchorIngestionService — LoTE ingestion (ETSI TS 119 602)', (
     expect(logger.warn).toHaveBeenCalled()
   })
 
-  test('H4: WRPAC access-certificate and wallet-solution services never become issuer anchors', async () => {
+  test('WRPAC access-certificate and wallet-solution services never become issuer anchors', async () => {
     const wrpacAnchor = (await makeCert('EU Access CA')).base64
     const walletAnchor = (await makeCert('EU Wallet Solution Provider')).base64
     const document = loteFixture([
@@ -271,7 +271,7 @@ describe('EuTrustAnchorIngestionService — LoTE ingestion (ETSI TS 119 602)', (
     )
   })
 
-  test('M6: an oversized or timed-out LoTE is skipped, the rest served', async () => {
+  test('an oversized or timed-out LoTE is skipped, the rest served', async () => {
     const third = 'https://ec.example/lote/pub-eaa-providers.json'
     stubFetch({
       [LOTE_URL]: await signLote(loteFixture([{ certificateBase64: pidAnchor }]), operator),
@@ -293,7 +293,7 @@ describe('EuTrustAnchorIngestionService — LoTE ingestion (ETSI TS 119 602)', (
     ])
   })
 
-  test('M1: a LoTE past its NextUpdate is rejected even though its signature verifies', async () => {
+  test('a LoTE past its NextUpdate is rejected even though its signature verifies', async () => {
     const anHourAgo = new Date(Date.now() - 3600 * 1000).toISOString()
     stubFetch({
       [LOTE_URL]: await signLote(loteFixture([{ certificateBase64: pidAnchor }], { NextUpdate: anHourAgo }), operator),
@@ -302,7 +302,7 @@ describe('EuTrustAnchorIngestionService — LoTE ingestion (ETSI TS 119 602)', (
     await expect(service.anchorsFromLote()).rejects.toThrow(/is stale: its NextUpdate .* has passed/)
   })
 
-  test('M1: a replayed LoTE with a lower LoTESequenceNumber than the last accepted one is rejected', async () => {
+  test('a replayed LoTE with a lower LoTESequenceNumber than the last accepted one is rejected', async () => {
     const { service } = buildService({ loteSigner: operator.base64 })
     const ingest = async (LoTESequenceNumber: number) => {
       stubFetch({

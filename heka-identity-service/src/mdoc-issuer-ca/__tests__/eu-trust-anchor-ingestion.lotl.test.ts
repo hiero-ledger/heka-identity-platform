@@ -216,7 +216,7 @@ describe('EuTrustAnchorIngestionService — LoTL traversal (ETSI TS 119 612)', (
     await expect(service.anchorsFromLotl()).rejects.toThrow(/not a configured scheme-operator anchor/)
   })
 
-  test('H4: only credential-issuer service types become anchors — TSAs, QWAC CAs and national roots in a TL are ignored', async () => {
+  test('only credential-issuer service types become anchors — TSAs, QWAC CAs and national roots in a TL are ignored', async () => {
     const qeaaAnchor = (await makeCert('DE QEAA Provider')).base64
     const tsaAnchor = (await makeCert('DE Qualified TSA')).base64
     const qwacCaAnchor = (await makeCert('DE QWAC CA')).base64
@@ -264,7 +264,7 @@ describe('EuTrustAnchorIngestionService — LoTL traversal (ETSI TS 119 612)', (
     )
   })
 
-  describe('M6 fetch hardening', () => {
+  describe('fetch hardening', () => {
     test('every document is fetched with a timeout signal', async () => {
       const fetchMock = stubFetch({
         [LOTL_URL]: await signXml(lotl(lotlPointer(DE_URL, deSigner.base64, 'DE')), commission),
@@ -373,7 +373,7 @@ describe('EuTrustAnchorIngestionService — LoTL traversal (ETSI TS 119 612)', (
     })
   })
 
-  describe('M1 freshness and replay', () => {
+  describe('freshness and replay', () => {
     test('a national TL past its NextUpdate is skipped (and logged), the rest served', async () => {
       stubFetch({
         [LOTL_URL]: await signXml(

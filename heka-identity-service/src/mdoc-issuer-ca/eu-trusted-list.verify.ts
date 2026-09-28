@@ -13,10 +13,6 @@ import { normalizeBase64Certificate } from './certificate-list'
  * **the public keys of the caller-provided trusted signer certificates only** — never against a key the
  * document itself carries in `ds:KeyInfo`, which an attacker serving the document would control.
  * FAIL-CLOSED: throws on any failure so an unverified/tampered TL can never inject anchors.
- *
- * The trusted signers come from the LoTL traversal: the pinned Commission cert
- * (`EU_LOTL_SIGNER_CERTIFICATES`) when verifying the LoTL itself, then — for each national TL — the
- * signer(s) the verified LoTL declared for it (chain-based signer trust).
  */
 
 const DSIG_NS = 'http://www.w3.org/2000/09/xmldsig#'
@@ -50,9 +46,8 @@ type PinnedVerification =
  * `xadesjs.SignedXml` whose signature check is **bound to caller-supplied keys**. The stock `Verify()`
  * takes its keys from the document's own `ds:KeyInfo` when none is given (so whoever controls the
  * document controls the key), and `Verify({ key })` re-imports the given key under the SignedInfo
- * algorithm, which for ECDSA lacks the `namedCurve` Node's WebCrypto requires. This runs the same two
- * steps as the stock verifier — reference digests over the enveloped content, then the `SignatureValue`
- * — with exactly the given keys and reports which step failed.
+ * algorithm, which for ECDSA lacks the `namedCurve` Node's WebCrypto requires. This runs the stock
+ * verifier's two steps with exactly the given keys and reports which step failed.
  */
 class PinnedSignedXml extends xadesjs.SignedXml {
   public async verifyWithKeys(keys: CryptoKey[]): Promise<PinnedVerification> {
@@ -94,8 +89,6 @@ export async function verifyTrustedListSignature(xml: string, trustedSignerCerti
 
   const pinned = [...new Set(trustedSignerCertificates.map(normalizeBase64Certificate).filter(Boolean))]
   if (pinned.length === 0) {
-    // The expected signer is the pinned Commission cert (EU_LOTL_SIGNER_CERTIFICATES, for the LoTL
-    // itself) or the signer the verified LoTL declared for this national TL — empty means neither resolved.
     throw new TrustedListSignatureError('No trusted Trusted-List signer certificates were provided.')
   }
 

@@ -69,8 +69,8 @@ const x509ClientIdPrefix: X509ClientIdPrefix =
   process.env.X509_CLIENT_ID_PREFIX === 'x509_san_dns' ? 'x509_san_dns' : 'x509_hash';
 
 /**
- * The build-time default signer, set via `.env` (`DC_API_SIGNER`, `X509_CLIENT_ID_PREFIX`). Used when
- * the presentation flow does not pick a signer explicitly. Opting into `x5c` requires an X.509 signer to be provisioned first (POST /x509/signers).
+ * The build-time default signer, set via `.env` (`DC_API_SIGNER`, `X509_CLIENT_ID_PREFIX`). Opting into
+ * `x5c` requires an X.509 signer to be provisioned first (POST /x509/signers).
  */
 const envDefaultSelection: RequestSignerSelection =
   dcApiSignerMethod === 'x5c'

@@ -29,7 +29,7 @@ const binaryParser = (res: unknown, callback: (error: Error | null, body: Buffer
 const POLICY_OID = '0.4.0.2042.1.3' // EN 319 411-1 LCP — a real policy identifier, used here as the operator's choice
 
 /**
- * E1.1 over the real stack (the "real-Askar" test deferred at E1): with the EUDI PID profile, a tenant's
+ * Over the real stack: with the EUDI PID profile, a tenant's
  * IACA + DSC are minted through the tenant KMS, the DSC meets every ETSI TS 119 412-6 clause 4 requirement
  * (executable checklist), its AIA points at a public route that serves the IACA, the chain validates in
  * Credo, and an mdoc PID signed with that DSC (no ISO mdlDS EKU) verifies in another tenant through the
@@ -155,7 +155,7 @@ describe('mdoc issuer CA — EUDI PID certificate profile (TS 119 412-6)', () =>
     }
   })
 
-  test('H3: a tenant provisions its own EU IACA through the API — profile, legal-person id and policy OID are honoured', async () => {
+  test('a tenant provisions its own EU IACA through the API — profile, legal-person id and policy OID are honoured', async () => {
     const tenantPolicyOid = '1.3.6.1.4.1.99999.2.1'
     const authToken = await createAuthToken(uuid(), Role.Admin)
 

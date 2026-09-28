@@ -10,10 +10,7 @@ import { TrustListService } from './trust-list.service'
  * only public key material (per-tenant IACA certificates) signed by the VICAL signer, and wallets
  * fetch it before they have any session.
  *
- * Optional export for ISO 18013-5 readers that import VICALs (Multipaz and similar); **off by
- * default** (`VICAL_ENABLED`) — EUDI-shaped consumers use the scheme trust lists (`/trust-list/*`),
- * which publish the same IACA registry. While disabled the endpoint answers 404 and no VICAL signer
- * is ever provisioned.
+ * Off by default (`VICAL_ENABLED`, see `TrustListService`): answers 404 while disabled.
  */
 @ApiTags('mdoc Issuer CA')
 @Controller('vical')

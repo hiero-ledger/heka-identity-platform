@@ -4,10 +4,8 @@ import { Identified } from './identified.entity'
 import { User } from './user.entity'
 
 /**
- * How a Status List Token is signed. It is always the **same key** the referenced SD-JWT VCs were
- * signed with — Credo (and the EUDI reference wallet) verify the list with the referenced credential's
- * issuer key — so the header material mirrors the credential's: the `x5c` chain of an X.509 issuer, or
- * the `kid` (DID URL) of a DID issuer.
+ * Header material naming the list's signing key — the credential-signing key (see `TokenStatusListService`):
+ * the `x5c` chain of an X.509 issuer, or the `kid` (DID URL) of a DID issuer.
  */
 export type TokenStatusListSigner = { method: 'x5c'; x5c: string[] } | { method: 'did'; kid: string }
 
@@ -31,12 +29,11 @@ interface TokenStatusListProps {
 
 /**
  * An IETF Token Status List (draft-ietf-oauth-status-list) referenced by SD-JWT VCs through their
- * `status.status_list` claim. One list per (owner, signing key): the key that signs the referenced
- * credentials also signs the list, and it survives issuer-certificate rotation because
- * `ManagedCertificateService` never deletes rotated-out keys.
+ * `status.status_list` claim. One list per (owner, signing key), keyed by `signerKeyId`, so it outlives
+ * certificate renewal (the key is kept — see `ManagedCertificateService`).
  *
- * App-DB entity (not an Askar record) for the same reason as `CredentialStatusList`: the public
- * download route resolves a list by id with no tenant context.
+ * App-DB entity rather than an Askar record: the public download route resolves a list by id with no
+ * tenant context.
  */
 @Entity()
 export class TokenStatusList extends Identified {
@@ -44,7 +41,7 @@ export class TokenStatusList extends Identified {
   @Property({ nullable: false, type: 'string' })
   public issuer: string
 
-  /** KMS key id (in the owning tenant's store) of the key that signs the referenced credentials + this list. */
+  /** KMS key id (owning tenant's store) that signs this list. */
   @Property({ nullable: false, type: 'string' })
   public signerKeyId: string
 
@@ -64,11 +61,11 @@ export class TokenStatusList extends Identified {
   @Property({ nullable: false, type: 'number' })
   public allocatedCount: number
 
-  /** Base64 bitmap of the indexes handed out to credentials (indexes are drawn at random). */
+  /** Base64 bitmap of the indexes handed out to credentials. */
   @Property({ nullable: false, type: 'text' })
   public allocated: string
 
-  /** The deflate-compressed status array as base64url (the token's `lst` value, as the status-list library emits it). */
+  /** The compressed status array as base64url — the token's `lst` value. */
   @Property({ nullable: false, type: 'text' })
   public statuses: string
 

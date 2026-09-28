@@ -34,8 +34,8 @@ export interface BuildOpenIdPresentationRequestParams {
 }
 
 // Non-DC-API ("direct_post") requests are signed with the verifier's DID.
-// The DC API flow is built separately (see buildDcApiPresentationRequest) — it is also
-// signed with the verifier's DID (a JAR, required by the wallet matcher) but MUST use DCQL, not PEX.
+// The DC API flow is built separately (see buildDcApiPresentationRequest): a JAR signed with the
+// verifier DID or, when selected, its X.509 signer; it MUST use DCQL, not PEX.
 
 export const buildSdJwtPresentationRequest = ({
   id,

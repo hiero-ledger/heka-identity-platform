@@ -72,12 +72,9 @@ export const Splash: React.FC = () => {
           return
         }
 
-        // Trust anchors: first load the on-device cache of the signed trust lists (re-verified, no
-        // network) so trust is in place right after unlock, then refresh from the configured sources
-        // (the Heka scheme lists by default). Fire-and-forget so it never blocks startup; each source
-        // degrades independently (a failed source keeps its previously-trusted anchors).
+        // Load the cached trust lists, then refresh from the network; fire-and-forget so startup never blocks.
         const refreshTrustList = (readyAgent: HekaWalletAgent): void => {
-          // Settings that failed to parse at startup contribute no anchors — say so where the operator looks.
+          // Re-log the startup trust-configuration errors through the app logger.
           for (const error of TRUST_CONFIGURATION_ERRORS) logger.warn(`Trust configuration error — ${error}`)
           void loadCachedTrustSources(readyAgent)
             .then((loaded) => {

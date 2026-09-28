@@ -109,7 +109,7 @@ describe('X509SignerService', () => {
       expect(identity).toMatchObject({ id: 'rec-1', clientIdPrefix: 'x509_hash', keyId: 'kms-1', did: 'did:jwk:abc' })
     })
 
-    test.each([0, -7, 1.5, 365 * 10 + 1])('M7: rejects validityDays %p before creating a key', async (validityDays) => {
+    test.each([0, -7, 1.5, 365 * 10 + 1])('rejects validityDays %p before creating a key', async (validityDays) => {
       await expect(service.provision(tenantAgent, { validityDays })).rejects.toThrow(UnprocessableEntityException)
       expect(mockCreateKey).not.toHaveBeenCalled()
     })
@@ -173,7 +173,7 @@ describe('X509SignerService', () => {
       expect(cert.keyId).toBe('kms-9')
     })
 
-    test('M2: a certificateId naming a record of another purpose (an IACA, a DSC…) is not found, never signed with', async () => {
+    test('a certificateId naming a record of another purpose (an IACA, a DSC…) is not found, never signed with', async () => {
       const spy = vi.spyOn(X509Certificate, 'fromEncodedCertificate')
       mockFindById.mockResolvedValue({
         id: 'iaca-rec',
@@ -242,7 +242,7 @@ describe('X509SignerService', () => {
       expect(identity.clientIdPrefix).toBe('x509_san_dns')
     })
 
-    test('M7: refuses a root-signed leaf that would outlive the service root CA', async () => {
+    test('refuses a root-signed leaf that would outlive the service root CA', async () => {
       // the (mock) root expires 2036-01-01; ten years from now is later than that
       await expect(
         service.provision(tenantAgent, {
@@ -374,7 +374,7 @@ describe('X509SignerService', () => {
       expect(mockSave.mock.calls[0][0].content.certificateBase64).toBe('LEAFB64')
     })
 
-    test('M2: rejects a certificate whose subject key is not the tenant key it is bound to', async () => {
+    test('rejects a certificate whose subject key is not the tenant key it is bound to', async () => {
       vi.spyOn(X509Certificate, 'fromEncodedCertificate').mockReturnValue({
         ...leaf(),
         publicJwk: { marker: 'someone-elses-key' },
@@ -386,7 +386,7 @@ describe('X509SignerService', () => {
       expect(mockSave).not.toHaveBeenCalled()
     })
 
-    test('M2: rejects an import for a key the tenant store does not hold', async () => {
+    test('rejects an import for a key the tenant store does not hold', async () => {
       vi.spyOn(X509Certificate, 'fromEncodedCertificate').mockReturnValue(leaf() as never)
       mockGetPublicKey.mockResolvedValue(null)
 

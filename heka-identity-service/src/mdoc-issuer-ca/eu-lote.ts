@@ -68,10 +68,9 @@ export function loteListInfo(document: LoTEDocument): LoteListInfo {
 
 export interface ExtractLoteAnchorOptions {
   /**
-   * Allow-list of `ServiceTypeIdentifier`s. Defaults to {@link EU_LOTE_ISSUER_SERVICE_TYPES} — EAA / PID /
-   * PuB-EAA issuance — so the wallet-provider, registrar and WRPAC access-certificate services a LoTE also
-   * carries never become issuer anchors (H4). Services without a type identifier are excluded. An explicit
-   * empty list yields no anchors.
+   * Allow-list of `ServiceTypeIdentifier`s; defaults to {@link EU_LOTE_ISSUER_SERVICE_TYPES} (see
+   * `eu-service-types.ts`). Services without a type identifier are excluded; an explicit empty list yields
+   * no anchors.
    */
   serviceTypes?: readonly string[]
 }

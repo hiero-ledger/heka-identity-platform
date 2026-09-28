@@ -70,10 +70,8 @@ export async function createDcApiAgent(walletSecret: WalletSecret): Promise<Heka
     throw error
   }
 
-  // This React root starts with an empty trust-anchor store (the main app's refresh lives in another
-  // runtime), so load the on-device cache of the signed trust lists (re-verified) and, only when a
-  // source has no usable cache at all, await one bounded network refresh. Best-effort: the overlay
-  // still opens without anchors (verification then fails closed, as before).
+  // This React root has its own, empty anchor store: bootstrap it cache-first (see `ensureTrustAnchors`).
+  // Best-effort — the overlay still opens without anchors.
   for (const error of TRUST_CONFIGURATION_ERRORS) agent.config.logger.warn(`Trust configuration error — ${error}`)
   try {
     const trust = await ensureTrustAnchors(agent as unknown as HekaWalletAgent)

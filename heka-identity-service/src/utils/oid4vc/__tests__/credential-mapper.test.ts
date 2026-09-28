@@ -82,7 +82,7 @@ describe('credential mapper — SD-JWT VC issuance', () => {
     index: 10,
   }
 
-  test('M3: signs with the chain pinned at offer time, key id bound, even after the issuer certificate rotated', async () => {
+  test('signs with the chain pinned at offer time, key id bound, even after the issuer certificate rotated', async () => {
     const result = await map(
       metadata({
         issuerMode: 'x5c',
@@ -100,7 +100,7 @@ describe('credential mapper — SD-JWT VC issuance', () => {
     expect(getSdJwtVcIssuerCertificate).not.toHaveBeenCalled()
   })
 
-  test('M3: a pinned key that no longer exists fails the request instead of signing with another identity', async () => {
+  test('a pinned key that no longer exists fails the request instead of signing with another identity', async () => {
     getPublicKey.mockResolvedValue(null)
     await expect(
       map(
@@ -122,7 +122,7 @@ describe('credential mapper — SD-JWT VC issuance', () => {
     expect(result.credentials[0].issuer.x5c?.[0].keyId).toBe('current-key')
   })
 
-  test('M4: every credential of a batch carries its own status-list entry', async () => {
+  test('every credential of a batch carries its own status-list entry', async () => {
     const result = await map(
       metadata({
         issuer: { didUrl: 'did:key:z6MkIssuer#key-1' },
@@ -137,7 +137,7 @@ describe('credential mapper — SD-JWT VC issuance', () => {
     )
   })
 
-  test('M4: a batch larger than the entries reserved at offer time fails closed', async () => {
+  test('a batch larger than the entries reserved at offer time fails closed', async () => {
     await expect(
       map(
         metadata({

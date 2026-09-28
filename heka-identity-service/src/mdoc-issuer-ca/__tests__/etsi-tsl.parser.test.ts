@@ -59,7 +59,7 @@ describe('parseTrustedListAnchors', () => {
     expect(parseTrustedListAnchors(xml)).toEqual(['MIIB_QC'])
   })
 
-  test('H4: the default gate admits qualified CAs and QEAA / PuB-EAA issuance, never TSAs, QWAC CAs, roots or validators', () => {
+  test('the default gate admits qualified CAs and QEAA / PuB-EAA issuance, never TSAs, QWAC CAs, roots or validators', () => {
     const xml = trustedList(
       service(EU_TL_SERVICE_TYPE.caQc, GRANTED, 'MIIB_CA_QC'),
       service(EU_TL_SERVICE_TYPE.eaaQ, GRANTED, 'MIIB_QEAA'),

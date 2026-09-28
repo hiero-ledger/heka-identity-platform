@@ -14,7 +14,7 @@ import {
 } from '../eu-certificate-builder'
 
 /**
- * Proves the `@peculiar/x509` escape hatch produces valid EU/EUDI-profile certificates — the extensions
+ * Proves the EU certificate builder produces valid EU/EUDI-profile certificates — the extensions
  * and DN attributes Credo's `X509Api` cannot emit (`organizationIdentifier`, `certificatePolicies`,
  * arbitrary EKU OIDs). Uses **native** WebCrypto keys (no KMS): this isolates the novel cert-content logic
  * (the pure builders) from the KMS signing wiring, which mirrors Credo's own verified path.
@@ -22,7 +22,7 @@ import {
 const crypto = webcrypto as unknown as Crypto
 x509.cryptoProvider.set(crypto)
 
-// Clearly-fake test OIDs — NOT the normative ETSI values (which are still stabilizing; see the profile notes).
+// Clearly-fake test OIDs, not the normative values in certificate-profiles.ts.
 const TEST_EKU_OID = '1.3.6.1.4.1.99999.1'
 const TEST_POLICY_OID = '1.3.6.1.4.1.99999.2'
 const ORG_ID = 'VATDE-0123456789'
