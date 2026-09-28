@@ -1,4 +1,4 @@
-FROM node:22@sha256:8a34c4ab3ea2c5cd194f07e317b2a8f09461d3c8b05c4e34c8ccd56d56024c4d AS builder
+FROM node:26@sha256:a723b54c35a76e947095a20a67d39585bb09c862e6b1adeb8a9f518f95e34fb0 AS builder
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -13,7 +13,7 @@ RUN yarn install --immutable
 COPY . .
 RUN yarn build
 
-FROM node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5
+FROM node:26-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2
 
 RUN apt-get update && apt-get install curl -y
 
