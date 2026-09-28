@@ -34,7 +34,6 @@ export const RecoverMnemonicScreen: React.FC<RecoverMnemonicScreenProps> = obser
       await registerConfig.createMnemonic(name, mnemonic, password, bip44Option.bip44HDPath)
     } else {
       const privateKey = getPrivateKey(mnemonic)
-      //@ts-expect-error - TODO: check if there is an actual problem caused by `Buffer' type mispatch (probably just Node 'buffer' module resolution?)
       await registerConfig.createPrivateKey(name, privateKey, password)
     }
 
