@@ -33,10 +33,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@a2a-js/sdk@npm:^0.3.10":
-  version: 0.3.10
-  resolution: "@a2a-js/sdk@npm:0.3.10"
+"@a2a-js/sdk@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@a2a-js/sdk@npm:1.0.1"
   dependencies:
+    jose: "npm:^6.2.3"
     uuid: "npm:^11.1.0"
   peerDependencies:
     "@bufbuild/protobuf": ^2.10.2
@@ -49,7 +50,7 @@ __metadata:
       optional: true
     express:
       optional: true
-  checksum: 10c0/7b24d36ef75dac89f628c8e2a7bf6563357ee96745c78309df77f7ddb7b4ce1796d4d6b035afd4ff3d363b355bdbee440bbaf5e86f230de5ca8ca6def4f22867
+  checksum: 10c0/799cd0e4cb35f78e1d71e1c3e922886a5db2348057424033523b20f747ab2923ba1efea18838246b65c9049ed32108cef6a66615715ce31cc8712fe822f880d6
   languageName: node
   linkType: hard
 
@@ -2637,7 +2638,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "a2a-oid4vp-demo@workspace:."
   dependencies:
-    "@a2a-js/sdk": "npm:^0.3.10"
+    "@a2a-js/sdk": "npm:^1.0.1"
     "@credo-ts/askar": "npm:^0.6.2"
     "@credo-ts/core": "npm:^0.6.2"
     "@credo-ts/didcomm": "npm:^0.6.2"
@@ -2646,6 +2647,7 @@ __metadata:
     "@openwallet-foundation/askar-nodejs": "npm:^0.4.3"
     "@openwallet-foundation/askar-shared": "npm:^0.4.3"
     "@types/express": "npm:^5.0.6"
+    "@types/ws": "npm:^8.18.1"
     axios: "npm:^1.13.5"
     dotenv: "npm:^17.3.1"
     express: "npm:^5.2.1"
@@ -4678,6 +4680,13 @@ __metadata:
     uuid: "npm:^8.3.2"
     xorshift: "npm:^1.1.1"
   checksum: 10c0/04f5683461212de49e4d5b6ca6b214276a797e361fba852231bc5e7fdcee76b053a6e618e5490106d7f7254917d928dda0880f7cd71e35dece7e09bbdcdd0927
+  languageName: node
+  linkType: hard
+
+"jose@npm:^6.2.3":
+  version: 6.2.8
+  resolution: "jose@npm:6.2.8"
+  checksum: 10c0/fe4c6a7197a1adab2251b000c1eaaa8b40b6cb7cfbef43dbc9e959dacd43bf2532827b2d5e0f4069731da79d26e4d9e4368ccb26559a42a884b3fe036927e6e1
   languageName: node
   linkType: hard
 
