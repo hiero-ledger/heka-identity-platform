@@ -45,7 +45,7 @@ export function getKeychainAccessOptions(service: KeychainServices, useBiometric
 
   if (Platform.OS === 'android') {
     options.securityLevel = Keychain.SECURITY_LEVEL.ANY
-    options.storage = useBiometrics ? Keychain.STORAGE_TYPE.RSA : Keychain.STORAGE_TYPE.AES_GCM
+    options.storage = useBiometrics ? Keychain.STORAGE_TYPE.RSA : Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH
   }
 
   return options

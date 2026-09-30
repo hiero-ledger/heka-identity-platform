@@ -11,6 +11,7 @@ import entities from 'common/entities'
 import { LoggerProvider } from 'common/logger'
 import { NotificationModule } from 'common/notification'
 import config from 'config'
+import { assertSecureConfiguration } from 'config/insecure-defaults'
 import MikroOrmConfig from 'config/mikro-orm'
 
 import { DidRegistrarModule } from '../common/did-registrar'
@@ -23,6 +24,12 @@ import { MikroOrmMiddleware } from './mikro-orm'
     ConfigModule.forRoot({
       isGlobal: true,
       load: config,
+      // Warns about publicly known default secrets and refuses to start unless NODE_ENV is unset, empty, development or test.
+      // Returns the env record unchanged so `.env` values are still assigned to `process.env`.
+      validate: (env) => {
+        assertSecureConfiguration(env)
+        return env
+      },
     }),
     MikroOrmModule.forRootAsync({
       driver: PostgreSqlDriver,

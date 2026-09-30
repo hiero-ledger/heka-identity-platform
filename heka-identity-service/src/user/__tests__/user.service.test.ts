@@ -5,6 +5,7 @@ import { TenantAgent } from 'common/agent'
 import { Role } from 'common/auth'
 import { MessageDeliveryType, User } from 'common/entities'
 import { Logger } from 'common/logger'
+import { WebhookEgressService, WebhookTargetPolicyError } from 'common/webhook'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
 
 import { FileStorageService } from '../../common/file-storage/file-storage.service'
@@ -16,6 +17,7 @@ describe('UserService', () => {
   let userService: UserService
   let issuerService: OpenId4VcIssuerService
   let fileStorageService: FileStorageService
+  let webhookEgress: WebhookEgressService
   let tenantAgent: TenantAgent
 
   const authInfo = {
@@ -33,7 +35,9 @@ describe('UserService', () => {
     logger = createMock<Logger>()
     issuerService = createMock<OpenId4VcIssuerService>()
     fileStorageService = createMock<FileStorageService>()
-    userService = new UserService(em, logger, issuerService, fileStorageService)
+    webhookEgress = createMock<WebhookEgressService>()
+    vi.mocked(webhookEgress.assertCallbackUrlAllowed).mockResolvedValue(undefined)
+    userService = new UserService(em, logger, issuerService, fileStorageService, webhookEgress)
     tenantAgent = createMock<TenantAgent>()
   })
 
@@ -102,6 +106,51 @@ describe('UserService', () => {
       expect(em.findOneOrFail).toHaveBeenCalledWith(User, { id: '11' })
       expect(user.messageDeliveryType).toBe(MessageDeliveryType.WebHook)
       expect(user.webHook).toBe('https://hooks.example.com')
+      expect(webhookEgress.assertCallbackUrlAllowed).toHaveBeenCalledWith('https://hooks.example.com')
+    })
+
+    test('rejects a webHook that violates the egress policy and persists nothing', async () => {
+      const user = new User({ id: '11' })
+      vi.mocked(em.findOneOrFail).mockResolvedValue(user)
+      vi.mocked(webhookEgress.assertCallbackUrlAllowed).mockRejectedValue(
+        new WebhookTargetPolicyError('HOST', 'Webhook hostname is not permitted'),
+      )
+
+      await expect(
+        userService.patchMe(authInfo, tenantAgent, {
+          messageDeliveryType: MessageDeliveryType.WebHook,
+          webHook: 'http://metadata.google.internal/hook',
+        }),
+      ).rejects.toMatchObject({ status: 400, message: 'Webhook hostname is not permitted' })
+
+      expect(user.webHook).toBeUndefined()
+      expect(em.flush).not.toHaveBeenCalled()
+    })
+
+    test('rejects a disallowed webHook before touching the logo', async () => {
+      const user = new User({ id: '11', logo: 'old/path.png', messageDeliveryType: MessageDeliveryType.WebSocket })
+      vi.mocked(em.findOneOrFail).mockResolvedValue(user)
+      vi.mocked(webhookEgress.assertCallbackUrlAllowed).mockRejectedValue(
+        new WebhookTargetPolicyError('ADDR', 'Webhook target address is not permitted'),
+      )
+      const logoFile = { originalname: 'logo.png' } as Express.Multer.File
+
+      await expect(
+        userService.patchMe(
+          authInfo,
+          tenantAgent,
+          { messageDeliveryType: MessageDeliveryType.WebHook, webHook: 'https://blocked.example.com' },
+          logoFile,
+        ),
+      ).rejects.toMatchObject({ status: 400, message: 'Webhook target address is not permitted' })
+
+      expect(fileStorageService.remove).not.toHaveBeenCalled()
+      expect(fileStorageService.put).not.toHaveBeenCalled()
+      expect(user.logo).toBe('old/path.png')
+      expect(user.messageDeliveryType).toBe(MessageDeliveryType.WebSocket)
+      expect(user.webHook).toBeUndefined()
+      expect(issuerService.applyUserDisplay).not.toHaveBeenCalled()
+      expect(em.flush).not.toHaveBeenCalled()
     })
 
     test('uploads new logo and removes old one', async () => {
