@@ -44,7 +44,6 @@
     "@formatjs/intl-numberformat": "^8.15.6",
     "@formatjs/intl-pluralrules": "^5.4.6",
     "@formatjs/intl-relativetimeformat": "^11.4.13",
-    "@heka-wallet/keplr": "*",
     "@heka-wallet/shared": "*",
     "@hyperledger/anoncreds-react-native": "0.4.0",
     "@hyperledger/indy-vdr-react-native": "0.3.0",

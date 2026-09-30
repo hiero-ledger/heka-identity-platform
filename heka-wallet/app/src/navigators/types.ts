@@ -1,5 +1,4 @@
 import { SettingStackParams as BifoldSettingStackParams } from '@bifold/core/src/types/navigators'
-import { KeplrStackParams } from '@heka-wallet/keplr'
 import { NavigatorScreenParams } from '@react-navigation/core'
 
 import { CredentialSubmissionOption } from '../credentials'
@@ -24,7 +23,6 @@ export enum Stacks {
 
 export enum TabStacks {
   BifoldSettingsStack = 'TabBifoldSettingsStack',
-  KeplrStack = 'TabKeplrStack',
 }
 
 export type AuthStackParams = {
@@ -42,7 +40,6 @@ export type BackupStackParams = {
 
 export type TabStackParams = {
   [TabStacks.BifoldSettingsStack]: NavigatorScreenParams<BifoldSettingStackParams>
-  [TabStacks.KeplrStack]: NavigatorScreenParams<KeplrStackParams>
 }
 
 export type OpenIdStackParams = {

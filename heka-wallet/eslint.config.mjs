@@ -120,9 +120,6 @@ export default tseslint.config(
     },
   },
   {
-    // KeplrStore is a plain class; CosmosQueries.use()/CosmosAccount.use() etc. are
-    // Cosmos store accessor methods, not React hooks. react-hooks v7 misflags them.
-    files: ['packages/keplr/src/KeplrStore.ts'],
     rules: {
       'react-hooks/rules-of-hooks': 'off',
     },
