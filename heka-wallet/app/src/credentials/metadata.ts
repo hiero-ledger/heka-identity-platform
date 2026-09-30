@@ -22,13 +22,32 @@ export interface OpenId4VcCredentialMetadata {
 
 const OID4VC_CREDENTIAL_METADATA_KEY = '_heka-wallet/openId4VcCredentialMetadata'
 
+/**
+ * Returns the credential display entries regardless of the OID4VCI version the issuer uses.
+ *
+ * OID4VCI 1.0 nests them under `credential_metadata.display`, while draft 14/15 issuers (such as
+ * the Heka identity service) put `display` at the top level of the credential configuration.
+ * The `@openid4vc/openid4vci` parser only normalizes draft 11 metadata, so the draft 14/15 shape
+ * reaches us untouched and has to be handled here.
+ */
+function getCredentialDisplay(
+  credentialMetadata: OpenId4VciCredentialConfigurationSupported
+): CredentialMetadataDisplay | undefined {
+  if (credentialMetadata.credential_metadata?.display) {
+    return credentialMetadata.credential_metadata.display
+  }
+
+  const legacyDisplay = (credentialMetadata as { display?: unknown }).display
+  return Array.isArray(legacyDisplay) ? (legacyDisplay as CredentialMetadataDisplay) : undefined
+}
+
 export function extractOpenId4VcCredentialMetadata(
   credentialMetadata: OpenId4VciCredentialConfigurationSupported,
   serverMetadata: { display?: any[]; id: string }
 ): OpenId4VcCredentialMetadata {
   return {
     credential: {
-      display: credentialMetadata.credential_metadata?.display,
+      display: getCredentialDisplay(credentialMetadata),
       order: credentialMetadata.order,
     },
     issuer: {
