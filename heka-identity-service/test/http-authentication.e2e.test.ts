@@ -8,7 +8,7 @@ import request from 'supertest'
 import { uuid } from 'src/utils/misc'
 import { sleep } from 'src/utils/timers'
 
-import { initializeMikroOrm, signJwt, startTestApp } from './helpers'
+import { initializeMikroOrm, signHs256Jwt, signJwt, startTestApp, testOidcAudience, testOidcIssuer } from './helpers'
 
 describe('E2E HTTP authentication', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -45,11 +45,10 @@ describe('E2E HTTP authentication', () => {
         type: 'access',
         roles: ['Admin'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -67,11 +66,10 @@ describe('E2E HTTP authentication', () => {
         roles: ['OrgAdmin'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -89,11 +87,10 @@ describe('E2E HTTP authentication', () => {
         roles: ['OrgManager'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -111,11 +108,10 @@ describe('E2E HTTP authentication', () => {
         roles: ['OrgMember'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -133,11 +129,10 @@ describe('E2E HTTP authentication', () => {
         roles: ['Issuer'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -155,11 +150,10 @@ describe('E2E HTTP authentication', () => {
         roles: ['Verifier'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -176,11 +170,10 @@ describe('E2E HTTP authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -197,10 +190,9 @@ describe('E2E HTTP authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        audience: 'Heka Identity Service',
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -217,11 +209,10 @@ describe('E2E HTTP authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
         issuer: 'Heka Heka',
-        audience: 'Heka Identity Service',
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -238,10 +229,9 @@ describe('E2E HTTP authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
+        issuer: testOidcIssuer,
         expiresIn: '1w',
       },
     )
@@ -258,10 +248,9 @@ describe('E2E HTTP authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
+        issuer: testOidcIssuer,
         audience: 'Heka Mobile App',
         expiresIn: '1w',
       },
@@ -279,11 +268,10 @@ describe('E2E HTTP authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1s',
       },
     )
@@ -303,11 +291,10 @@ describe('E2E HTTP authentication', () => {
         type: 'access',
         roles: [],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -324,11 +311,10 @@ describe('E2E HTTP authentication', () => {
         type: 'access',
         roles: ['Admin', 'User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -346,11 +332,10 @@ describe('E2E HTTP authentication', () => {
         roles: ['User'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -367,11 +352,10 @@ describe('E2E HTTP authentication', () => {
         type: 'access',
         roles: ['Issuer'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -388,11 +372,31 @@ describe('E2E HTTP authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'wrong-secret',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
+        expiresIn: '1w',
+      },
+      { untrusted: true },
+    )
+
+    const getUserResponse = await request(app).get('/user').auth(userAuthToken, { type: 'bearer' })
+
+    expect(getUserResponse.status).toBe(401)
+  })
+
+  test('rejects if bearer token is signed with a shared secret (HS256)', async () => {
+    const userAuthToken = await signHs256Jwt(
+      {
+        name: 'John',
+        type: 'access',
+        roles: ['User'],
+      },
+      {
+        subject: uuid(),
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )

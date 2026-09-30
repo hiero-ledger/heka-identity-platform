@@ -16,7 +16,7 @@ The platform is composed of the following components:
 - **[Heka Wallet](./heka-wallet)** (Verifiable Credentials Holder): Cross-platform mobile application (built with React Native) for end users to receive, store, and present verifiable credentials.
 - **[Identity Service](./heka-identity-service)**: Backend service (built with NestJS) that primarily acts as a Verifiable Credentials Issuer and Verifier, while also supporting Holder capabilities for cloud (custodial) wallet scenarios.
 - **[Identity Service Web UI](./heka-identity-service-web-ui)**: Web UI application for Identity Service — allows managing schemas, credential templates, and issuance / verification flows.
-- **[Auth Service](./heka-auth-service)**: Authentication service used by the Identity Service for tenant and user authentication.
+- **OIDC provider** (Keycloak, Auth0 or any standards-compliant provider, not part of the repository): authenticates Identity Service users and tenants; the ready-made recipes live in [heka-sso-service/keycloak](./heka-sso-service/keycloak) and [heka-sso-service/auth0](./heka-sso-service/auth0).
 
 The implementation is based on the **DSR SSI Toolkit** and leverages well-established open-source frameworks: **OWF Credo** and **OWF Bifold**.
 
@@ -26,13 +26,13 @@ The implementation is based on the **DSR SSI Toolkit** and leverages well-establ
 flowchart LR
     Wallet[Heka Wallet<br/>Holder]
     WebUI[Identity Service Web UI<br/>Issuer / Verifier Client]
-    Auth[Auth Service]
+    OIDC[OIDC provider<br/>Keycloak / Auth0 / …]
     IS[Identity Service<br/>Issuer / Verifier Wallet]
     Hedera[(Hiero / Hedera Ledger)]
 
-    WebUI -->|login / register| Auth
-    WebUI -->|REST API + JWT| IS
-    Auth -.->|issues JWTs trusted by| IS
+    WebUI -->|login / register<br/>Authorization Code + PKCE| OIDC
+    WebUI -->|REST API + access token| IS
+    OIDC -.->|JWKS: tokens verified by| IS
     Wallet <-->|OID4VC / DIDComm| IS
     IS -->|DIDs / AnonCreds Resources| Hedera
     Wallet -->|DIDs and AnonCreds Resources resolution| Hedera
@@ -44,7 +44,7 @@ Each component is set up and run independently. For specific setup and configura
 
 The recommended approach for exploring the platform is the following:
 - Set up and get familiar with core functional components - [Identity Service](./heka-identity-service) and [Heka Wallet (Mobile application)](./heka-wallet)
-- Explore the [Identity Service Web UI](./heka-identity-service-web-ui) and [Auth Service](./heka-auth-service) components. These are more general-purpose applications that still represent a crucial piece for complete experience and testing capabilities
+- Explore the [Identity Service Web UI](./heka-identity-service-web-ui) together with an OIDC provider set up from the [Keycloak](./heka-sso-service/keycloak) or [Auth0](./heka-sso-service/auth0) recipe. The Web UI is a more general-purpose application that still represents a crucial piece for complete experience and testing capabilities
 - Once you get familiar with the baseline functionality of a platform, feel free to check out the [demo folder](./demo) to explore various decentralized identity use cases implemented with Heka Identity Platform
 
 ## Supported Identity Standards

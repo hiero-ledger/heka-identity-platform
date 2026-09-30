@@ -138,7 +138,8 @@ describe('OAuthStore', () => {
     expect(Auth.revoke).toBeCalledTimes(1)
     expect(Auth.revoke).toBeCalledWith(mockConfig.oauthConfig, {
       tokenToRevoke: mockAuthState.accessToken,
-      includeBasicAuth: true,
+      // Public client without a secret: identified by 'client_id' in the body only
+      includeBasicAuth: false,
       sendClientId: true,
     })
 
@@ -147,6 +148,24 @@ describe('OAuthStore', () => {
 
     expect(AsyncStorage.removeItem).toBeCalledTimes(1)
     expect(AsyncStorage.removeItem).toBeCalledWith(OAUTH_USER_INFO_KEY)
+  })
+
+  it('should revoke access token with Basic auth on log out for a confidential client', async () => {
+    const confidentialConfig: OAuthStoreConfig = {
+      ...mockConfig,
+      oauthConfig: { ...mockConfig.oauthConfig, clientSecret: 'client-secret' },
+    }
+    const oauthStore = new OAuthStore(confidentialConfig)
+    await waitFor(() => expect(oauthStore.isLoading).toBe(false))
+
+    await oauthStore.logOut()
+
+    expect(Auth.revoke).toBeCalledTimes(1)
+    expect(Auth.revoke).toBeCalledWith(confidentialConfig.oauthConfig, {
+      tokenToRevoke: mockAuthState.accessToken,
+      includeBasicAuth: true,
+      sendClientId: true,
+    })
   })
 
   it('should log out and reset auth state if token revocation failed', async () => {

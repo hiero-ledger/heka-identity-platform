@@ -81,8 +81,9 @@ const e2eEnv: Record<string, string> = {
   OIDC_STUB_LOGIN: 'false',
   IDENTITY_SERVICE_BASE_URL: 'http://identity.e2e.internal',
   IDENTITY_SERVICE_AUTH_TOKEN: '',
-  IDENTITY_SERVICE_AUTH_NAME: '',
-  IDENTITY_SERVICE_AUTH_PASSWORD: '',
+  IDENTITY_SERVICE_TOKEN_URL: '',
+  IDENTITY_SERVICE_CLIENT_ID: '',
+  IDENTITY_SERVICE_CLIENT_SECRET: '',
   IDENTITY_SERVICE_PUBLIC_VERIFIER_ID: '',
   IDENTITY_SERVICE_REQUEST_SIGNER_DID: '',
 }
@@ -614,7 +615,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         OIDC_STUB_LOGIN: 'false',
         IDENTITY_SERVICE_PUBLIC_VERIFIER_ID: 'did:key:zE2eVerifier',
         IDENTITY_SERVICE_REQUEST_SIGNER_DID: 'did:key:zE2eSigner',
-        // static override — no auth-service login in the e2e
+        // static override: no client-credentials grant in the e2e
         IDENTITY_SERVICE_AUTH_TOKEN: 'e2e-static-token',
       })
       vi.stubGlobal('fetch', fetchMock)

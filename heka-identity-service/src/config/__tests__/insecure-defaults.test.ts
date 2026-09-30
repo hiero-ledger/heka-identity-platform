@@ -8,7 +8,6 @@ import {
   INSECURE_DEFAULTS,
   parseDidMethods,
 } from 'config/insecure-defaults'
-import jwtConfig from 'config/jwt'
 import mikroOrmConfig from 'config/mikro-orm'
 
 const secureEnv: Record<string, string> = {
@@ -262,14 +261,12 @@ describe('insecure defaults', () => {
     })
 
     it('uses the known defaults when the variables are not set', () => {
-      expect(jwtConfig().secret).toBe(INSECURE_DEFAULTS.JWT_SECRET)
       expect(mikroOrmConfig().password).toBe(INSECURE_DEFAULTS.MIKRO_ORM_PASSWORD)
     })
 
     it('prefers explicitly configured values', () => {
       process.env.JWT_SECRET = 'custom-secret'
       process.env.MIKRO_ORM_PASSWORD = 'custom-password'
-      expect(jwtConfig().secret).toBe('custom-secret')
       expect(mikroOrmConfig().password).toBe('custom-password')
     })
   })
