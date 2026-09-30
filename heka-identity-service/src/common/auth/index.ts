@@ -1,5 +1,8 @@
 export { AuthInfo, Role } from './auth-info.interface'
 export { AuthModule } from './auth.module'
 export { AuthService } from './auth.service'
+export { getClaim, mapClaims } from './claims'
 export { JwtAuthGuard } from './jwt-auth.guard'
 export { ReqAuthInfo } from './req-auth-info.decorator'
+export { TokenPayload } from './token-payload.interface'
+export { TokenVerifier } from './token-verifier.service'

@@ -46,13 +46,3 @@ export const agencyEndpoints = {
     `/verification-templates/${id}`,
   prepareWallet: '/prepare-wallet',
 };
-
-export const authEndpoints = {
-  token: `/oauth/token`,
-  refresh: `/oauth/refresh`,
-  register: `/user/register`,
-  revoke: `/oauth/revoke`,
-  profile: `/user/profile`,
-  requestChangePassword: '/user/password/change-request',
-  changePassword: '/user/password/change',
-};

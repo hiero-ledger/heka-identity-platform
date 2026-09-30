@@ -97,6 +97,8 @@ See the [Hedera Integration guide](../heka-identity-service/docs/hedera.md) for 
 |----------------------|---------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
 | `OAUTH_STORE_CONFIG` | _(built-in placeholder values)_ | JSON-encoded OAuth client configuration (client ID, redirect URL, scopes, endpoints). Required when `ENABLE_EXTERNAL_AUTH=true`. |
 
+The value must be a single line of JSON: react-native-config reads `.env` line by line on both platforms. The dev Keycloak in `heka-sso-service` ships a ready-made `heka-wallet` realm and client; see [its README](../heka-sso-service/keycloak/README.md#what-the-heka-wallet-realm-contains) for the matching `OAUTH_STORE_CONFIG` value and the `adb reverse` step needed on Android.
+
 ### Feature Flags
 
 | Variable                    | Effect when set to `'true'`                                                                                                                |
