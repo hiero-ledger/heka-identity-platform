@@ -1,7 +1,8 @@
 import { Body, Controller, HttpCode, HttpStatus, Logger, Post, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger'
+import { SkipThrottle } from '@nestjs/throttler'
 
-import { LoginRequest, LoginResponse, LogoutRequest, RefreshRequest, RefreshResponse } from './dto'
+import { IntrospectResponse, LoginRequest, LoginResponse, LogoutRequest, RefreshRequest, RefreshResponse } from './dto'
 import { BearerGuard, UserAuthGuard } from './guards'
 import { AccessToken } from './oauth.decorators'
 import { OAuthService } from './oauth.service'
@@ -61,5 +62,28 @@ export class OAuthController {
 
     this.logger.verbose('refreshToken <')
     return response
+  }
+
+  // Called by resource servers (Identity Service) on every authenticated request when revocation checking is enabled,
+  // all from the same address, so the per-IP global throttler must not apply.
+  @ApiOperation({
+    summary: 'Check whether the bearer access token is active',
+    description:
+      'Reports whether the access token sent in the Authorization header was issued by this service and has not been revoked or expired. Refresh tokens are never reported as active.',
+  })
+  @ApiOkResponse({ type: IntrospectResponse })
+  @ApiUnauthorizedResponse({ description: 'The Authorization header is missing or is not a Bearer token.' })
+  @UseGuards(BearerGuard)
+  @ApiBearerAuth()
+  @SkipThrottle()
+  @HttpCode(HttpStatus.OK)
+  @Post('introspect')
+  public async introspect(@AccessToken() accessToken: string): Promise<IntrospectResponse> {
+    this.logger.verbose('introspect >')
+
+    const active = await this.authService.isAccessTokenActive(accessToken)
+
+    this.logger.verbose({ active }, 'introspect <')
+    return new IntrospectResponse({ active })
   }
 }

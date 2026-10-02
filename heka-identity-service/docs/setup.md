@@ -297,6 +297,22 @@ API requests must carry a Bearer token signed with `JWT_SECRET`. The default val
 | `JWT_VERIFY_OPTIONS_ISSUER`   | `Heka`                  | Required value of the `iss` claim.                                                |
 | `JWT_VERIFY_OPTIONS_AUDIENCE` | `Heka Identity Service` | Required value of the `aud` claim.                                                |
 
+#### Token revocation check
+
+By default, tokens are validated statelessly: a token revoked by Heka Auth Service (logout via `POST /api/v1/oauth/revoke`, or the previous access token after `POST /api/v1/oauth/refresh`) keeps working here until its `exp`. To reject revoked tokens immediately, enable the revocation check. Every authenticated REST request and every `notifications` WebSocket connection then calls the Auth Service introspection endpoint (`POST /api/v1/oauth/introspect`) with the presented token.
+
+| Variable                          | Default | Description                                                                                                                                                   |
+| --------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_REVOCATION_CHECK_ENABLED`    | `false` | Set to `true` to check every access token against Heka Auth Service.                                                                                          |
+| `JWT_REVOCATION_CHECK_URL`        | —       | Full URL of the introspection endpoint, e.g. `http://localhost:3004/api/v1/oauth/introspect`. Required when enabled; the service refuses to start without it. |
+| `JWT_REVOCATION_CHECK_TIMEOUT_MS` | `3000`  | Deadline for a single introspection call, in milliseconds.                                                                                                    |
+
+When enabled, the check **fails closed**: the request is rejected with `401` (the WebSocket is closed with code `3000`) unless Auth Service explicitly reports the token as active. This includes the cases where Auth Service is unreachable, times out, rate-limits or returns an error; a warning is logged (the token is never logged). Each authenticated request costs one extra HTTP round trip, and Identity Service availability then depends on Auth Service.
+
+Only access tokens issued and stored by the configured Auth Service instance are accepted. Tokens from any other issuer that shares `JWT_SECRET` (including locally signed test tokens) are rejected, so leave the check disabled when such tokens are in use.
+
+`JWT_REVOCATION_CHECK_URL` should point at the Auth Service's internal address; the introspection endpoint must not be publicly reachable (see the [Auth Service README](../../heka-auth-service/README.md)). The call carries the user's bearer token, so use an `https://` URL unless the Identity Service reaches Auth Service over a private network (for example an internal Docker or Kubernetes network). Plain `http://` is intended only for local development and such internal links.
+
 #### Required JWT claims
 
 The token strategy (`src/common/auth/jwt.strategy.ts`) and validator (`src/common/auth/auth.service.ts`) expect:

@@ -13,6 +13,7 @@ import { withTenantAgent } from 'utils/multi-tenancy'
 
 import { AuthInfo, isRole } from './auth-info.interface'
 import { TokenPayload } from './token-payload.interface'
+import { TokenRevocationService } from './token-revocation.service'
 
 @Injectable()
 export class AuthService {
@@ -24,6 +25,7 @@ export class AuthService {
     private readonly em: EntityManager,
     @InjectLogger(AuthService)
     private readonly logger: Logger,
+    private readonly tokenRevocation: TokenRevocationService,
   ) {
     this.logger.child('constructor').trace('<>')
     this.ensureUserAndWalletMutex = new Mutex()
@@ -41,6 +43,9 @@ export class AuthService {
 
     const payload = await this.jwtService.verifyAsync<TokenPayload>(token)
     logger.traceObject({ payload })
+
+    // Before validateTokenPayload, so a revoked token never provisions a user or wallet
+    await this.tokenRevocation.assertTokenActive(token)
 
     return this.validateTokenPayload(payload)
   }

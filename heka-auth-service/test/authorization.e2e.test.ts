@@ -171,4 +171,60 @@ describe('E2E authorization', () => {
 
     expect(selfRevoke.status).toBe(205)
   })
+
+  test('introspect reports only active access tokens', async () => {
+    const user = newUser()
+    const createUserResponse = await request(app)
+      .post('/api/v1/user/register')
+      .send({ name: user.name, password: user.password, role: UserRole.Issuer } satisfies RegisterUserRequest)
+    expect(createUserResponse.status).toBe(201)
+
+    const introspect = (token?: string) => {
+      const req = request(app).post('/api/v1/oauth/introspect')
+      return token ? req.auth(token, { type: 'bearer' }) : req
+    }
+
+    const loginResponse = await request(app)
+      .post('/api/v1/oauth/token')
+      .send({ name: user.name, password: user.password } satisfies LoginRequest)
+    expect(loginResponse.status).toBe(200)
+    const { access: loginAccess, refresh: loginRefresh } = loginResponse.body as { access: string; refresh: string }
+
+    // freshly issued access token
+    const activeResponse = await introspect(loginAccess)
+    expect(activeResponse.status).toBe(200)
+    expect(activeResponse.body).toEqual({ active: true })
+
+    // a refresh token is never reported as an active access token
+    expect((await introspect(loginRefresh)).body).toEqual({ active: false })
+
+    // missing Authorization header
+    expect((await introspect()).status).toBe(401)
+
+    // Delay so the rotated access JWT does not collide with the original within the same second.
+    await new Promise((res) => setTimeout(res, 1000))
+
+    // refresh revokes the old access token
+    const refreshResponse = await request(app)
+      .post('/api/v1/oauth/refresh')
+      .auth(loginAccess, { type: 'bearer' })
+      .send({ refresh: loginRefresh } satisfies RefreshRequest)
+    expect(refreshResponse.status).toBe(200)
+    const { access: refreshedAccess, refresh: refreshedRefresh } = refreshResponse.body as {
+      access: string
+      refresh: string
+    }
+
+    expect((await introspect(loginAccess)).body).toEqual({ active: false })
+    expect((await introspect(refreshedAccess)).body).toEqual({ active: true })
+
+    // logout revokes the current access token
+    const revokeResponse = await request(app)
+      .post('/api/v1/oauth/revoke')
+      .auth(refreshedAccess, { type: 'bearer' })
+      .send({ refresh: refreshedRefresh } satisfies LogoutRequest)
+    expect(revokeResponse.status).toBe(205)
+
+    expect((await introspect(refreshedAccess)).body).toEqual({ active: false })
+  })
 })

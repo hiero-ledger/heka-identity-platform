@@ -1,4 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common'
+import type { Request } from 'express'
+
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 import { PassportStrategy } from '@nestjs/passport'
 import { ExtractJwt, Strategy, StrategyOptions } from 'passport-jwt'
@@ -9,6 +11,9 @@ import JwtConfig from 'config/jwt'
 import { AuthInfo } from './auth-info.interface'
 import { AuthService } from './auth.service'
 import { TokenPayload } from './token-payload.interface'
+import { TokenRevocationService } from './token-revocation.service'
+
+const extractToken = ExtractJwt.fromAuthHeaderAsBearerToken()
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -16,6 +21,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     @InjectLogger(JwtStrategy)
     private readonly logger: Logger,
     private readonly authService: AuthService,
+    private readonly tokenRevocation: TokenRevocationService,
     @Inject(JwtConfig.KEY)
     jwtConfig: ConfigType<typeof JwtConfig>,
   ) {
@@ -24,8 +30,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       // passport-jwt expects `string | Buffer`, while `jwt.Secret` also includes KeyObject.
       // Narrowing to `string` is safe and avoids TS2322.
       secretOrKey: jwtConfig.secret as string,
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: extractToken,
       jsonWebTokenOptions: jwtConfig.verifyOptions,
+      // The raw token is needed for the revocation check in `validate`
+      passReqToCallback: true,
     }
 
     const safeStrategyOptions = getSafeStrategyOptions(strategyOptions)
@@ -35,11 +43,19 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     this.logger.child('constructor').trace('<>')
   }
 
-  // This method doesn't validate anything right now,
-  // but in the future we can validate token revocation list here
-  public async validate(tokenPayload: TokenPayload): Promise<AuthInfo> {
+  // Called by passport-jwt after the signature, `iss`, `aud` and `exp` have been verified
+  public async validate(request: Request, tokenPayload: TokenPayload): Promise<AuthInfo> {
     const logger = this.logger.child('validate', { tokenPayload })
     logger.trace('>')
+
+    // Same extractor passport-jwt used to obtain the verified token
+    const token = extractToken(request)
+    if (!token) {
+      throw new UnauthorizedException()
+    }
+
+    // Before validateTokenPayload, so a revoked token never provisions a user or wallet
+    await this.tokenRevocation.assertTokenActive(token)
 
     const res = await this.authService.validateTokenPayload(tokenPayload)
 
