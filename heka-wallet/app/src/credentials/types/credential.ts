@@ -3,11 +3,7 @@ import { MdocRecord, SdJwtVcRecord, W3cCredentialRecord, W3cV2CredentialRecord }
 import { DidCommCredentialExchangeRecord } from '@credo-ts/didcomm'
 
 export type CredentialRecord =
-  | SdJwtVcRecord
-  | W3cCredentialRecord
-  | W3cV2CredentialRecord
-  | MdocRecord
-  | DidCommCredentialExchangeRecord
+  SdJwtVcRecord | W3cCredentialRecord | W3cV2CredentialRecord | MdocRecord | DidCommCredentialExchangeRecord
 
 export enum CredentialType {
   W3c = 'w3c-credential',

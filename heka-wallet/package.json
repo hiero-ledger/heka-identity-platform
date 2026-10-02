@@ -16,6 +16,7 @@
     "run:ios": "cd app && yarn ios",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "jest",
     "bundle-app:android:debug": "cd app && yarn bundle:android:debug",
     "bundle-app:android:release": "cd app && yarn bundle:android:release"
