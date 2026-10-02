@@ -12,8 +12,8 @@ import {
 } from '@nestjs/swagger'
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
-import { AuthInfo, JwtAuthGuard, ReqAuthInfo, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { AuthInfo, JwtAuthGuard, ReqAuthInfo } from 'common/auth'
+import { Capability, RequireCapability, RoleGuard } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { ConnectionService } from './connection.service'
@@ -41,6 +41,7 @@ export class ConnectionController {
   @ApiOperation({ summary: 'Get all connections' })
   @ApiOkResponse({ description: 'Connections', type: [ConnectionRecordDto] })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @RequireCapability(Capability.Read)
   @Get()
   public async find(@ReqTenantAgent() tenantAgent: TenantAgent): Promise<ConnectionRecordDto[]> {
     const logger = this.logger.child('find')
@@ -57,9 +58,9 @@ export class ConnectionController {
   @ApiOkResponse({ description: 'Invitation', type: CreateInvitationResponseDto })
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @RequireCapability(Capability.Connect)
   @Post('create-invitation')
   @HttpCode(200)
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer, Role.Verifier)
   public async createInvitation(
     @ReqAuthInfo() authInfo: AuthInfo,
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -79,9 +80,9 @@ export class ConnectionController {
   @ApiOkResponse({ description: 'Connection', type: ConnectionRecordDto })
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @RequireCapability(Capability.Hold)
   @Post('accept-invitation')
   @HttpCode(200)
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer, Role.Verifier, Role.User)
   public async acceptInvitation(
     @ReqTenantAgent() tenantAgent: TenantAgent,
     @Body() req: AcceptInvitationDto,
@@ -100,6 +101,7 @@ export class ConnectionController {
   @ApiOkResponse({ description: 'Connection', type: ConnectionRecordDto })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @RequireCapability(Capability.Read)
   @Get(':id')
   public async get(
     @ReqTenantAgent() tenantAgent: TenantAgent,

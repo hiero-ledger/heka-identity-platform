@@ -14,6 +14,10 @@ export class Wallet extends Identified {
   @Property({ nullable: true, type: 'string' })
   public publicDid?: string
 
+  // Mirrors the issuer display name of the wallet's identity (see `UserService.patchMe`)
+  @Property({ nullable: true, type: 'string' })
+  public displayName?: string
+
   @ManyToMany({ entity: () => User, mappedBy: 'wallets' })
   public users = new Collection<User>(this)
 

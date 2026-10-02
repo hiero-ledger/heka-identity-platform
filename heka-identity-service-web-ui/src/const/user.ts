@@ -2,8 +2,6 @@ export const connectionLabel = 'Agency Demo';
 
 export const mainDidMethod = 'key';
 
-export const userRole = 'Admin';
-
 export const demoUser = {
   did: process.env.REACT_APP_DEMO_USER_DID ?? '',
   accessToken: process.env.REACT_APP_DEMO_USER_ACCESS_TOKEN ?? '',

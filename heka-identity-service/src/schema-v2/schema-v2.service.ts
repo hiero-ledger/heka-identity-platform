@@ -7,7 +7,7 @@ import { InjectLogger, Logger } from 'common/logger'
 import { TenantAgent } from '../common/agent'
 import { AnoncredsRegistryService } from '../common/anoncreds-registry'
 import { AuthInfo } from '../common/auth'
-import { Schema, SchemaField } from '../common/entities'
+import { Schema, SchemaField, Wallet } from '../common/entities'
 import { StatusListPurpose } from '../common/entities/credential-status-list.entity'
 import { SchemaRegistration } from '../common/entities/schema-registration.entity'
 import { FileStorageService } from '../common/file-storage/file-storage.service'
@@ -423,7 +423,7 @@ export class SchemaV2Service {
 
     const conditions = []
 
-    conditions.push({ owner: authInfo.user })
+    conditions.push({ owner: this.em.getReference(Wallet, authInfo.walletId) })
 
     if (request.text) {
       conditions.push({ name: { $like: `%${request.text}%` } })
@@ -440,7 +440,7 @@ export class SchemaV2Service {
 
     const [items, total] = await this.em.findAndCount(Schema, filter, {
       fields: ['id', 'name', 'logo', 'bgColor', 'isHidden', 'orderIndex', 'owner', 'fields', 'registrations'],
-      populate: ['fields', 'registrations'],
+      populate: ['owner', 'fields', 'registrations'],
       offset: request.offset,
       limit: request.limit,
       orderBy: [{ orderIndex: 'asc' }, { name: 'asc' }],
@@ -453,7 +453,7 @@ export class SchemaV2Service {
       items: items.map<GetSchemasListItem>((item) => ({
         id: item.id,
         issuerId: item.owner.id,
-        issuerName: item.owner.name,
+        issuerName: item.owner.displayName,
         name: item.name,
         logo: item.logo ? this.fileStorageService.url(item.logo) : undefined,
         bgColor: item.bgColor,
@@ -485,7 +485,7 @@ export class SchemaV2Service {
     const logger = this.logger.child('getById')
     logger.trace('>')
 
-    const owner = authInfo.user
+    const owner = this.em.getReference(Wallet, authInfo.walletId)
 
     const schema = await this.em.findOne(Schema, { owner, id }, { populate: ['owner', 'fields', 'registrations'] })
     if (!schema) {
@@ -495,7 +495,7 @@ export class SchemaV2Service {
     const result = new GetSchemaResponse({
       id: schema.id,
       issuerId: schema.owner.id,
-      issuerName: schema.owner.name,
+      issuerName: schema.owner.displayName,
       name: schema.name,
       logo: schema.logo ? this.fileStorageService.url(schema.logo) : undefined,
       bgColor: schema.bgColor,
@@ -530,7 +530,7 @@ export class SchemaV2Service {
     const logger = this.logger.child('create')
     logger.trace('>')
 
-    const owner = authInfo.user
+    const owner = this.em.getReference(Wallet, authInfo.walletId)
 
     // check unique
     if (await this.em.findOne(Schema, { owner, name: { $eq: request.name } })) {
@@ -580,7 +580,7 @@ export class SchemaV2Service {
     const logger = this.logger.child('patch')
     logger.trace('>')
 
-    const owner = authInfo.user
+    const owner = this.em.getReference(Wallet, authInfo.walletId)
 
     const schema = await this.em.findOne(Schema, { owner, id }, { populate: ['owner', 'registrations'] })
     if (!schema) {
@@ -643,7 +643,7 @@ export class SchemaV2Service {
     logger.trace('>')
 
     // get owner
-    const owner = authInfo.user
+    const owner = this.em.getReference(Wallet, authInfo.walletId)
 
     // get schema
     const schema = await this.em.findOne(Schema, { owner, id: schemaId }, { populate: ['owner', 'fields'] })
@@ -696,7 +696,7 @@ export class SchemaV2Service {
     logger.trace('>')
 
     // get owner
-    const owner = authInfo.user
+    const owner = this.em.getReference(Wallet, authInfo.walletId)
 
     // get schema
     const schema = await this.em.findOne(Schema, { owner, id: schemaId })

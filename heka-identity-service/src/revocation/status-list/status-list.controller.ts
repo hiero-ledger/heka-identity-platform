@@ -9,8 +9,8 @@ import {
 } from '@nestjs/swagger'
 
 import { TenantAgentInterceptor } from '../../common/agent'
-import { AuthInfo, JwtAuthGuard, ReqAuthInfo, Role } from '../../common/auth'
-import { RoleGuard, Roles } from '../../common/authz'
+import { AuthInfo, JwtAuthGuard, ReqAuthInfo } from '../../common/auth'
+import { Capability, RequireCapability, RoleGuard } from '../../common/authz'
 import { InjectLogger, Logger } from '../../common/logger'
 
 import { CreateStatusListRequest, CreateStatusListResponse, StatusList, UpdateStatusListRequest } from './dto'
@@ -34,8 +34,8 @@ export class StatusListController {
 
   @ApiOperation({ summary: 'Create status list' })
   @ApiOkResponse({ type: CreateStatusListRequest })
+  @RequireCapability(Capability.Issue)
   @Post()
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
   @UseInterceptors(TenantAgentInterceptor)
   public async create(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -52,8 +52,8 @@ export class StatusListController {
 
   @ApiOperation({ summary: 'Update status list' })
   @ApiOkResponse({ type: UpdateStatusListRequest })
+  @RequireCapability(Capability.Issue)
   @Put(':id')
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
   @UseInterceptors(TenantAgentInterceptor)
   public async update(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -70,8 +70,8 @@ export class StatusListController {
 
   @ApiOperation({ summary: 'Get status list' })
   @ApiOkResponse({ type: StatusList })
+  @RequireCapability(Capability.Read)
   @Get(':id')
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
   @UseInterceptors(TenantAgentInterceptor)
   public async get(@ReqAuthInfo() authInfo: AuthInfo, @Param('id') id: string): Promise<StatusList> {
     const logger = this.logger.child('get', { id })
@@ -85,6 +85,7 @@ export class StatusListController {
 
   @ApiOperation({ summary: 'Get all created status lists' })
   @ApiOkResponse({ type: [StatusList] })
+  @RequireCapability(Capability.Read)
   @Get()
   public async find(@ReqAuthInfo() authInfo: AuthInfo): Promise<Array<StatusList>> {
     const logger = this.logger.child('find', {})

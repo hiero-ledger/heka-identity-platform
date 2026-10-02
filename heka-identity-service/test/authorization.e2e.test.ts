@@ -24,7 +24,7 @@ describe('E2E authorization', () => {
 
     await ormSchemaGenerator.refresh()
 
-    nestApp = await startTestApp()
+    nestApp = await startTestApp({ roleModelEnabled: true })
     app = nestApp.getHttpServer() as Server
   })
 
@@ -94,7 +94,7 @@ describe('E2E authorization', () => {
     expect(createConnectionInvitationResponse.status).toBe(403)
   })
 
-  test('authorizes user if required roles are not set for method', async () => {
+  test('authorizes any role to read (`read` capability)', async () => {
     const userAuthToken = await signJwt(
       {
         name: 'John',
@@ -115,7 +115,7 @@ describe('E2E authorization', () => {
     expect(getDidsResponse.status).toBe(200)
   })
 
-  test('authorizes user if RoleGuard is not used for controller', async () => {
+  test('authorizes any role to read its profile (`read` capability)', async () => {
     const userAuthToken = await signJwt(
       {
         name: 'John',

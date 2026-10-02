@@ -15,20 +15,22 @@ describe('IssuanceTemplateService', () => {
   let logger: Logger
   let fileStorageService: FileStorageService
 
-  const mockUser = { id: 'user-1', name: 'Test User' }
+  // Owned by the wallet the actor acts in, not by the actor
+  const mockWallet = { id: 'Member_user-1_in_Organization_1', displayName: 'Test User' }
   const authInfo = {
     userId: 'user-1',
-    user: mockUser as any,
+    user: { id: 'user-1', name: 'Test User' } as any,
     userName: 'testuser',
     role: Role.Admin,
     orgId: '1',
-    walletId: 'Administration_user-1',
+    walletId: mockWallet.id,
     tenantId: 'tenant-1',
   }
 
   beforeEach(() => {
     logger = createMock<Logger>()
     em = createMock<EntityManager>()
+    vi.mocked(em.getReference).mockReturnValue(mockWallet as any)
     fileStorageService = createMock<FileStorageService>()
     service = new IssuanceTemplateService(logger, em, fileStorageService)
   })
@@ -61,7 +63,7 @@ describe('IssuanceTemplateService', () => {
 
       const result = await service.getTemplateById(authInfo, 'tpl-1')
 
-      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { owner: mockWallet, id: 'tpl-1' }, expect.anything())
       expect(fileStorageService.url).toHaveBeenCalledWith('path/logo.png')
       expect(result.id).toBe('tpl-1')
       expect(result.name).toBe('My Template')
@@ -73,7 +75,7 @@ describe('IssuanceTemplateService', () => {
       vi.mocked(em.findOne).mockResolvedValue(null)
 
       await expect(service.getTemplateById(authInfo, 'missing')).rejects.toThrow(NotFoundException)
-      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { owner: mockUser, id: 'missing' }, expect.anything())
+      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { owner: mockWallet, id: 'missing' }, expect.anything())
     })
 
     test('returns undefined logo when schema has no logo', async () => {
@@ -100,7 +102,7 @@ describe('IssuanceTemplateService', () => {
 
       const result = await service.getTemplateById(authInfo, 'tpl-2')
 
-      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-2' }, expect.anything())
+      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { owner: mockWallet, id: 'tpl-2' }, expect.anything())
       expect(result.schema.logo).toBeUndefined()
     })
   })
@@ -146,7 +148,7 @@ describe('IssuanceTemplateService', () => {
       await expect(service.create(authInfo, { name: 'Duplicate' } as any)).rejects.toThrow(BadRequestException)
       expect(em.findOne).toHaveBeenCalledWith(
         IssuanceTemplate,
-        { owner: mockUser, name: 'Duplicate' },
+        { owner: mockWallet, name: 'Duplicate' },
         expect.anything(),
       )
     })
@@ -247,7 +249,7 @@ describe('IssuanceTemplateService', () => {
 
       await service.delete(authInfo, 'tpl-1')
 
-      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { id: 'tpl-1', owner: mockUser }, expect.anything())
+      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { id: 'tpl-1', owner: mockWallet }, expect.anything())
       expect(mockTemplate.fields.removeAll).toHaveBeenCalled()
       expect(em.remove).toHaveBeenCalledWith(mockTemplate)
       expect(em.flush).toHaveBeenCalled()
@@ -257,7 +259,7 @@ describe('IssuanceTemplateService', () => {
       vi.mocked(em.findOne).mockResolvedValue(null)
 
       await expect(service.delete(authInfo, 'missing')).rejects.toThrow(NotFoundException)
-      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { id: 'missing', owner: mockUser }, expect.anything())
+      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { id: 'missing', owner: mockWallet }, expect.anything())
     })
   })
 
@@ -266,7 +268,7 @@ describe('IssuanceTemplateService', () => {
       const mockTemplate = {
         id: 'tpl-1',
         name: 'Template',
-        owner: mockUser,
+        owner: mockWallet,
         schema: { id: 'old-schema' },
         fields: { length: 0 },
       }
@@ -287,14 +289,14 @@ describe('IssuanceTemplateService', () => {
       vi.mocked(em.findOne).mockResolvedValue(null)
 
       await expect(service.patch(authInfo, 'missing', {} as any)).rejects.toThrow(NotFoundException)
-      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { id: 'missing', owner: mockUser }, expect.anything())
+      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { id: 'missing', owner: mockWallet }, expect.anything())
     })
 
     test('throws BadRequestException when new name already exists', async () => {
       const mockTemplate = {
         id: 'tpl-1',
         name: 'Old Name',
-        owner: mockUser,
+        owner: mockWallet,
         isPinned: false,
         schema: { id: 'schema-1', fields: [] },
         fields: { length: 0, removeAll: vi.fn() },
@@ -307,11 +309,11 @@ describe('IssuanceTemplateService', () => {
       expect(em.findOne).toHaveBeenNthCalledWith(
         1,
         IssuanceTemplate,
-        { id: 'tpl-1', owner: mockUser },
+        { id: 'tpl-1', owner: mockWallet },
         expect.anything(),
       )
       expect(em.findOne).toHaveBeenNthCalledWith(2, IssuanceTemplate, {
-        owner: mockUser,
+        owner: mockWallet,
         name: 'Taken Name',
         id: { $ne: 'tpl-1' },
       })
@@ -342,7 +344,7 @@ describe('IssuanceTemplateService', () => {
       vi.mocked(em.findOne).mockResolvedValue(mockTemplate)
 
       const result = await service.getById(authInfo, 'tpl-1')
-      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { owner: mockUser, id: 'tpl-1' }, expect.anything())
+      expect(em.findOne).toHaveBeenCalledWith(IssuanceTemplate, { owner: mockWallet, id: 'tpl-1' }, expect.anything())
       expect(result.id).toBe('tpl-1')
     })
   })
@@ -466,7 +468,7 @@ describe('IssuanceTemplateService', () => {
       credentialFormat: 'SdJwtVc',
       network: 'key',
       did: 'did:key:z1',
-      owner: mockUser,
+      owner: mockWallet,
       schema: {
         id: 'schema-1',
         name: 'Schema',
@@ -651,7 +653,7 @@ describe('IssuanceTemplateService', () => {
       const template = {
         id: 'tpl-1',
         name: 'Old',
-        owner: mockUser,
+        owner: mockWallet,
         isPinned: false,
         schema: { id: 'old-schema', fields: [], registrations: { find: vi.fn().mockReturnValue(undefined) } },
         fields: { length: 0, removeAll: vi.fn() },
@@ -682,7 +684,7 @@ describe('IssuanceTemplateService', () => {
       const template = {
         id: 'tpl-1',
         name: 'Old',
-        owner: mockUser,
+        owner: mockWallet,
         isPinned: false,
         schema: {
           id: 'schema-1',
@@ -704,7 +706,7 @@ describe('IssuanceTemplateService', () => {
       const template = {
         id: 'tpl-1',
         name: 'Old',
-        owner: mockUser,
+        owner: mockWallet,
         isPinned: false,
         schema: {
           id: 'schema-1',

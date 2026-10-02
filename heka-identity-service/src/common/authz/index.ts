@@ -1,2 +1,5 @@
+export { AuthorizationService } from './authorization.service'
+export { AuthzModule } from './authz.module'
+export { Capability, CAPABILITY_ROLES } from './capability'
+export { CAPABILITY_KEY, RequireCapability } from './capability.decorator'
 export { RoleGuard } from './role.guard'
-export { Roles } from './roles.decorator'

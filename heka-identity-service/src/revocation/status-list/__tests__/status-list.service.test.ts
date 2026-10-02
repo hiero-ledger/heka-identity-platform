@@ -38,14 +38,15 @@ describe('StatusListService', () => {
 
   const appEndpoint = 'https://api.example.com'
 
-  const mockUser = { id: 'user-1', name: 'Test User' } as any
+  // Owned by the wallet the actor acts in, not by the actor
+  const mockWallet = { id: 'Member_user-1_in_Organization_1', displayName: 'Test User' } as any
   const authInfo: AuthInfo = {
     userId: 'user-1',
-    user: mockUser,
+    user: { id: 'user-1', name: 'Test User' } as any,
     userName: 'testuser',
     role: Role.Issuer,
     orgId: 'org-1',
-    walletId: 'wallet-1',
+    walletId: mockWallet.id,
     tenantId: 'tenant-1',
   }
 
@@ -54,6 +55,7 @@ describe('StatusListService', () => {
     mockEncodeBits.mockResolvedValue('encoded-bitstring')
 
     em = createMock<EntityManager>()
+    vi.mocked(em.getReference).mockReturnValue(mockWallet as any)
     appConfig = createMock<ConfigType<typeof ExpressConfig>>({
       appEndpoint,
     })
@@ -74,7 +76,7 @@ describe('StatusListService', () => {
       expect(result.encodedList).toBe('uencoded-bitstring')
       expect(result.size).toBe(131072)
       expect(result.purpose).toBe(StatusListPurpose.Revocation)
-      expect(result.owner).toBe(mockUser)
+      expect(result.owner).toBe(mockWallet)
       expect(em.persist).toHaveBeenCalledWith(result)
     })
 
@@ -109,7 +111,7 @@ describe('StatusListService', () => {
 
       const result = await service.get(authInfo, id)
 
-      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id, owner: mockUser })
+      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id, owner: mockWallet })
       expect(result.encodedList).toBe('encoded-data')
       expect(result.lastIndex).toBe(5)
       expect(result.purpose).toBe(StatusListPurpose.Revocation)
@@ -122,7 +124,7 @@ describe('StatusListService', () => {
       vi.mocked(em.findOneOrFail).mockRejectedValue(new Error('Entity not found'))
 
       await expect(service.get(authInfo, id)).rejects.toThrow('Entity not found')
-      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id, owner: mockUser })
+      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id, owner: mockWallet })
     })
   })
 
@@ -147,7 +149,7 @@ describe('StatusListService', () => {
 
       const result = await service.find(authInfo)
 
-      expect(em.find).toHaveBeenCalledWith(CredentialStatusList, { owner: mockUser })
+      expect(em.find).toHaveBeenCalledWith(CredentialStatusList, { owner: mockWallet })
       expect(result).toHaveLength(2)
       expect(result[0].encodedList).toBe('encoded-1')
       expect(result[0].lastIndex).toBe(3)
@@ -175,7 +177,7 @@ describe('StatusListService', () => {
         issuer,
         encodedList: 'encoded',
         purpose: StatusListPurpose.Revocation,
-        owner: mockUser,
+        owner: mockWallet,
       })
 
       vi.mocked(em.find).mockResolvedValue([existingList])
@@ -194,7 +196,7 @@ describe('StatusListService', () => {
         issuer,
         encodedList: 'encoded',
         purpose: StatusListPurpose.Revocation,
-        owner: mockUser,
+        owner: mockWallet,
       })
 
       vi.mocked(em.find).mockResolvedValue([fullList])
@@ -226,7 +228,7 @@ describe('StatusListService', () => {
         encodedList: 'uoriginal-encoded',
         lastIndex: 5,
         size: 100,
-        owner: mockUser,
+        owner: mockWallet,
       })
 
       vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
@@ -235,7 +237,7 @@ describe('StatusListService', () => {
 
       await service.addItems(authInfo, id, [5, 6, 7])
 
-      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id, owner: mockUser })
+      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id, owner: mockWallet })
       expect(statusListEntity.encodedList).toBe('uupdated-encoded')
       expect(statusListEntity.lastIndex).toBe(8) // 5 + 3
       expect(em.flush).toHaveBeenCalled()
@@ -245,7 +247,7 @@ describe('StatusListService', () => {
       vi.mocked(em.findOneOrFail).mockRejectedValue(new Error('Entity not found'))
 
       await expect(service.addItems(authInfo, 'bad-id', [0])).rejects.toThrow('Entity not found')
-      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id: 'bad-id', owner: mockUser })
+      expect(em.findOneOrFail).toHaveBeenCalledWith(CredentialStatusList, { id: 'bad-id', owner: mockWallet })
     })
 
     test('should throw BadRequestException when there are not enough free indexes', async () => {
@@ -255,7 +257,7 @@ describe('StatusListService', () => {
         encodedList: 'uoriginal-encoded',
         lastIndex: 99,
         size: 100,
-        owner: mockUser,
+        owner: mockWallet,
       })
 
       vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
@@ -275,7 +277,7 @@ describe('StatusListService', () => {
         encodedList: 'H4sIunprefixed-legacy-value',
         lastIndex: 5,
         size: 100,
-        owner: mockUser,
+        owner: mockWallet,
       })
 
       vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
@@ -294,7 +296,7 @@ describe('StatusListService', () => {
         encodedList: 'uoriginal-encoded',
         lastIndex: 10,
         size: 100,
-        owner: mockUser,
+        owner: mockWallet,
       })
 
       vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
@@ -316,7 +318,7 @@ describe('StatusListService', () => {
         encodedList: 'uoriginal-encoded',
         lastIndex: 10,
         size: 100,
-        owner: mockUser,
+        owner: mockWallet,
       })
 
       vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
@@ -336,7 +338,7 @@ describe('StatusListService', () => {
         encodedList: 'uoriginal-encoded',
         lastIndex: 10,
         size: 100,
-        owner: mockUser,
+        owner: mockWallet,
       })
 
       vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
@@ -357,7 +359,7 @@ describe('StatusListService', () => {
         encodedList: 'uoriginal-encoded',
         lastIndex: 10,
         size: 100,
-        owner: mockUser,
+        owner: mockWallet,
       })
 
       vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)
@@ -376,7 +378,7 @@ describe('StatusListService', () => {
         encodedList: 'uoriginal-encoded',
         lastIndex: 10,
         size: 100,
-        owner: mockUser,
+        owner: mockWallet,
       })
 
       vi.mocked(em.findOneOrFail).mockResolvedValue(statusListEntity)

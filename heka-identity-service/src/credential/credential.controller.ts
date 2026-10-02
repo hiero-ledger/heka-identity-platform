@@ -15,8 +15,8 @@ import {
 } from '@nestjs/swagger'
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
-import { JwtAuthGuard, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { JwtAuthGuard } from 'common/auth'
+import { Capability, RequireCapability, RoleGuard } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { CredentialService } from './credential.service'
@@ -41,6 +41,7 @@ export class CredentialController {
   @ApiOperation({ summary: 'Get all credential records' })
   @ApiQuery({ name: 'threadId', type: String, required: false })
   @ApiOkResponse({ description: 'Credential Records', type: [CredentialRecordDto] })
+  @RequireCapability(Capability.Read)
   @Get()
   public async find(
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -60,9 +61,9 @@ export class CredentialController {
   @ApiOkResponse({ description: 'Credential Record', type: CredentialRecordDto })
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiUnprocessableEntityResponse({ description: 'Unprocessable Entity' })
+  @RequireCapability(Capability.Issue)
   @Post('offer')
   @HttpCode(200)
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
   public async offer(
     @ReqTenantAgent() tenantAgent: TenantAgent,
     @Body() req: CredentialOfferDto,
@@ -79,6 +80,7 @@ export class CredentialController {
   // NOTE: this route should be defined BEFORE get() since they conflict
   @ApiOperation({ summary: 'Get available protocols and their cred types and networks' })
   @ApiOkResponse({ description: 'Credential config', type: CredentialConfigDto })
+  @RequireCapability(Capability.Read)
   @Get('config')
   public async types(): Promise<CredentialConfigDto> {
     const logger = this.logger.child('types')
@@ -94,6 +96,7 @@ export class CredentialController {
   @ApiParam({ name: 'id', type: String })
   @ApiOkResponse({ description: 'Credential Record', type: CredentialRecordDto })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @RequireCapability(Capability.Read)
   @Get(':id')
   public async get(@ReqTenantAgent() tenantAgent: TenantAgent, @Param('id') id: string): Promise<CredentialRecordDto> {
     const logger = this.logger.child('get', { id })
@@ -110,9 +113,9 @@ export class CredentialController {
   @ApiOkResponse({ description: 'Credential Record', type: CredentialRecordDto })
   @ApiNotFoundResponse({ description: 'Not Found' })
   @ApiConflictResponse({ description: 'Conflict' })
+  @RequireCapability(Capability.Hold)
   @Post(':id/accept')
   @HttpCode(200)
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer, Role.Verifier, Role.User)
   public async accept(
     @ReqTenantAgent() tenantAgent: TenantAgent,
     @Param('id') id: string,
@@ -128,9 +131,9 @@ export class CredentialController {
 
   @ApiOperation({ summary: 'Revoke a credential' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @RequireCapability(Capability.Issue)
   @Post(':id/revoke')
   @HttpCode(200)
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
   public async revoke(@ReqTenantAgent() tenantAgent: TenantAgent, @Param('id') id: string): Promise<void> {
     const logger = this.logger.child('revoke', { id })
     logger.trace('>')

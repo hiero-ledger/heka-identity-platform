@@ -15,8 +15,8 @@ import {
 } from '@nestjs/swagger'
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
-import { JwtAuthGuard, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { JwtAuthGuard } from 'common/auth'
+import { Capability, RequireCapability, RoleGuard } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { ProofRecordDto, ProofRequestDto } from './dto'
@@ -40,6 +40,7 @@ export class ProofController {
   @ApiQuery({ name: 'threadId', type: String, required: false })
   @ApiOkResponse({ description: 'Proof Records', type: [ProofRecordDto] })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @RequireCapability(Capability.Read)
   @Get()
   public async find(
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -60,9 +61,9 @@ export class ProofController {
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiUnprocessableEntityResponse({ description: 'Unprocessable Entity' })
+  @RequireCapability(Capability.Verify)
   @Post('request')
   @HttpCode(200)
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer, Role.Verifier)
   public async request(
     @ReqTenantAgent() tenantAgent: TenantAgent,
     @Body() req: ProofRequestDto,
@@ -81,6 +82,7 @@ export class ProofController {
   @ApiOkResponse({ description: 'Proof Record', type: ProofRecordDto })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @RequireCapability(Capability.Read)
   @Get(':id')
   public async get(@ReqTenantAgent() tenantAgent: TenantAgent, @Param('id') id: string): Promise<ProofRecordDto> {
     const logger = this.logger.child('get', { id })
@@ -99,9 +101,9 @@ export class ProofController {
   @ApiNotFoundResponse({ description: 'Not Found' })
   @ApiConflictResponse({ description: 'Conflict' })
   @ApiUnprocessableEntityResponse({ description: 'Unprocessable Entity' })
+  @RequireCapability(Capability.Hold)
   @Post(':id/present')
   @HttpCode(200)
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer, Role.Verifier, Role.User)
   public async present(@ReqTenantAgent() tenantAgent: TenantAgent, @Param('id') id: string): Promise<ProofRecordDto> {
     const logger = this.logger.child('present', { id })
     logger.trace('>')

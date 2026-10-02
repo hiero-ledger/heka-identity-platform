@@ -11,7 +11,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { AuthInfo, JwtAuthGuard, ReqAuthInfo } from 'common/auth'
-import { RoleGuard } from 'common/authz'
+import { Capability, RequireCapability, RoleGuard } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 import { CredentialV2Service } from 'credential-v2/credential-v2.service'
 import { OfferByIssuanceTemplateRequest, OfferByIssuanceTemplateResponse } from 'credential-v2/dto'
@@ -36,6 +36,7 @@ export class CredentialV2Controller {
   @ApiOperation({ summary: 'Make VC offer by template' })
   @ApiBody({ type: OfferByIssuanceTemplateRequest })
   @ApiResponse({ type: OfferByIssuanceTemplateResponse })
+  @RequireCapability(Capability.Issue)
   @Post('offer-by-template')
   public async offerByTemplate(
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -52,6 +53,7 @@ export class CredentialV2Controller {
   @ApiOperation({ summary: 'Proof VC by template' })
   @ApiBody({ type: ProofByVerificationTemplateRequest })
   @ApiResponse({ type: ProofByVerificationTemplateResponse })
+  @RequireCapability(Capability.Verify)
   @Post('proof-by-template')
   public async proofByTemplate(
     @ReqTenantAgent() tenantAgent: TenantAgent,

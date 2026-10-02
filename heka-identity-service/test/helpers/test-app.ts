@@ -36,6 +36,7 @@ import { AGENT_MODULES_TOKEN, getAgencyModulesMap } from 'src/common/agent/agent
 import AgentConfig from 'src/config/agent'
 import FileStorageConfig from 'src/config/file-storage'
 import MikroOrmConfig from 'src/config/mikro-orm'
+import RoleModelConfig from 'src/config/role-model'
 import { createCredentialRequestToCredentialMapper } from 'src/utils/oid4vc'
 import TestAgentConfig from 'test/config/agent'
 import TestFileStorageConfig from 'test/config/file-storage'
@@ -44,7 +45,12 @@ import { uuid } from 'utils/misc'
 
 import { testDbHost, testDbPassword, testDbPort, testDbUser } from '../config/db'
 
-export async function startTestApp(): Promise<INestApplication> {
+export interface TestAppOptions {
+  // Enforce role capabilities (`ROLE_MODEL_ENABLED=true`). Defaults to `false`, as in production.
+  roleModelEnabled?: boolean
+}
+
+export async function startTestApp(options: TestAppOptions = {}): Promise<INestApplication> {
   process.env.PINO_LEVEL = 'error'
 
   const moduleRef = await Test.createTestingModule({
@@ -54,6 +60,8 @@ export async function startTestApp(): Promise<INestApplication> {
     .useFactory({
       factory: TestMikroOrmConfig,
     })
+    .overrideProvider(RoleModelConfig.KEY)
+    .useValue({ enabled: options.roleModelEnabled ?? false })
     .overrideProvider(AgentConfig.KEY)
     .useFactory({
       factory: TestAgentConfig,
