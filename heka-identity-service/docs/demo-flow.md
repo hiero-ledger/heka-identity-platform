@@ -21,7 +21,7 @@ You can install the Heka Wallet app using the APK provided in the repo.
 ## Authentication/Authorization
 
 To use the Heka Identity Service API, you need to get an auth token.
-You can receive this token from a local deployment of [Heka Auth Service](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-auth-service) or by interacting with a third-party OAuth provider (requires changes in JWT configuration, see [corresponding setup guidance](setup.md#auth-service).
+You can receive this token from the OpenID Connect provider the service is configured against (a Keycloak realm, an Auth0 tenant, …); see [Authentication (OIDC)](setup.md#authentication-oidc) for the required configuration and claims.
 
 Once you have the token, follow these steps to authenticate:
 
