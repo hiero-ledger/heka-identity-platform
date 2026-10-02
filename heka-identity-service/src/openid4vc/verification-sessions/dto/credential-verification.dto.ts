@@ -1,8 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import { IsBoolean, IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, ValidateNested } from 'class-validator'
+import {
+  IsBoolean,
+  IsEnum,
+  IsIn,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  ValidateIf,
+  ValidateNested,
+} from 'class-validator'
 
-import { CredentialIssuer } from '../../issuance-sessions/dto/credential-offer.dto'
+import { X509_CLIENT_ID_PREFIXES, X509ClientIdPrefix } from 'x509-signing/x509-signer.types'
 
 import { DcqlQueryDto } from './dcql-query.dto'
 import { DifPresentationExchangeDefinitionV2 } from './presentation-exchange-definition.dto'
@@ -15,12 +25,47 @@ export enum VerificationSessionVersion {
 }
 
 /**
+ * How the OpenID4VP authorization request is signed.
+ * - `did`  — sign with `did` (the default).
+ * - `x5c`  — sign with the tenant's X.509 signer (`clientIdPrefix` / `certificateId`).
+ * - `none` — unsigned (the DC API `web-origin` fallback).
+ */
+export class RequestSignerDto {
+  @ApiProperty({ enum: ['did', 'x5c', 'none'] })
+  @IsIn(['did', 'x5c', 'none'])
+  public method!: 'did' | 'x5c' | 'none'
+
+  @ApiPropertyOptional({ description: 'Signing DID. Required when method is "did".' })
+  @ValidateIf((o: RequestSignerDto) => o.method === 'did')
+  @IsString()
+  @IsNotEmpty()
+  public did?: string
+
+  @ApiPropertyOptional({
+    enum: [...X509_CLIENT_ID_PREFIXES],
+    description: 'X.509 client_id prefix (method "x5c"). Defaults to x509_hash.',
+  })
+  @ValidateIf((o: RequestSignerDto) => o.method === 'x5c')
+  @IsOptional()
+  @IsIn(X509_CLIENT_ID_PREFIXES)
+  public clientIdPrefix?: X509ClientIdPrefix
+
+  @ApiPropertyOptional({
+    description: 'Specific X.509 signer id (method "x5c"). Defaults to the tenant default for the prefix.',
+  })
+  @ValidateIf((o: RequestSignerDto) => o.method === 'x5c')
+  @IsOptional()
+  @IsString()
+  public certificateId?: string
+}
+
+/**
  * @example
  * {
  *   "publicVerifierId": "1ab30c0e-1adb-4f01-90e8-cfd425c0a311",
  *   "requestSigner": {
  *     "method": "did",
- *     "didUrl": "did:key:z6MkgViwfstCL1L9i8tgsdAYEu5A62W5mA9DcmSygVVVLFuU#z6MkgViwfstCL1L9i8tgsdAYEu5A62W5mA9DcmSygVVVLFuU"
+ *     "did": "did:key:z6MkgViwfstCL1L9i8tgsdAYEu5A62W5mA9DcmSygVVVLFuU"
  *   },
  *   "presentationExchange": {
  *     "definition": {
@@ -57,12 +102,12 @@ export class OpenId4VcVerificationSessionCreateRequestDto {
   public publicVerifierId!: string
 
   @ApiPropertyOptional({
-    type: CredentialIssuer,
+    type: RequestSignerDto,
   })
   @IsOptional()
   @ValidateNested()
-  @Type(() => CredentialIssuer)
-  public requestSigner?: CredentialIssuer
+  @Type(() => RequestSignerDto)
+  public requestSigner?: RequestSignerDto
 
   @ApiPropertyOptional()
   @IsOptional()

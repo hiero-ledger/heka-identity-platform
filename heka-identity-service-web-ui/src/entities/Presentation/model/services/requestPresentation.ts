@@ -22,9 +22,14 @@ import {
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { handleError } from '@/shared/api/utils/error';
 import { getUserId } from '@/shared/api/utils/token';
-import { DcApiProtocolIdentifier } from '@/shared/lib/dcApi';
+import { DcApiProtocolIdentifier, RequestSignerSelection } from '@/shared/lib/dcApi';
 
-export type DcApiErrorCode = 'cancelled' | 'unsupported' | 'failed';
+/**
+ * `rejected` = the verifier refused to create the presentation request (HTTP 4xx from the identity
+ * service, e.g. the chosen X.509 signer is missing or expired) — a configuration problem on this side,
+ * not a wallet or browser problem.
+ */
+export type DcApiErrorCode = 'cancelled' | 'unsupported' | 'failed' | 'refused';
 
 export class DcApiError extends Error {
   public readonly code: DcApiErrorCode;
@@ -61,6 +66,8 @@ export interface RequestPresentationParams {
   connectionId?: string;
   useDemo?: boolean;
   useDcApi?: boolean;
+  /** Runtime signer choice for the DC API flow (the picker); omit to use the `.env` default. */
+  requestSignerSelection?: RequestSignerSelection;
 }
 
 export interface RequestPresentationResult {
@@ -179,14 +186,24 @@ const requestOpenId4VcPresentationDcApi = async (
     doctype: params.schema.name,
     namespace: params.schema.name,
     useDcApi: true,
+    requestSignerSelection: params.requestSignerSelection,
     // Bind the calling page into the signed request so the holder accepts it.
     expectedOrigins: [window.location.origin],
   });
 
-  const response = await api.post<RequestOpenIdPresentationDcApiResponse>(
-    agencyEndpoints.requestOpenIdPresentation,
-    body,
-  );
+  let response;
+  try {
+    response = await api.post<RequestOpenIdPresentationDcApiResponse>(
+      agencyEndpoints.requestOpenIdPresentation,
+      body,
+    );
+  } catch (error) {
+    const status = (error as { response?: { status?: number } }).response?.status;
+    if (status !== undefined && status >= 400 && status < 500) {
+      throw new DcApiError('refused');
+    }
+    throw error;
+  }
 
   const { verificationSession, authorizationRequestObject } = response.data;
 

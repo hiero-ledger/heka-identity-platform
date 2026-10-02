@@ -9,6 +9,7 @@ import {
   Schema,
   SchemaRegistration,
 } from '@/entities/Schema/model/types/schema';
+import { getDcApiRequestSigner, RequestSignerSelection } from '@/shared/lib/dcApi';
 
 export interface BuildOpenIdPresentationRequestParams {
   format: Openid4CredentialFormat;
@@ -25,11 +26,16 @@ export interface BuildOpenIdPresentationRequestParams {
   useDcApi?: boolean;
   /** Origins (typically `[window.location.origin]`) bound into a signed `dc_api` request */
   expectedOrigins?: Array<string>;
+  /**
+   * Runtime signer choice for the `dc_api` flow (the picker). When omitted, the build-time `.env`
+   * default is used. Only consulted on the DC API path.
+   */
+  requestSignerSelection?: RequestSignerSelection;
 }
 
 // Non-DC-API ("direct_post") requests are signed with the verifier's DID.
-// The DC API flow is built separately (see buildDcApiPresentationRequest) — it is also
-// signed with the verifier's DID (a JAR, required by the wallet matcher) but MUST use DCQL, not PEX.
+// The DC API flow is built separately (see buildDcApiPresentationRequest): a JAR signed with the
+// verifier DID or, when selected, its X.509 signer; it MUST use DCQL, not PEX.
 
 export const buildSdJwtPresentationRequest = ({
   id,
@@ -200,7 +206,7 @@ const buildDcApiPresentationRequest = (
   params: BuildOpenIdPresentationRequestParams,
 ) => ({
   publicVerifierId: params.id,
-  requestSigner: { method: 'did' as const, did: params.did },
+  requestSigner: getDcApiRequestSigner(params.did, params.requestSignerSelection),
   dcql: { query: buildDcqlQuery(params) },
   responseMode: 'dc_api' as const,
   version: 'v1' as const,

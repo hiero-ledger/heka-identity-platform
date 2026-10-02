@@ -1,3 +1,6 @@
+import { generateKeyPairSync } from 'node:crypto'
+
+import { getPublicJwkFromVerificationMethod, VerificationMethod } from '@credo-ts/core'
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
 import { BadRequestException, UnprocessableEntityException } from '@nestjs/common'
@@ -6,6 +9,8 @@ import { ConfigType } from '@nestjs/config'
 import { TenantAgent } from 'common/agent'
 import { AuthInfo, Role } from 'common/auth'
 import AgentConfig from 'config/agent'
+import { MdocIssuerCaService } from 'mdoc-issuer-ca'
+import { SdJwtVcIssuerService } from 'sdjwt-vc-issuer'
 
 import {
   didResolutionResultStub,
@@ -13,12 +18,16 @@ import {
   issuerRecordStub,
 } from '../../../../test/helpers/mock-records'
 import { StatusListService } from '../../../revocation/status-list/status-list.service'
+import { TokenStatus, TokenStatusListService } from '../../../revocation/token-status-list/token-status-list.service'
 import { OpenId4VcIssuanceSessionService } from '../issuance-session.service'
 
 describe('OpenId4VcIssuanceSessionService', () => {
   let service: OpenId4VcIssuanceSessionService
   let tenantAgent: TenantAgent
   let statusListService: StatusListService
+  let mdocIssuerCaService: MdocIssuerCaService
+  let tokenStatusListService: TokenStatusListService
+  let sdJwtVcIssuerService: SdJwtVcIssuerService
   let agencyConfig: ConfigType<typeof AgentConfig>
   let authInfo: AuthInfo
 
@@ -27,6 +36,16 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
   beforeEach(() => {
     statusListService = createMock<StatusListService>()
+    mdocIssuerCaService = createMock<MdocIssuerCaService>()
+    // Default: tenant has a provisioned mdoc issuer (the offer() require-provisioning guard passes).
+    vi.mocked(mdocIssuerCaService.requireProvisioned).mockResolvedValue({ id: 'iaca-1' } as never)
+    tokenStatusListService = createMock<TokenStatusListService>()
+    vi.mocked(tokenStatusListService.reserveIndexes).mockResolvedValue({
+      id: 'tsl-1',
+      uri: 'https://example.com/token-status-lists/tsl-1',
+      indexes: [42],
+    })
+    sdJwtVcIssuerService = createMock<SdJwtVcIssuerService>()
     agencyConfig = {
       credentialsConfiguration: {
         OpenId4VC: {
@@ -41,7 +60,13 @@ describe('OpenId4VcIssuanceSessionService', () => {
       },
     } as any
 
-    service = new OpenId4VcIssuanceSessionService(agencyConfig, statusListService)
+    service = new OpenId4VcIssuanceSessionService(
+      agencyConfig,
+      statusListService,
+      mdocIssuerCaService,
+      tokenStatusListService,
+      sdJwtVcIssuerService,
+    )
 
     mockFindIssuanceSessionsByQuery.mockReset()
     mockDeleteById.mockReset()
@@ -63,9 +88,13 @@ describe('OpenId4VcIssuanceSessionService', () => {
           return { deleteById: mockDeleteById }
         }),
       },
-      context: {},
+      context: { contextCorrelationId: 'tenant-1' },
       dids: {
         resolve: vi.fn(),
+        resolveCreatedDidDocumentWithKeys: vi.fn(),
+      },
+      kms: {
+        getPublicKey: vi.fn(),
       },
     })
 
@@ -159,7 +188,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       })
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
-      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(statusListService.reserveIndexes).mockResolvedValue({ id: 'sl-1', indexes: [1] })
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -175,7 +204,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       await expect(service.offer(authInfo, tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
       expect(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).toHaveBeenCalledWith('issuer-1')
-      expect(statusListService.getOrCreate).toHaveBeenCalledWith(authInfo, 'issuer-1')
+      expect(statusListService.reserveIndexes).not.toHaveBeenCalled()
     })
 
     test('should throw UnprocessableEntityException when credential format does not match supported format', async () => {
@@ -187,7 +216,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       })
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
-      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(statusListService.reserveIndexes).mockResolvedValue({ id: 'sl-1', indexes: [1] })
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -213,7 +242,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       })
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
-      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(statusListService.reserveIndexes).mockResolvedValue({ id: 'sl-1', indexes: [1] })
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(didResolutionResultStub({ didDocument: null }))
 
       const req = {
@@ -232,7 +261,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
     })
 
-    test('should create issuance session for SdJwtVc format without credentialStatus', async () => {
+    test('should create issuance session for SdJwtVc format with a token-status-list credentialStatus', async () => {
       const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
@@ -241,7 +270,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       })
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
-      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(statusListService.reserveIndexes).mockResolvedValue({ id: 'sl-1', indexes: [1] })
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
         didResolutionResultStub({
           didDocument: {
@@ -249,6 +278,10 @@ describe('OpenId4VcIssuanceSessionService', () => {
           },
         }),
       )
+      vi.mocked(tenantAgent.dids.resolveCreatedDidDocumentWithKeys).mockResolvedValue({
+        didDocument: {} as never,
+        keys: [{ didDocumentRelativeKeyId: '#key-1', kmsKeyId: 'kms-key-1' }],
+      })
 
       const mockSession = issuanceSessionRecordStub({
         id: 'session-new',
@@ -280,18 +313,240 @@ describe('OpenId4VcIssuanceSessionService', () => {
       const result = await service.offer(authInfo, tenantAgent, req)
 
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkGood')
+      // the list is signed with the DID's own verification-method key (same key as the credential)
+      expect(tokenStatusListService.reserveIndexes).toHaveBeenCalledWith(
+        tenantAgent.context,
+        authInfo,
+        {
+          issuer: 'did:key:z6MkGood',
+          keyId: 'kms-key-1',
+          signer: { method: 'did', kid: 'did:key:z6MkGood#key-1' },
+        },
+        1,
+      )
       expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
-        expect.objectContaining({ issuerId: 'issuer-1' }),
+        expect.objectContaining({
+          issuerId: 'issuer-1',
+          issuanceMetadata: {
+            credentials: [
+              expect.objectContaining({
+                credentialStatus: {
+                  type: 'token-status-list',
+                  location: 'https://example.com/token-status-lists/tsl-1',
+                  index: 42,
+                  indexes: [42],
+                },
+              }),
+            ],
+          },
+        }),
       )
       expect(result.credentialOffer).toBe('openid-credential-offer://...')
       expect(result.issuanceSession.id).toBe('session-new')
-      // SdJwtVc does not support revocation, so addItems should NOT be called
-      expect(statusListService.addItems).not.toHaveBeenCalled()
-      // statusListService.location should NOT have been called for SdJwtVc either
+      // SD-JWT VC never touches the W3C bitstring list
+      expect(statusListService.reserveIndexes).not.toHaveBeenCalled()
       expect(statusListService.location).not.toHaveBeenCalled()
     })
 
-    test('should create issuance session for JwtVcJson format WITH credentialStatus and call addItems', async () => {
+    describe('DID records without a keys mapping (created before the Credo 0.6 key-id migration)', () => {
+      const did = 'did:key:z6MkLegacy'
+      const didUrl = `${did}#key-1`
+      const publicKeyJwk = generateKeyPairSync('ec', { namedCurve: 'P-256' }).publicKey.export({ format: 'jwk' })
+      const verificationMethod = new VerificationMethod({
+        id: didUrl,
+        type: 'JsonWebKey2020',
+        controller: did,
+        publicKeyJwk: publicKeyJwk as never,
+      })
+      // Credo itself signs such credentials with the verification method's legacy key id.
+      const legacyKeyId = getPublicJwkFromVerificationMethod(verificationMethod).legacyKeyId
+      const req = {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          {
+            credentialSupportedId: 'cred-sd-1',
+            format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+            issuer: { did },
+            payload: {},
+          },
+        ],
+        baseUri: 'https://example.com',
+      } as any
+
+      beforeEach(() => {
+        vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+          issuerRecordStub({
+            issuerId: 'issuer-1',
+            credentialConfigurationsSupported: {
+              'cred-sd-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
+            },
+          }),
+        )
+        vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+          didResolutionResultStub({ didDocument: { verificationMethod: [{ id: didUrl }] } }),
+        )
+        vi.mocked(tenantAgent.dids.resolveCreatedDidDocumentWithKeys).mockResolvedValue({
+          didDocument: { dereferenceKey: vi.fn().mockReturnValue(verificationMethod) } as never,
+          keys: undefined,
+        })
+        vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+          credentialOffer: 'openid-credential-offer://legacy',
+          issuanceSession: issuanceSessionRecordStub({
+            id: 'session-legacy',
+            issuerId: 'issuer-1',
+            state: 'OfferCreated',
+            type: 'OpenId4VcIssuanceSessionRecord',
+            createdAt: new Date(),
+            credentialOfferPayload: {},
+          }),
+        })
+      })
+
+      test('signs the token status list with the legacy key id when the tenant KMS holds that key', async () => {
+        vi.mocked(tenantAgent.kms.getPublicKey).mockResolvedValue({ ...publicKeyJwk, kid: legacyKeyId } as never)
+
+        await service.offer(authInfo, tenantAgent, req)
+
+        expect(tenantAgent.kms.getPublicKey).toHaveBeenCalledWith({ keyId: legacyKeyId })
+        expect(tokenStatusListService.reserveIndexes).toHaveBeenCalledWith(
+          tenantAgent.context,
+          authInfo,
+          {
+            issuer: did,
+            keyId: legacyKeyId,
+            signer: { method: 'did', kid: didUrl },
+          },
+          1,
+        )
+      }, 1)
+
+      test('still rejects with 422 when the KMS holds no key under the legacy id either', async () => {
+        vi.mocked(tenantAgent.kms.getPublicKey).mockResolvedValue(null as never)
+
+        await expect(service.offer(authInfo, tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
+        expect(tokenStatusListService.reserveIndexes).not.toHaveBeenCalled()
+      })
+    })
+
+    test('should sign the token status list of an x5c-mode SdJwtVc with the tenant issuer certificate key', async () => {
+      const mockIssuer = issuerRecordStub({
+        issuerId: 'issuer-1',
+        credentialConfigurationsSupported: {
+          'cred-sd-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
+        },
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
+      vi.mocked(statusListService.reserveIndexes).mockResolvedValue({ id: 'sl-1', indexes: [1] })
+      vi.mocked(sdJwtVcIssuerService.loadIssuerCertificateChain).mockResolvedValue({
+        issuerUrl: 'https://issuer.example',
+        certificateChain: [
+          { publicJwk: { hasKeyId: true, keyId: 'leaf-key' }, toString: () => 'LEAF' },
+          { publicJwk: {}, toString: () => 'ROOT' },
+        ] as never,
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://...',
+        issuanceSession: issuanceSessionRecordStub({ id: 'session-x5c', issuerId: 'issuer-1' }),
+      })
+
+      await service.offer(authInfo, tenantAgent, {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          {
+            credentialSupportedId: 'cred-sd-1',
+            format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+            issuerMode: 'x5c',
+            issuer: {},
+            payload: { some: 'payload' },
+          },
+        ],
+        baseUri: 'https://example.com',
+      } as any)
+
+      expect(tenantAgent.dids.resolve).not.toHaveBeenCalled()
+      expect(tokenStatusListService.reserveIndexes).toHaveBeenCalledWith(
+        tenantAgent.context,
+        authInfo,
+        {
+          issuer: 'https://issuer.example',
+          keyId: 'leaf-key',
+          signer: { method: 'x5c', x5c: ['LEAF', 'ROOT'] },
+        },
+        1,
+      )
+      // the identity the entry was allocated under is pinned to the session for the credential request
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issuanceMetadata: {
+            credentials: [
+              expect.objectContaining({
+                issuerMode: 'x5c',
+                issuerSigner: { keyId: 'leaf-key', x5c: ['LEAF', 'ROOT'], issuer: 'https://issuer.example' },
+              }),
+            ],
+          },
+        }),
+      )
+    })
+
+    test('reserves one status-list entry per credential of the issuer batch size (DID mode pins nothing)', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+        issuerRecordStub({
+          issuerId: 'issuer-1',
+          batchCredentialIssuance: { batchSize: 3 },
+          credentialConfigurationsSupported: {
+            'cred-sd-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' },
+          },
+        }),
+      )
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({ didDocument: { verificationMethod: [{ id: 'did:key:z6MkGood#key-1' }] } }),
+      )
+      vi.mocked(tenantAgent.dids.resolveCreatedDidDocumentWithKeys).mockResolvedValue({
+        didDocument: {} as never,
+        keys: [{ didDocumentRelativeKeyId: '#key-1', kmsKeyId: 'kms-key-1' }],
+      })
+      vi.mocked(tokenStatusListService.reserveIndexes).mockResolvedValue({
+        id: 'tsl-1',
+        uri: 'https://example.com/token-status-lists/tsl-1',
+        indexes: [7, 8, 9],
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://batch',
+        issuanceSession: issuanceSessionRecordStub({ id: 'session-batch', issuerId: 'issuer-1' }),
+      })
+
+      await service.offer(authInfo, tenantAgent, {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          {
+            credentialSupportedId: 'cred-sd-1',
+            format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+            issuer: { did: 'did:key:z6MkGood' },
+            payload: {},
+          },
+        ],
+        baseUri: 'https://example.com',
+      } as any)
+
+      expect(tokenStatusListService.reserveIndexes).toHaveBeenCalledWith(
+        tenantAgent.context,
+        authInfo,
+        expect.objectContaining({ keyId: 'kms-key-1' }),
+        3,
+      )
+      const [{ issuanceMetadata }] = vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0]
+      const [credential] = (issuanceMetadata as { credentials: Record<string, unknown>[] }).credentials
+      expect(credential.credentialStatus).toEqual({
+        type: 'token-status-list',
+        location: 'https://example.com/token-status-lists/tsl-1',
+        index: 7,
+        indexes: [7, 8, 9],
+      })
+      expect(credential.issuerSigner).toBeUndefined()
+    })
+
+    test('should create issuance session for JwtVcJson format WITH credentialStatus and reserve a bitstring index', async () => {
       const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
         credentialConfigurationsSupported: {
@@ -303,7 +558,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       })
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
-      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 5 } as any)
+      vi.mocked(statusListService.reserveIndexes).mockResolvedValue({ id: 'sl-1', indexes: [6] })
       vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-1')
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
         didResolutionResultStub({
@@ -312,7 +567,6 @@ describe('OpenId4VcIssuanceSessionService', () => {
           },
         }),
       )
-      vi.mocked(statusListService.addItems).mockResolvedValue(undefined)
 
       const mockSession = issuanceSessionRecordStub({
         id: 'session-jwt',
@@ -347,13 +601,13 @@ describe('OpenId4VcIssuanceSessionService', () => {
         expect.objectContaining({ issuerId: 'issuer-1' }),
       )
       expect(result.credentialOffer).toBe('openid-credential-offer://jwt')
-      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-1', [5])
+      expect(statusListService.reserveIndexes).toHaveBeenCalledWith(authInfo, 'issuer-1', 1)
       // The index reserved in the status list must be the one the issued credential carries,
       // otherwise the credential points at a bit that is never set on revocation.
       expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
         expect.objectContaining({
           issuanceMetadata: expect.objectContaining({
-            credentials: [expect.objectContaining({ credentialStatus: expect.objectContaining({ index: 5 }) })],
+            credentials: [expect.objectContaining({ credentialStatus: expect.objectContaining({ index: 6 }) })],
           }),
         }),
       )
@@ -371,7 +625,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       })
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
-      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-2', lastIndex: 10 } as any)
+      vi.mocked(statusListService.reserveIndexes).mockResolvedValue({ id: 'sl-2', indexes: [11] })
       vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-2')
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
         didResolutionResultStub({
@@ -380,7 +634,6 @@ describe('OpenId4VcIssuanceSessionService', () => {
           },
         }),
       )
-      vi.mocked(statusListService.addItems).mockResolvedValue(undefined)
 
       const mockSession = issuanceSessionRecordStub({
         id: 'session-ld',
@@ -410,11 +663,13 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       await service.offer(authInfo, tenantAgent, req)
 
-      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-2', [10])
+      expect(statusListService.reserveIndexes).toHaveBeenCalledWith(authInfo, 'issuer-1', 1)
+      // The index reserved in the status list must be the one the issued credential carries,
+      // otherwise the credential points at a bit that is never set on revocation.
       expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
         expect.objectContaining({
           issuanceMetadata: expect.objectContaining({
-            credentials: [expect.objectContaining({ credentialStatus: expect.objectContaining({ index: 10 }) })],
+            credentials: [expect.objectContaining({ credentialStatus: expect.objectContaining({ index: 11 }) })],
           }),
         }),
       )
@@ -432,7 +687,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       })
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
-      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-3', lastIndex: 0 } as any)
+      vi.mocked(statusListService.reserveIndexes).mockResolvedValue({ id: 'sl-3', indexes: [1] })
       vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-3')
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
         didResolutionResultStub({
@@ -441,7 +696,6 @@ describe('OpenId4VcIssuanceSessionService', () => {
           },
         }),
       )
-      vi.mocked(statusListService.addItems).mockResolvedValue(undefined)
 
       const mockSession = issuanceSessionRecordStub({
         id: 'session-ldp',
@@ -471,11 +725,13 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       await service.offer(authInfo, tenantAgent, req)
 
-      expect(statusListService.addItems).toHaveBeenCalledWith(authInfo, 'sl-3', [0])
+      expect(statusListService.reserveIndexes).toHaveBeenCalledWith(authInfo, 'issuer-1', 1)
+      // The index reserved in the status list must be the one the issued credential carries,
+      // otherwise the credential points at a bit that is never set on revocation.
       expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
         expect.objectContaining({
           issuanceMetadata: expect.objectContaining({
-            credentials: [expect.objectContaining({ credentialStatus: expect.objectContaining({ index: 0 }) })],
+            credentials: [expect.objectContaining({ credentialStatus: expect.objectContaining({ index: 1 }) })],
           }),
         }),
       )
@@ -493,17 +749,15 @@ describe('OpenId4VcIssuanceSessionService', () => {
       })
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
-      // One free slot (lastIndex 99 of size 100) but two revocable credentials requested
-      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-4', lastIndex: 99, size: 100 } as any)
-      vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-4')
+      // Capacity is enforced inside the locked reservation, which rejects before anything irreversible happens
+      vi.mocked(statusListService.reserveIndexes).mockRejectedValue(
+        new BadRequestException('Status list does not have enough free indexes'),
+      )
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
         didResolutionResultStub({
           didDocument: { verificationMethod: [{ id: 'did:key:z6MkJwt#key-1' }] },
         }),
       )
-      vi.mocked(statusListService.assertHasFreeIndexes).mockImplementation(() => {
-        throw new BadRequestException('Status list does not have enough free indexes')
-      })
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -524,9 +778,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       await expect(service.offer(authInfo, tenantAgent, req)).rejects.toThrow(BadRequestException)
 
-      // The point of the preflight: nothing irreversible may happen once capacity is known to be short
+      expect(statusListService.reserveIndexes).toHaveBeenCalledWith(authInfo, 'issuer-1', 2)
       expect(tenantAgent.openid4vc.issuer.createCredentialOffer).not.toHaveBeenCalled()
-      expect(statusListService.addItems).not.toHaveBeenCalled()
     })
 
     test('should create issuance session for MsoMdoc format without DID resolution or credentialStatus', async () => {
@@ -541,7 +794,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       })
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
-      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-mdoc', lastIndex: 0 } as any)
+      vi.mocked(statusListService.reserveIndexes).mockResolvedValue({ id: 'sl-mdoc', indexes: [1] })
 
       const mockSession = issuanceSessionRecordStub({
         id: 'session-mdoc',
@@ -575,8 +828,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
         expect.objectContaining({ issuerId: 'issuer-1' }),
       )
       expect(result.credentialOffer).toBe('openid-credential-offer://mdoc')
-      // MsoMdoc does not support revocation, no addItems call
-      expect(statusListService.addItems).not.toHaveBeenCalled()
+      // MsoMdoc does not support revocation, no bitstring reservation
+      expect(statusListService.reserveIndexes).not.toHaveBeenCalled()
       // MsoMdoc uses X.509, so no DID resolution
       expect(tenantAgent.dids.resolve).not.toHaveBeenCalled()
     })
@@ -591,7 +844,13 @@ describe('OpenId4VcIssuanceSessionService', () => {
         },
       } as any
 
-      const restrictedService = new OpenId4VcIssuanceSessionService(restrictedConfig, statusListService)
+      const restrictedService = new OpenId4VcIssuanceSessionService(
+        restrictedConfig,
+        statusListService,
+        mdocIssuerCaService,
+        tokenStatusListService,
+        sdJwtVcIssuerService,
+      )
 
       const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
@@ -601,7 +860,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       })
 
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuer)
-      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(statusListService.reserveIndexes).mockResolvedValue({ id: 'sl-1', indexes: [1] })
 
       const req = {
         publicIssuerId: 'issuer-1',
@@ -646,6 +905,67 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')).rejects.toThrow(
         'Credential does not support revocation',
+      )
+    })
+
+    test('should revoke a token-status-list credential by invalidating its entry in the tenant context', async () => {
+      const mockSession = issuanceSessionRecordStub({
+        id: 'session-1',
+        issuanceMetadata: {
+          credentials: [
+            {
+              format: 'vc+sd-jwt',
+              credentialStatus: {
+                type: 'token-status-list',
+                location: 'https://example.com/token-status-lists/tsl-1',
+                index: 42,
+              },
+            },
+          ],
+        },
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(mockSession)
+
+      await service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')
+
+      expect(tokenStatusListService.setStatuses).toHaveBeenCalledWith(
+        tenantAgent.context,
+        authInfo,
+        'tsl-1',
+        [42],
+        TokenStatus.Invalid,
+      )
+      expect(statusListService.updateItems).not.toHaveBeenCalled()
+    })
+
+    test('revoking a batch issuance invalidates every reserved entry in one re-signing', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(
+        issuanceSessionRecordStub({
+          id: 'session-batch',
+          issuanceMetadata: {
+            credentials: [
+              {
+                format: 'vc+sd-jwt',
+                credentialStatus: {
+                  type: 'token-status-list',
+                  location: 'https://example.com/token-status-lists/tsl-1',
+                  index: 7,
+                  indexes: [7, 8, 9],
+                },
+              },
+            ],
+          },
+        }),
+      )
+
+      await service.revokeIssuanceSession(authInfo, tenantAgent, 'session-batch')
+
+      expect(tokenStatusListService.setStatuses).toHaveBeenCalledWith(
+        tenantAgent.context,
+        authInfo,
+        'tsl-1',
+        [7, 8, 9],
+        TokenStatus.Invalid,
       )
     })
 

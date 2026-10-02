@@ -1,4 +1,6 @@
 import type { AnonCredsRegistry } from '@credo-ts/anoncreds'
+import type { MdocIssuerCaService, VerifierTrustAnchorService } from 'mdoc-issuer-ca'
+import type { SdJwtVcIssuerService } from 'sdjwt-vc-issuer'
 
 import {
   AnonCredsDidCommCredentialFormatService,
@@ -22,6 +24,7 @@ import {
   PeerDidRegistrar,
   PeerDidResolver,
   WebDidResolver,
+  X509Module,
 } from '@credo-ts/core'
 import {
   DidCommAutoAcceptCredential,
@@ -43,16 +46,54 @@ import { TenantsModule } from '@credo-ts/tenants'
 import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
 import { ConfigType } from '@nestjs/config'
+import { ModuleRef } from '@nestjs/core'
 import { NativeAskar } from '@openwallet-foundation/askar-nodejs'
 
 import AgentConfig from 'config/agent'
 import AppConfig from 'config/express'
-import { createCredentialRequestToCredentialMapper } from 'utils/oid4vc'
+import { MDOC_ISSUER_CA_SERVICE, VERIFIER_TRUST_ANCHOR_SERVICE } from 'mdoc-issuer-ca/mdoc-issuer-ca.tokens'
+import { SDJWT_VC_ISSUER_SERVICE } from 'sdjwt-vc-issuer/sdjwt-vc-issuer.tokens'
+import { createCredentialRequestToCredentialMapper, CredentialMapperDependencies } from 'utils/oid4vc'
 
 import { TailsService } from '../../revocation/revocation-registry/tails.service'
 import { IndyBesuAnonCredsRegistry, IndyBesuDidRegistrar, IndyBesuDidResolver, IndyBesuModule } from '../indy-besu-vdr'
 
-function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConfig: ConfigType<typeof AgentConfig>) {
+/**
+ * Tenant services the credential mapper needs, resolved through `ModuleRef` at call time: this provider is
+ * built before `MdocIssuerCaService` / `SdJwtVcIssuerService` exist (they depend on the agent), so direct
+ * injection would be a cycle.
+ */
+export function buildCredentialMapperDependencies(moduleRef: ModuleRef): CredentialMapperDependencies {
+  return {
+    getMdocIssuerCertificate: (agentContext) =>
+      moduleRef.get<MdocIssuerCaService>(MDOC_ISSUER_CA_SERVICE, { strict: false }).loadCurrentDsc(agentContext),
+    getSdJwtVcIssuerCertificate: (agentContext) =>
+      moduleRef
+        .get<SdJwtVcIssuerService>(SDJWT_VC_ISSUER_SERVICE, { strict: false })
+        .loadIssuerCertificateChain(agentContext),
+  }
+}
+
+/**
+ * Credo's X.509 module with the service's relying-party trust provider attached: when the service
+ * verifies a presented credential, the trusted certificates come from {@link VerifierTrustAnchorService}
+ * (tenant IACA registry, curated anchors, cached EU lists) instead of one static certificate. Resolved
+ * lazily via ModuleRef at verification time for the same cycle reason as `buildCredentialMapperDependencies`.
+ */
+function buildX509Module(moduleRef: ModuleRef): X509Module {
+  return new X509Module({
+    getTrustedCertificatesForVerification: (agentContext, verificationContext) =>
+      moduleRef
+        .get<VerifierTrustAnchorService>(VERIFIER_TRUST_ANCHOR_SERVICE, { strict: false })
+        .getTrustedCertificatesForVerification(agentContext, verificationContext),
+  })
+}
+
+function getTenantModulesMap(
+  appConfig: ConfigType<typeof AppConfig>,
+  agencyConfig: ConfigType<typeof AgentConfig>,
+  moduleRef: ModuleRef,
+) {
   const credentialFormatService = new AnonCredsDidCommCredentialFormatService()
   const proofFormatService = new AnonCredsDidCommProofFormatService()
   const legacyIndyCredentialFormatService = new LegacyIndyDidCommCredentialFormatService()
@@ -137,8 +178,7 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       issuer: {
         baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
         credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(
-          agencyConfig.mdlIssuerCertificate,
-          agencyConfig.mdlIssuerPrivateKeyJwk,
+          buildCredentialMapperDependencies(moduleRef),
         ),
       },
       verifier: {
@@ -162,6 +202,7 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
         },
       ],
     }),
+    x509: buildX509Module(moduleRef),
   }
 }
 
@@ -170,9 +211,10 @@ export type TenantModulesMap = ReturnType<typeof getTenantModulesMap>
 export function getAgencyModulesMap(
   appConfig: ConfigType<typeof AppConfig>,
   agencyConfig: ConfigType<typeof AgentConfig>,
+  moduleRef: ModuleRef,
 ) {
   return {
-    ...getTenantModulesMap(appConfig, agencyConfig),
+    ...getTenantModulesMap(appConfig, agencyConfig, moduleRef),
     tenants: new TenantsModule<TenantModulesMap>(),
   }
 }
@@ -186,6 +228,7 @@ export const agentModulesProvider = {
   useFactory: (
     appConfig: ConfigType<typeof AppConfig>,
     agencyConfig: ConfigType<typeof AgentConfig>,
-  ): AgencyModulesMap => getAgencyModulesMap(appConfig, agencyConfig),
-  inject: [AppConfig.KEY, AgentConfig.KEY],
+    moduleRef: ModuleRef,
+  ): AgencyModulesMap => getAgencyModulesMap(appConfig, agencyConfig, moduleRef),
+  inject: [AppConfig.KEY, AgentConfig.KEY, ModuleRef],
 }

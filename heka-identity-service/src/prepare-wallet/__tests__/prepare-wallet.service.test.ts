@@ -4,6 +4,7 @@ import { TenantAgent } from 'common/agent'
 import { Role } from 'common/auth'
 import { Logger } from 'common/logger'
 import { DidService } from 'did/did.service'
+import { MdocIssuerCaService } from 'mdoc-issuer-ca'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
 import { OpenId4VcVerifierService } from 'openid4vc/verifier/verifier.service'
 import { SchemaV2Service } from 'schema-v2/schema-v2.service'
@@ -19,6 +20,7 @@ describe('PrepareWalletService', () => {
   let verifierService: OpenId4VcVerifierService
   let schemaV2Service: SchemaV2Service
   let userService: UserService
+  let mdocIssuerCaService: MdocIssuerCaService
   let tenantAgent: TenantAgent
 
   const authInfo = {
@@ -38,6 +40,7 @@ describe('PrepareWalletService', () => {
     verifierService = createMock<OpenId4VcVerifierService>()
     schemaV2Service = createMock<SchemaV2Service>()
     userService = createMock<UserService>()
+    mdocIssuerCaService = createMock<MdocIssuerCaService>()
     prepareWalletService = new PrepareWalletService(
       logger,
       didService,
@@ -45,6 +48,7 @@ describe('PrepareWalletService', () => {
       verifierService,
       schemaV2Service,
       userService,
+      mdocIssuerCaService,
     )
     tenantAgent = createMock<TenantAgent>()
   })

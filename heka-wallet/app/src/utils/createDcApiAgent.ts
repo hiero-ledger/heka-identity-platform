@@ -15,7 +15,14 @@ import { NativeAskar } from '@openwallet-foundation/askar-react-native'
 
 import { CredoLogger } from '../logger'
 
-import { HekaWalletAgent, TRUSTED_X509_CERTIFICATES } from './agent'
+import {
+  bootstrapWalletTrust,
+  HekaWalletAgent,
+  TRUST_CONFIGURATION_ERRORS,
+  TRUSTED_MDOC_ISSUER_CERTIFICATES,
+  trustedCertificatesForVerification,
+} from './agent'
+import { summarizeTrustBootstrap } from './trust/trustBootstrap'
 
 /**
  * Creates and initializes a minimal Credo agent for the Digital Credentials API overlay.
@@ -47,7 +54,9 @@ export async function createDcApiAgent(walletSecret: WalletSecret): Promise<Heka
         resolvers: [new WebDidResolver(), new KeyDidResolver(), new JwkDidResolver(), new PeerDidResolver()],
       }),
       x509: new X509Module({
-        trustedCertificates: [...TRUSTED_X509_CERTIFICATES],
+        trustedCertificates: [...TRUSTED_MDOC_ISSUER_CERTIFICATES],
+        getTrustedCertificatesForVerification: (_agentContext, { verification }) =>
+          trustedCertificatesForVerification(verification),
       }),
     },
   })
@@ -59,6 +68,16 @@ export async function createDcApiAgent(walletSecret: WalletSecret): Promise<Heka
     // must not leave a partially-opened Askar store behind.
     await agent.shutdown().catch(() => undefined)
     throw error
+  }
+
+  // This React root has its own, empty anchor store: bootstrap it cache-first (see `bootstrapWalletTrust`).
+  // Best-effort — the overlay still opens without anchors.
+  for (const error of TRUST_CONFIGURATION_ERRORS) agent.config.logger.warn(`Trust configuration error — ${error}`)
+  try {
+    const trust = await bootstrapWalletTrust(agent as unknown as HekaWalletAgent)
+    agent.config.logger.info(`Trust anchors — ${summarizeTrustBootstrap(trust)}`)
+  } catch (error) {
+    agent.config.logger.warn(`Trust anchor bootstrap failed: ${error instanceof Error ? error.message : String(error)}`)
   }
 
   return agent as unknown as HekaWalletAgent

@@ -24,6 +24,7 @@ export const agencyEndpoints = {
   getDidMethods: `/dids/methods`,
   createOpenIdIssuer: `/openid4vc/issuer`,
   createOpenIdVerifier: `/openid4vc/verifier`,
+  getX509Signers: `/x509/signers`,
   createConnection: 'connections/create-invitation',
   getConnectionState: (id: string) => `connections/${id}`,
   offerAnoncredsCredential: `/credentials/offer`,

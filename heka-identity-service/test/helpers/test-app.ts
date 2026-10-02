@@ -18,11 +18,11 @@ import {
   IndyVdrIndyDidResolver,
   IndyVdrModule,
 } from '@credo-ts/indy-vdr'
-import { OpenId4VcIssuerModule, OpenId4VcVerifierModule } from '@credo-ts/openid4vc'
 import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
 import { INestApplication } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
+import { ModuleRef } from '@nestjs/core'
 import { Test } from '@nestjs/testing'
 import { NativeAskar } from '@openwallet-foundation/askar-nodejs'
 
@@ -36,7 +36,6 @@ import { AGENT_MODULES_TOKEN, getAgencyModulesMap } from 'src/common/agent/agent
 import AgentConfig from 'src/config/agent'
 import FileStorageConfig from 'src/config/file-storage'
 import MikroOrmConfig from 'src/config/mikro-orm'
-import { createCredentialRequestToCredentialMapper } from 'src/utils/oid4vc'
 import TestAgentConfig from 'test/config/agent'
 import TestFileStorageConfig from 'test/config/file-storage'
 import TestMikroOrmConfig from 'test/config/mikro-orm'
@@ -64,9 +63,18 @@ export async function startTestApp(): Promise<INestApplication> {
     })
     .overrideProvider(AGENT_MODULES_TOKEN)
     .useFactory({
-      factory: (appConfig: ConfigType<typeof AppConfig>, agencyConfig: ConfigType<typeof AgentConfig>) => {
+      factory: (
+        appConfig: ConfigType<typeof AppConfig>,
+        agencyConfig: ConfigType<typeof AgentConfig>,
+        moduleRef: ModuleRef,
+      ) => {
+        // The production module map as-is — including the combined `openid4vc` module (issuer + verifier
+        // on the shared Express app, exact production mapper wiring). Do not add the standalone
+        // `OpenId4VcIssuerModule` / `OpenId4VcVerifierModule` next to it: Credo initialises every module in
+        // the map, so a second issuer module registers every OID4VCI route twice on the same Express app and
+        // each request is then handled twice (`ERR_HTTP_HEADERS_SENT` noise, sessions flipped to `Error`).
         return {
-          ...getAgencyModulesMap(appConfig, agencyConfig),
+          ...getAgencyModulesMap(appConfig, agencyConfig, moduleRef),
           askar: new AskarModule({
             askar: NativeAskar.instance,
             store: {
@@ -118,20 +126,6 @@ export async function startTestApp(): Promise<INestApplication> {
             indyVdr,
             networks: agencyConfig.networks,
           }),
-          openId4VcIssuer: new OpenId4VcIssuerModule({
-            baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            app: agencyConfig.oidConfig.app as any,
-            credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(
-              agencyConfig.mdlIssuerCertificate,
-              agencyConfig.mdlIssuerPrivateKeyJwk,
-            ),
-          }),
-          openId4VcVerifier: new OpenId4VcVerifierModule({
-            baseUrl: agencyConfig.oidConfig.verificationEndpoint,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            app: agencyConfig.oidConfig.app as any,
-          }),
           hedera: new HederaModule({
             networks: [
               {
@@ -143,7 +137,7 @@ export async function startTestApp(): Promise<INestApplication> {
           }),
         }
       },
-      inject: [AppConfig.KEY, AgentConfig.KEY],
+      inject: [AppConfig.KEY, AgentConfig.KEY, ModuleRef],
     })
     .compile()
   const app = moduleRef.createNestApplication({ bufferLogs: true })

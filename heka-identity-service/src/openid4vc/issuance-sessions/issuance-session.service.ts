@@ -1,4 +1,4 @@
-import { SdJwtVcPayload } from '@credo-ts/core'
+import { DidDocument, getPublicJwkFromVerificationMethod, SdJwtVcPayload } from '@credo-ts/core'
 import {
   OpenId4VciCredentialFormatProfile,
   OpenId4VcIssuanceSessionRepository,
@@ -9,10 +9,17 @@ import { ConfigType } from '@nestjs/config'
 
 import { TenantAgent } from 'common/agent'
 import AgentConfig from 'config/agent'
+import { MdocIssuerCaService } from 'mdoc-issuer-ca'
+import { SdJwtVcIssuerService } from 'sdjwt-vc-issuer'
+import { IssuerMode, CredentialIssuanceMetadata, PinnedIssuerSigner } from 'utils/oid4vc'
 
 import { AuthInfo } from '../../common/auth'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
-import { CredentialIssuanceMetadata } from '../../utils/oid4vc'
+import {
+  TokenStatus,
+  TokenStatusListService,
+  TokenStatusListSignerIdentity,
+} from '../../revocation/token-status-list/token-status-list.service'
 
 import {
   GetIssuanceSessionByQueryDto,
@@ -26,6 +33,9 @@ export class OpenId4VcIssuanceSessionService {
   public constructor(
     @Inject(AgentConfig.KEY) private readonly agencyConfig: ConfigType<typeof AgentConfig>,
     private readonly statusListService: StatusListService,
+    private readonly mdocIssuerCaService: MdocIssuerCaService,
+    private readonly tokenStatusListService: TokenStatusListService,
+    private readonly sdJwtVcIssuerService: SdJwtVcIssuerService,
   ) {}
 
   public async offer(
@@ -37,9 +47,8 @@ export class OpenId4VcIssuanceSessionService {
 
     // TODO: It is better to we move setting credential status to `credentialRequestToCredentialMapper`
     //  to change status list when credential really requested but how??
-    const statusList = await this.statusListService.getOrCreate(authInfo, req.publicIssuerId)
-    let credentialIndex = statusList.lastIndex
-    const credentialIndexes = []
+    // Positions (in mappedCredentials) of the W3C VCs; their bitstring indexes are reserved in one locked call below.
+    const w3cCredentialPositions: number[] = []
 
     // Maps credentials, adds properties, and throws errors if needed
     const mappedCredentials: Array<CredentialIssuanceMetadata> = []
@@ -63,10 +72,16 @@ export class OpenId4VcIssuanceSessionService {
         )
       }
 
+      const isX5cSdJwt =
+        credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc &&
+        (credential as { issuerMode?: IssuerMode }).issuerMode === 'x5c'
+
       // MsoMdoc uses X.509 certificates, not DIDs — skip DID resolution
+      let issuerDid: string | undefined
       let issuerDidUrl: string | undefined
-      if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
+      if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc && !isX5cSdJwt) {
         const issuerCredential = credential as { issuer: { did: string } }
+        issuerDid = issuerCredential.issuer.did
         const { didDocument } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
         if (!didDocument || !didDocument.verificationMethod?.length) {
           throw new UnprocessableEntityException(
@@ -74,24 +89,43 @@ export class OpenId4VcIssuanceSessionService {
           )
         }
         issuerDidUrl = didDocument.verificationMethod[0].id
+      } else if (credential.format === OpenId4VciCredentialFormatProfile.MsoMdoc) {
+        // Fail fast (400) if the tenant has no provisioned mdoc issuer, instead of in the credential mapper
+        // when the wallet requests the credential.
+        await this.mdocIssuerCaService.requireProvisioned(tenantAgent.context)
       }
 
-      let credentialStatus
+      let credentialStatus: CredentialIssuanceMetadata['credentialStatus']
+      let issuerSigner: PinnedIssuerSigner | undefined
 
-      // sd+jwt and mso_mdoc do not support revocation
+      // W3C VCs → bitstring status list; SD-JWT VC → IETF token status list; mso_mdoc → none (Credo does not
+      // expose the MSO `status` claim).
       if (
         credential.format === OpenId4VciCredentialFormatProfile.JwtVcJson ||
         credential.format === OpenId4VciCredentialFormatProfile.JwtVcJsonLd ||
         credential.format === OpenId4VciCredentialFormatProfile.LdpVc
       ) {
-        // Assign the current free index (0-based), then advance
-        // This keeps issued indexes within [0, size), consistent with capacity guard and per-index bound in StatusListService
-        credentialIndexes.push(credentialIndex)
+        w3cCredentialPositions.push(mappedCredentials.length)
+      } else if (credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc) {
+        const signer = await this.resolveSdJwtSigningIdentity(tenantAgent, isX5cSdJwt, issuerDid, issuerDidUrl)
+        // One status-list entry per credential the wallet may request in a batch.
+        const batchSize = issuer.batchCredentialIssuance?.batchSize ?? 1
+        const reference = await this.tokenStatusListService.reserveIndexes(
+          tenantAgent.context,
+          authInfo,
+          signer,
+          batchSize,
+        )
         credentialStatus = {
-          location: this.statusListService.location(statusList.id),
-          index: credentialIndex,
+          type: 'token-status-list',
+          location: reference.uri,
+          index: reference.indexes[0],
+          indexes: reference.indexes,
         }
-        credentialIndex += 1
+        // x5c: pin the identity the entries were allocated under (see `CredentialIssuanceMetadata.issuerSigner`).
+        if (signer.signer.method === 'x5c') {
+          issuerSigner = { keyId: signer.keyId, x5c: signer.signer.x5c, issuer: signer.issuer }
+        }
       }
 
       let type: string | string[]
@@ -122,6 +156,7 @@ export class OpenId4VcIssuanceSessionService {
             didUrl: issuerDidUrl,
           },
           credentialStatus,
+          ...(issuerSigner ? { issuerSigner } : {}),
           payload: (credential as { payload?: SdJwtVcPayload }).payload,
         }
       }
@@ -129,9 +164,16 @@ export class OpenId4VcIssuanceSessionService {
       mappedCredentials.push(credentialIssuanceMeta)
     }
 
-    // Preflight status list capacity check before the offer is created
-    if (credentialIndexes.length) {
-      this.statusListService.assertHasFreeIndexes(statusList, credentialIndexes.length)
+    if (w3cCredentialPositions.length > 0) {
+      const reserved = await this.statusListService.reserveIndexes(
+        authInfo,
+        req.publicIssuerId,
+        w3cCredentialPositions.length,
+      )
+      const location = this.statusListService.location(reserved.id)
+      w3cCredentialPositions.forEach((position, offset) => {
+        mappedCredentials[position].credentialStatus = { type: 'bitstring', location, index: reserved.indexes[offset] }
+      })
     }
 
     const { credentialOffer, issuanceSession } = await tenantAgent.openid4vc.issuer.createCredentialOffer({
@@ -143,10 +185,6 @@ export class OpenId4VcIssuanceSessionService {
         credentials: mappedCredentials,
       },
     })
-
-    if (credentialIndexes.length) {
-      await this.statusListService.addItems(authInfo, statusList.id, credentialIndexes)
-    }
 
     return {
       issuanceSession: OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(issuanceSession),
@@ -215,9 +253,78 @@ export class OpenId4VcIssuanceSessionService {
     const statusListId = credential.credentialStatus.location.split('/')?.pop()
     if (!statusListId) throw new Error('Credential does not support revocation')
 
+    if (credential.credentialStatus.type === 'token-status-list') {
+      // Every credential of the issuance (a batch holds one entry per holder key) is revoked together.
+      const indexes = credential.credentialStatus.indexes ?? [credential.credentialStatus.index]
+      await this.tokenStatusListService.setStatuses(
+        tenantAgent.context,
+        authInfo,
+        statusListId,
+        indexes,
+        TokenStatus.Invalid,
+      )
+      return
+    }
+
     await this.statusListService.updateItems(authInfo, statusListId, {
       indexes: [credential.credentialStatus.index],
       revoked: true,
     })
+  }
+
+  /**
+   * The credential-signing key of this SD-JWT VC issuance, as the status-list signer (see
+   * `TokenStatusListService`): x5c → the tenant's issuer leaf, DID → the verification-method key.
+   */
+  private async resolveSdJwtSigningIdentity(
+    tenantAgent: TenantAgent,
+    isX5c: boolean,
+    issuerDid: string | undefined,
+    issuerDidUrl: string | undefined,
+  ): Promise<TokenStatusListSignerIdentity> {
+    if (isX5c) {
+      const { certificateChain, issuerUrl } = await this.sdJwtVcIssuerService.loadIssuerCertificateChain(
+        tenantAgent.context,
+      )
+      const leafJwk = certificateChain[0].publicJwk
+      if (!leafJwk.hasKeyId)
+        throw new UnprocessableEntityException('SD-JWT VC issuer certificate has no signing key bound')
+      return {
+        issuer: issuerUrl,
+        keyId: leafJwk.keyId,
+        signer: { method: 'x5c', x5c: certificateChain.map((certificate) => certificate.toString('base64')) },
+      }
+    }
+
+    if (!issuerDid || !issuerDidUrl) throw new UnprocessableEntityException('SD-JWT VC issuer DID is missing')
+    const { didDocument, keys } = await tenantAgent.dids.resolveCreatedDidDocumentWithKeys(issuerDid)
+    const keyId =
+      keys?.find(
+        (candidate) =>
+          issuerDidUrl === `${issuerDid}${candidate.didDocumentRelativeKeyId}` ||
+          issuerDidUrl.endsWith(candidate.didDocumentRelativeKeyId),
+      )?.kmsKeyId ?? (await this.legacyDidKeyId(tenantAgent, didDocument, issuerDidUrl))
+    if (!keyId) throw new UnprocessableEntityException(`Unable to resolve the signing key for DID URL: ${issuerDidUrl}`)
+    return { issuer: issuerDid, keyId, signer: { method: 'did', kid: issuerDidUrl } }
+  }
+
+  /**
+   * DID records created before the Credo 0.6 key-id migration carry no `keys` (verification method →
+   * KMS key id) mapping; Credo itself then signs the credential with the verification method's *legacy*
+   * key id (`DidsApi.resolveVerificationMethodFromCreatedDidRecord`). Mirror that fallback so such DIDs
+   * can receive SD-JWT VC offers too, but only when the tenant KMS actually holds that key.
+   */
+  private async legacyDidKeyId(
+    tenantAgent: TenantAgent,
+    didDocument: DidDocument,
+    didUrl: string,
+  ): Promise<string | undefined> {
+    try {
+      const legacyKeyId = getPublicJwkFromVerificationMethod(didDocument.dereferenceKey(didUrl)).legacyKeyId
+      const publicKey = await tenantAgent.kms.getPublicKey({ keyId: legacyKeyId })
+      return publicKey ? legacyKeyId : undefined
+    } catch {
+      return undefined
+    }
   }
 }

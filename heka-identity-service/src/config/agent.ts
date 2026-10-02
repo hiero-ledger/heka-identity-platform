@@ -11,10 +11,55 @@ import { registerAs } from '@nestjs/config'
 import express from 'express'
 
 import { AriesCredentialFormat, ProtocolType } from 'common/types'
+import { isProfileName, PROFILE_NAMES } from 'mdoc-issuer-ca/certificate-profiles'
+import {
+  EU_LOTE_ISSUER_SERVICE_TYPES,
+  EU_TL_ISSUER_SERVICE_TYPES,
+  narrowIssuerServiceTypes,
+  splitCommaList,
+} from 'mdoc-issuer-ca/eu-service-types'
 
 import { CredentialsConfiguration } from './credential-configuration'
 import { FileSystemConfig } from './file-storage'
 import { INSECURE_DEFAULTS, parseDidMethods } from './insecure-defaults'
+
+/** A discovery pointer to an external trust list, served verbatim in the `/trust-list` index. */
+export interface TrustListPointer {
+  location: string
+  signerCertificates: string[]
+  loteType?: string
+  schemeOperatorName?: string
+}
+
+function parseTrustListPointers(raw: string): TrustListPointer[] {
+  if (!raw.trim()) return []
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new Error('TRUST_LIST_POINTERS must be a JSON array')
+  }
+  if (!Array.isArray(parsed)) throw new Error('TRUST_LIST_POINTERS must be a JSON array')
+  return parsed.map((entry, index) => {
+    const pointer = entry as Partial<TrustListPointer>
+    const validLocation = typeof pointer.location === 'string' && /^https?:\/\//.test(pointer.location)
+    const validSigners =
+      Array.isArray(pointer.signerCertificates) &&
+      pointer.signerCertificates.length > 0 &&
+      pointer.signerCertificates.every((certificate) => typeof certificate === 'string' && certificate.trim() !== '')
+    if (!validLocation || !validSigners) {
+      throw new Error(
+        `TRUST_LIST_POINTERS[${index}] must have an http(s) location and a non-empty signerCertificates array`,
+      )
+    }
+    return {
+      location: pointer.location as string,
+      signerCertificates: (pointer.signerCertificates as string[]).map((certificate) => certificate.trim()),
+      ...(typeof pointer.loteType === 'string' ? { loteType: pointer.loteType } : {}),
+      ...(typeof pointer.schemeOperatorName === 'string' ? { schemeOperatorName: pointer.schemeOperatorName } : {}),
+    }
+  })
+}
 
 export default registerAs('agent', () => {
   const label = process.env.AGENT_LABEL ?? 'Heka'
@@ -74,6 +119,116 @@ export default registerAs('agent', () => {
 
   // FIXME: Add `indybesu` DID method once we get public network deployed
   const didMethods = parseDidMethods(process.env)
+
+  // x509_san_dns provisioning mode for X.509 request signing: `private_ca` issues leaves under the
+  // service-wide root CA; `csr` defers to external-CA issuance via the /x509/signers/csr + /import
+  // endpoints. Unknown values fail fast at startup.
+  const x509SanDnsMode = (process.env.X509_SAN_DNS_MODE ?? 'private_ca') as 'private_ca' | 'csr'
+  if (!['private_ca', 'csr'].includes(x509SanDnsMode)) {
+    throw new Error(`X509_SAN_DNS_MODE has an unknown value '${x509SanDnsMode}' (allowed: private_ca, csr)`)
+  }
+
+  const mdocIssuerCountry = process.env.MDOC_ISSUER_COUNTRY ?? 'US'
+  const mdocIssuerAuthority = process.env.MDOC_ISSUER_AUTHORITY ?? 'Heka'
+  const mdocDefaultDocType = process.env.MDOC_DEFAULT_DOCTYPE ?? 'org.iso.18013.5.1.mDL'
+
+  // mdoc issuer certificate profile: 'mdl' (ISO 18013-5 / AAMVA) or an EU profile ('mdl-eu' / 'eudi-pid' /
+  // 'eudi-eaa', see mdoc-issuer-ca/certificate-profiles.ts). EU profiles require the two values below;
+  // unknown names fail fast.
+  const mdocIssuerProfile = process.env.MDOC_ISSUER_PROFILE ?? 'mdl'
+  if (!isProfileName(mdocIssuerProfile)) {
+    throw new Error(
+      `MDOC_ISSUER_PROFILE has an unknown value '${mdocIssuerProfile}' (allowed: ${PROFILE_NAMES.join(', ')})`,
+    )
+  }
+  const mdocIssuerOrganizationIdentifier = process.env.MDOC_ISSUER_ORGANIZATION_IDENTIFIER ?? ''
+  // The operator's certificate-policy OID (EN 319 412-2 §4.3.3 — the extension is mandatory on EU sign/seal
+  // certificates; typical values are the EN 319 411-1 NCP / LCP identifiers or a private arc). Required for
+  // EU profiles; ignored by the mDL/US profile.
+  const mdocIssuerCertificatePolicyOid = process.env.MDOC_ISSUER_CERTIFICATE_POLICY_OID ?? ''
+
+  // The Heka **scheme trust lists** (GET /trust-list/*): TS 119 602 LoTEs of the anchors Heka is scheme
+  // operator for — the tenants' issuer certificates (IACA + SD-JWT issuer registries) plus the
+  // operator-curated partner anchors below (PEM blocks or comma/whitespace-separated base64 DER; empty by
+  // default).
+  const trustListSchemeOperator = process.env.TRUST_LIST_SCHEME_OPERATOR ?? mdocIssuerAuthority
+  const trustListPartnerCertificates = process.env.TRUST_LIST_PARTNER_CERTIFICATES ?? ''
+  // Optional discovery pointers served in the /trust-list index — a JSON array of
+  // { location, signerCertificates: string[], loteType?, schemeOperatorName? } (e.g. the Commission LoTEs
+  // with their OJEU-published signer certificates). Invalid JSON / shape fails fast at startup.
+  const trustListPointers = parseTrustListPointers(process.env.TRUST_LIST_POINTERS ?? '')
+
+  // Publish the ISO 18013-5 VICAL at GET /vical (off by default; see VicalService).
+  const vicalEnabled = (process.env.VICAL_ENABLED ?? 'false') === 'true'
+  // Optional comma-separated narrowing of EU_TL_ISSUER_SERVICE_TYPES (validated at startup, see
+  // mdoc-issuer-ca/eu-service-types.ts).
+  const euTrustedListServiceTypes = process.env.EU_TRUSTED_LIST_SERVICE_TYPES ?? ''
+  narrowIssuerServiceTypes(
+    splitCommaList(euTrustedListServiceTypes),
+    EU_TL_ISSUER_SERVICE_TYPES,
+    'EU_TRUSTED_LIST_SERVICE_TYPES',
+  )
+
+  // Source 'lotl': the EU List of Trusted Lists. EU_LOTL_SIGNER_CERTIFICATES pins the Commission's LoTL
+  // signer; national TL signers are taken from the verified LoTL. EU_LOTL_SCHEME_TERRITORIES (optional)
+  // limits the Member States (empty = all).
+  const euLotlUrl = process.env.EU_LOTL_URL ?? ''
+  const euLotlSignerCertificates = process.env.EU_LOTL_SIGNER_CERTIFICATES ?? ''
+  const euLotlSchemeTerritories = process.env.EU_LOTL_SCHEME_TERRITORIES ?? ''
+
+  // Source 'lote': ETSI TS 119 602 Lists of Trusted Entities (PID providers, wallet providers, registrars,
+  // pub-EAA providers). Comma-separated list URLs; each list's JWS signer (x5c leaf) must byte-match one of
+  // the pinned EU_LOTE_SIGNER_CERTIFICATES. Optional EU_LOTE_SERVICE_TYPES narrows EU_LOTE_ISSUER_SERVICE_TYPES
+  // (validated at startup, see mdoc-issuer-ca/eu-service-types.ts).
+  const euLoteUrls = process.env.EU_LOTE_URLS ?? ''
+  const euLoteSignerCertificates = process.env.EU_LOTE_SIGNER_CERTIFICATES ?? ''
+  const euLoteServiceTypes = process.env.EU_LOTE_SERVICE_TYPES ?? ''
+  narrowIssuerServiceTypes(splitCommaList(euLoteServiceTypes), EU_LOTE_ISSUER_SERVICE_TYPES, 'EU_LOTE_SERVICE_TYPES')
+
+  // Trust anchors the service consults when IT verifies credentials (relying-party role) — a
+  // comma-separated union. 'registry' = the tenants' own issuer anchors (IACA registry for mdoc, the
+  // service root for SD-JWT VC x5c chains); 'config' = TRUST_LIST_PARTNER_CERTIFICATES; 'lotl' / 'lote' =
+  // the EU lists configured above, fetched in the background and cached (never inside a verification).
+  // MDL_ISSUER_CERTIFICATE stays a fallback for mdoc. Unknown values fail fast at startup.
+  const verifierTrustSources = (process.env.VERIFIER_TRUST_SOURCES ?? 'registry,config')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean) as ('registry' | 'config' | 'lotl' | 'lote')[]
+  for (const source of verifierTrustSources) {
+    if (!['registry', 'config', 'lotl', 'lote'].includes(source)) {
+      throw new Error(
+        `VERIFIER_TRUST_SOURCES contains an unknown source '${source}' (allowed: registry, config, lotl, lote)`,
+      )
+    }
+  }
+  // An enabled EU source without its URL or pinned signer could never verify a list and would silently
+  // contribute nothing (every refresh fails) — refuse to start instead.
+  if (verifierTrustSources.includes('lotl') && (!euLotlUrl.trim() || !euLotlSignerCertificates.trim())) {
+    throw new Error(
+      'VERIFIER_TRUST_SOURCES includes lotl, which requires EU_LOTL_URL and EU_LOTL_SIGNER_CERTIFICATES to be set',
+    )
+  }
+  if (verifierTrustSources.includes('lote') && (!euLoteUrls.trim() || !euLoteSignerCertificates.trim())) {
+    throw new Error(
+      'VERIFIER_TRUST_SOURCES includes lote, which requires EU_LOTE_URLS and EU_LOTE_SIGNER_CERTIFICATES to be set',
+    )
+  }
+  // How often the EU sources of the verifier trust set are re-fetched (seconds; default hourly).
+  const verifierTrustRefreshSeconds = Number(process.env.VERIFIER_TRUST_REFRESH_SECONDS ?? '3600')
+  if (!Number.isInteger(verifierTrustRefreshSeconds) || verifierTrustRefreshSeconds <= 0) {
+    throw new Error('VERIFIER_TRUST_REFRESH_SECONDS must be a positive integer number of seconds')
+  }
+
+  // Domain (FQDN) for the opt-in SD-JWT VC x5c issuer (HAIP): the per-tenant issuer cert carries this as
+  // a dNSName SAN and the credential `iss` is `https://<domain>`. Required only when a credential offer
+  // opts into x5c issuance.
+  const sdJwtVcIssuerDomain = process.env.SD_JWT_VC_ISSUER_DOMAIN ?? ''
+
+  // Publish an OID4VCI `signed_metadata` JWT (carrying an `x5c` chain) in the credential-issuer
+  // metadata so the wallet can authenticate the issuer at issuance.
+  const oid4vciSignedMetadataEnabled = (process.env.OID4VCI_SIGNED_METADATA_ENABLED ?? 'false') === 'true'
+  // Optional CN + dNSName SAN for the access cert (HAIP-style iss-host binding); empty = default CN, no SAN.
+  const oid4vciAccessCertificateDomain = process.env.OID4VCI_ACCESS_CERTIFICATE_DOMAIN ?? ''
 
   const indyEndorserSeed = process.env.INDY_ENDORSER_SEED ?? INSECURE_DEFAULTS.INDY_ENDORSER_SEED
   //const indyEndorserId = process.env.INDY_ENDORSER_ID ?? ''
@@ -166,6 +321,29 @@ export default registerAs('agent', () => {
     oidConfig,
     didCommConfig,
     didMethods,
+    x509SanDnsMode,
+    mdocIssuerCountry,
+    mdocIssuerAuthority,
+    mdocDefaultDocType,
+    mdocIssuerProfile,
+    mdocIssuerOrganizationIdentifier,
+    mdocIssuerCertificatePolicyOid,
+    trustListSchemeOperator,
+    trustListPartnerCertificates,
+    trustListPointers,
+    vicalEnabled,
+    euTrustedListServiceTypes,
+    euLotlUrl,
+    euLotlSignerCertificates,
+    euLotlSchemeTerritories,
+    euLoteUrls,
+    euLoteSignerCertificates,
+    euLoteServiceTypes,
+    verifierTrustSources,
+    verifierTrustRefreshSeconds,
+    sdJwtVcIssuerDomain,
+    oid4vciSignedMetadataEnabled,
+    oid4vciAccessCertificateDomain,
     indyEndorserSeed,
     indyEndorserDid,
     indyBesuChainId,

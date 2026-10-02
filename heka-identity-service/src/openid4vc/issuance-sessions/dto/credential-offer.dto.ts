@@ -1,8 +1,21 @@
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Length, ValidateNested } from 'class-validator'
+import {
+  IsArray,
+  IsDefined,
+  IsEnum,
+  IsIn,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  ValidateIf,
+  ValidateNested,
+} from 'class-validator'
 
+import { ISSUER_MODES, IssuerMode } from '../../../utils/oid4vc'
 import { IsValidDynamicObject } from '../../../utils/validation'
 
 import { OpenId4VcIssuanceSessionRecordDto } from './issuance-session.dto'
@@ -79,20 +92,36 @@ export class OpenId4VcIssuanceSessionCreateOfferCredentialOptions {
   public format!: OpenId4VciCredentialFormatProfile
 
   /**
-   * The issuer of the credential.
-   *
-   * Only DID based issuance is supported at the moment.
+   * The DID issuer of the credential. Required for every DID-signed credential; not applicable — and
+   * therefore optional — for an SD-JWT VC offered with `issuerMode: 'x5c'`, which is signed with the
+   * tenant's X.509 issuer certificate instead.
    */
-  @ApiProperty({ type: CredentialIssuer })
+  @ApiProperty({
+    type: CredentialIssuer,
+    required: false,
+    description: 'The DID issuer. Required unless the credential is an SD-JWT VC with `issuerMode: "x5c"`.',
+  })
+  @ValidateIf((options: { issuerMode?: IssuerMode }) => options.issuerMode !== 'x5c')
+  @IsDefined()
   @ValidateNested()
   @Type(() => CredentialIssuer)
-  public issuer!: CredentialIssuer
+  public issuer?: CredentialIssuer
 }
 
 export class OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions extends OpenId4VcIssuanceSessionCreateOfferCredentialOptions {
   @ApiProperty()
   @IsEnum(OpenId4VciCredentialFormatProfile)
   public format!: OpenId4VciCredentialFormatProfile.SdJwtVc
+
+  /**
+   * Issuer mode for this SD-JWT VC: `did` (default) signs with the issuer DID; `x5c` signs with the
+   * per-tenant X.509 issuer cert (HAIP) and sets `iss` to `https://<SD_JWT_VC_ISSUER_DOMAIN>`. When
+   * `x5c`, the `issuer.did` is ignored.
+   */
+  @ApiPropertyOptional({ enum: [...ISSUER_MODES], default: 'did' })
+  @IsOptional()
+  @IsIn(ISSUER_MODES)
+  public issuerMode?: IssuerMode
 
   /**
    * The payload of the credential that will be issued.

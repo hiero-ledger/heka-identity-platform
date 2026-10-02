@@ -9,6 +9,7 @@ import { TenantAgent } from 'common/agent'
 
 import { toRecord } from '../../utils/array'
 
+import { AccessCertificateService } from './access-certificate.service'
 import {
   FindSupportedCredentialsDto,
   OpenId4VcIssuerRecordDto,
@@ -24,6 +25,8 @@ import { UpdateIssuerSupportedCredentialsAction } from './dto/update-issuer.dto'
 
 @injectable()
 export class OpenId4VcIssuerService {
+  public constructor(private readonly accessCertificateService: AccessCertificateService) {}
+
   public async createIssuer(
     tenantAgent: TenantAgent,
     options: OpenId4VcIssuersCreateDto,
@@ -34,10 +37,17 @@ export class OpenId4VcIssuerService {
       throw new ConflictException(`Issuer with DID ${options.publicIssuerId} has been already created`)
     }
 
+    // When enabled, sign the issuer metadata (a signed_metadata JWT carrying the access cert's
+    // x5c chain) so the wallet can authenticate the issuer at issuance. `undefined` when disabled → the
+    // served metadata is byte-identical to today. Credo mints/stores/re-signs the JWT and serves it at
+    // .well-known/openid-credential-issuer under `Accept: application/jwt`.
+    const accessCertificateChain = await this.accessCertificateService.loadAccessCertificateChain(tenantAgent.context)
+
     const issuer = await tenantAgent.openid4vc.issuer.createIssuer({
       issuerId: options.publicIssuerId,
       credentialConfigurationsSupported: this.parseCredentialsSupported(tenantAgent, options.credentialsSupported),
       display: options.display,
+      ...(accessCertificateChain ? { metadataSigner: { method: 'x5c' as const, x5c: accessCertificateChain } } : {}),
     })
     return OpenId4VcIssuerRecordDto.fromOpenIdVcIssuerRecord(issuer)
   }

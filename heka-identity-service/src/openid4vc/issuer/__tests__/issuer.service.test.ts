@@ -4,15 +4,20 @@ import { ConflictException, BadRequestException } from '@nestjs/common'
 import { TenantAgent } from 'common/agent'
 
 import { didRecordStub, issuerRecordStub } from '../../../../test/helpers/mock-records'
+import { AccessCertificateService } from '../access-certificate.service'
 import { UpdateIssuerSupportedCredentialsAction } from '../dto/update-issuer.dto'
 import { OpenId4VcIssuerService } from '../issuer.service'
 
 describe('OpenId4VcIssuerService', () => {
   let service: OpenId4VcIssuerService
   let tenantAgent: TenantAgent
+  let accessCertificateService: AccessCertificateService
 
   beforeEach(() => {
-    service = new OpenId4VcIssuerService()
+    accessCertificateService = createMock<AccessCertificateService>()
+    // Disabled by default → createIssuer stays byte-identical to today; enabled per-test where relevant.
+    vi.mocked(accessCertificateService.loadAccessCertificateChain).mockResolvedValue(undefined)
+    service = new OpenId4VcIssuerService(accessCertificateService)
     tenantAgent = createMock<TenantAgent>({
       openid4vc: {
         issuer: {
@@ -62,6 +67,33 @@ describe('OpenId4VcIssuerService', () => {
       )
       expect(result).toBeDefined()
       expect(result.publicIssuerId).toBe('did:key:z6Mk1234')
+      // Disabled (default): no signed_metadata signer is threaded.
+      const createArg = vi.mocked(tenantAgent.openid4vc.issuer.createIssuer).mock.calls[0][0]
+      expect(createArg).not.toHaveProperty('metadataSigner')
+    })
+
+    test('threads a signed_metadata x5c signer when an access certificate is available', async () => {
+      const options = { publicIssuerId: 'did:key:z6Mk1234', credentialsSupported: [], display: [] } as any
+      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([])
+      vi.mocked(tenantAgent.openid4vc.issuer.createIssuer).mockResolvedValue(
+        issuerRecordStub({
+          id: 'record-1',
+          issuerId: 'did:key:z6Mk1234',
+          credentialConfigurationsSupported: {},
+          display: [],
+          type: 'OpenId4VcIssuerRecord',
+          createdAt: new Date(),
+          accessTokenPublicJwk: undefined,
+        }),
+      )
+      const chain = [{ marker: 'leaf' }, { marker: 'root' }] as any
+      vi.mocked(accessCertificateService.loadAccessCertificateChain).mockResolvedValue(chain)
+
+      await service.createIssuer(tenantAgent, options)
+
+      expect(tenantAgent.openid4vc.issuer.createIssuer).toHaveBeenCalledWith(
+        expect.objectContaining({ metadataSigner: { method: 'x5c', x5c: chain } }),
+      )
     })
 
     test('should throw ConflictException if issuer already exists', async () => {

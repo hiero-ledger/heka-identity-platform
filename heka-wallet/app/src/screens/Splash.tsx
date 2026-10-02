@@ -12,6 +12,10 @@ import {
   createPublicDidOrGetExisting,
   createPublicInvitationOrGetExisting,
   ensureExampleCredentialCreated,
+  HekaWalletAgent,
+  loadWalletTrustCache,
+  refreshWalletTrustSources,
+  TRUST_CONFIGURATION_ERRORS,
   setupMediatorWithPublicDidIfNeeded,
   tryRestartExistingAgent,
   createAnoncredsLinkSecretIfRequired,
@@ -68,12 +72,41 @@ export const Splash: React.FC = () => {
           return
         }
 
+        // Load the cached trust lists, then refresh from the network; fire-and-forget so startup never blocks.
+        const bootstrapTrustSources = (readyAgent: HekaWalletAgent): void => {
+          // Re-log the startup trust-configuration errors through the app logger.
+          for (const error of TRUST_CONFIGURATION_ERRORS) logger.warn(`Trust configuration error — ${error}`)
+          void loadWalletTrustCache(readyAgent)
+            .then((loaded) => {
+              for (const entry of loaded) {
+                if (entry.ok) {
+                  logger.info(
+                    `Trust source ${entry.sourceId} loaded from cache: ${entry.anchorCount} anchor(s)${entry.stale ? ' (stale)' : ''}`
+                  )
+                }
+              }
+            })
+            .catch((error) => logger.warn(`Trust cache load failed: ${error}`))
+            .then(() => refreshWalletTrustSources(readyAgent))
+            .then((results) => {
+              for (const result of results) {
+                if (result.ok) {
+                  logger.info(`Trust source ${result.sourceId} refreshed: ${result.anchorCount} anchor(s)`)
+                } else {
+                  logger.info(`Trust source ${result.sourceId} refresh skipped: ${result.reason}`)
+                }
+              }
+            })
+            .catch((error) => logger.warn(`Trust source refresh failed: ${error}`))
+        }
+
         if (agent) {
           logger.info('Agent already initialized, restarting...')
 
           const isAgentRestarted = await tryRestartExistingAgent(agent, walletSecret)
 
           if (isAgentRestarted) {
+            bootstrapTrustSources(agent)
             // The onboarding workflow transitions to the main stack automatically once
             // the agent is set — no navigation needed here.
             return
@@ -95,6 +128,8 @@ export const Splash: React.FC = () => {
         newAgent.didcomm.registerOutboundTransport(httpTransport)
 
         await newAgent.initialize()
+
+        bootstrapTrustSources(newAgent)
 
         await createAnoncredsLinkSecretIfRequired(newAgent)
 

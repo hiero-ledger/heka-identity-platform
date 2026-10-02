@@ -53,14 +53,70 @@ import { CredoLogger } from '../logger'
 
 import { getDidKeyVerificationMethodId } from './did'
 import { TailsService } from './revocation/TailsService'
+import {
+  loadCachedTrustSources,
+  refreshTrustSources,
+  TrustSourceCacheLoadResult,
+  TrustSourceRefreshResult,
+  TrustVerifyAgent,
+} from './trust/loteTrustSource'
+import { bootstrapTrustAnchors, TrustBootstrapResult } from './trust/trustBootstrap'
+import { composeTrustedCertificates } from './trust/trustComposition'
+import { loadTrustConfiguration } from './trust/trustConfiguration'
+import { createTrustSourceCache } from './trust/trustSourceCache'
+import { TrustSourceConfig } from './trust/trustSources'
+import { trustSubjectFor, X509VerificationContext } from './trust/trustSubject'
 
 const PUBLIC_DID_KEY = 'PUBLIC_DID'
 
 const PUBLIC_INVITATION_ID_KEY = 'PUBLIC_INVITATION_ID'
 
-export const TRUSTED_X509_CERTIFICATES = [
-  'MIIBwDCCAWWgAwIBAgIUSMdjaVc1KHI+3o6qJXhSC4sJh+cwCgYIKoZIzj0EAwIwNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMB4XDTI2MDMyNzIxNDA1NloXDTM2MDMyNDIxNDA1NlowNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1nIrm3O9VX8MdPrKWMhqqV0QMS4UtxKj6uUc8IdGE2fSsWyi7XQN3HoE1Ln9TDtOIHvSyW8Eyr98MlWGBBF/vqNTMFEwHQYDVR0OBBYEFNfkrHxd2nwtni96XrrYhaMgUFImMB8GA1UdIwQYMBaAFNfkrHxd2nwtni96XrrYhaMgUFImMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAP0V5EW7j6Pb+lJktzdWrtEqhI3mYs9Fd+qh0p2kNXJPAiEAqK+q7Wk+t5e2yzvO3b6t3P5nIEnoQt3cvDsaUZY1dT0=',
-] as const
+/**
+ * The X.509 trust configuration (`TRUSTED_MDOC_ISSUER_CERTIFICATES`, `TRUSTED_REQUEST_SIGNER_CERTIFICATES`,
+ * `HEKA_SERVICE_ROOT_CERTIFICATE`, `TRUST_SOURCES`), parsed and validated once at startup. An invalid value
+ * is logged and contributes nothing (see {@link TRUST_CONFIGURATION_ERRORS}).
+ */
+const TRUST_CONFIGURATION = loadTrustConfiguration(Config, (message) =>
+  new CredoLogger('Trust configuration').error(message)
+)
+
+/** Messages of the trust settings that failed to parse at startup (empty when all are valid). */
+export const TRUST_CONFIGURATION_ERRORS: readonly string[] = TRUST_CONFIGURATION.errors
+
+const STATIC_ANCHORS = TRUST_CONFIGURATION.staticAnchors
+
+/**
+ * Static mdoc **issuer** trust anchors (base64 DER) — applied only to mdoc `docType`s that no trust source
+ * classifies (see `composeTrustedCertificates`), alongside the anchors learned from {@link TRUST_SOURCES}.
+ * Empty unless `TRUSTED_MDOC_ISSUER_CERTIFICATES` is set: tenant issuers are learned from the Heka scheme
+ * list, so this is only for an issuer that publishes no trust list.
+ */
+export const TRUSTED_MDOC_ISSUER_CERTIFICATES: readonly string[] = STATIC_ANCHORS.mdocIssuers
+
+/** The configured trust sources: `TRUST_SOURCES` JSON, else the Heka defaults (see `trustSourcesFromConfig`). */
+export const TRUST_SOURCES: TrustSourceConfig[] = TRUST_CONFIGURATION.sources
+
+/** On-device cache of the signed trust lists (see `trust/trustSourceCache.ts`). */
+const trustSourceCache = createTrustSourceCache(AsyncStorage)
+
+/**
+ * Static OpenID4VP request-signer anchors (`TRUSTED_REQUEST_SIGNER_CERTIFICATES`, see `StaticAnchorEnv`).
+ * A distinct trust domain from `TRUSTED_MDOC_ISSUER_CERTIFICATES` (credential / MSO signatures) — never
+ * merge the two.
+ */
+export const TRUSTED_REQUEST_SIGNER_CERTIFICATES: readonly string[] = STATIC_ANCHORS.requestSigners
+
+export type { X509VerificationContext }
+
+/**
+ * Per-verification trusted certificates (see `composeTrustedCertificates`); `undefined` for contexts a
+ * holder never verifies (attestations) → Credo's global set. Shared by the main and DC API agents.
+ */
+export const trustedCertificatesForVerification = (verification: X509VerificationContext): string[] | undefined => {
+  const subject = trustSubjectFor(verification)
+  if (!subject) return undefined
+  return composeTrustedCertificates(TRUST_SOURCES, subject, STATIC_ANCHORS)
+}
 
 const EXAMPLE_CREDENTIAL_VCT = 'ExampleCredential'
 const EXAMPLE_CREDENTIAL_METADATA: OpenId4VcCredentialMetadata = {
@@ -171,10 +227,38 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
         ],
       }),
       x509: new X509Module({
-        trustedCertificates: [...TRUSTED_X509_CERTIFICATES],
+        trustedCertificates: [...TRUSTED_MDOC_ISSUER_CERTIFICATES],
+        getTrustedCertificatesForVerification: (_agentContext, { verification }) =>
+          trustedCertificatesForVerification(verification),
       }),
     },
   })
+}
+
+/**
+ * Fetch + verify every configured trust source ({@link TRUST_SOURCES}) and refresh the anchors that
+ * `trustedCertificatesForVerification` then trusts. Best-effort: returns one result per source rather
+ * than throwing, and a failed source keeps its previously-trusted anchors. Sources without pinned
+ * signers (no `HEKA_SERVICE_ROOT_CERTIFICATE` for the defaults) are skipped. Call after the agent is
+ * initialized.
+ */
+export async function refreshWalletTrustSources(agent: HekaWalletAgent): Promise<TrustSourceRefreshResult[]> {
+  // The concrete agent satisfies the loose structural TrustVerifyAgent at runtime; the cast bridges the
+  // strict Credo KMS/X509 option types to the decoupled (test-friendly) interface.
+  return refreshTrustSources(agent as unknown as TrustVerifyAgent, TRUST_SOURCES, { cache: trustSourceCache })
+}
+
+/**
+ * Load the cached trust lists into this runtime's anchor store; call after `initialize()`, before
+ * `refreshWalletTrustSources`.
+ */
+export async function loadWalletTrustCache(agent: HekaWalletAgent): Promise<TrustSourceCacheLoadResult[]> {
+  return loadCachedTrustSources(agent as unknown as TrustVerifyAgent, TRUST_SOURCES, trustSourceCache)
+}
+
+/** Cache-first trust bootstrap for the DC API runtime; see `trust/trustBootstrap.ts`. */
+export async function bootstrapWalletTrust(agent: HekaWalletAgent): Promise<TrustBootstrapResult> {
+  return bootstrapTrustAnchors(agent as unknown as TrustVerifyAgent, TRUST_SOURCES, { cache: trustSourceCache })
 }
 
 export async function createPublicDidOrGetExisting(agent: Agent): Promise<string> {

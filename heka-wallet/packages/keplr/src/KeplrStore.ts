@@ -217,7 +217,6 @@ export class KeplrStore {
       {
         //@ts-ignore
         rng: crypto.getRandomValues,
-        //@ts-expect-error - TODO: check if there is an actual problem caused by `Buffer' type mispatch (probably just Node 'buffer' module resolution?)
         scrypt: async (text: string, params: ScryptParams) => {
           const result = await scrypt(
             Buffer.from(text).toString('hex'),

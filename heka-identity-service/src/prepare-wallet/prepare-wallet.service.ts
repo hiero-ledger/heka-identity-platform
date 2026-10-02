@@ -5,6 +5,7 @@ import { AuthInfo } from 'common/auth'
 import { InjectLogger, Logger } from 'common/logger'
 import { credentialFormatToCredentialRegistrationFormat, DidMethod } from 'common/types'
 import { DidService } from 'did/did.service'
+import { MdocIssuerCaService } from 'mdoc-issuer-ca'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
 import { OpenId4VcVerifierService } from 'openid4vc/verifier/verifier.service'
 import { PrepareWalletRequestDto, PrepareWalletResponseDto } from 'prepare-wallet/dto/prepare-wallet.dto'
@@ -24,6 +25,7 @@ export class PrepareWalletService {
     private readonly openId4VcVerifierService: OpenId4VcVerifierService,
     private readonly schemaV2Service: SchemaV2Service,
     private readonly userService: UserService,
+    private readonly mdocIssuerCaService: MdocIssuerCaService,
   ) {}
 
   public async prepareWallet(
@@ -85,6 +87,14 @@ export class PrepareWalletService {
 
     if (!mainDid) {
       throw new Error(`Failed to create DID for main method ${PrepareWalletService.mainDidMethod}`)
+    }
+
+    // Provision the tenant's mdoc issuer (IACA + DSC) so mso_mdoc credentials can be issued, mirroring
+    // how the main did:key is created. Idempotent; failure must not block wallet preparation.
+    try {
+      await this.mdocIssuerCaService.ensureIssuer(tenantAgent.context)
+    } catch (error) {
+      logger.error('Failed to provision the mdoc issuer (IACA/DSC) during prepare-wallet')
     }
 
     if (req.schemas) {
