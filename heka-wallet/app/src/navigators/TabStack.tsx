@@ -173,6 +173,32 @@ export const TabStack: React.FC = () => {
           </Tab.Screen>
         )}
         <Tab.Screen
+          name={BifoldTabStacks.HomeStack}
+          component={HomeStack}
+          options={{
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon
+                iconComponent={
+                  <MaterialCommunityIcon name={'view-dashboard-outline'} color={color} size={IconSizes.medium} />
+                }
+                label={t('TabStack.Credentials')}
+                focused={focused}
+              />
+            ),
+            tabBarShowLabel: false,
+            tabBarAccessibilityLabel: `${t('TabStack.Credentials')} (${notifications.length ?? 0})`,
+            tabBarBadge: notifications.length || undefined,
+            tabBarBadgeStyle: {
+              height: IconSizes.small,
+              minWidth: IconSizes.small,
+              marginLeft: leftMarginForDevice(),
+              textAlign: 'center',
+              backgroundColor: ColorPallet.brand.highlight,
+              ...styles.notificationsBadgeText,
+            },
+          }}
+        />
+        <Tab.Screen
           name={TabStacks.BifoldSettingsStack}
           component={SettingStack}
           options={{
