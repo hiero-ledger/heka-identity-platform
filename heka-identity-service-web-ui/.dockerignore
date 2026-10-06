@@ -1,0 +1,15 @@
+# Build context of the nginx image (Dockerfile). Keep the developer's local state out of it.
+.git
+node_modules
+build
+reports
+storybook-static
+coverage
+.yarn/cache
+.yarn/install-state.gz
+# Local configuration is never baked in; the Dockerfile writes its own .env from build args.
+.env
+.env.*
+!.env.example
+Dockerfile
+.dockerignore

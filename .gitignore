@@ -60,3 +60,6 @@ node_modules/
 # Auth0 CLI session metadata — lands here when the CLI runs with HOME unset
 # (its config path $HOME/.config then resolves against the cwd)
 .config/
+
+# Root Compose configuration (copy .env.example)
+/.env

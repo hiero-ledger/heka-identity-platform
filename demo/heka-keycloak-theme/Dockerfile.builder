@@ -1,7 +1,8 @@
-# Used by heka-sso-service/docker-compose.dev.yml to rebuild the theme jar on
-# every `docker compose up`. Keycloakify packages the jar with Maven, so the
-# image needs Node + Maven (maven pulls in a Java runtime). The source is
-# bind-mounted at runtime, not baked into the image.
+# Used by the root docker-compose.yml (service keycloak-theme-builder, profile
+# keycloak) to rebuild the theme jar on every `docker compose up`. Keycloakify
+# packages the jar with Maven, so the image needs Node + Maven (maven pulls in
+# a Java runtime). The source is mounted at runtime and copied into a working
+# volume, not baked into the image.
 FROM node:20-bookworm
 
 RUN apt-get update \

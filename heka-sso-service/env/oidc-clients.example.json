@@ -1,0 +1,23 @@
+[
+  {
+    "clientId": "keycloak-broker",
+    "clientSecret": "dev-only-broker-secret-do-not-use-in-production",
+    "redirectUris": [
+      "http://localhost:8080/realms/heka/broker/heka-sso/endpoint",
+      "http://localhost:8080/realms/master/broker/heka-sso/endpoint"
+    ],
+    "postLogoutRedirectUris": [
+      "http://localhost:8080/realms/heka/broker/heka-sso/endpoint/logout_response",
+      "http://localhost:8080/realms/master/broker/heka-sso/endpoint/logout_response"
+    ],
+    "backchannelLogoutUri": "http://host.docker.internal:8080/realms/heka/protocol/openid-connect/logout/backchannel-logout",
+    "loginConfigId": "default"
+  },
+  {
+    "clientId": "auth0-broker",
+    "clientSecret": "dev-only-broker-secret-do-not-use-in-production",
+    "redirectUris": ["https://your-tenant.eu.auth0.com/login/callback"],
+    "postLogoutRedirectUris": ["https://your-tenant.eu.auth0.com/logout"],
+    "loginConfigId": "default"
+  }
+]

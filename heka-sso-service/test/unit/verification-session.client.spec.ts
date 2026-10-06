@@ -24,13 +24,15 @@ const buildClient = (env: Record<string, string> = {}) => {
   return new VerificationSessionClient(configService, new IdentityServiceTokenProvider(configService))
 }
 
-/** Client on the service-account path (no static token override). */
+const TOKEN_URL = 'http://idp.internal:8080/realms/heka/protocol/openid-connect/token'
+
+/** Client on the service-account path (Client Credentials grant, no static token override). */
 const buildServiceAccountClient = () =>
   buildClient({
     IDENTITY_SERVICE_AUTH_TOKEN: '',
-    AUTH_SERVICE_BASE_URL: 'http://auth.internal:3004',
-    IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
-    IDENTITY_SERVICE_AUTH_PASSWORD: 'service-account-password',
+    IDENTITY_SERVICE_TOKEN_URL: TOKEN_URL,
+    IDENTITY_SERVICE_CLIENT_ID: 'heka-sso-service',
+    IDENTITY_SERVICE_CLIENT_SECRET: 'service-account-secret',
   })
 
 const fetchResponse = (body: unknown, status = 200) => ({
@@ -189,30 +191,30 @@ describe('VerificationSessionClient', () => {
     await expect(buildClient().createSignedRequest(loginConfig)).rejects.toThrow(/422.*requestSigner\.did/)
   })
 
-  test('service account: acquires a token via auth-service login and retries once on 401', async () => {
+  test('service account: acquires a token with the Client Credentials grant and retries once on 401', async () => {
     fetchMock
-      // lazy login, then the session call fails with an unexpected 401
-      .mockResolvedValueOnce(fetchResponse({ access: 'stale-token', expires_in: 3600 }))
+      // lazy grant, then the session call fails with an unexpected 401
+      .mockResolvedValueOnce(fetchResponse({ access_token: 'stale-token', expires_in: 3600 }))
       .mockResolvedValueOnce(fetchResponse({ error: 'Unauthorized' }, 401))
-      // retry: fresh login, then the call succeeds
-      .mockResolvedValueOnce(fetchResponse({ access: 'fresh-token', expires_in: 3600 }))
+      // retry: fresh grant, then the call succeeds
+      .mockResolvedValueOnce(fetchResponse({ access_token: 'fresh-token', expires_in: 3600 }))
       .mockResolvedValueOnce(fetchResponse({ id: 'session-1', state: VerificationSessionState.RequestCreated }))
 
     const record = await buildServiceAccountClient().getSession('session-1')
 
     expect(record.state).toBe(VerificationSessionState.RequestCreated)
     expect(fetchMock).toHaveBeenCalledTimes(4)
-    expect(fetchMock.mock.calls[0][0]).toBe('http://auth.internal:3004/api/v1/oauth/token')
+    expect(fetchMock.mock.calls[0][0]).toBe(TOKEN_URL)
     expect(fetchMock.mock.calls[1][1].headers.authorization).toBe('Bearer stale-token')
-    expect(fetchMock.mock.calls[2][0]).toBe('http://auth.internal:3004/api/v1/oauth/token')
+    expect(fetchMock.mock.calls[2][0]).toBe(TOKEN_URL)
     expect(fetchMock.mock.calls[3][1].headers.authorization).toBe('Bearer fresh-token')
   })
 
   test('service account: a second 401 surfaces as a failure — no retry loop', async () => {
     fetchMock
-      .mockResolvedValueOnce(fetchResponse({ access: 'token-1', expires_in: 3600 }))
+      .mockResolvedValueOnce(fetchResponse({ access_token: 'token-1', expires_in: 3600 }))
       .mockResolvedValueOnce(fetchResponse({ error: 'Unauthorized' }, 401))
-      .mockResolvedValueOnce(fetchResponse({ access: 'token-2', expires_in: 3600 }))
+      .mockResolvedValueOnce(fetchResponse({ access_token: 'token-2', expires_in: 3600 }))
       .mockResolvedValueOnce(fetchResponse({ error: 'Unauthorized' }, 401))
 
     await expect(buildServiceAccountClient().getSession('session-1')).rejects.toThrow(/failed: 401/)

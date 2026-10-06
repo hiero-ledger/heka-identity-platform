@@ -8,36 +8,32 @@ import {
   fetchDidMethods,
   FetchDidMethodsResult,
 } from '@/entities/User/model/services/fetchDidMethods';
-import { getAgencyUser } from '@/entities/User/model/services/getAgencyUser';
-import { getProfile } from '@/entities/User/model/services/getProfile';
-import { patchAgencyUser } from '@/entities/User/model/services/patchAgencyUser';
 import {
   prepareWallet,
   SetupResult,
 } from '@/entities/User/model/services/prepareWallet';
-import { signOut } from '@/entities/User/model/services/signOut';
-import {
-  getAccessToken,
-  getRefreshToken,
-  getUserId,
-} from '@/shared/api/utils/token';
-import { buildSlice } from '@/shared/lib/store';
+import { getUserId } from '@/shared/api/utils/token';
+import { buildSlice } from '@/shared/lib/store/buildSlice';
 
-import { signIn } from '../services/signIn';
-import { signUp } from '../services/signUp';
-import { Tokens, UserSchema } from '../types/user';
+import { getAgencyUser } from '../services/getAgencyUser';
+import { patchAgencyUser } from '../services/patchAgencyUser';
+import { signOut } from '../services/signOut';
+import { UserSchema } from '../types/user';
+
+export interface SessionPayload {
+  accessToken: string;
+  name: string | null;
+}
 
 const getInitialState = (): UserSchema => ({
   isLoading: false,
-  isRegistered: false,
   isPreparing: false,
   error: undefined,
   data: {
     name: null,
     did: getUserId(),
     tokens: {
-      accessToken: getAccessToken(),
-      refreshToken: getRefreshToken(),
+      accessToken: null,
     },
   },
 });
@@ -47,15 +43,24 @@ export const userSlice = buildSlice({
   initialState: getInitialState(),
   reducers: {
     reset: () => getInitialState(),
+    /** Mirrors the OIDC session (kept by the OIDC client) into the store. */
+    setSession: (state, action: PayloadAction<SessionPayload>) => {
+      state.data = {
+        ...(state.data ?? {}),
+        name: action.payload.name,
+        tokens: { accessToken: action.payload.accessToken },
+      };
+    },
+    clearSession: (state) => {
+      state.data = {
+        ...(state.data ?? {}),
+        name: null,
+        tokens: { accessToken: null },
+      };
+    },
   },
   extraReducers: (builder) =>
     builder
-      .addCase(getProfile.fulfilled, (state, action) => {
-        state.data = {
-          ...(state.data ?? {}),
-          name: action.payload.name,
-        };
-      })
       .addCase(getAgencyUser.fulfilled, (state, action) => {
         state.data = {
           ...(state.data ?? {}),
@@ -73,40 +78,6 @@ export const userSlice = buildSlice({
           logo: action.payload.logo,
           registeredAt: action.payload.registeredAt,
         };
-      })
-      .addCase(signUp.pending, (state) => {
-        state.isLoading = true;
-        state.isRegistered = false;
-        state.error = undefined;
-        state.data = undefined;
-      })
-      .addCase(signUp.fulfilled, (state) => {
-        state.isLoading = false;
-        state.isRegistered = true;
-        state.error = undefined;
-        state.data = undefined;
-      })
-      .addCase(signUp.rejected, (state, payload) => {
-        state.isLoading = false;
-        state.isRegistered = false;
-        state.error = payload.error.message;
-        state.data = undefined;
-      })
-      .addCase(signIn.pending, (state) => {
-        state.isLoading = true;
-        state.error = undefined;
-      })
-      .addCase(signIn.fulfilled, (state, action: PayloadAction<Tokens>) => {
-        state.isLoading = false;
-        state.error = undefined;
-        state.data = {
-          tokens: action.payload,
-        };
-      })
-      .addCase(signIn.rejected, (state, payload) => {
-        state.isLoading = false;
-        state.error = payload.error.message;
-        state.data = undefined;
       })
       .addCase(prepareWallet.pending, (state) => {
         state.isLoading = true;
@@ -162,13 +133,11 @@ export const userSlice = buildSlice({
       })
       .addCase(signOut.pending, (state) => {
         state.isLoading = false;
-        state.isRegistered = false;
         state.error = undefined;
         state.data = undefined;
       })
       .addCase(signOut.fulfilled, (state) => {
         state.isLoading = false;
-        state.isRegistered = false;
         state.error = undefined;
         state.data = undefined;
       }),
