@@ -6,9 +6,6 @@ export const getUserIsSignedIn = (state: StateSchema) =>
 export const getUserAccessToken = (state: StateSchema) =>
   state.user.data?.tokens?.accessToken;
 
-export const getUserIsRegistered = (state: StateSchema) =>
-  !!state.user?.isRegistered;
-
 export const getUserDid = (state: StateSchema) => state.user?.data?.did;
 
 export const getUserDidMethods = (state: StateSchema) =>

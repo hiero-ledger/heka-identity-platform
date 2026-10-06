@@ -17,7 +17,7 @@ import {
 import { uuid } from 'src/utils/misc'
 import { sleep } from 'src/utils/timers'
 
-import { initializeMikroOrm, signJwt, startTestApp } from './helpers'
+import { initializeMikroOrm, signJwt, startTestApp, testOidcAudience, testOidcIssuer } from './helpers'
 
 describe('E2E connection', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -53,11 +53,10 @@ describe('E2E connection', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: holderId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -79,11 +78,10 @@ describe('E2E connection', () => {
         roles: ['Issuer'],
         org_id: issuerOrgId,
       },
-      'test',
       {
         subject: issuerId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )

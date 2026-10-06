@@ -3,7 +3,6 @@ import { IncomingMessage } from 'http'
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
 import { UnauthorizedException } from '@nestjs/common'
-import { JwtService } from '@nestjs/jwt'
 
 import { Agent } from 'common/agent'
 import { Role } from 'common/auth'
@@ -12,6 +11,7 @@ import { Logger } from 'common/logger'
 import { getWalletId } from 'utils/auth'
 
 import { AuthService } from '../auth.service'
+import { TokenVerifier } from '../token-verifier.service'
 
 describe('getWalletId', () => {
   test.each([
@@ -43,7 +43,7 @@ describe('getWalletId', () => {
 describe('AuthService', () => {
   let service: AuthService
   let agent: Agent
-  let jwtService: JwtService
+  let tokenVerifier: TokenVerifier
   let em: EntityManager
   let logger: Logger
 
@@ -77,30 +77,40 @@ describe('AuthService', () => {
         },
       },
     })
-    jwtService = createMock<JwtService>()
+    tokenVerifier = createMock<TokenVerifier>()
     em = createMock<EntityManager>()
     logger = createMock<Logger>()
-    service = new AuthService(agent, jwtService, em, logger)
+    service = new AuthService(agent, tokenVerifier, em, logger)
   })
 
   describe('validateRequestToken', () => {
     test('throws when Authorization header is missing', async () => {
       const request = { headers: {} } as IncomingMessage
 
+      await expect(service.validateRequestToken(request)).rejects.toThrow(UnauthorizedException)
       await expect(service.validateRequestToken(request)).rejects.toThrow('Authorization token is missing')
+      expect(tokenVerifier.verify).not.toHaveBeenCalled()
     })
 
     test('throws when scheme is not Bearer', async () => {
       const request = { headers: { authorization: 'Basic abc123' } } as IncomingMessage
 
       await expect(service.validateRequestToken(request)).rejects.toThrow('Authorization token is missing')
+      expect(tokenVerifier.verify).not.toHaveBeenCalled()
+    })
+
+    test('propagates verification failures', async () => {
+      const request = { headers: { authorization: 'Bearer bad-jwt' } } as IncomingMessage
+      vi.mocked(tokenVerifier.verify).mockRejectedValue(new UnauthorizedException('Invalid token: ERR_JWT_EXPIRED'))
+
+      await expect(service.validateRequestToken(request)).rejects.toThrow('Invalid token: ERR_JWT_EXPIRED')
     })
 
     test('verifies token and returns AuthInfo', async () => {
       const request = { headers: { authorization: 'Bearer my-jwt' } } as IncomingMessage
       const payload = { sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer] }
 
-      vi.mocked(jwtService.verifyAsync).mockResolvedValue(payload)
+      vi.mocked(tokenVerifier.verify).mockResolvedValue(payload)
 
       const user = makeUser({ id: '11' })
       const wallet = makeWallet()
@@ -108,7 +118,7 @@ describe('AuthService', () => {
 
       const result = await service.validateRequestToken(request)
 
-      expect(jwtService.verifyAsync).toHaveBeenCalledWith('my-jwt')
+      expect(tokenVerifier.verify).toHaveBeenCalledWith('my-jwt')
       expect(em.findOne).toHaveBeenNthCalledWith(1, User, { id: '11' })
       expect(em.findOne).toHaveBeenNthCalledWith(2, Wallet, { id: 'Issuer_11_in_Organization_7' })
       expect(result.userId).toBe('11')

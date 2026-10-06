@@ -21,7 +21,7 @@ import { CreateSchemaDto, SchemaDto } from 'src/schema/dto'
 import { uuid } from 'src/utils/misc'
 import { sleep } from 'src/utils/timers'
 
-import { connectUsers, initializeMikroOrm, signJwt, startTestApp } from './helpers'
+import { connectUsers, initializeMikroOrm, signJwt, startTestApp, testOidcAudience, testOidcIssuer } from './helpers'
 
 // Test scenario:
 //
@@ -82,11 +82,10 @@ describe('E2E credential issuance and proof presentation', () => {
         type: 'access',
         roles: ['Admin'],
       },
-      'test',
       {
         subject: adminId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -108,11 +107,10 @@ describe('E2E credential issuance and proof presentation', () => {
         roles: ['OrgAdmin'],
         org_id: hospitalId,
       },
-      'test',
       {
         subject: orgAdminId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -134,11 +132,10 @@ describe('E2E credential issuance and proof presentation', () => {
         roles: ['Issuer'],
         org_id: hospitalId,
       },
-      'test',
       {
         subject: issuerId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -159,11 +156,10 @@ describe('E2E credential issuance and proof presentation', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: holderId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -185,11 +181,10 @@ describe('E2E credential issuance and proof presentation', () => {
         roles: ['Verifier'],
         org_id: pharmacyId,
       },
-      'test',
       {
         subject: verifierId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )

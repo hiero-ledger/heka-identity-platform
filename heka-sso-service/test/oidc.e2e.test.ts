@@ -81,8 +81,9 @@ const e2eEnv: Record<string, string> = {
   OIDC_STUB_LOGIN: 'false',
   IDENTITY_SERVICE_BASE_URL: 'http://identity.e2e.internal',
   IDENTITY_SERVICE_AUTH_TOKEN: '',
-  IDENTITY_SERVICE_AUTH_NAME: '',
-  IDENTITY_SERVICE_AUTH_PASSWORD: '',
+  IDENTITY_SERVICE_TOKEN_URL: '',
+  IDENTITY_SERVICE_CLIENT_ID: '',
+  IDENTITY_SERVICE_CLIENT_SECRET: '',
   IDENTITY_SERVICE_PUBLIC_VERIFIER_ID: '',
   IDENTITY_SERVICE_REQUEST_SIGNER_DID: '',
 }
@@ -152,7 +153,7 @@ const exchangeCode = (app: Server, code: string | null, codeVerifier: string, cl
 
 const decodeJwtPayload = (jwt: string) => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString())
 
-// Opt-in: needs the dev Postgres (docker-compose.dev.yml, port 5434).
+// Opt-in: needs this package's Postgres (docker compose up -d postgres, port 5434).
 // Run with `yarn test:e2e` (or E2E=true in the environment).
 describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -614,7 +615,7 @@ describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
         OIDC_STUB_LOGIN: 'false',
         IDENTITY_SERVICE_PUBLIC_VERIFIER_ID: 'did:key:zE2eVerifier',
         IDENTITY_SERVICE_REQUEST_SIGNER_DID: 'did:key:zE2eSigner',
-        // static override — no auth-service login in the e2e
+        // static override: no client-credentials grant in the e2e
         IDENTITY_SERVICE_AUTH_TOKEN: 'e2e-static-token',
       })
       vi.stubGlobal('fetch', fetchMock)
