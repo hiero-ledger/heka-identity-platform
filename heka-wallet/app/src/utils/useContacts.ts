@@ -24,16 +24,14 @@ interface ConnectionWithLatestMessage {
 
 async function sortContactsByLastMessage(contacts: DidCommConnectionRecord[], agent: BifoldAgent) {
   const contactsWithMessages = await Promise.all<ConnectionWithMessages>(
-    contacts.map(
-      async (conn: DidCommConnectionRecord): Promise<ConnectionWithMessages> => ({
-        conn,
-        msgs: [
-          ...(await agent.didcomm.basicMessages.findAllByQuery({ connectionId: conn.id })),
-          ...(await agent.didcomm.proofs.findAllByQuery({ connectionId: conn.id })),
-          ...(await agent.didcomm.credentials.findAllByQuery({ connectionId: conn.id })),
-        ],
-      })
-    )
+    contacts.map(async (conn: DidCommConnectionRecord): Promise<ConnectionWithMessages> => ({
+      conn,
+      msgs: [
+        ...(await agent.didcomm.basicMessages.findAllByQuery({ connectionId: conn.id })),
+        ...(await agent.didcomm.proofs.findAllByQuery({ connectionId: conn.id })),
+        ...(await agent.didcomm.credentials.findAllByQuery({ connectionId: conn.id })),
+      ],
+    }))
   )
 
   const connectionsWithLatestMessage: ConnectionWithLatestMessage[] = contactsWithMessages.map((pair) => {
@@ -47,9 +45,7 @@ async function sortContactsByLastMessage(contacts: DidCommConnectionRecord[], ag
         },
         // Initial value if no messages exist for this connection is a placeholder with the date the connection was created
         { createdAt: pair.conn.createdAt } as
-          | DidCommBasicMessageRecord
-          | DidCommCredentialExchangeRecord
-          | DidCommProofExchangeRecord
+          DidCommBasicMessageRecord | DidCommCredentialExchangeRecord | DidCommProofExchangeRecord
       ),
     }
   })

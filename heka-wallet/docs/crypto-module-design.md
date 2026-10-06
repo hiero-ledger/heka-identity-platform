@@ -136,14 +136,14 @@ Hedera signing keys are typically Ed25519 (most common) or ECDSA secp256k1. The 
 
 **Option 1 — Encrypted JSON keystore + in-memory key management.**
 
-- Similar to `ethers.js` and Keplr.
+- Similar to `ethers.js`.
 - Storage-agnostic; the keystore file can live in any local storage layer.
 - Straightforward backup / restore via mnemonic (BIP-39 + Hedera derivation path).
 - Trade-off: the decrypted private key is held in JS memory while the wallet is unlocked, with the typical RN-process risk surface.
 
 **Option 2 — High-level `Signer` interface with no direct key access from the module.**
 
-- Similar to Ledger / Keplr-with-hardware integrations.
+- Similar to Ledger integrations.
 - Allows leveraging:
   - Software secure enclaves (Aries Askar key entries, already used by the wallet for credential keys).
   - Hardware-backed keys (Aries Askar HSM, Ledger Nano, etc.).

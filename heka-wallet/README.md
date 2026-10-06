@@ -21,7 +21,6 @@ Heka Wallet acts as a Verifiable Credentials Holder — it receives, stores, and
   - Passkey-based wallet backup (`ENABLE_WALLET_BACKUP`).
   - External OAuth-based authentication (`ENABLE_EXTERNAL_AUTH`).
   - Public DIDComm invitation (`ENABLE_PUBLIC_INVITATION`).
-  - Keplr / Cosmos chain integration (`ENABLE_KEPLR_INTEGRATION`) — experimental.
 
 ## Prerequisites
 
@@ -101,7 +100,6 @@ See the [Hedera Integration guide](../heka-identity-service/docs/hedera.md) for 
 
 | Variable                    | Effect when set to `'true'`                                                                                                                |
 |-----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| `ENABLE_KEPLR_INTEGRATION`  | Enable Keplr / Cosmos chain integration (experimental).                                                                                    |
 | `ENABLE_EXTERNAL_AUTH`      | Enable OAuth-based external authentication.                                                                                                |
 | `ENABLE_WALLET_BACKUP`      | Enable passkey-based wallet backup. Falls back to disabled on devices that don't support passkeys.                                         |
 | `ENABLE_PUBLIC_INVITATION`  | Expose a public DIDComm invitation surface on this wallet.                                                                                 |

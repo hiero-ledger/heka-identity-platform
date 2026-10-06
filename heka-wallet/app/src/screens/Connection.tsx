@@ -171,9 +171,7 @@ const Connection: React.FC<ConnectionProps> = ({ navigation, route }) => {
       return
     }
     type notCustomNotification =
-      | DidCommBasicMessageRecord
-      | DidCommCredentialExchangeRecord
-      | DidCommProofExchangeRecord
+      DidCommBasicMessageRecord | DidCommCredentialExchangeRecord | DidCommProofExchangeRecord
     for (const notification of notifications) {
       // no action taken for BasicMessageRecords
       if ((notification as DidCommBasicMessageRecord).type === 'BasicMessageRecord') {
