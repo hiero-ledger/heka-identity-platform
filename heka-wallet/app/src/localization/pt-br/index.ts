@@ -58,7 +58,6 @@ const translation = {
     "UsePasskeyToAuth": "Por favor, use a chave de acesso para autenticar com o serviço de backup"
   },
   "Crypto": {
-    "Title": "Carteira Keplr",
     "Balance": "Saldo",
     "Token": "Token",
     "Staked": "Em stake",
@@ -129,7 +128,6 @@ const translation = {
       }
     },
     "Account": {
-      "KeplrAccount": "Conta Keplr",
       "NoAccount": "Nenhuma conta",
       "SelectAccount": "Selecionar conta",
       "Selected": "{{name}} (Selecionado)",
@@ -224,8 +222,6 @@ const translation = {
     "UsingCredentialsBody": "Para receber e usar credenciais, utilize o recurso “Escanear” no aplicativo para escanear um código QR especial. As informações são enviadas e recebidas por meio de uma conexão privada e criptografada.",
     "PrivacyConfidentiality": "Privacidade e confidencialidade",
     "PrivacyParagraph": "Você aprova cada uso das informações do seu aplicativo Heka Wallet. Você também compartilha apenas o necessário para cada situação. A administração do aplicativo ou terceiros não são informados sobre quando e como você utiliza suas credenciais digitais.",
-    "KeplrWalletTitle": "Integração com a carteira Keplr",
-    "KeplrWalletBody": "O Heka Wallet oferece funcionalidade de carteira de criptomoedas integrando a carteira Keplr de código aberto. Esta carteira pode ser usada para receber e transferir vários tokens criptográficos.\n\nVocê pode acessar sua carteira de criptomoedas utilizando o botão “Abrir carteira Keplr” na tela inicial.",
     "GetStarted": "Começar",
     "SkipA11y": "Pular introdução",
     "AlreadyHaveAWallet": "Já possui uma carteira de backup?",
