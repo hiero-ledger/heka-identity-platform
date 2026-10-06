@@ -12,6 +12,7 @@ import { Logger } from 'common/logger'
 import { getWalletId } from 'utils/auth'
 
 import { AuthService } from '../auth.service'
+import { TokenRevocationService } from '../token-revocation.service'
 
 describe('getWalletId', () => {
   test.each([
@@ -46,6 +47,7 @@ describe('AuthService', () => {
   let jwtService: JwtService
   let em: EntityManager
   let logger: Logger
+  let tokenRevocation: { assertTokenActive: ReturnType<typeof vi.fn> }
 
   const makeUser = (overrides: Partial<User> & { walletsContains?: boolean } = {}): User => {
     const walletsContains = overrides.walletsContains ?? true
@@ -80,7 +82,9 @@ describe('AuthService', () => {
     jwtService = createMock<JwtService>()
     em = createMock<EntityManager>()
     logger = createMock<Logger>()
-    service = new AuthService(agent, jwtService, em, logger)
+    // Revocation check passes by default (disabled or token active)
+    tokenRevocation = { assertTokenActive: vi.fn().mockResolvedValue(undefined) }
+    service = new AuthService(agent, jwtService, em, logger, tokenRevocation as unknown as TokenRevocationService)
   })
 
   describe('validateRequestToken', () => {
@@ -115,6 +119,48 @@ describe('AuthService', () => {
       expect(result.role).toBe(Role.Issuer)
       expect(result.walletId).toBe('Issuer_11_in_Organization_7')
       expect(result.tenantId).toBe('tenant-xyz')
+    })
+
+    test('checks revocation with the raw token after signature verification', async () => {
+      const request = { headers: { authorization: 'Bearer my-jwt' } } as IncomingMessage
+      const payload = { sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer] }
+
+      vi.mocked(jwtService.verifyAsync).mockResolvedValue(payload)
+      vi.mocked(em.findOne)
+        .mockResolvedValueOnce(makeUser({ id: '11' }))
+        .mockResolvedValueOnce(makeWallet())
+
+      await service.validateRequestToken(request)
+
+      expect(tokenRevocation.assertTokenActive).toHaveBeenCalledWith('my-jwt')
+      expect(vi.mocked(jwtService.verifyAsync).mock.invocationCallOrder[0]).toBeLessThan(
+        tokenRevocation.assertTokenActive.mock.invocationCallOrder[0],
+      )
+    })
+
+    test('rejects a revoked token without provisioning user or wallet', async () => {
+      const request = { headers: { authorization: 'Bearer revoked-jwt' } } as IncomingMessage
+      const payload = { sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer] }
+
+      vi.mocked(jwtService.verifyAsync).mockResolvedValue(payload)
+      tokenRevocation.assertTokenActive.mockRejectedValue(new UnauthorizedException())
+
+      await expect(service.validateRequestToken(request)).rejects.toThrow(UnauthorizedException)
+
+      expect(tokenRevocation.assertTokenActive).toHaveBeenCalledWith('revoked-jwt')
+      expect(em.findOne).not.toHaveBeenCalled()
+      expect(em.persist).not.toHaveBeenCalled()
+      expect(agent.modules.tenants.createTenant).not.toHaveBeenCalled()
+    })
+
+    test('does not check revocation when signature verification fails', async () => {
+      const request = { headers: { authorization: 'Bearer forged-jwt' } } as IncomingMessage
+
+      vi.mocked(jwtService.verifyAsync).mockRejectedValue(new Error('invalid signature'))
+
+      await expect(service.validateRequestToken(request)).rejects.toThrow('invalid signature')
+
+      expect(tokenRevocation.assertTokenActive).not.toHaveBeenCalled()
     })
   })
 

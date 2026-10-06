@@ -118,6 +118,15 @@ export class OAuthService {
     })
   }
 
+  /**
+   * True only for a stored access token that is neither revoked nor expired.
+   * Revoked tokens are eventually deleted by the scheduled cleanup, so "not found" also means inactive.
+   */
+  public async isAccessTokenActive(token: string): Promise<boolean> {
+    const storedToken = await this.tokenRepository.get(token)
+    return storedToken?.type === TokenType.AccessToken
+  }
+
   private assertCallerOwnsRefreshToken(accessToken: string, refreshTokenPayload: string): string {
     const pairedAccessToken = classFromJson(refreshTokenPayload, AccessTokenPayload).accessToken
     if (accessToken !== pairedAccessToken) {

@@ -357,4 +357,44 @@ describe('OAuthService', () => {
       expect(tokenRepository.revoke).not.toHaveBeenCalled()
     })
   })
+
+  describe('isAccessTokenActive', () => {
+    it('should return true for a stored, non-revoked, unexpired access token', async () => {
+      tokenRepository.get.mockResolvedValue({ type: TokenType.AccessToken, token: 'access-jwt' })
+
+      await expect(service.isAccessTokenActive('access-jwt')).resolves.toBe(true)
+
+      expect(tokenRepository.get).toHaveBeenCalledWith('access-jwt')
+    })
+
+    // TokenRepository.get filters out revoked and expired tokens, and the scheduled cleanup deletes them,
+    // so all three cases surface as "not found".
+    it.each(['revoked-access-jwt', 'expired-access-jwt', 'unknown-jwt'])(
+      'should return false when the token is not found (%s)',
+      async (token) => {
+        tokenRepository.get.mockResolvedValue(null)
+
+        await expect(service.isAccessTokenActive(token)).resolves.toBe(false)
+      },
+    )
+
+    it.each([TokenType.RefreshToken, TokenType.PasswordChangeToken])(
+      'should return false for a stored %s token',
+      async (type) => {
+        tokenRepository.get.mockResolvedValue({ type, token: 'other-token' })
+
+        await expect(service.isAccessTokenActive('other-token')).resolves.toBe(false)
+      },
+    )
+
+    it('should not mutate any token state', async () => {
+      tokenRepository.get.mockResolvedValue({ type: TokenType.AccessToken, token: 'access-jwt' })
+
+      await service.isAccessTokenActive('access-jwt')
+
+      expect(tokenRepository.revoke).not.toHaveBeenCalled()
+      expect(tokenRepository.put).not.toHaveBeenCalled()
+      expect(tokenRepository.updateToken).not.toHaveBeenCalled()
+    })
+  })
 })

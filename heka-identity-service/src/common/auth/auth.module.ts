@@ -1,3 +1,4 @@
+import { HttpModule } from '@nestjs/axios'
 import { Module } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 import { JwtModule } from '@nestjs/jwt'
@@ -7,6 +8,7 @@ import JwtConfig from 'config/jwt'
 
 import { AuthService } from './auth.service'
 import { JwtStrategy } from './jwt.strategy'
+import { TokenRevocationService } from './token-revocation.service'
 
 @Module({
   imports: [
@@ -15,8 +17,9 @@ import { JwtStrategy } from './jwt.strategy'
       inject: [JwtConfig.KEY],
     }),
     AgentModule,
+    HttpModule,
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, TokenRevocationService],
   exports: [AuthService],
 })
 export class AuthModule {}
