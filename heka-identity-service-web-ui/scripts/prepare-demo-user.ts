@@ -30,7 +30,7 @@ const schemaLogoUrl =
   'https://cdn.theorg.com/fda49f46-96e2-49b8-99aa-0ff5165953b7_medium.jpg';
 
 const schemas = [
-  {
+    {
     name: 'Passport',
     bgColor: '#171717',
     fields: [
@@ -48,7 +48,7 @@ const schemas = [
       },
     ],
   },
-  {
+      {
     name: 'mDL',
     bgColor: '#1a3a5c',
     fields: [
@@ -143,7 +143,7 @@ async function fetchSchemaLogo(fallback: Buffer): Promise<Blob> {
     console.warn(
       `schema logo download failed (${String(error)}), using the local avatar`,
     );
-  }
+      }
   return new Blob([new Uint8Array(fallback)], { type: 'image/png' });
 }
 

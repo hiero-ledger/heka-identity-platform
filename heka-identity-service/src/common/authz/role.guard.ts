@@ -21,13 +21,22 @@ export class RoleGuard implements CanActivate {
       return true
     }
 
+    const requiredRoles = this.reflector.getAllAndOverride<Role[] | undefined>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ])
+
+    if (!requiredRoles) {
+      return true
+    }
+
     const targets = [context.getHandler(), context.getClass()]
     const requiredRoles = this.reflector.getAllAndOverride<Role[] | undefined>(ROLES_KEY, targets)
     if (requiredRoles) {
-      const request = context.switchToHttp().getRequest()
-      const user = request.user as AuthInfo
-      return requiredRoles.includes(user.role)
-    }
+    const request = context.switchToHttp().getRequest()
+    const user = request.user as AuthInfo
+    return requiredRoles.includes(user.role)
+  }
 
     if (this.reflector.getAllAndOverride<boolean | undefined>(ANY_ROLE_KEY, targets)) {
       return true
