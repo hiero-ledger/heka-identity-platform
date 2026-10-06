@@ -14,11 +14,6 @@ module.exports = {
       ...baseConfig,
       displayName: '@heka-wallet/shared',
       testRegex: getTestRegexForPath('packages/shared'),
-    },
-    {
-      ...baseConfig,
-      displayName: '@heka-wallet/keplr',
-      testRegex: getTestRegexForPath('packages/keplr'),
-    },
+    }
   ],
 }

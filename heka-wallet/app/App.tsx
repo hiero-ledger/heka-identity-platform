@@ -11,7 +11,6 @@ import {
   MainContainer,
   ContainerProvider,
 } from '@bifold/core'
-import { KeplrStoreProvider } from '@heka-wallet/keplr'
 import { theme } from '@heka-wallet/shared'
 import React, { useEffect } from 'react'
 import { StatusBar } from 'react-native'
@@ -24,12 +23,11 @@ import { AppContainer } from './container-impl'
 import { localization, RootStoreProvider } from './src'
 import { ToastConfig } from './src/components/misc/Toast'
 import { ErrorModal } from './src/components/modals/ErrorModal'
-import { keplrConfig } from './src/config'
 import { MdocRecordProvider, SdJwtVcRecordProvider, W3cCredentialRecordProvider } from './src/contexts'
 import { RootStack } from './src/navigators'
 import { useIOSKeychainResetOnFirstLaunch } from './src/utils/keychain'
 
-// TODO: Find a good way to extract module-specific localization (for example, for Keplr integration)
+// TODO: Find a good way to extract module-specific localization
 initLanguages(localization)
 
 const bifoldContainer = new MainContainer(container.createChildContainer()).init()
@@ -61,35 +59,33 @@ const App = () => {
     <ContainerProvider value={hekaWalletContainer}>
       <BifoldStoreProvider>
         <RootStoreProvider>
-          <KeplrStoreProvider config={keplrConfig}>
-            <AgentProvider agent={undefined}>
-              <W3cCredentialRecordProvider>
-                <SdJwtVcRecordProvider>
-                  <MdocRecordProvider>
-                    <ThemeProvider themes={[theme]} defaultThemeName={theme.themeName}>
-                      <PaperProvider theme={theme.PaperTheme}>
-                        <AnimatedComponentsProvider value={animatedComponents}>
-                          <AuthProvider>
-                            <NetworkProvider>
-                              <StatusBar
-                                hidden={false}
-                                barStyle="dark-content"
-                                backgroundColor={theme.ColorPalette.brand.primaryBackground}
-                                translucent={false}
-                              />
-                              <RootStack />
-                              <ErrorModal />
-                              <Toast config={ToastConfig} position="bottom" />
-                            </NetworkProvider>
-                          </AuthProvider>
-                        </AnimatedComponentsProvider>
-                      </PaperProvider>
-                    </ThemeProvider>
-                  </MdocRecordProvider>
-                </SdJwtVcRecordProvider>
-              </W3cCredentialRecordProvider>
-            </AgentProvider>
-          </KeplrStoreProvider>
+          <AgentProvider agent={undefined}>
+            <W3cCredentialRecordProvider>
+              <SdJwtVcRecordProvider>
+                <MdocRecordProvider>
+                  <ThemeProvider themes={[theme]} defaultThemeName={theme.themeName}>
+                    <PaperProvider theme={theme.PaperTheme}>
+                      <AnimatedComponentsProvider value={animatedComponents}>
+                        <AuthProvider>
+                          <NetworkProvider>
+                            <StatusBar
+                              hidden={false}
+                              barStyle="dark-content"
+                              backgroundColor={theme.ColorPalette.brand.primaryBackground}
+                              translucent={false}
+                            />
+                            <RootStack />
+                            <ErrorModal />
+                            <Toast config={ToastConfig} position="bottom" />
+                          </NetworkProvider>
+                        </AuthProvider>
+                      </AnimatedComponentsProvider>
+                    </PaperProvider>
+                  </ThemeProvider>
+                </MdocRecordProvider>
+              </SdJwtVcRecordProvider>
+            </W3cCredentialRecordProvider>
+          </AgentProvider>
         </RootStoreProvider>
       </BifoldStoreProvider>
     </ContainerProvider>
