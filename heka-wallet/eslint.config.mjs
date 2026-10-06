@@ -119,10 +119,5 @@ export default tseslint.config(
       'react-native/no-unused-styles': 'off',
     },
   },
-  {
-    rules: {
-      'react-hooks/rules-of-hooks': 'off',
-    },
-  },
   prettierRecommended,
 );

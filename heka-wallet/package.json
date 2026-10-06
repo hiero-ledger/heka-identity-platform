@@ -16,7 +16,6 @@
     "run:ios": "cd app && yarn ios",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
     "test": "jest",
     "bundle-app:android:debug": "cd app && yarn bundle:android:debug",
     "bundle-app:android:release": "cd app && yarn bundle:android:release"
@@ -98,7 +97,6 @@
     "@bifold/core": "dsrcorporation/aries-mobile-agent-react-native#tag=1.0.0-alpha-heka.7&workspace=@bifold/core",
     "react-native-vision-camera": "patch:react-native-vision-camera@npm%3A4.7.3#~/.yarn/patches/react-native-vision-camera-npm-4.7.3-dc361fe55c.patch",
     "react-native-user-identity": "patch:react-native-user-identity@npm%3A1.5.2#~/.yarn/patches/react-native-user-identity-npm-1.5.2-fd5be30d0d.patch",
-    "react-native-scrypt": "patch:react-native-scrypt@npm:1.2.1#./.yarn/patches/react-native-scrypt-1.2.1.patch",
     "react-native-fingerprint-scanner": "patch:react-native-fingerprint-scanner@npm:6.0.0#./.yarn/patches/react-native-fingerprint-scanner-6.0.0.patch",
     "@hyperledger/indy-vdr-react-native": "0.3.0",
     "@hyperledger/indy-vdr-shared": "0.3.0",
