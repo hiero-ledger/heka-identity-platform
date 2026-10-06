@@ -11,6 +11,10 @@ import { CreateDidOptions, DidRegistrar } from '../did-registrar.types'
 export class DidIndyRegistrar extends DidRegistrar {
   public static readonly method = 'indy'
 
+  // Credo's indy-vdr registrar always makes the DID its own controller and has no option for another one;
+  // on Indy, authority over writes comes from the endorser instead. Tracked as a follow-up.
+  public readonly supportsController = false
+
   private readonly endorserSeed!: string
   private readonly endorserDid!: string
 
@@ -29,14 +33,6 @@ export class DidIndyRegistrar extends DidRegistrar {
         network: options.namespace,
         endorserMode: 'internal',
         endorserDid: this.endorserDid,
-        controller: options.controller,
-      },
-      secret: {
-        verificationMethod: {
-          id: options.publicKeyId ?? 'key-1',
-          type: 'Ed25519VerificationKey2020',
-          publicKey: options.publicKey,
-        },
       },
     })
   }

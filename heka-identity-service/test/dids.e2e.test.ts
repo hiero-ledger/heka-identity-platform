@@ -28,7 +28,7 @@ describe('E2E public DIDs creation', () => {
   beforeEach(async () => {
     await ormSchemaGenerator.refresh()
 
-    nestApp = await startTestApp()
+    nestApp = await startTestApp({ roleModelEnabled: true })
     app = nestApp.getHttpServer() as Server
   })
 
@@ -45,113 +45,78 @@ describe('E2E public DIDs creation', () => {
     await orm.close(true)
   })
 
-  test.skip('only one public DID per wallet can be created', async () => {
-    let postDidResponse: request.Response
+  const postDid = (token: string, method?: string) =>
+    request(app)
+      .post('/dids')
+      .send(method ? { method } : {})
+      .auth(token, { type: 'bearer' })
 
-    const firstAdminId = uuid()
-    const firstAdminAuthToken = await createAuthToken(firstAdminId, Role.Admin)
+  test('only one main-method (key) DID per wallet; other methods are not limited', async () => {
+    const firstAdminToken = await createAuthToken(uuid(), Role.Admin)
+    const secondAdminToken = await createAuthToken(uuid(), Role.Admin)
 
-    postDidResponse = await request(app).post('/dids').auth(firstAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    postDidResponse = await request(app).post('/dids').auth(firstAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(409)
-
-    const secondAdminId = uuid()
-    const secondAdminAuthToken = await createAuthToken(secondAdminId, Role.Admin)
-
-    postDidResponse = await request(app).post('/dids').auth(secondAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(409)
-
-    const firstOrgId = uuid()
-    const firstOrgAdminId = uuid()
-    const firstOrgAdminAuthToken = await createAuthToken(firstOrgAdminId, Role.OrgAdmin, firstOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(firstOrgAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    postDidResponse = await request(app).post('/dids').auth(firstOrgAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(409)
-
-    const firstIssuerId = uuid()
-    const firstIssuerInFirstOrgAuthToken = await createAuthToken(firstIssuerId, Role.Issuer, firstOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(firstIssuerInFirstOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    postDidResponse = await request(app).post('/dids').auth(firstIssuerInFirstOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(409)
-
-    const secondIssuerId = uuid()
-    const secondIssuerInFirstOrgAuthToken = await createAuthToken(secondIssuerId, Role.Issuer, firstOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(secondIssuerInFirstOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    const secondOrgId = uuid()
-    const secondOrgAdminId = uuid()
-    const secondOrgAdminAuthToken = await createAuthToken(secondOrgAdminId, Role.OrgAdmin, secondOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(secondOrgAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    const firstIssuerInSecondOrgAuthToken = await createAuthToken(firstIssuerId, Role.Issuer, secondOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(firstIssuerInSecondOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
+    expect((await postDid(firstAdminToken)).status).toBe(201)
+    // Every Admin acts in the shared Administration wallet, which already has its main DID
+    expect((await postDid(secondAdminToken)).status).toBe(409)
+    expect((await postDid(secondAdminToken, 'indy')).status).toBe(201)
   })
 
-  test.skip('public DID cannot be created if DID controller is required but has not been created yet', async () => {
-    let postDidResponse: request.Response
+  test('roles other than Admin, OrgAdmin and Issuer cannot create a public DID', async () => {
+    const orgId = uuid()
+    for (const token of [
+      await createAuthToken(uuid(), Role.OrgManager, orgId),
+      await createAuthToken(uuid(), Role.OrgMember, orgId),
+      await createAuthToken(uuid(), Role.Verifier, orgId),
+      await createAuthToken(uuid(), Role.User),
+    ]) {
+      expect((await postDid(token)).status).toBe(403)
+    }
+  })
 
-    const firstOrgId = uuid()
+  test('a did:key cannot have another controller, so it does not wait for the controller wallet', async () => {
+    const orgAdminToken = await createAuthToken(uuid(), Role.OrgAdmin, uuid())
 
-    const issuerId = uuid()
-    const issuerInFirstOrgAuthToken = await createAuthToken(issuerId, Role.Issuer, firstOrgId)
+    expect((await postDid(orgAdminToken)).status).toBe(201)
+  })
 
-    postDidResponse = await request(app).post('/dids').auth(issuerInFirstOrgAuthToken, { type: 'bearer' })
+  test('a did:hedera is controlled by the hedera DID of its controller wallet (Admin -> OrgAdmin -> Issuer)', async () => {
+    const orgId = uuid()
+    const adminToken = await createAuthToken(uuid(), Role.Admin)
+    const orgAdminToken = await createAuthToken(uuid(), Role.OrgAdmin, orgId)
+    const issuerToken = await createAuthToken(uuid(), Role.Issuer, orgId)
 
-    expect(postDidResponse.status).toBe(422)
+    const resolveController = async (token: string, did: string) => {
+      const response = await request(app).get(`/dids/${did}`).auth(token, { type: 'bearer' })
+      expect(response.status).toBe(200)
+      return response.body.controller as string | string[] | undefined
+    }
 
-    const firstOrgAdminId = uuid()
-    const firstOrgAdminAuthToken = await createAuthToken(firstOrgAdminId, Role.OrgAdmin, firstOrgId)
+    // The controller must have a DID of the same method first
+    expect((await postDid(orgAdminToken, 'hedera')).status).toBe(422)
+    expect((await postDid(issuerToken, 'hedera')).status).toBe(422)
 
-    postDidResponse = await request(app).post('/dids').auth(firstOrgAdminAuthToken, { type: 'bearer' })
+    const adminResponse = await postDid(adminToken, 'hedera')
+    expect(adminResponse.status).toBe(201)
+    const adminDid = adminResponse.body.id as string
+    expect((await postDid(issuerToken, 'hedera')).status).toBe(422)
 
-    expect(postDidResponse.status).toBe(422)
+    const orgAdminResponse = await postDid(orgAdminToken, 'hedera')
+    expect(orgAdminResponse.status).toBe(201)
+    const orgAdminDid = orgAdminResponse.body.id as string
+    expect(orgAdminResponse.body.controller).toEqual(adminDid)
+    // The controller is recorded on the ledger, not only in the local DID record
+    expect(await resolveController(issuerToken, orgAdminDid)).toEqual(adminDid)
+    // The organization still signs with its own DID: it registers an AnonCreds schema on the ledger
+    const schemaResponse = await request(app)
+      .post('/schemas')
+      .auth(orgAdminToken, { type: 'bearer' })
+      .send({ issuerId: orgAdminDid, name: 'Diploma', version: '1.0', attrNames: ['name'] })
+    expect(schemaResponse.status).toBe(201)
 
-    const adminId = uuid()
-    const adminAuthToken = await createAuthToken(adminId, Role.Admin)
-
-    postDidResponse = await request(app).post('/dids').auth(adminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    postDidResponse = await request(app).post('/dids').auth(firstOrgAdminAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
-
-    const secondOrgId = uuid()
-
-    const issuerInSecondOrgAuthToken = await createAuthToken(issuerId, Role.Issuer, secondOrgId)
-
-    postDidResponse = await request(app).post('/dids').auth(issuerInSecondOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(422)
-
-    postDidResponse = await request(app).post('/dids').auth(issuerInFirstOrgAuthToken, { type: 'bearer' })
-
-    expect(postDidResponse.status).toBe(201)
+    const issuerResponse = await postDid(issuerToken, 'hedera')
+    expect(issuerResponse.status).toBe(201)
+    expect(issuerResponse.body.controller).toEqual(orgAdminDid)
+    expect(await resolveController(issuerToken, issuerResponse.body.id as string)).toEqual(orgAdminDid)
   })
 
   async function testDidCreation(testCase: { method: string; expected: string }) {

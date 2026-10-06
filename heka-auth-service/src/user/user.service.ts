@@ -30,11 +30,11 @@ export class UserService {
       throw new BadRequestException(`User with client_id '${data.name}' already exists`)
     }
 
-    // create user account
+    // create user account; registration is anonymous, so the role is never chosen by the client
     const user = new User({
       name: data.name,
       password: await hashPassword(data.password),
-      role: data.role ?? UserRole.User,
+      role: UserRole.User,
     })
     await this.userRepository.persistAndFlush(user)
 

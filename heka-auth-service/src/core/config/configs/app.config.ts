@@ -1,4 +1,16 @@
-import { IsArray, IsBoolean, IsNumber, IsSemVer, IsString, Length, Max, Min } from 'class-validator'
+import { passwordValidationRules } from '@common/const/password.const'
+import {
+  IsArray,
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsSemVer,
+  IsString,
+  IsStrongPassword,
+  Length,
+  Max,
+  Min,
+} from 'class-validator'
 
 export enum AppConfigKeys {
   name = 'APP_NAME',
@@ -10,6 +22,8 @@ export enum AppConfigKeys {
   allowedOrigins = 'APP_ALLOW_ORIGINS',
   useHttps = 'APP_USE_HTTPS',
   orgId = 'ORG_ID',
+  adminName = 'ADMIN_NAME',
+  adminPassword = 'ADMIN_PASSWORD',
 }
 
 const appConfigDefaults = {
@@ -52,6 +66,16 @@ export class AppConfig {
   @IsString()
   public orgId: string
 
+  // The first Admin, created at startup when no Admin exists (both must be set)
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  public adminName?: string
+
+  @IsOptional()
+  @IsStrongPassword(passwordValidationRules)
+  public adminPassword?: string
+
   public constructor(configuration?: Record<string, any>) {
     const env = configuration ?? process.env
     this.version = env[AppConfigKeys.version] || process.env.npm_package_version || appConfigDefaults.version
@@ -64,5 +88,7 @@ export class AppConfig {
     this.requestSizeLimit = env[AppConfigKeys.requestSizeLimit] || appConfigDefaults.requestSizeLimit
     this.enableCors = env[AppConfigKeys.enableCors]?.toLowerCase() === 'true'
     this.orgId = env[AppConfigKeys.orgId] || appConfigDefaults.orgId
+    this.adminName = env[AppConfigKeys.adminName] || undefined
+    this.adminPassword = env[AppConfigKeys.adminPassword] || undefined
   }
 }

@@ -18,6 +18,7 @@ services:
       EXPRESS_PREFIX: $EXPRESS_PREFIX
       AGENT_HTTP_ENDPOINT: ${AGENT_HTTP_EP:-http://localhost:3001}
       AGENT_WS_ENDPOINT: ${AGENT_WS_EP:-ws://localhost:3002}
+      ROLE_MODEL_ENABLED: ${ROLE_MODEL_ENABLED:-false}
     ports:
       - '3000:3000'
       - '3001:3001'

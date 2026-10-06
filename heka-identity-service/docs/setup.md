@@ -301,15 +301,39 @@ API requests must carry a Bearer token signed with `JWT_SECRET`. The default val
 
 The token strategy (`src/common/auth/jwt.strategy.ts`) and validator (`src/common/auth/auth.service.ts`) expect:
 
-| Claim         | Required | Description                                                                                                                                                      |
-| ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sub`         | Yes      | Stable user identifier. Used to provision and look up the user record.                                                                                           |
-| `roles`       | Yes      | Array of role strings. The first entry is taken as the primary role. Valid values: `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User`. |
-| `name`        | Yes      | User-facing display name; also used as the wallet label on first sight.                                                                                          |
-| `org_id`      | No       | Optional organization identifier. Required when issuing org-scoped credentials.                                                                                  |
-| `iss` / `aud` | Yes      | Standard JWT claims; must match `JWT_VERIFY_OPTIONS_ISSUER` / `_AUDIENCE`.                                                                                       |
+| Claim         | Required | Description                                                                                                                                                                                                                  |
+| ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sub`         | Yes      | Stable user identifier. Used to provision and look up the user record.                                                                                                                                                       |
+| `roles`       | Yes      | Array with exactly one role. Valid values: `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User`. It decides the wallet in both modes, and permissions when the [role model](#role-model) is enabled. |
+| `name`        | Yes      | User-facing display name; also used as the wallet label on first sight.                                                                                                                                                      |
+| `org_id`      | Depends  | Organization identifier. Required for `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer` and `Verifier`; rejected for `Admin` and `User`.                                                                                       |
+| `iss` / `aud` | Yes      | Standard JWT claims; must match `JWT_VERIFY_OPTIONS_ISSUER` / `_AUDIENCE`.                                                                                                                                                   |
 
 The `tenantId` is **not** a JWT claim — it is derived internally from `(role, sub, org_id)` on first request and persisted with the auto-provisioned wallet. See [Concepts and Glossary — Multi-Tenancy](concepts.md#multi-tenancy).
+
+### Role model
+
+| Variable             | Default | Description                                                                                                                            |
+| -------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `ROLE_MODEL_ENABLED` | `false` | Set to `true` to enforce the roles allowed on each endpoint and the DID controller. When disabled, every user can call every endpoint. |
+
+The flag doesn't change roles or wallets, so it can be changed with a restart without affecting data. See [Concepts — Role model](concepts.md#role-model).
+
+#### Upgrading an existing deployment
+
+A fresh deployment needs no action. Before users of an existing deployment sign in again, read the following and complete steps 3 to 6:
+
+1. **`Admin` tokens use a shared wallet.** Every `Admin` now acts in the shared `Administration` wallet instead of a personal `Administration_<sub>` wallet. On the next request these accounts use that wallet; DIDs, connections, credentials and OID4VC records in their previous wallets aren't deleted, but they can't be reached through the API anymore. All other wallets are unchanged.
+2. **Schemas move to wallets.** Migration `Migration20260924120000` makes each schema belong to a wallet of the user who created it: the wallet whose primary DID registered it, otherwise the creator's wallet whose ID sorts first alphabetically (wallets have no creation date, so this isn't necessarily the oldest one). No data is deleted, and the creator stays the schema's issuer. For accounts that were `Admin` before this release, that wallet is their previous `Administration_<sub>` wallet, so their schemas aren't visible from the shared `Administration` wallet or from the `User_<sub>` wallet of a reassigned account. Templates and credential status lists still belong to their users.
+3. **Role restrictions are off by default.** Before this release, the Identity Service always enforced the per-endpoint role lists: for example, only `Admin`, `OrgAdmin` and `Issuer` could call `POST /dids`, and invitations, offers, proofs, OID4VC sessions, status lists and credential definitions were limited to specific roles. With the default `ROLE_MODEL_ENABLED=false`, no role is checked: every token can do everything in the wallet it acts in. If your tokens don't come from the bundled Auth Service and you rely on these role lists, set `ROLE_MODEL_ENABLED=true`; the enabled mode enforces the same lists as before.
+4. **Existing accounts keep their stored role.** Before this release, sign-up let the client choose its role, and the Web UI and `heka-identity-service-web-ui/scripts/prepare-demo-user.ts` registered every account as `Admin`. After the upgrade, all these accounts act in the shared `Administration` wallet: they see each other's resources. Reassign every account that isn't a real platform administrator, including the demo user (the Auth Service `DEMO_USER`). New sign-ups get `User`. An `Admin` can do this with the Auth Service [role assignment API](../../heka-auth-service/README.md#api) (`PATCH /api/v1/users/{id}/role`), or directly in the Auth Service database:
+
+   ```sql
+   update "auth_user" set "role" = 'User' where "role" = 'Admin' and "name" not in ('<real admin>', ...);
+   ```
+
+5. **Role changes apply to new tokens only.** Access tokens that were already issued keep their old role until they expire, and the demo user's access token is valid for about one year. The Identity Service doesn't check whether the Auth Service revoked a token, so to invalidate outstanding tokens, rotate `JWT_SECRET` in both services. Then re-run `prepare-demo-user.ts` so the Web UI environment gets a new demo user token.
+6. **The SSO service account moves to a new wallet.** `heka-sso-service` signs in to the Auth Service as `IDENTITY_SERVICE_AUTH_NAME` (by default the demo user) and creates verification sessions under `IDENTITY_SERVICE_PUBLIC_VERIFIER_ID`, signed with `IDENTITY_SERVICE_REQUEST_SIGNER_DID`. Both belong to the account's previous wallet. Give the service its own account with a role that can create a public DID and verifiers, such as `OrgAdmin` of an organization, rather than reassigning it to `User`. Create the signing DID and the verifier again with that account, set both variables to the new values, and restart the SSO service. Replace `IDENTITY_SERVICE_AUTH_TOKEN` too if it is set, because it was signed with the old `JWT_SECRET`.
 
 ### Ledger / DID methods
 

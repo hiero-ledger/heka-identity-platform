@@ -1,7 +1,10 @@
 import { createMock } from '@golevelup/ts-vitest'
+import { EntityManager } from '@mikro-orm/core'
+import { ConflictException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
-import { Role } from 'common/auth'
+import { AuthInfo, Role } from 'common/auth'
+import { Wallet } from 'common/entities'
 import { Logger } from 'common/logger'
 import { DidService } from 'did/did.service'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
@@ -20,16 +23,20 @@ describe('PrepareWalletService', () => {
   let schemaV2Service: SchemaV2Service
   let userService: UserService
   let tenantAgent: TenantAgent
+  let em: EntityManager
+  let wallet: Wallet
 
-  const authInfo = {
+  const authInfo: AuthInfo = {
     userId: 'user-1',
     user: { id: 'user-1' } as any,
     userName: 'testuser',
     role: Role.Admin,
-    orgId: '1',
-    walletId: 'Administration_user-1',
+    walletId: 'Administration',
     tenantId: 'tenant-1',
   }
+
+  const makeService = () =>
+    new PrepareWalletService(logger, em, didService, issuerService, verifierService, schemaV2Service, userService)
 
   beforeEach(() => {
     logger = createMock<Logger>()
@@ -38,23 +45,19 @@ describe('PrepareWalletService', () => {
     verifierService = createMock<OpenId4VcVerifierService>()
     schemaV2Service = createMock<SchemaV2Service>()
     userService = createMock<UserService>()
-    prepareWalletService = new PrepareWalletService(
-      logger,
-      didService,
-      issuerService,
-      verifierService,
-      schemaV2Service,
-      userService,
-    )
+    wallet = { id: 'Administration', publicDid: undefined } as Wallet
+    em = createMock<EntityManager>()
+    vi.mocked(em.findOneOrFail).mockResolvedValue(wallet)
+    prepareWalletService = makeService()
     tenantAgent = createMock<TenantAgent>()
   })
 
   test('returns existing DID when wallet is already prepared', async () => {
-    vi.mocked(didService.find).mockResolvedValue([{ id: 'did:key:existing' }] as any)
+    wallet.publicDid = 'did:key:existing'
 
     const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {})
 
-    expect(didService.find).toHaveBeenCalledWith(tenantAgent, expect.objectContaining({ method: 'key', own: true }))
+    expect(em.findOneOrFail).toHaveBeenCalledWith(Wallet, { id: 'Administration' })
     expect(result.did).toBe('did:key:existing')
     expect(didService.create).not.toHaveBeenCalled()
   })
@@ -85,15 +88,69 @@ describe('PrepareWalletService', () => {
     )
   })
 
-  test('throws when main DID method (key) fails to create', async () => {
+  test('returns the main DID error as is when the main method fails', async () => {
     vi.mocked(didService.find).mockResolvedValue([])
     vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
-    vi.mocked(didService.create).mockRejectedValue(new Error('KMS failure'))
+    const error = new Error('KMS failure')
+    vi.mocked(didService.create).mockRejectedValue(error)
 
-    await expect(prepareWalletService.prepareWallet(authInfo, tenantAgent, {})).rejects.toThrow(
-      'Failed to create DID for main method key',
-    )
+    await expect(prepareWalletService.prepareWallet(authInfo, tenantAgent, {})).rejects.toBe(error)
     expect(didService.create).toHaveBeenCalledWith(authInfo, { method: 'key' })
+  })
+
+  test('treats a main DID created by a concurrent request as an already prepared wallet', async () => {
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] })
+    vi.mocked(didService.create).mockImplementation(() => {
+      // The concurrent request has persisted its main DID by the time this one gets 409
+      wallet.publicDid = 'did:key:concurrent'
+      return Promise.reject(new ConflictException('The wallet already contains created public DID'))
+    })
+
+    const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {})
+
+    expect(result.did).toBe('did:key:concurrent')
+    expect(em.findOneOrFail).toHaveBeenLastCalledWith(Wallet, { id: 'Administration' }, { refresh: true })
+    // The other DIDs, OID4VC records and the profile are left to the request that created the main DID
+    expect(didService.create).toHaveBeenCalledTimes(1)
+    expect(issuerService.createIssuer).not.toHaveBeenCalled()
+    expect(userService.patchMe).not.toHaveBeenCalled()
+  })
+
+  test('returns 409 as is when the wallet still has no main DID', async () => {
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+    const error = new ConflictException('conflict')
+    vi.mocked(didService.create).mockRejectedValue(error)
+
+    await expect(prepareWalletService.prepareWallet(authInfo, tenantAgent, {})).rejects.toBe(error)
+  })
+
+  test('creates the main-method DID first regardless of the configured order', async () => {
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['indy', 'key', 'hedera'] })
+    vi.mocked(didService.create)
+      .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
+      .mockResolvedValueOnce({ id: 'did:indy:z2' } as any)
+      .mockResolvedValueOnce({ id: 'did:hedera:z3' } as any)
+
+    const result = await prepareWalletService.prepareWallet(authInfo, tenantAgent, {})
+
+    expect(didService.create).toHaveBeenNthCalledWith(1, authInfo, { method: 'key' })
+    expect(didService.create).toHaveBeenNthCalledWith(2, authInfo, { method: 'indy' })
+    expect(didService.create).toHaveBeenNthCalledWith(3, authInfo, { method: 'hedera' })
+    expect(result.did).toBe('did:key:z1')
+  })
+
+  test('a main-method failure leaves no non-main DID or OID4VC record behind', async () => {
+    vi.mocked(didService.getMethods).mockReturnValue({ methods: ['indy', 'key'] })
+    const error = new Error('KMS failure')
+    vi.mocked(didService.create).mockRejectedValue(error)
+
+    await expect(prepareWalletService.prepareWallet(authInfo, tenantAgent, {})).rejects.toBe(error)
+
+    expect(didService.create).toHaveBeenCalledTimes(1)
+    expect(didService.create).toHaveBeenCalledWith(authInfo, { method: 'key' })
+    expect(issuerService.createIssuer).not.toHaveBeenCalled()
+    expect(verifierService.createVerifier).not.toHaveBeenCalled()
+    expect(userService.patchMe).not.toHaveBeenCalled()
   })
 
   test('continues when a non-main DID method fails', async () => {
@@ -234,6 +291,7 @@ describe('PrepareWalletService', () => {
   test('continues with remaining registrations when a DID lookup fails', async () => {
     // the wallet is already prepared (main 'key' DID resolves); the 'hedera'
     // lookup throws, which must not abort the still-valid 'key' registration
+    wallet.publicDid = 'did:key:z1'
     vi.mocked(didService.find).mockImplementation((_agent, req: any) => {
       if (req.method === 'hedera') return Promise.reject(new Error('wallet lookup failure'))
       return Promise.resolve([{ id: 'did:key:z1' }] as any)

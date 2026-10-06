@@ -47,7 +47,6 @@ describe('E2E authorization', () => {
       .send({
         name: user.name,
         password: user.password,
-        role: UserRole.Issuer,
       } satisfies RegisterUserRequest)
 
     expect(createUserResponse.status).toBe(201)
@@ -63,6 +62,13 @@ describe('E2E authorization', () => {
     expect(loginUserResponse.body.access).toBeDefined()
     expect(loginUserResponse.body.refresh).toBeDefined()
     expect(loginUserResponse.body.token_type).toBe(AuthorizationTokenType)
+
+    // Every sign-up is a `User`, which belongs to no organization
+    const accessPayload = JSON.parse(
+      Buffer.from(loginUserResponse.body.access.split('.')[1], 'base64').toString('utf8'),
+    ) as { roles: string[]; org_id?: string }
+    expect(accessPayload.roles).toEqual([UserRole.User])
+    expect(accessPayload.org_id).toBeUndefined()
 
     await new Promise((res) => setTimeout(res, 1000))
 
@@ -97,6 +103,15 @@ describe('E2E authorization', () => {
     expect(revokeTokenResponse.status).toBe(205)
   })
 
+  test('registration rejects a client-supplied role', async () => {
+    const user = newUser()
+    const createUserResponse = await request(app)
+      .post('/api/v1/user/register')
+      .send({ name: user.name, password: user.password, role: UserRole.Admin })
+
+    expect(createUserResponse.status).toBe(400)
+  })
+
   test('login fails with wrong password', async () => {
     const user = newUser()
     const createUserResponse = await request(app)
@@ -104,7 +119,6 @@ describe('E2E authorization', () => {
       .send({
         name: user.name,
         password: user.password,
-        role: UserRole.Issuer,
       } satisfies RegisterUserRequest)
 
     expect(createUserResponse.status).toBe(201)
@@ -129,7 +143,7 @@ describe('E2E authorization', () => {
     const register = (u: LoginRequest) =>
       request(app)
         .post('/api/v1/user/register')
-        .send({ name: u.name, password: u.password, role: UserRole.Issuer } satisfies RegisterUserRequest)
+        .send({ name: u.name, password: u.password } satisfies RegisterUserRequest)
 
     const login = (u: LoginRequest) => request(app).post('/api/v1/oauth/token').send(u)
 

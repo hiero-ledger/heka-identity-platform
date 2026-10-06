@@ -44,8 +44,26 @@ Authentication service for the [Heka Identity Service](https://github.com/hiero-
 The service exposes a REST API at port `3004` by default. Swagger UI is available at `/api/docs` (e.g. <http://localhost:3004/api/docs>). Endpoints are grouped by controller:
 
 - **OAuth** (`/api/v1/oauth/*`) — token issuance, refresh, revocation.
-- **User** (`/api/v1/user/*`) — user management.
+- **User** (`/api/v1/user/*`) — registration, password change and profile.
+- **Users** (`/api/v1/users/*`) — role assignment.
 - **Health** (`/health`) — memory + database health probe for use as a Kubernetes readiness/liveness check or a Compose healthcheck.
+
+`POST /api/v1/user/register` is anonymous: the request carries only a name and a password (any other field, such as `role`, is rejected). Every sign-up becomes a `User`. Organization roles (`OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`) belong to the organization configured by `ORG_ID`. Whether roles restrict access is decided by the Identity Service's [role model](../heka-identity-service/docs/setup.md#role-model).
+
+Roles are assigned through the role assignment API:
+
+- `GET /api/v1/users` lists the users whose role the caller can manage.
+- `PATCH /api/v1/users/{id}/role` with `{ "role": "<role>" }` changes a user's role.
+
+| Caller     | Can manage                                       | Can assign         |
+|------------|--------------------------------------------------|--------------------|
+| `Admin`    | every user                                       | any role           |
+| `OrgAdmin` | organization members and `User`s                 | organization roles |
+| other      | nobody (`403`)                                   | —                  |
+
+Nobody can change their own role, so the last `Admin` cannot be removed. A new role takes effect on the user's next token (login or refresh); an access token already issued keeps the old role until it expires.
+
+The first `Admin` is created at startup from `ADMIN_NAME` and `ADMIN_PASSWORD` when no `Admin` exists yet. An existing user with that name is not promoted. Accounts created before this change keep the role they chose at sign-up (the Web UI used `Admin`). See [Upgrading an existing deployment](../heka-identity-service/docs/setup.md#upgrading-an-existing-deployment).
 
 ## Configuration
 
@@ -63,6 +81,8 @@ The service is configured via environment variables. Values can be set in a `.en
 | `APP_ENABLE_CORS`        | `false`                       | Set to `true` to enable CORS handling.                                   |
 | `APP_ALLOW_ORIGINS`      | `*`                           | Comma-separated list of allowed CORS origins.                            |
 | `ORG_ID`                 | `id`                          | Organization identifier surfaced as the `org_id` claim in issued tokens. |
+| `ADMIN_NAME`             | _(unset)_                     | Name of the first `Admin`, created at startup when no `Admin` exists.    |
+| `ADMIN_PASSWORD`         | _(unset)_                     | Password of the first `Admin` (same rules as for registration).          |
 
 ### Database (PostgreSQL)
 

@@ -5,12 +5,18 @@ import { Identified } from './identified.entity'
 import { SchemaField } from './schema-field.entity'
 import { SchemaRegistration } from './schema-registration.entity'
 import { User } from './user.entity'
+import { Wallet } from './wallet.entity'
 
 @Entity()
 export class Schema extends Identified {
-  @ManyToOne(() => User, { nullable: false, lazy: true })
+  // Schemas are shared by everyone acting in the wallet, e.g. the members of an organization
+  @ManyToOne(() => Wallet, { nullable: false, lazy: true })
   @Index()
-  public owner!: User
+  public owner!: Wallet
+
+  // The user who created the schema; shown as its issuer
+  @ManyToOne(() => User, { nullable: false, lazy: true })
+  public createdBy!: User
 
   @Property({ nullable: false, length: 500, type: 'string' })
   public name!: string
