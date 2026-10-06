@@ -70,6 +70,10 @@ export class DidRegistrarService implements OnApplicationBootstrap {
     return register
   }
 
+  public supportsController(method: string = DidKeyRegistrar.method): boolean {
+    return this.getDidRegistrar(method).supportsController
+  }
+
   public async createDid(tenantId: string, method: string = DidKeyRegistrar.method, options: CreateDidOptions) {
     const didRegistrar = this.getDidRegistrar(method)
 

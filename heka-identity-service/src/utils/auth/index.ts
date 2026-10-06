@@ -1,6 +1,12 @@
-import { UnauthorizedException } from '@nestjs/common'
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common'
 
 import { Role } from 'common/auth'
+
+export const ADMINISTRATION_WALLET_ID = 'Administration'
+
+export function getOrganizationWalletId(orgId: string): string {
+  return `Organization_${orgId}`
+}
 
 export function getWalletId({ role, userId, orgId }: { role: Role; userId: string; orgId?: string }): string {
   switch (role) {
@@ -8,15 +14,15 @@ export function getWalletId({ role, userId, orgId }: { role: Role; userId: strin
       if (orgId) {
         throw new UnauthorizedException()
       }
-      // FIXME: In web app demo we create users with `Admin` role
-      return `Administration_${userId}`
+      // Every Admin acts in the shared administration wallet
+      return ADMINISTRATION_WALLET_ID
     case Role.OrgAdmin:
     case Role.OrgManager:
     case Role.OrgMember:
       if (!orgId) {
         throw new UnauthorizedException()
       }
-      return `Organization_${orgId}`
+      return getOrganizationWalletId(orgId)
     case Role.Issuer:
     case Role.Verifier:
       if (!orgId) {
@@ -29,10 +35,15 @@ export function getWalletId({ role, userId, orgId }: { role: Role; userId: strin
       }
       return `${role}_${userId}`
     default:
-      throw new Error(`Role '${role}' is not supported`)
+      throw new UnauthorizedException()
   }
 }
 
+/**
+ * The wallet whose DID controls the public DIDs this role creates (with the role model enabled): `Administration`
+ * controls organization DIDs, an organization controls its issuers' DIDs, and Admin DIDs are self-controlled.
+ * Roles that cannot create a public DID are rejected.
+ */
 export function getDidControllerWalletId({ role, orgId }: { role: Role; orgId?: string }): string | null {
   switch (role) {
     case Role.Admin:
@@ -44,13 +55,13 @@ export function getDidControllerWalletId({ role, orgId }: { role: Role; orgId?: 
       if (!orgId) {
         throw new UnauthorizedException()
       }
-      return `Administration`
+      return ADMINISTRATION_WALLET_ID
     case Role.Issuer:
       if (!orgId) {
         throw new UnauthorizedException()
       }
-      return `Organization_${orgId}`
+      return getOrganizationWalletId(orgId)
     default:
-      throw new Error(`Cannot get DID controller because '${role}' role does not support public DID creation`)
+      throw new ForbiddenException(`Role '${role}' cannot create a public DID`)
   }
 }

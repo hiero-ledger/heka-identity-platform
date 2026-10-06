@@ -32,11 +32,7 @@ interface MyLogContext {
 
 const loggerInstance = logger.createLogger({
   severity: LogLevel[LogLevel.debug],
-  transport: (props) => {
-    consoleTransport(props)
-    fileAsyncTransport(props)
-    return true
-  },
+  transport: [consoleTransport, fileAsyncTransport],
   transportOptions: {
     FS: RNFS,
     fileName: TRANSPORT_LOG_FILE_NAME,

@@ -63,3 +63,5 @@ node_modules/
 
 # Root Compose configuration (copy .env.example)
 /.env
+
+.claude

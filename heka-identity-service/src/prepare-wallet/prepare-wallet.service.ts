@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common'
+import { EntityManager } from '@mikro-orm/core'
+import { ConflictException, Injectable } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
 import { AuthInfo } from 'common/auth'
+import { Wallet } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
-import { credentialFormatToCredentialRegistrationFormat, DidMethod } from 'common/types'
+import { credentialFormatToCredentialRegistrationFormat, DidMethod, MAIN_DID_METHOD } from 'common/types'
 import { DidService } from 'did/did.service'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
 import { OpenId4VcVerifierService } from 'openid4vc/verifier/verifier.service'
@@ -13,12 +15,13 @@ import { UserService } from 'user/user.service'
 
 @Injectable()
 export class PrepareWalletService {
-  private static mainDidMethod = DidMethod.Key
+  private static mainDidMethod = MAIN_DID_METHOD
   private static defaultColor = '#f58529'
 
   public constructor(
     @InjectLogger(PrepareWalletService)
     private readonly logger: Logger,
+    private readonly em: EntityManager,
     private readonly didService: DidService,
     private readonly openId4VcIssuerService: OpenId4VcIssuerService,
     private readonly openId4VcVerifierService: OpenId4VcVerifierService,
@@ -36,18 +39,20 @@ export class PrepareWalletService {
     const logger = this.logger.child('prepareWallet', { req })
     logger.trace('>')
 
-    const didDocuments = await this.didService.find(tenantAgent, {
-      method: PrepareWalletService.mainDidMethod,
-      own: true,
-    })
+    const wallet = await this.em.findOneOrFail(Wallet, { id: authInfo.walletId })
+    let mainDid: string | undefined = wallet.publicDid
 
-    let mainDid: string | undefined
-
-    if (didDocuments.length > 0) {
-      logger.info(`Wallet for user ${authInfo.userName} already prepared`)
-      mainDid = didDocuments[0].id
+    if (mainDid) {
+      logger.info(`Wallet ${authInfo.walletId} already prepared`)
     } else {
-      for (const method of this.didService.getMethods().methods) {
+      // The main DID is required, so it is created first: if it fails, no other DID or OID4VC record is left behind
+      const methods = this.didService.getMethods().methods
+      const orderedMethods = [
+        ...methods.filter((method) => method === PrepareWalletService.mainDidMethod),
+        ...methods.filter((method) => method !== PrepareWalletService.mainDidMethod),
+      ]
+      let preparedConcurrently = false
+      for (const method of orderedMethods) {
         let did
 
         try {
@@ -57,6 +62,20 @@ export class PrepareWalletService {
             mainDid = did
           }
         } catch (error) {
+          if (method === PrepareWalletService.mainDidMethod) {
+            // A concurrent request created the main DID first and prepares the rest of the wallet itself
+            if (error instanceof ConflictException) {
+              const { publicDid } = await this.em.findOneOrFail(Wallet, { id: authInfo.walletId }, { refresh: true })
+              if (publicDid) {
+                logger.info(`Wallet ${authInfo.walletId} prepared by a concurrent request`)
+                mainDid = publicDid
+                preparedConcurrently = true
+                break
+              }
+            }
+            // The main DID is required, so the reason it failed (e.g. 422) is returned as is
+            throw error
+          }
           this.logger.error(`Failed to create DID for method ${method}`)
           continue
         }
@@ -72,15 +91,17 @@ export class PrepareWalletService {
         }
       }
 
-      await this.userService.patchMe(
-        authInfo,
-        tenantAgent,
-        {
-          name: authInfo.userName,
-          backgroundColor: PrepareWalletService.defaultColor,
-        },
-        userLogo,
-      )
+      if (!preparedConcurrently) {
+        await this.userService.patchMe(
+          authInfo,
+          tenantAgent,
+          {
+            name: authInfo.userName,
+            backgroundColor: PrepareWalletService.defaultColor,
+          },
+          userLogo,
+        )
+      }
     }
 
     if (!mainDid) {

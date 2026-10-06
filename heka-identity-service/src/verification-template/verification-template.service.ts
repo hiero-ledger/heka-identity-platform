@@ -4,7 +4,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectLogger, Logger } from 'common/logger'
 
 import { AuthInfo } from '../common/auth'
-import { Schema, VerificationTemplate, VerificationTemplateField } from '../common/entities'
+import { Schema, VerificationTemplate, VerificationTemplateField, Wallet } from '../common/entities'
 import { FileStorageService } from '../common/file-storage/file-storage.service'
 import { CredentialFormat, OpenId4VcCredentialFormat, ProtocolType } from '../common/types'
 import { IssuanceTemplateSchema } from '../issuance-template/dto/common/issuance-template'
@@ -292,7 +292,11 @@ export class VerificationTemplateService {
     }
 
     // check schema exist
-    const schema = await this.em.findOne(Schema, { owner, id: request.schemaId }, { populate: ['fields'] })
+    const schema = await this.em.findOne(
+      Schema,
+      { owner: this.em.getReference(Wallet, authInfo.walletId), id: request.schemaId },
+      { populate: ['fields'] },
+    )
     if (!schema) {
       throw new NotFoundException(`Schema ${request.schemaId} not exists.`)
     }
@@ -353,7 +357,11 @@ export class VerificationTemplateService {
 
     let schema
     if (request.schemaId) {
-      schema = await this.em.findOne(Schema, { owner, id: request.schemaId }, { populate: ['fields', 'registrations'] })
+      schema = await this.em.findOne(
+        Schema,
+        { owner: this.em.getReference(Wallet, authInfo.walletId), id: request.schemaId },
+        { populate: ['fields', 'registrations'] },
+      )
       if (!schema) {
         throw new NotFoundException(`Schema ${request.schemaId} not exists.`)
       }

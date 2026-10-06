@@ -58,7 +58,6 @@ const translation = {
     "UsePasskeyToAuth": "Please use passkey to authenticate with backup service"
   },
   "Crypto": {
-    "Title": "Keplr Wallet",
     "Balance": "Balance",
     "Token": "Token",
     "Staked": "Staked",
@@ -129,7 +128,6 @@ const translation = {
       }
     },
     "Account": {
-      "KeplrAccount": "Keplr Account",
       "NoAccount": "No account",
       "SelectAccount": "Select Account",
       "Selected": "{{name}} (Selected)",
@@ -224,8 +222,6 @@ const translation = {
     "UsingCredentialsBody": "To receive and use credentials you use the “Scan” feature in the app to scan a special QR code. Information is sent and received over a private, encrypted connection.",
     "PrivacyConfidentiality": "Privacy and confidentiality",
     "PrivacyParagraph": "You approve every use of information from your Heka Wallet App. You also only share what is needed for a situation. App administration or other third parties are not informed on when and how you use your digital credentials.",
-    "KeplrWalletTitle": "Keplr wallet integration",
-    "KeplrWalletBody": "Heka Wallet App provides crypto wallet functionality by integrating open-source Keplr wallet. This wallet can be used to receive and transfer various crypto tokens.\n\nYou can access your crypto wallet using ”Open Keplr wallet” button on a home screen.",
     "GetStarted": "Get Started",
     "SkipA11y": "Skip introduction",
     "AlreadyHaveAWallet": "Already have a backed-up wallet?",

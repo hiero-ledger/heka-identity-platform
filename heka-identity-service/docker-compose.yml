@@ -70,6 +70,7 @@ services:
       WEBHOOK_HTTP_TIMEOUT_MS: ${WEBHOOK_HTTP_TIMEOUT_MS:-10000}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
+      ROLE_MODEL_ENABLED: ${ROLE_MODEL_ENABLED:-false}
     ports:
       - '3000:3000'
       - '3001:3001'
