@@ -3,7 +3,6 @@ import { IncomingMessage } from 'http'
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common'
-import { JwtService } from '@nestjs/jwt'
 
 import { Agent } from 'common/agent'
 import { Role } from 'common/auth'
@@ -12,6 +11,7 @@ import { Logger } from 'common/logger'
 import { getDidControllerWalletId, getWalletId } from 'utils/auth'
 
 import { AuthService } from '../auth.service'
+import { TokenVerifier } from '../token-verifier.service'
 
 describe('getWalletId', () => {
   test.each([
@@ -76,7 +76,7 @@ describe('getDidControllerWalletId', () => {
 describe('AuthService', () => {
   let service: AuthService
   let agent: Agent
-  let jwtService: JwtService
+  let tokenVerifier: TokenVerifier
   let em: EntityManager
   let logger: Logger
 
@@ -110,30 +110,40 @@ describe('AuthService', () => {
         },
       },
     })
-    jwtService = createMock<JwtService>()
+    tokenVerifier = createMock<TokenVerifier>()
     em = createMock<EntityManager>()
     logger = createMock<Logger>()
-    service = new AuthService(agent, jwtService, em, logger)
+    service = new AuthService(agent, tokenVerifier, em, logger)
   })
 
   describe('validateRequestToken', () => {
     test('throws when Authorization header is missing', async () => {
       const request = { headers: {} } as IncomingMessage
 
+      await expect(service.validateRequestToken(request)).rejects.toThrow(UnauthorizedException)
       await expect(service.validateRequestToken(request)).rejects.toThrow('Authorization token is missing')
+      expect(tokenVerifier.verify).not.toHaveBeenCalled()
     })
 
     test('throws when scheme is not Bearer', async () => {
       const request = { headers: { authorization: 'Basic abc123' } } as IncomingMessage
 
       await expect(service.validateRequestToken(request)).rejects.toThrow('Authorization token is missing')
+      expect(tokenVerifier.verify).not.toHaveBeenCalled()
+    })
+
+    test('propagates verification failures', async () => {
+      const request = { headers: { authorization: 'Bearer bad-jwt' } } as IncomingMessage
+      vi.mocked(tokenVerifier.verify).mockRejectedValue(new UnauthorizedException('Invalid token: ERR_JWT_EXPIRED'))
+
+      await expect(service.validateRequestToken(request)).rejects.toThrow('Invalid token: ERR_JWT_EXPIRED')
     })
 
     test('verifies token and returns AuthInfo', async () => {
       const request = { headers: { authorization: 'Bearer my-jwt' } } as IncomingMessage
       const payload = { sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer] }
 
-      vi.mocked(jwtService.verifyAsync).mockResolvedValue(payload)
+      vi.mocked(tokenVerifier.verify).mockResolvedValue(payload)
 
       const user = makeUser({ id: '11' })
       const wallet = makeWallet()
@@ -141,13 +151,63 @@ describe('AuthService', () => {
 
       const result = await service.validateRequestToken(request)
 
-      expect(jwtService.verifyAsync).toHaveBeenCalledWith('my-jwt')
+      expect(tokenVerifier.verify).toHaveBeenCalledWith('my-jwt')
       expect(em.findOne).toHaveBeenNthCalledWith(1, User, { id: '11' })
       expect(em.findOne).toHaveBeenNthCalledWith(2, Wallet, { id: 'Issuer_11_in_Organization_7' })
       expect(result.userId).toBe('11')
       expect(result.role).toBe(Role.Issuer)
       expect(result.walletId).toBe('Issuer_11_in_Organization_7')
       expect(result.tenantId).toBe('tenant-xyz')
+    })
+  })
+
+  describe('validateWebSocketToken', () => {
+    // Shape-only JWT: verification is mocked, the service only decodes `exp` from it
+    const makeJwt = (claims: Record<string, unknown>) =>
+      [{ alg: 'RS256' }, claims, 'sig']
+        .map((part) => (typeof part === 'string' ? part : Buffer.from(JSON.stringify(part)).toString('base64url')))
+        .join('.')
+
+    const payload = { sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer] }
+
+    beforeEach(() => {
+      vi.mocked(tokenVerifier.verify).mockResolvedValue(payload)
+      vi.mocked(em.findOne)
+        .mockResolvedValueOnce(makeUser({ id: '11' }))
+        .mockResolvedValueOnce(makeWallet())
+    })
+
+    test('reads the token that follows the bearer marker in Sec-WebSocket-Protocol', async () => {
+      const jwt = makeJwt({ sub: '11', exp: 1_900_000_000 })
+      const request = { headers: { 'sec-websocket-protocol': `heka.bearer, ${jwt}` } } as unknown as IncomingMessage
+
+      const result = await service.validateWebSocketToken(request)
+
+      expect(tokenVerifier.verify).toHaveBeenCalledWith(jwt)
+      expect(result.authInfo.userId).toBe('11')
+      expect(result.expiresAt).toBe(1_900_000_000)
+    })
+
+    test('falls back to the Authorization header', async () => {
+      const jwt = makeJwt({ sub: '11', exp: 1_900_000_000 })
+      const request = { headers: { authorization: `Bearer ${jwt}` } } as IncomingMessage
+
+      await service.validateWebSocketToken(request)
+
+      expect(tokenVerifier.verify).toHaveBeenCalledWith(jwt)
+    })
+
+    test('ignores subprotocols without the bearer marker', async () => {
+      const request = { headers: { 'sec-websocket-protocol': 'chat, something' } } as unknown as IncomingMessage
+
+      await expect(service.validateWebSocketToken(request)).rejects.toThrow('Authorization token is missing')
+      expect(tokenVerifier.verify).not.toHaveBeenCalled()
+    })
+
+    test('rejects a marker without a token', async () => {
+      const request = { headers: { 'sec-websocket-protocol': 'heka.bearer' } } as unknown as IncomingMessage
+
+      await expect(service.validateWebSocketToken(request)).rejects.toThrow('Authorization token is missing')
     })
   })
 

@@ -35,6 +35,8 @@ export interface CredentialSchema {
   isLoading: boolean;
   error?: string;
   issuanceSession?: IssuanceSession;
+  /** requestId of the latest offerCredential: answers to older or reset requests are ignored */
+  offerRequestId?: string;
   credentialsConfig?: CredentialConfig;
 }
 

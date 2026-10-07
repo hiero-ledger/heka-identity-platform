@@ -34,6 +34,8 @@ lib/*.js
 test/*.js
 *.map
 .env
+# broker clients with their secrets; copy env/oidc-clients.example.json
+env/oidc-clients.json
 
 .vscode
 .idea

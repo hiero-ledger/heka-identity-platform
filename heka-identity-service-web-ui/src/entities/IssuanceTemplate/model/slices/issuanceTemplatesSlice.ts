@@ -14,6 +14,8 @@ import {
 const initialState: IssuanceTemplateSchema = {
   isLoading: false,
   error: undefined,
+  isMutating: false,
+  mutationError: undefined,
   issuanceTemplates: undefined,
   issuanceTemplate: undefined,
 };
@@ -25,6 +27,8 @@ export const issuanceTemplatesSlice = buildSlice({
     reset: (state) => {
       state.isLoading = initialState.isLoading;
       state.error = initialState.error;
+      state.isMutating = initialState.isMutating;
+      state.mutationError = initialState.mutationError;
       state.issuanceTemplates = initialState.issuanceTemplates;
       state.issuanceTemplate = initialState.issuanceTemplate;
     },
@@ -51,9 +55,9 @@ export const issuanceTemplatesSlice = buildSlice({
           state.issuanceTemplates = action.payload;
         },
       )
-      .addCase(getIssuanceTemplateList.rejected, (state, payload) => {
+      .addCase(getIssuanceTemplateList.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = payload.error.message;
+        state.error = action.payload ?? action.error.message;
         state.issuanceTemplates = undefined;
       })
       // Single issuance template
@@ -69,43 +73,45 @@ export const issuanceTemplatesSlice = buildSlice({
           state.issuanceTemplate = action.payload;
         },
       )
-      .addCase(getIssuanceTemplate.rejected, (state, payload) => {
+      .addCase(getIssuanceTemplate.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = payload.error.message;
+        state.error = action.payload ?? action.error.message;
         state.issuanceTemplate = undefined;
       })
-      // Create issuance template
+      // Create and delete only track the mutation: the list stays visible and keeps its own
+      // loading/error state
       .addCase(createIssuanceTemplate.pending, (state) => {
-        state.isLoading = true;
-        state.error = undefined;
+        state.isMutating = true;
+        state.mutationError = undefined;
       })
       .addCase(
         createIssuanceTemplate.fulfilled,
         (state, action: PayloadAction<IssuanceTemplate>) => {
-          state.isLoading = false;
-          state.error = undefined;
+          state.isMutating = false;
           state.issuanceTemplates?.push(action.payload);
         },
       )
-      .addCase(createIssuanceTemplate.rejected, (state, payload) => {
-        state.isLoading = false;
-        state.error = payload.error.message;
+      .addCase(createIssuanceTemplate.rejected, (state, action) => {
+        state.isMutating = false;
+        state.mutationError = action.payload ?? action.error.message;
       })
-      // Delete issuance template
       .addCase(deleteIssuanceTemplate.pending, (state) => {
-        state.isLoading = true;
-        state.error = undefined;
+        state.isMutating = true;
+        state.mutationError = undefined;
       })
       .addCase(deleteIssuanceTemplate.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.error = undefined;
+        const { templateId } = action.payload;
+        state.isMutating = false;
         state.issuanceTemplates = state.issuanceTemplates?.filter(
-          (template) => template.id != action.payload.templateId,
+          (template) => template.id !== templateId,
         );
+        if (state.issuanceTemplate?.id === templateId) {
+          state.issuanceTemplate = undefined;
+        }
       })
-      .addCase(deleteIssuanceTemplate.rejected, (state, payload) => {
-        state.isLoading = false;
-        state.error = payload.error.message;
+      .addCase(deleteIssuanceTemplate.rejected, (state, action) => {
+        state.isMutating = false;
+        state.mutationError = action.payload ?? action.error.message;
       }),
 });
 

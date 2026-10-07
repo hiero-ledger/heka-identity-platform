@@ -24,6 +24,7 @@ export const agencyEndpoints = {
   getDidMethods: `/dids/methods`,
   createOpenIdIssuer: `/openid4vc/issuer`,
   createOpenIdVerifier: `/openid4vc/verifier`,
+  getConnections: 'connections',
   createConnection: 'connections/create-invitation',
   getConnectionState: (id: string) => `connections/${id}`,
   offerAnoncredsCredential: `/credentials/offer`,
@@ -45,14 +46,4 @@ export const agencyEndpoints = {
   getSingleVerificationTemplate: (id: string) =>
     `/verification-templates/${id}`,
   prepareWallet: '/prepare-wallet',
-};
-
-export const authEndpoints = {
-  token: `/oauth/token`,
-  refresh: `/oauth/refresh`,
-  register: `/user/register`,
-  revoke: `/oauth/revoke`,
-  profile: `/user/profile`,
-  requestChangePassword: '/user/password/change-request',
-  changePassword: '/user/password/change',
 };

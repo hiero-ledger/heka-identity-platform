@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 
@@ -7,7 +7,10 @@ import { didMethodTypes } from '@/components/Steps/SelectNetwork/SelectNetwork.c
 import { StepTitle } from '@/components/StepTitle';
 import { getCredentialsConfig } from '@/entities/Credential/model/selectors/credentialSelector';
 import { ProtocolType } from '@/entities/Schema';
-import { getUserDidDocuments } from '@/entities/User/model/selectors/userSelector';
+import {
+  getUserDidDocuments,
+  getUserDidDocumentsMethod,
+} from '@/entities/User/model/selectors/userSelector';
 import { fetchDidDocuments } from '@/entities/User/model/services/fetchDidDocuments';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
@@ -45,6 +48,7 @@ export const SelectNetwork = ({
   const isMobile = useMobile();
 
   const didDocuments = useSelector(getUserDidDocuments);
+  const didDocumentsMethod = useSelector(getUserDidDocumentsMethod);
   const credentialConfig = useSelector(getCredentialsConfig);
 
   useEffect(() => {
@@ -64,14 +68,18 @@ export const SelectNetwork = ({
     );
   }, [credentialConfig, protocolType]);
 
+  // The store holds the DIDs of the last fetched network: offer them only once they belong to
+  // the selected one, so a network switch never shows (or selects) the previous network's DIDs
+  const areDidsLoaded = !!network && didDocumentsMethod === network;
   const didOptions = useMemo(() => {
+    if (!areDidsLoaded) return [];
     return (
       didDocuments?.map((didDocument) => ({
         value: didDocument.id,
         content: didDocument.id,
       })) ?? []
     );
-  }, [didDocuments]);
+  }, [areDidsLoaded, didDocuments]);
 
   useEffect(() => {
     if (network) return;
@@ -80,11 +88,14 @@ export const SelectNetwork = ({
     }
   }, [network, networkOptions, protocolType, onChangeNetwork]);
 
+  // Once the network's DIDs are loaded: keep a DID that is among them (going Back, editing a
+  // template), otherwise default to the first one, or clear it when the network has none
   useEffect(() => {
-    if (onChangeDid && didOptions.length > 0) {
-      onChangeDid(didOptions[0].value);
-    }
-  }, [didOptions, network, onChangeDid]);
+    if (!onChangeDid || !areDidsLoaded) return;
+    if (did && didOptions.some((option) => option.value === did)) return;
+    const firstDid = didOptions[0]?.value;
+    if (firstDid !== did) onChangeDid(firstDid);
+  }, [areDidsLoaded, did, didOptions, onChangeDid]);
 
   const onNetworkChange = useCallback(
     (option: string) => {

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Column, Row } from '@/shared/ui/Grid';
 
 import * as cls from './InfoRow.module.scss';

@@ -1,9 +1,10 @@
 import { useSortable } from '@dnd-kit/sortable';
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Draggable, DraggableArea } from '@/components/Draggable/Draggable';
 import EqualIcon from '@/shared/assets/icons/equal.svg';
+import { clickableProps } from '@/shared/lib/a11y/clickable';
 import { classNames } from '@/shared/lib/classNames';
 import { Column, Row } from '@/shared/ui/Grid';
 import { PopupMenu } from '@/shared/ui/PopupMenu';
@@ -73,6 +74,7 @@ export const Template = ({
         </Column>
         <DraggableArea
           sortable={sortable}
+          label={t('Template.hints.move')}
           className={classNames(cls.dragIconWrapper, {}, [cls.iconWrapper])}
         >
           <div title={t('Template.hints.move')}>
@@ -81,8 +83,8 @@ export const Template = ({
         </DraggableArea>
       </Row>
       <Row
-        onClick={() => onClick(id)}
         className={cls.cardBody}
+        {...clickableProps(() => onClick(id), { label: title })}
       >
         <p
           className={cls.templateTitle}

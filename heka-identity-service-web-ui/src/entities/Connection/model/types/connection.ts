@@ -15,10 +15,23 @@ export interface ConnectionSession {
   connectionId?: string;
   invitationUrl: string;
   state: ConnectionState;
+  // Set when the operator chose an existing connection instead of a new invitation
+  isExisting?: boolean;
+}
+
+export interface ConnectionRecord {
+  id: string;
+  state: ConnectionState;
+  role: string;
+  createdAt: string;
+  theirLabel?: string;
+  alias?: string;
 }
 
 export interface ConnectionSchema {
   isLoading: boolean;
   error?: string;
   connectionSession?: ConnectionSession;
+  connections: ConnectionRecord[];
+  isConnectionsLoading: boolean;
 }

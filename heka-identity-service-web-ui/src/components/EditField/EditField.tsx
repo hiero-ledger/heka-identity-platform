@@ -30,11 +30,15 @@ export const EditField = ({
   isEditDisabled,
 }: EditFieldProps) => {
   const { t } = useTranslation();
+  // Disabled while loading, or when editing is not allowed: either one is enough (`??` would let
+  // an explicit `isLoading={false}` override `isEditDisabled`)
+  const isDisabled = !!isLoading || !!isEditDisabled;
+
   return (
     <Button
       className={classNames(cls.EditField, {}, [className])}
       onPress={onPress}
-      isDisabled={isLoading ?? isEditDisabled}
+      isDisabled={isDisabled}
     >
       <Row
         alignItems="center"
@@ -55,7 +59,7 @@ export const EditField = ({
         >
           {isLoading && <Loader size={48} />}
           <div className={cls.fieldValue}>{!isLoading && children}</div>
-          {!(isLoading ?? isEditDisabled) && (
+          {!isDisabled && (
             <Row
               alignItems="center"
               justifyContent="center"

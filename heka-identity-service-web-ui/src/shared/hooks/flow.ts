@@ -9,6 +9,7 @@ import { usePresentationActions } from '@/entities/Presentation/model/slices/pre
 import { Schema } from '@/entities/Schema';
 import { useSchemasActions } from '@/entities/Schema/model/slices/schemasSlice';
 import { useVerificationTemplatesActions } from '@/entities/VerificationTemplate/model/slices/verificationTemplatesSlice';
+import { useLatest } from '@/shared/lib/hooks/useLatest';
 
 export interface FlowConfig<T extends WizardContext> {
   initialContext?: T;
@@ -55,26 +56,33 @@ export function useFlow<T extends WizardContext>({
     [],
   );
 
+  // Callers pass a new `initialContext` (and often `steps`) on every render: read the latest
+  // through refs, so `resetFlowState` keeps its identity. It changes only with the wizard type:
+  // the same wizard component stays mounted when the route switches it between types, and
+  // callers reset when it changes.
+  const initialRef = useLatest(initial);
+  const stepsRef = useLatest(steps);
+  const wizardType = initial.wizardType;
+
   const resetFlowState = useCallback(() => {
-    setFlowContext(initial);
-    setStep(steps[0]);
+    setFlowContext({ ...initialRef.current, wizardType });
+    setStep(stepsRef.current[0]);
     resetConnectionState();
     resetCredentialState();
     resetPresentationState();
     resetSchemaState();
     resetIssuanceTemplateState();
     resetVerificationTemplateState();
-    // eslint-disable-next-line -- `initial` as dependency cause infinitive re-render
   }, [
-    setFlowContext,
-    setStep,
+    initialRef,
+    stepsRef,
+    wizardType,
     resetConnectionState,
     resetCredentialState,
     resetPresentationState,
     resetSchemaState,
     resetIssuanceTemplateState,
     resetVerificationTemplateState,
-    initial.wizardType,
   ]);
 
   const onChangeStep = useCallback(
