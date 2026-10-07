@@ -1,7 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { Button as AriaButton } from 'react-aria-components';
-import { Control, UseFormRegister } from 'react-hook-form';
-import { FieldArrayWithId } from 'react-hook-form/dist/types/fieldArray';
+import { Control, FieldArrayWithId } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -16,10 +15,9 @@ import { TextInput } from '@/shared/ui/TextInput';
 import * as cls from './CredentialField.module.scss';
 
 interface CredentialFieldProps {
-  field: FieldArrayWithId<CreateSchemaFormData | { id: string }>;
+  field: FieldArrayWithId<CreateSchemaFormData, 'credentials'>;
   fieldIndex: number;
   control: Control<CreateSchemaFormData>;
-  register: UseFormRegister<CreateSchemaFormData>;
   onChangeField?: (field?: Credential) => void;
   onRemoveField?: (index: number) => void;
 }
@@ -28,7 +26,6 @@ export default function CredentialField({
   field,
   fieldIndex,
   control,
-  register,
   onChangeField,
   onRemoveField,
 }: CredentialFieldProps) {
@@ -47,7 +44,10 @@ export default function CredentialField({
             title={t('CreateSchema.titles.dndCredential')}
             className={cls.dragAndDropBtn}
           >
-            <DraggableArea sortable={sortable}>
+            <DraggableArea
+              sortable={sortable}
+              label={t('CreateSchema.titles.dndCredential')}
+            >
               <DragDropSVG
                 width={24}
                 height={24}
@@ -56,7 +56,7 @@ export default function CredentialField({
           </div>
 
           <TextInput
-            {...register(`credentials.${fieldIndex}.name`)}
+            name={`credentials.${fieldIndex}.name`}
             label={t('CreateSchema.titles.credentialField')}
             control={control}
             onChangeValue={() => {

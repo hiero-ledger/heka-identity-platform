@@ -25,9 +25,11 @@ export enum OidcConfigKeys {
   subHmacSalt = 'OIDC_SUB_HMAC_SALT',
   identityServiceBaseUrl = 'IDENTITY_SERVICE_BASE_URL',
   identityServiceAuthToken = 'IDENTITY_SERVICE_AUTH_TOKEN',
-  identityServiceAuthName = 'IDENTITY_SERVICE_AUTH_NAME',
-  identityServiceAuthPassword = 'IDENTITY_SERVICE_AUTH_PASSWORD',
-  authServiceBaseUrl = 'AUTH_SERVICE_BASE_URL',
+  identityServiceTokenUrl = 'IDENTITY_SERVICE_TOKEN_URL',
+  identityServiceClientId = 'IDENTITY_SERVICE_CLIENT_ID',
+  identityServiceClientSecret = 'IDENTITY_SERVICE_CLIENT_SECRET',
+  identityServiceClientAuthMethod = 'IDENTITY_SERVICE_CLIENT_AUTH_METHOD',
+  identityServiceTokenParams = 'IDENTITY_SERVICE_TOKEN_PARAMS',
   identityServicePublicVerifierId = 'IDENTITY_SERVICE_PUBLIC_VERIFIER_ID',
   identityServiceRequestSignerDid = 'IDENTITY_SERVICE_REQUEST_SIGNER_DID',
   ttlAccessToken = 'OIDC_TTL_ACCESS_TOKEN',
@@ -38,7 +40,9 @@ export enum OidcConfigKeys {
   ttlGrant = 'OIDC_TTL_GRANT',
   clockTolerance = 'OIDC_CLOCK_TOLERANCE',
   clients = 'OIDC_CLIENTS',
+  clientsFile = 'OIDC_CLIENTS_FILE',
   loginConfigs = 'OIDC_LOGIN_CONFIGS',
+  loginConfigsFile = 'OIDC_LOGIN_CONFIGS_FILE',
   jwks = 'OIDC_JWKS',
   jwksFile = 'OIDC_JWKS_FILE',
   stubLogin = 'OIDC_STUB_LOGIN',
@@ -55,7 +59,7 @@ export enum SubStrategy {
 const oidcConfigDefaults = {
   issuerUrl: 'http://localhost:3005',
   identityServiceBaseUrl: 'http://localhost:3000',
-  authServiceBaseUrl: 'http://localhost:3004',
+  identityServiceClientAuthMethod: 'client_secret_post',
   ttl: {
     accessToken: 3600,
     authorizationCode: 60,
@@ -75,6 +79,8 @@ const knownDefaultSecrets = new Set([
   'dev-only-cookie-key-do-not-use-in-production',
   'dev-only-sub-hmac-salt-do-not-use-in-production',
   'dev-only-broker-secret-do-not-use-in-production',
+  'dev-only-heka-sso-service-secret-do-not-use-in-production', // client secret in keycloak/realm-heka.json
+  'dev-only-heka-demo-secret-do-not-use-in-production', // heka-demo client secret in keycloak/realm-heka-platform.json
   'Password1234!', // the platform's demo-user password (prepare-demo-user.ts)
   'test',
   'secret',
@@ -310,6 +316,13 @@ export class OidcTtlConfig {
   }
 }
 
+export const identityServiceClientAuthMethods = ['client_secret_post', 'client_secret_basic'] as const
+export type IdentityServiceClientAuthMethod = (typeof identityServiceClientAuthMethods)[number]
+
+/**
+ * How the bridge authenticates to heka-identity-service: a static token (tests/dev), or an OAuth 2.0
+ * Client Credentials grant against the OIDC provider that heka-identity-service trusts (Keycloak, Auth0, ...).
+ */
 export class IdentityServiceConfig {
   @IsUrl(urlOptions)
   public baseUrl!: string
@@ -319,15 +332,23 @@ export class IdentityServiceConfig {
   public authToken?: string
 
   @IsOptional()
-  @IsString()
-  public authName?: string
+  @IsUrl(urlOptions)
+  public tokenUrl?: string
 
   @IsOptional()
   @IsString()
-  public authPassword?: string
+  public clientId?: string
 
-  @IsUrl(urlOptions)
-  public authServiceBaseUrl!: string
+  @IsOptional()
+  @IsString()
+  public clientSecret?: string
+
+  @IsIn(identityServiceClientAuthMethods)
+  public clientAuthMethod: IdentityServiceClientAuthMethod
+
+  /** Extra form fields for the token request, e.g. `{"audience":"https://heka-identity"}` for Auth0. */
+  @IsObject()
+  public tokenParams: Record<string, string>
 
   @IsOptional()
   @IsString()
@@ -337,15 +358,59 @@ export class IdentityServiceConfig {
   @IsString()
   public requestSignerDid?: string
 
-  public constructor(configuration?: Record<string, any>) {
+  public constructor(configuration?: Record<string, any>, problems: string[] = []) {
     const env = configuration ?? process.env
     this.baseUrl = env[OidcConfigKeys.identityServiceBaseUrl]
-    this.authToken = env[OidcConfigKeys.identityServiceAuthToken]
-    this.authName = env[OidcConfigKeys.identityServiceAuthName]
-    this.authPassword = env[OidcConfigKeys.identityServiceAuthPassword]
-    this.authServiceBaseUrl = env[OidcConfigKeys.authServiceBaseUrl]
+    this.authToken = env[OidcConfigKeys.identityServiceAuthToken] || undefined
+    this.tokenUrl = env[OidcConfigKeys.identityServiceTokenUrl] || undefined
+    this.clientId = env[OidcConfigKeys.identityServiceClientId] || undefined
+    this.clientSecret = env[OidcConfigKeys.identityServiceClientSecret] || undefined
+    this.clientAuthMethod = env[OidcConfigKeys.identityServiceClientAuthMethod] || oidcConfigDefaults.identityServiceClientAuthMethod
+    this.tokenParams = IdentityServiceConfig.parseTokenParams(env[OidcConfigKeys.identityServiceTokenParams], problems)
     this.publicVerifierId = env[OidcConfigKeys.identityServicePublicVerifierId]
     this.requestSignerDid = env[OidcConfigKeys.identityServiceRequestSignerDid]
+
+    if (!identityServiceClientAuthMethods.includes(this.clientAuthMethod)) {
+      problems.push(`${OidcConfigKeys.identityServiceClientAuthMethod} must be one of ${identityServiceClientAuthMethods.join(', ')}`)
+    }
+    const credentialKeys = [
+      OidcConfigKeys.identityServiceTokenUrl,
+      OidcConfigKeys.identityServiceClientId,
+      OidcConfigKeys.identityServiceClientSecret,
+    ]
+    const missing = credentialKeys.filter((key) => !env[key])
+    if (missing.length > 0 && missing.length < credentialKeys.length) {
+      problems.push(`${credentialKeys.join(', ')} must be set together (missing: ${missing.join(', ')})`)
+    }
+  }
+
+  /** True when tokens are acquired with the Client Credentials grant (no static token override). */
+  public get usesClientCredentials(): boolean {
+    return !this.authToken && Boolean(this.tokenUrl && this.clientId && this.clientSecret)
+  }
+
+  private static parseTokenParams(raw: string | undefined, problems: string[]): Record<string, string> {
+    if (!raw) return {}
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      problems.push(`${OidcConfigKeys.identityServiceTokenParams} contains invalid JSON`)
+      return {}
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      problems.push(`${OidcConfigKeys.identityServiceTokenParams} must be a JSON object of form fields`)
+      return {}
+    }
+    const params: Record<string, string> = {}
+    for (const [name, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+        problems.push(`${OidcConfigKeys.identityServiceTokenParams}: value of '${name}' must be a string`)
+        continue
+      }
+      params[name] = String(value)
+    }
+    return params
   }
 }
 
@@ -440,18 +505,17 @@ export class OidcConfig {
     refuseKnownDefault(OidcConfigKeys.subHmacSalt, [this.subHmacSalt])
 
     requireInProduction(OidcConfigKeys.identityServiceBaseUrl)
-    this.identityService = new IdentityServiceConfig({
-      ...env,
-      [OidcConfigKeys.identityServiceBaseUrl]: env[OidcConfigKeys.identityServiceBaseUrl] || oidcConfigDefaults.identityServiceBaseUrl,
-      [OidcConfigKeys.authServiceBaseUrl]: env[OidcConfigKeys.authServiceBaseUrl] || oidcConfigDefaults.authServiceBaseUrl,
-    })
+    this.identityService = new IdentityServiceConfig(
+      {
+        ...env,
+        [OidcConfigKeys.identityServiceBaseUrl]: env[OidcConfigKeys.identityServiceBaseUrl] || oidcConfigDefaults.identityServiceBaseUrl,
+      },
+      problems
+    )
     refuseKnownDefault(OidcConfigKeys.identityServiceAuthToken, [this.identityService.authToken])
-    refuseKnownDefault(OidcConfigKeys.identityServiceAuthPassword, [this.identityService.authPassword])
-    if (isProduction && this.identityService.authName && !env[OidcConfigKeys.authServiceBaseUrl]) {
-      problems.push(
-        `${OidcConfigKeys.authServiceBaseUrl} must be set in production when the ` +
-          `${OidcConfigKeys.identityServiceAuthName} service account is used (no compiled-in default)`
-      )
+    refuseKnownDefault(OidcConfigKeys.identityServiceClientSecret, [this.identityService.clientSecret])
+    if (isProduction && this.identityService.clientSecret && this.identityService.clientSecret.length < 16) {
+      problems.push(`${OidcConfigKeys.identityServiceClientSecret} is too short for production (16+ characters)`)
     }
 
     this.ttl = new OidcTtlConfig(configuration)
@@ -460,7 +524,9 @@ export class OidcConfig {
       ? parseInt(env[OidcConfigKeys.clockTolerance])
       : oidcConfigDefaults.clockTolerance
 
-    this.clients = OidcConfig.parseJsonArray(env, OidcConfigKeys.clients, problems).map((client) => new OidcClientConfig(client))
+    this.clients = OidcConfig.parseJsonArray(env, OidcConfigKeys.clients, OidcConfigKeys.clientsFile, problems).map(
+      (client) => new OidcClientConfig(client)
+    )
     for (const client of this.clients) {
       refuseKnownDefault(OidcConfigKeys.clients, [client.clientSecret])
       if (isProduction && client.clientSecret && client.clientSecret.length < 16) {
@@ -468,7 +534,7 @@ export class OidcConfig {
       }
     }
 
-    this.loginConfigs = OidcConfig.parseJsonArray(env, OidcConfigKeys.loginConfigs, problems).map(
+    this.loginConfigs = OidcConfig.parseJsonArray(env, OidcConfigKeys.loginConfigs, OidcConfigKeys.loginConfigsFile, problems).map(
       (loginConfig) => new OidcLoginConfig(loginConfig)
     )
     for (const loginConfig of this.loginConfigs) {
@@ -556,17 +622,32 @@ export class OidcConfig {
     return jwks
   }
 
-  private static parseJsonArray(env: Record<string, any>, key: OidcConfigKeys, problems: string[]): any[] {
-    if (!env[key]) return []
+  /**
+   * A JSON array from the inline variable, or from the file named by the `_FILE` variable when
+   * the inline one is unset (same precedence as `OIDC_JWKS` / `OIDC_JWKS_FILE`). Problems name
+   * the variable the value actually came from.
+   */
+  private static parseJsonArray(env: Record<string, any>, key: OidcConfigKeys, fileKey: OidcConfigKeys, problems: string[]): any[] {
+    let raw: string | undefined = env[key]
+    const source = raw ? key : fileKey
+    if (!raw && env[fileKey]) {
+      try {
+        raw = readFileSync(env[fileKey], 'utf8')
+      } catch {
+        problems.push(`${fileKey} could not be read: ${env[fileKey]}`)
+        return []
+      }
+    }
+    if (!raw) return []
     try {
-      const parsed = JSON.parse(env[key])
+      const parsed = JSON.parse(raw)
       if (!Array.isArray(parsed)) {
-        problems.push(`${key} must be a JSON array`)
+        problems.push(`${source} must be a JSON array`)
         return []
       }
       return parsed
     } catch {
-      problems.push(`${key} contains invalid JSON`)
+      problems.push(`${source} contains invalid JSON`)
       return []
     }
   }

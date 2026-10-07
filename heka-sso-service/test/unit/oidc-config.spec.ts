@@ -136,6 +136,67 @@ describe('OidcConfig', () => {
     ).toThrow()
   })
 
+  describe('static clients and login configs from files', () => {
+    const client = {
+      clientId: 'file-broker',
+      clientSecret: 'file-secret-value-long-enough',
+      redirectUris: ['https://idp.example.com/callback'],
+      loginConfigId: 'default',
+    }
+    const loginConfig = {
+      id: 'from-file',
+      verificationTemplate: 'default',
+      dcqlQuery: {
+        credentials: [{ id: 'pid', format: 'dc+sd-jwt', meta: { vct_values: ['urn:eudi:pid:1'] }, claims: [{ path: ['given_name'] }] }],
+      },
+      claimMapping: { 'pid.given_name': 'given_name' },
+      subStrategy: 'derived',
+    }
+
+    const withTempFile = (name: string, content: string, run: (file: string) => void) => {
+      const file = join(tmpdir(), `${name}-${process.pid}-${Date.now()}.json`)
+      writeFileSync(file, content)
+      try {
+        run(file)
+      } finally {
+        rmSync(file)
+      }
+    }
+
+    test('are read from OIDC_CLIENTS_FILE and OIDC_LOGIN_CONFIGS_FILE when the inline variables are unset', () => {
+      withTempFile('clients', JSON.stringify([client]), (clientsFile) => {
+        withTempFile('login-configs', JSON.stringify([loginConfig]), (loginConfigsFile) => {
+          const config = validate({ OIDC_CLIENTS_FILE: clientsFile, OIDC_LOGIN_CONFIGS_FILE: loginConfigsFile }).oidc
+          expect(config.clients.map((c) => c.clientId)).toEqual(['file-broker'])
+          expect(config.loginConfigs.map((c) => c.id)).toEqual(['from-file'])
+        })
+      })
+    })
+
+    test('inline variables take precedence over the files', () => {
+      withTempFile('clients', JSON.stringify([client]), (clientsFile) => {
+        const config = new OidcConfig({
+          OIDC_CLIENTS: JSON.stringify([{ ...client, clientId: 'inline-broker' }]),
+          OIDC_CLIENTS_FILE: clientsFile,
+        })
+        expect(config.clients.map((c) => c.clientId)).toEqual(['inline-broker'])
+      })
+    })
+
+    test('a missing or malformed file is reported under the _FILE variable name', () => {
+      const missing = join(tmpdir(), `missing-${process.pid}-${Date.now()}.json`)
+      expect(() => new OidcConfig({ OIDC_CLIENTS_FILE: missing })).toThrow(/OIDC_CLIENTS_FILE could not be read/)
+      expect(() => new OidcConfig({ OIDC_LOGIN_CONFIGS_FILE: missing })).toThrow(/OIDC_LOGIN_CONFIGS_FILE could not be read/)
+
+      withTempFile('bad-clients', 'not-json', (file) => {
+        expect(() => new OidcConfig({ OIDC_CLIENTS_FILE: file })).toThrow(/OIDC_CLIENTS_FILE contains invalid JSON/)
+      })
+      withTempFile('bad-login-configs', '{"not":"an array"}', (file) => {
+        expect(() => new OidcConfig({ OIDC_LOGIN_CONFIGS_FILE: file })).toThrow(/OIDC_LOGIN_CONFIGS_FILE must be a JSON array/)
+      })
+    })
+  })
+
   describe('login configuration DCQL / claim-mapping consistency', () => {
     const loginConfig = (overrides: Record<string, unknown>) => ({
       OIDC_LOGIN_CONFIGS: JSON.stringify([
@@ -234,48 +295,75 @@ describe('OidcConfig', () => {
     expect(new OidcConfig({ ...strongProductionEnv, OIDC_STUB_LOGIN: 'false' }).stubLogin).toBe(false)
   })
 
-  test('identity-service service account: reads credentials and the auth-service base URL', () => {
-    const config = new OidcConfig({
-      IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
-      IDENTITY_SERVICE_AUTH_PASSWORD: 'service-account-password',
+  describe('identity-service client credentials', () => {
+    const clientCredentials = {
+      IDENTITY_SERVICE_TOKEN_URL: 'https://idp.example.com/oauth/token',
+      IDENTITY_SERVICE_CLIENT_ID: 'heka-sso-service',
+      IDENTITY_SERVICE_CLIENT_SECRET: 'service-account-secret',
+    }
+
+    test('reads the token endpoint, client, auth method and extra token params', () => {
+      const config = new OidcConfig({
+        ...clientCredentials,
+        IDENTITY_SERVICE_TOKEN_PARAMS: JSON.stringify({ audience: 'https://heka-identity', scope: 'openid' }),
+      })
+
+      expect(config.identityService).toMatchObject({
+        tokenUrl: 'https://idp.example.com/oauth/token',
+        clientId: 'heka-sso-service',
+        clientSecret: 'service-account-secret',
+        clientAuthMethod: 'client_secret_post',
+        tokenParams: { audience: 'https://heka-identity', scope: 'openid' },
+      })
+      expect(config.identityService.usesClientCredentials).toBe(true)
+
+      expect(
+        new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_CLIENT_AUTH_METHOD: 'client_secret_basic' }).identityService
+          .clientAuthMethod
+      ).toBe('client_secret_basic')
+      expect(new OidcConfig({}).identityService.usesClientCredentials).toBe(false)
+      expect(new OidcConfig({}).identityService.tokenParams).toEqual({})
+      // a static token takes precedence over configured client credentials
+      expect(new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_AUTH_TOKEN: 'static' }).identityService.usesClientCredentials).toBe(
+        false
+      )
     })
 
-    expect(config.identityService.authName).toBe('sso-bridge')
-    expect(config.identityService.authPassword).toBe('service-account-password')
-    expect(config.identityService.authServiceBaseUrl).toBe('http://localhost:3004')
-
-    expect(new OidcConfig({ AUTH_SERVICE_BASE_URL: 'http://auth.internal:3004' }).identityService.authServiceBaseUrl).toBe(
-      'http://auth.internal:3004'
-    )
-  })
-
-  test('service account in production: refuses the demo password and requires an explicit auth-service URL', () => {
-    expect(
-      () =>
-        new OidcConfig({
-          ...strongProductionEnv,
-          AUTH_SERVICE_BASE_URL: 'https://auth.example.com',
-          IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
-          IDENTITY_SERVICE_AUTH_PASSWORD: 'Password1234!',
-        })
-    ).toThrow(/known default secret/)
-
-    expect(
-      () =>
-        new OidcConfig({
-          ...strongProductionEnv,
-          IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
-          IDENTITY_SERVICE_AUTH_PASSWORD: 'strong-production-password',
-        })
-    ).toThrow(/AUTH_SERVICE_BASE_URL must be set in production/)
-
-    const config = new OidcConfig({
-      ...strongProductionEnv,
-      AUTH_SERVICE_BASE_URL: 'https://auth.example.com',
-      IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
-      IDENTITY_SERVICE_AUTH_PASSWORD: 'strong-production-password',
+    test('rejects partial or malformed settings in any environment', () => {
+      expect(() => new OidcConfig({ IDENTITY_SERVICE_TOKEN_URL: 'https://idp.example.com/oauth/token' })).toThrow(
+        /must be set together \(missing: IDENTITY_SERVICE_CLIENT_ID, IDENTITY_SERVICE_CLIENT_SECRET\)/
+      )
+      expect(() => new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_CLIENT_AUTH_METHOD: 'private_key_jwt' })).toThrow(
+        /IDENTITY_SERVICE_CLIENT_AUTH_METHOD must be one of/
+      )
+      expect(() => new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_TOKEN_PARAMS: 'not-json' })).toThrow(/invalid JSON/)
+      expect(() => new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_TOKEN_PARAMS: '["audience"]' })).toThrow(/JSON object/)
+      expect(() => new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_TOKEN_PARAMS: '{"audience":{"x":1}}' })).toThrow(
+        /value of 'audience' must be a string/
+      )
     })
-    expect(config.identityService.authServiceBaseUrl).toBe('https://auth.example.com')
+
+    test('in production: refuses the dev client secret and short secrets', () => {
+      expect(
+        () =>
+          new OidcConfig({
+            ...strongProductionEnv,
+            ...clientCredentials,
+            IDENTITY_SERVICE_CLIENT_SECRET: 'dev-only-heka-sso-service-secret-do-not-use-in-production',
+          })
+      ).toThrow(/known default secret/)
+
+      expect(() => new OidcConfig({ ...strongProductionEnv, ...clientCredentials, IDENTITY_SERVICE_CLIENT_SECRET: 'short' })).toThrow(
+        /IDENTITY_SERVICE_CLIENT_SECRET is too short for production/
+      )
+
+      const config = new OidcConfig({
+        ...strongProductionEnv,
+        ...clientCredentials,
+        IDENTITY_SERVICE_CLIENT_SECRET: 'strong-production-client-secret',
+      })
+      expect(config.identityService.usesClientCredentials).toBe(true)
+    })
   })
 
   test('rejects too-short client secrets in production', () => {

@@ -1582,7 +1582,7 @@ paths:
                   info:
                     type: object
                     example: &a39
-                      database: &a40
+                      database:
                         status: up
                     additionalProperties:
                       type: object
@@ -1628,7 +1628,9 @@ paths:
                     example: error
                   info:
                     type: object
-                    example: *a39
+                    example:
+                      database: &a40
+                        status: up
                     additionalProperties:
                       type: object
                       required:
@@ -1941,6 +1943,27 @@ paths:
       security: *a50
       summary: Proof VC by template
       tags: *a51
+  /demo/token:
+    get:
+      operationId: DemoController_getToken
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoTokenResponseDto"
+        "404":
+          description: Demo token broker is not enabled
+        "429":
+          description: Rate limit exceeded
+        "502":
+          description: The OIDC provider did not issue a token
+      summary: Short-lived access token of the demo service account for the public
+        demo pages
+      tags:
+        - Demo
 info:
   title: Heka Identity Service
   description: Heka Identity Service API
@@ -4043,5 +4066,21 @@ components:
                 - abandoned
       required:
         - id
+    DemoTokenResponseDto:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: Bearer token of the demo service account, accepted by this service
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: number
+          description: Seconds until the token expires
+      required:
+        - access_token
+        - token_type
+        - expires_in
 security:
   - bearer: []

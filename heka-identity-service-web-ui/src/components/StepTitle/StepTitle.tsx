@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { Column } from '@/shared/ui/Grid';
 
 import * as cls from './StepTitle.module.scss';

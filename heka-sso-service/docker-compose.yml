@@ -1,49 +1,97 @@
+# heka-sso-service on its own: the bridge and its Postgres (host port 5434, also used by
+# `yarn test:e2e`). heka-identity-service (3000) and the OIDC provider (8080) run on the host and
+# are reached through host.docker.internal. The whole platform, Keycloak included, runs from the
+# repository root instead (docs/root-docker-compose.md); the two scopes share host port 3005, so
+# run one or the other.
+#
+#   docker compose up -d --build     build the image from this directory and run it
+#   docker compose up -d             run the local or pulled heka-sso-service:latest image
+#
+# Broker clients and login configurations are files: copy env/oidc-clients.example.json to the
+# gitignored env/oidc-clients.json first (env/oidc-login-configs.json is committed).
+#
+# Compose reads ./.env for substitution, not env/.env (which is for `yarn start` and holds
+# multi-line JSON). Override values on the command line or with --env-file. Dev-only secrets are
+# the defaults; `NODE_ENV=production docker compose up -d` refuses them, see README.md#docker.
+
 services:
   postgres:
     image: postgres:15
     ports:
       - '5434:5432'
     environment:
-      - POSTGRES_USER=heka
-      - POSTGRES_PASSWORD=heka1
-      - POSTGRES_DB=heka-sso-service
+      POSTGRES_USER: heka
+      POSTGRES_PASSWORD: heka1
+      POSTGRES_DB: heka-sso-service
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -d heka-sso-service -U heka']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   heka-sso-service:
     image: heka-sso-service:latest
+    build:
+      context: .
+      args:
+        NODE_ENV: development
     ports:
       - '3005:3005'
-    # heka-identity-service (3000) and heka-auth-service (3004) run outside this compose
-    # project, published on the host: inside the container 'localhost' is the container itself.
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     environment:
       # The image defaults to NODE_ENV=production, which refuses the dev-only secrets below.
-      # A real deployment sets NODE_ENV=production and replaces every secret in this file.
-      - NODE_ENV=${NODE_ENV:-development}
-      - APP_VERSION=${APP_VERSION:-0.0.1}
-      - APP_PORT=${APP_PORT:-3005}
-      - APP_ENABLE_CORS=true
-      - LOG_LEVEL=info
-      - LOG_EXCLUDE_URLS=/version,/health
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=heka-sso-service
-      - DB_USER=heka
-      - DB_PASSWORD=heka1
-      - OIDC_ISSUER_URL=${OIDC_ISSUER_URL:-http://localhost:3005}
-      - OIDC_COOKIE_KEYS=dev-only-cookie-key-do-not-use-in-production
-      - OIDC_SUB_HMAC_SALT=dev-only-sub-hmac-salt-do-not-use-in-production
-      - IDENTITY_SERVICE_BASE_URL=${IDENTITY_SERVICE_BASE_URL:-http://host.docker.internal:3000}
-      - AUTH_SERVICE_BASE_URL=${AUTH_SERVICE_BASE_URL:-http://host.docker.internal:3004}
-      - IDENTITY_SERVICE_AUTH_NAME=${IDENTITY_SERVICE_AUTH_NAME:-demo}
-      - IDENTITY_SERVICE_AUTH_PASSWORD=${IDENTITY_SERVICE_AUTH_PASSWORD:-Password1234!}
-      - IDENTITY_SERVICE_PUBLIC_VERIFIER_ID=${IDENTITY_SERVICE_PUBLIC_VERIFIER_ID:?set it to the heka-identity-service public verifier id the bridge creates verification sessions under}
-      - IDENTITY_SERVICE_REQUEST_SIGNER_DID=${IDENTITY_SERVICE_REQUEST_SIGNER_DID:?set it to the DID that signs OID4VP authorization requests}
-      - OIDC_CLIENTS=[{"clientId":"keycloak-broker","clientSecret":"dev-only-broker-secret-do-not-use-in-production","redirectUris":["http://localhost:8080/realms/heka/broker/heka-sso/endpoint","http://localhost:8080/realms/master/broker/heka-sso/endpoint"],"postLogoutRedirectUris":["http://localhost:8080/realms/heka/broker/heka-sso/endpoint/logout_response","http://localhost:8080/realms/master/broker/heka-sso/endpoint/logout_response"],"loginConfigId":"default"}]
-      - OIDC_LOGIN_CONFIGS=[{"id":"default","verificationTemplate":"default","dcqlQuery":{"credentials":[{"id":"mdl","format":"dc+sd-jwt","meta":{"vct_values":["mDL"]},"claims":[{"path":["given_name"]},{"path":["family_name"]},{"path":["age_over_18"]}]}]},"claimMapping":{"mdl.given_name":"given_name","mdl.family_name":"family_name","mdl.age_over_18":"age_over_18"},"subStrategy":"derived","issuerAllowlist":[]}]
+      NODE_ENV: ${NODE_ENV:-development}
+      APP_VERSION: ${APP_VERSION:-0.0.1}
+      APP_PORT: '3005'
+      APP_ENABLE_CORS: 'true'
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_EXCLUDE_URLS: /version,/health
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_NAME: heka-sso-service
+      DB_USER: heka
+      DB_PASSWORD: heka1
+      # The bridge's own issuer: browser-facing localhost for Keycloak brokering with a desktop
+      # browser, the https tunnel of port 3005 when Auth0 brokers to it.
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:3005}
+      OIDC_COOKIE_KEYS: ${OIDC_COOKIE_KEYS:-dev-only-cookie-key-do-not-use-in-production}
+      OIDC_SUB_HMAC_SALT: ${OIDC_SUB_HMAC_SALT:-dev-only-sub-hmac-salt-do-not-use-in-production}
+      IDENTITY_SERVICE_BASE_URL: ${IDENTITY_SERVICE_BASE_URL:-http://host.docker.internal:3000}
+      # Service-account token from the platform IdP (client heka-sso-service of the Keycloak
+      # heka-platform realm by default; Auth0 needs IDENTITY_SERVICE_TOKEN_PARAMS with the audience).
+      IDENTITY_SERVICE_TOKEN_URL: ${IDENTITY_SERVICE_TOKEN_URL:-http://host.docker.internal:8080/realms/heka-platform/protocol/openid-connect/token}
+      IDENTITY_SERVICE_CLIENT_ID: ${IDENTITY_SERVICE_CLIENT_ID:-heka-sso-service}
+      IDENTITY_SERVICE_CLIENT_SECRET: ${IDENTITY_SERVICE_CLIENT_SECRET:-dev-only-heka-sso-service-secret-do-not-use-in-production}
+      IDENTITY_SERVICE_TOKEN_PARAMS: ${IDENTITY_SERVICE_TOKEN_PARAMS:-}
+      IDENTITY_SERVICE_CLIENT_AUTH_METHOD: ${IDENTITY_SERVICE_CLIENT_AUTH_METHOD:-}
+      # Real wallet login needs the verifier the bridge creates sessions under and the DID that
+      # signs authorization requests; the dev stub login stands in until they are set.
+      IDENTITY_SERVICE_PUBLIC_VERIFIER_ID: ${IDENTITY_SERVICE_PUBLIC_VERIFIER_ID:-}
+      IDENTITY_SERVICE_REQUEST_SIGNER_DID: ${IDENTITY_SERVICE_REQUEST_SIGNER_DID:-}
+      OIDC_STUB_LOGIN: ${OIDC_STUB_LOGIN:-true}
+      # Back-channel logout to the dev Keycloak goes to the host gateway, a private address.
+      OIDC_ALLOW_PRIVATE_NETWORK_CALLS: ${OIDC_ALLOW_PRIVATE_NETWORK_CALLS:-true}
+      OIDC_CLIENTS_FILE: /run/config/oidc-clients.json
+      OIDC_LOGIN_CONFIGS_FILE: /run/config/oidc-login-configs.json
+    volumes:
+      - type: bind
+        source: ./env/oidc-clients.json
+        target: /run/config/oidc-clients.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./env/oidc-login-configs.json
+        target: /run/config/oidc-login-configs.json
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:3005/health" ]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3005/health']
       interval: 30s
       timeout: 10s
       retries: 3

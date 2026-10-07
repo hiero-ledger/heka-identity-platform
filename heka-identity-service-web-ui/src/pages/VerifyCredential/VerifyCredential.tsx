@@ -8,7 +8,7 @@ import { panelVerificationMenuItems } from '@/entities/User/model/const';
 import { VerifyCredentialMenu } from '@/pages/VerifyCredential/VerifyCredentialMenu/VerifyCredentialMenu';
 import { Row } from '@/shared/ui/Grid';
 
-import { VerifyCredentialRoutes } from './VerifyCredentialRotes';
+import { VerifyCredentialRoutes } from './VerifyCredentialRoutes';
 
 import * as cls from './VerifyCredential.module.scss';
 

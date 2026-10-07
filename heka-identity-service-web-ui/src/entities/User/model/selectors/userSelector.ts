@@ -6,9 +6,6 @@ export const getUserIsSignedIn = (state: StateSchema) =>
 export const getUserAccessToken = (state: StateSchema) =>
   state.user.data?.tokens?.accessToken;
 
-export const getUserIsRegistered = (state: StateSchema) =>
-  !!state.user?.isRegistered;
-
 export const getUserDid = (state: StateSchema) => state.user?.data?.did;
 
 export const getUserDidMethods = (state: StateSchema) =>
@@ -16,6 +13,9 @@ export const getUserDidMethods = (state: StateSchema) =>
 
 export const getUserDidDocuments = (state: StateSchema) =>
   state.user?.data?.didDocuments;
+
+export const getUserDidDocumentsMethod = (state: StateSchema) =>
+  state.user?.data?.didDocumentsMethod;
 
 export const getUserId = (state: StateSchema) => state.user?.data?.did;
 
@@ -26,3 +26,6 @@ export const getIsPreparingUser = (state: StateSchema) =>
 
 export const getUserName = (state: StateSchema) => state.user?.data?.name;
 export const getUser = (state: StateSchema) => state.user?.data;
+
+export const getUserMessageDeliveryType = (state: StateSchema) =>
+  state.user?.data?.messageDeliveryType;

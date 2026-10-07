@@ -12,3 +12,12 @@ export const getConnectionState = (state: StateSchema) =>
 export const getConnectionId = (state: StateSchema) =>
   state.connections.connectionSession?.connectionId ||
   state.connections.connectionSession?.oobId;
+
+export const getIsExistingConnectionSelected = (state: StateSchema) =>
+  !!state.connections.connectionSession?.isExisting;
+
+export const getConnections = (state: StateSchema) =>
+  state.connections.connections;
+
+export const getIsConnectionsLoading = (state: StateSchema) =>
+  state.connections.isConnectionsLoading;

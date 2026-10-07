@@ -18,7 +18,6 @@ import { getSchema } from '@/entities/Schema/model/selectors/schemasSelector';
 import { AriesCredentialFormat } from '@/entities/Schema/model/types/schema';
 import { getUserDid } from '@/entities/User/model/selectors/userSelector';
 import { getVerificationTemplate } from '@/entities/VerificationTemplate/model/services/getVerificationTemplate';
-import { useVerificationTemplatesActions } from '@/entities/VerificationTemplate/model/slices/verificationTemplatesSlice';
 import {
   steps,
   totalPreparationSteps,
@@ -42,7 +41,6 @@ const AdvancedVerification = ({
   const { verificationTemplate } = useSelector(
     (state: RootState) => state.verificationTemplates,
   );
-  const { reset: resetTemplates } = useVerificationTemplatesActions();
   const singleSchema = useSelector(getSchema);
 
   const {
@@ -67,9 +65,9 @@ const AdvancedVerification = ({
   // Reset on mount and whenever the wizard switches between creating and editing a template
   // (the create and edit flows share this route), so nothing from a previous flow leaks in.
   useEffect(() => {
-    dispatch(resetTemplates());
+    // Also resets the template slices, so the templates need no reset of their own
     resetFlowState();
-  }, [dispatch, resetTemplates, resetFlowState, editedTemplateId]);
+  }, [resetFlowState]);
 
   useEffect(() => {
     if (!editedTemplateId) return;
@@ -106,7 +104,7 @@ const AdvancedVerification = ({
       );
       onChangeContextProperty('attributes')(attributes);
     }
-  }, [verificationTemplate, onChangeContextProperty]);
+  }, [verificationTemplate, onChangeContextProperty, editedTemplateId]);
 
   const onChangeNetwork = useMemo(
     () => onChangeContextProperty('network'),

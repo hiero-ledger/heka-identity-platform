@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Control,
   Controller,
@@ -15,34 +14,32 @@ export interface FormSelectProps<T extends FieldValues> extends SelectProps {
   clearErrors?: UseFormClearErrors<T>;
 }
 
-// todo: Research why the forwardRef is required. Fix it.
-export const FormSelect = React.forwardRef(
-  <T extends FieldValues>(props: FormSelectProps<T>) => {
-    const { name, control, clearErrors } = props;
-    return (
-      <Controller
-        name={name}
-        control={control}
-        render={({ field, fieldState: { invalid, error } }) => (
-          <Select
-            {...props}
-            defaultSelectedKey={field.value}
-            onSelect={(value) => {
-              field.onChange(value);
-              if (props.onSelect) {
-                props.onSelect(value);
-              }
-              if (clearErrors && error) {
-                clearErrors(name);
-              }
-            }}
-            isInvalid={invalid}
-            errorMessage={error?.message}
-          />
-        )}
+/**
+ * A `Select` bound to a react-hook-form field. Pass `name` and `control`; do not spread
+ * `register()` into it, since the field is registered by the `Controller` here.
+ */
+export const FormSelect = <T extends FieldValues>({
+  name,
+  control,
+  clearErrors,
+  onSelect,
+  ...selectProps
+}: FormSelectProps<T>) => (
+  <Controller
+    name={name}
+    control={control}
+    render={({ field, fieldState: { invalid, error } }) => (
+      <Select
+        {...selectProps}
+        defaultSelectedKey={field.value}
+        onSelect={(value) => {
+          field.onChange(value);
+          if (onSelect) onSelect(value);
+          if (clearErrors && error) clearErrors(name);
+        }}
+        isInvalid={invalid}
+        errorMessage={error?.message}
       />
-    );
-  },
+    )}
+  />
 );
-
-FormSelect.displayName = 'FormSelect';

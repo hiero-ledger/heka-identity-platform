@@ -2,8 +2,8 @@ import { IncomingMessage } from 'http'
 
 import { EntityManager } from '@mikro-orm/core'
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common'
-import { JwtService } from '@nestjs/jwt'
 import { Mutex } from 'async-mutex'
+import { decodeJwt } from 'jose'
 
 import { Agent, AGENT_TOKEN } from 'common/agent'
 import { User, Wallet } from 'common/entities'
@@ -13,6 +13,7 @@ import { withTenantAgent } from 'utils/multi-tenancy'
 
 import { AuthInfo, isRole } from './auth-info.interface'
 import { TokenPayload } from './token-payload.interface'
+import { TokenVerifier } from './token-verifier.service'
 
 @Injectable()
 export class AuthService {
@@ -20,7 +21,7 @@ export class AuthService {
   public constructor(
     @Inject(AGENT_TOKEN)
     private readonly agent: Agent,
-    private readonly jwtService: JwtService,
+    private readonly tokenVerifier: TokenVerifier,
     private readonly em: EntityManager,
     @InjectLogger(AuthService)
     private readonly logger: Logger,
@@ -29,20 +30,48 @@ export class AuthService {
     this.ensureUserAndWalletMutex = new Mutex()
   }
 
+  /**
+   * Authenticates an incoming HTTP or WebSocket upgrade request by its bearer token.
+   * Throws `UnauthorizedException` when the token is missing, invalid, or does not meet the claim contract.
+   */
   public async validateRequestToken(request: IncomingMessage): Promise<AuthInfo> {
     const logger = this.logger.child('validateRequestToken', { request })
     logger.trace('>')
 
     const token = extractTokenFromHeader(request)
     if (!token) {
-      throw new Error('Authorization token is missing')
+      throw new UnauthorizedException('Authorization token is missing')
     }
     logger.traceObject({ token })
 
-    const payload = await this.jwtService.verifyAsync<TokenPayload>(token)
+    const payload = await this.tokenVerifier.verify(token)
     logger.traceObject({ payload })
 
     return this.validateTokenPayload(payload)
+  }
+
+  /**
+   * Authenticates a WebSocket upgrade request. Browsers cannot set headers on a WebSocket, so the token
+   * may arrive as the second entry of `Sec-WebSocket-Protocol` after {@link WEBSOCKET_BEARER_PROTOCOL};
+   * the `Authorization` header still works for other clients.
+   * Returns the token's `exp` (seconds since epoch) so the caller can close the socket when it expires.
+   */
+  public async validateWebSocketToken(request: IncomingMessage): Promise<{ authInfo: AuthInfo; expiresAt?: number }> {
+    const logger = this.logger.child('validateWebSocketToken', { url: request.url })
+    logger.trace('>')
+
+    const token = extractTokenFromProtocolHeader(request) ?? extractTokenFromHeader(request)
+    if (!token) {
+      throw new UnauthorizedException('Authorization token is missing')
+    }
+
+    const payload = await this.tokenVerifier.verify(token)
+    const authInfo = await this.validateTokenPayload(payload)
+    // The signature and `exp` were verified above, so reading the claim without verification is safe here
+    const { exp } = decodeJwt(token)
+
+    logger.trace({ userId: authInfo.userId, expiresAt: exp }, '<')
+    return { authInfo, expiresAt: exp }
   }
 
   public async validateTokenPayload(tokenPayload: TokenPayload): Promise<AuthInfo> {
@@ -141,4 +170,14 @@ export class AuthService {
 function extractTokenFromHeader(request: IncomingMessage): string | undefined {
   const [type, token] = request.headers.authorization?.split(' ') ?? []
   return type === 'Bearer' ? token : undefined
+}
+
+/** Subprotocol a browser offers first, followed by its access token, when opening the notifications socket. */
+export const WEBSOCKET_BEARER_PROTOCOL = 'heka.bearer'
+
+function extractTokenFromProtocolHeader(request: IncomingMessage): string | undefined {
+  const protocols = (request.headers['sec-websocket-protocol'] ?? '').split(',').map((value) => value.trim())
+  const markerIndex = protocols.indexOf(WEBSOCKET_BEARER_PROTOCOL)
+  if (markerIndex === -1) return undefined
+  return protocols[markerIndex + 1] || undefined
 }

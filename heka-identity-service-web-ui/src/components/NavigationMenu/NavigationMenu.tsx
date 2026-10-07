@@ -1,4 +1,4 @@
-import React, { ReactElement, useCallback } from 'react';
+import { ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -13,6 +13,7 @@ import {
 import IssueIcon from '@/shared/assets/icons/dashboard-outline.svg';
 import VerifyIcon from '@/shared/assets/icons/verified-outline-rounded.svg';
 import WalletIcon from '@/shared/assets/icons/wallet-outline.svg';
+import { clickableProps } from '@/shared/lib/a11y/clickable';
 import { classNames } from '@/shared/lib/classNames';
 import { Button } from '@/shared/ui/Button';
 import { Column, Row } from '@/shared/ui/Grid';
@@ -106,7 +107,13 @@ export const DesktopNavigationMenu = () => {
               [cls.activeItem]: menuItem.active.includes(pathname),
               [cls.disabled]: isPreparingUser,
             })}
-            onClick={() => onNavigate(menuItem.route)}
+            aria-current={
+              menuItem.active.includes(pathname) ? 'page' : undefined
+            }
+            {...clickableProps(() => onNavigate(menuItem.route), {
+              role: 'link',
+              disabled: isPreparingUser,
+            })}
           >
             {menuItem.icon}
             {menuItem.title}
@@ -213,7 +220,13 @@ export const MobileNavigationMenu = () => {
               [cls.activeItem]: menuItem.active.includes(pathname),
               [cls.disabled]: isPreparingUser,
             })}
-            onClick={() => onNavigate(menuItem.route)}
+            aria-current={
+              menuItem.active.includes(pathname) ? 'page' : undefined
+            }
+            {...clickableProps(() => onNavigate(menuItem.route), {
+              role: 'link',
+              disabled: isPreparingUser,
+            })}
           >
             {menuItem.icon}
             {menuItem.title}

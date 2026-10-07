@@ -11,3 +11,6 @@ export const getVerificationTemplatesIsLoading = (state: StateSchema) =>
 
 export const getVerificationTemplatesError = (state: StateSchema) =>
   state.verificationTemplates?.error;
+
+export const getVerificationTemplatesIsMutating = (state: StateSchema) =>
+  state.verificationTemplates?.isMutating;

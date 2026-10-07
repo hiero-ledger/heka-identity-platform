@@ -4,7 +4,6 @@ import { AxiosInstance } from 'axios';
 import { ThunkConfig } from '@/app/providers/StoreProvider';
 import {
   buildCredential,
-  BuildCredentialParams,
   buildOpenIdCredentialOffer,
 } from '@/entities/Credential/model/utils/credential';
 import { Schema } from '@/entities/Schema';
@@ -83,16 +82,22 @@ const offerOpenId4VcCredential = async (
       params.credentialType,
     ),
   });
+  const credentialSupportedId = (
+    schemaRegistration.credentials as OpenIdVciSchemaRegistration | undefined
+  )?.supportedCredentialId;
+  if (!credentialSupportedId) {
+    throw new Error(
+      'Schema registration has no supported credential for OpenID4VC issuance',
+    );
+  }
   const credential = buildCredential({
     format: params.credentialType as Openid4CredentialFormat,
     did: params.did,
     credentialValues: params.credentialValues,
-    credentialSupportedId: (
-      schemaRegistration.credentials as OpenIdVciSchemaRegistration
-    )?.supportedCredentialId,
+    credentialSupportedId,
     context: params.schema.context,
     namespace: params.schema.name,
-  } as BuildCredentialParams);
+  });
   const body = buildOpenIdCredentialOffer({
     id: params.did,
     credentials: [credential],
@@ -127,13 +132,17 @@ const offerAriesCredential = async (
       params.credentialType,
     ),
   });
+  const credentialDefinitionId = (
+    schemaRegistration.credentials as AriesSchemaRegistration | undefined
+  )?.credentialDefinitionId;
+  if (!credentialDefinitionId) {
+    throw new Error('Schema registration has no credential definition');
+  }
   const response = await api.post<OfferAnoncredsCredentialResponse>(
     agencyEndpoints.offerAnoncredsCredential,
     {
       connectionId: params.connectionId,
-      credentialDefinitionId: (
-        schemaRegistration.credentials as AriesSchemaRegistration
-      ).credentialDefinitionId,
+      credentialDefinitionId,
       attributes,
       format: params.credentialType as AriesCredentialFormat,
       comment: params.schema.name,
