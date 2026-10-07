@@ -24,7 +24,7 @@ describe('E2E authorization', () => {
 
     await ormSchemaGenerator.refresh()
 
-    nestApp = await startTestApp()
+    nestApp = await startTestApp({ roleModelEnabled: true })
     app = nestApp.getHttpServer() as Server
   })
 

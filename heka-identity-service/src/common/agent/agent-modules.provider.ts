@@ -31,7 +31,7 @@ import {
   DidCommModule,
   DidCommProofV2Protocol,
 } from '@credo-ts/didcomm'
-import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
+import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver } from '@credo-ts/hedera'
 import {
   IndyVdrAnonCredsRegistry,
   IndyVdrIndyDidRegistrar,
@@ -51,6 +51,8 @@ import { createCredentialRequestToCredentialMapper } from 'utils/oid4vc'
 
 import { TailsService } from '../../revocation/revocation-registry/tails.service'
 import { IndyBesuAnonCredsRegistry, IndyBesuDidRegistrar, IndyBesuDidResolver, IndyBesuModule } from '../indy-besu-vdr'
+
+import { HekaHederaModule } from './hedera'
 
 function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConfig: ConfigType<typeof AgentConfig>) {
   const credentialFormatService = new AnonCredsDidCommCredentialFormatService()
@@ -153,7 +155,7 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       chainId: agencyConfig.indyBesuChainId,
       nodeAddress: agencyConfig.indyBesuNodeAddress,
     }),
-    hedera: new HederaModule({
+    hedera: new HekaHederaModule({
       networks: [
         {
           network: agencyConfig.hederaNetwork,

@@ -11,7 +11,7 @@ import {
   JwkDidRegistrar,
 } from '@credo-ts/core'
 import { DidCommMessagePickupModule } from '@credo-ts/didcomm'
-import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
+import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver } from '@credo-ts/hedera'
 import {
   IndyVdrAnonCredsRegistry,
   IndyVdrIndyDidRegistrar,
@@ -33,10 +33,12 @@ import { TailsService } from 'revocation/revocation-registry/tails.service'
 import { AppModule } from 'src/app.module'
 import { startApp } from 'src/app.starter'
 import { AGENT_MODULES_TOKEN, getAgencyModulesMap } from 'src/common/agent/agent-modules.provider'
+import { HekaHederaModule } from 'src/common/agent/hedera'
 import AgentConfig from 'src/config/agent'
 import FileStorageConfig from 'src/config/file-storage'
 import MikroOrmConfig from 'src/config/mikro-orm'
 import OidcConfig from 'src/config/oidc'
+import RoleModelConfig from 'src/config/role-model'
 import { createCredentialRequestToCredentialMapper } from 'src/utils/oid4vc'
 import TestAgentConfig from 'test/config/agent'
 import TestFileStorageConfig from 'test/config/file-storage'
@@ -46,7 +48,12 @@ import { uuid } from 'utils/misc'
 
 import { testDbHost, testDbPassword, testDbPort, testDbUser } from '../config/db'
 
-export async function startTestApp(): Promise<INestApplication> {
+export interface TestAppOptions {
+  // Enforce role capabilities (`ROLE_MODEL_ENABLED=true`). Defaults to `false`, as in production.
+  roleModelEnabled?: boolean
+}
+
+export async function startTestApp(options: TestAppOptions = {}): Promise<INestApplication> {
   process.env.PINO_LEVEL = 'error'
 
   const moduleRef = await Test.createTestingModule({
@@ -56,6 +63,8 @@ export async function startTestApp(): Promise<INestApplication> {
     .useFactory({
       factory: TestMikroOrmConfig,
     })
+    .overrideProvider(RoleModelConfig.KEY)
+    .useValue({ enabled: options.roleModelEnabled ?? false })
     .overrideProvider(AgentConfig.KEY)
     .useFactory({
       factory: TestAgentConfig,
@@ -138,7 +147,7 @@ export async function startTestApp(): Promise<INestApplication> {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             app: agencyConfig.oidConfig.app as any,
           }),
-          hedera: new HederaModule({
+          hedera: new HekaHederaModule({
             networks: [
               {
                 network: AgentConfig().hederaNetwork,

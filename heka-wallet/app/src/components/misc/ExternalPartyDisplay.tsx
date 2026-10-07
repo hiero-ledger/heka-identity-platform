@@ -1,7 +1,7 @@
 import { formatTime } from '@bifold/core'
 import { credentialTextColor, toImageSource } from '@bifold/core/src/utils/credential'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import React from 'react'
+import React, { useState } from 'react'
 import { Image, StyleSheet, Text, View, ViewStyle } from 'react-native'
 
 const useStyles = (
@@ -54,9 +54,20 @@ export const ExternalPartyDisplay: React.FC<Props> = ({
   const styles = useStyles(theme, backgroundColor)
   const { TextTheme } = theme
   const borderStyle = withBorder ? styles.containerWithBorder : {}
+  // A logo URL published by the other party may be unreachable; `Image` fails silently, so drop
+  // the failing URL instead of leaving an empty box next to the label.
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string>()
+  const effectiveLogoUrl = logoUrl && logoUrl !== failedLogoUrl ? logoUrl : undefined
   return (
     <View style={{ ...styles.container, ...borderStyle, ...containerStyle }}>
-      {logoUrl && <Image style={styles.connectionLogo} resizeMode={'contain'} source={toImageSource(logoUrl)} />}
+      {effectiveLogoUrl && (
+        <Image
+          style={styles.connectionLogo}
+          resizeMode={'contain'}
+          source={toImageSource(effectiveLogoUrl)}
+          onError={() => setFailedLogoUrl(effectiveLogoUrl)}
+        />
+      )}
       <View style={styles.textContainer}>
         <Text style={{ ...TextTheme.normal, color: styles.textContainer.color }} numberOfLines={1}>
           {label}

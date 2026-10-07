@@ -202,7 +202,12 @@ export function getMdocCredentialDisplay(
         }
       }
 
-      // NOTE: logo is used in issuer display (not sure if that's right though)
+      if (openidCredentialDisplay.logo) {
+        credentialDisplay.logo = {
+          url: getImageInfoLogoUrl(openidCredentialDisplay.logo),
+          altText: openidCredentialDisplay.logo.alt_text,
+        }
+      }
     }
   }
 

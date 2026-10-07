@@ -62,22 +62,34 @@ const AdvancedVerification = ({
     },
   });
 
+  const editedTemplateId: string | undefined = state?.context?.templateId;
+
+  // Reset on mount and whenever the wizard switches between creating and editing a template
+  // (the create and edit flows share this route), so nothing from a previous flow leaks in.
   useEffect(() => {
     dispatch(resetTemplates());
     resetFlowState();
-  }, [dispatch, resetTemplates, resetFlowState]);
+  }, [dispatch, resetTemplates, resetFlowState, editedTemplateId]);
 
   useEffect(() => {
-    if (!state?.context?.templateId) return;
+    if (!editedTemplateId) return;
     dispatch(
       getVerificationTemplate({
-        id: state.context.templateId,
+        id: editedTemplateId,
       }),
     );
-  }, [dispatch, state?.context?.templateId]);
+  }, [dispatch, editedTemplateId]);
 
   useEffect(() => {
-    if (!verificationTemplate) return;
+    // Only the template being edited may seed the context: the store can still hold a template
+    // from another flow (e.g. a template that was just used or edited), and applying it here
+    // would turn a new template into an update of that one.
+    if (
+      !editedTemplateId ||
+      !verificationTemplate ||
+      verificationTemplate.id !== editedTemplateId
+    )
+      return;
 
     onChangeContextProperty('templateId')(verificationTemplate.id);
     onChangeContextProperty('templateName')(verificationTemplate.name);

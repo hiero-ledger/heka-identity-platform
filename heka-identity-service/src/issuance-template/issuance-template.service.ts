@@ -2,7 +2,7 @@ import { EntityManager } from '@mikro-orm/core'
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 
 import { AuthInfo } from 'common/auth'
-import { IssuanceTemplate, IssuanceTemplateField, Schema } from 'common/entities'
+import { IssuanceTemplate, IssuanceTemplateField, Schema, Wallet } from 'common/entities'
 import { FileStorageService } from 'common/file-storage/file-storage.service'
 import { InjectLogger, Logger } from 'common/logger'
 import {
@@ -301,7 +301,7 @@ export class IssuanceTemplateService {
     // check schema exist
     const schema = await this.em.findOne(
       Schema,
-      { owner, id: request.schemaId },
+      { owner: this.em.getReference(Wallet, authInfo.walletId), id: request.schemaId },
       { populate: ['fields', 'registrations'] },
     )
     if (!schema) {
@@ -397,7 +397,11 @@ export class IssuanceTemplateService {
     let schema
     if (request.schemaId) {
       // check schema exist
-      schema = await this.em.findOne(Schema, { owner, id: request.schemaId }, { populate: ['fields', 'registrations'] })
+      schema = await this.em.findOne(
+        Schema,
+        { owner: this.em.getReference(Wallet, authInfo.walletId), id: request.schemaId },
+        { populate: ['fields', 'registrations'] },
+      )
       if (!schema) {
         throw new NotFoundException(`Schema ${request.schemaId} not exists.`)
       }

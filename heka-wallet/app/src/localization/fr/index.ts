@@ -58,7 +58,6 @@ const translation = {
     "UsePasskeyToAuth": "Veuillez utiliser la clé d'accès pour vous authentifier auprès du service de sauvegarde"
   },
   "Crypto": {
-    "Title": "Portefeuille Keplr",
     "Balance": "Solde",
     "Token": "Jeton",
     "Staked": "En staking",
@@ -129,7 +128,6 @@ const translation = {
       }
     },
     "Account": {
-      "KeplrAccount": "Compte Keplr",
       "NoAccount": "Aucun compte",
       "SelectAccount": "Sélectionner un compte",
       "Selected": "{{name}} (Sélectionné)",
@@ -224,8 +222,6 @@ const translation = {
     "UsingCredentialsBody": "Pour recevoir et utiliser des certificats, utilisez la fonction « Scanner » dans l'application pour scanner un QR code spécial. Les informations sont échangées via une connexion privée et cryptée.",
     "PrivacyConfidentiality": "Confidentialité et protection de la vie privée",
     "PrivacyParagraph": "Vous autorisez chaque utilisation des informations de votre application Heka Wallet. Vous ne partagez que ce qui est nécessaire pour une situation donnée. L'administration de l'application ou des tiers ne sont pas informés de l'utilisation de vos certificats numériques.",
-    "KeplrWalletTitle": "Intégration du portefeuille Keplr",
-    "KeplrWalletBody": "Heka Wallet offre une fonctionnalité de portefeuille crypto en intégrant le portefeuille open-source Keplr. Ce portefeuille peut être utilisé pour recevoir et transférer divers jetons cryptographiques.\n\nVous pouvez accéder à votre portefeuille crypto en utilisant le bouton « Ouvrir le portefeuille Keplr » sur l'écran d'accueil.",
     "GetStarted": "Commencer",
     "SkipA11y": "Passer l'introduction",
     "AlreadyHaveAWallet": "Vous avez déjà un portefeuille sauvegardé ?",

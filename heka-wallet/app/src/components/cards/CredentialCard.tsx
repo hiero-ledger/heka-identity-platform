@@ -1,7 +1,7 @@
 import CardWatermark from '@bifold/core/src/components/misc/CardWatermark'
 import { credentialTextColor, toImageSource } from '@bifold/core/src/utils/credential'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import React from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Image,
@@ -95,11 +95,17 @@ export const CredentialCard: React.FC<Props> = ({
 
   const { width, height } = useWindowDimensions()
 
+  // Remote logos can fail to load (e.g. the issuer published a URL that is no longer reachable).
+  // `Image` fails silently, so remember the failing URL and fall back to the initial letter instead
+  // of rendering an empty box. Keyed by URL so a new logo URL gets a fresh attempt.
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string>()
+
   if (!credentialDisplay) {
     return <MissingCredentialCard requestedCredentialName={requestedCredentialName} />
   }
 
   const logo = credentialDisplay.logo ?? credentialDisplay.issuer.logo
+  const logoUrl = logo?.url && logo.url !== failedLogoUrl ? logo.url : undefined
   return (
     <View style={{ ...styles.container, ...containerStyle }}>
       {/*TODO: Add proper support for credential background image*/}
@@ -114,8 +120,8 @@ export const CredentialCard: React.FC<Props> = ({
       {/*  </ImageBackground>*/}
       {/*) : null}*/}
       <View style={styles.logoContainer}>
-        {logo ? (
-          <Image source={toImageSource(logo.url)} style={styles.logo} />
+        {logoUrl ? (
+          <Image source={toImageSource(logoUrl)} style={styles.logo} onError={() => setFailedLogoUrl(logoUrl)} />
         ) : (
           <Text style={[TextTheme.title, { fontSize: 0.5 * IconSizes.larger, color: '#000' }]}>
             {(credentialDisplay.name ?? 'C')?.charAt(0).toUpperCase()}

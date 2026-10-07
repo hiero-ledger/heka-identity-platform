@@ -10,6 +10,10 @@ import { CreateDidOptions, DidRegistrar } from '../did-registrar.types'
 export class DidIndyBesuRegistrar implements DidRegistrar {
   public static readonly method = 'indybesu'
 
+  // The Indy-Besu registrar writes the DID as its own controller. Whether the ledger contract accepts another
+  // controller is not verified yet (no Indy-Besu network is available). Tracked as a follow-up.
+  public readonly supportsController = false
+
   private readonly network!: string
   // private readonly endorserPrivateKey!: string
   // private readonly endorserPublicKey!: string

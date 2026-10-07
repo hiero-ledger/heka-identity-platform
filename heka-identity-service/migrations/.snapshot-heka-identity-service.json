@@ -652,6 +652,23 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "string"
+        },
+        "created_by_id": {
+          "name": "created_by_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
         }
       },
       "indexes": [
@@ -684,6 +701,18 @@
             "owner_id"
           ],
           "constraintName": "schema_owner_id_foreign",
+          "localTableName": "public.schema",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.wallet",
+          "updateRule": "cascade"
+        },
+        "schema_created_by_id_foreign": {
+          "columnNames": [
+            "created_by_id"
+          ],
+          "constraintName": "schema_created_by_id_foreign",
           "localTableName": "public.schema",
           "referencedColumnNames": [
             "id"
