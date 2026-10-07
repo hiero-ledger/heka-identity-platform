@@ -1,0 +1,257 @@
+name: heka
+
+services:
+  postgres:
+    image: postgres:15
+    shm_size: '256m'
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: heka
+      POSTGRES_PASSWORD: heka1
+      # The image creates this one; docker/postgres/init-databases.sh adds heka-sso-service.
+      POSTGRES_DB: heka-identity-service
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -d heka-identity-service -U heka']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  heka-identity-service:
+    image: heka-identity-service:latest
+    build:
+      context: ./heka-identity-service
+    environment:
+      MIKRO_ORM_HOST: postgres
+      WALLET_POSTGRES_HOST: postgres
+      EXPRESS_PORT: '3000'
+      EXPRESS_ENABLE_CORS: 'true'
+      EXPRESS_CORS_OPTIONS: '{"origin":["http://localhost:8000","http://localhost:5173"],"credentials":true}'
+      OIDC_ISSUER_URL: ${IDENTITY_SERVICE_OIDC_ISSUER_URL:?platform IdP issuer, see .env.example section 1.[P] or 2.[P]}
+      OIDC_JWKS_URI: ${IDENTITY_SERVICE_OIDC_JWKS_URI:-}
+      OIDC_AUDIENCE: ${IDENTITY_SERVICE_OIDC_AUDIENCE:?platform IdP audience, see .env.example section 1.[P] or 2.[P]}
+      OIDC_CLAIM_USER_ID: ${IDENTITY_SERVICE_OIDC_CLAIM_USER_ID:-}
+      OIDC_CLAIM_ROLES: ${IDENTITY_SERVICE_OIDC_CLAIM_ROLES:-}
+      OIDC_CLAIM_NAME: ${IDENTITY_SERVICE_OIDC_CLAIM_NAME:-}
+      OIDC_CLAIM_ORG_ID: ${IDENTITY_SERVICE_OIDC_CLAIM_ORG_ID:-}
+      DEMO_TOKEN_URL: ${IDENTITY_SERVICE_DEMO_TOKEN_URL:-}
+      DEMO_CLIENT_ID: ${IDENTITY_SERVICE_DEMO_CLIENT_ID:-}
+      DEMO_CLIENT_SECRET: ${IDENTITY_SERVICE_DEMO_CLIENT_SECRET:-}
+      DEMO_TOKEN_PARAMS: ${IDENTITY_SERVICE_DEMO_TOKEN_PARAMS:-}
+      DEMO_CLIENT_AUTH_METHOD: ${IDENTITY_SERVICE_DEMO_CLIENT_AUTH_METHOD:-}
+      DEMO_TOKEN_RATE_LIMIT: ${IDENTITY_SERVICE_DEMO_TOKEN_RATE_LIMIT:-}
+      AGENT_OID4VCI_ENDPOINT: ${IDENTITY_SERVICE_AGENT_OID4VCI_ENDPOINT:-http://localhost:3003}
+      AGENT_HTTP_ENDPOINT: ${IDENTITY_SERVICE_AGENT_HTTP_ENDPOINT:-http://localhost:3001}
+      AGENT_WS_ENDPOINT: ${IDENTITY_SERVICE_AGENT_WS_ENDPOINT:-ws://localhost:3002}
+      FILE_STORAGE_FS_URL: ${IDENTITY_SERVICE_FILE_STORAGE_FS_URL:-http://localhost:3000}
+      FILE_STORAGE_FS_PUBLIC_URL: ${IDENTITY_SERVICE_FILE_STORAGE_FS_PUBLIC_URL:-}
+      WEBHOOK_ALLOW_HTTP: ${IDENTITY_SERVICE_WEBHOOK_ALLOW_HTTP:-false}
+      WEBHOOK_ALLOW_PRIVATE_ADDRESSES: ${IDENTITY_SERVICE_WEBHOOK_ALLOW_PRIVATE_ADDRESSES:-false}
+      WEBHOOK_HTTP_TIMEOUT_MS: ${IDENTITY_SERVICE_WEBHOOK_HTTP_TIMEOUT_MS:-10000}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '3000:3000'
+      - '3001:3001'
+      - '3002:3002'
+      - '3003:3003'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl --fail http://localhost:3000/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      # The agent initialises its wallet before the API answers.
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  heka-sso-service:
+    image: heka-sso-service:latest
+    build:
+      context: ./heka-sso-service
+      args:
+        NODE_ENV: development
+    environment:
+      # The image defaults to production, which refuses the dev-only secrets below.
+      NODE_ENV: development
+      APP_VERSION: 0.0.1
+      APP_PORT: '3005'
+      APP_ENABLE_CORS: 'true'
+      LOG_LEVEL: ${SSO_SERVICE_LOG_LEVEL:-info}
+      LOG_EXCLUDE_URLS: /version,/health
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_NAME: heka-sso-service
+      DB_USER: heka
+      DB_PASSWORD: heka1
+      OIDC_ISSUER_URL: ${SSO_SERVICE_OIDC_ISSUER_URL:?bridge issuer, see .env.example section 1.[R] or 2.[R]}
+      OIDC_COOKIE_KEYS: dev-only-cookie-key-do-not-use-in-production
+      OIDC_SUB_HMAC_SALT: dev-only-sub-hmac-salt-do-not-use-in-production
+      IDENTITY_SERVICE_BASE_URL: http://heka-identity-service:3000
+      IDENTITY_SERVICE_TOKEN_URL: ${SSO_SERVICE_IDENTITY_SERVICE_TOKEN_URL:?platform IdP token endpoint for the bridge's service account, see .env.example section 1.[P] or 2.[P]}
+      IDENTITY_SERVICE_CLIENT_ID: ${SSO_SERVICE_IDENTITY_SERVICE_CLIENT_ID:?bridge service-account client id, see .env.example section 1.[P] or 2.[P]}
+      IDENTITY_SERVICE_CLIENT_SECRET: ${SSO_SERVICE_IDENTITY_SERVICE_CLIENT_SECRET:?bridge service-account client secret, see .env.example section 1.[P] or 2.[P]}
+      IDENTITY_SERVICE_TOKEN_PARAMS: ${SSO_SERVICE_IDENTITY_SERVICE_TOKEN_PARAMS:-}
+      IDENTITY_SERVICE_CLIENT_AUTH_METHOD: ${SSO_SERVICE_IDENTITY_SERVICE_CLIENT_AUTH_METHOD:-}
+      IDENTITY_SERVICE_PUBLIC_VERIFIER_ID: ${SSO_SERVICE_IDENTITY_SERVICE_PUBLIC_VERIFIER_ID:-}
+      IDENTITY_SERVICE_REQUEST_SIGNER_DID: ${SSO_SERVICE_IDENTITY_SERVICE_REQUEST_SIGNER_DID:-}
+      OIDC_STUB_LOGIN: ${SSO_SERVICE_OIDC_STUB_LOGIN:-true}
+      OIDC_ALLOW_PRIVATE_NETWORK_CALLS: 'true'
+      OIDC_CLIENTS_FILE: /run/config/oidc-clients.json
+      OIDC_LOGIN_CONFIGS_FILE: /run/config/oidc-login-configs.json
+    volumes:
+      - type: bind
+        source: ./heka-sso-service/env/oidc-clients.json
+        target: /run/config/oidc-clients.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./heka-sso-service/env/oidc-login-configs.json
+        target: /run/config/oidc-login-configs.json
+        read_only: true
+        bind:
+          create_host_path: false
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '3005:3005'
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3005/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      heka-identity-service:
+        condition: service_healthy
+
+  heka-identity-web-ui:
+    image: heka-identity-web-ui:latest
+    build:
+      context: ./heka-identity-service-web-ui
+      additional_contexts:
+        nginxconf: ./docker/nginx
+      # Baked into the bundle: a change here needs `docker compose up -d --build heka-identity-web-ui`.
+      args:
+        REACT_APP_AGENCY_ENDPOINT: ${IDENTITY_WEBUI_AGENCY_ENDPOINT:-http://localhost:3000}
+        # [P] platform IdP (.env section 1.[P] or 2.[P])
+        REACT_APP_AUTH_PROVIDER: ${IDENTITY_WEBUI_AUTH_PROVIDER:?keycloak or auth0, see .env.example section 1.[P] or 2.[P]}
+        REACT_APP_OIDC_AUTHORITY: ${IDENTITY_WEBUI_OIDC_AUTHORITY:?platform IdP authority for the web UI, see .env.example section 1.[P] or 2.[P]}
+        REACT_APP_OIDC_CLIENT_ID: ${IDENTITY_WEBUI_OIDC_CLIENT_ID:?platform IdP client id for the web UI, see .env.example section 1.[P] or 2.[P]}
+        REACT_APP_OIDC_AUDIENCE: ${IDENTITY_WEBUI_OIDC_AUDIENCE:-}
+        REACT_APP_OIDC_SCOPE: ${IDENTITY_WEBUI_OIDC_SCOPE:-}
+        REACT_APP_AUTH_ACCOUNT_URL: ${IDENTITY_WEBUI_AUTH_ACCOUNT_URL:-}
+        # Bootstrap value (.env section 3), written by `yarn prepare-demo-user`.
+        REACT_APP_DEMO_USER_DID: ${IDENTITY_WEBUI_DEMO_USER_DID:-}
+    ports:
+      - '8000:80'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ >/dev/null || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  heka-sso-web-ui:
+    image: heka-sso-web-ui:latest
+    build:
+      context: ./heka-sso-web-ui
+      additional_contexts:
+        nginxconf: ./docker/nginx
+      # Baked into the bundle: a change here needs `docker compose up -d --build heka-sso-web-ui`.
+      args:
+        # [R] relying-party IdP (.env section 1.[R] or 2.[R]); the inactive provider's values are empty.
+        VITE_AUTH_PROVIDER: ${VITE_SSO_WEBUI_AUTH_PROVIDER:?keycloak or auth0, see .env.example section 1.[R] or 2.[R]}
+        VITE_KC_URL: ${VITE_SSO_WEBUI_KC_URL:-}
+        VITE_KC_REALM: ${VITE_SSO_WEBUI_KC_REALM:-}
+        VITE_KC_CLIENT_ID: ${VITE_SSO_WEBUI_KC_CLIENT_ID:-}
+        VITE_KC_IDP_HINT: ${VITE_SSO_WEBUI_KC_IDP_HINT:-}
+        VITE_AUTH0_DOMAIN: ${VITE_SSO_WEBUI_AUTH0_DOMAIN:-}
+        VITE_AUTH0_CLIENT_ID: ${VITE_SSO_WEBUI_AUTH0_CLIENT_ID:-}
+        VITE_AUTH0_CONNECTION: ${VITE_SSO_WEBUI_AUTH0_CONNECTION:-}
+        VITE_AUTO_SIGN_IN: ${VITE_SSO_WEBUI_AUTO_SIGN_IN:-true}
+    ports:
+      - '5173:80'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ >/dev/null || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  keycloak-theme-builder:
+    profiles: [keycloak]
+    build:
+      context: ./demo/heka-keycloak-theme
+      dockerfile: Dockerfile.builder
+    working_dir: /theme
+    command: >
+      sh -c "tar -C /theme-src --exclude=./node_modules --exclude=./dist --exclude=./dist_keycloak -cf - . | tar -C /theme -xf -
+      && yarn install
+      && yarn build-keycloak-theme
+      && cp dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar /out/heka-theme.jar"
+    volumes:
+      - ./demo/heka-keycloak-theme:/theme-src:ro
+      - keycloak-theme-work:/theme
+      - keycloak-theme:/out
+
+  keycloak-realms:
+    profiles: [keycloak]
+    image: busybox:1.37
+    environment:
+      SSO_ISSUER_URL: ${SSO_SERVICE_OIDC_ISSUER_URL:?bridge issuer, see .env.example section 1.[R] or 2.[R]}
+    volumes:
+      - ./docker/keycloak/prepare-realms.sh:/prepare-realms.sh:ro
+      - ./heka-sso-service/keycloak:/realms-src:ro
+      - keycloak-realms:/realms
+    command: ['sh', '/prepare-realms.sh']
+
+  keycloak:
+    profiles: [keycloak]
+    image: quay.io/keycloak/keycloak:26.3
+    command: start-dev --import-realm --spi-theme-static-max-age=-1 --spi-theme-cache-themes=false --spi-theme-cache-templates=false
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: ${KC_HOSTNAME:-http://localhost:8080}
+      KC_HEALTH_ENABLED: 'true'
+      # Not read by Keycloak: a change of the broker issuer must recreate this container so the
+      # rewritten realm is imported again (dev mode keeps no volume, a recreate starts empty).
+      SSO_ISSUER_URL: ${SSO_SERVICE_OIDC_ISSUER_URL:?bridge issuer, see .env.example section 1.[R] or 2.[R]}
+    volumes:
+      - keycloak-realms:/opt/keycloak/data/import:ro
+      - keycloak-theme:/opt/keycloak/providers:ro
+    extra_hosts:
+      # The `heka` realm's broker calls the SSO bridge at host.docker.internal:3005.
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '8080:8080'
+    healthcheck:
+      # The image has no curl; the management port (9000) answers /health/ready once the realms
+      # are imported. Informational only, nothing depends on it.
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000
+          && printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          && grep -q '"UP"' <&3
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    depends_on:
+      keycloak-theme-builder:
+        condition: service_completed_successfully
+      keycloak-realms:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:
+  keycloak-realms:
+  keycloak-theme:
+  keycloak-theme-work:

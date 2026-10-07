@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
 import { classNames } from '@/shared/lib/classNames';
 
@@ -14,8 +14,10 @@ const Column: FC<IFlexContainer> = ({
   onClick,
   style,
   bordered,
+  ...rest
 }: IFlexContainer) => (
   <div
+    {...rest}
     className={classNames(cls.Column, { [cls.border]: bordered }, [className])}
     style={{ justifyContent, alignItems, ...style }}
     onClick={onClick}

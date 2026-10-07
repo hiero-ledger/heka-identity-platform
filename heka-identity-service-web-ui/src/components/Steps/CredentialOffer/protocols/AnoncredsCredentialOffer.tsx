@@ -8,6 +8,7 @@ import { CredentialSent } from '@/components/Steps/CredentialOffer/states/Creden
 import { PendingCredential } from '@/components/Steps/CredentialOffer/states/PendingCredential';
 import { getIsCredentialSent } from '@/entities/Credential/model/selectors/credentialSelector';
 import { offerCredential } from '@/entities/Credential/model/services/offerCredential';
+import { useCredentialActions } from '@/entities/Credential/model/slices/credentialSlice';
 import { useConnection } from '@/shared/hooks/connection';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Column } from '@/shared/ui/Grid';
@@ -60,15 +61,42 @@ const CredentialOffered = <T extends object>({
     ],
   );
 
-  const { connectionInvitation } = useConnection({
+  const { reset: resetCredentialState } = useCredentialActions();
+
+  const {
+    connectionInvitation,
+    connections,
+    isExistingConnectionSelected,
+    connectionAlias,
+    canRename,
+    renameInvitation,
+    selectConnection,
+    restartWithQr,
+  } = useConnection({
     onComplete: sendCredentialOffer,
+    useDemo: context.useDemo,
   });
+
+  // The offer may already be out on the abandoned connection, so start the credential state over too
+  const onUseQr = useCallback(() => {
+    resetCredentialState();
+    restartWithQr();
+  }, [resetCredentialState, restartWithQr]);
 
   return (
     <PendingCredential
       value={connectionInvitation}
       protocolType={context.protocolType}
       useDemo={context.useDemo}
+      connection={{
+        connections,
+        isExistingConnectionSelected,
+        connectionAlias,
+        canRename,
+        renameInvitation,
+        selectConnection,
+        onUseQr,
+      }}
     />
   );
 };

@@ -38,12 +38,9 @@ export const RegistrationsList = ({
     useState<boolean>(false);
   const didDocuments = useSelector(getUserDidDocuments);
 
-  const [registrationsList, setRegistrationsList] = useState<
-    SchemaRegistration[] | undefined
-  >();
-
-  useEffect(() => {
-    setRegistrationsList(
+  // Derived, not copied into state: always in step with `registrations`
+  const registrationsList = useMemo<SchemaRegistration[]>(
+    () =>
       [...(registrations ?? [])].sort((a, b) => {
         if (a.protocol !== b.protocol)
           return a.protocol.localeCompare(b.protocol);
@@ -52,8 +49,8 @@ export const RegistrationsList = ({
         if (a.network !== b.network) return a.network.localeCompare(b.network);
         return a.did.localeCompare(b.did);
       }),
-    );
-  }, [registrations]);
+    [registrations],
+  );
 
   useEffect(() => {
     dispatch(fetchDidDocuments({}));
@@ -133,7 +130,7 @@ export const RegistrationsList = ({
         )}
 
         {!isLoading &&
-          registrationsList?.map((r) => (
+          registrationsList.map((r) => (
             <RegistrationsListItem
               key={`${r.protocol}${r.credentialFormat}${r.network}${r.did}`}
               item={r}

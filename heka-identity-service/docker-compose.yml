@@ -1,28 +1,88 @@
-version: '3.4'
+# heka-identity-service on its own: this service and its Postgres. Everything else (the OIDC
+# provider on 8080, the web UI, the SSO bridge) runs on the host and is reached through
+# host.docker.internal. The whole platform runs from the repository root instead
+# (docs/root-docker-compose.md); the two scopes share host ports, so run one or the other.
+#
+#   docker compose up -d --build     build the image from this directory and run it
+#   docker compose up -d             run the image named by IMAGE (default: the local build)
+#
+# Values come from this directory's .env (same names as for `yarn start`). Provider values
+# default to the dev Keycloak of the root project (`docker compose --profile keycloak up -d
+# keycloak` at the root). For Auth0 set OIDC_JWKS_URI= (empty) to switch to discovery; to turn
+# the demo broker off set DEMO_TOKEN_URL= (empty): those use `${VAR-default}`, which keeps an
+# empty value, where the others use `${VAR:-default}`.
 
 services:
   postgres:
-    image: 'postgres:15'
+    image: postgres:15
     shm_size: '256m'
     ports:
       - '5432:5432'
     environment:
-      - POSTGRES_USER=heka
-      - POSTGRES_PASSWORD=heka1
-      - POSTGRES_DB=heka-identity-service
+      POSTGRES_USER: heka
+      POSTGRES_PASSWORD: heka1
+      POSTGRES_DB: heka-identity-service
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -d heka-identity-service -U heka']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   heka-identity-service:
-    image: $IMAGE
+    image: ${IMAGE:-heka-identity-service:latest}
+    build:
+      context: .
     environment:
-      MIKRO_ORM_HOST: ${HOST_IP:-postgres}
-      WALLET_POSTGRES_HOST: ${HOST_IP:-postgres}
-      EXPRESS_PREFIX: $EXPRESS_PREFIX
-      AGENT_HTTP_ENDPOINT: ${AGENT_HTTP_EP:-http://localhost:3001}
-      AGENT_WS_ENDPOINT: ${AGENT_WS_EP:-ws://localhost:3002}
+      MIKRO_ORM_HOST: postgres
+      WALLET_POSTGRES_HOST: postgres
+      EXPRESS_PORT: ${EXPRESS_PORT:-3000}
+      EXPRESS_PREFIX: ${EXPRESS_PREFIX:-}
+      EXPRESS_ENABLE_CORS: ${EXPRESS_ENABLE_CORS:-}
+      EXPRESS_CORS_OPTIONS: ${EXPRESS_CORS_OPTIONS:-}
+      # OpenID Connect provider (docs/setup.md#authentication-oidc). The issuer is the
+      # browser-facing URL (`iss` of every token); the JWKS is fetched through the host gateway
+      # because localhost inside the container is the container.
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:8080/realms/heka-platform}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI-http://host.docker.internal:8080/realms/heka-platform/protocol/openid-connect/certs}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-heka-identity-service}
+      OIDC_CLAIM_USER_ID: ${OIDC_CLAIM_USER_ID:-}
+      OIDC_CLAIM_ROLES: ${OIDC_CLAIM_ROLES:-}
+      OIDC_CLAIM_NAME: ${OIDC_CLAIM_NAME:-}
+      OIDC_CLAIM_ORG_ID: ${OIDC_CLAIM_ORG_ID:-}
+      # Demo-token broker for the web UI's public demo pages (docs/setup.md#demo-token-broker);
+      # the token endpoint is reached through the host gateway like the JWKS. Dev secret of the
+      # shipped realm.
+      DEMO_TOKEN_URL: ${DEMO_TOKEN_URL-http://host.docker.internal:8080/realms/heka-platform/protocol/openid-connect/token}
+      DEMO_CLIENT_ID: ${DEMO_CLIENT_ID-heka-demo}
+      DEMO_CLIENT_SECRET: ${DEMO_CLIENT_SECRET-dev-only-heka-demo-secret-do-not-use-in-production}
+      DEMO_TOKEN_PARAMS: ${DEMO_TOKEN_PARAMS:-}
+      DEMO_CLIENT_AUTH_METHOD: ${DEMO_CLIENT_AUTH_METHOD:-}
+      DEMO_TOKEN_RATE_LIMIT: ${DEMO_TOKEN_RATE_LIMIT:-}
+      # Public endpoints advertised to wallets and DIDComm peers (docs/setup.md); a phone wallet
+      # needs the https tunnel to 3003 here.
+      AGENT_OID4VCI_ENDPOINT: ${AGENT_OID4VCI_ENDPOINT:-http://localhost:3003}
+      AGENT_HTTP_ENDPOINT: ${AGENT_HTTP_ENDPOINT:-http://localhost:3001}
+      AGENT_WS_ENDPOINT: ${AGENT_WS_ENDPOINT:-ws://localhost:3002}
+      FILE_STORAGE_FS_URL: ${FILE_STORAGE_FS_URL:-http://localhost:3000}
+      FILE_STORAGE_FS_PUBLIC_URL: ${FILE_STORAGE_FS_PUBLIC_URL:-}
+      WEBHOOK_ALLOW_HTTP: ${WEBHOOK_ALLOW_HTTP:-false}
+      WEBHOOK_ALLOW_PRIVATE_ADDRESSES: ${WEBHOOK_ALLOW_PRIVATE_ADDRESSES:-false}
+      WEBHOOK_HTTP_TIMEOUT_MS: ${WEBHOOK_HTTP_TIMEOUT_MS:-10000}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
       ROLE_MODEL_ENABLED: ${ROLE_MODEL_ENABLED:-false}
     ports:
       - '3000:3000'
       - '3001:3001'
       - '3002:3002'
       - '3003:3003'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl --fail http://localhost:${EXPRESS_PORT:-3000}/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      # The agent initialises its wallet before the API answers.
+      start_period: 60s
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy

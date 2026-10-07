@@ -30,7 +30,8 @@ const Home = () => {
   const isPreparingUser = useSelector(getIsPreparingUser);
   const user = useSelector(getUser);
 
-  const [isUserFetching, setIsUserFetching] = useState(true);
+  // A visitor has no profile to load, so only a signed-in user starts out "fetching"
+  const [isUserFetching, setIsUserFetching] = useState(isSignedIn);
 
   const registeredAt = useMemo(() => {
     return user?.registeredAt;
@@ -42,15 +43,33 @@ const Home = () => {
     }
   }, [isSignedIn, dispatch]);
 
+  // Only a signed-in user has an agency profile to fetch: for a visitor the request would be
+  // rejected ("Authorization token is missing") and toast an error on every start. A user who
+  // has never registered is sent to their profile, decided from the fetched profile itself.
   useEffect(() => {
-    dispatch(getAgencyUser()).then(() => setIsUserFetching(false));
-  }, [dispatch, isUserFetching]);
-
-  useEffect(() => {
-    if (isSignedIn && !isUserFetching && !registeredAt) {
-      navigate(ROUTES.PROFILE);
+    if (!isSignedIn) {
+      setIsUserFetching(false);
+      return;
     }
-  }, [isSignedIn, isUserFetching, navigate, registeredAt]);
+    let isCurrent = true;
+    setIsUserFetching(true);
+    dispatch(getAgencyUser())
+      .unwrap()
+      .then(
+        (agencyUser) => {
+          if (!isCurrent) return;
+          setIsUserFetching(false);
+          if (!agencyUser.registeredAt) navigate(ROUTES.PROFILE);
+        },
+        () => {
+          // getAgencyUser has already shown the error
+          if (isCurrent) setIsUserFetching(false);
+        },
+      );
+    return () => {
+      isCurrent = false;
+    };
+  }, [dispatch, isSignedIn, navigate]);
 
   return (
     <Column

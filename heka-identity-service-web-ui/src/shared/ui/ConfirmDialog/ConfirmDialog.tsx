@@ -5,7 +5,7 @@ import { Modal } from '@/shared/ui/Modal/Modal';
 
 import * as cls from './ConfirmDialog.module.scss';
 
-interface ConfirmFormProps {
+export interface ConfirmFormProps {
   isOpen: boolean;
   handleToggle: (value: boolean) => void;
   text?: string;

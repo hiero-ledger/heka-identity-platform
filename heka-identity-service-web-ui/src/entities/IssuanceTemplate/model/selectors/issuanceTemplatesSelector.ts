@@ -11,3 +11,6 @@ export const getIssuanceTemplatesIsLoading = (state: StateSchema) =>
 
 export const getIssuanceTemplatesError = (state: StateSchema) =>
   state.issuanceTemplates?.error;
+
+export const getIssuanceTemplatesIsMutating = (state: StateSchema) =>
+  state.issuanceTemplates?.isMutating;

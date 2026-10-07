@@ -2,7 +2,6 @@ export enum ROUTES {
   MAIN = '/',
   PROFILE = '/profile',
   SIGN_IN = '/sign-in',
-  SIGN_UP = '/sign-up',
   DEMO = '/demo',
   AGE_DEMO = '/age-demo',
   ISSUE_CREDENTIAL = '/issue-credential/*',
