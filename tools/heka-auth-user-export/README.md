@@ -68,6 +68,11 @@ What the files contain, per user:
   - Auth0: `app_metadata.heka_role`.
 - **Password:** the argon2id hash. Keycloak gets it split into `secretData` / `credentialData` for its built-in `argon2` provider; Auth0 gets the encoded string as `custom_password_hash`.
 
+Organizations: migrated organization members keep `org_id` = `ORG_ID` as a user attribute (Keycloak) or in `app_metadata` (Auth0). The identity service reads it as the fallback organization claim, so they keep their wallet. Neither Keycloak's partial import nor Auth0's bulk import can carry organization memberships. To move them into the provider's Organizations afterwards:
+1. Create the organization with `heka_org_id` = `ORG_ID`.
+2. Add the members.
+3. On Keycloak, the `org_id` attribute can then be removed.
+
 ## 4. Import
 
 - **Keycloak** (realm `heka-platform`): `POST /admin/realms/heka-platform/partialImport` with the file as body and an admin token, or Realm settings → Action → Partial import in the console. Existing usernames are skipped. Details in [`heka-sso-service/keycloak/README.md`](../../heka-sso-service/keycloak/README.md#migrating-users-from-heka-auth-service).

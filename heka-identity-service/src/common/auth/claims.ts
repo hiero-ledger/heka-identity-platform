@@ -55,10 +55,7 @@ export function mapClaims(payload: Claims, config: OidcClaimsConfig): TokenPaylo
     .map((path) => getClaim(payload, path))
     .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
 
-  const orgId = getClaim(payload, config.orgId)
-  if (orgId !== undefined && orgId !== null && typeof orgId !== 'string') {
-    throw new UnauthorizedException(`Token claim '${config.orgId}' must be a string`)
-  }
+  const orgId = extractOrgId(payload, config.orgId, config.orgIdField)
 
   return {
     sub: userId,
@@ -68,13 +65,88 @@ export function mapClaims(payload: Claims, config: OidcClaimsConfig): TokenPaylo
   }
 }
 
+/**
+ * Exactly one Heka role. The claim may be a string, an array, or an object keyed by role name (Zitadel's
+ * `urn:zitadel:iam:org:project:roles`); values that are not Heka roles (provider defaults, other apps) are ignored.
+ */
 function extractRoles(value: unknown, path: string): Role[] {
-  const candidates: unknown[] = Array.isArray(value) ? value : typeof value === 'string' ? [value] : []
+  const candidates: unknown[] = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? [value]
+      : isPlainObject(value)
+        ? Object.keys(value)
+        : []
   const roles = candidates.filter((candidate): candidate is Role => typeof candidate === 'string' && isRole(candidate))
 
-  if (roles.length !== 1) {
-    throw new UnauthorizedException(`Token claim '${path}' must contain exactly one Heka role`)
+  if (roles.length === 0) {
+    throw new UnauthorizedException(`Token claim '${path}' contains no Heka role`)
+  }
+  if (roles.length > 1) {
+    throw new UnauthorizedException(
+      `Token claim '${path}' contains ${roles.length} Heka roles (${roles.join(', ')}); exactly one is required`,
+    )
   }
 
   return roles
+}
+
+const isPlainObject = (value: unknown): value is Claims =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const isAbsent = (value: unknown): boolean =>
+  value === undefined ||
+  value === null ||
+  value === '' ||
+  (Array.isArray(value) && value.length === 0) ||
+  (isPlainObject(value) && Object.keys(value).length === 0)
+
+/**
+ * The organization id from the first present path. Accepted shapes, so that a provider's organization claim can be
+ * used directly:
+ * - a string: `"acme"`;
+ * - a single-element array: `["acme"]` (Keycloak's organization claim for one requested organization);
+ * - an object with exactly one key, the organization: `{ "acme": { ... } }` (Keycloak with organization attributes).
+ *   With `field` set, the id is read from that field of the value (`{ "acme": { "heka_org_id": ["org-1"] } }`),
+ *   or of the object itself (`{ "heka_org_id": "org-1" }`); without it, the key is the id.
+ * More than one organization is rejected: the login must select one.
+ */
+function extractOrgId(payload: Claims, paths: string[], field: string | undefined): string | undefined {
+  for (const path of paths) {
+    const value = getClaim(payload, path)
+    if (!isAbsent(value)) {
+      return resolveOrgId(value, path, field, false)
+    }
+  }
+  return undefined
+}
+
+function resolveOrgId(value: unknown, path: string, field: string | undefined, insideOrganization: boolean): string {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (Array.isArray(value)) {
+    if (value.length > 1) {
+      throw new UnauthorizedException(
+        `Token claim '${path}' lists ${value.length} organizations; sign in to exactly one organization`,
+      )
+    }
+    return resolveOrgId(value[0], path, field, insideOrganization)
+  }
+  if (isPlainObject(value)) {
+    if (field && field in value) {
+      return resolveOrgId(value[field], path, undefined, true)
+    }
+    const keys = Object.keys(value)
+    if (insideOrganization || keys.length === 0) {
+      throw new UnauthorizedException(`Token claim '${path}' has no organization id field '${field}'`)
+    }
+    if (keys.length > 1) {
+      throw new UnauthorizedException(
+        `Token claim '${path}' lists ${keys.length} organizations; sign in to exactly one organization`,
+      )
+    }
+    return field ? resolveOrgId(value[keys[0]], path, field, true) : keys[0]
+  }
+  throw new UnauthorizedException(`Token claim '${path}' must be an organization id`)
 }

@@ -17,6 +17,8 @@ export interface AuthConfig {
   audience?: string;
   /** Account page for profiles without an in-flow password change. */
   accountUrl?: string;
+  /** Auth0 only: organization (id or name) to sign in to, sent as `organization`. */
+  organization?: string;
 }
 
 const text = (value: string | undefined): string | undefined => {
@@ -33,4 +35,5 @@ export const authConfig: AuthConfig = {
   scope: text(process.env.REACT_APP_OIDC_SCOPE),
   audience: text(process.env.REACT_APP_OIDC_AUDIENCE),
   accountUrl: text(process.env.REACT_APP_AUTH_ACCOUNT_URL),
+  organization: text(process.env.REACT_APP_OIDC_ORGANIZATION),
 };

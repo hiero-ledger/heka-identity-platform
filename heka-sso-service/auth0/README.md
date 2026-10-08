@@ -24,7 +24,8 @@ Auth0 access tokens with an API audience refuse private claims that are not name
 | Application `heka-sso-service` (M2M)                     | Client Credentials, granted the API. Application metadata `heka_role=OrgAdmin`, `org_id=heka-sso` (`SSO_ORG_ID`), so the SSO verifier and its signing DID live in the `Organization_heka-sso` wallet and not in the shared `Administration` wallet. `OrgAdmin` rather than `Verifier`, because with `ROLE_MODEL_ENABLED=true` only `Admin`, `OrgAdmin` and `Issuer` can create the signing DID. `heka_uid` and `heka_name` can be added when needed. The credentials-exchange Action turns the metadata into claims.                                                                                                                                                                                                                       |
 | Application `heka-demo` (M2M)                            | Client Credentials, granted the API; the identity service's demo-token broker (`GET /demo/token`, `DEMO_*` settings) hands its token to the web UI's public demo pages. Application metadata `heka_role=User` (its token is handed out without login, so it must never be `Admin`, which would open the shared `Administration` wallet to anyone), `heka_uid=e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9` (the same id as the `heka-demo` service account in the Keycloak realm, so the demo tenant and DID are shared across providers), `heka_name=demo`. |
 | Roles `Admin` … `User` (optional)                        | Auth0 roles with the Heka names. The post-login Action uses them when a user has exactly one; otherwise it falls back to `app_metadata.heka_role`, and finally to the default role, which it then stores in `app_metadata.heka_role`.                                                                                                                                                                             |
-| Action `heka-identity-claims` (post-login)               | Secrets `HEKA_AUDIENCE`, `HEKA_CLAIM_NAMESPACE`, `HEKA_DEFAULT_ROLE`. Only acts when the login requested the Heka API, so other flows in the tenant (e.g. the OID4VP SSO demo) are untouched.                                                                                                                                                                                                                     |
+| Organization `heka-sso`                                   | `metadata.heka_org_id = heka-sso`, database connection enabled. The SPA allows organization login (optional). See [Organizations](#organizations). |
+| Action `heka-identity-claims` (post-login)               | Secrets `HEKA_AUDIENCE`, `HEKA_CLAIM_NAMESPACE`, `HEKA_DEFAULT_ROLE`. Only acts when the login requested the Heka API, so other flows in the tenant (e.g. the OID4VP SSO demo) are untouched. For a login through an organization, the role and `org_id` come from that membership.                                                                                                                                                                                                                     |
 | Action `heka-identity-m2m-claims` (credentials-exchange) | Same secrets; denies the exchange when the application has no valid `heka_role`, when an organization role has no `org_id`, or when `Admin` / `User` has one.                                                                                                                                                                                                                                                                                                                                  |
 | Database connection                                      | Username required (`requires_username`), so accounts migrated from heka-auth-service keep logging in by name; password policy `good` with minimum length 7 (closest to the heka-auth-service rule of 7+ characters with upper, lower, digit and symbol); sign-ups enabled.                                                                                                                                        |
 | Tenant setting                                           | OIDC RP-Initiated Logout: end session endpoint discovery on, so `oidc-client-ts` can log out.                                                                                                                                                                                                                                                                                                                     |
@@ -64,7 +65,7 @@ Two kinds of administrator are involved:
 | **Heka `Admin`** | Acts as the platform in heka-identity-service (the shared `Administration` wallet). Gives no rights in Auth0. | `app_metadata.heka_role = Admin`, or the Auth0 role `Admin` |
 | **Auth0 tenant administrator** | Assigns roles: edits users' `app_metadata` and Auth0 roles, and applications' metadata. | A member of the tenant in the Auth0 dashboard (Settings → Tenant Members) |
 
-Narrower delegation, such as an `OrgAdmin` managing only their own organization's members, needs Auth0 Organizations and is planned separately (phases 4 and 5 of [`docs/role-model-and-oidc-providers.md`](../../docs/role-model-and-oidc-providers.md)).
+Narrower delegation, such as an `OrgAdmin` managing only their own organization's members, builds on [Organizations](#organizations) and is planned separately (phase 5 of [`docs/role-model-and-oidc-providers.md`](../../docs/role-model-and-oidc-providers.md)).
 
 ### The first `Admin` and the operators
 
@@ -86,6 +87,25 @@ Use one of the first two consistently. An Auth0 role silently overrides `app_met
 - **Change a user's role:** User Management → Users → the user → Details → `app_metadata`, for example `{ "heka_role": "Issuer", "heka_uid": "…", "org_id": "acme" }`. Keep `heka_uid` unchanged.
 - **Organization roles** (`OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`) also need `app_metadata.org_id`. `Admin` and `User` must not have it. The `org_id` value names the organization's wallet (`Organization_<org_id>`), so use one stable value per organization and never rename it.
 - **Machine-to-machine applications** carry the role in their Application Metadata (`heka_role`, plus `org_id` for organization roles). The credentials-exchange Action refuses a token when the role is missing or invalid, when an organization role has no `org_id`, or when `Admin` / `User` has one.
+
+### Organizations
+
+Auth0 **Organizations** let one user belong to several organizations and have a role per membership. `setup-tenant.sh`:
+- allows organization login on the SPA (`organization_usage: allow`), so logins without an organization keep working for `Admin` and `User`;
+- creates the organization `heka-sso` with `metadata.heka_org_id = heka-sso`;
+- enables the database connection for it.
+
+- **Create an organization** (Organizations → Create) and set its metadata **`heka_org_id`**: the Heka organization id, which names the organization's wallet (`Organization_<heka_org_id>`). Set it once and never change it. When you move an existing organization from `app_metadata.org_id`, use that old value (for migrated accounts, the deployment's `ORG_ID`) so its members keep their wallet. Enable the database connection for the organization (Connections tab).
+- **Add members** (Members tab) and give each membership **exactly one** organization role: `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer` or `Verifier`. Roles assigned to the user outside the organization don't apply to a login through it.
+- **Login through the organization:** the Web UI sends `organization=<id or name>` when `REACT_APP_OIDC_ORGANIZATION` is set. The post-login Action then emits:
+  - `https://heka/org_id` = the organization's `heka_org_id` (falling back to its Auth0 id `org_…`);
+  - `https://heka/roles` = the membership's role.
+
+  It **denies the login** when the membership has no organization role, has two Heka roles, or has `Admin` / `User`. Logins without an organization use `app_metadata` as before.
+
+Machine-to-machine applications can't be organization members here; they keep `org_id` in their Application Metadata (`heka-sso-service`: `heka-sso`).
+
+The Action logic is covered by unit tests (`heka-sso-service/test/unit/auth0-actions.spec.ts`). On 2026-10-08 `setup-tenant.sh` created the `heka-sso` organization on the dev tenant. A live organization login hasn't been run yet: adding members through the Auth0 CLI needs a login with the `create:organization_members` and `create:organization_member_roles` scopes.
 
 ### When a change takes effect
 

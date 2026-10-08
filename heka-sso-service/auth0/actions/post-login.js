@@ -12,12 +12,20 @@
  *   HEKA_DEFAULT_ROLE     role for users without one (default `User`, as heka-auth-service sign-ups since #215;
  *                         never `Admin`: every Admin acts in the shared Administration wallet)
  *
- * Role resolution, first match wins: exactly one Heka role among the user's Auth0 roles
+ * Login through an Auth0 Organization (`event.organization` set): the role comes from that membership only
+ * (`event.authorization.roles` then holds the roles assigned to the user in the organization) and must be one
+ * organization role; the organization id is the organization's `metadata.heka_org_id`, falling back to its Auth0 id.
+ * Keep `heka_org_id` stable: it names the organization's wallet in heka-identity-service. The login is denied when
+ * the membership has no organization role, or more than one Heka role.
+ *
+ * Login without an organization, first match wins: exactly one Heka role among the user's Auth0 roles
  * (`event.authorization.roles`), else `app_metadata.heka_role`, else HEKA_DEFAULT_ROLE, which is
- * then persisted to `app_metadata.heka_role`. The identity service requires exactly one role.
+ * then persisted to `app_metadata.heka_role`; the organization id is `app_metadata.org_id`.
+ * The identity service requires exactly one role.
  */
 
 const HEKA_ROLES = ['Admin', 'OrgAdmin', 'OrgManager', 'OrgMember', 'Issuer', 'Verifier', 'User']
+const ORGANIZATION_ROLES = ['OrgAdmin', 'OrgManager', 'OrgMember', 'Issuer', 'Verifier']
 
 /**
  * @param {Event} event - Details about the user and the context in which they are logging in.
@@ -40,8 +48,20 @@ exports.onExecutePostLogin = async (event, api) => {
   const authorizationRoles = (event.authorization && event.authorization.roles) || []
 
   const hekaRolesFromAuth0 = authorizationRoles.filter((role) => HEKA_ROLES.includes(role))
+  const organization = event.organization
   let role
-  if (hekaRolesFromAuth0.length === 1) {
+  let orgId
+  if (organization) {
+    const label = organization.display_name || organization.name || organization.id
+    if (hekaRolesFromAuth0.length !== 1 || !ORGANIZATION_ROLES.includes(hekaRolesFromAuth0[0])) {
+      api.access.deny(
+        `Your membership of ${label} needs exactly one of the roles ${ORGANIZATION_ROLES.join(', ')} to sign in to Heka through it`
+      )
+      return
+    }
+    role = hekaRolesFromAuth0[0]
+    orgId = (organization.metadata && organization.metadata.heka_org_id) || organization.id
+  } else if (hekaRolesFromAuth0.length === 1) {
     role = hekaRolesFromAuth0[0]
   } else if (HEKA_ROLES.includes(appMetadata.heka_role)) {
     role = appMetadata.heka_role
@@ -52,7 +72,9 @@ exports.onExecutePostLogin = async (event, api) => {
 
   const hekaUid = appMetadata.heka_uid || user.user_id
   const name = user.username || user.nickname || user.name || user.email || user.user_id
-  const orgId = appMetadata.org_id
+  if (!organization) {
+    orgId = appMetadata.org_id
+  }
 
   const claims = {
     [`${namespace}/roles`]: [role],

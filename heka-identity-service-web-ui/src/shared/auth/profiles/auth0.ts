@@ -11,6 +11,11 @@ export const auth0Profile: ProfileFactory = (config) => {
   if (config.audience) {
     authorizeParams.audience = config.audience;
   }
+  // Auth0 Organizations: the login goes through this organization, so the token carries its org_id and the roles
+  // of that membership (see heka-sso-service/auth0/actions/post-login.js).
+  if (config.organization) {
+    authorizeParams.organization = config.organization;
+  }
 
   return {
     name: 'auth0',

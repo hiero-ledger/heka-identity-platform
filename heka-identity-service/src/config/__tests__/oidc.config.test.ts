@@ -89,7 +89,7 @@ describe('oidc config', () => {
       userId: 'https://heka/heka_uid',
       roles: '/https:~1~1heka~1roles',
       name: ['https://heka/name', 'name', 'nickname'],
-      orgId: 'https://heka/org_id',
+      orgId: ['https://heka/org_id'],
     })
   })
 })

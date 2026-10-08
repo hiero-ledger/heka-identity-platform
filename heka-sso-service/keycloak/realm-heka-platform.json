@@ -5,6 +5,7 @@
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": true,
+  "organizationsEnabled": true,
   "resetPasswordAllowed": false,
   "rememberMe": false,
   "loginWithEmailAllowed": false,
@@ -62,7 +63,25 @@
         "post.logout.redirect.uris": "http://localhost:8000/*",
         "use.refresh.tokens": "true"
       },
+      "optionalClientScopes": ["offline_access", "address", "phone", "microprofile-jwt", "organization"],
       "protocolMappers": [
+        {
+          "name": "heka organization",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "heka_organization",
+            "jsonType.label": "JSON",
+            "multivalued": "true",
+            "addOrganizationAttributes": "true",
+            "addOrganizationId": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
         {
           "name": "heka roles",
           "protocol": "openid-connect",
@@ -337,6 +356,23 @@
     }
   ],
   "defaultGroups": ["/heka-users"],
+  "organizations": [
+    {
+      "name": "heka-sso",
+      "alias": "heka-sso",
+      "enabled": true,
+      "description": "Organization of the heka-sso-service service account. Its heka_org_id names the Organization_heka-sso wallet.",
+      "attributes": {
+        "heka_org_id": ["heka-sso"]
+      },
+      "domains": [
+        {
+          "name": "heka-sso.invalid",
+          "verified": false
+        }
+      ]
+    }
+  ],
   "users": [
     {
       "id": "d3a1c2b4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",

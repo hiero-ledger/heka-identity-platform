@@ -202,6 +202,29 @@ echo "   username login on, password rule 7+ chars with upper/lower/digit/symbol
 api patch "connections/${CONN_ID}/clients" --data "[{\"client_id\":\"${SPA_ID}\",\"status\":true},{\"client_id\":\"${M2M_ID}\",\"status\":true}]" >/dev/null
 echo "   enabled for both applications"
 
+# --- 6b. Organizations: organization login on the SPA, and the heka-sso organization ------------
+# A login through an organization carries that organization's metadata.heka_org_id as org_id and the roles of the
+# membership (see actions/post-login.js). "allow" keeps logins without an organization working (Admin, User).
+echo "== Organizations"
+api patch "clients/${SPA_ID}" --data '{"organization_usage":"allow","organization_require_behavior":"no_prompt"}' >/dev/null
+echo "   SPA: organization login allowed (optional)"
+ORG_JSON="$(api get "organizations/name/${SSO_ORG_ID}" || true)" # 404 until it exists
+ORG_ID="$(printf '%s' "$ORG_JSON" | json 'let o={};try{o=JSON.parse(require("fs").readFileSync(0,"utf8"))}catch{};console.log(o&&o.id?o.id:"")')"
+if [ -z "$ORG_ID" ]; then
+  ORG_ID="$(api post organizations --data "{\"name\":\"${SSO_ORG_ID}\",\"display_name\":\"${SSO_ORG_ID}\",\"metadata\":{\"heka_org_id\":\"${SSO_ORG_ID}\"}}" \
+    | json 'let o={};try{o=JSON.parse(require("fs").readFileSync(0,"utf8"))}catch{};console.log(o&&o.id?o.id:"")')"
+  [ -n "$ORG_ID" ] && echo "   organization ${SSO_ORG_ID} created ${ORG_ID}"
+else
+  api patch "organizations/${ORG_ID}" --data "{\"metadata\":{\"heka_org_id\":\"${SSO_ORG_ID}\"}}" >/dev/null
+  echo "   organization ${SSO_ORG_ID} exists ${ORG_ID}"
+fi
+if [ -n "$ORG_ID" ]; then
+  api post "organizations/${ORG_ID}/enabled_connections" --data "{\"connection_id\":\"${CONN_ID}\",\"assign_membership_on_login\":false}" >/dev/null || true
+  echo "   metadata.heka_org_id=${SSO_ORG_ID}, connection ${DB_CONNECTION} enabled"
+else
+  echo "   could not create organization ${SSO_ORG_ID} (does the tenant's plan include Organizations?)" >&2
+fi
+
 # --- 7. Tenant: let oidc-client-ts discover end_session_endpoint for logout -------
 api patch tenants/settings --data '{"oidc_logout":{"rp_logout_end_session_endpoint_discovery":true}}' >/dev/null
 echo "== Tenant: RP-initiated logout end_session_endpoint discovery on"

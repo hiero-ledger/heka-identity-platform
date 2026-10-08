@@ -9,6 +9,7 @@ const makeLoginApi = () => ({
   accessToken: { setCustomClaim: vi.fn() },
   idToken: { setCustomClaim: vi.fn() },
   user: { setAppMetadata: vi.fn() },
+  access: { deny: vi.fn() },
 })
 
 const claimsOf = (setCustomClaim: ReturnType<typeof vi.fn>) =>
@@ -105,6 +106,57 @@ describe('Auth0 post-login Action', () => {
       'https://claims.example/heka_uid': 'auth0|65f1c2d3e4a5b6c7d8e9f0a1',
     })
     expect(api.user.setAppMetadata).toHaveBeenCalledWith('heka_role', 'OrgMember')
+  })
+
+  describe('login through an Auth0 Organization', () => {
+    const acme = { id: 'org_abc123', name: 'acme', display_name: 'Acme', metadata: { heka_org_id: 'acme-legacy-id' } }
+
+    test('takes the role from the membership and the org id from the organization metadata', async () => {
+      const api = makeLoginApi()
+
+      await onExecutePostLogin(
+        {
+          ...baseEvent,
+          // app_metadata from a login without the organization must not leak into this one
+          user: { ...baseEvent.user, app_metadata: { heka_uid: 'u-1', heka_role: 'User', org_id: 'other' } },
+          organization: acme,
+          authorization: { roles: ['Issuer'] },
+        },
+        api
+      )
+
+      expect(claimsOf(api.accessToken.setCustomClaim)).toEqual({
+        'https://heka/roles': ['Issuer'],
+        'https://heka/name': 'alice',
+        'https://heka/heka_uid': 'u-1',
+        'https://heka/org_id': 'acme-legacy-id',
+      })
+      expect(api.user.setAppMetadata).not.toHaveBeenCalled()
+      expect(api.access.deny).not.toHaveBeenCalled()
+    })
+
+    test('falls back to the Auth0 organization id without heka_org_id metadata', async () => {
+      const api = makeLoginApi()
+
+      await onExecutePostLogin({ ...baseEvent, organization: { id: 'org_abc123' }, authorization: { roles: ['OrgAdmin'] } }, api)
+
+      expect(claimsOf(api.accessToken.setCustomClaim)['https://heka/org_id']).toBe('org_abc123')
+    })
+
+    test.each([
+      ['no role in the organization', []],
+      ['two Heka roles', ['Issuer', 'Verifier']],
+      ['a role that has no organization (Admin)', ['Admin']],
+      ['a role that has no organization (User)', ['User']],
+    ])('denies the login with %s', async (_label, roles) => {
+      const api = makeLoginApi()
+
+      await onExecutePostLogin({ ...baseEvent, organization: acme, authorization: { roles } }, api)
+
+      expect(api.access.deny).toHaveBeenCalledWith(expect.stringContaining('Your membership of Acme needs exactly one of the roles'))
+      expect(api.accessToken.setCustomClaim).not.toHaveBeenCalled()
+      expect(api.user.setAppMetadata).not.toHaveBeenCalled()
+    })
   })
 
   test('falls back through nickname, name, email and user_id for the display name', async () => {

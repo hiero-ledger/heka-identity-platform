@@ -113,7 +113,7 @@ describe('mapClaims', () => {
       userId: 'https://heka/heka_uid',
       roles: 'https://heka/roles',
       name: ['https://heka/name', 'name', 'nickname'],
-      orgId: 'https://heka/org_id',
+      orgId: ['https://heka/org_id'],
     }
 
     test('maps namespaced claims given as literal keys', () => {
@@ -130,7 +130,7 @@ describe('mapClaims', () => {
         userId: '/https:~1~1heka~1heka_uid',
         roles: '/https:~1~1heka~1roles',
         name: ['/https:~1~1heka~1name'],
-        orgId: '/https:~1~1heka~1org_id',
+        orgId: ['/https:~1~1heka~1org_id'],
       }
       expect(mapClaims(auth0Payload, pointerConfig)).toEqual(mapClaims(auth0Payload, auth0Config))
     })
@@ -170,6 +170,89 @@ describe('mapClaims', () => {
       ['non-string org_id', { sub: 'user-1', roles: ['User'], org_id: 7 }],
     ])('rejects %s', (_label, payload) => {
       expect(() => mapClaims(payload as Record<string, unknown>, defaults)).toThrow(UnauthorizedException)
+    })
+
+    test('says why the role claim was rejected', () => {
+      expect(() => mapClaims({ sub: 'user-1', roles: ['offline_access'] }, defaults)).toThrow(
+        "Token claim 'roles' contains no Heka role",
+      )
+      expect(() => mapClaims({ sub: 'user-1', roles: ['User', 'Issuer'] }, defaults)).toThrow(
+        "Token claim 'roles' contains 2 Heka roles (User, Issuer); exactly one is required",
+      )
+    })
+  })
+
+  describe('role claim keyed by role name (Zitadel)', () => {
+    const zitadelConfig: OidcClaimsConfig = { ...defaults, roles: 'urn:zitadel:iam:org:project:roles' }
+
+    test('reads the role from the object keys', () => {
+      const payload = {
+        sub: 'user-1',
+        'urn:zitadel:iam:org:project:roles': { Issuer: { '2700': 'acme.zitadel.cloud' } },
+      }
+      expect(mapClaims(payload, zitadelConfig).roles).toEqual([Role.Issuer])
+    })
+
+    test('still requires exactly one Heka role among the keys', () => {
+      const payload = { sub: 'user-1', 'urn:zitadel:iam:org:project:roles': { Issuer: {}, Verifier: {}, viewer: {} } }
+      expect(() => mapClaims(payload, zitadelConfig)).toThrow(/contains 2 Heka roles/)
+    })
+  })
+
+  describe('organization claim', () => {
+    const base = { sub: 'user-1', roles: ['Issuer'] }
+    // The Keycloak recipe: the Organizations claim with the heka_org_id attribute first, the org_id user attribute second
+    const keycloakOrgs: OidcClaimsConfig = {
+      ...defaults,
+      orgId: ['heka_organization', 'org_id'],
+      orgIdField: 'heka_org_id',
+    }
+
+    test('accepts a single-element array', () => {
+      expect(mapClaims({ ...base, organization: ['acme'] }, { ...defaults, orgId: ['organization'] }).org_id).toBe(
+        'acme',
+      )
+    })
+
+    test('reads the field of the one organization in a Keycloak organization claim', () => {
+      const payload = { ...base, heka_organization: { acme: { heka_org_id: ['org-1'] } }, org_id: 'legacy' }
+      expect(mapClaims(payload, keycloakOrgs).org_id).toBe('org-1')
+    })
+
+    test('falls back to the next path when the organization claim is absent or empty', () => {
+      expect(mapClaims({ ...base, org_id: 'legacy' }, keycloakOrgs).org_id).toBe('legacy')
+      expect(mapClaims({ ...base, heka_organization: {}, org_id: 'legacy' }, keycloakOrgs).org_id).toBe('legacy')
+      expect(mapClaims(base, keycloakOrgs)).not.toHaveProperty('org_id')
+    })
+
+    test('uses the key of a single-key object when no field is configured', () => {
+      const payload = { ...base, organization: { acme: { id: 'a1b2' } } }
+      expect(mapClaims(payload, { ...defaults, orgId: ['organization'] }).org_id).toBe('acme')
+    })
+
+    test('reads the field from a flat organization object', () => {
+      const payload = { ...base, organization: { heka_org_id: 'org-1', name: 'Acme' } }
+      expect(mapClaims(payload, { ...defaults, orgId: ['organization'], orgIdField: 'heka_org_id' }).org_id).toBe(
+        'org-1',
+      )
+    })
+
+    test('rejects several organizations, so the login has to select one', () => {
+      expect(() =>
+        mapClaims(
+          { ...base, heka_organization: { acme: { heka_org_id: ['org-1'] }, globex: { heka_org_id: ['org-2'] } } },
+          keycloakOrgs,
+        ),
+      ).toThrow("Token claim 'heka_organization' lists 2 organizations; sign in to exactly one organization")
+      expect(() =>
+        mapClaims({ ...base, organization: ['acme', 'globex'] }, { ...defaults, orgId: ['organization'] }),
+      ).toThrow(/lists 2 organizations/)
+    })
+
+    test('rejects an organization without the configured field', () => {
+      expect(() => mapClaims({ ...base, heka_organization: { acme: { id: 'a1b2' } } }, keycloakOrgs)).toThrow(
+        "Token claim 'heka_organization' has no organization id field 'heka_org_id'",
+      )
     })
   })
 })
