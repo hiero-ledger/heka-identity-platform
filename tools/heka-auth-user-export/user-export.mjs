@@ -90,7 +90,10 @@ const keycloakArgon2Type = { argon2id: 'id', argon2i: 'i', argon2d: 'd' }
 const keycloakArgon2Version = { 19: '1.3', 16: '1.0' }
 
 export const keycloakIdentityClient = 'heka-identity-service'
+/** The realm's default group, carrying `heka-identity-service.User`. */
 export const keycloakDefaultGroup = '/heka-users'
+/** The realm's operator group, carrying `heka-identity-service.Admin`; not a default group. */
+export const keycloakAdminGroup = '/heka-admins'
 
 /**
  * The credential representation Keycloak's built-in `argon2` hash provider verifies:
@@ -147,11 +150,15 @@ export function toKeycloakUser(user, options = {}) {
   } else {
     result.credentials = [toKeycloakCredential(user.password)]
   }
+  // Exactly one Heka role per user, so an imported user is in at most one of the two groups and holds
+  // a client role only when it is in neither.
   if (user.role === 'Admin') {
-    // The realm's default group carries `heka-identity-service.Admin`.
+    result.groups = [keycloakAdminGroup]
+  } else if (user.role === 'User') {
     result.groups = [keycloakDefaultGroup]
   } else {
-    // Other roles are client roles of `heka-identity-service`, exactly one per user.
+    // Organization roles are client roles of `heka-identity-service`; the user is not in `heka-users`.
+    result.groups = []
     result.clientRoles = { [keycloakIdentityClient]: [user.role] }
   }
   return result

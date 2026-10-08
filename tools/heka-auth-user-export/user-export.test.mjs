@@ -64,7 +64,7 @@ describe('Keycloak export', () => {
     })
   })
 
-  test('keeps the user id, sets heka_uid and puts Admin users into the default group', () => {
+  test('keeps the user id, sets heka_uid and puts Admin users into the heka-admins group only', () => {
     const exported = toKeycloakUser(user())
 
     assert.equal(exported.id, '7531a1f6-822d-446d-b878-658616a4df15')
@@ -72,23 +72,34 @@ describe('Keycloak export', () => {
     assert.equal(exported.enabled, true)
     assert.deepEqual(exported.attributes, { heka_uid: ['7531a1f6-822d-446d-b878-658616a4df15'] })
     assert.equal(exported.credentials.length, 1)
-    assert.deepEqual(exported.groups, ['/heka-users'])
+    // Not also heka-users: that group carries User, and a second role is rejected by heka-identity-service
+    assert.deepEqual(exported.groups, ['/heka-admins'])
     assert.equal(exported.clientRoles, undefined)
   })
 
-  test('gives organization roles the client role and the org id attribute instead of the group', () => {
+  test('gives organization roles the client role and the org id attribute and no group', () => {
     const exported = toKeycloakUser(user({ name: 'doctor', role: 'Issuer' }), { orgId: 'org-1' })
 
-    assert.equal(exported.groups, undefined)
+    assert.deepEqual(exported.groups, [])
     assert.deepEqual(exported.clientRoles, { 'heka-identity-service': ['Issuer'] })
     assert.deepEqual(exported.attributes, { heka_uid: ['7531a1f6-822d-446d-b878-658616a4df15'], org_id: ['org-1'] })
   })
 
-  test('gives the User role its client role without an org id', () => {
+  test('puts User accounts into the heka-users default group, without a client role or an org id', () => {
     const exported = toKeycloakUser(user({ role: 'User' }), { orgId: 'org-1' })
 
-    assert.deepEqual(exported.clientRoles, { 'heka-identity-service': ['User'] })
+    assert.deepEqual(exported.groups, ['/heka-users'])
+    assert.equal(exported.clientRoles, undefined)
     assert.deepEqual(exported.attributes, { heka_uid: ['7531a1f6-822d-446d-b878-658616a4df15'] })
+  })
+
+  test('maps every role to exactly one Heka role source', () => {
+    for (const role of ['Admin', 'OrgAdmin', 'OrgManager', 'OrgMember', 'Issuer', 'Verifier', 'User']) {
+      const exported = toKeycloakUser(user({ role }), { orgId: 'org-1' })
+      const sources = (exported.groups ?? []).length + (exported.clientRoles?.['heka-identity-service'] ?? []).length
+
+      assert.equal(sources, 1, `role ${role}`)
+    }
   })
 
   test('refuses organization roles without an org id, unknown roles and incomplete rows', () => {

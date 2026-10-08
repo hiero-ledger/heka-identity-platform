@@ -13,6 +13,7 @@
  */
 
 const HEKA_ROLES = ['Admin', 'OrgAdmin', 'OrgManager', 'OrgMember', 'Issuer', 'Verifier', 'User']
+const ORGANIZATION_ROLES = ['OrgAdmin', 'OrgManager', 'OrgMember', 'Issuer', 'Verifier']
 
 /**
  * @param {Event} event - Details about the client credentials exchange.
@@ -33,6 +34,17 @@ exports.onExecuteCredentialsExchange = async (event, api) => {
 
   if (!HEKA_ROLES.includes(metadata.heka_role)) {
     api.access.deny('invalid_client_metadata', `Application metadata heka_role must be one of ${HEKA_ROLES.join(', ')} to call ${audience}`)
+    return
+  }
+  // heka-identity-service rejects these combinations with 401 on every call; fail the exchange instead,
+  // so a misconfigured application is visible in the Auth0 logs.
+  const isOrganizationRole = ORGANIZATION_ROLES.includes(metadata.heka_role)
+  if (isOrganizationRole && !metadata.org_id) {
+    api.access.deny('invalid_client_metadata', `Application metadata org_id is required for heka_role ${metadata.heka_role}`)
+    return
+  }
+  if (!isOrganizationRole && metadata.org_id) {
+    api.access.deny('invalid_client_metadata', `Application metadata org_id must not be set for heka_role ${metadata.heka_role}`)
     return
   }
 

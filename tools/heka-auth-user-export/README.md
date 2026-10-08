@@ -31,7 +31,7 @@ node export-users.mjs --target auth0 --in auth-users.json --out users.auth0.json
 | `--without-passwords` | off            | Leave the password hashes out. Keycloak users then get the `UPDATE_PASSWORD` required action; on both providers an administrator has to set a temporary password or trigger a reset.     |
 | `--email-domain`      | `heka.invalid` | Auth0 only: domain of the synthesized e-mail addresses (Auth0 requires one per user; heka-auth-service accounts had none).                                                               |
 
-What the files contain, per user: the original UUID as the provider's user id **and** as `heka_uid` (Keycloak: user attribute; Auth0: `app_metadata.heka_uid`), so heka-identity-service derives the same tenant as before and existing schemas and DIDs stay reachable; the role (Keycloak: `Admin` users join the `heka-users` default group, other roles become the matching client role of `heka-identity-service`; Auth0: `app_metadata.heka_role`); and the argon2id password hash (Keycloak: split into `secretData` / `credentialData` for its built-in `argon2` provider; Auth0: the encoded string as `custom_password_hash`).
+What the files contain, per user: the original UUID as the provider's user id **and** as `heka_uid` (Keycloak: user attribute; Auth0: `app_metadata.heka_uid`), so heka-identity-service derives the same tenant as before and existing schemas and DIDs stay reachable; the role (Keycloak: `Admin` users join the `heka-admins` group, `User` accounts the `heka-users` default group, and organization roles become the matching client role of `heka-identity-service` with an explicitly empty group list, so each user ends up with exactly one Heka role; Auth0: `app_metadata.heka_role`); and the argon2id password hash (Keycloak: split into `secretData` / `credentialData` for its built-in `argon2` provider; Auth0: the encoded string as `custom_password_hash`).
 
 ## 3. Import
 
@@ -39,6 +39,10 @@ What the files contain, per user: the original UUID as the provider's user id **
 - **Auth0**: `auth0 users import -c Username-Password-Authentication --users "$(cat users.auth0.json)" --upsert=false --email-results=false --no-input`, then poll the job with `auth0 api get jobs/<id>`; files are limited to 500 KB per job. Details in [`heka-sso-service/auth0/README.md`](../../heka-sso-service/auth0/README.md#migrating-users-from-heka-auth-service).
 
 Try one account first (`--user <name>`) and log in with it through the web UI. Verified on 2026-09-21 with one account on each provider: the imported user logged in with the old password, a wrong password was refused, and the access token carried the original id as `heka_uid` and the role `Admin`.
+
+Before exporting, reassign every account that isn't a real platform operator to `User` in the auth database. Accounts registered through the web UI before #215 are usually still `Admin`, and every `Admin` acts in the one shared `Administration` wallet of heka-identity-service.
+
+A Keycloak partial import doesn't add users to the realm's default group `heka-users`; they get only the groups listed in the file. This was verified on 2026-10-08 against the local Keycloak. So an account with an organization role ends up with that one role, not with `User` as well.
 
 ## Tests
 

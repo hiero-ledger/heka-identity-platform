@@ -54,14 +54,14 @@ describe('Auth0 post-login Action', () => {
     expect(api.user.setAppMetadata).not.toHaveBeenCalled()
   })
 
-  test('assigns and persists the default role for a user without one', async () => {
+  test('assigns and persists User, never Admin, as the default role for a user without one', async () => {
     const api = makeLoginApi()
 
     await onExecutePostLogin(baseEvent, api)
 
-    expect(api.user.setAppMetadata).toHaveBeenCalledWith('heka_role', 'Admin')
+    expect(api.user.setAppMetadata).toHaveBeenCalledWith('heka_role', 'User')
     expect(claimsOf(api.accessToken.setCustomClaim)).toEqual({
-      'https://heka/roles': ['Admin'],
+      'https://heka/roles': ['User'],
       'https://heka/name': 'alice',
       'https://heka/heka_uid': 'auth0|65f1c2d3e4a5b6c7d8e9f0a1',
     })
@@ -93,18 +93,18 @@ describe('Auth0 post-login Action', () => {
         secrets: {
           HEKA_AUDIENCE: 'https://api.example',
           HEKA_CLAIM_NAMESPACE: 'https://claims.example/',
-          HEKA_DEFAULT_ROLE: 'User',
+          HEKA_DEFAULT_ROLE: 'OrgMember',
         },
       },
       api
     )
 
     expect(claimsOf(api.accessToken.setCustomClaim)).toEqual({
-      'https://claims.example/roles': ['User'],
+      'https://claims.example/roles': ['OrgMember'],
       'https://claims.example/name': 'alice',
       'https://claims.example/heka_uid': 'auth0|65f1c2d3e4a5b6c7d8e9f0a1',
     })
-    expect(api.user.setAppMetadata).toHaveBeenCalledWith('heka_role', 'User')
+    expect(api.user.setAppMetadata).toHaveBeenCalledWith('heka_role', 'OrgMember')
   })
 
   test('falls back through nickname, name, email and user_id for the display name', async () => {
@@ -126,19 +126,54 @@ describe('Auth0 credentials-exchange Action', () => {
     accessToken: { setCustomClaim: vi.fn() },
     access: { deny: vi.fn() },
   })
-  const client = { client_id: 'abc123', name: 'heka-sso-service', metadata: { heka_role: 'Admin' } }
+  // The heka-sso-service application as setup-tenant.sh configures it: OrgAdmin of its own organization
+  const client = { client_id: 'abc123', name: 'heka-sso-service', metadata: { heka_role: 'OrgAdmin', org_id: 'heka-sso' } }
 
-  test('adds the claim contract from the application metadata', async () => {
+  test('adds the claim contract from the application metadata, including org_id for an organization role', async () => {
     const api = makeApi()
 
     await onExecuteCredentialsExchange({ resource_server: { identifier: HEKA_AUDIENCE }, client }, api)
 
     expect(claimsOf(api.accessToken.setCustomClaim)).toEqual({
-      'https://heka/roles': ['Admin'],
+      'https://heka/roles': ['OrgAdmin'],
       'https://heka/name': 'heka-sso-service',
       'https://heka/heka_uid': 'abc123@clients',
+      'https://heka/org_id': 'heka-sso',
     })
     expect(api.access.deny).not.toHaveBeenCalled()
+  })
+
+  test('issues no org_id for User (the heka-demo application)', async () => {
+    const api = makeApi()
+
+    await onExecuteCredentialsExchange(
+      {
+        resource_server: { identifier: HEKA_AUDIENCE },
+        client: { client_id: 'demo1', name: 'heka-demo', metadata: { heka_role: 'User', heka_uid: 'e5f6a7b8', heka_name: 'demo' } },
+      },
+      api
+    )
+
+    expect(claimsOf(api.accessToken.setCustomClaim)).toEqual({
+      'https://heka/roles': ['User'],
+      'https://heka/name': 'demo',
+      'https://heka/heka_uid': 'e5f6a7b8',
+    })
+    expect(api.access.deny).not.toHaveBeenCalled()
+  })
+
+  test('denies an organization role without org_id, and org_id on Admin or User', async () => {
+    const exchange = async (metadata: Record<string, string>) => {
+      const api = makeApi()
+      await onExecuteCredentialsExchange({ resource_server: { identifier: HEKA_AUDIENCE }, client: { ...client, metadata } }, api)
+      return api
+    }
+
+    for (const metadata of [{ heka_role: 'OrgAdmin' }, { heka_role: 'Admin', org_id: 'org-1' }, { heka_role: 'User', org_id: 'org-1' }]) {
+      const api = await exchange(metadata)
+      expect(api.access.deny).toHaveBeenCalledWith('invalid_client_metadata', expect.stringContaining('org_id'))
+      expect(api.accessToken.setCustomClaim).not.toHaveBeenCalled()
+    }
   })
 
   test('uses explicit metadata for name, uid and org_id', async () => {

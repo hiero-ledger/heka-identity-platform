@@ -271,7 +271,7 @@
       "heka-identity-service": [
         {
           "name": "Admin",
-          "description": "Platform administrator: own tenant, full API access (the role the web UI registers with today)",
+          "description": "Platform administrator: acts in the shared Administration wallet. Assigned only through the heka-admins group, never by default",
           "composite": false,
           "clientRole": true
         },
@@ -307,7 +307,7 @@
         },
         {
           "name": "User",
-          "description": "Holder / end user: own tenant, no org_id",
+          "description": "End user: own User_<id> wallet, no org_id. Default role of every new user (heka-users group)",
           "composite": false,
           "clientRole": true
         }
@@ -318,6 +318,16 @@
     {
       "name": "heka-users",
       "path": "/heka-users",
+      "attributes": {},
+      "realmRoles": [],
+      "clientRoles": {
+        "heka-identity-service": ["User"]
+      },
+      "subGroups": []
+    },
+    {
+      "name": "heka-admins",
+      "path": "/heka-admins",
       "attributes": {},
       "realmRoles": [],
       "clientRoles": {
@@ -343,11 +353,28 @@
       "groups": ["/heka-users"]
     },
     {
+      "id": "a7d1e2f3-b4c5-4d6e-8f70-81a2b3c4d5e6",
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": false,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Password1234!",
+          "temporary": false
+        }
+      ],
+      "groups": ["/heka-admins"]
+    },
+    {
       "username": "service-account-heka-sso-service",
       "enabled": true,
       "serviceAccountClientId": "heka-sso-service",
+      "attributes": {
+        "org_id": ["heka-sso"]
+      },
       "clientRoles": {
-        "heka-identity-service": ["Admin"]
+        "heka-identity-service": ["OrgAdmin"]
       }
     },
     {
@@ -356,7 +383,7 @@
       "enabled": true,
       "serviceAccountClientId": "heka-demo",
       "clientRoles": {
-        "heka-identity-service": ["Admin"]
+        "heka-identity-service": ["User"]
       }
     }
   ]

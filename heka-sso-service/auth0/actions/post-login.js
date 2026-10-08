@@ -9,7 +9,8 @@
  * Secrets (Action → Settings → Secrets):
  *   HEKA_AUDIENCE         API identifier the claims are for (default `https://heka-identity`)
  *   HEKA_CLAIM_NAMESPACE  claim prefix (default `https://heka`)
- *   HEKA_DEFAULT_ROLE     role for users without one (default `Admin`, what the web UI used to register with)
+ *   HEKA_DEFAULT_ROLE     role for users without one (default `User`, as heka-auth-service sign-ups since #215;
+ *                         never `Admin`: every Admin acts in the shared Administration wallet)
  *
  * Role resolution, first match wins: exactly one Heka role among the user's Auth0 roles
  * (`event.authorization.roles`), else `app_metadata.heka_role`, else HEKA_DEFAULT_ROLE, which is
@@ -26,7 +27,7 @@ exports.onExecutePostLogin = async (event, api) => {
   const secrets = event.secrets || {}
   const audience = secrets.HEKA_AUDIENCE || 'https://heka-identity'
   const namespace = (secrets.HEKA_CLAIM_NAMESPACE || 'https://heka').replace(/\/+$/, '')
-  const defaultRole = secrets.HEKA_DEFAULT_ROLE || 'Admin'
+  const defaultRole = secrets.HEKA_DEFAULT_ROLE || 'User'
 
   // Leave logins for other APIs / plain OIDC logins untouched (e.g. the OID4VP SSO demo).
   const requestedAudience = event.resource_server && event.resource_server.identifier

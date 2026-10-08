@@ -1,9 +1,11 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { UnauthorizedException } from '@nestjs/common'
 
-import { TokenVerifier } from 'common/auth'
+import { TokenPayload, TokenVerifier } from 'common/auth'
+import { isRole } from 'common/auth/auth-info.interface'
 import { Logger } from 'common/logger'
 import { OidcConfig, oidcClaimsDefaults, oidcConfigDefaults } from 'config/oidc'
+import { ADMINISTRATION_WALLET_ID, getWalletId } from 'utils/auth'
 
 /**
  * Bearer-token verification against a real Keycloak running the shipped `heka-platform` realm
@@ -26,6 +28,18 @@ const clients = {
 
 /** The `heka-demo` service-account user has a fixed id in the realm file. */
 const DEMO_ACCOUNT_ID = 'e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9'
+
+/** The organization of the `heka-sso-service` service account in the realm file. */
+const SSO_ORG_ID = 'heka-sso'
+
+/** The wallet heka-identity-service derives from a verified token. */
+function walletOf(payload: TokenPayload): string {
+  const [role] = payload.roles
+  if (!isRole(role)) {
+    throw new Error(`not a Heka role: ${role}`)
+  }
+  return getWalletId({ role, userId: payload.sub, orgId: payload.org_id })
+}
 
 async function clientCredentialsToken(client: { id: string; secret: string }): Promise<string> {
   const response = await fetch(tokenUrl, {
@@ -62,19 +76,39 @@ describe.skipIf(!keycloakUrl)('Keycloak live: TokenVerifier against the heka-pla
 
     const payload = await buildVerifier().verify(token)
 
-    expect(payload.roles).toEqual(['Admin'])
     expect(payload.sub).toMatch(/^[0-9a-f-]{36}$/)
     expect(payload.name).toBe('service-account-heka-sso-service')
-    expect(payload.org_id).toBeUndefined()
   })
 
-  test('maps the heka-demo service account to its fixed Heka user id', async () => {
+  test('makes heka-sso-service OrgAdmin of its own organization, not Admin', async () => {
+    const token = await clientCredentialsToken(clients.sso)
+
+    const payload = await buildVerifier().verify(token)
+
+    // Exactly OrgAdmin: the realm's default group (User) must not add a second role to the service account
+    expect(payload.roles).toEqual(['OrgAdmin'])
+    expect(payload.org_id).toBe(SSO_ORG_ID)
+    expect(walletOf(payload)).toBe(`Organization_${SSO_ORG_ID}`)
+  })
+
+  test('maps the heka-demo service account to its fixed Heka user id and the User role', async () => {
     const token = await clientCredentialsToken(clients.demo)
 
     const payload = await buildVerifier().verify(token)
 
     expect(payload.sub).toBe(DEMO_ACCOUNT_ID)
-    expect(payload.roles).toEqual(['Admin'])
+    // Its token is public (GET /demo/token), so it must never open the shared Administration wallet
+    expect(payload.roles).toEqual(['User'])
+    expect(payload.org_id).toBeUndefined()
+    expect(walletOf(payload)).toBe(`User_${DEMO_ACCOUNT_ID}`)
+  })
+
+  test('no default service account acts in the shared Administration wallet', async () => {
+    for (const client of [clients.sso, clients.demo]) {
+      const payload = await buildVerifier().verify(await clientCredentialsToken(client))
+
+      expect(walletOf(payload)).not.toBe(ADMINISTRATION_WALLET_ID)
+    }
   })
 
   test('reads the user id from sub when OIDC_CLAIM_USER_ID is left at its default (same value in Keycloak)', async () => {
