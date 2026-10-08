@@ -2,13 +2,17 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
 import {
+  applyAdminPolicy,
   auth0PlaceholderEmail,
   exportUsers,
+  formatMigrationReport,
   parseArgon2Hash,
+  planMigration,
   toAuth0User,
   toKeycloakCredential,
   toKeycloakPartialImport,
   toKeycloakUser,
+  walletIdFor,
 } from './user-export.mjs'
 
 // A hash produced by the `argon2` package with its defaults (argon2id, v=19, m=65536, t=3, p=4, 32-byte hash).
@@ -169,5 +173,82 @@ describe('exportUsers', () => {
     assert.equal(exportUsers('keycloak', [user()]).ifResourceExists, 'SKIP')
     assert.equal(exportUsers('auth0', [user()])[0].user_id, user().id)
     assert.throws(() => exportUsers('okta', []), /unknown target 'okta'/)
+  })
+})
+
+// A dump shaped like a pre-#215 deployment: the web UI registered everyone as Admin.
+const dump = [
+  user({ id: 'a1', name: 'operator', role: 'Admin' }),
+  user({ id: 'a2', name: 'alice', role: 'Admin' }),
+  user({ id: 'a3', name: 'demo', role: 'Admin' }),
+  user({ id: 'i1', name: 'doctor', role: 'Issuer' }),
+  user({ id: 'u1', name: 'bob', role: 'User' }),
+]
+
+describe('walletIdFor', () => {
+  test('mirrors getWalletId of heka-identity-service', () => {
+    assert.equal(walletIdFor('Admin', 'x', undefined), 'Administration')
+    assert.equal(walletIdFor('User', 'x', undefined), 'User_x')
+    assert.equal(walletIdFor('OrgManager', 'x', 'org-1'), 'Organization_org-1')
+    assert.equal(walletIdFor('Verifier', 'x', 'org-1'), 'Verifier_x_in_Organization_org-1')
+    assert.throws(() => walletIdFor('Root', 'x', undefined), /unknown role 'Root'/)
+  })
+})
+
+describe('applyAdminPolicy', () => {
+  test('keeps the named Admins and exports every other Admin as User', () => {
+    const roles = applyAdminPolicy(dump, ['operator']).map((u) => [u.name, u.role])
+    assert.deepEqual(roles, [['operator', 'Admin'], ['alice', 'User'], ['demo', 'User'], ['doctor', 'Issuer'], ['bob', 'User']])
+  })
+
+  test('keeps every stored role without a policy, and leaves the input untouched', () => {
+    assert.equal(applyAdminPolicy(dump, undefined), dump)
+    applyAdminPolicy(dump, [])
+    assert.equal(dump[0].role, 'Admin')
+  })
+
+  test('refuses names that are not stored Admins', () => {
+    assert.throws(() => applyAdminPolicy(dump, ['nobody']), /--keep-admin 'nobody': no such user/)
+    assert.throws(() => applyAdminPolicy(dump, ['bob']), /stored role is 'User', not Admin/)
+  })
+})
+
+describe('planMigration', () => {
+  test('lists the role, org id and wallet of every account after the migration', () => {
+    const plan = planMigration(dump, { orgId: 'org-1', keepAdmins: ['operator'] })
+
+    assert.deepEqual(plan[0], { id: 'a1', name: 'operator', storedRole: 'Admin', role: 'Admin', wallet: 'Administration', demoted: false })
+    assert.deepEqual(plan[1], { id: 'a2', name: 'alice', storedRole: 'Admin', role: 'User', wallet: 'User_a2', demoted: true })
+    assert.deepEqual(plan[3], {
+      id: 'i1',
+      name: 'doctor',
+      storedRole: 'Issuer',
+      role: 'Issuer',
+      orgId: 'org-1',
+      wallet: 'Issuer_i1_in_Organization_org-1',
+      demoted: false,
+    })
+  })
+
+  test('formats a report with a summary', () => {
+    const report = formatMigrationReport(planMigration(dump, { orgId: 'org-1', keepAdmins: ['operator'] }))
+
+    const alice = report.split('\n').find((line) => line.startsWith('alice'))
+    assert.deepEqual(alice.split(/\s{2,}/), ['alice', 'Admin', 'User (demoted)', 'User_a2'])
+    assert.ok(report.includes('5 account(s): Admin 1, OrgAdmin 0, OrgManager 0, OrgMember 0, Issuer 1, Verifier 0, User 3'))
+    assert.ok(report.includes('Admin after migration (shared Administration wallet): operator'))
+    assert.ok(report.includes('Demoted from Admin to User (start in an empty User_<id> wallet): 2'))
+  })
+})
+
+describe('exportUsers with an Admin policy', () => {
+  test('exports demoted Admins as User on both targets', () => {
+    const keycloak = exportUsers('keycloak', dump, { orgId: 'org-1', keepAdmins: ['operator'] }).users
+    assert.deepEqual(keycloak.find((u) => u.username === 'operator').groups, ['/heka-admins'])
+    assert.deepEqual(keycloak.find((u) => u.username === 'alice').groups, ['/heka-users'])
+
+    const auth0 = exportUsers('auth0', dump, { orgId: 'org-1', keepAdmins: ['operator'] })
+    assert.equal(auth0.find((u) => u.username === 'operator').app_metadata.heka_role, 'Admin')
+    assert.equal(auth0.find((u) => u.username === 'demo').app_metadata.heka_role, 'User')
   })
 })

@@ -220,19 +220,121 @@ export function toAuth0Import(users, options = {}) {
   return users.map((user) => toAuth0User(user, options))
 }
 
+// --- Migration plan ---------------------------------------------------------------------------
+
+/**
+ * The heka-identity-service wallet a token with this role, user id and org id acts in. Mirrors `getWalletId`
+ * in `heka-identity-service/src/utils/auth/index.ts` (since #215 every `Admin` shares `Administration`).
+ * @param {string} role
+ * @param {string} userId
+ * @param {string | undefined} orgId
+ */
+export function walletIdFor(role, userId, orgId) {
+  switch (role) {
+    case 'Admin':
+      return 'Administration'
+    case 'User':
+      return `User_${userId}`
+    case 'OrgAdmin':
+    case 'OrgManager':
+    case 'OrgMember':
+      return `Organization_${orgId}`
+    case 'Issuer':
+    case 'Verifier':
+      return `${role}_${userId}_in_Organization_${orgId}`
+    default:
+      throw new Error(`unknown role '${role}'`)
+  }
+}
+
+/**
+ * The `Admin` policy of a migration: `keepAdmins` names the accounts that stay `Admin`; every other `Admin` becomes
+ * `User`, because every `Admin` acts in the one shared `Administration` wallet and heka-auth-service let the web UI
+ * register everyone as `Admin` before #215. `undefined` keeps every stored role.
+ * @param {AuthUser[]} users
+ * @param {string[] | undefined} keepAdmins
+ * @returns {AuthUser[]}
+ */
+export function applyAdminPolicy(users, keepAdmins) {
+  if (keepAdmins === undefined) return users
+  for (const name of keepAdmins) {
+    const user = users.find((candidate) => candidate.name === name)
+    if (!user) throw new Error(`--keep-admin '${name}': no such user`)
+    if (user.role !== 'Admin') throw new Error(`--keep-admin '${name}': the user's stored role is '${user.role}', not Admin`)
+  }
+  return users.map((user) => (user.role === 'Admin' && !keepAdmins.includes(user.name) ? { ...user, role: 'User' } : user))
+}
+
+/**
+ * @typedef {{ orgId?: string, keepAdmins?: string[] }} PlanOptions
+ * @typedef {{ id: string, name: string, storedRole: string, role: string, orgId?: string, wallet: string, demoted: boolean }} PlannedUser
+ */
+
+/**
+ * What each account becomes after the migration: its role (after the `Admin` policy), its org id and the wallet it
+ * then acts in. A demoted `Admin` starts in an empty `User_<id>` wallet; its earlier data stays in `Administration_<id>`
+ * (deployments before #215) or in the shared `Administration` wallet.
+ * @param {AuthUser[]} users
+ * @param {PlanOptions} [options]
+ * @returns {PlannedUser[]}
+ */
+export function planMigration(users, options = {}) {
+  const migrated = applyAdminPolicy(users, options.keepAdmins)
+  return migrated.map((user, index) => {
+    assertHekaRole(user.role, user.name)
+    const orgId = orgIdFor(user.role, user.name, options.orgId)
+    return {
+      id: user.id,
+      name: user.name,
+      storedRole: users[index].role,
+      role: user.role,
+      ...(orgId ? { orgId } : {}),
+      wallet: walletIdFor(user.role, user.id, orgId),
+      demoted: users[index].role !== user.role,
+    }
+  })
+}
+
+/**
+ * Human-readable migration report: one line per account and a summary.
+ * @param {PlannedUser[]} plan
+ */
+export function formatMigrationReport(plan) {
+  const header = ['name', 'stored role', 'role', 'org_id', 'wallet after migration']
+  const rows = plan.map((user) => [
+    user.name,
+    user.storedRole,
+    user.demoted ? `${user.role} (demoted)` : user.role,
+    user.orgId ?? '',
+    user.wallet,
+  ])
+  const widths = header.map((title, column) => Math.max(title.length, ...rows.map((row) => row[column].length)))
+  const line = (cells) => cells.map((cell, column) => cell.padEnd(widths[column])).join('  ').trimEnd()
+
+  const count = (predicate) => plan.filter(predicate).length
+  const admins = plan.filter((user) => user.role === 'Admin').map((user) => user.name)
+  const summary = [
+    `${plan.length} account(s): ${hekaRoles.map((role) => `${role} ${count((user) => user.role === role)}`).join(', ')}`,
+    `Admin after migration (shared Administration wallet): ${admins.length ? admins.join(', ') : 'none'}`,
+    `Demoted from Admin to User (start in an empty User_<id> wallet): ${count((user) => user.demoted)}`,
+  ]
+  return [line(header), line(widths.map((width) => '-'.repeat(width))), ...rows.map(line), '', ...summary].join('\n')
+}
+
 // --- Entry point ------------------------------------------------------------------------------
 
 /**
  * @param {ExportTarget} target
  * @param {AuthUser[]} users
- * @param {ExportOptions} [options]
+ * @param {ExportOptions & { keepAdmins?: string[] }} [options]
  */
 export function exportUsers(target, users, options = {}) {
+  const migrated = applyAdminPolicy(users, options.keepAdmins)
   switch (target) {
     case 'keycloak':
-      return toKeycloakPartialImport(users, options)
+      return toKeycloakPartialImport(migrated, options)
     case 'auth0':
-      return toAuth0Import(users, options)
+      return toAuth0Import(migrated, options)
     default:
       throw new Error(`unknown target '${String(target)}' (expected ${exportTargets.join(' | ')})`)
   }

@@ -344,18 +344,18 @@ A role change reaches the Identity Service with the user's next access token. It
 
 #### Upgrading an existing deployment
 
-A fresh deployment needs no action. A deployment that still runs heka-auth-service changes two things at once: the role model of #215 (shared `Administration` wallet, wallet-owned schemas, the `ROLE_MODEL_ENABLED` flag), and the switch to an OIDC provider. Plan the switch as one maintenance window.
+A fresh deployment needs no action. A deployment that still runs heka-auth-service changes two things at once: the role model of #215 (shared `Administration` wallet, wallet-owned schemas, the `ROLE_MODEL_ENABLED` flag), and the switch to an OIDC provider. Plan the switch as one maintenance window, and follow the step-by-step [runbook](../../docs/runbook-migrate-to-oidc-provider.md); it includes the checks and a rollback. The points below summarize what changes.
 
 1. **`Admin` tokens use a shared wallet.** Every `Admin` now acts in the shared `Administration` wallet instead of a personal `Administration_<sub>` wallet. DIDs, connections, credentials and OID4VC records in the previous wallets aren't deleted, but they can't be reached through the API anymore. All other wallets are unchanged.
 2. **Schemas move to wallets.** Migration `Migration20260924120000` makes each schema belong to a wallet of the user who created it. That is the wallet whose primary DID registered it; otherwise it is the creator's wallet whose ID sorts first alphabetically. Wallets have no creation date, so this isn't necessarily the oldest one. No data is deleted, and the creator stays the schema's issuer. For accounts that were `Admin` before this release, that wallet is their previous `Administration_<sub>` wallet, so their schemas aren't visible from the shared `Administration` wallet, or from the `User_<sub>` wallet of a reassigned account. Templates and credential status lists still belong to their users.
 3. **Role restrictions are off by default.** Before #215, the Identity Service always enforced the per-endpoint role lists. For example, only `Admin`, `OrgAdmin` and `Issuer` could call `POST /dids`, and invitations, offers, proofs, OID4VC sessions, status lists and credential definitions were limited to specific roles. With the default `ROLE_MODEL_ENABLED=false`, no role is checked: every token can do everything in the wallet it acts in. If you rely on these role lists, set `ROLE_MODEL_ENABLED=true`; the enabled mode enforces the same lists as before.
-4. **Reassign roles before migrating the accounts.** Before #215, sign-up let the client choose its role, and the Web UI and `prepare-demo-user.ts` registered every account as `Admin`. Migrated unchanged, all these accounts would act in the shared `Administration` wallet and see each other's resources. In the heka-auth-service database, reassign every account that isn't a real platform operator, including the demo user:
-
-   ```sql
-   update "auth_user" set "role" = 'User' where "role" = 'Admin' and "name" not in ('<real operator>', ...);
-   ```
-
-5. **Migrate the accounts to the OIDC provider.** Dump `auth_user` and convert it with [`tools/heka-auth-user-export`](../../tools/heka-auth-user-export/README.md), passing the deployment's `ORG_ID` as `--org-id`. Then import the result into Keycloak or Auth0 as that README describes. Each account keeps its id as `heka_uid` and its role, and organization roles get `org_id` = `ORG_ID`, so every user lands in the same wallet as before. Check one account per role before importing everyone.
+4. **Only real operators stay `Admin`.** Before #215, sign-up let the client choose its role, and the Web UI and `prepare-demo-user.ts` registered every account as `Admin`. Migrated unchanged, all these accounts would act in the shared `Administration` wallet and see each other's resources.
+   - The export tool therefore refuses to export `Admin` accounts until you name the operators with `--keep-admin <name>`. Every other `Admin` is exported as `User`, and the heka-auth-service database is left unchanged.
+   - `--report` shows every account's role and wallet after the migration before anything is imported.
+5. **Migrate the accounts to the OIDC provider.** Dump `auth_user`, convert it with [`tools/heka-auth-user-export`](../../tools/heka-auth-user-export/README.md) (passing the deployment's `ORG_ID` as `--org-id`), import it into Keycloak or Auth0, and check the result with `verify-import.mjs`.
+   - Each account keeps its id as `heka_uid`.
+   - Organization roles get `org_id` = `ORG_ID`.
+   - So every account that keeps its role lands in the same wallet as before.
 6. **Switch the services.** Configure the Identity Service with `OIDC_*` (see [Authentication (OIDC)](#authentication-oidc)), then switch the SSO service and the Web UI. Tokens issued by heka-auth-service stop working at once, so users sign in again. From then on, role changes are made in the provider and apply with the next access token (see [Managing roles](#managing-roles)).
 7. **Re-create the service accounts' wallets.** The SSO service now authenticates as its own service account (`OrgAdmin` of `heka-sso` in both recipes), and the demo pages as `heka-demo` (`User`). Both get new wallets.
    - With the SSO account's token, call `POST /prepare-wallet`. Set `IDENTITY_SERVICE_PUBLIC_VERIFIER_ID` and `IDENTITY_SERVICE_REQUEST_SIGNER_DID` to the DID it returns, and restart the SSO service.
@@ -363,7 +363,7 @@ A fresh deployment needs no action. A deployment that still runs heka-auth-servi
 8. **Tell former `Admin`s who are now `User`s** that they start in an empty `User_<id>` wallet. Their earlier data stays in the old wallet.
 9. **Retire heka-auth-service** once the import has been verified. Keep its database dump until then.
 
-The full migration plan is in [docs/keycloak-replacement-for-auth-service.md](../../docs/keycloak-replacement-for-auth-service.md). The role-model side is phase 3 of [docs/role-model-and-oidc-providers.md](../../docs/role-model-and-oidc-providers.md).
+Step by step: [docs/runbook-migrate-to-oidc-provider.md](../../docs/runbook-migrate-to-oidc-provider.md). Background: [docs/keycloak-replacement-for-auth-service.md](../../docs/keycloak-replacement-for-auth-service.md) (the switch) and [docs/role-model-and-oidc-providers.md](../../docs/role-model-and-oidc-providers.md) (the role model).
 
 #### Provider recipes
 
