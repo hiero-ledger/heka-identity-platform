@@ -53,14 +53,48 @@ OIDC_CLAIM_NAME=https://heka/name,name,nickname
 OIDC_CLAIM_ORG_ID=https://heka/org_id
 ```
 
-## Roles and organizations
+## Managing roles
 
-The identity service requires exactly one Heka role per token and derives the tenant from `(role, user id, org_id)`. With Auth0, choose one of:
+The identity service requires exactly one Heka role per token and derives the tenant from `(role, user id, org_id)`. Roles are managed here, in Auth0.
 
-- assign exactly one of the Auth0 roles `Admin` … `User` to the user (User Management → Users → Roles), or
-- set `app_metadata.heka_role` (and `app_metadata.org_id` for org roles) on the user.
+Two kinds of administrator are involved:
 
-Users with neither get `HEKA_DEFAULT_ROLE` (`User`) on their next login, persisted in `app_metadata.heka_role`. Never set it to `Admin`: every `Admin` acts in the one shared `Administration` wallet, so every new sign-up would act as the platform. Machine-to-machine applications carry the role in their Application Metadata.
+| Who | What they can do | How they get it |
+|---|---|---|
+| **Heka `Admin`** | Acts as the platform in heka-identity-service (the shared `Administration` wallet). Gives no rights in Auth0. | `app_metadata.heka_role = Admin`, or the Auth0 role `Admin` |
+| **Auth0 tenant administrator** | Assigns roles: edits users' `app_metadata` and Auth0 roles, and applications' metadata. | A member of the tenant in the Auth0 dashboard (Settings → Tenant Members) |
+
+Narrower delegation, such as an `OrgAdmin` managing only their own organization's members, needs Auth0 Organizations and is planned separately (phases 4 and 5 of [`docs/role-model-and-oidc-providers.md`](../../docs/role-model-and-oidc-providers.md)).
+
+### The first `Admin` and the operators
+
+- **First `Admin`:** `setup-tenant.sh` creates the dev operator `admin` with `heka_role = Admin`. In a real deployment, skip the dev users (`CREATE_DEMO_USER=false`) and give your operators `Admin` as described below. Sign-ups never get `Admin`: the post-login Action assigns `HEKA_DEFAULT_ROLE` (`User`).
+- **Never set `HEKA_DEFAULT_ROLE` to `Admin`.** Every `Admin` acts in the one shared `Administration` wallet, so every new sign-up would act as the platform.
+- **Keep at least two Heka `Admin`s and at least two tenant administrators.** That way one person leaving doesn't lock the platform out.
+- **Nobody changes their own role.** Auth0 doesn't prevent a tenant administrator from editing their own `app_metadata`, so treat this as an operating rule. Role changes made through the dashboard or the Management API are recorded in the tenant logs (Monitoring → Logs).
+
+### Assigning a role
+
+The post-login Action takes the first of these that applies:
+
+1. **Exactly one Auth0 role** with a Heka name (`Admin` … `User`; User Management → Users → the user → Roles);
+2. **`app_metadata.heka_role`** on the user;
+3. **`HEKA_DEFAULT_ROLE`**, which it then saves in `app_metadata.heka_role`.
+
+Use one of the first two consistently. An Auth0 role silently overrides `app_metadata`, and a user with two Heka Auth0 roles falls back to `app_metadata`.
+
+- **Change a user's role:** User Management → Users → the user → Details → `app_metadata`, for example `{ "heka_role": "Issuer", "heka_uid": "…", "org_id": "acme" }`. Keep `heka_uid` unchanged.
+- **Organization roles** (`OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`) also need `app_metadata.org_id`. `Admin` and `User` must not have it. The `org_id` value names the organization's wallet (`Organization_<org_id>`), so use one stable value per organization and never rename it.
+- **Machine-to-machine applications** carry the role in their Application Metadata (`heka_role`, plus `org_id` for organization roles). The credentials-exchange Action refuses a token when the role is missing or invalid, when an organization role has no `org_id`, or when `Admin` / `User` has one.
+
+### When a change takes effect
+
+A change applies with the user's next access token: their next login or refresh, since the post-login Action runs again. Access tokens for the API live 3600 s. Tokens that were already issued keep the old role until they expire, because heka-identity-service doesn't check revocation. A role change also moves the user to another wallet; the previous wallet keeps its data.
+
+### Recovering access
+
+- **No Heka `Admin` left:** a tenant administrator sets `app_metadata.heka_role = Admin` on an operator.
+- **No tenant administrator left:** this can only be solved through Auth0 support, so keep at least two tenant members.
 
 Re-running `setup-tenant.sh` re-applies the role settings to an existing tenant: the Action secrets (including `HEKA_DEFAULT_ROLE`), the metadata of `heka-sso-service` and `heka-demo`, the API token lifetime (3600 s, so a role change reaches the identity service within an hour) and the dev users. Users who signed in while the default was `Admin` keep that persisted `app_metadata.heka_role`; reassign everyone who isn't a platform operator to `User`.
 

@@ -50,7 +50,7 @@ describe('E2E role model', () => {
   describe('disabled (default): self-service onboarding', () => {
     beforeEach(() => startApp(false))
 
-    // A self-registered user gets the `User` role from the bundled Auth Service
+    // A self-registered user gets the `User` role from the OIDC provider recipes (Keycloak default group, Auth0 Action)
     test('a sign-up (User) prepares its own wallet and can use every endpoint', async () => {
       const token = await tokenFor(Role.User)
 
