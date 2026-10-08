@@ -11,7 +11,8 @@
 # (SSO_ORG_ID), the heka-demo application (whose token is public) is User. Admin is never a default: every Admin
 # acts in the one shared Administration wallet of heka-identity-service.
 #
-# Prerequisites: `auth0 login` against the target tenant (interactive), `node` on the PATH.
+# Prerequisites: `auth0 login --scopes create:organization_connections,create:organization_members,create:organization_member_roles,read:organization_member_roles`
+# against the target tenant (interactive; the default CLI scopes cannot enable a connection for an organization), `node` on the PATH.
 # Environment overrides (all optional):
 #   HEKA_AUDIENCE         API identifier                       (default https://heka-identity)
 #   HEKA_CLAIM_NAMESPACE  custom-claim prefix                  (default https://heka)
@@ -219,8 +220,16 @@ else
   echo "   organization ${SSO_ORG_ID} exists ${ORG_ID}"
 fi
 if [ -n "$ORG_ID" ]; then
+  echo "   metadata.heka_org_id=${SSO_ORG_ID}"
+  # Without an enabled connection, every login through the organization fails with
+  # "no connections enabled for the organization". Already enabled: Auth0 answers 409, which is fine.
   api post "organizations/${ORG_ID}/enabled_connections" --data "{\"connection_id\":\"${CONN_ID}\",\"assign_membership_on_login\":false}" >/dev/null || true
-  echo "   metadata.heka_org_id=${SSO_ORG_ID}, connection ${DB_CONNECTION} enabled"
+  if [ "$(api get "organizations/${ORG_ID}/enabled_connections" | json 'let a=[];try{a=JSON.parse(require("fs").readFileSync(0,"utf8"))}catch{};console.log(a.some(c=>c.connection_id===process.argv[1]))' "$CONN_ID")" = "true" ]; then
+    echo "   connection ${DB_CONNECTION} enabled for the organization"
+  else
+    echo "   WARNING: could not enable connection ${DB_CONNECTION} for ${SSO_ORG_ID}. Log in with the organization scopes" >&2
+    echo "   (see README, Organizations) or enable it in the dashboard: Organizations -> ${SSO_ORG_ID} -> Connections." >&2
+  fi
 else
   echo "   could not create organization ${SSO_ORG_ID} (does the tenant's plan include Organizations?)" >&2
 fi

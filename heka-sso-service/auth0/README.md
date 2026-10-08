@@ -35,7 +35,7 @@ Auth0 access tokens with an API audience refuse private claims that are not name
 ## Running the script
 
 ```sh
-auth0 login                      # interactive; pick the target tenant
+auth0 login --scopes create:organization_connections,create:organization_members,create:organization_member_roles,read:organization_member_roles   # interactive; pick the target tenant
 ./setup-tenant.sh                # from this folder; prints the settings for every component at the end
 ```
 
@@ -105,7 +105,12 @@ Auth0 **Organizations** let one user belong to several organizations and have a 
 
 Machine-to-machine applications can't be organization members here; they keep `org_id` in their Application Metadata (`heka-sso-service`: `heka-sso`).
 
-The Action logic is covered by unit tests (`heka-sso-service/test/unit/auth0-actions.spec.ts`). On 2026-10-08 `setup-tenant.sh` created the `heka-sso` organization on the dev tenant. A live organization login hasn't been run yet: adding members through the Auth0 CLI needs a login with the `create:organization_members` and `create:organization_member_roles` scopes.
+The Action logic is covered by unit tests (`heka-sso-service/test/unit/auth0-actions.spec.ts`). On 2026-10-08 `setup-tenant.sh` created the `heka-sso` organization on the dev tenant. Verified live on 2026-10-08 against the dev tenant, with a test user whose own `app_metadata.heka_role` was `User` and who was an `Issuer` member of `heka-sso`. The access tokens were signature-checked against the tenant JWKS.
+- **Through the organization:** `https://heka/roles: ["Issuer"]`, `https://heka/org_id: "heka-sso"` (from the organization metadata), so the wallet is `Issuer_<uid>_in_Organization_heka-sso`.
+- **Without the organization:** `["User"]` from `app_metadata`, with no `org_id`.
+- **With a second Heka role on the membership:** the login was denied (`access_denied`, "Your membership of heka-sso needs exactly one of the roles …").
+
+The organization needs the database connection enabled; without it, Auth0 refuses the login with "no connections enabled for the organization". Enabling it through the CLI needs the `create:organization_connections` scope (see the `auth0 login` command above).
 
 ### When a change takes effect
 
