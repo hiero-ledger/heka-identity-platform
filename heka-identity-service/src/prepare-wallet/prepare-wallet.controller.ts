@@ -5,6 +5,7 @@ import {
   ApiBearerAuth,
   ApiConsumes,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger'
@@ -32,7 +33,14 @@ export class PrepareWalletController {
     private readonly logger: Logger,
   ) {}
 
-  @ApiOperation({ summary: "Prepare User's Wallet" })
+  @ApiOperation({
+    summary: "Prepare User's Wallet",
+    description:
+      'Creates a DID of every enabled method with its OID4VC issuer and verifier, the profile and the requested schemas. ' +
+      'Calls for one wallet run one at a time across instances; a repeated call creates whatever is still missing. ' +
+      '`dids` reports each method.',
+  })
+  @ApiServiceUnavailableResponse({ description: 'Another call has been preparing the wallet for too long; retry' })
   @UseInterceptors(
     FileFieldsInterceptor(
       [

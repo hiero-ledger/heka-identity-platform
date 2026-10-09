@@ -322,6 +322,14 @@ A claim path is resolved in this order: as a literal top-level key (so namespace
 
 The `tenantId` is **not** a JWT claim — it is derived internally from `(role, sub, org_id)` on first request and persisted with the auto-provisioned wallet. See [Concepts and Glossary — Multi-Tenancy](concepts.md#multi-tenancy).
 
+### Wallet preparation
+
+| Variable                      | Default | Description                                                                                                                        |
+| ----------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `PREPARE_WALLET_LOCK_TIMEOUT` | `300`   | Seconds a `POST /prepare-wallet` call waits while another call prepares the same wallet, on any instance, before it returns `503`. |
+
+`POST /prepare-wallet` calls for one wallet run one at a time, also across Identity Service instances. A PostgreSQL advisory lock on the wallet id is held on a dedicated database connection for the whole preparation. A concurrent caller (for example, a second member of a shared organization wallet) waits, then gets the fully prepared wallet. A repeated call creates whatever is still missing: a DID that failed before, OID4VC records, schema registrations on a DID created later. The `dids` list in the response reports each DID method as `created`, `existing`, `failed` (retried by the next call) or `skipped` (not allowed for the role).
+
 ### Role model
 
 | Variable             | Default | Description                                                                                                                            |

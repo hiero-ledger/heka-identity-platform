@@ -3083,6 +3083,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/pg@npm:^8.23.1":
+  version: 8.23.1
+  resolution: "@types/pg@npm:8.23.1"
+  dependencies:
+    "@types/node": "npm:*"
+    pg-protocol: "npm:*"
+    pg-types: "npm:^2.2.0"
+  checksum: 10c0/0e39ff7dbe233e1e50b172d87fe84cca086a52e255adb104ef1d60619cded356c4414427ffbea58e70a5a985c3036603c8e544ca2937fc1cf4050185109973be
+  languageName: node
+  linkType: hard
+
 "@types/qs@npm:*":
   version: 6.15.1
   resolution: "@types/qs@npm:6.15.1"
@@ -5925,6 +5936,7 @@ __metadata:
     "@types/fs-extra": "npm:^11.0.2"
     "@types/multer": "npm:^1.4.11"
     "@types/node": "npm:^22.0.2"
+    "@types/pg": "npm:^8.23.1"
     "@types/supertest": "npm:^2.0.12"
     "@types/uuid": "npm:^9.0.1"
     "@types/ws": "npm:^8.18.1"
@@ -5952,6 +5964,7 @@ __metadata:
     nestjs-pino: "npm:^3.2.0"
     nodemon: "npm:^2.0.22"
     patch-package: "npm:^8.0.0"
+    pg: "npm:8.23.0"
     pino: "npm:^8.14.1"
     pino-http: "npm:^8.3.3"
     pino-pretty: "npm:^10.0.0"
@@ -7230,6 +7243,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"pg-protocol@npm:*":
+  version: 1.16.1
+  resolution: "pg-protocol@npm:1.16.1"
+  checksum: 10c0/84e8bf05c3548c8ffcad29247c075f8f1cf477600c92a7eb0ab27c6c4cbdbe1280433582bfba91f629b1f68bcaf4ae26436a898f430e884d7887543931e8ade6
+  languageName: node
+  linkType: hard
+
 "pg-protocol@npm:^1.16.0":
   version: 1.16.0
   resolution: "pg-protocol@npm:1.16.0"
@@ -7237,7 +7257,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pg-types@npm:2.2.0":
+"pg-types@npm:2.2.0, pg-types@npm:^2.2.0":
   version: 2.2.0
   resolution: "pg-types@npm:2.2.0"
   dependencies:
