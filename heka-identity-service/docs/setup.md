@@ -173,11 +173,11 @@ yarn test
 ## CORS Configuration
 
 Cross-Origin Resource Sharing (CORS) controls which browser origins are permitted to call the Heka Identity Service API.
-CORS is **disabled by default** — it must be explicitly opted in via environment variables.
+CORS is **enabled by default** (with `Access-Control-Allow-Origin: *`) so that the Web UI works out of the box in local setups. Disable it, or restrict the allowed origins, via environment variables.
 
 | Variable               | Description                                                                                                                                                                                    | Default |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `EXPRESS_ENABLE_CORS`  | Set to `true` to enable CORS. Any other value (including unset) disables it.                                                                                                                   | `false` |
+| `EXPRESS_ENABLE_CORS`  | Set to `false` (or any value other than `true`) to disable CORS. Unset enables it.                                                                                                             | `true`  |
 | `EXPRESS_CORS_OPTIONS` | JSON string of [CORS options](https://github.com/expressjs/cors#configuration-options) passed directly to `app.enableCors()`. Must be valid JSON; invalid JSON crashes on startup (fail-fast). | `{}`    |
 
 > **Security warning:** Enabling CORS without setting an `origin` inside `EXPRESS_CORS_OPTIONS` defaults to `Access-Control-Allow-Origin: *`.
