@@ -9,7 +9,6 @@ import { CredentialFormat } from 'openid4vc/issuer/dto/common/credential'
 import { Role } from 'src/common/auth'
 import { OpenId4VcIssuersCreateDto } from 'src/openid4vc/issuer/dto'
 import { uuid } from 'src/utils/misc'
-import { sleep } from 'src/utils/timers'
 
 import { initializeMikroOrm, startTestApp } from './helpers'
 import { createAuthToken } from './helpers/jwt'
@@ -34,10 +33,6 @@ describe('OpenId4VcIssuersController', () => {
   })
 
   afterEach(async () => {
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(5000)
-
     await nestApp.close()
   })
 

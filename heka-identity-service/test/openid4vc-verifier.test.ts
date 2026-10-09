@@ -8,7 +8,6 @@ import request from 'supertest'
 import { OpenId4VcVerifierCreateDto } from 'openid4vc/verifier/dto'
 import { Role } from 'src/common/auth'
 import { uuid } from 'src/utils/misc'
-import { sleep } from 'src/utils/timers'
 
 import { initializeMikroOrm, startTestApp } from './helpers'
 import { createAuthToken } from './helpers/jwt'
@@ -33,10 +32,6 @@ describe('OpenId4VcVerifierController', () => {
   })
 
   afterEach(async () => {
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(5000)
-
     await nestApp.close()
   })
 

@@ -7,7 +7,6 @@ import request from 'supertest'
 
 import { CreateInvitationRequestDto } from 'src/connection/dto'
 import { uuid } from 'src/utils/misc'
-import { sleep } from 'src/utils/timers'
 
 import { initializeMikroOrm, signJwt, startTestApp } from './helpers'
 
@@ -29,10 +28,6 @@ describe('E2E authorization', () => {
   })
 
   afterAll(async () => {
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(2000)
-
     await nestApp.close()
 
     await ormSchemaGenerator.clear()

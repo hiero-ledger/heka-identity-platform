@@ -28,10 +28,6 @@ describe('E2E HTTP authentication', () => {
   })
 
   afterAll(async () => {
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(2000)
-
     await nestApp.close()
 
     await ormSchemaGenerator.clear()

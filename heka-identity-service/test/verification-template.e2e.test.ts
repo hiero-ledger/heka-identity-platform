@@ -8,7 +8,6 @@ import request from 'supertest'
 import { AriesCredentialFormat, DidMethod, OpenId4VcCredentialFormat, ProtocolType } from 'common/types'
 import { CreateSchemaRequest, CreateSchemaResponse, GetSchemasListRequest } from 'schema-v2/dto'
 import { Schema } from 'schema-v2/dto/common/schema'
-import { sleep } from 'src/utils/timers'
 import { uuid } from 'utils/misc'
 import {
   CreateVerificationTemplateRequest,
@@ -39,10 +38,6 @@ describe('E2E verification templates management', () => {
   })
 
   afterEach(async () => {
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(4000)
-
     await nestApp.close()
   })
 
