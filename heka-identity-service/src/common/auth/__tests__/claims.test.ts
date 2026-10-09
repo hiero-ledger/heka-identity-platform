@@ -154,6 +154,16 @@ describe('mapClaims', () => {
       expect(mapClaims({ ...base, org_id: null }, defaults)).not.toHaveProperty('org_id')
     })
 
+    test('ignores an organization for Admin and User, who act outside any organization', () => {
+      // e.g. a new sign-up added to a Keycloak organization before an OrgAdmin gives them an organization role
+      const keycloakOrgs = { ...defaults, orgId: ['heka_organization', 'org_id'], orgIdField: 'heka_org_id' }
+      const organization = { heka_organization: { acme: { heka_org_id: ['org-1'] } }, org_id: 'legacy' }
+
+      expect(mapClaims({ sub: 'u', roles: ['User'], ...organization }, keycloakOrgs)).not.toHaveProperty('org_id')
+      expect(mapClaims({ sub: 'u', roles: ['Admin'], ...organization }, keycloakOrgs)).not.toHaveProperty('org_id')
+      expect(mapClaims({ sub: 'u', roles: ['Issuer'], ...organization }, keycloakOrgs).org_id).toBe('org-1')
+    })
+
     test('falls back to the user id when no name claim is usable', () => {
       expect(mapClaims({ sub: 'user-1', roles: ['User'], name: '  ' }, defaults).name).toBe('user-1')
     })
@@ -167,7 +177,7 @@ describe('mapClaims', () => {
       ['empty roles', { sub: 'user-1', roles: [] }],
       ['only unknown roles', { sub: 'user-1', roles: ['Hacker', 'offline_access'] }],
       ['two known roles', { sub: 'user-1', roles: ['Admin', 'User'] }],
-      ['non-string org_id', { sub: 'user-1', roles: ['User'], org_id: 7 }],
+      ['non-string org_id', { sub: 'user-1', roles: ['Issuer'], org_id: 7 }],
     ])('rejects %s', (_label, payload) => {
       expect(() => mapClaims(payload as Record<string, unknown>, defaults)).toThrow(UnauthorizedException)
     })

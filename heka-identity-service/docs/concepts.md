@@ -37,7 +37,7 @@ The role model is optional and controlled by [`ROLE_MODEL_ENABLED`](setup.md#rol
 | `Issuer`     | Organization | `Issuer_<sub>_in_Organization_<org_id>`                         | Yes                                          |
 | `Verifier`   | Organization | `Verifier_<sub>_in_Organization_<org_id>`                       | No                                           |
 
-- **Organization roles require `org_id`, and `Admin` / `User` reject it** (`401`).
+- **Organization roles require `org_id`** (`401` without it). For `Admin` and `User` an organization in the token is ignored: they act in `Administration` and `User_<sub>`.
 - **Roles come from the OIDC provider.**
   - **Defaults in the shipped recipes:** every sign-up becomes a `User`; operators get `Admin` explicitly; the SSO service account is `OrgAdmin` of its own organization, and the demo account is a `User`.
   - **Assigning other roles** is done in the provider. See [Setup — Managing roles](setup.md#managing-roles).

@@ -142,6 +142,33 @@ else
   echo "   client grant exists"
 fi
 
+# --- 4c. Machine-to-machine application for delegated organization administration ----
+# heka-identity-service calls the Management API with it when an OrgAdmin changes a member's role in their own
+# organization (ORG_ADMIN_* settings). Only the scopes for organizations, memberships, roles and users.
+echo "== Application heka-identity-admin (M2M, Management API)"
+TENANT_DOMAIN="$(auth0 tenants list --json 2>/dev/null | json 'const a=JSON.parse(require("fs").readFileSync(0,"utf8"));const t=a.find(x=>x.active)||a[0];console.log(t?t.name:"")')"
+MGMT_AUDIENCE="https://${TENANT_DOMAIN}/api/v2/"
+ORG_ADMIN_SCOPES='["read:organizations","read:organization_members","read:organization_member_roles","create:organization_member_roles","delete:organization_member_roles","read:roles","read:users"]'
+ADMIN_APP_ID="$(find_app heka-identity-admin)"
+if [ -z "$ADMIN_APP_ID" ]; then
+  ADMIN_JSON="$(auth0 apps create --name heka-identity-admin --type m2m --description "Heka Identity Service organization administration (Management API)" \
+    --reveal-secrets --json 2>/dev/null)"
+  ADMIN_APP_ID="$(printf '%s' "$ADMIN_JSON" | json 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).client_id)')"
+  ADMIN_APP_SECRET="$(printf '%s' "$ADMIN_JSON" | json 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).client_secret)')"
+  echo "   created ${ADMIN_APP_ID}"
+else
+  ADMIN_APP_SECRET="(existing application: read it in the dashboard)"
+  echo "   exists ${ADMIN_APP_ID}"
+fi
+GRANT_ID="$(api get client-grants --query "client_id=${ADMIN_APP_ID}" | json 'const a=JSON.parse(require("fs").readFileSync(0,"utf8"));const g=a.find(x=>x.audience===process.argv[1]);console.log(g?g.id:"")' "$MGMT_AUDIENCE")"
+if [ -z "$GRANT_ID" ]; then
+  api post client-grants --data "{\"client_id\":\"${ADMIN_APP_ID}\",\"audience\":\"${MGMT_AUDIENCE}\",\"scope\":${ORG_ADMIN_SCOPES}}" >/dev/null
+  echo "   Management API grant created"
+else
+  api patch "client-grants/${GRANT_ID}" --data "{\"scope\":${ORG_ADMIN_SCOPES}}" >/dev/null
+  echo "   Management API grant updated"
+fi
+
 # --- 5. Actions ---------------------------------------------------------------
 ensure_action() { # name trigger file
   local name="$1" trigger="$2" file="$3" id
@@ -301,4 +328,10 @@ heka-identity-service demo-token broker (phase 6)
   DEMO_CLIENT_ID=${DEMO_ID}
   DEMO_CLIENT_SECRET=${DEMO_SECRET}
   DEMO_TOKEN_PARAMS={"audience":"${HEKA_AUDIENCE}"}
+
+heka-identity-service organization administration (OrgAdmins manage their organization's members)
+  ORG_ADMIN_PROVIDER=auth0
+  ORG_ADMIN_URL=https://${DOMAIN}
+  ORG_ADMIN_CLIENT_ID=${ADMIN_APP_ID}
+  ORG_ADMIN_CLIENT_SECRET=${ADMIN_APP_SECRET}
 EOF

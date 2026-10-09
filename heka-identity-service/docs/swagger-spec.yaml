@@ -1964,6 +1964,68 @@ paths:
         demo pages
       tags:
         - Demo
+  /organization/members:
+    get:
+      operationId: OrganizationAdminController_listMembers
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationMembersDto"
+        "401": &a52
+          description: Missing or invalid token
+        "403": &a53
+          description: The caller is not (or no longer) an OrgAdmin member of the
+            organization
+        "404": &a54
+          description: Organization administration is not enabled, or the organization or
+            member is unknown
+        "502": &a55
+          description: The OIDC provider admin API call failed
+      security: &a56
+        - bearer: []
+      summary: Members of the caller's organization and their Heka roles
+      tags: &a57
+        - Organization administration
+  /organization/members/{memberId}/role:
+    put:
+      description: Assigns one organization role (OrgAdmin, OrgManager, OrgMember,
+        Issuer, Verifier) and removes any other Heka role. Not for the caller
+        themselves, and not for members with Admin. The change applies with the
+        member’s next token.
+      operationId: OrganizationAdminController_setRole
+      parameters:
+        - name: memberId
+          required: true
+          in: path
+          description: The member's id as listed by GET /organization/members
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetOrganizationRoleRequestDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationMemberDto"
+        "400":
+          description: Not an organization role
+        "401": *a52
+        "403": *a53
+        "404": *a54
+        "502": *a55
+      security: *a56
+      summary: Set the Heka role of a member of the caller's organization
+      tags: *a57
 info:
   title: Heka Identity Service
   description: Heka Identity Service API
@@ -4082,5 +4144,80 @@ components:
         - access_token
         - token_type
         - expires_in
+    OrganizationMemberDto:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The OIDC provider's user id; use it in PUT
+            /organization/members/{id}/role
+        hekaUid:
+          type: string
+          description: Heka user id (the token user id that wallets are derived from)
+        username:
+          type: string
+        role:
+          type: string
+          enum:
+            - Admin
+            - OrgAdmin
+            - OrgManager
+            - OrgMember
+            - Issuer
+            - Verifier
+            - User
+          description: The Heka role in this organization; absent unless exactly one
+        roles:
+          type: array
+          description: Every Heka role found; a token is only accepted with exactly one
+          items:
+            type: string
+            enum:
+              - Admin
+              - OrgAdmin
+              - OrgManager
+              - OrgMember
+              - Issuer
+              - Verifier
+              - User
+        self:
+          type: boolean
+          description: True for the caller
+      required:
+        - id
+        - hekaUid
+        - username
+        - roles
+        - self
+    OrganizationMembersDto:
+      type: object
+      properties:
+        organizationId:
+          type: string
+          description: Heka organization id (names the organization wallet)
+        organizationName:
+          type: string
+          description: The organization's name in the OIDC provider
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrganizationMemberDto"
+      required:
+        - organizationId
+        - organizationName
+        - members
+    SetOrganizationRoleRequestDto:
+      type: object
+      properties:
+        role:
+          type: string
+          enum:
+            - OrgAdmin
+            - OrgManager
+            - OrgMember
+            - Issuer
+            - Verifier
+      required:
+        - role
 security:
   - bearer: []

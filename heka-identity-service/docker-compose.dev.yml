@@ -28,6 +28,10 @@ services:
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-heka-identity-service}
       OIDC_CLAIM_ORG_ID: ${OIDC_CLAIM_ORG_ID:-heka_organization,org_id}
       OIDC_CLAIM_ORG_ID_FIELD: ${OIDC_CLAIM_ORG_ID_FIELD:-heka_org_id}
+      ORG_ADMIN_PROVIDER: ${ORG_ADMIN_PROVIDER:-keycloak}
+      ORG_ADMIN_URL: ${ORG_ADMIN_URL:-http://host.docker.internal:8080}
+      ORG_ADMIN_CLIENT_ID: ${ORG_ADMIN_CLIENT_ID:-heka-identity-admin}
+      ORG_ADMIN_CLIENT_SECRET: ${ORG_ADMIN_CLIENT_SECRET:-dev-only-heka-identity-admin-secret-do-not-use-in-production}
       # Demo-token broker for the web UI's public demo pages (docs/setup.md#demo-token-broker); the
       # token endpoint is reached through the host gateway like the JWKS. Dev secret of the shipped realm.
       DEMO_TOKEN_URL: ${DEMO_TOKEN_URL:-http://host.docker.internal:8080/realms/heka-platform/protocol/openid-connect/token}

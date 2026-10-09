@@ -55,7 +55,13 @@ export function mapClaims(payload: Claims, config: OidcClaimsConfig): TokenPaylo
     .map((path) => getClaim(payload, path))
     .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
 
-  const orgId = extractOrgId(payload, config.orgId, config.orgIdField)
+  // `Admin` and `User` act outside any organization (the `Administration` and `User_<id>` wallets), so an
+  // organization in their token is ignored rather than rejected: a provider puts one there for a member who has no
+  // organization role yet, e.g. a new sign-up added to a Keycloak or Auth0 organization.
+  const orgId =
+    roles[0] === Role.Admin || roles[0] === Role.User
+      ? undefined
+      : extractOrgId(payload, config.orgId, config.orgIdField)
 
   return {
     sub: userId,
