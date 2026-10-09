@@ -21,11 +21,7 @@ export interface DemoToken {
 }
 
 /**
- * Obtains and caches the demo service account's access token with an OAuth 2.0 Client Credentials
- * grant (RFC 6749 section 4.4) against the provider configured with `DEMO_TOKEN_URL`, `DEMO_CLIENT_ID`
- * and `DEMO_CLIENT_SECRET`. One token is shared by every caller of `GET /demo/token` and re-acquired
- * shortly before `expires_in` elapses, so the provider sees one grant per token lifetime regardless
- * of how many browsers open the demo pages.
+ * Obtains and caches the demo service account's access token
  */
 @Injectable()
 export class DemoTokenProvider implements OnModuleInit {
