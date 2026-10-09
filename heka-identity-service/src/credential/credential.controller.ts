@@ -16,7 +16,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { JwtAuthGuard, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { AnyRole, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { CredentialService } from './credential.service'
@@ -41,6 +41,7 @@ export class CredentialController {
   @ApiOperation({ summary: 'Get all credential records' })
   @ApiQuery({ name: 'threadId', type: String, required: false })
   @ApiOkResponse({ description: 'Credential Records', type: [CredentialRecordDto] })
+  @AnyRole()
   @Get()
   public async find(
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -79,6 +80,7 @@ export class CredentialController {
   // NOTE: this route should be defined BEFORE get() since they conflict
   @ApiOperation({ summary: 'Get available protocols and their cred types and networks' })
   @ApiOkResponse({ description: 'Credential config', type: CredentialConfigDto })
+  @AnyRole()
   @Get('config')
   public async types(): Promise<CredentialConfigDto> {
     const logger = this.logger.child('types')
@@ -94,6 +96,7 @@ export class CredentialController {
   @ApiParam({ name: 'id', type: String })
   @ApiOkResponse({ description: 'Credential Record', type: CredentialRecordDto })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @AnyRole()
   @Get(':id')
   public async get(@ReqTenantAgent() tenantAgent: TenantAgent, @Param('id') id: string): Promise<CredentialRecordDto> {
     const logger = this.logger.child('get', { id })

@@ -11,7 +11,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { AuthInfo, JwtAuthGuard, ReqAuthInfo } from 'common/auth'
-import { RoleGuard } from 'common/authz'
+import { AnyRole, RoleGuard } from 'common/authz'
 import { imageMulterOptions } from 'common/file-uploader/image.multer.options'
 import { ImagesUploadingValidationPipe } from 'common/file-uploader/validation.pipe'
 import { InjectLogger, Logger } from 'common/logger'
@@ -43,6 +43,7 @@ export class PrepareWalletController {
     ),
   )
   @ApiConsumes('multipart/form-data')
+  @AnyRole()
   @Post('')
   public async prepareWallet(
     @ReqAuthInfo() authInfo: AuthInfo,

@@ -13,7 +13,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { AuthInfo, JwtAuthGuard, ReqAuthInfo, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { AnyRole, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { ConnectionService } from './connection.service'
@@ -41,6 +41,7 @@ export class ConnectionController {
   @ApiOperation({ summary: 'Get all connections' })
   @ApiOkResponse({ description: 'Connections', type: [ConnectionRecordDto] })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @AnyRole()
   @Get()
   public async find(@ReqTenantAgent() tenantAgent: TenantAgent): Promise<ConnectionRecordDto[]> {
     const logger = this.logger.child('find')
@@ -100,6 +101,7 @@ export class ConnectionController {
   @ApiOkResponse({ description: 'Connection', type: ConnectionRecordDto })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @AnyRole()
   @Get(':id')
   public async get(
     @ReqTenantAgent() tenantAgent: TenantAgent,

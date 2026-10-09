@@ -207,6 +207,45 @@ describe('DidService', () => {
       expect(didRegistrarService.createDid).not.toHaveBeenCalled()
     })
 
+    describe('Verifier (role model enabled)', () => {
+      const verifierWallet = 'Verifier_user-1_in_Organization_org-1'
+
+      test('creates a self-controlled did:key, without looking for a controller', async () => {
+        vi.mocked(em.findOneOrFail).mockResolvedValue(entityStub<Wallet>({ id: verifierWallet, publicDid: undefined }))
+        vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocumentStub({ id: 'did:key:verifier' }))
+
+        const result = await didService.create(makeAuthInfo(Role.Verifier, verifierWallet, 'org-1'), {})
+
+        expect(result.id).toBe('did:key:verifier')
+        expect(didRegistrarService.createDid).toHaveBeenCalledWith('tenant-1', 'key', { namespace: 'test-ns' })
+        expect(em.findOne).not.toHaveBeenCalled()
+      })
+
+      test.each(['hedera', 'indy', 'indybesu'])('may not create a %s DID (ledger write)', async (method) => {
+        vi.mocked(em.findOneOrFail).mockResolvedValue(
+          entityStub<Wallet>({ id: verifierWallet, publicDid: 'did:key:verifier' }),
+        )
+
+        await expect(
+          didService.create(makeAuthInfo(Role.Verifier, verifierWallet, 'org-1'), { method }),
+        ).rejects.toThrow(`Role 'Verifier' can only create did:key DIDs, not '${method}'`)
+        expect(didRegistrarService.createDid).not.toHaveBeenCalled()
+      })
+
+      test('has no such limit with the role model disabled', async () => {
+        vi.mocked(em.findOneOrFail).mockResolvedValue(
+          entityStub<Wallet>({ id: verifierWallet, publicDid: 'did:key:verifier' }),
+        )
+        vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocumentStub({ id: 'did:hedera:testnet:v' }))
+
+        const result = await makeService(false).create(makeAuthInfo(Role.Verifier, verifierWallet, 'org-1'), {
+          method: 'hedera',
+        })
+
+        expect(result.id).toBe('did:hedera:testnet:v')
+      })
+    })
+
     test('returns 409 when the wallet already has its main-method DID', async () => {
       vi.mocked(em.findOneOrFail).mockResolvedValue(
         entityStub<Wallet>({ id: 'Issuer_user-1_in_Organization_org-1', publicDid: 'did:key:existing' }),

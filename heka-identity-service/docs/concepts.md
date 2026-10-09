@@ -27,15 +27,15 @@ The Identity Service is multi-tenant. A single deployment hosts many independent
 
 The role model is optional and controlled by [`ROLE_MODEL_ENABLED`](setup.md#role-model). Roles and wallets are the same in both modes; the flag only decides whether role restrictions are enforced. Existing deployments must follow [Upgrading an existing deployment](setup.md#upgrading-an-existing-deployment).
 
-| Role         | Scope        | Wallet                                                          | Can create a public DID (role model enabled) |
-| ------------ | ------------ | --------------------------------------------------------------- | -------------------------------------------- |
-| `Admin`      | Global       | `Administration`: the platform identity, shared by all `Admin`s | Yes                                          |
-| `User`       | Global       | `User_<sub>`: a personal wallet                                 | No                                           |
-| `OrgAdmin`   | Organization | `Organization_<org_id>`: the organization identity              | Yes                                          |
-| `OrgManager` | Organization | `Organization_<org_id>`                                         | No                                           |
-| `OrgMember`  | Organization | `Organization_<org_id>`                                         | No                                           |
-| `Issuer`     | Organization | `Issuer_<sub>_in_Organization_<org_id>`                         | Yes                                          |
-| `Verifier`   | Organization | `Verifier_<sub>_in_Organization_<org_id>`                       | No                                           |
+| Role         | Scope        | Wallet                                                          | Can create a public DID (role model enabled)      |
+| ------------ | ------------ | --------------------------------------------------------------- | ------------------------------------------------- |
+| `Admin`      | Global       | `Administration`: the platform identity, shared by all `Admin`s | Yes                                               |
+| `User`       | Global       | `User_<sub>`: a personal wallet                                 | No                                                |
+| `OrgAdmin`   | Organization | `Organization_<org_id>`: the organization identity              | Yes                                               |
+| `OrgManager` | Organization | `Organization_<org_id>`                                         | No                                                |
+| `OrgMember`  | Organization | `Organization_<org_id>`                                         | No                                                |
+| `Issuer`     | Organization | `Issuer_<sub>_in_Organization_<org_id>`                         | Yes                                               |
+| `Verifier`   | Organization | `Verifier_<sub>_in_Organization_<org_id>`                       | `did:key` only (self-controlled, no ledger write) |
 
 - **Organization roles require `org_id`** (`401` without it). For `Admin` and `User` an organization in the token is ignored: they act in `Administration` and `User_<sub>`.
 - **Roles come from the OIDC provider.**
@@ -43,7 +43,7 @@ The role model is optional and controlled by [`ROLE_MODEL_ENABLED`](setup.md#rol
   - **Assigning other roles** is done in the provider. See [Setup — Managing roles](setup.md#managing-roles).
   - **A role change** reaches the service with the user's next access token and gives the user a different wallet; the data of the previous wallet stays with it.
 - **Role model disabled (default):** roles aren't checked. Every user can call every endpoint in the wallet they act in, and no DID controller is set. This is the self-service Web UI mode.
-- **Role model enabled:** each endpoint allows only the roles listed in its `@Roles` decorator. Endpoints without one are open to every authenticated user. A role that can't create a public DID gets `403` from `POST /dids`, and from `POST /prepare-wallet` unless its wallet is already prepared.
+- **Role model enabled:** each endpoint allows only the roles in its `@Roles` decorator, or every authenticated role when it is marked `@AnyRole()`. A route with neither is denied (fail closed), and a unit test checks that every route has one of the two. Reads are open to every role, because their data is confined to the caller's wallet. Writes follow their purpose: issuing (`Admin`, `OrgAdmin`, `OrgManager`, `Issuer`) or verifying (the same plus `Verifier`). A role that can't create a public DID gets `403` from `POST /dids`, and from `POST /prepare-wallet` unless its wallet is already prepared. A `Verifier` may create a `did:key`, so it can prepare its own wallet.
 
 #### DID controller
 

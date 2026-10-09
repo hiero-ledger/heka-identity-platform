@@ -2,6 +2,7 @@ import { EntityManager } from '@mikro-orm/core'
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -12,12 +13,12 @@ import { ConfigType } from '@nestjs/config'
 import { Mutex } from 'async-mutex'
 
 import { Agent, AGENT_TOKEN, TenantAgent } from 'common/agent'
-import { AuthInfo } from 'common/auth'
+import { AuthInfo, Role } from 'common/auth'
 import { AuthorizationService } from 'common/authz'
 import { DidRegistrarService } from 'common/did-registrar'
 import { Wallet } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
-import { MAIN_DID_METHOD } from 'common/types'
+import { DidMethod, MAIN_DID_METHOD } from 'common/types'
 import { getDidControllerWalletId } from 'utils/auth'
 import { withTenantAgent } from 'utils/multi-tenancy'
 
@@ -86,10 +87,15 @@ export class DidService {
       }
 
       // 2. With the role model enabled, the new DID is controlled by the DID of the same method held by the
-      // controller wallet (Admin -> OrgAdmin -> Issuer), for methods that support a controller. Roles that cannot
-      // create a public DID are rejected here as well
+      // controller wallet (Admin -> OrgAdmin -> Issuer), for methods that support a controller. A Verifier may only
+      // create a self-controlled did:key (no ledger write), enough to prepare its wallet and sign verification
+      // requests. Other roles that cannot create a public DID are rejected here as well
       let controller: string | undefined
-      if (this.authorizationService.isEnforced) {
+      if (this.authorizationService.isEnforced && authInfo.role === Role.Verifier) {
+        if (method !== DidMethod.Key) {
+          throw new ForbiddenException(`Role '${authInfo.role}' can only create did:key DIDs, not '${method}'`)
+        }
+      } else if (this.authorizationService.isEnforced) {
         const didControllerWalletId = getDidControllerWalletId({ role: authInfo.role, orgId: authInfo.orgId })
         if (didControllerWalletId && this.didRegistrarService.supportsController(method)) {
           controller = await this.findCreatedDid(didControllerWalletId, method)
