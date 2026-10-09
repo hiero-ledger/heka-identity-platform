@@ -35,6 +35,8 @@ describe('DidService', () => {
       agencyConfig: { indyEndorserDid: 'endorser-did', networks: [{ indyNamespace: 'test-ns' }] },
     })
     em = createMock<EntityManager>()
+    // The wallet's `public_did` is still empty, so the claim succeeds
+    vi.mocked(em.nativeUpdate).mockResolvedValue(1)
     logger = createMock<Logger>()
     didRegistrarService = createMock<DidRegistrarService>()
     didService = new DidService(
@@ -205,6 +207,45 @@ describe('DidService', () => {
         ForbiddenException,
       )
       expect(didRegistrarService.createDid).not.toHaveBeenCalled()
+    })
+
+    describe('Verifier (role model enabled)', () => {
+      const verifierWallet = 'Verifier_user-1_in_Organization_org-1'
+
+      test('creates a self-controlled did:key, without looking for a controller', async () => {
+        vi.mocked(em.findOneOrFail).mockResolvedValue(entityStub<Wallet>({ id: verifierWallet, publicDid: undefined }))
+        vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocumentStub({ id: 'did:key:verifier' }))
+
+        const result = await didService.create(makeAuthInfo(Role.Verifier, verifierWallet, 'org-1'), {})
+
+        expect(result.id).toBe('did:key:verifier')
+        expect(didRegistrarService.createDid).toHaveBeenCalledWith('tenant-1', 'key', { namespace: 'test-ns' })
+        expect(em.findOne).not.toHaveBeenCalled()
+      })
+
+      test.each(['hedera', 'indy', 'indybesu'])('may not create a %s DID (ledger write)', async (method) => {
+        vi.mocked(em.findOneOrFail).mockResolvedValue(
+          entityStub<Wallet>({ id: verifierWallet, publicDid: 'did:key:verifier' }),
+        )
+
+        await expect(
+          didService.create(makeAuthInfo(Role.Verifier, verifierWallet, 'org-1'), { method }),
+        ).rejects.toThrow(`Role 'Verifier' can only create did:key DIDs, not '${method}'`)
+        expect(didRegistrarService.createDid).not.toHaveBeenCalled()
+      })
+
+      test('has no such limit with the role model disabled', async () => {
+        vi.mocked(em.findOneOrFail).mockResolvedValue(
+          entityStub<Wallet>({ id: verifierWallet, publicDid: 'did:key:verifier' }),
+        )
+        vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocumentStub({ id: 'did:hedera:testnet:v' }))
+
+        const result = await makeService(false).create(makeAuthInfo(Role.Verifier, verifierWallet, 'org-1'), {
+          method: 'hedera',
+        })
+
+        expect(result.id).toBe('did:hedera:testnet:v')
+      })
     })
 
     test('returns 409 when the wallet already has its main-method DID', async () => {
@@ -427,6 +468,98 @@ describe('DidService', () => {
 
       expect(em.findOne).not.toHaveBeenCalled()
       expect(wallet.publicDid).toBe('did:key:user')
+    })
+
+    describe('main DID across instances (8.1, 8.2)', () => {
+      test('claims public_did only while it is empty', async () => {
+        vi.mocked(em.findOneOrFail).mockResolvedValue(
+          entityStub<Wallet>({ id: 'Administration', publicDid: undefined }),
+        )
+        vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocumentStub({ id: 'did:key:root' }))
+
+        await didService.create(makeAuthInfo(Role.Admin, 'Administration'), {})
+
+        expect(em.nativeUpdate).toHaveBeenCalledWith(
+          Wallet,
+          { id: 'Administration', publicDid: null },
+          { publicDid: 'did:key:root' },
+        )
+      })
+
+      test('another instance set public_did first: the new DID record is deleted and the call gets 409', async () => {
+        const wallet = entityStub<Wallet>({ id: 'Administration', tenantId: 'tenant-1', publicDid: undefined })
+        vi.mocked(em.findOneOrFail)
+          .mockResolvedValueOnce(wallet)
+          .mockResolvedValueOnce(entityStub<Wallet>({ id: 'Administration', publicDid: 'did:key:other-instance' }))
+        vi.mocked(didRegistrarService.createDid).mockResolvedValue(didDocumentStub({ id: 'did:key:lost' }))
+        vi.mocked(em.nativeUpdate).mockResolvedValue(0)
+        const didRecord = didRecordStub({ did: 'did:key:lost' })
+        const didRepository = { findCreatedDid: vi.fn().mockResolvedValue(didRecord), delete: vi.fn() }
+        const lockTenantAgent = createMock<TenantAgent>({
+          dependencyManager: { resolve: vi.fn().mockReturnValue(didRepository) },
+          context: {},
+        })
+        Object.assign(agent, {
+          modules: {
+            tenants: {
+              withTenantAgent: vi.fn(async (_options: unknown, callback: (t: TenantAgent) => Promise<void>) => {
+                await callback(lockTenantAgent)
+              }),
+            },
+          },
+        })
+
+        await expect(didService.create(makeAuthInfo(Role.Admin, 'Administration'), {})).rejects.toThrow(
+          'The wallet already contains created public DID: did:key:other-instance',
+        )
+        expect(didRepository.findCreatedDid).toHaveBeenCalledWith(expect.anything(), 'did:key:lost')
+        expect(didRepository.delete).toHaveBeenCalledWith(expect.anything(), didRecord)
+        expect(wallet.publicDid).toBeUndefined()
+      })
+
+      test('main-DID creation for different wallets does not wait in one queue', async () => {
+        vi.mocked(em.findOneOrFail).mockImplementation(((_entity: unknown, where: { id: string }) =>
+          Promise.resolve(entityStub<Wallet>({ id: where.id, publicDid: undefined }))) as never)
+        let pending = 0
+        let maxPending = 0
+        vi.mocked(didRegistrarService.createDid).mockImplementation((tenantId) => {
+          pending++
+          maxPending = Math.max(maxPending, pending)
+          return new Promise((resolve) =>
+            setTimeout(() => {
+              pending--
+              resolve(didDocumentStub({ id: `did:key:${tenantId}` }))
+            }, 10),
+          )
+        })
+
+        const service = makeService(false)
+        await Promise.all([
+          service.create({ ...makeAuthInfo(Role.Admin, 'Administration'), tenantId: 'tenant-a' }, {}),
+          service.create({ ...makeAuthInfo(Role.User, 'User_user-2'), tenantId: 'tenant-b' }, {}),
+        ])
+
+        expect(maxPending).toBe(2)
+      })
+    })
+  })
+
+  describe('findOwnDid', () => {
+    test("returns the wallet's oldest DID of the method, ignoring the shared Indy endorser DID", async () => {
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([
+        didRecordStub({ did: 'endorser-did', createdAt: new Date('2026-01-01') }),
+        didRecordStub({ did: 'did:indy:newer', createdAt: new Date('2026-03-01') }),
+        didRecordStub({ did: 'did:indy:older', createdAt: new Date('2026-02-01') }),
+      ])
+
+      expect(await didService.findOwnDid(tenantAgent, 'indy')).toBe('did:indy:older')
+      expect(tenantAgent.dids.getCreatedDids).toHaveBeenCalledWith({ method: 'indy' })
+    })
+
+    test('is undefined when the wallet has no DID of the method', async () => {
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did: 'endorser-did' })])
+
+      expect(await didService.findOwnDid(tenantAgent, 'indy')).toBeUndefined()
     })
   })
 })

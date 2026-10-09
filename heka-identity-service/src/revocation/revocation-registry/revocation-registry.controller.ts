@@ -11,7 +11,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from '../../common/agent'
 import { JwtAuthGuard, Role } from '../../common/auth'
-import { RoleGuard, Roles } from '../../common/authz'
+import { AnyRole, RoleGuard, Roles } from '../../common/authz'
 import { InjectLogger, Logger } from '../../common/logger'
 
 import {
@@ -61,7 +61,7 @@ export class RevocationRegistryController {
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiQuery({ name: 'timestamp', type: String, required: false })
   @Get(':id')
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Verifier)
+  @AnyRole()
   @UseInterceptors(TenantAgentInterceptor)
   public async get(
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -81,6 +81,7 @@ export class RevocationRegistryController {
   @ApiQuery({ name: 'credDefId', type: String, required: false })
   @ApiOkResponse({ type: [RevocationRegistry] })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @AnyRole()
   @Get()
   public async find(
     @ReqTenantAgent() tenantAgent: TenantAgent,

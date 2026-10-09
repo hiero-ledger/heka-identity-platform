@@ -5,13 +5,14 @@ import {
   ApiBearerAuth,
   ApiConsumes,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger'
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { AuthInfo, JwtAuthGuard, ReqAuthInfo } from 'common/auth'
-import { RoleGuard } from 'common/authz'
+import { AnyRole, RoleGuard } from 'common/authz'
 import { imageMulterOptions } from 'common/file-uploader/image.multer.options'
 import { ImagesUploadingValidationPipe } from 'common/file-uploader/validation.pipe'
 import { InjectLogger, Logger } from 'common/logger'
@@ -32,7 +33,14 @@ export class PrepareWalletController {
     private readonly logger: Logger,
   ) {}
 
-  @ApiOperation({ summary: "Prepare User's Wallet" })
+  @ApiOperation({
+    summary: "Prepare User's Wallet",
+    description:
+      'Creates a DID of every enabled method with its OID4VC issuer and verifier, the profile and the requested schemas. ' +
+      'Calls for one wallet run one at a time across instances; a repeated call creates whatever is still missing. ' +
+      '`dids` reports each method.',
+  })
+  @ApiServiceUnavailableResponse({ description: 'Another call has been preparing the wallet for too long; retry' })
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -43,6 +51,7 @@ export class PrepareWalletController {
     ),
   )
   @ApiConsumes('multipart/form-data')
+  @AnyRole()
   @Post('')
   public async prepareWallet(
     @ReqAuthInfo() authInfo: AuthInfo,

@@ -12,7 +12,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { JwtAuthGuard, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { AnyRole, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { OpenId4VcVerifierCreateDto, OpenId4VcVerifierRecordDto, FindVerifierDto } from './dto'
@@ -63,6 +63,7 @@ export class OpenId4VcVerifierController {
   @ApiOperation({ summary: 'Get verifier records' })
   @ApiOkResponse({ description: 'Verifier records', isArray: true, type: OpenId4VcVerifierRecordDto })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @AnyRole()
   @Get()
   public async find(
     @ReqTenantAgent() tenantAgent: TenantAgent,

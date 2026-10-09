@@ -25,8 +25,8 @@ import {
 } from '@nestjs/swagger'
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
-import { AuthInfo, JwtAuthGuard, ReqAuthInfo } from 'common/auth'
-import { RoleGuard } from 'common/authz'
+import { AuthInfo, JwtAuthGuard, ReqAuthInfo, Role } from 'common/auth'
+import { AnyRole, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { ApiListResponse } from '../common/dto'
@@ -65,6 +65,7 @@ export class SchemaV2Controller {
   @UseGuards(JwtAuthGuard, RoleGuard)
   @ApiBearerAuth()
   @UseInterceptors(TenantAgentInterceptor)
+  @AnyRole()
   @Get()
   public async getSchemasList(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -83,6 +84,7 @@ export class SchemaV2Controller {
   @UseGuards(JwtAuthGuard, RoleGuard)
   @ApiBearerAuth()
   @UseInterceptors(TenantAgentInterceptor)
+  @AnyRole()
   @Get(':id')
   public async getSchemaById(@Param('id') id: string, @ReqAuthInfo() authInfo: AuthInfo): Promise<GetSchemaResponse> {
     const logger = this.logger.child('getSchemaById', { id })
@@ -100,6 +102,7 @@ export class SchemaV2Controller {
   @UseGuards(JwtAuthGuard, RoleGuard)
   @ApiBearerAuth()
   @UseInterceptors(TenantAgentInterceptor)
+  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
   @Post('')
   public async createSchema(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -123,6 +126,7 @@ export class SchemaV2Controller {
   @UseGuards(JwtAuthGuard, RoleGuard)
   @ApiBearerAuth()
   @UseInterceptors(TenantAgentInterceptor)
+  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
   @Patch(':id')
   public async patchSchema(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -144,6 +148,7 @@ export class SchemaV2Controller {
   @UseGuards(JwtAuthGuard, RoleGuard)
   @ApiBearerAuth()
   @UseInterceptors(TenantAgentInterceptor)
+  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
   @Post(':id/registration')
   public async registrationSchema(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -164,6 +169,7 @@ export class SchemaV2Controller {
   @UseGuards(JwtAuthGuard, RoleGuard)
   @ApiBearerAuth()
   @UseInterceptors(TenantAgentInterceptor)
+  @AnyRole()
   @Get(':id/registration')
   public async getSchemaRegistration(
     @ReqAuthInfo() authInfo: AuthInfo,

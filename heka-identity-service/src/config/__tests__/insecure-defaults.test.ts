@@ -8,11 +8,9 @@ import {
   INSECURE_DEFAULTS,
   parseDidMethods,
 } from 'config/insecure-defaults'
-import jwtConfig from 'config/jwt'
 import mikroOrmConfig from 'config/mikro-orm'
 
 const secureEnv: Record<string, string> = {
-  JWT_SECRET: 'a-long-random-secret-that-is-not-the-default',
   MIKRO_ORM_PASSWORD: 'app-db-password',
   WALLET_POSTGRES_PASSWORD: 'wallet-db-password',
   INDY_ENDORSER_SEED: '00000000000000000000000000custom',
@@ -48,7 +46,7 @@ describe('insecure defaults', () => {
       expect(findInsecureDefaults(secureEnv)).toEqual([])
     })
 
-    it.each(['JWT_SECRET', 'MIKRO_ORM_PASSWORD', 'WALLET_POSTGRES_PASSWORD', 'MDL_ISSUER_PRIVATE_KEY'] as const)(
+    it.each(['MIKRO_ORM_PASSWORD', 'WALLET_POSTGRES_PASSWORD', 'MDL_ISSUER_PRIVATE_KEY'] as const)(
       'always flags %s when unset, empty or equal to the known default',
       (name) => {
         const withoutVar = { ...secureEnv }
@@ -58,6 +56,11 @@ describe('insecure defaults', () => {
         expect(findInsecureDefaults({ ...secureEnv, [name]: INSECURE_DEFAULTS[name] })).toEqual([name])
       },
     )
+
+    it('does not check JWT_SECRET: tokens are verified against the OIDC provider, not a shared secret', () => {
+      expect(findInsecureDefaults({ ...secureEnv, JWT_SECRET: 'test' })).toEqual([])
+      expect(Object.keys(INSECURE_DEFAULTS)).not.toContain('JWT_SECRET')
+    })
 
     it('flags the mDL issuer key even when a custom certificate is configured', () => {
       const env = {
@@ -102,7 +105,6 @@ describe('insecure defaults', () => {
 
     it('flags every unset variable when the environment is empty (default DID methods)', () => {
       expect(findInsecureDefaults({})).toEqual([
-        'JWT_SECRET',
         'MIKRO_ORM_PASSWORD',
         'WALLET_POSTGRES_PASSWORD',
         'MDL_ISSUER_PRIVATE_KEY',
@@ -160,40 +162,46 @@ describe('insecure defaults', () => {
     })
 
     it('throws in production and names every insecure variable', () => {
-      const env = { ...secureEnv, NODE_ENV: 'production', JWT_SECRET: 'test', MIKRO_ORM_PASSWORD: '' }
+      const env = { ...secureEnv, NODE_ENV: 'production', MIKRO_ORM_PASSWORD: '', WALLET_POSTGRES_PASSWORD: 'heka1' }
 
-      expect(() => assertSecureConfiguration(env)).toThrow(/JWT_SECRET, MIKRO_ORM_PASSWORD/)
+      expect(() => assertSecureConfiguration(env)).toThrow(/MIKRO_ORM_PASSWORD, WALLET_POSTGRES_PASSWORD/)
       expect(warnSpy).not.toHaveBeenCalled()
     })
 
     it.each([undefined, '', '  ', 'development', 'test', 'Development', ' TEST '])(
       'only warns outside production (NODE_ENV=%j)',
       (nodeEnv) => {
-        const env: Record<string, unknown> = { ...secureEnv, JWT_SECRET: 'test', HEDERA_OPERATOR_KEY: '' }
+        const env: Record<string, unknown> = {
+          ...secureEnv,
+          WALLET_POSTGRES_PASSWORD: 'heka1',
+          HEDERA_OPERATOR_KEY: '',
+        }
         if (nodeEnv !== undefined) env.NODE_ENV = nodeEnv
 
         expect(() => assertSecureConfiguration(env)).not.toThrow()
         expect(warnSpy).toHaveBeenCalledTimes(1)
-        expect(warnSpy).toHaveBeenCalledWith(expect.stringMatching(/JWT_SECRET, HEDERA_OPERATOR_KEY/))
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringMatching(/WALLET_POSTGRES_PASSWORD, HEDERA_OPERATOR_KEY/))
       },
     )
 
     it.each(['production', 'Production', ' PRODUCTION ', 'prod', 'prodution', 'staging', 'dev'])(
       'fails closed for any other NODE_ENV (NODE_ENV=%j)',
       (nodeEnv) => {
-        const env = { ...secureEnv, NODE_ENV: nodeEnv, JWT_SECRET: 'test', MIKRO_ORM_PASSWORD: '' }
+        const env = { ...secureEnv, NODE_ENV: nodeEnv, MIKRO_ORM_PASSWORD: '', WALLET_POSTGRES_PASSWORD: 'heka1' }
 
-        expect(() => assertSecureConfiguration(env)).toThrow(/JWT_SECRET, MIKRO_ORM_PASSWORD/)
+        expect(() => assertSecureConfiguration(env)).toThrow(/MIKRO_ORM_PASSWORD, WALLET_POSTGRES_PASSWORD/)
         expect(warnSpy).not.toHaveBeenCalled()
       },
     )
 
     it('explains when an unrecognized NODE_ENV is treated as production', () => {
-      expect(() => assertSecureConfiguration({ ...secureEnv, NODE_ENV: 'staging', JWT_SECRET: 'test' })).toThrow(
+      expect(() => assertSecureConfiguration({ ...secureEnv, NODE_ENV: 'staging', MIKRO_ORM_PASSWORD: '' })).toThrow(
         /NODE_ENV is set to a value other than development or test, so it is treated as production/,
       )
       expect(
-        thrownMessage(() => assertSecureConfiguration({ ...secureEnv, NODE_ENV: ' Production ', JWT_SECRET: 'test' })),
+        thrownMessage(() =>
+          assertSecureConfiguration({ ...secureEnv, NODE_ENV: ' Production ', MIKRO_ORM_PASSWORD: '' }),
+        ),
       ).not.toContain('treated as production')
     })
 
@@ -230,18 +238,18 @@ describe('insecure defaults', () => {
         FILE_STORAGE_TARGET: 'minio',
         NODE_ENV: 'staging-xyz',
       }
-      const secretValues = Object.values(INSECURE_DEFAULTS).filter((value) => value !== 'test')
+      const secretValues = Object.values(INSECURE_DEFAULTS)
 
       const message = thrownMessage(() => assertSecureConfiguration(env))
-      expect(message).toMatch(/JWT_SECRET, MIKRO_ORM_PASSWORD/)
+      expect(message).toMatch(/MIKRO_ORM_PASSWORD, WALLET_POSTGRES_PASSWORD/)
       expect(message).not.toContain('staging-xyz')
-      // The JWT_SECRET default (`test`) also occurs in the policy wording, so check no `NAME=value` is echoed.
+      // No `NAME=value` pair is echoed.
       expect(message).not.toMatch(/[A-Z_]+\s*[=:]/)
       for (const value of secretValues) expect(message).not.toContain(value)
 
       assertSecureConfiguration({ ...env, NODE_ENV: 'development' })
       const warning = String(warnSpy.mock.calls[0][0])
-      expect(warning).toMatch(/JWT_SECRET, MIKRO_ORM_PASSWORD/)
+      expect(warning).toMatch(/MIKRO_ORM_PASSWORD, WALLET_POSTGRES_PASSWORD/)
       expect(warning).toContain('unset, empty, development or test')
       expect(warning).not.toMatch(/[A-Z_]+\s*[=:]/)
       for (const value of secretValues) expect(warning).not.toContain(value)
@@ -253,7 +261,6 @@ describe('insecure defaults', () => {
 
     beforeEach(() => {
       originalEnv = { ...process.env }
-      delete process.env.JWT_SECRET
       delete process.env.MIKRO_ORM_PASSWORD
     })
 
@@ -262,14 +269,11 @@ describe('insecure defaults', () => {
     })
 
     it('uses the known defaults when the variables are not set', () => {
-      expect(jwtConfig().secret).toBe(INSECURE_DEFAULTS.JWT_SECRET)
       expect(mikroOrmConfig().password).toBe(INSECURE_DEFAULTS.MIKRO_ORM_PASSWORD)
     })
 
     it('prefers explicitly configured values', () => {
-      process.env.JWT_SECRET = 'custom-secret'
       process.env.MIKRO_ORM_PASSWORD = 'custom-password'
-      expect(jwtConfig().secret).toBe('custom-secret')
       expect(mikroOrmConfig().password).toBe('custom-password')
     })
   })

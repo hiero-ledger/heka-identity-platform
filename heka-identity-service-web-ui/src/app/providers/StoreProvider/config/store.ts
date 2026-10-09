@@ -9,7 +9,7 @@ import { schemasReducer } from '@/entities/Schema';
 import { userReducer } from '@/entities/User';
 import { verificationTemplatesReducer } from '@/entities/VerificationTemplate/model/slices/verificationTemplatesSlice';
 import { $agencyDemoApi } from '@/shared/api';
-import { $agencyApi, $authApi } from '@/shared/api/config/api';
+import { $agencyApi } from '@/shared/api/config/api';
 
 import { createReducerManager } from './reducerManager';
 import { StateSchema, ThunkExtraArg } from './StateSchema';
@@ -34,7 +34,6 @@ export function createReduxStore(
   const extraArg: ThunkExtraArg = {
     agencyDemoApi: $agencyDemoApi,
     agencyApi: $agencyApi,
-    authApi: $authApi,
   };
 
   const store = configureStore({

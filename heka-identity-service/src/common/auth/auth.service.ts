@@ -2,7 +2,6 @@ import { IncomingMessage } from 'http'
 
 import { EntityManager } from '@mikro-orm/core'
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common'
-import { JwtService } from '@nestjs/jwt'
 import { Mutex } from 'async-mutex'
 
 import { Agent, AGENT_TOKEN } from 'common/agent'
@@ -13,6 +12,7 @@ import { withTenantAgent } from 'utils/multi-tenancy'
 
 import { AuthInfo, isRole } from './auth-info.interface'
 import { TokenPayload } from './token-payload.interface'
+import { TokenVerifier } from './token-verifier.service'
 
 @Injectable()
 export class AuthService {
@@ -20,7 +20,7 @@ export class AuthService {
   public constructor(
     @Inject(AGENT_TOKEN)
     private readonly agent: Agent,
-    private readonly jwtService: JwtService,
+    private readonly tokenVerifier: TokenVerifier,
     private readonly em: EntityManager,
     @InjectLogger(AuthService)
     private readonly logger: Logger,
@@ -29,17 +29,21 @@ export class AuthService {
     this.ensureUserAndWalletMutex = new Mutex()
   }
 
+  /**
+   * Authenticates an incoming HTTP or WebSocket upgrade request by its bearer token.
+   * Throws `UnauthorizedException` when the token is missing, invalid, or does not meet the claim contract.
+   */
   public async validateRequestToken(request: IncomingMessage): Promise<AuthInfo> {
     const logger = this.logger.child('validateRequestToken', { request })
     logger.trace('>')
 
     const token = extractTokenFromHeader(request)
     if (!token) {
-      throw new Error('Authorization token is missing')
+      throw new UnauthorizedException('Authorization token is missing')
     }
     logger.traceObject({ token })
 
-    const payload = await this.jwtService.verifyAsync<TokenPayload>(token)
+    const payload = await this.tokenVerifier.verify(token)
     logger.traceObject({ payload })
 
     return this.validateTokenPayload(payload)
