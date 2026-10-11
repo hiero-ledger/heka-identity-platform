@@ -969,32 +969,20 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mikro-orm/cli@npm:7.1.3":
-  version: 7.1.3
-  resolution: "@mikro-orm/cli@npm:7.1.3"
+"@mikro-orm/cli@npm:7.1.14":
+  version: 7.1.14
+  resolution: "@mikro-orm/cli@npm:7.1.14"
   dependencies:
-    "@mikro-orm/core": "npm:7.1.3"
-    mikro-orm: "npm:7.1.3"
+    "@mikro-orm/core": "npm:7.1.14"
+    mikro-orm: "npm:7.1.14"
     yargs: "npm:17.7.2"
   bin:
     mikro-orm: cli.js
-  checksum: 10c0/667c5c8fa9bd003e5c59abd00e17f02b9f04ca075e17ed4e1cc3d188c2945ac7e7e14bc62ce95c582d34f1536d198b9b4dcd1160c1df9b2479be9a6b0fbae3c3
+  checksum: 10c0/ad9acd9ec200f1f1a9ee70e98f2575ad4bb1203f31f0c0745e92a257ff28e316860af9034075c0ca974a3cf3c92e8117810b73cc87140f503e9bcb9005afdc40
   languageName: node
   linkType: hard
 
-"@mikro-orm/core@npm:7.1.3":
-  version: 7.1.3
-  resolution: "@mikro-orm/core@npm:7.1.3"
-  peerDependencies:
-    dataloader: 2.2.3
-  peerDependenciesMeta:
-    dataloader:
-      optional: true
-  checksum: 10c0/1de6cf5316e94fe82d87e4dc6019bf3fe71f1229f612fcbc0777ce72ccfcbcb3506a0f096d4cf98297f25e44117c09dcff479da1e6fa1684633e6277297e4a0b
-  languageName: node
-  linkType: hard
-
-"@mikro-orm/core@npm:^7.1.3":
+"@mikro-orm/core@npm:7.1.14, @mikro-orm/core@npm:^7.1.3":
   version: 7.1.14
   resolution: "@mikro-orm/core@npm:7.1.14"
   peerDependencies:
@@ -4291,7 +4279,7 @@ __metadata:
   resolution: "heka-auth-service@workspace:."
   dependencies:
     "@eropple/nestjs-correlation-id": "npm:^1.0.1"
-    "@mikro-orm/cli": "npm:7.1.3"
+    "@mikro-orm/cli": "npm:7.1.14"
     "@mikro-orm/core": "npm:^7.1.3"
     "@mikro-orm/decorators": "npm:^7.1.3"
     "@mikro-orm/migrations": "npm:^7.1.3"
@@ -4908,10 +4896,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mikro-orm@npm:7.1.3":
-  version: 7.1.3
-  resolution: "mikro-orm@npm:7.1.3"
-  checksum: 10c0/c665bcda8d403682c8e606ac22a44686895d5689217ca960babc54c20a14055e739f1567e2825f3dee316dcb0ca8ca5d569b487f2fd02b633a152c1a22dafd9e
+"mikro-orm@npm:7.1.14":
+  version: 7.1.14
+  resolution: "mikro-orm@npm:7.1.14"
+  checksum: 10c0/9ec8f82ac12815bde9c1757ce357768cd6f17cf162d6c86e62498af13b9e148b31f0a382791d58c773e87ba69212688f7d67b487b41750ba2342f498bfa597b8
   languageName: node
   linkType: hard
 
