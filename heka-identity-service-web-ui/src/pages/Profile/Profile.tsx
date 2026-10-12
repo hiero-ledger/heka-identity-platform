@@ -11,8 +11,6 @@ import {
   BackgroundColorFormData,
   BackgroundColorModalField,
 } from '@/components/BackgroundColorModalField';
-import { ChangePasswordField } from '@/components/ChangePasswordField/ChangePasswordField';
-import { ChangePasswordFieldFormData } from '@/components/ChangePasswordField/ChangePasswordField.form';
 import { LogoImageField } from '@/components/LogoImageField';
 import { BasicPanel } from '@/components/Panel';
 import { TextField, TextFieldFormData } from '@/components/TextField/TextField';
@@ -22,7 +20,6 @@ import {
   getIsPreparingUser,
   getUser,
 } from '@/entities/User/model/selectors/userSelector';
-import { changePassword } from '@/entities/User/model/services/changePassword';
 import { getAgencyUser } from '@/entities/User/model/services/getAgencyUser';
 import {
   AgencyUserParams,
@@ -30,6 +27,7 @@ import {
   patchAgencyUser,
 } from '@/entities/User/model/services/patchAgencyUser';
 import { signOut } from '@/entities/User/model/services/signOut';
+import { useAuthSession } from '@/shared/auth/session';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Column, Row } from '@/shared/ui/Grid';
 import { Loader } from '@/shared/ui/Loader';
@@ -39,12 +37,11 @@ import * as cls from './Profile.module.scss';
 const Profile = () => {
   const user = useSelector(getUser);
   const isPreparingUser = useSelector(getIsPreparingUser);
-
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const session = useAuthSession();
 
-  const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false);
   const [isUserFetching, setIsUserFetching] = useState(true);
   const [firstLoginNotified, setFirstLoginNotified] = useState(false);
 
@@ -52,6 +49,12 @@ const Profile = () => {
     dispatch(signOut());
     navigate(ROUTES.SIGN_IN);
   }, [dispatch, navigate]);
+
+  // The password lives at the OpenID Connect provider; the profile decides whether a
+  // change flow exists (Keycloak: application-initiated action, Auth0: account page).
+  const onChangePassword = useCallback(() => {
+    void session.changePassword?.();
+  }, [session]);
 
   const patchAgencyUserProperty = useCallback(
     ({ key, value }: AgencyUserProperty) => {
@@ -71,24 +74,10 @@ const Profile = () => {
     [patchAgencyUserProperty],
   );
 
-  const handlerPasswordChange = useCallback(
-    (data: ChangePasswordFieldFormData) => {
-      dispatch(changePassword({ ...data, username: user?.name ?? '' })).then(
-        //eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (o: any) => {
-          if (o && !o.error) {
-            setIsPasswordFormOpen(false);
-            toast.success(t('Profile.titles.passwordChanged'));
-          }
-        },
-      );
-    },
-    [dispatch, t, user?.name],
-  );
-
   const onColorChange = (data: BackgroundColorFormData) => {
     patchAgencyUserProperty({ key: 'backgroundColor', value: data.color });
   };
+
   const onLogoChange = (logo: File | string) => {
     patchAgencyUserProperty({ key: 'logo', value: logo });
   };
@@ -146,20 +135,29 @@ const Profile = () => {
                   field="username"
                   value={user?.name ?? ''}
                   onSubmit={() => toast.error('Not implemented yet')}
-                  className={cls.intermediateField}
+                  className={
+                    session.changePassword
+                      ? cls.intermediateField
+                      : cls.lastField
+                  }
                   alignOnStart={true}
                   isEditDisabled={true}
                 ></TextField>
-                <ChangePasswordField
-                  isModalOpen={isPasswordFormOpen}
-                  setIsModalOpen={setIsPasswordFormOpen}
-                  onSubmit={handlerPasswordChange}
-                  className={cls.lastField}
-                  alignOnStart={true}
-                />
+                {session.changePassword && (
+                  <Row
+                    className={cls.lastField}
+                    justifyContent="space-between"
+                  >
+                    <ActionButton
+                      className={cls.actionButton}
+                      leftIcon="edit"
+                      onPress={onChangePassword}
+                      labelKey="Profile.buttons.changePassword"
+                    />
+                  </Row>
+                )}
               </Column>
             </Column>
-
             <Column className={cls.group}>
               {isPreparingUser && (
                 <Row

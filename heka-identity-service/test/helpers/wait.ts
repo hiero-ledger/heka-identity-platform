@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common'
-import { decode } from 'jsonwebtoken'
+import { decodeJwt } from 'jose'
 
 import { NotificationGateway } from 'src/common/notification/notification.gateway'
 import { sleep } from 'src/utils/timers'
@@ -66,8 +66,8 @@ export async function waitForNotificationSocket(
   authToken: string,
   options: WaitUntilOptions = {},
 ): Promise<void> {
-  const payload = decode(authToken, { json: true })
-  const userId = payload?.sub
+  const payload = decodeJwt(authToken)
+  const userId = payload.sub
   if (!userId) throw new Error('Auth token has no "sub" claim')
 
   const gateway = nestApp.get(NotificationGateway)

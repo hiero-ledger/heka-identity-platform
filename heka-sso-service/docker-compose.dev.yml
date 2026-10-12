@@ -21,13 +21,17 @@ services:
       - ../demo/heka-keycloak-theme:/theme
       - keycloak-theme-node-modules:/theme/node_modules
       - keycloak-theme:/out
-  # Keycloak with the pre-configured `heka` realm
+  # Keycloak with three pre-configured realms: `heka` (OID4VP SSO demo), `heka-platform` (OIDC provider for heka-identity-service)
+  # and `heka-wallet` (OIDC provider for the Heka Wallet mobile app)
   keycloak:
     image: quay.io/keycloak/keycloak:26.3
     command: start-dev --import-realm --spi-theme-static-max-age=-1 --spi-theme-cache-themes=false --spi-theme-cache-templates=false
     environment:
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin
       - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+      # Pin the issuer (iss in every token) to the browser-facing URL, whatever host name a
+      # caller uses (host.docker.internal from containers, localhost from the host).
+      - KC_HOSTNAME=${KC_HOSTNAME:-http://localhost:8080}
     ports:
       - '8080:8080'
     volumes:
@@ -59,6 +63,10 @@ services:
       - OIDC_COOKIE_KEYS=dev-only-cookie-key-do-not-use-in-production
       - OIDC_SUB_HMAC_SALT=dev-only-sub-hmac-salt-do-not-use-in-production
       - IDENTITY_SERVICE_BASE_URL=http://localhost:3000
+      # Service-account token from the in-network Keycloak (client heka-sso-service in keycloak/realm-heka-platform.json)
+      - IDENTITY_SERVICE_TOKEN_URL=http://keycloak:8080/realms/heka-platform/protocol/openid-connect/token
+      - IDENTITY_SERVICE_CLIENT_ID=heka-sso-service
+      - IDENTITY_SERVICE_CLIENT_SECRET=dev-only-heka-sso-service-secret-do-not-use-in-production
       - OIDC_CLIENTS=[{"clientId":"keycloak-broker","clientSecret":"dev-only-broker-secret-do-not-use-in-production","redirectUris":["http://localhost:8080/realms/heka/broker/heka-sso/endpoint","http://localhost:8080/realms/master/broker/heka-sso/endpoint"],"postLogoutRedirectUris":["http://localhost:8080/realms/heka/broker/heka-sso/endpoint/logout_response","http://localhost:8080/realms/master/broker/heka-sso/endpoint/logout_response"],"loginConfigId":"default"}]
       - OIDC_LOGIN_CONFIGS=[{"id":"default","verificationTemplate":"default","claimMapping":{"mdl.given_name":"given_name","mdl.family_name":"family_name","mdl.age_over_18":"age_over_18"},"subStrategy":"derived","issuerAllowlist":[]}]
       # Dev-only stub login — refused in production

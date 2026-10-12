@@ -14,12 +14,41 @@ import { CreateSchemaRequest } from 'schema-v2/dto'
 import { TransformDTOArray } from 'utils/transformation'
 import { IsCorrectForProtocol } from 'utils/validation'
 
+export enum PreparedDidStatus {
+  /** Created by this call */
+  Created = 'created',
+  /** Already in the wallet */
+  Existing = 'existing',
+  /** Not created, or its OID4VC records are missing; a later call retries */
+  Failed = 'failed',
+  /** Not allowed for the caller's role */
+  Skipped = 'skipped',
+}
+
+export class PreparedDidDto {
+  @ApiProperty({ enum: DidMethod })
+  public readonly method!: string
+
+  @ApiPropertyOptional()
+  public readonly did?: string
+
+  @ApiProperty({ enum: PreparedDidStatus })
+  public readonly status!: PreparedDidStatus
+
+  @ApiPropertyOptional({ description: 'Why the DID or its OID4VC records could not be created' })
+  public readonly error?: string
+}
+
 export class PrepareWalletResponseDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'The main DID of the wallet' })
   public readonly did: string
+
+  @ApiProperty({ type: [PreparedDidDto], description: 'The DID of each enabled method' })
+  public readonly dids: PreparedDidDto[]
 
   public constructor(params: PrepareWalletResponseDto) {
     this.did = params.did
+    this.dids = params.dids
   }
 }
 
