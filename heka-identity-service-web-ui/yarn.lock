@@ -10580,6 +10580,7 @@ __metadata:
     joi: "npm:^17.13.3"
     lint-staged: "npm:^15.2.8"
     mini-css-extract-plugin: "npm:^2.9.0"
+    oidc-client-ts: "npm:^3.5.0"
     prettier: "npm:3.3.3"
     qrcode.react: "npm:^4.0.1"
     react: "npm:^18.3.1"
@@ -10588,6 +10589,7 @@ __metadata:
     react-hook-form: "npm:^7.53.0"
     react-hot-toast: "npm:^2.4.1"
     react-i18next: "npm:^15.0.2"
+    react-oidc-context: "npm:^3.3.1"
     react-redux: "npm:^9.1.2"
     react-refresh: "npm:^0.14.2"
     react-responsive: "npm:^10.0.0"
@@ -12367,6 +12369,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jwt-decode@npm:^4.0.0":
+  version: 4.0.0
+  resolution: "jwt-decode@npm:4.0.0"
+  checksum: 10c0/de75bbf89220746c388cf6a7b71e56080437b77d2edb29bae1c2155048b02c6b8c59a3e5e8d6ccdfd54f0b8bda25226e491a4f1b55ac5f8da04cfbadec4e546c
+  languageName: node
+  linkType: hard
+
 "keyv@npm:^4.5.3, keyv@npm:^4.5.4":
   version: 4.5.4
   resolution: "keyv@npm:4.5.4"
@@ -13330,6 +13339,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"oidc-client-ts@npm:^3.5.0":
+  version: 3.5.0
+  resolution: "oidc-client-ts@npm:3.5.0"
+  dependencies:
+    jwt-decode: "npm:^4.0.0"
+  checksum: 10c0/93cbb62adbfeee4bf705199a94e5790217f211b85dd988827e555481d4e605a5263292b740f29765ac01528b99486f57bbd96679ffca53d7ef76d8f7f7c9f979
+  languageName: node
+  linkType: hard
+
 "on-finished@npm:^2.4.1, on-finished@npm:~2.4.1":
   version: 2.4.1
   resolution: "on-finished@npm:2.4.1"
@@ -14289,6 +14307,16 @@ __metadata:
   version: 18.3.1
   resolution: "react-is@npm:18.3.1"
   checksum: 10c0/f2f1e60010c683479e74c63f96b09fb41603527cd131a9959e2aee1e5a8b0caf270b365e5ca77d4a6b18aae659b60a86150bb3979073528877029b35aecd2072
+  languageName: node
+  linkType: hard
+
+"react-oidc-context@npm:^3.3.1":
+  version: 3.3.1
+  resolution: "react-oidc-context@npm:3.3.1"
+  peerDependencies:
+    oidc-client-ts: ^3.1.0
+    react: ">=16.14.0"
+  checksum: 10c0/16239b1818d0fca5e60e37c63f000252ae839aa8f915c8871b186bbc718e6c9694ac3a881388d13bb69d2b15bbd61cf6c7cb200bb548bbc469fa6fc8e36d80f7
   languageName: node
   linkType: hard
 

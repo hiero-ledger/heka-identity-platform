@@ -8,7 +8,7 @@ import request from 'supertest'
 import { CreateInvitationRequestDto } from 'src/connection/dto'
 import { uuid } from 'src/utils/misc'
 
-import { initializeMikroOrm, signJwt, startTestApp } from './helpers'
+import { initializeMikroOrm, signJwt, startTestApp, testOidcAudience, testOidcIssuer } from './helpers'
 
 describe('E2E authorization', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -42,11 +42,10 @@ describe('E2E authorization', () => {
         roles: ['Issuer'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -69,11 +68,10 @@ describe('E2E authorization', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -96,11 +94,10 @@ describe('E2E authorization', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -117,11 +114,10 @@ describe('E2E authorization', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )

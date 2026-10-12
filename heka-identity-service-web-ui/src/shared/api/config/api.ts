@@ -1,12 +1,11 @@
 import { Mutex } from 'async-mutex';
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
-import { authEndpoints } from '@/shared/api/config/endpoints';
 import {
-  clearTokens,
-  getTokens,
-  refreshTokens,
-} from '@/shared/api/utils/token';
+  dropSession,
+  getSessionAccessToken,
+  refreshSessionToken,
+} from '@/shared/auth/sessionBridge';
 
 const mutex = new Mutex();
 
@@ -14,20 +13,24 @@ export const $agencyApi = axios.create({
   baseURL: `${process.env.REACT_APP_AGENCY_ENDPOINT}`,
 });
 
-export const $authApi = axios.create({
-  baseURL: `${process.env.REACT_APP_AUTH_SERVICE_ENDPOINT}/api/v1`,
-});
+/**
+ * Bearer token for identity-service calls: the signed-in OIDC session. The public demo pages
+ * use the demo client instead (demoApi.ts), which authenticates with the demo-token broker.
+ */
+export const currentAccessToken = (): string | null => getSessionAccessToken();
 
 const setAuthHeader = (config: InternalAxiosRequestConfig) => {
-  const { access } = getTokens();
-  if (config.headers) {
-    config.headers.Authorization = `Bearer ${access}`;
+  // A retry after a token renewal already carries the fresh token.
+  if (config._retry && config.headers?.Authorization) return config;
+  const token = currentAccessToken();
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 };
 
 /**
- * Handles API errors with proper error logging and token refresh logic
+ * Handles API errors with proper error logging and session renewal on 401
  * @param api - The Axios instance to use for retrying requests
  * @param error - The error object from the failed request
  * @returns Promise that resolves with retry response or rejects with error
@@ -60,43 +63,40 @@ const handleApiError = async (api: AxiosInstance, error: unknown) => {
   }
 
   try {
-    // Handle 401 Unauthorized errors with token refresh logic
     if (error.response.status === 401) {
-      // Don't retry auth endpoints to prevent infinite loops
-      if (
-        originalConfig.url === authEndpoints.token ||
-        originalConfig.url === authEndpoints.refresh ||
-        originalConfig.url === authEndpoints.revoke
-      ) {
-        console.warn('[API] Authentication failed on auth endpoint:', {
+      // Only a signed-in session can be renewed.
+      if (!getSessionAccessToken()) {
+        console.warn('[API] Unauthorized without a signed-in session:', {
           url: originalConfig.url,
-          status: error.response.status,
         });
-        clearTokens();
         return Promise.reject(error);
       }
 
-      // Check if we've already tried to refresh the token for this request
+      // Check if we've already tried to renew the session for this request
       if (!originalConfig._retry) {
         originalConfig._retry = true;
 
-        // Use mutex to prevent multiple simultaneous refresh attempts
-        const { accessToken } = await mutex.runExclusive(() =>
-          refreshTokens($authApi),
+        // Use mutex to prevent multiple simultaneous renewals
+        const accessToken = await mutex.runExclusive(() =>
+          refreshSessionToken(),
         );
 
-        // Update the authorization header with new token
-        axios.defaults.headers.common['Authorization'] =
-          `Bearer ${accessToken}`;
+        if (accessToken) {
+          originalConfig.headers.Authorization = `Bearer ${accessToken}`;
+          return api(originalConfig);
+        }
 
-        // Retry the original request with new token
-        return api(originalConfig);
-      } else {
-        // Already tried to refresh token, clear tokens and reject
-        console.warn('[API] Token refresh already attempted, clearing tokens');
-        clearTokens();
+        console.warn('[API] Session renewal failed, dropping the session');
+        await dropSession();
         return Promise.reject(error);
       }
+
+      // Already tried to renew, drop the session and reject
+      console.warn(
+        '[API] Session renewal already attempted, dropping the session',
+      );
+      await dropSession();
+      return Promise.reject(error);
     }
 
     // For non-401 errors, just reject
@@ -110,24 +110,17 @@ const handleApiError = async (api: AxiosInstance, error: unknown) => {
 
     return Promise.reject(error);
   } catch {
-    // Token refresh failed - don't log error details as they may contain sensitive data
-    console.error('[API] Token refresh failed for request:', {
+    // Session renewal failed - don't log error details as they may contain sensitive data
+    console.error('[API] Session renewal failed for request:', {
       url: originalConfig.url,
     });
 
-    clearTokens();
+    await dropSession();
     return Promise.reject(error);
   }
 };
 
-$authApi.interceptors.request.use(setAuthHeader);
-
 $agencyApi.interceptors.request.use(setAuthHeader);
-
-$authApi.interceptors.response.use(
-  (response) => response,
-  (error) => handleApiError($authApi, error),
-);
 
 $agencyApi.interceptors.response.use(
   (response) => response,

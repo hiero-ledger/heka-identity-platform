@@ -234,48 +234,75 @@ describe('OidcConfig', () => {
     expect(new OidcConfig({ ...strongProductionEnv, OIDC_STUB_LOGIN: 'false' }).stubLogin).toBe(false)
   })
 
-  test('identity-service service account: reads credentials and the auth-service base URL', () => {
-    const config = new OidcConfig({
-      IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
-      IDENTITY_SERVICE_AUTH_PASSWORD: 'service-account-password',
+  describe('identity-service client credentials', () => {
+    const clientCredentials = {
+      IDENTITY_SERVICE_TOKEN_URL: 'https://idp.example.com/oauth/token',
+      IDENTITY_SERVICE_CLIENT_ID: 'heka-sso-service',
+      IDENTITY_SERVICE_CLIENT_SECRET: 'service-account-secret',
+    }
+
+    test('reads the token endpoint, client, auth method and extra token params', () => {
+      const config = new OidcConfig({
+        ...clientCredentials,
+        IDENTITY_SERVICE_TOKEN_PARAMS: JSON.stringify({ audience: 'https://heka-identity', scope: 'openid' }),
+      })
+
+      expect(config.identityService).toMatchObject({
+        tokenUrl: 'https://idp.example.com/oauth/token',
+        clientId: 'heka-sso-service',
+        clientSecret: 'service-account-secret',
+        clientAuthMethod: 'client_secret_post',
+        tokenParams: { audience: 'https://heka-identity', scope: 'openid' },
+      })
+      expect(config.identityService.usesClientCredentials).toBe(true)
+
+      expect(
+        new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_CLIENT_AUTH_METHOD: 'client_secret_basic' }).identityService
+          .clientAuthMethod
+      ).toBe('client_secret_basic')
+      expect(new OidcConfig({}).identityService.usesClientCredentials).toBe(false)
+      expect(new OidcConfig({}).identityService.tokenParams).toEqual({})
+      // a static token takes precedence over configured client credentials
+      expect(new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_AUTH_TOKEN: 'static' }).identityService.usesClientCredentials).toBe(
+        false
+      )
     })
 
-    expect(config.identityService.authName).toBe('sso-bridge')
-    expect(config.identityService.authPassword).toBe('service-account-password')
-    expect(config.identityService.authServiceBaseUrl).toBe('http://localhost:3004')
-
-    expect(new OidcConfig({ AUTH_SERVICE_BASE_URL: 'http://auth.internal:3004' }).identityService.authServiceBaseUrl).toBe(
-      'http://auth.internal:3004'
-    )
-  })
-
-  test('service account in production: refuses the demo password and requires an explicit auth-service URL', () => {
-    expect(
-      () =>
-        new OidcConfig({
-          ...strongProductionEnv,
-          AUTH_SERVICE_BASE_URL: 'https://auth.example.com',
-          IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
-          IDENTITY_SERVICE_AUTH_PASSWORD: 'Password1234!',
-        })
-    ).toThrow(/known default secret/)
-
-    expect(
-      () =>
-        new OidcConfig({
-          ...strongProductionEnv,
-          IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
-          IDENTITY_SERVICE_AUTH_PASSWORD: 'strong-production-password',
-        })
-    ).toThrow(/AUTH_SERVICE_BASE_URL must be set in production/)
-
-    const config = new OidcConfig({
-      ...strongProductionEnv,
-      AUTH_SERVICE_BASE_URL: 'https://auth.example.com',
-      IDENTITY_SERVICE_AUTH_NAME: 'sso-bridge',
-      IDENTITY_SERVICE_AUTH_PASSWORD: 'strong-production-password',
+    test('rejects partial or malformed settings in any environment', () => {
+      expect(() => new OidcConfig({ IDENTITY_SERVICE_TOKEN_URL: 'https://idp.example.com/oauth/token' })).toThrow(
+        /must be set together \(missing: IDENTITY_SERVICE_CLIENT_ID, IDENTITY_SERVICE_CLIENT_SECRET\)/
+      )
+      expect(() => new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_CLIENT_AUTH_METHOD: 'private_key_jwt' })).toThrow(
+        /IDENTITY_SERVICE_CLIENT_AUTH_METHOD must be one of/
+      )
+      expect(() => new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_TOKEN_PARAMS: 'not-json' })).toThrow(/invalid JSON/)
+      expect(() => new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_TOKEN_PARAMS: '["audience"]' })).toThrow(/JSON object/)
+      expect(() => new OidcConfig({ ...clientCredentials, IDENTITY_SERVICE_TOKEN_PARAMS: '{"audience":{"x":1}}' })).toThrow(
+        /value of 'audience' must be a string/
+      )
     })
-    expect(config.identityService.authServiceBaseUrl).toBe('https://auth.example.com')
+
+    test('in production: refuses the dev client secret and short secrets', () => {
+      expect(
+        () =>
+          new OidcConfig({
+            ...strongProductionEnv,
+            ...clientCredentials,
+            IDENTITY_SERVICE_CLIENT_SECRET: 'dev-only-heka-sso-service-secret-do-not-use-in-production',
+          })
+      ).toThrow(/known default secret/)
+
+      expect(() => new OidcConfig({ ...strongProductionEnv, ...clientCredentials, IDENTITY_SERVICE_CLIENT_SECRET: 'short' })).toThrow(
+        /IDENTITY_SERVICE_CLIENT_SECRET is too short for production/
+      )
+
+      const config = new OidcConfig({
+        ...strongProductionEnv,
+        ...clientCredentials,
+        IDENTITY_SERVICE_CLIENT_SECRET: 'strong-production-client-secret',
+      })
+      expect(config.identityService.usesClientCredentials).toBe(true)
+    })
   })
 
   test('rejects too-short client secrets in production', () => {

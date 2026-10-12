@@ -16,7 +16,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { JwtAuthGuard, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { AnyRole, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { ProofRecordDto, ProofRequestDto } from './dto'
@@ -40,6 +40,7 @@ export class ProofController {
   @ApiQuery({ name: 'threadId', type: String, required: false })
   @ApiOkResponse({ description: 'Proof Records', type: [ProofRecordDto] })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @AnyRole()
   @Get()
   public async find(
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -81,6 +82,7 @@ export class ProofController {
   @ApiOkResponse({ description: 'Proof Record', type: ProofRecordDto })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @AnyRole()
   @Get(':id')
   public async get(@ReqTenantAgent() tenantAgent: TenantAgent, @Param('id') id: string): Promise<ProofRecordDto> {
     const logger = this.logger.child('get', { id })

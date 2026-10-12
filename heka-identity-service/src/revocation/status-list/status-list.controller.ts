@@ -10,7 +10,7 @@ import {
 
 import { TenantAgentInterceptor } from '../../common/agent'
 import { AuthInfo, JwtAuthGuard, ReqAuthInfo, Role } from '../../common/auth'
-import { RoleGuard, Roles } from '../../common/authz'
+import { AnyRole, RoleGuard, Roles } from '../../common/authz'
 import { InjectLogger, Logger } from '../../common/logger'
 
 import { CreateStatusListRequest, CreateStatusListResponse, StatusList, UpdateStatusListRequest } from './dto'
@@ -71,7 +71,7 @@ export class StatusListController {
   @ApiOperation({ summary: 'Get status list' })
   @ApiOkResponse({ type: StatusList })
   @Get(':id')
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
+  @AnyRole()
   @UseInterceptors(TenantAgentInterceptor)
   public async get(@ReqAuthInfo() authInfo: AuthInfo, @Param('id') id: string): Promise<StatusList> {
     const logger = this.logger.child('get', { id })
@@ -85,6 +85,7 @@ export class StatusListController {
 
   @ApiOperation({ summary: 'Get all created status lists' })
   @ApiOkResponse({ type: [StatusList] })
+  @AnyRole()
   @Get()
   public async find(@ReqAuthInfo() authInfo: AuthInfo): Promise<Array<StatusList>> {
     const logger = this.logger.child('find', {})

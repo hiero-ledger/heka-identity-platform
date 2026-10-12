@@ -83,10 +83,10 @@ export default {
       preparation: 'Wait for the user to prepare',
       firstSignIn:
         'You were redirected to this page since you signed in for the first time',
-      passwordChanged: 'Password changed successfully',
     },
     buttons: {
       submit: 'Save',
+      changePassword: 'Change password',
     },
   },
   Demo: {
@@ -227,35 +227,14 @@ export default {
   },
   SignIn: {
     titles: {
-      username: 'User name',
-      password: 'Password',
-      // forgotAccount: 'Forgot account?',
+      main: 'Sign in',
+      providerNote:
+        'You will be redirected to the identity provider to sign in or create an account.',
     },
     buttons: {
       signIn: 'Sign in',
       signOut: 'Sign out',
       createAccount: 'Create account',
-    },
-  },
-  SignUp: {
-    titles: {
-      username: 'User name',
-      password: 'Password',
-      repeatPassword: 'Repeat password',
-    },
-    buttons: {
-      createAccount: 'Create account',
-    },
-  },
-  ChangePassword: {
-    titles: {
-      modal: 'Password',
-      currentPassword: 'Current password',
-      password: 'New password',
-      confirmPassword: 'Confirm new password',
-    },
-    buttons: {
-      save: 'Save',
     },
   },
   CreateSchema: {

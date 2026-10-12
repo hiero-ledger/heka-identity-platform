@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import { Outlet, useNavigate } from 'react-router-dom';
@@ -14,9 +14,7 @@ import {
   getUserIsSignedIn,
   getUserName,
 } from '@/entities/User/model/selectors/userSelector';
-import { getProfile } from '@/entities/User/model/services/getProfile';
 import LogoutSVG from '@/shared/assets/icons/logout.svg';
-import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
 import { Column, Row } from '@/shared/ui/Grid';
 
@@ -25,16 +23,9 @@ import * as cls from './AuthenticatedLayout.module.scss';
 const AuthenticatedLayout = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
 
   const isSignedIn = useSelector(getUserIsSignedIn);
   const username = useSelector(getUserName);
-
-  useEffect(() => {
-    if (isSignedIn && !username) {
-      dispatch(getProfile());
-    }
-  }, [dispatch, isSignedIn, username]);
 
   const onLogoClick = useCallback(() => {
     navigate(ROUTES.MAIN);

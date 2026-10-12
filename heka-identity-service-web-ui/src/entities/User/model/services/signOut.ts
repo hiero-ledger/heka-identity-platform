@@ -1,28 +1,20 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { ThunkConfig } from '@/app/providers/StoreProvider';
-import { authEndpoints } from '@/shared/api/config/endpoints';
-import { ApiError } from '@/shared/api/utils/error';
-import { clearTokens, getRefreshToken } from '@/shared/api/utils/token';
+import { clearUserId } from '@/shared/api/utils/token';
+import { signOutSession } from '@/shared/auth/sessionBridge';
 
+/** Forgets the local user id and starts the provider's logout (RP-initiated, redirects back to the app). */
 export const signOut = createAsyncThunk<void, void, ThunkConfig<string>>(
   'oauth/signOut',
   async (_, thunkAPI) => {
-    const { extra, rejectWithValue } = thunkAPI;
-
-    const refreshToken = getRefreshToken();
-    if (!refreshToken) return;
+    const { rejectWithValue } = thunkAPI;
 
     try {
-      await extra.authApi.post(authEndpoints.revoke, {
-        refresh: getRefreshToken(),
-      });
+      clearUserId();
+      await signOutSession();
     } catch (error) {
-      const message =
-        (error as ApiError).response?.data.message ?? error.message;
-      return rejectWithValue(message);
-    } finally {
-      clearTokens();
+      return rejectWithValue((error as Error).message);
     }
   },
 );

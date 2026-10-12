@@ -42,7 +42,6 @@ export interface ReduxStoreWithManager extends EnhancedStore<StateSchema> {
 export interface ThunkExtraArg {
   agencyDemoApi: AxiosInstance;
   agencyApi: AxiosInstance;
-  authApi: AxiosInstance;
 }
 
 export interface ThunkConfig<T> {
