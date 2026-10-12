@@ -9,7 +9,7 @@ import { Role } from 'common/auth'
 import { PatchUserDto, UserDto } from 'user/dto'
 import { uuid } from 'utils/misc'
 
-import { initializeMikroOrm, signJwt, startTestApp } from './helpers'
+import { initializeMikroOrm, signJwt, startTestApp, testOidcAudience, testOidcIssuer } from './helpers'
 
 describe('E2E authorization', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -43,11 +43,10 @@ describe('E2E authorization', () => {
         roles: [Role.OrgAdmin],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -65,11 +64,10 @@ describe('E2E authorization', () => {
         roles: [Role.OrgAdmin],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -93,11 +91,10 @@ describe('E2E authorization', () => {
         roles: [Role.OrgAdmin],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -121,11 +118,10 @@ describe('E2E authorization', () => {
         roles: [Role.OrgAdmin],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )

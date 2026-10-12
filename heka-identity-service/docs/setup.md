@@ -219,7 +219,6 @@ The defaults of the following variables are development/test credentials that ar
 
 | Variable                         | Checked when                                       |
 | -------------------------------- | -------------------------------------------------- |
-| `JWT_SECRET`                     | Always                                             |
 | `MIKRO_ORM_PASSWORD`             | Always                                             |
 | `WALLET_POSTGRES_PASSWORD`       | Always                                             |
 | `MDL_ISSUER_PRIVATE_KEY`         | Always (`mso_mdoc` issuance is enabled by default) |
@@ -285,31 +284,51 @@ The service uses two separate Postgres instances (or two databases on the same i
 | `WALLET_POSTGRES_USER`     | `heka`      | Wallet database user.     |
 | `WALLET_POSTGRES_PASSWORD` | `heka1`     | Wallet database password. |
 
-### Authentication (JWT)
+### Authentication (OIDC)
 
-API requests must carry a Bearer token signed with `JWT_SECRET`. The default values target [Heka Auth Service](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-auth-service); when integrating an external OAuth 2.0 provider, configure that provider to issue tokens matching these values and the [required claims](#required-jwt-claims) below.
+API requests must carry a Bearer token issued by an OpenID Connect provider — Keycloak, Auth0, or any provider that publishes a discovery document and a JWKS. The service verifies the signature against the provider's JWKS, checks `iss`, `aud` and expiry, and then reads its four contract claims through configurable claim paths. Tokens signed with a shared secret (HMAC) are not accepted.
 
-> When pairing this service with [Heka Auth Service](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-auth-service), the three variables in this section must match the corresponding settings on the auth-service side. See [JWT alignment with Identity Service](../../heka-auth-service/README.md#jwt-alignment-with-identity-service) for the side-by-side mapping.
+| Variable                  | Default                            | Description                                                                                                                                                                                                                                                  |
+| ------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `OIDC_ISSUER_URL`         | _(required)_                       | Exact `iss` value, e.g. `http://localhost:8080/realms/heka-platform` (Keycloak) or `https://<tenant>.<region>.auth0.com/` (Auth0, with the trailing slash). The discovery document is fetched from `<issuer>/.well-known/openid-configuration` on first use. |
+| `OIDC_AUDIENCE`           | _(required)_                       | Accepted `aud` value. An array `aud` is accepted when it contains this value.                                                                                                                                                                                |
+| `OIDC_JWKS_URI`           | _(from discovery)_                 | JWKS endpoint override; skips discovery.                                                                                                                                                                                                                     |
+| `OIDC_JWKS`               | _(unset)_                          | Inline JWKS (JSON) for dev/test; bypasses discovery and `OIDC_JWKS_URI`.                                                                                                                                                                                     |
+| `OIDC_ALGORITHMS`         | `RS256`                            | Comma-separated allowed signature algorithms. HMAC algorithms are refused at startup.                                                                                                                                                                        |
+| `OIDC_CLOCK_TOLERANCE`    | `15`                               | Accepted clock skew in seconds.                                                                                                                                                                                                                              |
+| `OIDC_CLAIM_USER_ID`      | `sub`                              | Claim path of the stable user id.                                                                                                                                                                                                                            |
+| `OIDC_CLAIM_ROLES`        | `roles`                            | Claim path of the Heka role (a string or an array).                                                                                                                                                                                                          |
+| `OIDC_CLAIM_NAME`         | `name,preferred_username,nickname` | Comma-separated fallback list of display-name claim paths; the user id is the last resort.                                                                                                                                                                   |
+| `OIDC_CLAIM_ORG_ID`       | `org_id`                           | Comma-separated fallback list of claim paths for the organization id; the first one present wins. The Keycloak recipe uses `heka_organization,org_id`: the organization chosen at login, else the `org_id` user attribute.                                   |
+| `OIDC_CLAIM_ORG_ID_FIELD` | _(unset)_                          | Field that holds the Heka organization id inside an organization object, e.g. `heka_org_id` for Keycloak Organizations (`{ "<alias>": { "heka_org_id": ["<id>"] } }`).                                                                                       |
 
-| Variable                      | Default                 | Description                                                                       |
-| ----------------------------- | ----------------------- | --------------------------------------------------------------------------------- |
-| `JWT_SECRET`                  | `test`                  | Secret used to sign and verify tokens. **Replace in any non-trivial deployment.** |
-| `JWT_VERIFY_OPTIONS_ISSUER`   | `Heka`                  | Required value of the `iss` claim.                                                |
-| `JWT_VERIFY_OPTIONS_AUDIENCE` | `Heka Identity Service` | Required value of the `aud` claim.                                                |
+The service refuses to start when `OIDC_ISSUER_URL` or `OIDC_AUDIENCE` is missing, and logs the effective issuer, audience, key source and claim paths at startup. A discovery or JWKS fetch failure is reported as a server error, not as `401`, so a misconfigured or unreachable provider is distinguishable from a bad token.
+
+#### Claim paths
+
+A claim path is resolved in this order: as a literal top-level key (so namespaced names such as `https://heka/roles` work as-is), as a JSON pointer when it starts with `/` (RFC 6901, e.g. `/realm_access/roles` or `/https:~1~1heka~1roles`), otherwise as a dotted path (`realm_access.roles`).
 
 #### Required JWT claims
 
-The token strategy (`src/common/auth/jwt.strategy.ts`) and validator (`src/common/auth/auth.service.ts`) expect:
+`TokenVerifier` (`src/common/auth/token-verifier.service.ts`) verifies the token and `mapClaims` (`src/common/auth/claims.ts`) applies the contract. The claim names below are the defaults; each one is read through its `OIDC_CLAIM_*` path.
 
-| Claim         | Required | Description                                                                                                                                                                                                                  |
-| ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sub`         | Yes      | Stable user identifier. Used to provision and look up the user record.                                                                                                                                                       |
-| `roles`       | Yes      | Array with exactly one role. Valid values: `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User`. It decides the wallet in both modes, and permissions when the [role model](#role-model) is enabled. |
-| `name`        | Yes      | User-facing display name; also used as the wallet label on first sight.                                                                                                                                                      |
-| `org_id`      | Depends  | Organization identifier. Required for `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer` and `Verifier`; rejected for `Admin` and `User`.                                                                                       |
-| `iss` / `aud` | Yes      | Standard JWT claims; must match `JWT_VERIFY_OPTIONS_ISSUER` / `_AUDIENCE`.                                                                                                                                                   |
+| Claim (default path)           | Required | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sub` (`OIDC_CLAIM_USER_ID`)   | Yes      | Stable user identifier, at most 255 characters. Used to provision and look up the user record. The recipes point it at `heka_uid`, which keeps the same value when users move to another provider.                                                                                                                                                                                                                                                                                                                                                                                       |
+| `roles` (`OIDC_CLAIM_ROLES`)   | Yes      | A string or an array. Values that aren't Heka roles are ignored, and exactly one Heka role must remain: `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier` or `User`. It decides the wallet in both modes, and permissions when the [role model](#role-model) is enabled. Roles are assigned in the OIDC provider; see [Managing roles](#managing-roles).                                                                                                                                                                                                              |
+| `name` (`OIDC_CLAIM_NAME`)     | No       | User-facing display name; also used as the wallet label on first sight. Falls back to the user id.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `org_id` (`OIDC_CLAIM_ORG_ID`) | Depends  | Organization identifier. Required for `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer` and `Verifier`; ignored for `Admin` and `User`, who act outside any organization (a provider includes one, for example, for a new sign-up added to an organization before they get an organization role). Accepted shapes: a string; a single-element array; or an object with exactly one key, the organization, whose `OIDC_CLAIM_ORG_ID_FIELD` is read (without a field, the key itself is the id). A claim listing two or more organizations is rejected (`401`): the login has to select one. |
+| `iss` / `aud`                  | Yes      | Standard JWT claims. They must match `OIDC_ISSUER_URL` and `OIDC_AUDIENCE`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 The `tenantId` is **not** a JWT claim — it is derived internally from `(role, sub, org_id)` on first request and persisted with the auto-provisioned wallet. See [Concepts and Glossary — Multi-Tenancy](concepts.md#multi-tenancy).
+
+### Wallet preparation
+
+| Variable                      | Default | Description                                                                                                                        |
+| ----------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `PREPARE_WALLET_LOCK_TIMEOUT` | `300`   | Seconds a `POST /prepare-wallet` call waits while another call prepares the same wallet, on any instance, before it returns `503`. |
+
+`POST /prepare-wallet` calls for one wallet run one at a time, also across Identity Service instances. A PostgreSQL advisory lock on the wallet id is held on a dedicated database connection for the whole preparation. A concurrent caller (for example, a second member of a shared organization wallet) waits, then gets the fully prepared wallet. A repeated call creates whatever is still missing: a DID that failed before, OID4VC records, schema registrations on a DID created later. The `dids` list in the response reports each DID method as `created`, `existing`, `failed` (retried by the next call) or `skipped` (not allowed for the role).
 
 ### Role model
 
@@ -319,21 +338,113 @@ The `tenantId` is **not** a JWT claim — it is derived internally from `(role, 
 
 The flag doesn't change roles or wallets, so it can be changed with a restart without affecting data. See [Concepts — Role model](concepts.md#role-model).
 
+#### Managing roles
+
+Roles are assigned in the OIDC provider, not in the Identity Service. The shipped recipes set safe defaults:
+
+- every new user gets `User` (a personal `User_<id>` wallet);
+- the SSO service account is `OrgAdmin` of its own organization `heka-sso`;
+- the demo service account, whose token is public, is `User`;
+- `Admin` is never a default. Every `Admin` acts in the one shared `Administration` wallet, the platform identity, so give it only to platform operators.
+
+How to create the first `Admin`, keep operators, assign organization roles and recover access is described for each provider in the Keycloak README, [Managing roles](../../heka-sso-service/keycloak/README.md#managing-roles), and the Auth0 README, [Managing roles](../../heka-sso-service/auth0/README.md#managing-roles).
+
+A role change reaches the Identity Service with the user's next access token. It also moves the user to another wallet; the previous wallet keeps its data.
+
 #### Upgrading an existing deployment
 
-A fresh deployment needs no action. Before users of an existing deployment sign in again, read the following and complete steps 3 to 6:
+A fresh deployment needs no action. A deployment that still runs heka-auth-service changes two things at once: the role model of #215 (shared `Administration` wallet, wallet-owned schemas, the `ROLE_MODEL_ENABLED` flag), and the switch to an OIDC provider. Plan the switch as one maintenance window, and follow the step-by-step [runbook](../../docs/runbook-migrate-to-oidc-provider.md); it includes the checks and a rollback. The points below summarize what changes.
 
-1. **`Admin` tokens use a shared wallet.** Every `Admin` now acts in the shared `Administration` wallet instead of a personal `Administration_<sub>` wallet. On the next request these accounts use that wallet; DIDs, connections, credentials and OID4VC records in their previous wallets aren't deleted, but they can't be reached through the API anymore. All other wallets are unchanged.
-2. **Schemas move to wallets.** Migration `Migration20260924120000` makes each schema belong to a wallet of the user who created it: the wallet whose primary DID registered it, otherwise the creator's wallet whose ID sorts first alphabetically (wallets have no creation date, so this isn't necessarily the oldest one). No data is deleted, and the creator stays the schema's issuer. For accounts that were `Admin` before this release, that wallet is their previous `Administration_<sub>` wallet, so their schemas aren't visible from the shared `Administration` wallet or from the `User_<sub>` wallet of a reassigned account. Templates and credential status lists still belong to their users.
-3. **Role restrictions are off by default.** Before this release, the Identity Service always enforced the per-endpoint role lists: for example, only `Admin`, `OrgAdmin` and `Issuer` could call `POST /dids`, and invitations, offers, proofs, OID4VC sessions, status lists and credential definitions were limited to specific roles. With the default `ROLE_MODEL_ENABLED=false`, no role is checked: every token can do everything in the wallet it acts in. If your tokens don't come from the bundled Auth Service and you rely on these role lists, set `ROLE_MODEL_ENABLED=true`; the enabled mode enforces the same lists as before.
-4. **Existing accounts keep their stored role.** Before this release, sign-up let the client choose its role, and the Web UI and `heka-identity-service-web-ui/scripts/prepare-demo-user.ts` registered every account as `Admin`. After the upgrade, all these accounts act in the shared `Administration` wallet: they see each other's resources. Reassign every account that isn't a real platform administrator, including the demo user (the Auth Service `DEMO_USER`). New sign-ups get `User`. An `Admin` can do this with the Auth Service [role assignment API](../../heka-auth-service/README.md#api) (`PATCH /api/v1/users/{id}/role`), or directly in the Auth Service database:
+1. **`Admin` tokens use a shared wallet.** Every `Admin` now acts in the shared `Administration` wallet instead of a personal `Administration_<sub>` wallet. DIDs, connections, credentials and OID4VC records in the previous wallets aren't deleted, but they can't be reached through the API anymore. All other wallets are unchanged.
+2. **Schemas move to wallets.** Migration `Migration20260924120000` makes each schema belong to a wallet of the user who created it. That is the wallet whose primary DID registered it; otherwise it is the creator's wallet whose ID sorts first alphabetically. Wallets have no creation date, so this isn't necessarily the oldest one. No data is deleted, and the creator stays the schema's issuer. For accounts that were `Admin` before this release, that wallet is their previous `Administration_<sub>` wallet, so their schemas aren't visible from the shared `Administration` wallet, or from the `User_<sub>` wallet of a reassigned account. Templates and credential status lists still belong to their users.
+3. **Role restrictions are off by default.** Before #215, the Identity Service always enforced the per-endpoint role lists. For example, only `Admin`, `OrgAdmin` and `Issuer` could call `POST /dids`, and invitations, offers, proofs, OID4VC sessions, status lists and credential definitions were limited to specific roles. With the default `ROLE_MODEL_ENABLED=false`, no role is checked: every token can do everything in the wallet it acts in. If you rely on these role lists, set `ROLE_MODEL_ENABLED=true`; the enabled mode enforces the same lists as before.
+4. **Only real operators stay `Admin`.** Before #215, sign-up let the client choose its role, and the Web UI and `prepare-demo-user.ts` registered every account as `Admin`. Migrated unchanged, all these accounts would act in the shared `Administration` wallet and see each other's resources.
+   - The export tool therefore refuses to export `Admin` accounts until you name the operators with `--keep-admin <name>`. Every other `Admin` is exported as `User`, and the heka-auth-service database is left unchanged.
+   - `--report` shows every account's role and wallet after the migration before anything is imported.
+5. **Migrate the accounts to the OIDC provider.** Dump `auth_user`, convert it with [`tools/heka-auth-user-export`](../../tools/heka-auth-user-export/README.md) (passing the deployment's `ORG_ID` as `--org-id`), import it into Keycloak or Auth0, and check the result with `verify-import.mjs`.
+   - Each account keeps its id as `heka_uid`.
+   - Organization roles get `org_id` = `ORG_ID`.
+   - So every account that keeps its role lands in the same wallet as before.
+6. **Switch the services.** Configure the Identity Service with `OIDC_*` (see [Authentication (OIDC)](#authentication-oidc)), then switch the SSO service and the Web UI. Tokens issued by heka-auth-service stop working at once, so users sign in again. From then on, role changes are made in the provider and apply with the next access token (see [Managing roles](#managing-roles)).
+7. **Re-create the service accounts' wallets.** The SSO service now authenticates as its own service account (`OrgAdmin` of `heka-sso` in both recipes), and the demo pages as `heka-demo` (`User`). Both get new wallets.
+   - With the SSO account's token, call `POST /prepare-wallet`. Set `IDENTITY_SERVICE_PUBLIC_VERIFIER_ID` and `IDENTITY_SERVICE_REQUEST_SIGNER_DID` to the DID it returns, and restart the SSO service.
+   - Run `yarn prepare-demo-user` in the Web UI and rebuild it.
+8. **Tell former `Admin`s who are now `User`s** that they start in an empty `User_<id>` wallet. Their earlier data stays in the old wallet.
+9. **Retire heka-auth-service** once the import has been verified. Keep its database dump until then.
 
-   ```sql
-   update "auth_user" set "role" = 'User' where "role" = 'Admin' and "name" not in ('<real admin>', ...);
-   ```
+Step by step: [docs/runbook-migrate-to-oidc-provider.md](../../docs/runbook-migrate-to-oidc-provider.md). Background: [docs/keycloak-replacement-for-auth-service.md](../../docs/keycloak-replacement-for-auth-service.md) (the switch) and [docs/role-model-and-oidc-providers.md](../../docs/role-model-and-oidc-providers.md) (the role model).
 
-5. **Role changes apply to new tokens only.** Access tokens that were already issued keep their old role until they expire, and the demo user's access token is valid for about one year. The Identity Service doesn't check whether the Auth Service revoked a token, so to invalidate outstanding tokens, rotate `JWT_SECRET` in both services. Then re-run `prepare-demo-user.ts` so the Web UI environment gets a new demo user token.
-6. **The SSO service account moves to a new wallet.** `heka-sso-service` signs in to the Auth Service as `IDENTITY_SERVICE_AUTH_NAME` (by default the demo user) and creates verification sessions under `IDENTITY_SERVICE_PUBLIC_VERIFIER_ID`, signed with `IDENTITY_SERVICE_REQUEST_SIGNER_DID`. Both belong to the account's previous wallet. Give the service its own account with a role that can create a public DID and verifiers, such as `OrgAdmin` of an organization, rather than reassigning it to `User`. Create the signing DID and the verifier again with that account, set both variables to the new values, and restart the SSO service. Replace `IDENTITY_SERVICE_AUTH_TOKEN` too if it is set, because it was signed with the old `JWT_SECRET`.
+#### Provider recipes
+
+**Keycloak** — the `heka-platform` realm shipped in [`heka-sso-service/keycloak/realm-heka-platform.json`](../../heka-sso-service/keycloak/README.md) already contains the recipe: a bearer-only client `heka-identity-service` owning the client roles `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User`, and on each client that requests tokens the protocol mappers User Client Role → claim `roles` (multivalued, in the access token), User Attribute `org_id` → `org_id`, User Property `id` → `heka_uid`, and Audience `heka-identity-service`. The display name comes from the built-in `profile` scope (`name` / `preferred_username`), which the default `OIDC_CLAIM_NAME` fallback list already reads. Roles: the default group `heka-users` grants `User` to every new user, and the group `heka-admins` grants `Admin` to operators. Organizations: the realm has Keycloak Organizations enabled; the Web UI requests the `organization` scope, so a member of several organizations picks one at login, and the client mapper `heka organization` emits it as `heka_organization` with the organization attribute `heka_org_id`. Then set `OIDC_ISSUER_URL=http://<keycloak>/realms/heka-platform`, `OIDC_AUDIENCE=heka-identity-service`, `OIDC_CLAIM_ORG_ID=heka_organization,org_id` and `OIDC_CLAIM_ORG_ID_FIELD=heka_org_id`; the other claim paths keep their defaults. For another realm, recreate the same client, roles and mappers.
+
+**Auth0** — the recipe lives in [`heka-sso-service/auth0`](../../heka-sso-service/auth0/README.md): `setup-tenant.sh` creates the API `https://heka-identity` (RS256), the SPA and machine-to-machine applications, the Heka roles, and deploys two Actions (`post-login`, `credentials-exchange`) that set the namespaced custom claims `https://heka/roles` (array with one role), `https://heka/name`, `https://heka/org_id` and `https://heka/heka_uid` on access tokens requested with that audience — namespaced names are mandatory in Auth0 access tokens with an API audience. Then set `OIDC_ISSUER_URL=https://<tenant>.<region>.auth0.com/` (trailing slash), `OIDC_AUDIENCE=https://heka-identity`, `OIDC_CLAIM_ROLES=https://heka/roles`, `OIDC_CLAIM_NAME=https://heka/name,name,nickname`, `OIDC_CLAIM_ORG_ID=https://heka/org_id` and `OIDC_CLAIM_USER_ID=https://heka/heka_uid`. Clients must request the API `audience`, otherwise Auth0 issues opaque access tokens. A login through an Auth0 Organization (the Web UI sends `organization` when `REACT_APP_OIDC_ORGANIZATION` is set) carries that organization's `metadata.heka_org_id` as `https://heka/org_id` and the role of the membership.
+
+The full migration plan, including the web UI and SSO service sides, is in [docs/keycloak-replacement-for-auth-service.md](../../docs/keycloak-replacement-for-auth-service.md) at the repository root.
+
+### Organization administration
+
+An `OrgAdmin` can manage the Heka roles of their own organization's members through this API, without an account in the provider's admin console. The roles stay in the OIDC provider. The service changes them through the provider's admin API with a dedicated service account, and enforces the rules heka-auth-service had for `OrgAdmin`s.
+
+| Endpoint                                                                | Result                                                                                                                                                                                                                                                                         |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /organization/members`                                             | The members of the caller's organization: provider user id, Heka user id, username, Heka role(s), and whether the member is the caller.                                                                                                                                        |
+| `PUT /organization/members/{memberId}/role` with `{ "role": "Issuer" }` | Gives the member exactly that organization role (`OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`) and removes any other Heka role. In Keycloak, the member also leaves the `heka-users` default group. The change reaches the member with their next access token. |
+
+The rules, enforced on every call, whatever `ROLE_MODEL_ENABLED` says:
+
+- **Who:** only an `OrgAdmin`.
+- **Which organization:** only the one in the caller's token. It must exist in the provider's Organizations, with `heka_org_id` = the token's `org_id`.
+- **Which roles:** only organization roles; `Admin` and `User` can't be assigned.
+- **Not oneself:** a caller can't change their own role.
+- **Not operators:** members with `Admin` are never touched.
+- **Fresh check:** the caller's own membership and role are read again from the provider before each call, so a token issued before a demotion can't be used.
+
+Answers:
+
+- `403`: the caller isn't, or is no longer, an `OrgAdmin` member.
+- `404`: the feature is off, or the organization or member is unknown.
+- `400`: not an organization role.
+- `502`: the provider's admin API failed.
+
+Every change is logged with `audit: "organization-role-change"`, the caller, the member, and the old and new role.
+
+| Variable                    | Default                 | Description                                                                                                                                                |
+| --------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORG_ADMIN_PROVIDER`        | _(unset: disabled)_     | `keycloak` or `auth0`.                                                                                                                                     |
+| `ORG_ADMIN_URL`             | _(unset: disabled)_     | Keycloak base URL (`http://localhost:8080`) or Auth0 tenant URL (`https://<tenant>.<region>.auth0.com`).                                                   |
+| `ORG_ADMIN_CLIENT_ID`       | _(unset: disabled)_     | The admin service account: `heka-identity-admin` in the shipped Keycloak realm, or the `heka-identity-admin` M2M application created by `setup-tenant.sh`. |
+| `ORG_ADMIN_CLIENT_SECRET`   | _(unset: disabled)_     | Its secret. Production refuses `dev-only-…` secrets and secrets shorter than 16 characters.                                                                |
+| `ORG_ADMIN_REALM`           | `heka-platform`         | Keycloak only.                                                                                                                                             |
+| `ORG_ADMIN_ROLES_CLIENT_ID` | `heka-identity-service` | Keycloak only: the client that owns the Heka client roles.                                                                                                 |
+| `ORG_ADMIN_DEFAULT_GROUP`   | `/heka-users`           | Keycloak only: the default group that grants `User`.                                                                                                       |
+| `ORG_ADMIN_ORG_ID_FIELD`    | `heka_org_id`           | Organization attribute (Keycloak) or metadata field (Auth0) that holds the Heka organization id.                                                           |
+
+The four required settings must be set together; a partial set is a startup error.
+
+What the service account needs:
+
+- **Keycloak:** the `realm-management` roles `manage-users`, `view-users`, `view-clients`, `query-groups` and `manage-realm`. Keycloak 26.0 only lets `manage-realm` read organizations and their members, which makes this a powerful account; its secret must stay with this service.
+- **Auth0:** the Management API scopes `read:organizations`, `read:organization_members`, `read:organization_member_roles`, `create:organization_member_roles`, `delete:organization_member_roles`, `read:roles` and `read:users`. The admin API client retries `429 Too Many Requests`, because the Management API rate limits are low on small plans.
+
+Both recipes create the account. Members without an organization in the provider (the `org_id` user attribute only) can't be managed this way: move them into the provider's Organizations first.
+
+### Demo token broker
+
+The web UI's public demo pages (Demo, Age verification) run without a signed-in user. Instead of a long-lived token baked into the web bundle, they call `GET /demo/token` on this service, which returns a short-lived access token of a dedicated **demo service account** obtained with an OAuth 2.0 Client Credentials grant from the OIDC provider above (`{ "access_token", "token_type": "Bearer", "expires_in" }`). The token is cached and re-acquired a minute before it expires, so the provider sees one grant per token lifetime however many browsers open the demo. The endpoint is optional: it answers `404` until all three required settings are present, and `502` when the provider does not issue a token.
+
+| Variable                  | Default              | Description                                                                                                                                                                    |
+| ------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DEMO_TOKEN_URL`          | _(unset: disabled)_  | Provider token endpoint, e.g. `http://localhost:8080/realms/heka-platform/protocol/openid-connect/token` or `https://<tenant>.<region>.auth0.com/oauth/token`.                 |
+| `DEMO_CLIENT_ID`          | _(unset: disabled)_  | Confidential client with a service account that carries the demo tenant's claims: `heka-demo` in the shipped Keycloak realm, the `heka-demo` application's client id in Auth0. |
+| `DEMO_CLIENT_SECRET`      | _(unset: disabled)_  | Its secret. Production refuses the dev secret of the shipped realm and secrets shorter than 16 characters.                                                                     |
+| `DEMO_CLIENT_AUTH_METHOD` | `client_secret_post` | `client_secret_post` or `client_secret_basic`.                                                                                                                                 |
+| `DEMO_TOKEN_PARAMS`       | _(none)_             | Extra form fields for the token request as a JSON object, e.g. `{"audience":"https://heka-identity"}` for Auth0.                                                               |
+| `DEMO_TOKEN_RATE_LIMIT`   | `30`                 | Requests per minute per client IP accepted by `GET /demo/token` (`429` above it). Only this endpoint is rate-limited.                                                          |
+
+Anyone can call the endpoint, as anyone could read the bundled token before, so keep the demo account on the minimum role it needs (`User` in both recipes; never `Admin`, which would hand every visitor the shared `Administration` wallet) and keep the provider's access-token lifetime for that client short (minutes). The three settings must be set together; a partial set is a startup error. Behind a reverse proxy set Express `trust proxy` so the rate limit sees client addresses rather than the proxy's.
+
+The demo account is created by the provider recipe: the Keycloak realm ships the `heka-demo` client with a service-account user of fixed id `e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9`, and `setup-tenant.sh` creates an Auth0 machine-to-machine application `heka-demo` whose metadata carries the same `heka_uid`, so the demo tenant and its DID are the same on both providers. The web UI's `yarn prepare-demo-user` then obtains a token from the broker, prepares that tenant's wallet through `/prepare-wallet` and records the DID for the build (see the [web UI README](../../heka-identity-service-web-ui/README.md#creation-of-pre-defined-demo-user)).
 
 ### Ledger / DID methods
 

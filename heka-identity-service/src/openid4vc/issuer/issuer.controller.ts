@@ -12,7 +12,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { JwtAuthGuard, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { AnyRole, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import {
@@ -42,6 +42,7 @@ export class OpenId4VcIssuerController {
   @ApiOperation({ summary: 'Get issuer records' })
   @ApiOkResponse({ description: 'Issuer records', isArray: true, type: OpenId4VcIssuerRecordDto })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @AnyRole()
   @Get()
   public async find(
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -117,6 +118,7 @@ export class OpenId4VcIssuerController {
     type: OpenId4VciCredentialConfigurationSupportedWithId,
   })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @AnyRole()
   @Get('/supported-credentials')
   public async supportedCredentials(
     @ReqTenantAgent() tenantAgent: TenantAgent,

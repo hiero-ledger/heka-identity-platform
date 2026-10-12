@@ -1,7 +1,9 @@
+import { DidRepository } from '@credo-ts/core'
 import { EntityManager } from '@mikro-orm/core'
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -12,12 +14,12 @@ import { ConfigType } from '@nestjs/config'
 import { Mutex } from 'async-mutex'
 
 import { Agent, AGENT_TOKEN, TenantAgent } from 'common/agent'
-import { AuthInfo } from 'common/auth'
+import { AuthInfo, Role } from 'common/auth'
 import { AuthorizationService } from 'common/authz'
 import { DidRegistrarService } from 'common/did-registrar'
 import { Wallet } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
-import { MAIN_DID_METHOD } from 'common/types'
+import { DidMethod, MAIN_DID_METHOD } from 'common/types'
 import { getDidControllerWalletId } from 'utils/auth'
 import { withTenantAgent } from 'utils/multi-tenancy'
 
@@ -27,7 +29,8 @@ import { CreateDidRequestDto, DidDocumentDto, FindDidRequestDto, GetDidMethodsRe
 
 @Injectable()
 export class DidService {
-  private readonly mainDidMutex = new Mutex()
+  // One lock per wallet, so main-DID creation for unrelated wallets doesn't wait in one queue
+  private readonly mainDidMutexes = new Map<string, Mutex>()
 
   public constructor(
     @Inject(AGENT_TOKEN)
@@ -86,10 +89,15 @@ export class DidService {
       }
 
       // 2. With the role model enabled, the new DID is controlled by the DID of the same method held by the
-      // controller wallet (Admin -> OrgAdmin -> Issuer), for methods that support a controller. Roles that cannot
-      // create a public DID are rejected here as well
+      // controller wallet (Admin -> OrgAdmin -> Issuer), for methods that support a controller. A Verifier may only
+      // create a self-controlled did:key (no ledger write), enough to prepare its wallet and sign verification
+      // requests. Other roles that cannot create a public DID are rejected here as well
       let controller: string | undefined
-      if (this.authorizationService.isEnforced) {
+      if (this.authorizationService.isEnforced && authInfo.role === Role.Verifier) {
+        if (method !== DidMethod.Key) {
+          throw new ForbiddenException(`Role '${authInfo.role}' can only create did:key DIDs, not '${method}'`)
+        }
+      } else if (this.authorizationService.isEnforced) {
         const didControllerWalletId = getDidControllerWalletId({ role: authInfo.role, orgId: authInfo.orgId })
         if (didControllerWalletId && this.didRegistrarService.supportsController(method)) {
           controller = await this.findCreatedDid(didControllerWalletId, method)
@@ -108,21 +116,74 @@ export class DidService {
         controller,
       })
 
+      // 4. The main DID is claimed in the database, so another Identity Service instance that created one at the same
+      // time can't overwrite it: only the first write to an empty `public_did` succeeds
       if (method === MAIN_DID_METHOD) {
+        const claimed = await this.em.nativeUpdate(
+          Wallet,
+          { id: wallet.id, publicDid: null },
+          { publicDid: didDocument.id },
+        )
+        if (!claimed) {
+          await this.deleteCreatedDid(authInfo.tenantId, didDocument.id)
+          const { publicDid } = await this.em.findOneOrFail(Wallet, { id: wallet.id }, { refresh: true })
+          throw new ConflictException(`The wallet already contains created public DID: ${publicDid}`)
+        }
         wallet.publicDid = didDocument.id
       }
       await this.em.flush()
       return didDocument
     }
 
-    // The main-method DID check, creation and write are serialized, so concurrent requests cannot both create one
-    const didDocument = method === MAIN_DID_METHOD ? await this.mainDidMutex.runExclusive(run) : await run()
+    // Within this instance the main-method DID check, creation and write are serialized per wallet, so concurrent
+    // requests cannot both create one
+    const didDocument =
+      method === MAIN_DID_METHOD ? await this.runExclusiveForWallet(authInfo.walletId, run) : await run()
 
     const res = new DidDocumentDto(didDocument)
 
     logger.trace('<')
     return res
     /* jscpd:ignore-end */
+  }
+
+  /**
+   * The wallet's own DID of a method, the oldest when there are several, without resolving it. The Indy endorser DID,
+   * which every tenant holds, is not the wallet's own.
+   */
+  public async findOwnDid(tenantAgent: TenantAgent, method: string): Promise<string | undefined> {
+    const didRecords = await tenantAgent.dids.getCreatedDids({ method })
+    const [oldest] = didRecords
+      .filter((record) => record.did !== this.agent.agencyConfig.indyEndorserDid)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    return oldest?.did
+  }
+
+  private async runExclusiveForWallet<T>(walletId: string, operation: () => Promise<T>): Promise<T> {
+    let mutex = this.mainDidMutexes.get(walletId)
+    if (!mutex) {
+      mutex = new Mutex()
+      this.mainDidMutexes.set(walletId, mutex)
+    }
+    try {
+      return await mutex.runExclusive(operation)
+    } finally {
+      if (!mutex.isLocked()) {
+        this.mainDidMutexes.delete(walletId)
+      }
+    }
+  }
+
+  /** Removes the record of a `did:key` that lost the race for `public_did`; a `did:key` has nothing on a ledger. */
+  private async deleteCreatedDid(tenantId: string, did: string): Promise<void> {
+    await withTenantAgent({ agent: this.agent, tenantId }, async (tenantAgent) => {
+      const didRepository = tenantAgent.dependencyManager.resolve(DidRepository)
+      const didRecord = await didRepository.findCreatedDid(tenantAgent.context, did)
+      if (didRecord) {
+        await didRepository.delete(tenantAgent.context, didRecord)
+      }
+    })
+    this.logger.child('deleteCreatedDid').info(`Deleted ${did}: another request set the wallet's main DID first`)
   }
 
   private async findCreatedDid(walletId: string, method: string): Promise<string | undefined> {

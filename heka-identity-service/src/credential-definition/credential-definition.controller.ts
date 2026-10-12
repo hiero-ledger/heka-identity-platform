@@ -16,7 +16,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { JwtAuthGuard, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { AnyRole, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { CredentialDefinitionService } from './credential-definition.service'
@@ -41,6 +41,7 @@ export class CredentialDefinitionController {
   @ApiOkResponse({ description: 'Credential Definition Records', type: [CredentialDefinitionDto] })
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @AnyRole()
   @Get()
   public async find(
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -83,6 +84,7 @@ export class CredentialDefinitionController {
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @AnyRole()
   @Get(':id')
   public async get(
     @ReqTenantAgent() tenantAgent: TenantAgent,
