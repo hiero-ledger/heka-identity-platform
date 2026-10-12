@@ -3,8 +3,8 @@ import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA, VERSION_METADATA } fro
 
 import { Role } from 'common/auth/auth-info.interface'
 
-import { RoleGuard } from './role.guard'
-import { ANY_ROLE_KEY, ROLES_KEY } from './roles.decorator'
+import { RoleGuard } from '../role.guard'
+import { ANY_ROLE_KEY, ROLES_KEY } from '../roles.decorator'
 
 /** Who may call a route when the role model is enabled. */
 export type RouteAccess =

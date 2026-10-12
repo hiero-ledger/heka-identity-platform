@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto'
+
 import { createMock } from '@golevelup/ts-vitest'
 import { UnauthorizedException } from '@nestjs/common'
 
@@ -24,6 +26,7 @@ const tokenUrl = `${issuer}/protocol/openid-connect/token`
 const clients = {
   sso: { id: 'heka-sso-service', secret: 'dev-only-heka-sso-service-secret-do-not-use-in-production' },
   demo: { id: 'heka-demo', secret: 'dev-only-heka-demo-secret-do-not-use-in-production' },
+  admin: { id: 'heka-identity-admin', secret: 'dev-only-heka-identity-admin-secret-do-not-use-in-production' },
 }
 
 /** The `heka-demo` service-account user has a fixed id in the realm file. */
@@ -141,5 +144,84 @@ describe.skipIf(!keycloakUrl)('Keycloak live: TokenVerifier against the heka-pla
     const tampered = `${header}.${Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(payload, 'base64url').toString()), roles: ['User'] })).toString('base64url')}.${signature}`
 
     await expect(buildVerifier().verify(tampered)).rejects.toBeInstanceOf(UnauthorizedException)
+  })
+})
+
+/**
+ * The user profile must keep `org_id` (it names the organization wallet) and `heka_uid` out of users' reach: with
+ * either one writable through the account console, a member with an organization role could move into another
+ * organization's wallet. The test creates its own user through the `heka-identity-admin` service account and signs
+ * in as that user with the realm's built-in `admin-cli` client (password grant), which reaches the account API.
+ */
+describe.skipIf(!keycloakUrl)('Keycloak live: users cannot edit the attributes heka-identity-service trusts', () => {
+  const password = `Live-${randomUUID()}`
+  const username = `attr-live-${randomUUID().slice(0, 8)}`
+  let adminToken = ''
+  let userToken = ''
+  let userId = ''
+
+  const admin = async (method: string, path: string, body?: unknown): Promise<Response> =>
+    await fetch(`${keycloakUrl}/admin/realms/${realm}${path}`, {
+      method,
+      headers: { authorization: `Bearer ${adminToken}`, 'content-type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    })
+  const account = async (method: string, body?: unknown): Promise<Response> =>
+    await fetch(`${issuer}/account`, {
+      method,
+      headers: { authorization: `Bearer ${userToken}`, 'content-type': 'application/json', accept: 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    })
+  const attributesOf = async (): Promise<Record<string, string[]>> =>
+    ((await (await admin('GET', `/users/${userId}`)).json()) as { attributes?: Record<string, string[]> }).attributes ??
+    {}
+
+  beforeAll(async () => {
+    adminToken = await clientCredentialsToken(clients.admin)
+    const created = await admin('POST', '/users', {
+      username,
+      enabled: true,
+      email: `${username}@example.invalid`,
+      emailVerified: true,
+      firstName: 'Attribute',
+      lastName: 'Test',
+      attributes: { org_id: ['admin-assigned-org'] },
+      credentials: [{ type: 'password', value: password, temporary: false }],
+    })
+    expect(created.status).toBe(201)
+    userId = created.headers.get('location')?.split('/').pop() ?? ''
+
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'password', client_id: 'admin-cli', username, password }),
+    })
+    userToken = ((await response.json()) as { access_token: string }).access_token
+  })
+
+  afterAll(async () => {
+    if (userId) await admin('DELETE', `/users/${userId}`)
+  })
+
+  test.each([
+    ['org_id', 'victim-org'],
+    ['heka_uid', DEMO_ACCOUNT_ID],
+  ])('rejects a user setting their own %s', async (attribute, value) => {
+    const me = (await (await account('GET')).json()) as { attributes?: Record<string, string[]> }
+
+    const response = await account('POST', { ...me, attributes: { ...me.attributes, [attribute]: [value] } })
+
+    expect(response.status).toBe(400)
+    expect(await response.text()).toContain('error-user-attribute-read-only')
+    expect((await attributesOf())[attribute]).not.toEqual([value])
+  })
+
+  test('keeps the admin-assigned org_id when the user edits their profile', async () => {
+    const me = (await (await account('GET')).json()) as Record<string, unknown>
+
+    const response = await account('POST', { ...me, firstName: 'Renamed' })
+
+    expect(response.status).toBe(204)
+    expect((await attributesOf()).org_id).toEqual(['admin-assigned-org'])
   })
 })

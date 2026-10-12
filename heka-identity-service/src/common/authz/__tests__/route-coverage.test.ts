@@ -7,7 +7,7 @@ import { PATH_METADATA } from '@nestjs/common/constants'
 
 import { Role } from 'common/auth/auth-info.interface'
 
-import { collectRoutePermissions, formatRoleMatrix, RoutePermission } from '../route-permissions'
+import { collectRoutePermissions, formatRoleMatrix, RoutePermission } from './route-permissions'
 
 const SRC = join(__dirname, '..', '..', '..')
 
