@@ -6,22 +6,6 @@
  * API audience only accept namespaced custom claims, hence the `https://heka/...` names; the
  * identity service reads them through its `OIDC_CLAIM_*` settings.
  *
- * Secrets (Action → Settings → Secrets):
- *   HEKA_AUDIENCE         API identifier the claims are for (default `https://heka-identity`)
- *   HEKA_CLAIM_NAMESPACE  claim prefix (default `https://heka`)
- *   HEKA_DEFAULT_ROLE     role for users without one (default `User`, as heka-auth-service sign-ups since #215;
- *                         never `Admin`: every Admin acts in the shared Administration wallet)
- *
- * Login through an Auth0 Organization (`event.organization` set): the role comes from that membership only
- * (`event.authorization.roles` then holds the roles assigned to the user in the organization) and must be one
- * organization role; the organization id is the organization's `metadata.heka_org_id`, falling back to its Auth0 id.
- * Keep `heka_org_id` stable: it names the organization's wallet in heka-identity-service. The login is denied when
- * the membership has no organization role, or more than one Heka role.
- *
- * Login without an organization, first match wins: exactly one Heka role among the user's Auth0 roles
- * (`event.authorization.roles`), else `app_metadata.heka_role`, else HEKA_DEFAULT_ROLE, which is
- * then persisted to `app_metadata.heka_role`; the organization id is `app_metadata.org_id`.
- * The identity service requires exactly one role.
  */
 
 const HEKA_ROLES = ['Admin', 'OrgAdmin', 'OrgManager', 'OrgMember', 'Issuer', 'Verifier', 'User']
