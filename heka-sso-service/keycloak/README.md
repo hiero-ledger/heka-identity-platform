@@ -79,7 +79,7 @@ Two kinds of administrator are involved:
 
 A platform operator usually needs both. In the dev realm, `admin` in `heka-platform` (a Heka `Admin`) and `admin` in the master realm (the Keycloak administrator) are different accounts that happen to share a name.
 
-**Delegation to organizations:** an `OrgAdmin` doesn't need Keycloak rights to manage the roles of their own organization's members. heka-identity-service offers `GET /organization/members` and `PUT /organization/members/{id}/role` (see [Organization administration](../../heka-identity-service/docs/setup.md#organization-administration)). It acts through the `heka-identity-admin` service account and enforces the rules: own organization only, organization roles only, not oneself, never an `Admin`.
+**Delegation to organizations:** an `OrgAdmin` doesn't need Keycloak rights to manage the roles of their own organization's members. heka-identity-service offers `GET /organization/members` and `PUT /organization/members/{id}/role` (see [Organization administration](../../heka-identity-service/docs/setup.md#organization-administration)). It acts through the `heka-identity-admin` service account and enforces the rules: own organization only, organization roles only, not oneself, never an `Admin`, and never a member who also belongs to another organization (their role would change there too).
 
 ### The first `Admin` and the operators
 
@@ -110,7 +110,7 @@ The realm has Keycloak **Organizations** enabled, so organizations and their mem
   - the attribute **`heka_org_id`**: the Heka organization id, which names the organization's wallet (`Organization_<heka_org_id>`).
 
   Set `heka_org_id` once and never change it. Keycloak's own organization id and the alias are not used for the wallet, so an organization can be renamed. When you move an existing organization from the `org_id` attribute, set `heka_org_id` to that old value (for migrated accounts, the deployment's `ORG_ID`) so its members keep their wallet. The realm ships the organization `heka-sso` (`heka_org_id` = `heka-sso`).
-- **Add members** under the organization's Members tab. Their Heka role is still one client role of `heka-identity-service` (see [Assigning a role](#assigning-a-role)), and it applies in every organization the user is a member of. Different roles in different organizations aren't supported yet.
+- **Add members** under the organization's Members tab. Their Heka role is still one client role of `heka-identity-service` (see [Assigning a role](#assigning-a-role)), and it applies in every organization the user is a member of. Different roles in different organizations aren't supported yet. For the same reason, an `OrgAdmin` can't change the role of such a member through heka-identity-service; a Keycloak administrator does.
 - **Login:**
   - The Web UI requests the `organization` scope. A member of **several** organizations gets a "Select an organization to proceed" page after entering their username, and the token carries only the one they chose.
   - The `heka organization` mapper on the web UI client emits it as `heka_organization: { "<alias>": { "heka_org_id": ["<id>"] } }`, which the identity service reads through `OIDC_CLAIM_ORG_ID` / `OIDC_CLAIM_ORG_ID_FIELD`.

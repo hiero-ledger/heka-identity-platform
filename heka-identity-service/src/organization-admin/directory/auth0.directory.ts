@@ -108,6 +108,11 @@ export class Auth0Directory implements OrganizationDirectory {
     return await this.toMember(organization, memberId)
   }
 
+  /** None: the Heka role is a role of this organization membership, other memberships keep their own. */
+  public organizationsSharingRole(): Promise<string[]> {
+    return Promise.resolve([])
+  }
+
   public async setRole(organization: DirectoryOrganization, member: DirectoryMember, role: OrganizationRole) {
     const rolesPath = `/organizations/${organization.id}/members/${encodeURIComponent(member.id)}/roles`
     const current = (await this.api.request<Auth0Role[]>('GET', rolesPath)) ?? []

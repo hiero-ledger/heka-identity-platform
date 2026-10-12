@@ -58,7 +58,8 @@ export class OrganizationAdminController {
     summary: "Set the Heka role of a member of the caller's organization",
     description:
       'Assigns one organization role (OrgAdmin, OrgManager, OrgMember, Issuer, Verifier) and removes any other Heka role. ' +
-      'Not for the caller themselves, and not for members with Admin. The change applies with the member’s next token.',
+      'Not for the caller themselves, not for members with Admin, and not for members whose role also applies in ' +
+      'another organization (Keycloak). The change applies with the member’s next token.',
   })
   @ApiParam({ name: 'memberId', description: "The member's id as listed by GET /organization/members" })
   @ApiOkResponse({ type: OrganizationMemberDto })

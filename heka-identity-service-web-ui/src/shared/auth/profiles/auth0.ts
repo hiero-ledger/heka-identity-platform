@@ -22,8 +22,12 @@ export const auth0Profile: ProfileFactory = (config) => {
     defaultScope: 'openid profile offline_access',
     authorizeParams,
     nameClaims: ['nickname', 'name', 'email'],
+    // A per-call `extraQueryParams` replaces the client's (oidc-client-ts doesn't merge them), so the audience and
+    // organization are repeated here: without the audience, Auth0 issues an opaque token the API rejects.
     signUp: (auth) =>
-      auth.signinRedirect({ extraQueryParams: { screen_hint: 'signup' } }),
+      auth.signinRedirect({
+        extraQueryParams: { ...authorizeParams, screen_hint: 'signup' },
+      }),
     changePassword: config.accountUrl
       ? () => {
           window.location.assign(config.accountUrl as string);

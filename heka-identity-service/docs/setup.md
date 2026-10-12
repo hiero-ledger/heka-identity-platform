@@ -398,11 +398,12 @@ The rules, enforced on every call, whatever `ROLE_MODEL_ENABLED` says:
 - **Which roles:** only organization roles; `Admin` and `User` can't be assigned.
 - **Not oneself:** a caller can't change their own role.
 - **Not operators:** members with `Admin` are never touched.
+- **Not shared members (Keycloak):** a member who also belongs to another organization is refused. Their role is a realm-wide client role, so the change would apply in the other organization too, for example making them its `OrgAdmin`. A platform operator changes their role in Keycloak. Auth0 keeps a role per organization membership, so this rule never refuses there.
 - **Fresh check:** the caller's own membership and role are read again from the provider before each call, so a token issued before a demotion can't be used.
 
 Answers:
 
-- `403`: the caller isn't, or is no longer, an `OrgAdmin` member.
+- `403`: the caller isn't, or is no longer, an `OrgAdmin` member; or the member is the caller, has `Admin`, or also belongs to another organization (Keycloak).
 - `404`: the feature is off, or the organization or member is unknown.
 - `400`: not an organization role.
 - `502`: the provider's admin API failed.

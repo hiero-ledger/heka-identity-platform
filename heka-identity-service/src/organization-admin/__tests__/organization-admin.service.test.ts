@@ -23,6 +23,8 @@ const member = (id: string, roles: Role[]): DirectoryMember => ({ id, hekaUid: `
 class FakeDirectory implements OrganizationDirectory {
   public members = new Map<string, DirectoryMember>()
   public setRoleCalls: Array<[string, OrganizationRole]> = []
+  /** Member id -> the other organizations their role applies in (Keycloak's realm-wide roles). */
+  public otherOrganizations = new Map<string, string[]>()
   public failWith?: Error
 
   public constructor(members: DirectoryMember[]) {
@@ -40,6 +42,10 @@ class FakeDirectory implements OrganizationDirectory {
 
   public getMember(_organization: DirectoryOrganization, memberId: string) {
     return Promise.resolve(this.members.get(memberId))
+  }
+
+  public organizationsSharingRole(_organization: DirectoryOrganization, target: DirectoryMember) {
+    return Promise.resolve(this.otherOrganizations.get(target.id) ?? [])
   }
 
   public setRole(_organization: DirectoryOrganization, target: DirectoryMember, role: OrganizationRole) {
@@ -153,6 +159,29 @@ describe('OrganizationAdminService', () => {
       await expect(service.setRole(authInfo(Role.OrgAdmin), 'stranger', Role.Issuer)).rejects.toBeInstanceOf(
         NotFoundException,
       )
+    })
+
+    test.each([Role.OrgAdmin, Role.Issuer])(
+      'refuses to make a member whose role also applies in another organization %s',
+      async (role) => {
+        directory.otherOrganizations.set('alice', ['kc-org-2'])
+
+        await expect(service.setRole(authInfo(Role.OrgAdmin), 'alice', role)).rejects.toThrow(
+          'This member also belongs to other organizations',
+        )
+        expect(directory.setRoleCalls).toEqual([])
+      },
+    )
+
+    test('answers 403 rather than 502 for a shared member and names no other organization', async () => {
+      directory.otherOrganizations.set('newbie', ['kc-org-2', 'kc-org-3'])
+
+      const error = (await service
+        .setRole(authInfo(Role.OrgAdmin), 'newbie', Role.Issuer)
+        .catch((e: unknown) => e)) as Error
+
+      expect(error).toBeInstanceOf(ForbiddenException)
+      expect(error.message).not.toContain('kc-org-2')
     })
   })
 

@@ -35,6 +35,12 @@ export interface OrganizationDirectory {
   listMembers(organization: DirectoryOrganization): Promise<DirectoryMember[]>
   /** The member, or `undefined` when the user is not a member of this organization. */
   getMember(organization: DirectoryOrganization, memberId: string): Promise<DirectoryMember | undefined>
+  /**
+   * The other organizations (provider ids) where the member's Heka role applies as well, so that changing it here would
+   * change it there too: in Keycloak a Heka role is a realm-wide client role. Empty when roles belong to one
+   * organization membership (Auth0).
+   */
+  organizationsSharingRole(organization: DirectoryOrganization, member: DirectoryMember): Promise<string[]>
   /** Replaces the member's Heka role in this organization with `role`, leaving exactly that one. */
   setRole(organization: DirectoryOrganization, member: DirectoryMember, role: OrganizationRole): Promise<void>
 }

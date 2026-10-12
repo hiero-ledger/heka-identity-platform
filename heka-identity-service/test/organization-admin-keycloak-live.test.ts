@@ -44,6 +44,7 @@ describe.skipIf(!keycloakUrl)('Keycloak live: KeycloakDirectory for delegated or
   const users: Record<string, string> = {}
   let clientUuid = ''
   let orgUuid = ''
+  let secondOrgUuid = ''
 
   beforeAll(async () => {
     const tokenResponse = await fetch(`${keycloakUrl}/realms/master/protocol/openid-connect/token`, {
@@ -111,6 +112,7 @@ describe.skipIf(!keycloakUrl)('Keycloak live: KeycloakDirectory for delegated or
   afterAll(async () => {
     for (const id of Object.values(users)) await admin('DELETE', `/users/${id}`).catch(() => undefined)
     if (orgUuid) await admin('DELETE', `/organizations/${orgUuid}`).catch(() => undefined)
+    if (secondOrgUuid) await admin('DELETE', `/organizations/${secondOrgUuid}`).catch(() => undefined)
     if (clientUuid) await admin('DELETE', `/clients/${clientUuid}`).catch(() => undefined)
   })
 
@@ -130,6 +132,17 @@ describe.skipIf(!keycloakUrl)('Keycloak live: KeycloakDirectory for delegated or
     expect(roleOf(users.newbie)).toEqual([Role.User])
     expect(roleOf(users.operator)).toEqual([Role.Admin])
     expect(members.find((member) => member.id === users.boss)?.hekaUid).toBe(users.boss)
+  })
+
+  test("takes a member's Heka user id from the user id, never from a heka_uid attribute", async () => {
+    // A heka_uid naming the OrgAdmin must not let this member pass for them in the caller and self checks
+    const newbie = await admin<Record<string, unknown>>('GET', `/users/${users.newbie}`)
+    await admin('PUT', `/users/${users.newbie}`, { ...newbie, attributes: { heka_uid: [users.boss] } })
+
+    const members = await directory.listMembers(organization)
+
+    expect(members.filter((member) => member.hekaUid === users.boss).map((member) => member.id)).toEqual([users.boss])
+    expect((await directory.getMember(organization, users.newbie))?.hekaUid).toBe(users.newbie)
   })
 
   test('gives a User member an organization role: leaves heka-users and holds exactly that role', async () => {
@@ -152,5 +165,22 @@ describe.skipIf(!keycloakUrl)('Keycloak live: KeycloakDirectory for delegated or
 
   test('does not find a user of the realm who is not a member', async () => {
     expect(await directory.getMember(organization, randomUUID())).toBeUndefined()
+  })
+
+  test('reports the other organizations a member belongs to, where their realm-wide role applies too', async () => {
+    await admin('POST', '/organizations', {
+      name: `${hekaOrgId}-second`,
+      alias: `${hekaOrgId}-second`,
+      attributes: { heka_org_id: [`${hekaOrgId}-second`] },
+      domains: [{ name: `${hekaOrgId}-second.invalid` }],
+    })
+    secondOrgUuid = await idOf(`/organizations?search=${hekaOrgId}-second&exact=true`)
+    await admin('POST', `/organizations/${secondOrgUuid}/members`, users.newbie)
+
+    const newbie = (await directory.getMember(organization, users.newbie))!
+    const boss = (await directory.getMember(organization, users.boss))!
+
+    expect(await directory.organizationsSharingRole(organization, newbie)).toEqual([secondOrgUuid])
+    expect(await directory.organizationsSharingRole(organization, boss)).toEqual([])
   })
 })

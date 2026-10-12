@@ -15,7 +15,10 @@ export interface ProviderProfile {
   name: AuthProviderName;
   /** Scope requested when `REACT_APP_OIDC_SCOPE` is unset. */
   defaultScope: string;
-  /** Extra authorize-request parameters, e.g. Auth0's `audience`. */
+  /**
+   * Extra authorize-request parameters, e.g. Auth0's `audience`. A flow that passes its own `extraQueryParams` to
+   * `signinRedirect` must include these too: oidc-client-ts uses the per-call object instead of the client's.
+   */
   authorizeParams: Record<string, string>;
   /** Ordered claims tried for the display name. */
   nameClaims: string[];

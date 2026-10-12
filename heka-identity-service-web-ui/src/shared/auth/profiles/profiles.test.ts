@@ -82,11 +82,29 @@ describe('provider profiles', () => {
       ).toEqual({});
     });
 
-    test('signs up through screen_hint=signup', async () => {
+    test('signs up through screen_hint=signup, keeping the audience', async () => {
       const auth = makeAuth();
       await resolveProfile(config)!.signUp!(auth);
+      // The per-call params replace the client's in oidc-client-ts: without the audience the token is opaque
       expect(auth.signinRedirect).toHaveBeenCalledWith({
-        extraQueryParams: { screen_hint: 'signup' },
+        extraQueryParams: {
+          audience: 'https://heka-identity',
+          screen_hint: 'signup',
+        },
+      });
+    });
+
+    test('signs up into the configured organization', async () => {
+      const auth = makeAuth();
+      await resolveProfile({ ...config, organization: 'org_abc123' })!.signUp!(
+        auth,
+      );
+      expect(auth.signinRedirect).toHaveBeenCalledWith({
+        extraQueryParams: {
+          audience: 'https://heka-identity',
+          organization: 'org_abc123',
+          screen_hint: 'signup',
+        },
       });
     });
 

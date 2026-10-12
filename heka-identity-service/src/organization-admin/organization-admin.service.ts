@@ -31,6 +31,8 @@ import { OrganizationMemberDto, OrganizationMembersDto } from './dto/organizatio
  * - only for the organization of their token, whose membership comes from the provider's Organizations;
  * - only organization roles (`OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`) can be assigned;
  * - nobody changes their own role, and members with `Admin` are never touched;
+ * - nor members whose role also applies in another organization (Keycloak's roles are realm-wide), since the change
+ *   would reach organizations the caller doesn't administer;
  * - the caller's current role is read again from the provider before every change, so a token issued before the
  *   caller was demoted can't be used to change roles.
  * Every change is logged with the caller, the member and the old and new role.
@@ -89,6 +91,18 @@ export class OrganizationAdminService implements OnModuleInit {
     }
     if (member.roles.length === 1 && member.roles[0] === role) {
       return this.toDto(member, authInfo)
+    }
+    // Where the role is shared by all of a member's organizations (Keycloak), changing it here would change it in
+    // organizations this caller doesn't administer, e.g. make the member OrgAdmin of one of them
+    const shared = await this.call(() => directory.organizationsSharingRole(organization, member))
+    if (shared.length > 0) {
+      logger.info(
+        { organization: organization.hekaOrgId, member: member.id, otherOrganizations: shared },
+        `Refused to change the role of ${member.username}: their role also applies in ${shared.length} other organization(s)`,
+      )
+      throw new ForbiddenException(
+        'This member also belongs to other organizations, where their role applies too; ask a platform operator to change it',
+      )
     }
 
     await this.call(() => directory.setRole(organization, member, role))

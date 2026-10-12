@@ -34,7 +34,6 @@ interface KeycloakOrganization {
 interface KeycloakUser {
   id: string
   username: string
-  attributes?: Record<string, string[]>
 }
 
 interface KeycloakRole {
@@ -98,14 +97,17 @@ export class KeycloakDirectory implements OrganizationDirectory {
   }
 
   public async getMember(organization: DirectoryOrganization, memberId: string): Promise<DirectoryMember | undefined> {
-    const organizations =
-      (await this.api.request<KeycloakOrganization[]>(
-        'GET',
-        `/organizations/members/${encodeURIComponent(memberId)}/organizations`,
-      )) ?? []
+    const organizations = await this.organizationsOf(memberId)
     if (!organizations.some((candidate) => candidate.id === organization.id)) return undefined
     const user = await this.api.request<KeycloakUser>('GET', `/users/${encodeURIComponent(memberId)}`)
     return user ? await this.toMember(user) : undefined
+  }
+
+  /** Every other organization of the member: their client roles are realm-wide, so they apply there as well. */
+  public async organizationsSharingRole(organization: DirectoryOrganization, member: DirectoryMember) {
+    return (await this.organizationsOf(member.id))
+      .map((candidate) => candidate.id)
+      .filter((id) => id !== organization.id)
   }
 
   public async setRole(organization: DirectoryOrganization, member: DirectoryMember, role: OrganizationRole) {
@@ -149,11 +151,22 @@ export class KeycloakDirectory implements OrganizationDirectory {
     }
   }
 
+  private async organizationsOf(userId: string): Promise<KeycloakOrganization[]> {
+    return (
+      (await this.api.request<KeycloakOrganization[]>(
+        'GET',
+        `/organizations/members/${encodeURIComponent(userId)}/organizations`,
+      )) ?? []
+    )
+  }
+
   private async toMember(user: KeycloakUser): Promise<DirectoryMember> {
     return {
       id: user.id,
-      // The recipe's heka_uid mapper emits the user id; migrated users carry the same value as an attribute
-      hekaUid: user.attributes?.heka_uid?.[0] ?? user.id,
+      // The recipe's heka_uid mapper emits the user id (migrated users keep their heka-auth-service id as the Keycloak
+      // id). Never the `heka_uid` attribute: tokens don't carry it, and a value there that differs from the id would
+      // let a member pass for another one in the caller and self checks.
+      hekaUid: user.id,
       username: user.username,
       roles: await this.hekaRoles(user.id),
     }
