@@ -13,7 +13,14 @@ import { CreateCredentialDefinitionDto } from 'credential-definition/dto'
 import { CreateSchemaDto } from 'schema/dto'
 import { uuid } from 'utils/misc'
 
-import { initializeMikroOrm, signJwt, startTestApp, waitForNotificationSocket } from './helpers'
+import {
+  initializeMikroOrm,
+  signJwt,
+  startTestApp,
+  waitForNotificationSocket,
+  testOidcAudience,
+  testOidcIssuer,
+} from './helpers'
 
 describe.skip('Revocation E2E Tests', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -64,11 +71,10 @@ describe.skip('Revocation E2E Tests', () => {
         type: 'access',
         roles: ['Admin'],
       },
-      'test',
       {
         subject: adminId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -87,11 +93,10 @@ describe.skip('Revocation E2E Tests', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: holderId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -110,11 +115,10 @@ describe.skip('Revocation E2E Tests', () => {
         type: 'access',
         roles: ['Admin'],
       },
-      'test',
       {
         subject: adminId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )

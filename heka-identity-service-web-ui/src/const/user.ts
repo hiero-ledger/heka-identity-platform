@@ -4,8 +4,6 @@ export const mainDidMethod = 'key';
 
 export const demoUser = {
   did: process.env.REACT_APP_DEMO_USER_DID ?? '',
-  accessToken: process.env.REACT_APP_DEMO_USER_ACCESS_TOKEN ?? '',
-  refreshToken: process.env.REACT_APP_DEMO_USER_REFRESH_TOKEN ?? '',
 };
 
 export const baseDisplayMetadata = {

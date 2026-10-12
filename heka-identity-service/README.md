@@ -10,7 +10,8 @@ The solution is designed as a multi-tenant system, meaning that a single instanc
 
 The service is configured via environment variables. The full reference (~30 variables across HTTP server, agent transports, persistence, JWT, ledger / DID methods, mDoc, logging, and health) lives in [Setup — Environment Variables](docs/setup.md#environment-variables). The most commonly customized are:
 
-- `JWT_SECRET`, `JWT_VERIFY_OPTIONS_ISSUER`, `JWT_VERIFY_OPTIONS_AUDIENCE` — must align with the [Heka Auth Service](../heka-auth-service/README.md#jwt-alignment-with-identity-service).
+- `OIDC_ISSUER_URL`, `OIDC_AUDIENCE` (plus `OIDC_CLAIM_*` for providers that namespace custom claims) — the OpenID Connect provider whose bearer tokens the API accepts; see [Authentication (OIDC)](docs/setup.md#authentication-oidc).
+- `DEMO_TOKEN_URL`, `DEMO_CLIENT_ID`, `DEMO_CLIENT_SECRET` (optional) — enable `GET /demo/token`, the short-lived token broker behind the web UI's public demo pages; see [Demo token broker](docs/setup.md#demo-token-broker).
 - `HEDERA_OPERATOR_ID`, `HEDERA_OPERATOR_KEY`, `HEDERA_NETWORK` — see [Hedera Integration](docs/hedera.md).
 - `MIKRO_ORM_HOST`, `MIKRO_ORM_PORT`, `MIKRO_ORM_USER`, `MIKRO_ORM_PASSWORD`, `MIKRO_ORM_DATABASE` — application database connection.
 - `DID_METHODS` — comma-separated list of enabled DID methods (default `indy,key,hedera`).

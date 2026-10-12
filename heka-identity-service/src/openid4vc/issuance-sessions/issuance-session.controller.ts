@@ -14,7 +14,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { AuthInfo, JwtAuthGuard, ReqAuthInfo, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { AnyRole, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import {
@@ -72,6 +72,7 @@ export class OpenId4VcIssuanceSessionController {
   @ApiOkResponse({ description: 'Credential Record', type: OpenId4VcIssuanceSessionRecordDto })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @AnyRole()
   @Get('/')
   public async getIssuanceSessionsByQuery(
     @ReqTenantAgent() tenantAgent: TenantAgent,
@@ -94,6 +95,7 @@ export class OpenId4VcIssuanceSessionController {
   @ApiOkResponse({ description: 'Credential Record', type: OpenId4VcIssuanceSessionRecordDto })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @AnyRole()
   @Get(':issuanceSessionId')
   public async getIssuanceSession(
     @ReqTenantAgent() tenantAgent: TenantAgent,

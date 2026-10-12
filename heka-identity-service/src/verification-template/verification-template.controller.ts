@@ -12,8 +12,8 @@ import {
 } from '@nestjs/swagger'
 
 import { TenantAgentInterceptor } from 'common/agent'
-import { AuthInfo, JwtAuthGuard, ReqAuthInfo } from 'common/auth'
-import { RoleGuard } from 'common/authz'
+import { AuthInfo, JwtAuthGuard, ReqAuthInfo, Role } from 'common/auth'
+import { AnyRole, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { ApiListResponse } from '../common/dto'
@@ -47,6 +47,7 @@ export class VerificationTemplateController {
 
   @ApiOperation({ summary: 'Get templates list' })
   @ApiListResponse({ listItemType: GetVerificationTemplatesListItem, description: 'List of templates' })
+  @AnyRole()
   @Get()
   public async getTemplatesList(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -62,6 +63,7 @@ export class VerificationTemplateController {
   @ApiOperation({ summary: 'Get template details' })
   @ApiParam({ name: 'id', format: 'uuid', type: 'string', description: 'Template id' })
   @ApiResponse({ type: GetVerificationTemplateResponse, description: 'Template details' })
+  @AnyRole()
   @Get(':id')
   public async getTemplateById(
     @Param('id') id: string,
@@ -77,6 +79,7 @@ export class VerificationTemplateController {
   @ApiOperation({ summary: 'Create template' })
   @ApiBody({ type: CreateVerificationTemplateRequest })
   @ApiResponse({ type: CreateVerificationTemplateResponse, description: 'Created template id' })
+  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer, Role.Verifier)
   @Post('')
   public async createTemplate(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -93,6 +96,7 @@ export class VerificationTemplateController {
   @ApiParam({ name: 'id', format: 'uuid', type: 'string', description: 'Template id' })
   @ApiBody({ type: PatchVerificationTemplateRequest })
   @ApiOkResponse()
+  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer, Role.Verifier)
   @Patch(':id')
   public async patchTemplate(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -108,6 +112,7 @@ export class VerificationTemplateController {
   @ApiOperation({ summary: 'Delete template' })
   @ApiParam({ name: 'id', format: 'uuid', type: 'string', description: 'Template id' })
   @ApiOkResponse()
+  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer, Role.Verifier)
   @Delete(':id')
   public async deleteTemplate(@ReqAuthInfo() authInfo: AuthInfo, @Param('id') id: string): Promise<void> {
     const logger = this.logger.child('deleteTemplate', { authInfo })
