@@ -9,7 +9,14 @@ import { WebSocket } from 'ws'
 import { uuid } from 'src/utils/misc'
 import { sleep } from 'src/utils/timers'
 
-import { initializeMikroOrm, signJwt, startTestApp, testOidcAudience, testOidcIssuer } from './helpers'
+import {
+  initializeMikroOrm,
+  signJwt,
+  startTestApp,
+  testOidcAudience,
+  testOidcIssuer,
+  waitForNotificationSocket,
+} from './helpers'
 
 describe('E2E WebSocket authentication', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -424,7 +431,8 @@ describe('E2E WebSocket authentication', () => {
     await userWebSocket.expectClosed(3000)
   })
 
-  test('rejects if bearer token contains org_id when must not', async () => {
+  // An organization in a User token is ignored, not rejected: a provider adds one for a member without an organization role
+  test('ignores org_id in a bearer token with User role', async () => {
     const userAuthToken = await signJwt(
       {
         name: 'John',
@@ -447,7 +455,7 @@ describe('E2E WebSocket authentication', () => {
 
     await userWebSocket
 
-    await userWebSocket.expectClosed(3000)
+    await waitForNotificationSocket(nestApp, userAuthToken)
   })
 
   test('rejects if bearer token does not contain org_id when must', async () => {

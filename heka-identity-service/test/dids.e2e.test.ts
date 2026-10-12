@@ -56,16 +56,23 @@ describe('E2E public DIDs creation', () => {
     expect((await postDid(secondAdminToken, 'indy')).status).toBe(201)
   })
 
-  test('roles other than Admin, OrgAdmin and Issuer cannot create a public DID', async () => {
+  test('roles other than Admin, OrgAdmin, Issuer and Verifier cannot create a DID', async () => {
     const orgId = uuid()
     for (const token of [
       await createAuthToken(uuid(), Role.OrgManager, orgId),
       await createAuthToken(uuid(), Role.OrgMember, orgId),
-      await createAuthToken(uuid(), Role.Verifier, orgId),
       await createAuthToken(uuid(), Role.User),
     ]) {
       expect((await postDid(token)).status).toBe(403)
     }
+  })
+
+  test('a Verifier can create only a did:key', async () => {
+    const verifierToken = await createAuthToken(uuid(), Role.Verifier, uuid())
+
+    expect((await postDid(verifierToken, 'hedera')).status).toBe(403)
+    expect((await postDid(verifierToken, 'indy')).status).toBe(403)
+    expect((await postDid(verifierToken)).status).toBe(201)
   })
 
   test('a did:key cannot have another controller, so it does not wait for the controller wallet', async () => {

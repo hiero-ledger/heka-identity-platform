@@ -13,6 +13,7 @@ const OIDC_ENV_KEYS = [
   'OIDC_CLAIM_ROLES',
   'OIDC_CLAIM_NAME',
   'OIDC_CLAIM_ORG_ID',
+  'OIDC_CLAIM_ORG_ID_FIELD',
 ]
 
 describe('oidc config', () => {

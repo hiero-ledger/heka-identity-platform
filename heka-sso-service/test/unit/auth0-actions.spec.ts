@@ -221,7 +221,12 @@ describe('Auth0 credentials-exchange Action', () => {
       return api
     }
 
-    for (const metadata of [{ heka_role: 'OrgAdmin' }, { heka_role: 'Admin', org_id: 'org-1' }, { heka_role: 'User', org_id: 'org-1' }]) {
+    const invalidMetadata: Record<string, string>[] = [
+      { heka_role: 'OrgAdmin' },
+      { heka_role: 'Admin', org_id: 'org-1' },
+      { heka_role: 'User', org_id: 'org-1' },
+    ]
+    for (const metadata of invalidMetadata) {
       const api = await exchange(metadata)
       expect(api.access.deny).toHaveBeenCalledWith('invalid_client_metadata', expect.stringContaining('org_id'))
       expect(api.accessToken.setCustomClaim).not.toHaveBeenCalled()
