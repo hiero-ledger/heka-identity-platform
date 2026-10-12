@@ -62,7 +62,7 @@ This includes (but is not limited to) VC-based trust models for AI agents and th
 
 Initial supported use cases:
 
-- **VC-based authorization for agents**: [OID4VP In-Task Authorization Extension for Agent2Agent (A2A) protocol](https://github.com/DSRCorporation/a2a-oid4vp-in-task-auth-extension/blob/main/v1/spec.md)
+- **VC-based authorization for agents**: [OID4VP In-Task Authorization Extension for Agent2Agent (A2A) protocol](https://github.com/a2aproject/experimental-ext-oid4vp-auth/blob/main/v1/spec.md)
 
 ## Roadmap
 
