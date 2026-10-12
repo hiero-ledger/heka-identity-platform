@@ -1,5 +1,4 @@
 import { configureStore, ReducersMapObject } from '@reduxjs/toolkit';
-import { Reducer } from 'redux';
 
 import { connectionReducer } from '@/entities/Connection';
 import { credentialReducer } from '@/entities/Credential';
@@ -12,7 +11,7 @@ import { $agencyDemoApi } from '@/shared/api';
 import { $agencyApi, $authApi } from '@/shared/api/config/api';
 
 import { createReducerManager } from './reducerManager';
-import { StateSchema, ThunkExtraArg } from './StateSchema';
+import { ReduxStoreWithManager, StateSchema, ThunkExtraArg } from './StateSchema';
 
 export function createReduxStore(
   initialState?: StateSchema,
@@ -38,7 +37,7 @@ export function createReduxStore(
   };
 
   const store = configureStore({
-    reducer: reducerManager.reduce as Reducer<StateSchema>,
+    reducer: reducerManager.reduce,
     devTools: __IS_DEV__,
     preloadedState: initialState,
     middleware: (getDefaultMiddleware) =>
@@ -47,9 +46,8 @@ export function createReduxStore(
           extraArgument: extraArg,
         },
       }),
-  });
+  }) as unknown as ReduxStoreWithManager;
 
-  // @ts-ignore
   store.reducerManager = reducerManager;
 
   return store;
