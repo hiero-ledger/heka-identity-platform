@@ -20,7 +20,6 @@ import {
 import { CreateSchemaRequest, CreateSchemaResponse, GetSchemasListRequest } from 'schema-v2/dto'
 import { Schema } from 'schema-v2/dto/common/schema'
 import { RegisterSchemaRequest } from 'schema-v2/dto/register-schema'
-import { sleep } from 'src/utils/timers'
 import { uuid } from 'utils/misc'
 
 import { generateRandomString, initializeMikroOrm, SchemaUtilities, startTestApp, UserUtilities } from './helpers'
@@ -46,10 +45,6 @@ describe('E2E issuance templates management', () => {
   })
 
   afterEach(async () => {
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(4000)
-
     await nestApp.close()
   })
 

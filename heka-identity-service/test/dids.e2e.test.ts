@@ -8,7 +8,6 @@ import request from 'supertest'
 import { DID_PATTERN } from 'src/__tests__/constants'
 import { Role } from 'src/common/auth'
 import { uuid } from 'src/utils/misc'
-import { sleep } from 'src/utils/timers'
 
 import { initializeMikroOrm, startTestApp } from './helpers'
 import { createAuthToken } from './helpers/jwt'
@@ -33,10 +32,6 @@ describe('E2E public DIDs creation', () => {
   })
 
   afterEach(async () => {
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(4000)
-
     await nestApp.close()
   })
 
