@@ -20,7 +20,15 @@ import { PredicateType, ProofRecordDto, ProofRequestDto, ProofRevealedAttributeD
 import { CreateSchemaDto, SchemaDto } from 'src/schema/dto'
 import { uuid } from 'src/utils/misc'
 
-import { connectUsers, initializeMikroOrm, signJwt, startTestApp, waitForNotificationSocket, testOidcAudience, testOidcIssuer } from './helpers'
+import {
+  connectUsers,
+  initializeMikroOrm,
+  signJwt,
+  startTestApp,
+  waitForNotificationSocket,
+  testOidcAudience,
+  testOidcIssuer,
+} from './helpers'
 
 // Test scenario:
 //

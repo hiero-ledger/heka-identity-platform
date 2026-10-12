@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-function -- route handler stubs for guard metadata */
 import { createMock } from '@golevelup/ts-vitest'
 import { Controller, ExecutionContext, Get } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'

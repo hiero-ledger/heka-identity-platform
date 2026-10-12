@@ -13,7 +13,14 @@ import { CreateCredentialDefinitionDto } from 'credential-definition/dto'
 import { CreateSchemaDto } from 'schema/dto'
 import { uuid } from 'utils/misc'
 
-import { initializeMikroOrm, signJwt, startTestApp, waitForNotificationSocket, testOidcAudience, testOidcIssuer } from './helpers'
+import {
+  initializeMikroOrm,
+  signJwt,
+  startTestApp,
+  waitForNotificationSocket,
+  testOidcAudience,
+  testOidcIssuer,
+} from './helpers'
 
 describe.skip('Revocation E2E Tests', () => {
   let ormSchemaGenerator: SchemaGenerator
