@@ -18,6 +18,8 @@ The PC running the Identity Service and the mobile wallet **MUST** be connected 
 - Use [ngrok](https://ngrok.com/) (with a free account) to enable access to your local Heka Identity Service instance from the Heka Wallet — it provides easy setup and usage.
 - However, since the Identity Service exposes multiple endpoints, you also need to configure a web server to expose a single port and forward messages to the Identity Service. It's strongly recommended to use [nginx](https://www.nginx.com/) with the configuration below.
   - Note that the Heka Identity Service REST API endpoints (not based on Credo transports) are hosted on a separate port and are not actually needed for Heka Wallet integration, but they are included in the nginx config for completeness.
+  - The OID4VC router mounts its routes at the path of the public URL it is given (`AGENT_OID4VCI_ENDPOINT`), so requests under `/openId/oid4vci/` and `/openId/oid4vp/` must be forwarded **with** the `/openId` prefix. Only uploaded files (logos) are served from the root of port `3003`, which is what the prefix-stripping `/openId/` location is for.
+  - Wallets also fetch issuer metadata from `/.well-known/openid-credential-issuer/openId/oid4vci/<issuerId>` (RFC 8414 style), so `/.well-known/` must be forwarded to the OID4VC port as well.
   - If you have a paid ngrok account, you can probably skip nginx and expose multiple ports out of the box.
 
 ### nginx Config
@@ -54,8 +56,23 @@ http {
             proxy_set_header Host $host;
         }
 
+        # OID4VC router — keep the /openId prefix (routes are mounted under it)
+        location /openId/oid4vci/ {
+            proxy_pass http://localhost:{YOUR_IDENTITY_SERVICE_AGENT_OPENID_PORT};
+        }
+
+        location /openId/oid4vp/ {
+            proxy_pass http://localhost:{YOUR_IDENTITY_SERVICE_AGENT_OPENID_PORT};
+        }
+
+        # uploaded files (logos) served from the root of the OID4VC port — strip the prefix
         location /openId/ {
             proxy_pass http://localhost:{YOUR_IDENTITY_SERVICE_AGENT_OPENID_PORT}/;
+        }
+
+        # issuer / authorization server metadata requested by wallets
+        location /.well-known/ {
+            proxy_pass http://localhost:{YOUR_IDENTITY_SERVICE_AGENT_OPENID_PORT};
         }
 
         location /auth/ {
@@ -75,12 +92,21 @@ Run ngrok using the following command (`9000` is the server port used by nginx):
 ngrok http 9000
 ```
 
-Modify the agent endpoints in the Heka Identity Service config via environment variables, for example:
+Modify the agent endpoints in the Heka Identity Service config via environment variables (`.env`), for example:
 
 ```shell
 AGENT_HTTP_ENDPOINT=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/agent-http
-AGENT_WS_ENDPOINT=ws://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/agent-ws
+AGENT_WS_ENDPOINT=wss://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/agent-ws
 AGENT_OID4VCI_ENDPOINT=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/openId
+# logos referenced from OID4VCI issuer metadata must be reachable over https too
+FILE_STORAGE_FS_PUBLIC_URL=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/openId
 ```
 
-This way the Heka Identity Service will include the ngrok endpoints in OOB invitations and DID documents, making them reachable by the Heka Wallet over the public network.
+Note that ngrok only exposes TLS endpoints, so the WebSocket endpoint must use `wss://`.
+
+This way the Heka Identity Service will include the ngrok endpoints in OOB invitations, DID documents and credential offers, making them reachable by the Heka Wallet over the public network.
+
+Keep in mind that these URLs are persisted at creation time:
+
+- Credential offers and presentation requests embed `AGENT_OID4VCI_ENDPOINT` — recreate QR codes after changing it (and restart the service).
+- Logo URLs (`FILE_STORAGE_FS_PUBLIC_URL`) are stored in the issuer metadata when a user profile or a schema is saved — re-save the profile and the schemas after changing it.
