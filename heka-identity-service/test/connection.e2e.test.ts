@@ -15,9 +15,15 @@ import {
   CreateInvitationResponseDto,
 } from 'src/connection/dto'
 import { uuid } from 'src/utils/misc'
-import { sleep } from 'src/utils/timers'
 
-import { initializeMikroOrm, signJwt, startTestApp } from './helpers'
+import {
+  initializeMikroOrm,
+  signJwt,
+  startTestApp,
+  waitForNotificationSocket,
+  testOidcAudience,
+  testOidcIssuer,
+} from './helpers'
 
 describe('E2E connection', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -53,11 +59,10 @@ describe('E2E connection', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: holderId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -68,9 +73,7 @@ describe('E2E connection', () => {
       .expectUpgrade((upgradeResponse) => {}) // eslint-disable-line @typescript-eslint/no-empty-function
 
     await holderWebSocket
-    // TODO: Find a way to explicitly await the required condition
-    // Give NotificationGateway some time to register user and wallet
-    await sleep(200)
+    await waitForNotificationSocket(nestApp, holderAuthToken)
 
     issuerAuthToken = await signJwt(
       {
@@ -79,11 +82,10 @@ describe('E2E connection', () => {
         roles: ['Issuer'],
         org_id: issuerOrgId,
       },
-      'test',
       {
         subject: issuerId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -94,18 +96,12 @@ describe('E2E connection', () => {
       .expectUpgrade((upgradeResponse) => {}) // eslint-disable-line @typescript-eslint/no-empty-function
 
     await issuerWebSocket
-    // TODO: Find a way to explicitly await the required condition
-    // Give NotificationGateway some time to register user and wallet
-    await sleep(1200)
+    await waitForNotificationSocket(nestApp, issuerAuthToken)
   })
 
   afterEach(async () => {
     await holderWebSocket.close().expectClosed()
     await issuerWebSocket.close().expectClosed()
-
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(2000)
 
     await nestApp.close()
   })

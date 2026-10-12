@@ -1,6 +1,6 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 
 import ROUTES from '@/app/routes/RoutePaths';
 import { Logo } from '@/components/Logo';
@@ -14,18 +14,11 @@ import * as cls from './UnauthenticatedLayout.module.scss';
 const UnauthenticatedLayout = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
-
-  const title = useMemo(() => {
-    if (pathname === ROUTES.SIGN_IN) return 'Sign in';
-    if (pathname === ROUTES.SIGN_UP) return 'Create account';
-    return '';
-  }, [pathname]);
+  const title = t('SignIn.titles.main');
 
   const onNavigateBack = useCallback(() => {
-    if (pathname === ROUTES.SIGN_IN) navigate(ROUTES.MAIN);
-    else navigate(ROUTES.SIGN_IN);
-  }, [pathname, navigate]);
+    navigate(ROUTES.MAIN);
+  }, [navigate]);
 
   return (
     <Row className={cls.UnauthenticatedLayout}>
@@ -53,7 +46,6 @@ const UnauthenticatedLayout = () => {
               onClick={() => navigate(ROUTES.MAIN)}
             />
           </Row>
-
           <MobileView>
             <TopPanel
               title={title}

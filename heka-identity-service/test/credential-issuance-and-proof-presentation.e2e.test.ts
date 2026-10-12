@@ -19,9 +19,16 @@ import { CreateCredentialDefinitionDto, CredentialDefinitionDto } from 'src/cred
 import { PredicateType, ProofRecordDto, ProofRequestDto, ProofRevealedAttributeDto } from 'src/proof/dto'
 import { CreateSchemaDto, SchemaDto } from 'src/schema/dto'
 import { uuid } from 'src/utils/misc'
-import { sleep } from 'src/utils/timers'
 
-import { connectUsers, initializeMikroOrm, signJwt, startTestApp } from './helpers'
+import {
+  connectUsers,
+  initializeMikroOrm,
+  signJwt,
+  startTestApp,
+  waitForNotificationSocket,
+  testOidcAudience,
+  testOidcIssuer,
+} from './helpers'
 
 // Test scenario:
 //
@@ -82,11 +89,10 @@ describe('E2E credential issuance and proof presentation', () => {
         type: 'access',
         roles: ['Admin'],
       },
-      'test',
       {
         subject: adminId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -97,9 +103,7 @@ describe('E2E credential issuance and proof presentation', () => {
       .expectUpgrade((upgradeResponse) => {}) // eslint-disable-line @typescript-eslint/no-empty-function
 
     await adminWebSocket
-    // TODO: Find a way to explicitly await the required condition
-    // Give NotificationGateway some time to register user and wallet
-    await sleep(200)
+    await waitForNotificationSocket(nestApp, adminAuthToken)
 
     orgAdminAuthToken = await signJwt(
       {
@@ -108,11 +112,10 @@ describe('E2E credential issuance and proof presentation', () => {
         roles: ['OrgAdmin'],
         org_id: hospitalId,
       },
-      'test',
       {
         subject: orgAdminId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -123,9 +126,7 @@ describe('E2E credential issuance and proof presentation', () => {
       .expectUpgrade((upgradeResponse) => {}) // eslint-disable-line @typescript-eslint/no-empty-function
 
     await orgAdminWebSocket
-    // TODO: Find a way to explicitly await the required condition
-    // Give NotificationGateway some time to register user and wallet
-    await sleep(200)
+    await waitForNotificationSocket(nestApp, orgAdminAuthToken)
 
     issuerAuthToken = await signJwt(
       {
@@ -134,11 +135,10 @@ describe('E2E credential issuance and proof presentation', () => {
         roles: ['Issuer'],
         org_id: hospitalId,
       },
-      'test',
       {
         subject: issuerId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -149,9 +149,7 @@ describe('E2E credential issuance and proof presentation', () => {
       .expectUpgrade((upgradeResponse) => {}) // eslint-disable-line @typescript-eslint/no-empty-function
 
     await issuerWebSocket
-    // TODO: Find a way to explicitly await the required condition
-    // Give NotificationGateway some time to register user and wallet
-    await sleep(200)
+    await waitForNotificationSocket(nestApp, issuerAuthToken)
 
     holderAuthToken = await signJwt(
       {
@@ -159,11 +157,10 @@ describe('E2E credential issuance and proof presentation', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: holderId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -174,9 +171,7 @@ describe('E2E credential issuance and proof presentation', () => {
       .expectUpgrade((upgradeResponse) => {}) // eslint-disable-line @typescript-eslint/no-empty-function
 
     await holderWebSocket
-    // TODO: Find a way to explicitly await the required condition
-    // Give NotificationGateway some time to register user and wallet
-    await sleep(200)
+    await waitForNotificationSocket(nestApp, holderAuthToken)
 
     verifierAuthToken = await signJwt(
       {
@@ -185,11 +180,10 @@ describe('E2E credential issuance and proof presentation', () => {
         roles: ['Verifier'],
         org_id: pharmacyId,
       },
-      'test',
       {
         subject: verifierId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -200,9 +194,7 @@ describe('E2E credential issuance and proof presentation', () => {
       .expectUpgrade((upgradeResponse) => {}) // eslint-disable-line @typescript-eslint/no-empty-function
 
     await verifierWebSocket
-    // TODO: Find a way to explicitly await the required condition
-    // Give NotificationGateway some time to register user and wallet
-    await sleep(200)
+    await waitForNotificationSocket(nestApp, verifierAuthToken)
   })
 
   afterEach(async () => {
@@ -211,10 +203,6 @@ describe('E2E credential issuance and proof presentation', () => {
     await issuerWebSocket.close().expectClosed()
     await holderWebSocket.close().expectClosed()
     await verifierWebSocket.close().expectClosed()
-
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(2000)
 
     await nestApp.close()
   })

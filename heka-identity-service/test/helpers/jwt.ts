@@ -1,25 +1,55 @@
-import type { Secret, SignOptions } from 'jsonwebtoken'
+import { SignJWT } from 'jose'
 
-import { sign } from 'jsonwebtoken'
+import { Role } from 'common/auth'
+import {
+  getTrustedKeyPair,
+  getUntrustedKeyPair,
+  testOidcAudience,
+  testOidcIssuer,
+  testSigningKeyId,
+} from 'test/config/oidc'
 
-import { Role } from 'src/common/auth'
+export interface SignOptions {
+  subject?: string
+  issuer?: string
+  audience?: string | string[]
+  /** Seconds, a Date, or a duration such as `1w` / `1s`. */
+  expiresIn?: number | string | Date
+}
 
-export function signJwt(
-  payload: string | Buffer | object,
-  secretOrPrivateKey: Secret,
+export interface SignJwtOptions {
+  /** Sign with a key that is not in the service's JWKS. */
+  untrusted?: boolean
+}
+
+function withStandardClaims(jwt: SignJWT, options: SignOptions): SignJWT {
+  jwt.setIssuedAt()
+  if (options.subject !== undefined) jwt.setSubject(options.subject)
+  if (options.issuer !== undefined) jwt.setIssuer(options.issuer)
+  if (options.audience !== undefined) jwt.setAudience(options.audience)
+  if (options.expiresIn !== undefined) jwt.setExpirationTime(options.expiresIn)
+  return jwt
+}
+
+/** Signs an RS256 token with the test provider's key (published in the test JWKS). */
+export async function signJwt(
+  payload: Record<string, unknown>,
   options: SignOptions,
+  { untrusted = false }: SignJwtOptions = {},
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    sign(payload, secretOrPrivateKey, options, (error: Error | null, encoded: string | undefined) => {
-      if (error) {
-        reject(error)
-      } else if (encoded !== undefined) {
-        resolve(encoded)
-      } else {
-        reject(new Error('Unknown JWT error'))
-      }
-    })
-  })
+  const { privateKey } = await (untrusted ? getUntrustedKeyPair() : getTrustedKeyPair())
+  const jwt = withStandardClaims(new SignJWT(payload), options)
+  return jwt.setProtectedHeader({ alg: 'RS256', kid: testSigningKeyId }).sign(privateKey)
+}
+
+/** Signs an HS256 token with a shared secret; the service must reject it. */
+export async function signHs256Jwt(
+  payload: Record<string, unknown>,
+  options: SignOptions,
+  secret = 'test',
+): Promise<string> {
+  const jwt = withStandardClaims(new SignJWT(payload), options)
+  return jwt.setProtectedHeader({ alg: 'HS256' }).sign(new TextEncoder().encode(secret))
 }
 
 export async function createAuthToken(userId: string, role: Role, orgId?: string): Promise<string> {
@@ -33,14 +63,10 @@ export async function createAuthToken(userId: string, role: Role, orgId?: string
     payload.org_id = orgId
   }
 
-  const secret = 'test'
-
-  const options: SignOptions = {
+  return await signJwt(payload, {
     subject: userId,
-    issuer: 'Heka',
-    audience: 'Heka Identity Service',
+    issuer: testOidcIssuer,
+    audience: testOidcAudience,
     expiresIn: '1w',
-  }
-
-  return await signJwt(payload, secret, options)
+  })
 }

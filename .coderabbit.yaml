@@ -82,9 +82,6 @@ reviews:
           sensitive logged (pino) — especially keys, tokens, and credential data.
         - Async correctness: promises awaited, errors propagated, no unhandled
           rejections.
-    - path: "heka-auth-service/src/**"
-      instructions: *nestjs_service_instructions
-
     # React web client.
     - path: "heka-identity-service-web-ui/src/**"
       instructions: |

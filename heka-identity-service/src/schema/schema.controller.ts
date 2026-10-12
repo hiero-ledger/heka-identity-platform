@@ -14,7 +14,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { JwtAuthGuard, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { AnyRole, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { CreateSchemaDto, FindSchemasDto, SchemaDto } from './dto'
@@ -37,6 +37,7 @@ export class SchemaController {
 
   @ApiOperation({ summary: 'Get created schemas' })
   @ApiOkResponse({ description: 'Schema Records', type: [SchemaDto] })
+  @AnyRole()
   @Get()
   public async find(@ReqTenantAgent() tenantAgent: TenantAgent, @Query() query: FindSchemasDto): Promise<SchemaDto[]> {
     const logger = this.logger.child('find', { tenantAgent, query })
@@ -68,6 +69,7 @@ export class SchemaController {
   @ApiParam({ name: 'id', type: String })
   @ApiOkResponse({ description: 'Schema Record', type: SchemaDto })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @AnyRole()
   @Get(':id')
   public async get(@ReqTenantAgent() tenantAgent: TenantAgent, @Param('id') id: string): Promise<SchemaDto> {
     const logger = this.logger.child('get', { id })

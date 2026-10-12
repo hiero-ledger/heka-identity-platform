@@ -7,9 +7,9 @@ export interface DidDocument {
   verificationMethod: Array<VerificationMethod>;
 }
 
+/** Access token of the OIDC session, mirrored from the OIDC client; refresh tokens stay in the client. */
 export interface Tokens {
   accessToken: string | null;
-  refreshToken: string | null;
 }
 
 export interface User {
@@ -28,7 +28,6 @@ export interface User {
 
 export interface UserSchema {
   isLoading: boolean;
-  isRegistered: boolean;
   isPreparing: boolean;
   data?: User;
   error?: string;

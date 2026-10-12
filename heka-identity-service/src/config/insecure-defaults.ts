@@ -8,7 +8,6 @@ import { Logger } from '@nestjs/common'
  * truth) and `assertSecureConfiguration` checks at startup that a deployment does not rely on them.
  */
 export const INSECURE_DEFAULTS = {
-  JWT_SECRET: 'test',
   MIKRO_ORM_PASSWORD: 'heka1',
   WALLET_POSTGRES_PASSWORD: 'heka1',
   INDY_ENDORSER_SEED: 'afjdemoverysecure000000000000002',
@@ -32,8 +31,8 @@ export function parseDidMethods(env: Record<string, unknown>): string[] {
 // Variables checked for every deployment. mDL issuance (`mso_mdoc`) is always enabled via
 // `credentialsConfiguration` in `agent.ts` and the Askar wallet always uses PostgreSQL,
 // so the mDL issuer key and the wallet DB password are unconditional as well.
+// There is no token-signing secret: access tokens are verified against the OIDC provider's public keys.
 const UNCONDITIONAL: InsecureDefaultName[] = [
-  'JWT_SECRET',
   'MIKRO_ORM_PASSWORD',
   'WALLET_POSTGRES_PASSWORD',
   'MDL_ISSUER_PRIVATE_KEY',

@@ -12,9 +12,15 @@ import request, { WSChain } from 'superwstest'
 import { CreateCredentialDefinitionDto } from 'credential-definition/dto'
 import { CreateSchemaDto } from 'schema/dto'
 import { uuid } from 'utils/misc'
-import { sleep } from 'utils/timers'
 
-import { initializeMikroOrm, signJwt, startTestApp } from './helpers'
+import {
+  initializeMikroOrm,
+  signJwt,
+  startTestApp,
+  waitForNotificationSocket,
+  testOidcAudience,
+  testOidcIssuer,
+} from './helpers'
 
 describe.skip('Revocation E2E Tests', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -65,11 +71,10 @@ describe.skip('Revocation E2E Tests', () => {
         type: 'access',
         roles: ['Admin'],
       },
-      'test',
       {
         subject: adminId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -80,9 +85,7 @@ describe.skip('Revocation E2E Tests', () => {
       .expectUpgrade((upgradeResponse) => {}) // eslint-disable-line @typescript-eslint/no-empty-function
 
     await adminWebSocket
-    // TODO: Find a way to explicitly await the required condition
-    // Give NotificationGateway some time to register user and wallet
-    await sleep(200)
+    await waitForNotificationSocket(nestApp, adminAuthToken)
 
     holderAuthToken = await signJwt(
       {
@@ -90,11 +93,10 @@ describe.skip('Revocation E2E Tests', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: holderId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -105,9 +107,7 @@ describe.skip('Revocation E2E Tests', () => {
       .expectUpgrade((upgradeResponse) => {}) // eslint-disable-line @typescript-eslint/no-empty-function
 
     await holderWebSocket
-    // TODO: Find a way to explicitly await the required condition
-    // Give NotificationGateway some time to register user and wallet
-    await sleep(200)
+    await waitForNotificationSocket(nestApp, holderAuthToken)
 
     adminAuthToken = await signJwt(
       {
@@ -115,11 +115,10 @@ describe.skip('Revocation E2E Tests', () => {
         type: 'access',
         roles: ['Admin'],
       },
-      'test',
       {
         subject: adminId,
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -240,10 +239,6 @@ describe.skip('Revocation E2E Tests', () => {
   afterEach(async () => {
     await adminWebSocket.close().expectClosed()
     await holderWebSocket.close().expectClosed()
-
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(2000)
 
     await nestApp.close()
   })

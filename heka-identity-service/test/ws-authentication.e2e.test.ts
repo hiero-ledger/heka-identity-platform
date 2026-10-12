@@ -9,7 +9,7 @@ import { WebSocket } from 'ws'
 import { uuid } from 'src/utils/misc'
 import { sleep } from 'src/utils/timers'
 
-import { initializeMikroOrm, signJwt, startTestApp } from './helpers'
+import { initializeMikroOrm, signJwt, startTestApp, testOidcAudience, testOidcIssuer } from './helpers'
 
 describe('E2E WebSocket authentication', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -41,10 +41,6 @@ describe('E2E WebSocket authentication', () => {
   })
 
   afterAll(async () => {
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(2000)
-
     await nestApp.close()
 
     await ormSchemaGenerator.clear()
@@ -58,11 +54,10 @@ describe('E2E WebSocket authentication', () => {
         type: 'access',
         roles: ['Admin'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -88,11 +83,10 @@ describe('E2E WebSocket authentication', () => {
         roles: ['OrgAdmin'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -118,11 +112,10 @@ describe('E2E WebSocket authentication', () => {
         roles: ['OrgManager'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -148,11 +141,10 @@ describe('E2E WebSocket authentication', () => {
         roles: ['OrgMember'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -178,11 +170,10 @@ describe('E2E WebSocket authentication', () => {
         roles: ['Issuer'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -208,11 +199,10 @@ describe('E2E WebSocket authentication', () => {
         roles: ['Verifier'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -237,11 +227,10 @@ describe('E2E WebSocket authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -266,10 +255,9 @@ describe('E2E WebSocket authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        audience: 'Heka Identity Service',
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -291,11 +279,10 @@ describe('E2E WebSocket authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
         issuer: uuid(),
-        audience: 'Heka Identity Service',
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -317,10 +304,9 @@ describe('E2E WebSocket authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
+        issuer: testOidcIssuer,
         expiresIn: '1w',
       },
     )
@@ -342,10 +328,9 @@ describe('E2E WebSocket authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
+        issuer: testOidcIssuer,
         audience: 'Heka Mobile App',
         expiresIn: '1w',
       },
@@ -368,11 +353,10 @@ describe('E2E WebSocket authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1s',
       },
     )
@@ -397,11 +381,10 @@ describe('E2E WebSocket authentication', () => {
         type: 'access',
         roles: [],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -423,11 +406,10 @@ describe('E2E WebSocket authentication', () => {
         type: 'access',
         roles: ['Admin', 'User'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -450,11 +432,10 @@ describe('E2E WebSocket authentication', () => {
         roles: ['User'],
         org_id: uuid(),
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -476,11 +457,10 @@ describe('E2E WebSocket authentication', () => {
         type: 'access',
         roles: ['Issuer'],
       },
-      'test',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
     )
@@ -502,13 +482,13 @@ describe('E2E WebSocket authentication', () => {
         type: 'access',
         roles: ['User'],
       },
-      'wrong-secret',
       {
         subject: uuid(),
-        issuer: 'Heka',
-        audience: 'Heka Identity Service',
+        issuer: testOidcIssuer,
+        audience: testOidcAudience,
         expiresIn: '1w',
       },
+      { untrusted: true },
     )
 
     userWebSocket = request(app)
