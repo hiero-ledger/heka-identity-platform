@@ -4,7 +4,9 @@
 
 "Sign in with wallet" OIDC bridge for the Heka Identity Platform. The service acts as a standard OIDC provider (built on `node-oidc-provider`) whose sole authentication method is a verifiable-credential presentation (OID4VP), verified by the [Heka Identity Service](../heka-identity-service). Customer IdPs (Keycloak first) broker logins to it via standard OIDC.
 
-This service is deliberately separate from [heka-auth-service](../heka-auth-service) (login/password JWT issuance, unchanged): no shared code, database tables, or keys.
+This service is not the platform's login. Operators and users of heka-identity-service sign in with the OIDC provider the identity service trusts (Keycloak or Auth0, recipes in this folder). This service only turns a wallet presentation into an OIDC login for relying parties, and shares no code, database tables or keys with that provider.
+
+This service calls heka-identity-service with a token obtained through an OAuth 2.0 Client Credentials grant from that provider: the `heka-sso-service` client in the [Keycloak `heka-platform` realm](keycloak/README.md), or the M2M application of the [Auth0 recipe](auth0/README.md). In both recipes the service account is `OrgAdmin` of its own organization `heka-sso`, so its verifier and signing DID live in the `Organization_heka-sso` wallet. See [`docs/keycloak-replacement-for-auth-service.md`](../docs/keycloak-replacement-for-auth-service.md) at the repository root. Both provider recipes for the platform live in this repository folder because the SSO demo already ships the Keycloak realm.
 
 ## Quick Start
 
@@ -58,7 +60,7 @@ The service is configured via environment variables. Values can be set in `env/.
 ### Application
 
 | Variable            | Default                       | Description                                   |
-|---------------------|-------------------------------|-----------------------------------------------|
+| ------------------- | ----------------------------- | --------------------------------------------- |
 | `APP_NAME`          | `Heka SSO Service`            | Application name surfaced in metadata.        |
 | `APP_VERSION`       | _(reads from `package.json`)_ | Application version surfaced in metadata.     |
 | `APP_PORT`          | `3005`                        | HTTP port the service binds to.               |
@@ -69,7 +71,7 @@ The service is configured via environment variables. Values can be set in `env/.
 ### Database (PostgreSQL)
 
 | Variable      | Default            | Description                                                   |
-|---------------|--------------------|---------------------------------------------------------------|
+| ------------- | ------------------ | ------------------------------------------------------------- |
 | `DB_HOST`     | `localhost`        | Database host.                                                |
 | `DB_PORT`     | `5434`             | Database port.                                                |
 | `DB_NAME`     | `heka-sso-service` | Database name.                                                |
@@ -80,32 +82,34 @@ The service is configured via environment variables. Values can be set in `env/.
 
 Secrets in this section have **no compiled-in defaults**. In **production** (`NODE_ENV=production`) the service **fails fast at startup** when they are unset, too weak, or equal to one of the known dev-default values shipped in `env/.env` / docker-compose. Outside production, unset secrets are generated fresh on every start (sessions and derived `sub` values then do not survive a restart — set explicit dev values when that matters).
 
-| Variable                       | Default                       | Description                                                                                 |
-|--------------------------------|-------------------------------|---------------------------------------------------------------------------------------------|
-| `OIDC_ISSUER_URL`              | `http://localhost:3005` (dev) | Public issuer URL of the OP. **Required in production.**                                    |
-| `OIDC_COOKIE_KEYS`             | _(generated in dev)_          | Comma-separated cookie signing keys (≥ 16 chars each). **Secret — required in production.** |
-| `OIDC_SUB_HMAC_SALT`           | _(generated in dev)_          | Salt for the `derived` pairwise `sub` strategy (≥ 32 chars). **Secret — required in production.** |
-| `IDENTITY_SERVICE_BASE_URL`    | `http://localhost:3000` (dev) | Base URL of heka-identity-service's verification-session API. **Required in production.**   |
-| `IDENTITY_SERVICE_AUTH_NAME`   | _(unset)_                     | Service-account user name (P1.6.7): the bridge logs into heka-auth-service, caches the token, and re-acquires it shortly before it expires. |
-| `IDENTITY_SERVICE_AUTH_PASSWORD` | _(unset)_                   | Service-account password. **Secret** — known dev values (e.g. the demo-user password) are refused in production. |
-| `AUTH_SERVICE_BASE_URL`        | `http://localhost:3004` (dev) | Base URL of heka-auth-service, where the service-account login happens. **Required in production when the service account is used.** |
-| `IDENTITY_SERVICE_AUTH_TOKEN`  | _(unset)_                     | Static token override for tests/dev — bypasses the service-account login. Note: heka-auth-service access tokens expire after ~1h. **Secret.** |
-| `IDENTITY_SERVICE_PUBLIC_VERIFIER_ID` | _(unset)_              | Identity-service verifier the bridge creates verification sessions under (wallet login, P1.6). |
-| `IDENTITY_SERVICE_REQUEST_SIGNER_DID` | _(unset)_              | DID whose key signs authorization requests (JAR, P1.6.1). Required for wallet login — no unsigned fallback. |
-| `OIDC_TTL_ACCESS_TOKEN`        | `3600`                        | Access-token lifetime in seconds.                                                           |
-| `OIDC_TTL_AUTHORIZATION_CODE`  | `60`                          | Authorization-code lifetime in seconds.                                                     |
-| `OIDC_TTL_ID_TOKEN`            | `3600`                        | ID-token lifetime in seconds.                                                               |
-| `OIDC_TTL_INTERACTION`         | `600`                         | Interaction (wallet-login page) lifetime in seconds.                                        |
-| `OIDC_TTL_SESSION`             | `86400`                       | OP session lifetime in seconds.                                                             |
-| `OIDC_TTL_GRANT`               | `86400`                       | Grant lifetime in seconds.                                                                  |
-| `OIDC_CLOCK_TOLERANCE`         | `15`                          | Accepted clock skew (seconds) when validating incoming JWTs — brokering IdPs like Keycloak default to 0s tolerance on their side, so the bridge carries the slack. |
-| `OIDC_CLIENTS`                 | `[]`                          | Static OIDC clients (MVP), JSON array — see below.                                          |
-| `OIDC_LOGIN_CONFIGS`           | `[]`                          | Static login configurations (MVP), JSON array — see below.                                  |
-| `OIDC_JWKS`                    | _(unset — keys from Postgres)_ | Inline JWKS override (JSON), intended for dev/test. **Secret.**                            |
-| `OIDC_JWKS_FILE`               | _(unset)_                     | Path to a JWKS file override, intended for dev/test. **Secret.**                            |
-| `OIDC_STUB_LOGIN`              | `false`                       | Dev-only stub login (see below). **Refused in production.**                                 |
-| `OIDC_ALLOW_PRIVATE_NETWORK_CALLS` | `false`                   | Dev-only: allow the provider's outbound calls (back-channel logout_tokens, P2.5) to reach loopback/private IPs — its SSRF protection blocks them otherwise, and the dev Keycloak receiver lives on `localhost:8080`. **Refused in production.** |
-| `OIDC_LOGOUT_AUTO_CONFIRM`     | `false`                       | Skip the logout confirmation dialog when the request carries a valid `id_token_hint` (the broker chain — the user already confirmed at the IdP). Default: the dialog is always shown. |
+| Variable                              | Default                        | Description                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OIDC_ISSUER_URL`                     | `http://localhost:3005` (dev)  | Public issuer URL of the OP. **Required in production.**                                                                                                                                                                                                                                                                                                              |
+| `OIDC_COOKIE_KEYS`                    | _(generated in dev)_           | Comma-separated cookie signing keys (≥ 16 chars each). **Secret — required in production.**                                                                                                                                                                                                                                                                           |
+| `OIDC_SUB_HMAC_SALT`                  | _(generated in dev)_           | Salt for the `derived` pairwise `sub` strategy (≥ 32 chars). **Secret — required in production.**                                                                                                                                                                                                                                                                     |
+| `IDENTITY_SERVICE_BASE_URL`           | `http://localhost:3000` (dev)  | Base URL of heka-identity-service's verification-session API. **Required in production.**                                                                                                                                                                                                                                                                             |
+| `IDENTITY_SERVICE_TOKEN_URL`          | _(unset)_                      | Token endpoint of the OIDC provider heka-identity-service trusts, e.g. `http://localhost:8080/realms/heka-platform/protocol/openid-connect/token` (Keycloak) or `https://<tenant>.auth0.com/oauth/token` (Auth0). The bridge runs a Client Credentials grant there, caches the token, and re-acquires it shortly before it expires. Set together with the two variables below. |
+| `IDENTITY_SERVICE_CLIENT_ID`          | _(unset)_                      | Confidential client (service account) that carries the Heka role for the bridge (`Admin` in the shipped realm / tenant recipes).                                                                                                                                                                                                                                      |
+| `IDENTITY_SERVICE_CLIENT_SECRET`      | _(unset)_                      | Its client secret. **Secret** — the dev value from `keycloak/realm-heka.json` is refused in production, as are secrets shorter than 16 characters.                                                                                                                                                                                                                    |
+| `IDENTITY_SERVICE_CLIENT_AUTH_METHOD` | `client_secret_post`           | How the client authenticates at the token endpoint: `client_secret_post` (credentials in the form body) or `client_secret_basic` (HTTP Basic).                                                                                                                                                                                                                        |
+| `IDENTITY_SERVICE_TOKEN_PARAMS`       | _(unset)_                      | Extra form fields for the token request as a JSON object, e.g. `{"audience":"https://heka-identity"}` — Auth0 issues an opaque token without it. `grant_type` cannot be overridden.                                                                                                                                                                                   |
+| `IDENTITY_SERVICE_AUTH_TOKEN`         | _(unset)_                      | Static token override for tests/dev — bypasses the Client Credentials grant. **Secret.**                                                                                                                                                                                                                                                                              |
+| `IDENTITY_SERVICE_PUBLIC_VERIFIER_ID` | _(unset)_                      | Identity-service verifier the bridge creates verification sessions under (wallet login, P1.6).                                                                                                                                                                                                                                                                        |
+| `IDENTITY_SERVICE_REQUEST_SIGNER_DID` | _(unset)_                      | DID whose key signs authorization requests (JAR, P1.6.1). Required for wallet login — no unsigned fallback.                                                                                                                                                                                                                                                           |
+| `OIDC_TTL_ACCESS_TOKEN`               | `3600`                         | Access-token lifetime in seconds.                                                                                                                                                                                                                                                                                                                                     |
+| `OIDC_TTL_AUTHORIZATION_CODE`         | `60`                           | Authorization-code lifetime in seconds.                                                                                                                                                                                                                                                                                                                               |
+| `OIDC_TTL_ID_TOKEN`                   | `3600`                         | ID-token lifetime in seconds.                                                                                                                                                                                                                                                                                                                                         |
+| `OIDC_TTL_INTERACTION`                | `600`                          | Interaction (wallet-login page) lifetime in seconds.                                                                                                                                                                                                                                                                                                                  |
+| `OIDC_TTL_SESSION`                    | `86400`                        | OP session lifetime in seconds.                                                                                                                                                                                                                                                                                                                                       |
+| `OIDC_TTL_GRANT`                      | `86400`                        | Grant lifetime in seconds.                                                                                                                                                                                                                                                                                                                                            |
+| `OIDC_CLOCK_TOLERANCE`                | `15`                           | Accepted clock skew (seconds) when validating incoming JWTs — brokering IdPs like Keycloak default to 0s tolerance on their side, so the bridge carries the slack.                                                                                                                                                                                                    |
+| `OIDC_CLIENTS`                        | `[]`                           | Static OIDC clients (MVP), JSON array — see below.                                                                                                                                                                                                                                                                                                                    |
+| `OIDC_LOGIN_CONFIGS`                  | `[]`                           | Static login configurations (MVP), JSON array — see below.                                                                                                                                                                                                                                                                                                            |
+| `OIDC_JWKS`                           | _(unset — keys from Postgres)_ | Inline JWKS override (JSON), intended for dev/test. **Secret.**                                                                                                                                                                                                                                                                                                       |
+| `OIDC_JWKS_FILE`                      | _(unset)_                      | Path to a JWKS file override, intended for dev/test. **Secret.**                                                                                                                                                                                                                                                                                                      |
+| `OIDC_STUB_LOGIN`                     | `false`                        | Dev-only stub login (see below). **Refused in production.**                                                                                                                                                                                                                                                                                                           |
+| `OIDC_ALLOW_PRIVATE_NETWORK_CALLS`    | `false`                        | Dev-only: allow the provider's outbound calls (back-channel logout_tokens, P2.5) to reach loopback/private IPs — its SSRF protection blocks them otherwise, and the dev Keycloak receiver lives on `localhost:8080`. **Refused in production.**                                                                                                                       |
+| `OIDC_LOGOUT_AUTO_CONFIRM`            | `false`                        | Skip the logout confirmation dialog when the request carries a valid `id_token_hint` (the broker chain — the user already confirmed at the IdP). Default: the dialog is always shown.                                                                                                                                                                                 |
 
 #### Protocol policy
 
@@ -118,14 +122,16 @@ The OP speaks the IdP-broker common denominator and nothing more:
 `OIDC_CLIENTS` — JSON array of static clients (IdP brokers). `grantTypes`, `responseTypes`, and `tokenEndpointAuthMethod` (`client_secret_basic` or `client_secret_post`) are optional; client secrets must be ≥ 16 chars in production:
 
 ```json
-[{
-  "clientId": "keycloak-broker",
-  "clientSecret": "<strong secret>",
-  "redirectUris": ["https://kc.example.com/realms/myrealm/broker/heka-sso/endpoint"],
-  "postLogoutRedirectUris": ["https://kc.example.com/realms/myrealm/broker/heka-sso/endpoint/logout_response"],
-  "backchannelLogoutUri": "https://kc.example.com/realms/myrealm/protocol/openid-connect/logout/backchannel-logout",
-  "loginConfigId": "default"
-}]
+[
+  {
+    "clientId": "keycloak-broker",
+    "clientSecret": "<strong secret>",
+    "redirectUris": ["https://kc.example.com/realms/myrealm/broker/heka-sso/endpoint"],
+    "postLogoutRedirectUris": ["https://kc.example.com/realms/myrealm/broker/heka-sso/endpoint/logout_response"],
+    "backchannelLogoutUri": "https://kc.example.com/realms/myrealm/protocol/openid-connect/logout/backchannel-logout",
+    "loginConfigId": "default"
+  }
+]
 ```
 
 `backchannelLogoutUri` (optional, P2.5) is where the bridge POSTs the OIDC Back-Channel Logout `logout_token` when a session ends; when set, id_tokens and logout_tokens carry `sid` so the receiver can match the exact session (`backchannelLogoutSessionRequired` defaults to `true`). Keycloak's realm-level receiver is shown above.
@@ -133,14 +139,25 @@ The OP speaks the IdP-broker common denominator and nothing more:
 `OIDC_LOGIN_CONFIGS` — JSON array of declarative login configurations: which credentials to ask for, how disclosed claims map to OIDC claims, the `sub` strategy (`derived` default, `credential-claim`, `ephemeral`), and the trusted credential issuers:
 
 ```json
-[{
-  "id": "default",
-  "verificationTemplate": "default",
-  "dcqlQuery": { "credentials": [{ "id": "pid", "format": "dc+sd-jwt", "meta": { "vct_values": ["urn:eudi:pid:1"] }, "claims": [{ "path": ["given_name"] }, { "path": ["family_name"] }] }] },
-  "claimMapping": { "pid.given_name": "given_name", "pid.family_name": "family_name" },
-  "subStrategy": "derived",
-  "issuerAllowlist": []
-}]
+[
+  {
+    "id": "default",
+    "verificationTemplate": "default",
+    "dcqlQuery": {
+      "credentials": [
+        {
+          "id": "pid",
+          "format": "dc+sd-jwt",
+          "meta": { "vct_values": ["urn:eudi:pid:1"] },
+          "claims": [{ "path": ["given_name"] }, { "path": ["family_name"] }]
+        }
+      ]
+    },
+    "claimMapping": { "pid.given_name": "given_name", "pid.family_name": "family_name" },
+    "subStrategy": "derived",
+    "issuerAllowlist": []
+  }
+]
 ```
 
 `dcqlQuery` is the inline DCQL query sent to heka-identity-service when creating the verification session (wallet login); `claimMapping` keys follow `<credential-query id>.<claim path>`. Authorization requests are always created **signed** (JAR) with `IDENTITY_SERVICE_REQUEST_SIGNER_DID` — there is no unsigned fallback.
@@ -176,34 +193,34 @@ Until the Phase 2 admin API exposes these operations, rotation is performed via 
 
 ### Logging
 
-| Variable            | Default                                                                                                            | Description                                                           |
-|---------------------|--------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
-| `LOG_LEVEL`         | `info`                                                                                                             | Log level. One of `trace`, `debug`, `info`, `warn`, `error`, `fatal`. |
-| `LOG_EXCLUDE_URLS`  | _(unset — none excluded)_                                                                                          | Comma-separated list of URL paths to exclude from request logging.    |
-| `LOG_REDACT_FIELDS` | `db.host,db.user,db.password,oidc.cookieKeys,oidc.subHmacSalt,oidc.identityService.authToken,oidc.clients[*].clientSecret` | Comma-separated list of dotted field paths redacted from log output.  |
+| Variable            | Default                                                                                                                                                                | Description                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `LOG_LEVEL`         | `info`                                                                                                                                                                 | Log level. One of `trace`, `debug`, `info`, `warn`, `error`, `fatal`. |
+| `LOG_EXCLUDE_URLS`  | _(unset — none excluded)_                                                                                                                                              | Comma-separated list of URL paths to exclude from request logging.    |
+| `LOG_REDACT_FIELDS` | `db.host,db.user,db.password,oidc.cookieKeys,oidc.subHmacSalt,oidc.identityService.authToken,oidc.identityService.clientSecret,oidc.clients[*].clientSecret,oidc.jwks` | Comma-separated list of dotted field paths redacted from log output.  |
 
 ### Throttling
 
 Applies to Nest controllers only — provider endpoints get rate limits at the reverse proxy:
 
-| Variable         | Default | Description                                 |
-|------------------|---------|---------------------------------------------|
-| `THROTTLE_TTL`   | `60000` | Throttle window in milliseconds.            |
-| `THROTTLE_LIMIT` | `100`   | Maximum number of requests per window.      |
+| Variable         | Default | Description                            |
+| ---------------- | ------- | -------------------------------------- |
+| `THROTTLE_TTL`   | `60000` | Throttle window in milliseconds.       |
+| `THROTTLE_LIMIT` | `100`   | Maximum number of requests per window. |
 
 ### Health
 
 `GET /health` checks memory usage and database connectivity. The thresholds below define when memory health is reported as unhealthy:
 
 | Variable                          | Default | Description                                                       |
-|-----------------------------------|---------|-------------------------------------------------------------------|
+| --------------------------------- | ------- | ----------------------------------------------------------------- |
 | `HEALTH_MEMORY_HEAP_THRESHOLD_MB` | `2048`  | Heap usage threshold above which `memory_heap` reports unhealthy. |
 | `HEALTH_MEMORY_RSS_THRESHOLD_MB`  | `2048`  | RSS usage threshold above which `memory_rss` reports unhealthy.   |
 
 ### Runtime
 
-| Variable   | Default   | Description                                                              |
-|------------|-----------|--------------------------------------------------------------------------|
+| Variable   | Default                                             | Description                                                                                                                                                                                                                                                                                                               |
+| ---------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NODE_ENV` | `production` (including when unset) | Selects the deployment mode. `production` arms the startup guards on the secrets above and switches the logger to non-pretty JSON output; only `development` relaxes them (`test` also skips the dev-secret warning). Set `NODE_ENV=development` for local dev, as both compose files do. |
 
 ## Migrations
@@ -238,7 +255,7 @@ To run the service in Docker:
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-`docker-compose.dev.yml` builds the image and brings up Keycloak with the `heka` realm; it uses the
+`docker-compose.dev.yml` builds the image and brings up Keycloak with the `heka` realm (plus the `heka-platform` realm that heka-identity-service uses, see [keycloak/README.md](keycloak/README.md)); it uses the
 dev-only stub login, so no wallet is involved. `docker-compose.yml` runs the published image against
 a real wallet login and needs the verifier heka-identity-service creates sessions under:
 
@@ -249,10 +266,11 @@ IDENTITY_SERVICE_REQUEST_SIGNER_DID=<did that signs authorization requests> \
 ```
 
 Compose refuses to start without those two — a bridge that binds no identity acquirer denies every
-`/authorize`. heka-identity-service (`:3000`) and heka-auth-service (`:3004`) are expected on the
-host and are reached over `host.docker.internal`; override `IDENTITY_SERVICE_BASE_URL` /
-`AUTH_SERVICE_BASE_URL` when they live elsewhere, and `IDENTITY_SERVICE_AUTH_NAME` /
-`IDENTITY_SERVICE_AUTH_PASSWORD` when the service account is not the demo user.
+`/authorize`. heka-identity-service (`:3000`) and the OIDC provider (Keycloak, `:8080`) are expected
+on the host and are reached over `host.docker.internal`; override `IDENTITY_SERVICE_BASE_URL` /
+`IDENTITY_SERVICE_TOKEN_URL` when they live elsewhere, and `IDENTITY_SERVICE_CLIENT_ID` /
+`IDENTITY_SERVICE_CLIENT_SECRET` (plus `IDENTITY_SERVICE_TOKEN_PARAMS` for Auth0) when the service
+account is not the dev client from `keycloak/realm-heka.json`.
 
 The image runs as the unprivileged `node` user and defaults to `NODE_ENV=production`. Both compose
 files override it to `development`, because they ship the dev-only cookie key, `sub` salt and client

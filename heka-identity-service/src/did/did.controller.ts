@@ -16,7 +16,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { AuthInfo, JwtAuthGuard, ReqAuthInfo, Role } from 'common/auth'
-import { RoleGuard, Roles } from 'common/authz'
+import { AnyRole, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { DidService } from './did.service'
@@ -39,6 +39,7 @@ export class DidController {
   @ApiOkResponse({ description: 'DID methods', type: GetDidMethodsResponseDto })
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @AnyRole()
   @Get('/methods')
   @UseInterceptors(TenantAgentInterceptor)
   public getMethods(): GetDidMethodsResponseDto {
@@ -55,6 +56,7 @@ export class DidController {
   @ApiOkResponse({ description: 'DID documents', type: [DidDocumentDto] })
   @ApiBadRequestResponse({ description: 'Bad Request' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @AnyRole()
   @Get()
   @UseInterceptors(TenantAgentInterceptor)
   public async find(
@@ -78,7 +80,7 @@ export class DidController {
   @ApiConflictResponse({ description: 'Conflict' })
   @ApiUnprocessableEntityResponse({ description: 'Unprocessable Entity' })
   @Post()
-  @Roles(Role.Admin, Role.OrgAdmin, Role.Issuer)
+  @Roles(Role.Admin, Role.OrgAdmin, Role.Issuer, Role.Verifier)
   public async create(@ReqAuthInfo() authInfo: AuthInfo, @Body() req: CreateDidRequestDto): Promise<DidDocumentDto> {
     const logger = this.logger.child('create', { authInfo })
     logger.trace('>')
@@ -94,6 +96,7 @@ export class DidController {
   @ApiOkResponse({ description: 'DID document', type: DidDocumentDto })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiNotFoundResponse({ description: 'Not Found' })
+  @AnyRole()
   @Get(':did')
   @UseInterceptors(TenantAgentInterceptor)
   public async get(@ReqTenantAgent() tenantAgent: TenantAgent, @Param('did') did: string): Promise<DidDocumentDto> {

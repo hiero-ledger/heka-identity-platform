@@ -5,10 +5,12 @@ import { EventEmitterModule } from '@nestjs/event-emitter'
 import { ServeStaticModule } from '@nestjs/serve-static'
 
 import { CredentialV2Module } from 'credential-v2'
+import { DemoModule } from 'demo'
 import { OpenId4VcIssuanceSessionModule } from 'openid4vc/issuance-sessions'
 import { OpenId4VcIssuerModule } from 'openid4vc/issuer/issuer.module'
 import { OpenId4VcStarterModule } from 'openid4vc/starter'
 import { OpenId4VcVerifierModule } from 'openid4vc/verifier/verifier.module'
+import { OrganizationAdminModule } from 'organization-admin'
 import { PrepareWalletModule } from 'prepare-wallet'
 import { VerificationTemplateModule } from 'verification-template/verification-template.module'
 
@@ -57,6 +59,8 @@ const _appRoot = typeof __dirname !== 'undefined' ? resolve(__dirname, '..') : p
     PrepareWalletModule,
     CredentialV2Module,
     OCAModule,
+    DemoModule,
+    OrganizationAdminModule,
     EventEmitterModule.forRoot(),
     LoggerModule.forRoot(), // must be dynamic and the last initialized module in the app except for AppModule itself
   ],

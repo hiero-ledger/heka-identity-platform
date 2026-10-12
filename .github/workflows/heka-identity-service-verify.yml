@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'heka-identity-service/**'
+      - 'heka-sso-service/keycloak/realm-heka-platform.json'
       - '.github/workflows/heka-identity-service-verify.yml'
 
 # This allows a subsequently queued workflow run to interrupt previous runs
@@ -93,3 +94,64 @@ jobs:
           working-directory: ./heka-identity-service
           json-summary-path: ./coverage/coverage-summary.json
           json-final-path: ./coverage/coverage-final.json
+
+  # Optional: bearer-token verification against a real Keycloak running the shipped `heka-platform`
+  # realm (discovery, JWKS, iss/aud, claim mapping) with tokens its service-account clients issue.
+  # Informational only (continue-on-error): a Keycloak image or import hiccup must not block a PR.
+  keycloak-live:
+    name: Token verification against Keycloak
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ./heka-identity-service
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        with:
+          egress-policy: audit
+
+      - name: Prepare Github Runner
+        uses: pandaswhocode/initialize-github-job@ffb7446339e8e6007b942312ac95457d1a20b6cf # v1.0.4
+        with:
+          checkout: 'true'
+          checkout-ref: '${{ github.ref }}'
+          checkout-token: '${{ secrets.GITHUB_TOKEN }}'
+          setup-node: 'true'
+          node-version: '22'
+
+      - name: Start Keycloak with the platform realm
+        working-directory: ./heka-sso-service
+        run: |
+          docker run -d --name keycloak -p 8080:8080 \
+            -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
+            -e KC_HOSTNAME=http://localhost:8080 \
+            -v "$PWD/keycloak/realm-heka-platform.json:/opt/keycloak/data/import/realm-heka-platform.json:ro" \
+            quay.io/keycloak/keycloak:26.3 start-dev --import-realm
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/realms/heka-platform/.well-known/openid-configuration >/dev/null; then
+              echo "Keycloak is up"; exit 0
+            fi
+            sleep 3
+          done
+          echo "Keycloak did not come up"; docker logs keycloak; exit 1
+        shell: bash
+
+      - name: Enable Corepack
+        run: corepack enable
+        shell: bash
+
+      - name: Install dependencies
+        run: yarn install --immutable
+        shell: bash
+
+      - name: Verify Keycloak-issued tokens
+        env:
+          FORCE_COLOR: 1
+          KEYCLOAK_LIVE_URL: http://localhost:8080
+        run: yarn vitest run test/keycloak-live.test.ts
+
+      - name: Keycloak logs
+        if: failure()
+        run: docker logs keycloak

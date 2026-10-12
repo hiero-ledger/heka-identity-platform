@@ -57,10 +57,6 @@ http {
         location /openId/ {
             proxy_pass http://localhost:{YOUR_IDENTITY_SERVICE_AGENT_OPENID_PORT}/;
         }
-
-        location /auth/ {
-            proxy_pass http://localhost:{YOUR_AUTH_SERVICE_PORT}/;
-        }
     }
 
     include servers/*;

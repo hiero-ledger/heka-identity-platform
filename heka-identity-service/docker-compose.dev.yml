@@ -21,12 +21,31 @@ services:
     environment:
       MIKRO_ORM_HOST: postgres
       WALLET_POSTGRES_HOST: postgres
+      # iss is the browser-facing Keycloak URL (KC_HOSTNAME in heka-sso-service/docker-compose.dev.yml);
+      # the JWKS is fetched through the host gateway because localhost inside the container is the container.
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:8080/realms/heka-platform}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://host.docker.internal:8080/realms/heka-platform/protocol/openid-connect/certs}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-heka-identity-service}
+      OIDC_CLAIM_ORG_ID: ${OIDC_CLAIM_ORG_ID:-heka_organization,org_id}
+      OIDC_CLAIM_ORG_ID_FIELD: ${OIDC_CLAIM_ORG_ID_FIELD:-heka_org_id}
+      ORG_ADMIN_PROVIDER: ${ORG_ADMIN_PROVIDER:-keycloak}
+      ORG_ADMIN_URL: ${ORG_ADMIN_URL:-http://host.docker.internal:8080}
+      ORG_ADMIN_CLIENT_ID: ${ORG_ADMIN_CLIENT_ID:-heka-identity-admin}
+      ORG_ADMIN_CLIENT_SECRET: ${ORG_ADMIN_CLIENT_SECRET:-dev-only-heka-identity-admin-secret-do-not-use-in-production}
+      # Demo-token broker for the web UI's public demo pages (docs/setup.md#demo-token-broker); the
+      # token endpoint is reached through the host gateway like the JWKS. Dev secret of the shipped realm.
+      DEMO_TOKEN_URL: ${DEMO_TOKEN_URL:-http://host.docker.internal:8080/realms/heka-platform/protocol/openid-connect/token}
+      DEMO_CLIENT_ID: ${DEMO_CLIENT_ID:-heka-demo}
+      DEMO_CLIENT_SECRET: ${DEMO_CLIENT_SECRET:-dev-only-heka-demo-secret-do-not-use-in-production}
+      DEMO_TOKEN_PARAMS: ${DEMO_TOKEN_PARAMS:-}
       EXPRESS_PORT: ${EXPRESS_PORT:-3000}
       AGENT_HTTP_ENDPOINT: ${AGENT_HTTP_EP:-http://${HOST_IP:-172.17.0.1}:3001}
       AGENT_WS_ENDPOINT: ${AGENT_WS_EP:-ws://${HOST_IP:-172.17.0.1}:3002}
       WEBHOOK_ALLOW_HTTP: ${WEBHOOK_ALLOW_HTTP:-false}
       WEBHOOK_ALLOW_PRIVATE_ADDRESSES: ${WEBHOOK_ALLOW_PRIVATE_ADDRESSES:-false}
       WEBHOOK_HTTP_TIMEOUT_MS: ${WEBHOOK_HTTP_TIMEOUT_MS:-10000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - '3000:3000'
       - '3001:3001'
