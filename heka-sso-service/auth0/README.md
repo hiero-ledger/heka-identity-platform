@@ -1,6 +1,10 @@
 # Auth0 recipe for heka-identity-service
 
-Auth0 as the OpenID Connect provider whose tokens heka-identity-service accepts (plan: [`docs/keycloak-replacement-for-auth-service.md`](../../docs/keycloak-replacement-for-auth-service.md), section 8.2). This folder is the Auth0 counterpart of [`../keycloak`](../keycloak/README.md):
+Auth0 as the OpenID Connect provider whose tokens heka-identity-service accepts. This folder is the Auth0 counterpart of [`../keycloak`](../keycloak/README.md).
+
+**Keycloak is the reference provider.** Its realm ships with the platform, and CI checks the tokens it issues against heka-identity-service. Auth0 is a recipe: a configuration that reproduces the same claims in an Auth0 tenant. Only the Actions have unit tests; nothing runs against a live tenant in CI, so check the result in your own tenant.
+
+The files in this folder:
 
 | File                                 | Purpose                                                                                                                  |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
@@ -9,7 +13,7 @@ Auth0 as the OpenID Connect provider whose tokens heka-identity-service accepts 
 | `actions/credentials-exchange.js`    | Machine to Machine Flow Action: adds the same claims to Client Credentials tokens (heka-sso-service, demo-token broker). |
 | `../test/unit/auth0-actions.spec.ts` | Unit tests for both Actions (run with `yarn test`).                                                                      |
 
-Status: verified on 2026-09-21 against a live dev tenant. `setup-tenant.sh` created every item below; a Client Credentials token for `heka-sso-service` and a `demo` user token (password-realm grant enabled only for the check) both carried `aud`, `https://heka/roles: ["Admin"]`, `https://heka/name` and `https://heka/heka_uid`, and both were accepted by heka-identity-service configured as in [heka-identity-service settings](#heka-identity-service-settings). The Actions are also covered by unit tests. Note that a freshly deployed Action version can take a minute to become active; retry a failed login before debugging.
+A freshly deployed Action version can take a minute to become active; retry a failed login before debugging.
 
 ## Why the token looks different from Keycloak's
 
@@ -123,19 +127,6 @@ A change applies with the user's next access token: their next login or refresh,
 - **No tenant administrator left:** this can only be solved through Auth0 support, so keep at least two tenant members.
 
 Re-running `setup-tenant.sh` re-applies the role settings to an existing tenant: the Action secrets (including `HEKA_DEFAULT_ROLE`), the metadata of `heka-sso-service` and `heka-demo`, the API token lifetime (3600 s, so a role change reaches the identity service within an hour) and the dev users. Users who signed in while the default was `Admin` keep that persisted `app_metadata.heka_role`; reassign everyone who isn't a platform operator to `User`.
-
-## Migrating users from heka-auth-service
-
-`node export-users.mjs --target auth0 --in auth-users.json --org-id <ORG_ID> --keep-admin <operator> --out users.auth0.json` in [`tools/heka-auth-user-export`](../../tools/heka-auth-user-export/README.md) (fed with a JSON dump of the retired service's `auth_user` table, see its README) writes the bulk-import file with, per user: `user_id` = the old UUID (Auth0 stores it as `auth0|<uuid>`), `username`, `app_metadata: { heka_uid: <uuid>, heka_role: <role>, org_id? }`, and `custom_password_hash: { algorithm: "argon2", hash: { value: "<encoded argon2id hash>" } }`. Auth0 **requires an email per imported user**; heka-auth-service accounts have none, so the script synthesizes `<name>@heka.invalid` (`--email-domain` changes the domain) with `email_verified: false`. Login by username keeps working because the connection requires usernames; password reset only works once a real email is set.
-
-Import with the CLI (User Management → Users → Import Users in the dashboard does the same); files are limited to 500 KB per job:
-
-```sh
-auth0 users import -c Username-Password-Authentication --users "$(cat users.auth0.json)" --upsert=false --email-results=false --no-input
-auth0 api get jobs/<job id>          # until status is "completed"; summary lists inserted / failed
-```
-
-Try one account first (`--user <name>` on the export) and log in with it through the web UI. Verified on 2026-09-21 against the dev tenant: an imported user logged in with the old password (password-realm grant enabled only for the check), a wrong password was refused, and the access token carried `https://heka/heka_uid` equal to the original id and `https://heka/roles: ["Admin"]`.
 
 ## Checking a token
 

@@ -17,7 +17,7 @@ import TestMikroOrmConfig from 'test/config/mikro-orm'
 import { initializeMikroOrm, startTestApp } from './helpers'
 import { createAuthToken } from './helpers/jwt'
 
-/** Phase 8 of docs/role-model-and-oidc-providers.md: concurrent `POST /prepare-wallet` for one wallet. */
+/** Concurrent `POST /prepare-wallet` for one wallet. */
 describe('E2E concurrent prepare-wallet', () => {
   let ormSchemaGenerator: SchemaGenerator
   let orm: MikroORM<PostgreSqlDriver>

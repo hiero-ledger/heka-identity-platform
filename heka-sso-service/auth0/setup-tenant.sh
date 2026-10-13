@@ -23,8 +23,6 @@
 #   ACTION_RUNTIME        Actions runtime                      (default node22)
 #   CREATE_DEMO_USER      create demo and admin, both Password1234!  (default true)
 #
-# Status: exercised only through unit tests and a mock issuer so far (docs/keycloak-replacement-for-auth-service.md,
-# phase 3). Run it against a dev tenant first and check the printed summary.
 set -euo pipefail
 
 HEKA_AUDIENCE="${HEKA_AUDIENCE:-https://heka-identity}"

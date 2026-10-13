@@ -58,12 +58,12 @@ With the role model enabled, a public DID created by an `OrgAdmin` names a DID o
 
 DIDs of the methods without a controller are created without one. `POST /prepare-wallet` creates the DIDs of all configured methods and skips a DID whose controller doesn't exist yet.
 
-**The controller is informational.** It publishes the organization hierarchy, but proves and enforces nothing:
+**At the current stage, the controller is informational.** It publishes the organization hierarchy, but proves and enforces nothing:
 
 - **It is a self-declaration.** The new DID's own key writes the `controller` to the ledger; the controller DID neither signs nor approves it. A relying party can't conclude from it that the platform approved an organization, or that an organization approved an issuer.
 - **It gives the controller no power.** On Hedera, only the DID's own root key can update or deactivate it; a message signed by the controller DID is ignored by resolvers. The Identity Service also has no API to update or deactivate a DID.
 
-So the platform can't revoke an organization's DID through it, and an organization can't revoke an issuer's DID. Control over who acts for an organization comes from role assignment in the OIDC provider. Making the hierarchy verifiable, for example with accreditation credentials signed by the parent, is planned in [docs/role-model-and-oidc-providers.md](../../docs/role-model-and-oidc-providers.md) (phases 7 and 9).
+So the platform can't revoke an organization's DID through it, and an organization can't revoke an issuer's DID. Control over who acts for an organization comes from role assignment in the OIDC provider. Making the hierarchy verifiable, for example with accreditation credentials signed by the parent, is planned.
 
 #### Ownership
 
