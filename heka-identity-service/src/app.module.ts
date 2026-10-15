@@ -16,6 +16,7 @@ import { LoggerModule } from './common/logger'
 import { OCAModule } from './common/oca/oca.module'
 import { fileStorageConfigDefaults } from './config/file-storage'
 import { ConnectionModule } from './connection'
+import { ContributorCredentialModule } from './contributor-credential'
 import { CoreModule } from './core'
 import { CredentialModule } from './credential'
 import { CredentialDefinitionModule } from './credential-definition'
@@ -56,6 +57,7 @@ const _appRoot = typeof __dirname !== 'undefined' ? resolve(__dirname, '..') : p
     RevocationModule,
     PrepareWalletModule,
     CredentialV2Module,
+    ContributorCredentialModule,
     OCAModule,
     EventEmitterModule.forRoot(),
     LoggerModule.forRoot(), // must be dynamic and the last initialized module in the app except for AppModule itself

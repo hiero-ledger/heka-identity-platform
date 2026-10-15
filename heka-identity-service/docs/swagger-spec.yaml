@@ -1941,6 +1941,190 @@ paths:
       security: *a50
       summary: Proof VC by template
       tags: *a51
+  /gpg-challenge/request:
+    post:
+      description: Generates a cryptographically secure nonce bound to the
+        authenticated contributor's GitHub account. The contributor must sign
+        the nonce using the GPG private key registered on their GitHub profile,
+        then submit the armored output to POST /gpg-challenge/verify. The nonce
+        expires after 5 minutes and is single-use.
+      operationId: GpgChallengeController_requestChallenge
+      parameters: []
+      responses:
+        "201":
+          description: Challenge created successfully.
+          content:
+            application/json:
+              schema:
+                example:
+                  challengeId: d290f1ee-6c54-4b01-90e6-d701748f0851
+                  nonce: a3f5b2c1...
+                  expiresAt: 2026-07-06T10:00:00.000Z
+                  githubUsername: darshit2308
+                  githubAccountId: "12345678"
+        "401":
+          description: GitHub OAuth login is required before requesting a challenge.
+        "429":
+          description: GitHub API rate limit reached.
+        "503":
+          description: GitHub API is unreachable.
+      security:
+        - bearer: []
+      summary: Request a new GPG ownership challenge
+      tags: &a52
+        - GPG Challenge
+  /gpg-challenge/verify:
+    post:
+      description: >-
+        Accepts a PGP cleartext-signed message produced by running:
+          echo "<nonce>" | gpg --clearsign
+        The service fetches the contributor's public GPG key from GitHub and
+        verifies the signature cryptographically. The challenge is single-use; a
+        second submission with the same challengeId returns 400 regardless of
+        result.
+      operationId: GpgChallengeController_verifySignature
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifySignatureDto"
+      responses:
+        "200":
+          description: Verification completed (see `verified` field for the outcome).
+          content:
+            application/json:
+              schema:
+                examples:
+                  success:
+                    value:
+                      verified: true
+                      gpgFingerprint: A1B2C3D4E5F6...
+                  failure:
+                    value:
+                      verified: false
+                      message: Signature verification failed.
+        "400":
+          description: Replay attempt, expired challenge, no GPG key on GitHub, or
+            malformed signature.
+        "404":
+          description: Challenge ID not found.
+        "429":
+          description: GitHub API rate limit reached.
+        "503":
+          description: GitHub API is unreachable.
+      summary: Submit a GPG signature for verification
+      tags: *a52
+  /gpg-challenge/status/{githubUsername}:
+    get:
+      description: Returns whether the contributor has completed GPG ownership
+        verification. Used by the Heka GitHub App to post an appropriate
+        check-run result. Always returns HTTP 200; check the `isVerified` field
+        for the outcome.
+      operationId: GpgChallengeController_getStatus
+      parameters:
+        - name: githubUsername
+          required: true
+          in: path
+          description: GitHub login of the contributor.
+          schema:
+            example: darshit2308
+            type: string
+      responses:
+        "200":
+          description: Status retrieved successfully.
+          content:
+            application/json:
+              schema:
+                examples:
+                  verified:
+                    value:
+                      isVerified: true
+                      githubUsername: darshit2308
+                      gpgFingerprint: A1B2C3D4E5F6...
+                      verifiedAt: 2026-07-06T09:30:00.000Z
+                  unverified:
+                    value:
+                      isVerified: false
+                      githubUsername: darshit2308
+      summary: Get the GPG verification status for a GitHub contributor
+      tags: *a52
+  /contributor-onboarding/github/authorization-url:
+    get:
+      operationId: ContributorOnboardingController_getGithubAuthorizationUrl
+      parameters:
+        - name: redirectPath
+          required: false
+          in: query
+          description: Optional UI path to return to after successful GitHub login.
+          schema:
+            example: /profile
+            type: string
+      responses:
+        "200":
+          description: GitHub OAuth URL generated.
+      summary: Create a GitHub OAuth authorization URL for contributor login.
+      tags: &a53
+        - Contributor Onboarding
+  /contributor-onboarding/github/callback:
+    post:
+      operationId: ContributorOnboardingController_githubCallback
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GithubOAuthCallbackDto"
+      responses:
+        "200":
+          description: Contributor logged in with GitHub.
+      summary: Complete GitHub OAuth contributor login.
+      tags: *a53
+  /contributor-onboarding/status:
+    get:
+      operationId: ContributorOnboardingController_getStatus
+      parameters: []
+      responses:
+        "200":
+          description: Contributor onboarding status.
+        "401":
+          description: Unauthorized.
+      security:
+        - bearer: []
+      summary: Get contributor onboarding status for the logged-in contributor.
+      tags: *a53
+  /v2/contributor-credential/offer:
+    post:
+      description: Generates an OID4VCI SD-JWT VC credential offer for a contributor
+        who has completed GitHub OAuth login and GPG key verification. Returns
+        an openid-credential-offer:// URI.
+      operationId: ContributorCredentialController_createOffer_v2
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContributorCredentialOfferRequestDto"
+      responses:
+        "200":
+          description: Credential offer created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContributorCredentialOfferResponseDto"
+        "404":
+          description: No verified contributor binding found for the given GitHub account
+            ID.
+        "409":
+          description: Contributor binding exists but GPG verification is not yet complete.
+      security:
+        - bearer: []
+      summary: Issue a GitHub Contributor Credential offer
+      tags:
+        - Contributor Credential
 info:
   title: Heka Identity Service
   description: Heka Identity Service API
@@ -4043,5 +4227,61 @@ components:
                 - abandoned
       required:
         - id
+    VerifySignatureDto:
+      type: object
+      properties:
+        challengeId:
+          type: string
+          description: UUID of the active challenge session, as returned by POST
+            /gpg-challenge/request.
+          example: d290f1ee-6c54-4b01-90e6-d701748f0851
+        signature:
+          type: string
+          description: >-
+            PGP-armored cleartext-signed message produced by running:
+              echo "<nonce>" | gpg --clearsign
+            The entire armored block including the BEGIN/END PGP SIGNED MESSAGE
+            headers must be included.
+          example: |-
+            -----BEGIN PGP SIGNED MESSAGE-----
+            Hash: SHA512
+
+            <nonce>
+            -----BEGIN PGP SIGNATURE-----
+            ...
+            -----END PGP SIGNATURE-----
+      required:
+        - challengeId
+        - signature
+    GithubOAuthCallbackDto:
+      type: object
+      properties:
+        code:
+          type: string
+          description: OAuth code returned by GitHub.
+        state:
+          type: string
+          description: Signed OAuth state returned by the authorization-url endpoint.
+      required:
+        - code
+        - state
+    ContributorCredentialOfferRequestDto:
+      type: object
+      properties:
+        githubAccountId:
+          type: string
+          description: The contributor's immutable GitHub numeric account ID
+          example: "12345678"
+      required:
+        - githubAccountId
+    ContributorCredentialOfferResponseDto:
+      type: object
+      properties:
+        credentialOffer:
+          type: string
+          description: Credential offer URI (openid-credential-offer://) for the wallet
+          example: openid-credential-offer://?credential_offer_uri=https://...
+      required:
+        - credentialOffer
 security:
   - bearer: []

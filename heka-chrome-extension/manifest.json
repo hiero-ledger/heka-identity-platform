@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "Heka Web Wallet",
+  "version": "0.1.0",
+  "description": "Hiero contributor credential wallet — receive, store, and present your GithubContributorCredential.",
+
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://localhost/*"
+  ],
+
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "Heka Web Wallet",
+    "default_icon": {
+      "16":  "icons/icon-16.png",
+      "48":  "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "https://heka.hiero.org/*",
+        "https://*.hiero.org/*"
+      ],
+      "js":  ["content-scripts/heka-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "icons": {
+    "16":  "icons/icon-16.png",
+    "48":  "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+
+  "protocol_handlers": [
+    {
+      "protocol": "openid-credential-offer",
+      "uriTemplate": "/popup/index.html?offer=%s"
+    }
+  ]
+}

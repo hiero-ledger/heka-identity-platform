@@ -3,7 +3,7 @@ import { ExpireInConfig } from '@core/config/configs/expire-in.config'
 import { Type } from 'class-transformer'
 import { ValidateNested, validateSync } from 'class-validator'
 
-import { AppConfig, HealthConfig, JwtConfig, LoggerConfig, ThrottleConfig } from './configs'
+import { AppConfig, GithubConfig, HealthConfig, JwtConfig, LoggerConfig, ThrottleConfig } from './configs'
 import { assertSecureConfiguration } from './insecure-defaults'
 
 export class Config {
@@ -35,6 +35,10 @@ export class Config {
   @Type(() => ThrottleConfig)
   public throttle!: ThrottleConfig
 
+  @ValidateNested()
+  @Type(() => GithubConfig)
+  public github!: GithubConfig
+
   public constructor(configuration?: Record<string, any>) {
     this.app = new AppConfig(configuration)
     this.logger = new LoggerConfig(configuration)
@@ -43,6 +47,7 @@ export class Config {
     this.expireIn = new ExpireInConfig(configuration)
     this.health = new HealthConfig(configuration)
     this.throttle = new ThrottleConfig(configuration)
+    this.github = new GithubConfig(configuration)
   }
 }
 
