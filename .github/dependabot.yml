@@ -12,7 +12,6 @@ updates:
 
   - package-ecosystem: "docker"
     directories:
-      - "/heka-auth-service"
       - "/heka-identity-service"
       - "/heka-sso-service"
     schedule:

@@ -8,7 +8,7 @@ The solution is designed as a multi-tenant system, meaning that a single instanc
 
 ## Configuration
 
-The service is configured via environment variables. The full reference (~30 variables across HTTP server, agent transports, persistence, JWT, ledger / DID methods, mDoc, logging, and health) lives in [Setup — Environment Variables](docs/setup.md#environment-variables). The most commonly customized are:
+The service is configured via environment variables. The full reference (~70 variables across HTTP server, agent transports, persistence, OIDC authentication, wallet preparation, role model, organization administration, demo token broker, ledger / DID methods, mDoc, logging, health, and notification webhooks) lives in [Setup — Environment Variables](docs/setup.md#environment-variables). The most commonly customized are:
 
 - `OIDC_ISSUER_URL`, `OIDC_AUDIENCE` (plus `OIDC_CLAIM_*` for providers that namespace custom claims) — the OpenID Connect provider whose bearer tokens the API accepts; see [Authentication (OIDC)](docs/setup.md#authentication-oidc).
 - `DEMO_TOKEN_URL`, `DEMO_CLIENT_ID`, `DEMO_CLIENT_SECRET` (optional) — enable `GET /demo/token`, the short-lived token broker behind the web UI's public demo pages; see [Demo token broker](docs/setup.md#demo-token-broker).

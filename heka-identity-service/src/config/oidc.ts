@@ -13,12 +13,23 @@ import { registerAs } from '@nestjs/config'
 export interface OidcClaimsConfig {
   /** Stable user id. Defaults to `sub`. Pointing it at a custom claim (e.g. `heka_uid`) keeps tenants across providers. */
   userId: string
-  /** Heka role: a string or an array; exactly one known role must be present after filtering. */
+  /**
+   * Heka role: a string, an array, or an object keyed by role name (Zitadel); exactly one known role must be
+   * present after filtering.
+   */
   roles: string
   /** Ordered fallback list for the display name. The user id is the last resort. */
   name: string[]
-  /** Optional organization id. */
-  orgId: string
+  /**
+   * Ordered fallback list for the optional organization id; the first path that is present wins. Lets a provider's
+   * organization claim (Keycloak Organizations) take precedence over a plain user attribute (`org_id`).
+   */
+  orgId: string[]
+  /**
+   * Field holding the Heka organization id inside an organization object, e.g. `heka_org_id` for Keycloak's
+   * `{ "<alias>": { "heka_org_id": ["<id>"] } }`. Without it, a single-key object yields its key (the alias).
+   */
+  orgIdField?: string
 }
 
 export interface OidcConfig {
@@ -41,7 +52,7 @@ export const oidcClaimsDefaults: OidcClaimsConfig = {
   userId: 'sub',
   roles: 'roles',
   name: ['name', 'preferred_username', 'nickname'],
-  orgId: 'org_id',
+  orgId: ['org_id'],
 }
 
 export const oidcConfigDefaults = {
@@ -75,6 +86,7 @@ export default registerAs('oidc', (): OidcConfig => ({
     userId: text(process.env.OIDC_CLAIM_USER_ID) ?? oidcClaimsDefaults.userId,
     roles: text(process.env.OIDC_CLAIM_ROLES) ?? oidcClaimsDefaults.roles,
     name: list(process.env.OIDC_CLAIM_NAME, oidcClaimsDefaults.name),
-    orgId: text(process.env.OIDC_CLAIM_ORG_ID) ?? oidcClaimsDefaults.orgId,
+    orgId: list(process.env.OIDC_CLAIM_ORG_ID, oidcClaimsDefaults.orgId),
+    orgIdField: text(process.env.OIDC_CLAIM_ORG_ID_FIELD),
   },
 }))

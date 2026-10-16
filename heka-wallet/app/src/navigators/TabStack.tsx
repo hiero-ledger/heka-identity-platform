@@ -8,7 +8,6 @@ import {
   useNetwork,
 } from '@bifold/core'
 import { TabStackParams as BifoldTabStackParams } from '@bifold/core/src/types/navigators'
-import { KeplrStack } from '@heka-wallet/keplr'
 import { BootstrapIcon, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { BottomTabBar, BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import React, { ReactNode, useMemo, useState } from 'react'
@@ -20,8 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import IonIcon from 'react-native-vector-icons/Ionicons'
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons'
 
-import { isKeplrIntegrationEnabled } from '../config'
-
 import { TabStackParams, TabStacks } from './types'
 
 const Tab = createBottomTabNavigator<BifoldTabStackParams & TabStackParams>()
@@ -32,7 +29,7 @@ const NOTIFICATION_OPTIONS = { openIDUri: '' }
 // (e.g. after lockout-relogin) — `initialRouteName` alone is unreliable for a non-first tab.
 // Visual tab-bar order is decoupled here and explicitly defined on the JS side to avoid Android/iOS inconsistency.
 const tabBarVisualOrder: string[] = [
-  isKeplrIntegrationEnabled ? TabStacks.KeplrStack : BifoldTabStacks.ConnectStack,
+  BifoldTabStacks.ConnectStack,
   BifoldTabStacks.HomeStack,
   TabStacks.BifoldSettingsStack,
 ]
@@ -127,51 +124,31 @@ export const TabStack: React.FC = () => {
             },
           }}
         />
-        {isKeplrIntegrationEnabled ? (
-          <Tab.Screen
-            name={TabStacks.KeplrStack}
-            component={KeplrStack}
-            options={{
-              tabBarIcon: ({ color, focused }) => (
-                <TabBarIcon
-                  iconComponent={
-                    <MaterialCommunityIcon name={'wallet-outline'} color={color} size={IconSizes.medium} />
-                  }
-                  label={t('TabStack.Coins')}
-                  focused={focused}
-                />
-              ),
-              tabBarShowLabel: false,
-              tabBarAccessibilityLabel: t('TabStack.Coins'),
-            }}
-          />
-        ) : (
-          <Tab.Screen
-            name={BifoldTabStacks.ConnectStack}
-            options={{
-              tabBarIcon: ({ color, focused }) => (
-                <TabBarIcon
-                  iconComponent={<BootstrapIcon name={'qr-code-scan'} color={color} size={IconSizes.medium} />}
-                  label={t('TabStack.Scan')}
-                  focused={focused}
-                />
-              ),
-              tabBarShowLabel: false,
-              tabBarAccessibilityLabel: t('TabStack.Scan'),
-            }}
-            listeners={({ navigation }) => ({
-              tabPress: (e) => {
-                e.preventDefault()
-                if (!assertNetworkConnected()) {
-                  return
-                }
-                navigation.navigate(BifoldStacks.ConnectStack, { screen: BifoldScreens.Scan })
-              },
-            })}
-          >
-            {() => <View />}
-          </Tab.Screen>
-        )}
+        <Tab.Screen
+          name={BifoldTabStacks.ConnectStack}
+          options={{
+            tabBarIcon: ({ color, focused }) => (
+              <TabBarIcon
+                iconComponent={<BootstrapIcon name={'qr-code-scan'} color={color} size={IconSizes.medium} />}
+                label={t('TabStack.Scan')}
+                focused={focused}
+              />
+            ),
+            tabBarShowLabel: false,
+            tabBarAccessibilityLabel: t('TabStack.Scan'),
+          }}
+          listeners={({ navigation }) => ({
+            tabPress: (e) => {
+              e.preventDefault()
+              if (!assertNetworkConnected()) {
+                return
+              }
+              navigation.navigate(BifoldStacks.ConnectStack, { screen: BifoldScreens.Scan })
+            },
+          })}
+        >
+          {() => <View />}
+        </Tab.Screen>
         <Tab.Screen
           name={TabStacks.BifoldSettingsStack}
           component={SettingStack}

@@ -37,6 +37,8 @@ services:
         NODE_ENV: development
     ports:
       - '3005:3005'
+    # heka-identity-service (3000) and the OIDC provider (Keycloak, 8080) run outside this compose
+    # project, published on the host: inside the container "localhost" is the container itself.
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     environment:

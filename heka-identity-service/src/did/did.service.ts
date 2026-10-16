@@ -1,7 +1,9 @@
-import { DidDocument, Kms, TypedArrayEncoder } from '@credo-ts/core'
+import { DidRepository } from '@credo-ts/core'
 import { EntityManager } from '@mikro-orm/core'
 import {
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -9,12 +11,15 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
+import { Mutex } from 'async-mutex'
 
 import { Agent, AGENT_TOKEN, TenantAgent } from 'common/agent'
-import { AuthInfo } from 'common/auth'
+import { AuthInfo, Role } from 'common/auth'
+import { AuthorizationService } from 'common/authz'
 import { DidRegistrarService } from 'common/did-registrar'
 import { Wallet } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
+import { DidMethod, MAIN_DID_METHOD } from 'common/types'
 import { getDidControllerWalletId } from 'utils/auth'
 import { withTenantAgent } from 'utils/multi-tenancy'
 
@@ -24,6 +29,9 @@ import { CreateDidRequestDto, DidDocumentDto, FindDidRequestDto, GetDidMethodsRe
 
 @Injectable()
 export class DidService {
+  // One lock per wallet, so main-DID creation for unrelated wallets doesn't wait in one queue
+  private readonly mainDidMutexes = new Map<string, Mutex>()
+
   public constructor(
     @Inject(AGENT_TOKEN)
     private readonly agent: Agent,
@@ -33,6 +41,7 @@ export class DidService {
     private readonly didRegistrarService: DidRegistrarService,
     @Inject(AgentConfig.KEY)
     private readonly agentConfig: ConfigType<typeof AgentConfig>,
+    private readonly authorizationService: AuthorizationService,
   ) {
     this.logger.child('constructor').trace('<>')
   }
@@ -69,109 +78,123 @@ export class DidService {
     const logger = this.logger.child('create')
     logger.trace('>')
 
-    const wallet = await this.em.findOneOrFail(Wallet, { id: authInfo.walletId })
-    if (wallet.publicDid) {
-      throw new Error(`The wallet already contains created public DID: ${wallet.publicDid}`)
-    }
+    const method = req.method ?? MAIN_DID_METHOD
 
-    let didDocument: DidDocument
-
-    const didControllerWalletId = getDidControllerWalletId({
-      role: authInfo.role,
-      orgId: authInfo.orgId,
-    })
-
-    logger.info(`DID subject wallet ID: ${authInfo.walletId}`)
-    logger.info(`DID controller wallet ID: ${didControllerWalletId ?? 'N/A'}`)
-
-    if (didControllerWalletId) {
-      const didControllerWallet = await this.em.findOne(Wallet, {
-        id: didControllerWalletId,
-      })
-      if (!didControllerWallet || !didControllerWallet.publicDid) {
-        throw new UnprocessableEntityException(
-          `Public DID created by ${didControllerWalletId} is required in order to be set as controller but it has not been created yet`,
-        )
+    const run = async () => {
+      // 1. `Wallet.publicDid` is the main-method DID, so only that method is limited to one per wallet.
+      // The wallet is re-read so a main DID persisted by a concurrent request is observed
+      const wallet = await this.em.findOneOrFail(Wallet, { id: authInfo.walletId }, { refresh: true })
+      if (method === MAIN_DID_METHOD && wallet.publicDid) {
+        throw new ConflictException(`The wallet already contains created public DID: ${wallet.publicDid}`)
       }
 
-      const controller = didControllerWallet.publicDid
+      // 2. With the role model enabled, the new DID is controlled by the DID of the same method held by the
+      // controller wallet (Admin -> OrgAdmin -> Issuer), for methods that support a controller. A Verifier may only
+      // create a self-controlled did:key (no ledger write), enough to prepare its wallet and sign verification
+      // requests. Other roles that cannot create a public DID are rejected here as well
+      let controller: string | undefined
+      if (this.authorizationService.isEnforced && authInfo.role === Role.Verifier) {
+        if (method !== DidMethod.Key) {
+          throw new ForbiddenException(`Role '${authInfo.role}' can only create did:key DIDs, not '${method}'`)
+        }
+      } else if (this.authorizationService.isEnforced) {
+        const didControllerWalletId = getDidControllerWalletId({ role: authInfo.role, orgId: authInfo.orgId })
+        if (didControllerWalletId && this.didRegistrarService.supportsController(method)) {
+          controller = await this.findCreatedDid(didControllerWalletId, method)
+          if (!controller) {
+            throw new UnprocessableEntityException(
+              `A ${method} DID created by ${didControllerWalletId} is required in order to be set as controller but it has not been created yet`,
+            )
+          }
+          logger.info(`DID controller: ${controller}`)
+        }
+      }
 
-      const key = await withTenantAgent(
-        {
-          agent: this.agent,
-          tenantId: authInfo.tenantId,
-        },
-        async (tenantAgent) => {
-          return await tenantAgent.kms.createKey({
-            type: {
-              crv: 'Ed25519',
-              kty: 'OKP',
-            },
-          })
-        },
-      )
-
-      logger.info('Key was created by DID subject')
-
-      const publicKey = TypedArrayEncoder.toBase58(Kms.PublicJwk.fromPublicJwk(key.publicJwk).publicKey.publicKey)
-      didDocument = await this.didRegistrarService.createDid(didControllerWallet.tenantId, req.method, {
+      // 3. Unsupported methods are rejected by the registrar
+      const didDocument = await this.didRegistrarService.createDid(authInfo.tenantId, method, {
         namespace: this.agent.agencyConfig.networks[0].indyNamespace,
         controller,
-        publicKey,
       })
 
-      logger.info(`DID document creation by DID controller result: ${JSON.stringify(didDocument)}`)
-
-      await withTenantAgent(
-        {
-          agent: this.agent,
-          tenantId: authInfo.tenantId,
-        },
-        async (tenantAgent) => {
-          // Validate that verification method exists before accessing
-          if (!didDocument.verificationMethod || didDocument.verificationMethod.length === 0) {
-            throw new UnprocessableEntityException(
-              `DID document for ${didDocument.id} must contain at least one verification method`,
-            )
-          }
-
-          const verificationMethod = didDocument.verificationMethod[0]
-          if (!verificationMethod.id) {
-            throw new UnprocessableEntityException(
-              `Verification method in DID document ${didDocument.id} must have an id`,
-            )
-          }
-
-          const didDocumentRelativeKeyId = verificationMethod.id
-
-          return await tenantAgent.dids.import({
-            did: didDocument.id,
-            didDocument,
-            keys: [
-              {
-                kmsKeyId: key.keyId,
-                didDocumentRelativeKeyId,
-              },
-            ],
-          })
-        },
-      )
-
-      logger.info('DID document was imported by DID subject')
-    } else {
-      didDocument = await this.didRegistrarService.createDid(authInfo.tenantId, req.method, {
-        namespace: this.agent.agencyConfig.networks[0].indyNamespace,
-      })
+      // 4. The main DID is claimed in the database, so another Identity Service instance that created one at the same
+      // time can't overwrite it: only the first write to an empty `public_did` succeeds
+      if (method === MAIN_DID_METHOD) {
+        const claimed = await this.em.nativeUpdate(
+          Wallet,
+          { id: wallet.id, publicDid: null },
+          { publicDid: didDocument.id },
+        )
+        if (!claimed) {
+          await this.deleteCreatedDid(authInfo.tenantId, didDocument.id)
+          const { publicDid } = await this.em.findOneOrFail(Wallet, { id: wallet.id }, { refresh: true })
+          throw new ConflictException(`The wallet already contains created public DID: ${publicDid}`)
+        }
+        wallet.publicDid = didDocument.id
+      }
+      await this.em.flush()
+      return didDocument
     }
 
-    // wallet.publicDid = didDocument.id
-    await this.em.flush()
+    // Within this instance the main-method DID check, creation and write are serialized per wallet, so concurrent
+    // requests cannot both create one
+    const didDocument =
+      method === MAIN_DID_METHOD ? await this.runExclusiveForWallet(authInfo.walletId, run) : await run()
 
     const res = new DidDocumentDto(didDocument)
 
     logger.trace('<')
     return res
     /* jscpd:ignore-end */
+  }
+
+  /**
+   * The wallet's own DID of a method, the oldest when there are several, without resolving it. The Indy endorser DID,
+   * which every tenant holds, is not the wallet's own.
+   */
+  public async findOwnDid(tenantAgent: TenantAgent, method: string): Promise<string | undefined> {
+    const didRecords = await tenantAgent.dids.getCreatedDids({ method })
+    const [oldest] = didRecords
+      .filter((record) => record.did !== this.agent.agencyConfig.indyEndorserDid)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    return oldest?.did
+  }
+
+  private async runExclusiveForWallet<T>(walletId: string, operation: () => Promise<T>): Promise<T> {
+    let mutex = this.mainDidMutexes.get(walletId)
+    if (!mutex) {
+      mutex = new Mutex()
+      this.mainDidMutexes.set(walletId, mutex)
+    }
+    try {
+      return await mutex.runExclusive(operation)
+    } finally {
+      if (!mutex.isLocked()) {
+        this.mainDidMutexes.delete(walletId)
+      }
+    }
+  }
+
+  /** Removes the record of a `did:key` that lost the race for `public_did`; a `did:key` has nothing on a ledger. */
+  private async deleteCreatedDid(tenantId: string, did: string): Promise<void> {
+    await withTenantAgent({ agent: this.agent, tenantId }, async (tenantAgent) => {
+      const didRepository = tenantAgent.dependencyManager.resolve(DidRepository)
+      const didRecord = await didRepository.findCreatedDid(tenantAgent.context, did)
+      if (didRecord) {
+        await didRepository.delete(tenantAgent.context, didRecord)
+      }
+    })
+    this.logger.child('deleteCreatedDid').info(`Deleted ${did}: another request set the wallet's main DID first`)
+  }
+
+  private async findCreatedDid(walletId: string, method: string): Promise<string | undefined> {
+    const wallet = await this.em.findOne(Wallet, { id: walletId })
+    if (!wallet) {
+      return undefined
+    }
+    const didRecords = await withTenantAgent({ agent: this.agent, tenantId: wallet.tenantId }, (tenantAgent) =>
+      tenantAgent.dids.getCreatedDids({ method }),
+    )
+    return didRecords[0]?.did
   }
 
   public async get(tenantAgent: TenantAgent, did: string): Promise<DidDocumentDto> {

@@ -13,6 +13,7 @@ const OIDC_ENV_KEYS = [
   'OIDC_CLAIM_ROLES',
   'OIDC_CLAIM_NAME',
   'OIDC_CLAIM_ORG_ID',
+  'OIDC_CLAIM_ORG_ID_FIELD',
 ]
 
 describe('oidc config', () => {
@@ -89,7 +90,7 @@ describe('oidc config', () => {
       userId: 'https://heka/heka_uid',
       roles: '/https:~1~1heka~1roles',
       name: ['https://heka/name', 'name', 'nickname'],
-      orgId: 'https://heka/org_id',
+      orgId: ['https://heka/org_id'],
     })
   })
 })

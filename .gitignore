@@ -61,5 +61,8 @@ node_modules/
 # (its config path $HOME/.config then resolves against the cwd)
 .config/
 
+.claude
+ai-project-kit
+
 # Root Compose configuration (copy .env.example)
 /.env

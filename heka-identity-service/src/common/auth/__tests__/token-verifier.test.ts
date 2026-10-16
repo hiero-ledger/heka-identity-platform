@@ -136,7 +136,7 @@ describe('TokenVerifier', () => {
           userId: 'https://heka/heka_uid',
           roles: 'https://heka/roles',
           name: ['https://heka/name', 'name'],
-          orgId: 'https://heka/org_id',
+          orgId: ['https://heka/org_id'],
         },
       })
 

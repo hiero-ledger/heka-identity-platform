@@ -84,7 +84,7 @@ export class OCAFilesService {
       new MetaOverlay({
         captureBase: capture_base.digest,
         name: schema.name ?? undefined,
-        issuer: schema.owner?.name ?? undefined,
+        issuer: schema.createdBy?.name ?? undefined,
         language: 'en',
       }),
     )
@@ -132,7 +132,7 @@ export class OCAFilesService {
       .find(
         SchemaRegistration,
         { protocol: ProtocolType.Aries, schema: { isHidden: false } },
-        { populate: ['schema', 'schema.owner'] },
+        { populate: ['schema', 'schema.createdBy'] },
       )
     if (!schemaRegistrations) {
       this.logger.info('No schemes registrations for making OCA files')

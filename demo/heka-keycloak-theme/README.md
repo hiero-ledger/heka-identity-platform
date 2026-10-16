@@ -1,6 +1,6 @@
 # heka-keycloak-theme
 
-A **light-touch** Keycloak login theme for the OID4VP SSO Demo realm, built with [Keycloakify](https://www.keycloakify.dev/) v11 (React + Vite). Plan and rationale: [heka-sso-web-ui/docs/UI-PLAN.md §2.5 / Phase K](../heka-sso-web-ui/docs/UI-PLAN.md).
+A **light-touch** Keycloak login theme for the OID4VP SSO Demo realm, built with [Keycloakify](https://www.keycloakify.dev/) v11 (React + Vite).
 
 It deliberately does **not** clone the relying party's look: Keycloak is a different party on a different domain (the identity provider), and the demo should let the audience feel that hand-off. The theme only makes the stock login page presentable — a calm background, a rounded card and controls, its own neutral palette — and adds an identity line under the card ("You are signing in through *OID4VP SSO Demo*, the identity provider for *CivicTrust Demo*").
 

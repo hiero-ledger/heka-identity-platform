@@ -4,9 +4,9 @@
 
 "Sign in with wallet" OIDC bridge for the Heka Identity Platform. The service acts as a standard OIDC provider (built on `node-oidc-provider`) whose sole authentication method is a verifiable-credential presentation (OID4VP), verified by the [Heka Identity Service](../heka-identity-service). Customer IdPs (Keycloak first) broker logins to it via standard OIDC.
 
-This service is deliberately separate from [heka-auth-service](../heka-auth-service) (login/password JWT issuance, unchanged): no shared code, database tables, or keys.
+This service is not the platform's login. Operators and users of heka-identity-service sign in with the OIDC provider the identity service trusts (Keycloak or Auth0, recipes in this folder). This service only turns a wallet presentation into an OIDC login for relying parties, and shares no code, database tables or keys with that provider.
 
-This service calls heka-identity-service with a token obtained through an OAuth 2.0 Client Credentials grant from the OIDC provider the identity service trusts (the `heka-sso-service` client in the [Keycloak `heka-platform` realm](keycloak/README.md), or the M2M application of the [Auth0 recipe](auth0/README.md)); see [`docs/keycloak-replacement-for-auth-service.md`](../docs/keycloak-replacement-for-auth-service.md) at the repository root. Both provider recipes for the platform live in this repository folder because the SSO demo already ships the Keycloak realm.
+This service calls heka-identity-service with a token obtained through an OAuth 2.0 Client Credentials grant from that provider: the `heka-sso-service` client in the [Keycloak `heka-platform` realm](keycloak/README.md), or the M2M application of the [Auth0 recipe](auth0/README.md). In both recipes the service account is `OrgAdmin` of its own organization `heka-sso`, so its verifier and signing DID live in the `Organization_heka-sso` wallet. Both provider recipes for the platform live in this repository folder because the SSO demo already ships the Keycloak realm.
 
 ## Quick Start
 
@@ -267,9 +267,9 @@ building):
 docker compose up -d --build
 ```
 
-The defaults give the dev stub login, so no wallet is involved. A real wallet login needs the
-verifier heka-identity-service creates sessions under and the DID that signs authorization requests,
-with the stub switched off:
+`docker-compose.dev.yml` builds the image and brings up Keycloak with the `heka` realm (plus the `heka-platform` realm that heka-identity-service uses, see [keycloak/README.md](keycloak/README.md)); it uses the
+dev-only stub login, so no wallet is involved. `docker-compose.yml` runs the published image against
+a real wallet login and needs the verifier heka-identity-service creates sessions under:
 
 ```bash
 IDENTITY_SERVICE_PUBLIC_VERIFIER_ID=<public verifier id> \
@@ -278,12 +278,12 @@ OIDC_STUB_LOGIN=false \
   docker compose up -d
 ```
 
-Compose reads `./.env` for substitution, not `env/.env` (that one is for `yarn start` and holds
-multi-line JSON); set overrides on the command line or with `--env-file`. Override
-`IDENTITY_SERVICE_BASE_URL` / `IDENTITY_SERVICE_TOKEN_URL` when the identity service or the
-provider live elsewhere, and `IDENTITY_SERVICE_CLIENT_ID` / `IDENTITY_SERVICE_CLIENT_SECRET` (plus
-`IDENTITY_SERVICE_TOKEN_PARAMS` for Auth0) when the service account is not the dev client from
-`keycloak/realm-heka-platform.json`.
+Compose refuses to start without those two — a bridge that binds no identity acquirer denies every
+`/authorize`. heka-identity-service (`:3000`) and the OIDC provider (Keycloak, `:8080`) are expected
+on the host and are reached over `host.docker.internal`; override `IDENTITY_SERVICE_BASE_URL` /
+`IDENTITY_SERVICE_TOKEN_URL` when they live elsewhere, and `IDENTITY_SERVICE_CLIENT_ID` /
+`IDENTITY_SERVICE_CLIENT_SECRET` (plus `IDENTITY_SERVICE_TOKEN_PARAMS` for Auth0) when the service
+account is not the dev client from `keycloak/realm-heka.json`.
 
 The image runs as the unprivileged `node` user and defaults to `NODE_ENV=production`. The compose
 file overrides it to `development`, because it ships the dev-only cookie key, `sub` salt and broker
