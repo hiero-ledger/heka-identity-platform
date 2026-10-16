@@ -62,12 +62,7 @@ describe('route coverage of the role model', () => {
   })
 
   test('every read is open to every authenticated role (data is confined to the caller’s own wallet)', () => {
-    const restrictedReads = routes
-      .filter(
-        (route) =>
-          route.method === 'GET' && route.access.kind === 'roles' && route.controller !== 'OrganizationAdminController',
-      )
-      .map(key)
+    const restrictedReads = routes.filter((route) => route.method === 'GET' && route.access.kind === 'roles').map(key)
     expect(restrictedReads).toEqual([])
   })
 
@@ -93,9 +88,13 @@ describe('route coverage of the role model', () => {
     expect(formatRoleMatrix(routes)).toMatchSnapshot()
   })
 
-  test('loads every controller, the organization administration API included', () => {
+  test('loads every controller, nested modules included', () => {
     const controllers = new Set(routes.map((route) => route.controller))
     expect(controllers.size).toBeGreaterThan(15)
-    expect(controllers).toContain('OrganizationAdminController')
+    expect(controllers).toContain('OpenId4VcVerificationSessionController')
+  })
+
+  test('the organization administration API is gone', () => {
+    expect(routes.filter((route) => route.path.startsWith('/organization')).map(key)).toEqual([])
   })
 })

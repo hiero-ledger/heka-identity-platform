@@ -19,7 +19,6 @@ Everything in these files is **dev configuration**: the client secrets, the `dem
 | Client `heka-identity-service`      | Bearer-only resource server. Owns the client roles `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User` and is the audience (`aud`) of accepted tokens. Never logs in.                                                                                                     |
 | Client `heka-identity-web-ui`       | Public SPA client for heka-identity-service-web-ui: Authorization Code + PKCE (S256), refresh tokens, redirect URIs and web origins for `http://localhost:8000`.                                                                                                                                     |
 | Client `heka-sso-service`           | Confidential client with a service account; heka-sso-service obtains its identity-service token with Client Credentials. Its service-account user holds `OrgAdmin` with the attribute `org_id` = `heka-sso`, so the SSO verifier and its signing DID live in the `Organization_heka-sso` wallet, not in the shared `Administration` wallet. `OrgAdmin` rather than `Verifier`, because with `ROLE_MODEL_ENABLED=true` only `Admin`, `OrgAdmin` and `Issuer` can create the signing DID. Dev secret: `dev-only-heka-sso-service-secret-do-not-use-in-production`.                                               |
-| Client `heka-identity-admin`       | Confidential client with a service account; heka-identity-service uses it for [organization administration](../../heka-identity-service/docs/setup.md#organization-administration) (`ORG_ADMIN_*`). Its service-account user holds the `realm-management` roles `manage-users`, `view-users`, `view-clients`, `query-groups` and `manage-realm`; Keycloak 26.0 needs `manage-realm` to read organization members. Dev secret: `dev-only-heka-identity-admin-secret-do-not-use-in-production`. |
 | Client `heka-demo`                  | Confidential client with a service account for the identity service's demo-token broker (`GET /demo/token`, enabled there with `DEMO_*`): the public demo pages of the web UI act as this account. Its service-account user has the fixed id `e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9` (so `heka_uid`, and with it the demo tenant and DID, survive a re-import) and holds the `User` role: its token is handed out without login, so it must never be `Admin` (which would open the shared `Administration` wallet to anyone). Dev secret: `dev-only-heka-demo-secret-do-not-use-in-production`. |
 | Protocol mappers (on the three token-requesting clients) | Add the identity-service claim contract to tokens: `roles` (client roles of `heka-identity-service`, array), `org_id` (user attribute), `heka_uid` (the Keycloak user id, a copy of `sub`), and `aud: heka-identity-service`. Kept on the clients rather than in a custom client scope, see below. |
 | Group `heka-users` (default group)  | Carries `heka-identity-service.User`. Every new user (self-registration included) joins it and acts in their own `User_<id>` wallet, as heka-auth-service sign-ups did since #215. See [Managing roles](#managing-roles) before assigning any other role. |
@@ -79,7 +78,7 @@ Two kinds of administrator are involved:
 
 A platform operator usually needs both. In the dev realm, `admin` in `heka-platform` (a Heka `Admin`) and `admin` in the master realm (the Keycloak administrator) are different accounts that happen to share a name.
 
-**Delegation to organizations:** an `OrgAdmin` doesn't need Keycloak rights to manage the roles of their own organization's members. heka-identity-service offers `GET /organization/members` and `PUT /organization/members/{id}/role` (see [Organization administration](../../heka-identity-service/docs/setup.md#organization-administration)). It acts through the `heka-identity-admin` service account and enforces the rules: own organization only, organization roles only, not oneself, never an `Admin`, and never a member who also belongs to another organization (their role would change there too).
+**Delegation to organizations:** heka-identity-service has no API for it. An `OrgAdmin` is the organization's identity owner: it prepares the organization wallet and creates its public DIDs. It gets no Keycloak rights from that role, so organization roles, `OrgAdmin` included, are assigned by a Keycloak administrator.
 
 ### The first `Admin` and the operators
 
@@ -110,7 +109,7 @@ The realm has Keycloak **Organizations** enabled, so organizations and their mem
   - the attribute **`heka_org_id`**: the Heka organization id, which names the organization's wallet (`Organization_<heka_org_id>`).
 
   Set `heka_org_id` once and never change it. Keycloak's own organization id and the alias are not used for the wallet, so an organization can be renamed. When you move an existing organization from the `org_id` attribute, set `heka_org_id` to that old value (for migrated accounts, the deployment's `ORG_ID`) so its members keep their wallet. The realm ships the organization `heka-sso` (`heka_org_id` = `heka-sso`).
-- **Add members** under the organization's Members tab. Their Heka role is still one client role of `heka-identity-service` (see [Assigning a role](#assigning-a-role)), and it applies in every organization the user is a member of. Different roles in different organizations aren't supported yet. For the same reason, an `OrgAdmin` can't change the role of such a member through heka-identity-service; a Keycloak administrator does.
+- **Add members** under the organization's Members tab. Their Heka role is still one client role of `heka-identity-service` (see [Assigning a role](#assigning-a-role)), and it applies in every organization the user is a member of. Different roles in different organizations aren't supported yet.
 - **Login:**
   - The Web UI requests the `organization` scope. A member of **several** organizations gets a "Select an organization to proceed" page after entering their username, and the token carries only the one they chose.
   - The `heka organization` mapper on the web UI client emits it as `heka_organization: { "<alias>": { "heka_org_id": ["<id>"] } }`, which the identity service reads through `OIDC_CLAIM_ORG_ID` / `OIDC_CLAIM_ORG_ID_FIELD`.
@@ -169,6 +168,7 @@ A role change also moves the user to another wallet; the previous wallet keeps i
      - or, in the admin console: Realm settings → User profile → Create attribute, once for `org_id` and once for `heka_uid`, with "Who can edit" and "Who can view" set to Admin only; then Realm settings → General → Unmanaged attributes → "Only administrators can write".
 
      Then check users who already set `org_id` or `heka_uid` themselves: Users → search by attribute, and compare each value with the organization the user belongs to.
+  7. **Clients:** delete `heka-identity-admin`, if it exists. heka-identity-service no longer has the organization administration API that used it.
 
 After either path, decode a token of each service account and check the roles (see [Trying it out](#trying-it-out)). The SSO service and the demo pages then act in new wallets (`Organization_heka-sso` and `User_e5f6a7b8-…`). Prepare them again and update `IDENTITY_SERVICE_PUBLIC_VERIFIER_ID`, `IDENTITY_SERVICE_REQUEST_SIGNER_DID` and `REACT_APP_DEMO_USER_DID`.
 
@@ -202,7 +202,7 @@ User token: sign in through the web UI (phase 5), or open an Authorization Code 
 http://localhost:8080/realms/heka-platform/protocol/openid-connect/auth?client_id=heka-identity-web-ui&response_type=code&scope=openid%20profile&redirect_uri=http%3A%2F%2Flocalhost%3A8000%2F&code_challenge=<S256 challenge>&code_challenge_method=S256
 ```
 
-Decode the access token (e.g. `jwt.io`) and check `aud` is `heka-identity-service`, `roles` is `["User"]` for `demo` (`["Admin"]` for `admin`, `["OrgAdmin"]` plus `org_id: "heka-sso"` for the `heka-sso-service` service account), `heka_uid` equals `sub`, and `preferred_username` is set. Such a token is accepted by heka-identity-service configured as above; this was verified against Keycloak 26.3 with both a Client Credentials token and a `demo` user token obtained through the code flow.
+Decode the access token (e.g. `jwt.io`) and check `aud` is `heka-identity-service`, `roles` is `["User"]` for `demo` (`["Admin"]` for `admin`, `["OrgAdmin"]` plus `org_id: "heka-sso"` for the `heka-sso-service` service account), `heka_uid` equals `sub`, and `preferred_username` is set. Such a token is accepted by heka-identity-service configured as above.
 
 ## Admin console
 

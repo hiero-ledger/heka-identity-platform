@@ -44,8 +44,6 @@ exports[`route coverage of the role model > the role matrix only changes on purp
 | \`POST /openid4vc/verification-session/request\` | ✓ | ✓ | ✓ |  |  | ✓ |  |
 | \`GET /openid4vc/verifier\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`POST /openid4vc/verifier\` | ✓ | ✓ | ✓ |  |  | ✓ |  |
-| \`GET /organization/members\` |  | ✓ |  |  |  |  |  |
-| \`PUT /organization/members/:memberId/role\` |  | ✓ |  |  |  |  |  |
 | \`POST /prepare-wallet\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`GET /proofs\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`GET /proofs/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |

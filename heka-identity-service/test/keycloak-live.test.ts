@@ -26,7 +26,12 @@ const tokenUrl = `${issuer}/protocol/openid-connect/token`
 const clients = {
   sso: { id: 'heka-sso-service', secret: 'dev-only-heka-sso-service-secret-do-not-use-in-production' },
   demo: { id: 'heka-demo', secret: 'dev-only-heka-demo-secret-do-not-use-in-production' },
-  admin: { id: 'heka-identity-admin', secret: 'dev-only-heka-identity-admin-secret-do-not-use-in-production' },
+}
+
+/** Keycloak's own administrator (master realm), used only to create and delete a test user. CI boots it as admin/admin. */
+const keycloakAdmin = {
+  username: process.env.KEYCLOAK_LIVE_ADMIN_USER ?? 'admin',
+  password: process.env.KEYCLOAK_LIVE_ADMIN_PASSWORD ?? 'admin',
 }
 
 /** The `heka-demo` service-account user has a fixed id in the realm file. */
@@ -54,6 +59,21 @@ async function clientCredentialsToken(client: { id: string; secret: string }): P
   if (!response.ok || !body.access_token) {
     throw new Error(
       `token request for ${client.id} failed: ${response.status} ${body.error ?? ''} ${body.error_description ?? ''}`,
+    )
+  }
+  return body.access_token
+}
+
+async function keycloakAdminToken(): Promise<string> {
+  const response = await fetch(`${keycloakUrl}/realms/master/protocol/openid-connect/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'password', client_id: 'admin-cli', ...keycloakAdmin }),
+  })
+  const body = (await response.json()) as { access_token?: string; error?: string; error_description?: string }
+  if (!response.ok || !body.access_token) {
+    throw new Error(
+      `Keycloak admin token request failed: ${response.status} ${body.error ?? ''} ${body.error_description ?? ''}`,
     )
   }
   return body.access_token
@@ -150,7 +170,7 @@ describe.skipIf(!keycloakUrl)('Keycloak live: TokenVerifier against the heka-pla
 /**
  * The user profile must keep `org_id` (it names the organization wallet) and `heka_uid` out of users' reach: with
  * either one writable through the account console, a member with an organization role could move into another
- * organization's wallet. The test creates its own user through the `heka-identity-admin` service account and signs
+ * organization's wallet. The test creates its own user as the Keycloak administrator (master realm) and signs
  * in as that user with the realm's built-in `admin-cli` client (password grant), which reaches the account API.
  */
 describe.skipIf(!keycloakUrl)('Keycloak live: users cannot edit the attributes heka-identity-service trusts', () => {
@@ -177,7 +197,7 @@ describe.skipIf(!keycloakUrl)('Keycloak live: users cannot edit the attributes h
     {}
 
   beforeAll(async () => {
-    adminToken = await clientCredentialsToken(clients.admin)
+    adminToken = await keycloakAdminToken()
     const created = await admin('POST', '/users', {
       username,
       enabled: true,

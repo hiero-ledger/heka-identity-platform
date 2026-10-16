@@ -24,7 +24,7 @@ services:
   # Keycloak with three pre-configured realms: `heka` (OID4VP SSO demo), `heka-platform` (OIDC provider for heka-identity-service)
   # and `heka-wallet` (OIDC provider for the Heka Wallet mobile app)
   keycloak:
-    image: quay.io/keycloak/keycloak:26.3
+    image: quay.io/keycloak/keycloak:26.8.1
     command: start-dev --import-realm --spi-theme-static-max-age=-1 --spi-theme-cache-themes=false --spi-theme-cache-templates=false
     environment:
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin
