@@ -2,9 +2,9 @@
 # One-shot of the root Compose `keycloak` profile (service keycloak-realms). Copies the realm
 # files of heka-sso-service/keycloak into the volume Keycloak imports from, and rewrites the
 # issuer of the `heka` realm's heka-sso identity provider to SSO_ISSUER_URL, so the broker
-# accepts the bridge's tokens whether its issuer is localhost or an https tunnel
-# (docs/root-docker-compose-plan.md, section 9.2). Only the issuer changes: the token, JWKS and
-# userinfo URLs keep host.docker.internal, the authorize and logout URLs keep localhost.
+# accepts the bridge's tokens whether its issuer is localhost or an https tunnel. Only the
+# issuer changes: the token, JWKS and userinfo URLs keep host.docker.internal, the authorize
+# and logout URLs keep localhost.
 #
 # Keycloak in start-dev has no persistent volume in this stack, so a recreate re-imports the
 # files written here; an existing realm is never updated by --import-realm.

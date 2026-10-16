@@ -25,9 +25,10 @@ describe('provider profiles', () => {
   describe('keycloak', () => {
     const profile = resolveProfile(baseConfig)!;
 
-    test('uses plain OIDC scopes and no extra authorize params', () => {
+    test('requests the organization scope and no extra authorize params', () => {
       expect(profile.name).toBe('keycloak');
-      expect(profile.defaultScope).toBe('openid profile');
+      // A member of several Keycloak Organizations selects one at login
+      expect(profile.defaultScope).toBe('openid profile organization');
       expect(profile.authorizeParams).toEqual({});
       expect(profile.nameClaims).toEqual(['preferred_username', 'name']);
     });
@@ -65,17 +66,45 @@ describe('provider profiles', () => {
       expect(profile.nameClaims).toEqual(['nickname', 'name', 'email']);
     });
 
+    test('signs in to the configured organization', () => {
+      expect(
+        resolveProfile({ ...config, organization: 'org_abc123' })!
+          .authorizeParams,
+      ).toEqual({
+        audience: 'https://heka-identity',
+        organization: 'org_abc123',
+      });
+    });
+
     test('sends no audience when none is configured', () => {
       expect(
         resolveProfile({ ...config, audience: undefined })!.authorizeParams,
       ).toEqual({});
     });
 
-    test('signs up through screen_hint=signup', async () => {
+    test('signs up through screen_hint=signup, keeping the audience', async () => {
       const auth = makeAuth();
       await resolveProfile(config)!.signUp!(auth);
+      // The per-call params replace the client's in oidc-client-ts: without the audience the token is opaque
       expect(auth.signinRedirect).toHaveBeenCalledWith({
-        extraQueryParams: { screen_hint: 'signup' },
+        extraQueryParams: {
+          audience: 'https://heka-identity',
+          screen_hint: 'signup',
+        },
+      });
+    });
+
+    test('signs up into the configured organization', async () => {
+      const auth = makeAuth();
+      await resolveProfile({ ...config, organization: 'org_abc123' })!.signUp!(
+        auth,
+      );
+      expect(auth.signinRedirect).toHaveBeenCalledWith({
+        extraQueryParams: {
+          audience: 'https://heka-identity',
+          organization: 'org_abc123',
+          screen_hint: 'signup',
+        },
       });
     });
 

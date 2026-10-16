@@ -128,7 +128,7 @@ jobs:
             -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
             -e KC_HOSTNAME=http://localhost:8080 \
             -v "$PWD/keycloak/realm-heka-platform.json:/opt/keycloak/data/import/realm-heka-platform.json:ro" \
-            quay.io/keycloak/keycloak:26.3 start-dev --import-realm
+            quay.io/keycloak/keycloak:26.8.1 start-dev --import-realm
           for i in $(seq 1 60); do
             if curl -sf http://localhost:8080/realms/heka-platform/.well-known/openid-configuration >/dev/null; then
               echo "Keycloak is up"; exit 0

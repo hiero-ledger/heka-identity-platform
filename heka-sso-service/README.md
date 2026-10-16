@@ -4,9 +4,9 @@
 
 "Sign in with wallet" OIDC bridge for the Heka Identity Platform. The service acts as a standard OIDC provider (built on `node-oidc-provider`) whose sole authentication method is a verifiable-credential presentation (OID4VP), verified by the [Heka Identity Service](../heka-identity-service). Customer IdPs (Keycloak first) broker logins to it via standard OIDC.
 
-This service is deliberately separate from [heka-auth-service](../heka-auth-service) (login/password JWT issuance, unchanged): no shared code, database tables, or keys.
+This service is not the platform's login. Operators and users of heka-identity-service sign in with the OIDC provider the identity service trusts (Keycloak or Auth0, recipes in this folder). This service only turns a wallet presentation into an OIDC login for relying parties, and shares no code, database tables or keys with that provider.
 
-This service calls heka-identity-service with a token obtained through an OAuth 2.0 Client Credentials grant from the OIDC provider the identity service trusts (the `heka-sso-service` client in the [Keycloak `heka-platform` realm](keycloak/README.md), or the M2M application of the [Auth0 recipe](auth0/README.md)); see [`docs/keycloak-replacement-for-auth-service.md`](../docs/keycloak-replacement-for-auth-service.md) at the repository root. Both provider recipes for the platform live in this repository folder because the SSO demo already ships the Keycloak realm.
+This service calls heka-identity-service with a token obtained through an OAuth 2.0 Client Credentials grant from that provider: the `heka-sso-service` client in the [Keycloak `heka-platform` realm](keycloak/README.md), or the M2M application of the [Auth0 recipe](auth0/README.md). In both recipes the service account is `OrgAdmin` of its own organization `heka-sso`, so its verifier and signing DID live in the `Organization_heka-sso` wallet. Both provider recipes for the platform live in this repository folder because the SSO demo already ships the Keycloak realm.
 
 ## Quick Start
 
@@ -247,9 +247,9 @@ yarn migration:create
 
 ## Docker
 
-The whole platform, Keycloak included, starts from the repository root; see
-[docs/root-docker-compose.md](../docs/root-docker-compose.md). `docker-compose.yml` in this directory
-runs the bridge on its own with its Postgres (host port 5434, also used by `yarn test:e2e`);
+The whole platform, Keycloak included, starts from the Compose project at the repository root.
+`docker-compose.yml` in this directory runs the bridge on its own with its Postgres (host port
+5434, also used by `yarn test:e2e`);
 heka-identity-service (`:3000`) and the OIDC provider (Keycloak, `:8080`) are expected on the host
 and reached over `host.docker.internal`. The two scopes share port 3005, so run one or the other.
 

@@ -37,6 +37,8 @@ services:
       OIDC_CLAIM_ROLES: ${IDENTITY_SERVICE_OIDC_CLAIM_ROLES:-}
       OIDC_CLAIM_NAME: ${IDENTITY_SERVICE_OIDC_CLAIM_NAME:-}
       OIDC_CLAIM_ORG_ID: ${IDENTITY_SERVICE_OIDC_CLAIM_ORG_ID:-}
+      OIDC_CLAIM_ORG_ID_FIELD: ${IDENTITY_SERVICE_OIDC_CLAIM_ORG_ID_FIELD:-}
+      ROLE_MODEL_ENABLED: ${IDENTITY_SERVICE_ROLE_MODEL_ENABLED:-false}
       DEMO_TOKEN_URL: ${IDENTITY_SERVICE_DEMO_TOKEN_URL:-}
       DEMO_CLIENT_ID: ${IDENTITY_SERVICE_DEMO_CLIENT_ID:-}
       DEMO_CLIENT_SECRET: ${IDENTITY_SERVICE_DEMO_CLIENT_SECRET:-}
@@ -147,6 +149,7 @@ services:
         REACT_APP_OIDC_CLIENT_ID: ${IDENTITY_WEBUI_OIDC_CLIENT_ID:?platform IdP client id for the web UI, see .env.example section 1.[P] or 2.[P]}
         REACT_APP_OIDC_AUDIENCE: ${IDENTITY_WEBUI_OIDC_AUDIENCE:-}
         REACT_APP_OIDC_SCOPE: ${IDENTITY_WEBUI_OIDC_SCOPE:-}
+        REACT_APP_OIDC_ORGANIZATION: ${IDENTITY_WEBUI_OIDC_ORGANIZATION:-}
         REACT_APP_AUTH_ACCOUNT_URL: ${IDENTITY_WEBUI_AUTH_ACCOUNT_URL:-}
         # Bootstrap value (.env section 3), written by `yarn prepare-demo-user`.
         REACT_APP_DEMO_USER_DID: ${IDENTITY_WEBUI_DEMO_USER_DID:-}
@@ -213,7 +216,7 @@ services:
 
   keycloak:
     profiles: [keycloak]
-    image: quay.io/keycloak/keycloak:26.3
+    image: quay.io/keycloak/keycloak:26.8.1
     command: start-dev --import-realm --spi-theme-static-max-age=-1 --spi-theme-cache-themes=false --spi-theme-cache-templates=false
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin

@@ -42,7 +42,7 @@ flowchart LR
 
 Each component is set up and run independently. For specific setup and configuration steps, please refer to specific README files in component folders.
 
-To run the web-facing components together with one command, with Keycloak as the identity provider, see [Running the platform with Docker Compose](./docs/root-docker-compose.md).
+To run the web-facing components together with one command, with Keycloak as the identity provider, use the Compose project at the repository root: copy `.env.example` to `.env`, fill in the values, and run `docker compose --profile keycloak up -d --build` (`--profile auth0` with Auth0).
 
 The recommended approach for exploring the platform is the following:
 - Set up and get familiar with core functional components - [Identity Service](./heka-identity-service) and [Heka Wallet (Mobile application)](./heka-wallet)

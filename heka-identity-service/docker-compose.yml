@@ -1,7 +1,7 @@
 # heka-identity-service on its own: this service and its Postgres. Everything else (the OIDC
 # provider on 8080, the web UI, the SSO bridge) runs on the host and is reached through
 # host.docker.internal. The whole platform runs from the repository root instead
-# (docs/root-docker-compose.md); the two scopes share host ports, so run one or the other.
+# (root docker-compose.yml); the two scopes share host ports, so run one or the other.
 #
 #   docker compose up -d --build     build the image from this directory and run it
 #   docker compose up -d             run the image named by IMAGE (default: the local build)
@@ -16,11 +16,14 @@ services:
   postgres:
     image: postgres:15
     shm_size: '256m'
+    # Loopback only: a host-run `yarn start` reaches it, other devices on the network do not.
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     environment:
       POSTGRES_USER: heka
-      POSTGRES_PASSWORD: heka1
+      # No committed password: set MIKRO_ORM_PASSWORD in .env. Postgres applies it only when it
+      # creates the database, so recreate the container after changing it.
+      POSTGRES_PASSWORD: ${MIKRO_ORM_PASSWORD:?set MIKRO_ORM_PASSWORD in .env, see .env.example}
       POSTGRES_DB: heka-identity-service
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -d heka-identity-service -U heka']
@@ -35,6 +38,9 @@ services:
     environment:
       MIKRO_ORM_HOST: postgres
       WALLET_POSTGRES_HOST: postgres
+      # The wallets live in the same Postgres as the app data, so both use its one password.
+      MIKRO_ORM_PASSWORD: ${MIKRO_ORM_PASSWORD:?set MIKRO_ORM_PASSWORD in .env, see .env.example}
+      WALLET_POSTGRES_PASSWORD: ${MIKRO_ORM_PASSWORD:?set MIKRO_ORM_PASSWORD in .env, see .env.example}
       EXPRESS_PORT: ${EXPRESS_PORT:-3000}
       EXPRESS_PREFIX: ${EXPRESS_PREFIX:-}
       EXPRESS_ENABLE_CORS: ${EXPRESS_ENABLE_CORS:-}
@@ -49,6 +55,8 @@ services:
       OIDC_CLAIM_ROLES: ${OIDC_CLAIM_ROLES:-}
       OIDC_CLAIM_NAME: ${OIDC_CLAIM_NAME:-}
       OIDC_CLAIM_ORG_ID: ${OIDC_CLAIM_ORG_ID:-}
+      OIDC_CLAIM_ORG_ID_FIELD: ${OIDC_CLAIM_ORG_ID_FIELD:-}
+      ROLE_MODEL_ENABLED: ${ROLE_MODEL_ENABLED:-false}
       # Demo-token broker for the web UI's public demo pages (docs/setup.md#demo-token-broker);
       # the token endpoint is reached through the host gateway like the JWKS. Dev secret of the
       # shipped realm.
@@ -70,7 +78,6 @@ services:
       WEBHOOK_HTTP_TIMEOUT_MS: ${WEBHOOK_HTTP_TIMEOUT_MS:-10000}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
-      ROLE_MODEL_ENABLED: ${ROLE_MODEL_ENABLED:-false}
     ports:
       - '3000:3000'
       - '3001:3001'

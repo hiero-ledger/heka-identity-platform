@@ -2,8 +2,7 @@ import axios from 'axios';
 
 /**
  * Token for the public demo pages, fetched at runtime from the identity service's demo-token
- * broker (`GET /demo/token`, enabled there with `DEMO_*`). It is the short-lived Client Credentials
- * token of a dedicated demo service account; nothing is baked into the bundle any more.
+ * broker (`GET /demo/token`, enabled there with `DEMO_*`).
  */
 export const demoTokenEndpoint = '/demo/token';
 

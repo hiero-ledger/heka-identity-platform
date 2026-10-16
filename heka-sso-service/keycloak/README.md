@@ -1,14 +1,14 @@
 # Keycloak realms
 
-The root Compose project (`docker compose --profile keycloak up -d keycloak` at the repository root, see [docs/root-docker-compose.md](../../docs/root-docker-compose.md)) starts Keycloak with `start-dev --import-realm`, which imports the `realm-*.json` files of this directory on every start. A realm that already exists in the Keycloak database is **not** overwritten; delete the `keycloak` container to re-import. Three realms are defined:
+The root Compose project (`docker compose --profile keycloak up -d keycloak` at the repository root) starts Keycloak with `start-dev --import-realm`, which imports the `realm-*.json` files of this directory on every start. A realm that already exists in the Keycloak database is **not** overwritten; delete the `keycloak` container to re-import. Three realms are defined:
 
 | File                        | Realm           | Purpose                                                                                                                                                                                            |
 | --------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `realm-heka.json`           | `heka`          | The **OID4VP SSO demo**: identity provider `heka-sso` brokering to heka-sso-service, test relying party `heka-sso-web-ui`, login theme `heka`. Users are federated wallet holders.                       |
-| `realm-heka-platform.json`  | `heka-platform` | The **OIDC provider for heka-identity-service** (platform-wide replacement of heka-auth-service; plan in [`docs/keycloak-replacement-for-auth-service.md`](../../docs/keycloak-replacement-for-auth-service.md)). Users are platform operators. |
+| `realm-heka-platform.json`  | `heka-platform` | The **OIDC provider for heka-identity-service** (platform-wide replacement of heka-auth-service). Users are platform operators. |
 | `realm-heka-wallet.json`    | `heka-wallet`   | The **OIDC provider for the Heka Wallet mobile app** (`ENABLE_EXTERNAL_AUTH`): public native client `heka-wallet`, self-registration, login theme `heka`. Users are wallet holders with a username and password.                        |
 
-They are deliberately separate realms. A realm is Keycloak's isolation boundary for users, sessions, roles and settings, and the two populations must not share them: the platform realm hands every new user the `Admin` role through a default group, which must not apply to users brokered from a wallet; a single realm would also share the SSO cookie, so a password login into the platform UI would open the demo RP without a credential presentation and vice versa; and registration, password policy, email handling, theme and token lifetimes are realm-wide. The wallet realm is separate for the same reasons, plus one of its own: the `heka` realm only logs users in through the `heka-sso` broker, which requires presenting a credential from a wallet, so the wallet itself cannot authenticate against it. In a real deployment the `heka` realm stands in for a customer's IdP, while `heka-platform` and `heka-wallet` are Heka's own.
+They are deliberately separate realms. A realm is Keycloak's isolation boundary for users, sessions, roles and settings, and the two populations must not share them: the platform realm hands every new user a Heka role (`User`) through a default group, which must not apply to users brokered from a wallet; a single realm would also share the SSO cookie, so a password login into the platform UI would open the demo RP without a credential presentation and vice versa; and registration, password policy, email handling, theme and token lifetimes are realm-wide. The wallet realm is separate for the same reasons, plus one of its own: the `heka` realm only logs users in through the `heka-sso` broker, which requires presenting a credential from a wallet, so the wallet itself cannot authenticate against it. In a real deployment the `heka` realm stands in for a customer's IdP, while `heka-platform` and `heka-wallet` are Heka's own.
 
 Everything in these files is **dev configuration**: the client secrets, the `demo` user password and the bootstrap admin (`admin` / `admin`, set in the compose file) must be replaced in any real deployment.
 
@@ -18,12 +18,16 @@ Everything in these files is **dev configuration**: the client secrets, the `dem
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Client `heka-identity-service`      | Bearer-only resource server. Owns the client roles `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User` and is the audience (`aud`) of accepted tokens. Never logs in.                                                                                                     |
 | Client `heka-identity-web-ui`       | Public SPA client for heka-identity-service-web-ui: Authorization Code + PKCE (S256), refresh tokens, redirect URIs and web origins for `http://localhost:8000`.                                                                                                                                     |
-| Client `heka-sso-service`           | Confidential client with a service account; heka-sso-service obtains its identity-service token with Client Credentials. Its service-account user holds the `Admin` role. Dev secret: `dev-only-heka-sso-service-secret-do-not-use-in-production`.                                               |
-| Client `heka-demo`                  | Confidential client with a service account for the identity service's demo-token broker (`GET /demo/token`, enabled there with `DEMO_*`): the public demo pages of the web UI act as this account. Its service-account user has the fixed id `e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9` (so `heka_uid`, and with it the demo tenant and DID, survive a re-import) and holds the `Admin` role. Dev secret: `dev-only-heka-demo-secret-do-not-use-in-production`. |
+| Client `heka-sso-service`           | Confidential client with a service account; heka-sso-service obtains its identity-service token with Client Credentials. Its service-account user holds `OrgAdmin` with the attribute `org_id` = `heka-sso`, so the SSO verifier and its signing DID live in the `Organization_heka-sso` wallet, not in the shared `Administration` wallet. `OrgAdmin` rather than `Verifier`, because with `ROLE_MODEL_ENABLED=true` only `Admin`, `OrgAdmin` and `Issuer` can create the signing DID. Dev secret: `dev-only-heka-sso-service-secret-do-not-use-in-production`.                                               |
+| Client `heka-demo`                  | Confidential client with a service account for the identity service's demo-token broker (`GET /demo/token`, enabled there with `DEMO_*`): the public demo pages of the web UI act as this account. Its service-account user has the fixed id `e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9` (so `heka_uid`, and with it the demo tenant and DID, survive a re-import) and holds the `User` role: its token is handed out without login, so it must never be `Admin` (which would open the shared `Administration` wallet to anyone). Dev secret: `dev-only-heka-demo-secret-do-not-use-in-production`. |
 | Protocol mappers (on the three token-requesting clients) | Add the identity-service claim contract to tokens: `roles` (client roles of `heka-identity-service`, array), `org_id` (user attribute), `heka_uid` (the Keycloak user id, a copy of `sub`), and `aud: heka-identity-service`. Kept on the clients rather than in a custom client scope, see below. |
-| Group `heka-users` (default group)  | Carries `heka-identity-service.Admin`. Every new user (self-registration included) joins it, so they can use the web UI as an administrator of their own tenant, which is what heka-auth-service did. See [Roles](#roles) before assigning any other role.                                          |
+| Group `heka-users` (default group)  | Carries `heka-identity-service.User`. Every new user (self-registration included) joins it and acts in their own `User_<id>` wallet, as heka-auth-service sign-ups did since #215. See [Managing roles](#managing-roles) before assigning any other role. |
+| Group `heka-admins`                 | Carries `heka-identity-service.Admin`. Not a default group: platform operators are added to it explicitly. Every `Admin` acts in the one shared `Administration` wallet. |
+| Organizations                       | Enabled (`organizationsEnabled`), with the organization `heka-sso` (attribute `heka_org_id` = `heka-sso`). The web UI client has the built-in `organization` scope as an optional scope and the mapper `heka organization` (Organization Membership with organization attributes, claim `heka_organization`). See [Organizations](#organizations). |
 | Realm settings                      | Self-registration on; password policy `length(7) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1)` (the heka-auth-service rules); refresh-token rotation (`revokeRefreshToken`); login theme `heka` (shared with the demo realm, it is a plain username/password page with Heka branding). |
-| User `demo` / `Password1234!`       | Dev-only account with a fixed id (`d3a1c2b4-5e6f-4a7b-8c9d-0e1f2a3b4c5d`), matching the demo user the web UI's `prepare-demo-user` script used to create in heka-auth-service. Member of `heka-users`.                                                                                                  |
+| User profile                        | Declares `org_id` and `heka_uid` as attributes only administrators can view and edit, and lets only administrators write undeclared attributes (`unmanagedAttributePolicy: ADMIN_EDIT`). `org_id` names the organization wallet, so a user who could change it through the account console would move into another organization's wallet. |
+| User `demo` / `Password1234!`       | Dev-only account with a fixed id (`d3a1c2b4-5e6f-4a7b-8c9d-0e1f2a3b4c5d`), matching the demo user the web UI's `prepare-demo-user` script used to create in heka-auth-service. Member of `heka-users`, so a `User`. |
+| User `admin` / `Password1234!`      | Dev-only platform operator with a fixed id (`a7d1e2f3-b4c5-4d6e-8f70-81a2b3c4d5e6`). Member of `heka-admins` only, so an `Admin`. |
 
 The display name comes from the built-in `profile` scope (`name`, or `preferred_username` when no first/last name is set), which heka-identity-service reads through its default `OIDC_CLAIM_NAME` fallback list. No custom mapper is needed for it.
 
@@ -37,7 +41,7 @@ The `heka-sso` relationship differs per realm: in `heka` the bridge is an **iden
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Client `heka-wallet`                     | Public native client for the mobile app (react-native-app-auth): Authorization Code + PKCE (S256), refresh tokens, redirect URI `com.heka.wallet.auth:/oauthredirect` (the `appAuthRedirectScheme` of the Android build). No secret, so token revocation on logout sends only `client_id`.         |
 | Protocol mapper `user_id`                | Copies the Keycloak user id into a `user_id` claim in tokens and the userinfo response, which is the field the wallet's `UserInfo` type expects next to the built-in `name` and `email`.                                                                                                          |
-| Realm settings                           | Self-registration on; the same password policy and refresh-token rotation as `heka-platform`; login theme `heka`.                                                                                                                                                                                 |
+| Realm settings                           | Self-registration on; the same password policy and refresh-token rotation as `heka-platform`; login theme `heka`. Only administrators can write attributes the user profile doesn't declare (`unmanagedAttributePolicy: ADMIN_EDIT`).                                                             |
 | User `wallet-demo` / `Password1234!`     | Dev-only account with a fixed id (`7c2e9f4a-1b3d-4e5f-8a6b-9c0d1e2f3a4b`).                                                                                                                                                                                                                        |
 
 The wallet is configured through `OAUTH_STORE_CONFIG` in `heka-wallet/app/.env` (one line; the react-native-config parser does not support multi-line values):
@@ -53,36 +57,120 @@ The login page opens in the device browser, so `localhost` must reach the host: 
 ```
 OIDC_ISSUER_URL=http://localhost:8080/realms/heka-platform
 OIDC_AUDIENCE=heka-identity-service
+OIDC_CLAIM_ORG_ID=heka_organization,org_id
+OIDC_CLAIM_ORG_ID_FIELD=heka_org_id
 ```
 
-The claim paths keep their defaults (`sub`, `roles`, `name,preferred_username,nickname`, `org_id`). When the identity service runs in a container, keep `OIDC_ISSUER_URL` at the browser-facing value and point `OIDC_JWKS_URI` at `http://host.docker.internal:8080/realms/heka-platform/protocol/openid-connect/certs` (see `heka-identity-service/docker-compose.yml`).
+The organization id comes from the organization chosen at login (`heka_organization`, its `heka_org_id` attribute), and otherwise from the `org_id` user attribute ([Organizations](#organizations)). The other claim paths keep their defaults (`sub`, `roles`, `name,preferred_username,nickname`). When the identity service runs in a container, keep `OIDC_ISSUER_URL` at the browser-facing value and point `OIDC_JWKS_URI` at `http://host.docker.internal:8080/realms/heka-platform/protocol/openid-connect/certs` (see `heka-identity-service/docker-compose.yml`).
 
 `KC_HOSTNAME` is pinned to `http://localhost:8080` in the root `docker-compose.yml`, so `iss` is the same string whether Keycloak is reached from the host or from a container. Change both `KC_HOSTNAME` and `OIDC_ISSUER_URL` together when deploying elsewhere.
 
-## Roles
+## Managing roles
 
-heka-identity-service derives the tenant from `(role, sub, org_id)` and requires **exactly one** Heka role per token. Because membership of `heka-users` grants `Admin`, a user who should hold another role must leave that group:
+heka-identity-service derives the tenant from `(role, sub, org_id)` and requires **exactly one** Heka role per token. Roles are managed here, in Keycloak.
 
-1. Users → the user → Groups → leave `heka-users`;
-2. Role mapping → assign one client role of `heka-identity-service`;
-3. for `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier` set the user attribute `org_id` (Users → Attributes). `Admin` and `User` must **not** have `org_id`.
+Two kinds of administrator are involved:
 
-To stop handing out `Admin` by default, remove `/heka-users` from Realm settings → User registration → Default groups.
+| Who | What they can do | How they get it |
+|---|---|---|
+| **Heka `Admin`** | Acts as the platform in heka-identity-service (the shared `Administration` wallet). Gives no rights in Keycloak. | Membership of `heka-admins` |
+| **Keycloak administrator** | Assigns roles: changes group membership, client roles and the `org_id` attribute of `heka-platform` users. | The master-realm admin (`KC_BOOTSTRAP_ADMIN_USERNAME` in the compose file), or a `heka-platform` user with the `realm-management` client role `realm-admin` |
 
-## Migrating users from heka-auth-service
+A platform operator usually needs both. In the dev realm, `admin` in `heka-platform` (a Heka `Admin`) and `admin` in the master realm (the Keycloak administrator) are different accounts that happen to share a name.
 
-`node export-users.mjs --target keycloak --in auth-users.json --out users.keycloak.json` in [`tools/heka-auth-user-export`](../../tools/heka-auth-user-export/README.md) (fed with a JSON dump of the retired service's `auth_user` table, see its README) writes a partial-import file: every account keeps its UUID as the Keycloak user id (which the `heka_uid` mapper copies into tokens, so the identity-service tenant is unchanged), gets the attribute `heka_uid`, its argon2id password hash in the form of the built-in `argon2` provider (`secretData` = hash and salt, `credentialData` = iterations, memory, parallelism, hash length, type `id`, version `1.3`), and either the `heka-users` group (`Admin`) or the matching client role of `heka-identity-service` plus the `org_id` attribute. `ifResourceExists` is `SKIP`, so re-running never overwrites.
+**Delegation to organizations:** heka-identity-service has no API for it. An `OrgAdmin` is the organization's identity owner: it prepares the organization wallet and creates its public DIDs. It gets no Keycloak rights from that role, so organization roles, `OrgAdmin` included, are assigned by a Keycloak administrator.
 
-Import it with an admin token (or Realm settings → Action → Partial import in the console):
+### The first `Admin` and the operators
 
-```sh
-TOKEN=$(curl -s -X POST http://localhost:8080/realms/master/protocol/openid-connect/token \
-  -d client_id=admin-cli -d username=admin -d password=admin -d grant_type=password | jq -r .access_token)
-curl -s -X POST http://localhost:8080/admin/realms/heka-platform/partialImport \
-  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' --data-binary @users.keycloak.json
-```
+- **First `Admin`:** the realm import creates the dev operator `admin`, who is in `heka-admins`. In a real deployment, remove that account and add your operators to `heka-admins` instead: Users → the user → Groups → leave `heka-users`, join `heka-admins`. Self-registration never produces an `Admin`.
+- **Keep at least two `Admin`s and at least two Keycloak administrators.** That way one person leaving doesn't lock the platform out.
+- **Nobody changes their own role.** Keycloak doesn't prevent a realm administrator from editing their own group membership or role mappings, so treat this as an operating rule. To review role changes, enable admin events (Realm settings → Events → Admin events settings).
 
-The response lists every user as `ADDED` or `SKIPPED`. Try one account first (`--user <name>`) and log in with it through the web UI; if the password is refused, export again with `--without-passwords` (the users then carry the `UPDATE_PASSWORD` required action and need a temporary password set by an administrator). Verified on 2026-09-21 against Keycloak 26.3: an imported user logged in with the old password and received a token with `heka_uid` equal to the original id and `roles: ["Admin"]`.
+### Assigning a role
+
+Every new user joins `heka-users` and so holds `User`. To give a user another role, **replace** that membership instead of adding to it, otherwise the token carries two roles and is rejected:
+
+- **`Admin`:** Users → the user → Groups → leave `heka-users`, join `heka-admins`.
+- **An organization role** (`OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`):
+  1. Groups → leave `heka-users`;
+  2. Role mapping → assign that one client role of `heka-identity-service`;
+  3. Attributes → set `org_id`.
+- **Back to `User`:** remove the client role or leave `heka-admins`, join `heka-users`, and remove `org_id`.
+
+`Admin` and `User` must **not** have `org_id`. The `org_id` value names the organization's wallet (`Organization_<org_id>`), so use one stable value per organization and never rename it. Only administrators can set it: the user profile makes `org_id` and `heka_uid` admin-only, and the account console rejects a user's change with `error-user-attribute-read-only`. Keep it that way when editing the user profile.
+
+### Organizations
+
+The realm has Keycloak **Organizations** enabled, so organizations and their members are managed in Keycloak (Organizations in the admin console). This replaces the free-text `org_id` attribute for users who belong to an organization.
+
+- **Create an organization** with:
+  - a name and an alias;
+  - at least one domain (Keycloak requires one; a placeholder such as `acme.invalid` works);
+  - the attribute **`heka_org_id`**: the Heka organization id, which names the organization's wallet (`Organization_<heka_org_id>`).
+
+  Set `heka_org_id` once and never change it. Keycloak's own organization id and the alias are not used for the wallet, so an organization can be renamed. When you move an existing organization from the `org_id` attribute, set `heka_org_id` to that old value (for migrated accounts, the deployment's `ORG_ID`) so its members keep their wallet. The realm ships the organization `heka-sso` (`heka_org_id` = `heka-sso`).
+- **Add members** under the organization's Members tab. Their Heka role is still one client role of `heka-identity-service` (see [Assigning a role](#assigning-a-role)), and it applies in every organization the user is a member of. Different roles in different organizations aren't supported yet.
+- **Login:**
+  - The Web UI requests the `organization` scope. A member of **several** organizations gets a "Select an organization to proceed" page after entering their username, and the token carries only the one they chose.
+  - The `heka organization` mapper on the web UI client emits it as `heka_organization: { "<alias>": { "heka_org_id": ["<id>"] } }`, which the identity service reads through `OIDC_CLAIM_ORG_ID` / `OIDC_CLAIM_ORG_ID_FIELD`.
+  - Users in no organization are not asked, and keep using `org_id` (or none, for `Admin` and `User`).
+  - To switch organization, sign out and sign in again.
+- **Identity-first login:** with Organizations enabled, Keycloak asks for the username first and the password on a second page, for every user of the realm.
+- **Service accounts** don't request the `organization` scope. The SSO service account keeps the `org_id` user attribute (`heka-sso`).
+
+### When a change takes effect
+
+A change applies with the user's **next access token**:
+- **Access token lifetime:** 300 s, Keycloak's default; the realm doesn't override it.
+- **Already-issued tokens** keep the old role until they expire, because heka-identity-service doesn't check revocation.
+- **Refreshes** pick up the new role.
+- **Service accounts** get it with the next Client Credentials grant.
+
+A role change also moves the user to another wallet; the previous wallet keeps its data.
+
+### Recovering access
+
+- **No Heka `Admin` left:** a Keycloak administrator adds an operator to `heka-admins`.
+- **No Keycloak administrator left:** create a temporary one in the master realm. Either restart Keycloak with `KC_BOOTSTRAP_ADMIN_USERNAME` / `KC_BOOTSTRAP_ADMIN_PASSWORD` set, which only takes effect when the master realm has no admin user, or run `kc.sh bootstrap-admin user`. Then use it to restore the regular administrators, and delete it.
+
+### Applying the role defaults to a running Keycloak
+
+`--import-realm` only imports a realm that doesn't exist yet. A Keycloak started with an older version of this file may still give `heka-users` (and so every self-registered user) `Admin`, have `Admin` on both service accounts, lack Organizations, and let users edit their own `org_id`. To bring it up to date, either:
+
+- **Dev, no data to keep:** recreate the container, which re-imports the file: `docker compose --profile keycloak up -d --force-recreate keycloak` at the repository root.
+- **Keep the existing users:** in the admin console (`heka-platform` realm):
+  1. **Groups:** create `heka-admins` with client role `heka-identity-service` → `Admin`. In `heka-users`, replace the `Admin` client role with `User`. Every member of `heka-users` becomes a `User` with their next token.
+  2. **Operators:** move the real operators from `heka-users` to `heka-admins`.
+  3. **Clients → `heka-sso-service` → Service account roles:** replace `Admin` with `OrgAdmin`. On the service-account user (Users → `service-account-heka-sso-service` → Attributes), set `org_id` = `heka-sso`.
+  4. **Clients → `heka-demo` → Service account roles:** replace `Admin` with `User`.
+  5. **Organizations:**
+     - Realm settings → General: turn **Organizations** on.
+     - Organizations: create `heka-sso`, with domain `heka-sso.invalid` and attribute `heka_org_id` = `heka-sso`.
+     - Clients → `heka-identity-web-ui` → Client scopes: add `organization` as **Optional**.
+     - Same client → Client scopes → the dedicated scope → Add mapper → By configuration → **Organization Membership**, with:
+       - name `heka organization`;
+       - token claim name `heka_organization`;
+       - claim JSON type `JSON`;
+       - multivalued on;
+       - "Add organization attributes" on;
+       - added to the ID token, the access token and userinfo.
+  6. **User profile:** make `org_id` and `heka_uid` admin-only. Until then, any user can change their own `org_id` in the account console and, with an organization role, act in another organization's wallet. Either:
+     - replace the realm's user profile with the one in this file (this drops any user-profile changes made in the console):
+
+       ```sh
+       TOKEN=$(curl -s -X POST http://localhost:8080/realms/master/protocol/openid-connect/token \
+         -d client_id=admin-cli -d username=admin -d password=admin -d grant_type=password | jq -r .access_token)
+       jq -r '.components["org.keycloak.userprofile.UserProfileProvider"][0].config["kc.user.profile.config"][0]' realm-heka-platform.json \
+         | curl -s -X PUT http://localhost:8080/admin/realms/heka-platform/users/profile \
+           -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' --data-binary @-
+       ```
+
+     - or, in the admin console: Realm settings → User profile → Create attribute, once for `org_id` and once for `heka_uid`, with "Who can edit" and "Who can view" set to Admin only; then Realm settings → General → Unmanaged attributes → "Only administrators can write".
+
+     Then check users who already set `org_id` or `heka_uid` themselves: Users → search by attribute, and compare each value with the organization the user belongs to.
+  7. **Clients:** delete `heka-identity-admin`, if it exists. heka-identity-service no longer has the organization administration API that used it.
+
+After either path, decode a token of each service account and check the roles (see [Trying it out](#trying-it-out)). The SSO service and the demo pages then act in new wallets (`Organization_heka-sso` and `User_e5f6a7b8-…`). Prepare them again and update `IDENTITY_SERVICE_PUBLIC_VERIFIER_ID`, `IDENTITY_SERVICE_REQUEST_SIGNER_DID` and `REACT_APP_DEMO_USER_DID`.
 
 ## Trying it out
 
@@ -115,7 +203,7 @@ User token: sign in through the web UI (phase 5), or open an Authorization Code 
 http://localhost:8080/realms/heka-platform/protocol/openid-connect/auth?client_id=heka-identity-web-ui&response_type=code&scope=openid%20profile&redirect_uri=http%3A%2F%2Flocalhost%3A8000%2F&code_challenge=<S256 challenge>&code_challenge_method=S256
 ```
 
-Decode the access token (e.g. `jwt.io`) and check `aud` is `heka-identity-service`, `roles` is `["Admin"]`, `heka_uid` equals `sub`, and `preferred_username` is set. Such a token is accepted by heka-identity-service configured as above; this was verified against Keycloak 26.3 with both a Client Credentials token and a `demo` user token obtained through the code flow.
+Decode the access token (e.g. `jwt.io`) and check `aud` is `heka-identity-service`, `roles` is `["User"]` for `demo` (`["Admin"]` for `admin`, `["OrgAdmin"]` plus `org_id: "heka-sso"` for the `heka-sso-service` service account), `heka_uid` equals `sub`, and `preferred_username` is set. Such a token is accepted by heka-identity-service configured as above.
 
 ## Admin console
 

@@ -3,31 +3,39 @@
 # API, SPA application for the web UI, machine-to-machine applications for heka-sso-service and for the
 # identity service's demo-token broker (heka-demo), Heka roles,
 # the two Actions with their trigger bindings, a username/password connection that accepts usernames,
-# and (optionally) the dev `demo` user. Re-running is safe: existing resources are reused by name.
+# and (optionally) the dev `demo` (User) and `admin` (Admin) users. Re-running is safe: existing resources are
+# reused by name, and the role settings below (application metadata, Action secrets, API token lifetime,
+# dev users' app_metadata) are re-applied to them.
 #
-# Prerequisites: `auth0 login` against the target tenant (interactive), `node` on the PATH.
+# Role defaults: new users get User, the heka-sso-service application is OrgAdmin of its own organization
+# (SSO_ORG_ID), the heka-demo application (whose token is public) is User. Admin is never a default: every Admin
+# acts in the one shared Administration wallet of heka-identity-service.
+#
+# Prerequisites: `auth0 login --scopes create:organization_connections,create:organization_members,create:organization_member_roles,read:organization_member_roles`
+# against the target tenant (interactive; the default CLI scopes cannot enable a connection for an organization), `node` on the PATH.
 # Environment overrides (all optional):
 #   HEKA_AUDIENCE         API identifier                       (default https://heka-identity)
 #   HEKA_CLAIM_NAMESPACE  custom-claim prefix                  (default https://heka)
-#   HEKA_DEFAULT_ROLE     role for users without one           (default Admin)
+#   HEKA_DEFAULT_ROLE     role for users without one           (default User)
+#   SSO_ORG_ID            organization of heka-sso-service     (default heka-sso)
 #   WEB_UI_ORIGIN         web UI origin                        (default http://localhost:8000)
 #   DB_CONNECTION         database connection name             (default Username-Password-Authentication)
 #   ACTION_RUNTIME        Actions runtime                      (default node22)
-#   CREATE_DEMO_USER      create demo / Password1234!          (default true)
+#   CREATE_DEMO_USER      create demo and admin, both Password1234!  (default true)
 #
-# Status: exercised only through unit tests and a mock issuer so far (docs/keycloak-replacement-for-auth-service.md,
-# phase 3). Run it against a dev tenant first and check the printed summary.
 set -euo pipefail
 
 HEKA_AUDIENCE="${HEKA_AUDIENCE:-https://heka-identity}"
 HEKA_CLAIM_NAMESPACE="${HEKA_CLAIM_NAMESPACE:-https://heka}"
-HEKA_DEFAULT_ROLE="${HEKA_DEFAULT_ROLE:-Admin}"
+HEKA_DEFAULT_ROLE="${HEKA_DEFAULT_ROLE:-User}"
+SSO_ORG_ID="${SSO_ORG_ID:-heka-sso}"
 WEB_UI_ORIGIN="${WEB_UI_ORIGIN:-http://localhost:8000}"
 DB_CONNECTION="${DB_CONNECTION:-Username-Password-Authentication}"
 ACTION_RUNTIME="${ACTION_RUNTIME:-node22}"
 CREATE_DEMO_USER="${CREATE_DEMO_USER:-true}"
 DEMO_USER_HEKA_UID="d3a1c2b4-5e6f-4a7b-8c9d-0e1f2a3b4c5d"    # same fixed id as the `demo` user in the Keycloak realm
 DEMO_ACCOUNT_HEKA_UID="e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9" # same fixed id as the `heka-demo` service account there
+ADMIN_USER_HEKA_UID="a7d1e2f3-b4c5-4d6e-8f70-81a2b3c4d5e6"   # same fixed id as the `admin` user there
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 export AUTH0_CLI_AGENT_MODE=1 # JSON output, no prompts
@@ -43,7 +51,10 @@ if [ "$API_JSON" = "null" ]; then
     --token-lifetime 3600 --offline-access=true --json >/dev/null
   echo "   created"
 else
-  echo "   exists"
+  # A role change in Auth0 reaches heka-identity-service with the next access token, so keep it short.
+  API_ID="$(printf '%s' "$API_JSON" | json 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).id)')"
+  api patch "resource-servers/${API_ID}" --data '{"token_lifetime":3600}' >/dev/null
+  echo "   exists, token lifetime 3600 s"
 fi
 
 # --- 2. Roles (optional way of assigning the Heka role to users) ----------------
@@ -78,18 +89,23 @@ api patch "clients/${SPA_ID}" --data '{"oidc_conformant":true,"grant_types":["au
 echo "   grants: authorization_code + refresh_token, rotation on"
 
 # --- 4. Machine-to-machine application for heka-sso-service ---------------------
+# OrgAdmin of its own organization: its verifier and signing DID live in Organization_${SSO_ORG_ID}, not in the
+# shared Administration wallet. Not Verifier: with ROLE_MODEL_ENABLED=true only Admin, OrgAdmin and Issuer can
+# create the signing DID.
 echo "== Application heka-sso-service (M2M)"
 M2M_ID="$(find_app heka-sso-service)"
 if [ -z "$M2M_ID" ]; then
   M2M_JSON="$(auth0 apps create --name heka-sso-service --type m2m --description "Heka SSO Service service account" \
-    --metadata "heka_role=${HEKA_DEFAULT_ROLE}" --reveal-secrets --json 2>/dev/null)"
+    --metadata "heka_role=OrgAdmin" --metadata "org_id=${SSO_ORG_ID}" --reveal-secrets --json 2>/dev/null)"
   M2M_ID="$(printf '%s' "$M2M_JSON" | json 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).client_id)')"
   M2M_SECRET="$(printf '%s' "$M2M_JSON" | json 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).client_secret)')"
   echo "   created ${M2M_ID}"
 else
   M2M_SECRET="(existing application: read it in the dashboard)"
+  api patch "clients/${M2M_ID}" --data "{\"client_metadata\":{\"heka_role\":\"OrgAdmin\",\"org_id\":\"${SSO_ORG_ID}\"}}" >/dev/null
   echo "   exists ${M2M_ID}"
 fi
+echo "   heka_role=OrgAdmin, org_id=${SSO_ORG_ID}"
 # Grant it the API (no scopes; the role comes from the application metadata via the Action).
 if [ "$(api get client-grants --query "client_id=${M2M_ID}" | json 'const a=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(a.some(g=>g.audience===process.argv[1]))' "$HEKA_AUDIENCE")" != "true" ]; then
   api post client-grants --data "{\"client_id\":\"${M2M_ID}\",\"audience\":\"${HEKA_AUDIENCE}\",\"scope\":[]}" >/dev/null
@@ -101,19 +117,22 @@ fi
 # --- 4b. Machine-to-machine application for the identity service's demo-token broker ----
 # The web UI's public demo pages act as this account (GET /demo/token). Fixed heka_uid = the id of
 # the heka-demo service account in the Keycloak realm, so the demo tenant/DID is the same on both.
+# Its token is handed out without login, so it is a User: never Admin, which would open the shared
+# Administration wallet to every visitor.
 echo "== Application heka-demo (M2M)"
 DEMO_ID="$(find_app heka-demo)"
 if [ -z "$DEMO_ID" ]; then
   DEMO_JSON="$(auth0 apps create --name heka-demo --type m2m --description "Heka demo service account (identity service demo-token broker)" \
-    --metadata "heka_role=Admin" --metadata "heka_uid=${DEMO_ACCOUNT_HEKA_UID}" --metadata "heka_name=demo" --reveal-secrets --json 2>/dev/null)"
+    --metadata "heka_role=User" --metadata "heka_uid=${DEMO_ACCOUNT_HEKA_UID}" --metadata "heka_name=demo" --reveal-secrets --json 2>/dev/null)"
   DEMO_ID="$(printf '%s' "$DEMO_JSON" | json 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).client_id)')"
   DEMO_SECRET="$(printf '%s' "$DEMO_JSON" | json 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).client_secret)')"
   echo "   created ${DEMO_ID}"
 else
   DEMO_SECRET="(existing application: read it in the dashboard)"
-  api patch "clients/${DEMO_ID}" --data "{\"client_metadata\":{\"heka_role\":\"Admin\",\"heka_uid\":\"${DEMO_ACCOUNT_HEKA_UID}\",\"heka_name\":\"demo\"}}" >/dev/null
+  api patch "clients/${DEMO_ID}" --data "{\"client_metadata\":{\"heka_role\":\"User\",\"heka_uid\":\"${DEMO_ACCOUNT_HEKA_UID}\",\"heka_name\":\"demo\"}}" >/dev/null
   echo "   exists ${DEMO_ID}"
 fi
+echo "   heka_role=User"
 if [ "$(api get client-grants --query "client_id=${DEMO_ID}" | json 'const a=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(a.some(g=>g.audience===process.argv[1]))' "$HEKA_AUDIENCE")" != "true" ]; then
   api post client-grants --data "{\"client_id\":\"${DEMO_ID}\",\"audience\":\"${HEKA_AUDIENCE}\",\"scope\":[]}" >/dev/null
   echo "   client grant created"
@@ -131,8 +150,13 @@ ensure_action() { # name trigger file
       --json 2>/dev/null | json 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).id)')"
     echo "   ${name} created ${id}"
   else
-    api patch "actions/actions/${id}" --data "$(json 'console.log(JSON.stringify({code:require("fs").readFileSync(process.argv[1],"utf8")}))' "$file")" >/dev/null
-    echo "   ${name} code updated ${id}"
+    # Code and secrets: an Action created by an earlier run may still carry HEKA_DEFAULT_ROLE=Admin
+    api patch "actions/actions/${id}" --data "$(json '
+      const [file,audience,namespace,defaultRole]=process.argv.slice(1);
+      console.log(JSON.stringify({code:require("fs").readFileSync(file,"utf8"),secrets:[
+        {name:"HEKA_AUDIENCE",value:audience},{name:"HEKA_CLAIM_NAMESPACE",value:namespace},{name:"HEKA_DEFAULT_ROLE",value:defaultRole}]}))' \
+      "$file" "$HEKA_AUDIENCE" "$HEKA_CLAIM_NAMESPACE" "$HEKA_DEFAULT_ROLE")" >/dev/null
+    echo "   ${name} code and secrets updated ${id}"
   fi
   auth0 actions deploy "$id" --json >/dev/null 2>&1
   echo "   ${name} deployed"
@@ -177,6 +201,37 @@ echo "   username login on, password rule 7+ chars with upper/lower/digit/symbol
 api patch "connections/${CONN_ID}/clients" --data "[{\"client_id\":\"${SPA_ID}\",\"status\":true},{\"client_id\":\"${M2M_ID}\",\"status\":true}]" >/dev/null
 echo "   enabled for both applications"
 
+# --- 6b. Organizations: organization login on the SPA, and the heka-sso organization ------------
+# A login through an organization carries that organization's metadata.heka_org_id as org_id and the roles of the
+# membership (see actions/post-login.js). "allow" keeps logins without an organization working (Admin, User).
+echo "== Organizations"
+api patch "clients/${SPA_ID}" --data '{"organization_usage":"allow","organization_require_behavior":"no_prompt"}' >/dev/null
+echo "   SPA: organization login allowed (optional)"
+ORG_JSON="$(api get "organizations/name/${SSO_ORG_ID}" || true)" # 404 until it exists
+ORG_ID="$(printf '%s' "$ORG_JSON" | json 'let o={};try{o=JSON.parse(require("fs").readFileSync(0,"utf8"))}catch{};console.log(o&&o.id?o.id:"")')"
+if [ -z "$ORG_ID" ]; then
+  ORG_ID="$(api post organizations --data "{\"name\":\"${SSO_ORG_ID}\",\"display_name\":\"${SSO_ORG_ID}\",\"metadata\":{\"heka_org_id\":\"${SSO_ORG_ID}\"}}" \
+    | json 'let o={};try{o=JSON.parse(require("fs").readFileSync(0,"utf8"))}catch{};console.log(o&&o.id?o.id:"")')"
+  [ -n "$ORG_ID" ] && echo "   organization ${SSO_ORG_ID} created ${ORG_ID}"
+else
+  api patch "organizations/${ORG_ID}" --data "{\"metadata\":{\"heka_org_id\":\"${SSO_ORG_ID}\"}}" >/dev/null
+  echo "   organization ${SSO_ORG_ID} exists ${ORG_ID}"
+fi
+if [ -n "$ORG_ID" ]; then
+  echo "   metadata.heka_org_id=${SSO_ORG_ID}"
+  # Without an enabled connection, every login through the organization fails with
+  # "no connections enabled for the organization". Already enabled: Auth0 answers 409, which is fine.
+  api post "organizations/${ORG_ID}/enabled_connections" --data "{\"connection_id\":\"${CONN_ID}\",\"assign_membership_on_login\":false}" >/dev/null || true
+  if [ "$(api get "organizations/${ORG_ID}/enabled_connections" | json 'let a=[];try{a=JSON.parse(require("fs").readFileSync(0,"utf8"))}catch{};console.log(a.some(c=>c.connection_id===process.argv[1]))' "$CONN_ID")" = "true" ]; then
+    echo "   connection ${DB_CONNECTION} enabled for the organization"
+  else
+    echo "   WARNING: could not enable connection ${DB_CONNECTION} for ${SSO_ORG_ID}. Log in with the organization scopes" >&2
+    echo "   (see README, Organizations) or enable it in the dashboard: Organizations -> ${SSO_ORG_ID} -> Connections." >&2
+  fi
+else
+  echo "   could not create organization ${SSO_ORG_ID} (does the tenant's plan include Organizations?)" >&2
+fi
+
 # --- 7. Tenant: let oidc-client-ts discover end_session_endpoint for logout -------
 api patch tenants/settings --data '{"oidc_logout":{"rp_logout_end_session_endpoint_discovery":true}}' >/dev/null
 echo "== Tenant: RP-initiated logout end_session_endpoint discovery on"
@@ -185,23 +240,39 @@ echo "== Tenant: RP-initiated logout end_session_endpoint discovery on"
 if [ "$CREATE_DEMO_USER" = "true" ]; then
   echo "== User demo"
   # Looked up by its synthetic email: the CLI's `--query` flag does not pass Lucene `q=` filters through.
-  DEMO_ID="$(api get users-by-email --query "email=demo@heka.invalid" | json 'const a=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(a[0]?a[0].user_id:"")')"
-  if [ -z "$DEMO_ID" ]; then
-    DEMO_ID="$(auth0 users create --connection-name "$DB_CONNECTION" --username demo --name demo --email demo@heka.invalid \
+  DEMO_USER_ID="$(api get users-by-email --query "email=demo@heka.invalid" | json 'const a=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(a[0]?a[0].user_id:"")')"
+  if [ -z "$DEMO_USER_ID" ]; then
+    DEMO_USER_ID="$(auth0 users create --connection-name "$DB_CONNECTION" --username demo --name demo --email demo@heka.invalid \
       --password 'Password1234!' --json 2>/dev/null | json 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).user_id)')"
-    echo "   created ${DEMO_ID}"
+    echo "   created ${DEMO_USER_ID}"
   else
-    echo "   exists ${DEMO_ID}"
+    echo "   exists ${DEMO_USER_ID}"
   fi
-  api patch "users/${DEMO_ID}" --data "{\"app_metadata\":{\"heka_uid\":\"${DEMO_USER_HEKA_UID}\",\"heka_role\":\"Admin\"}}" >/dev/null
-  echo "   app_metadata.heka_uid=${DEMO_USER_HEKA_UID}, heka_role=Admin"
+  api patch "users/${DEMO_USER_ID}" --data "{\"app_metadata\":{\"heka_uid\":\"${DEMO_USER_HEKA_UID}\",\"heka_role\":\"User\"}}" >/dev/null
+  echo "   app_metadata.heka_uid=${DEMO_USER_HEKA_UID}, heka_role=User"
+
+  # Dev platform operator: the only default account with Admin
+  echo "== User admin"
+  ADMIN_ID="$(api get users-by-email --query "email=admin@heka.invalid" | json 'const a=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(a[0]?a[0].user_id:"")')"
+  if [ -z "$ADMIN_ID" ]; then
+    ADMIN_ID="$(auth0 users create --connection-name "$DB_CONNECTION" --username admin --name admin --email admin@heka.invalid \
+      --password 'Password1234!' --json 2>/dev/null | json 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).user_id)')"
+    echo "   created ${ADMIN_ID}"
+  else
+    echo "   exists ${ADMIN_ID}"
+  fi
+  api patch "users/${ADMIN_ID}" --data "{\"app_metadata\":{\"heka_uid\":\"${ADMIN_USER_HEKA_UID}\",\"heka_role\":\"Admin\"}}" >/dev/null
+  echo "   app_metadata.heka_uid=${ADMIN_USER_HEKA_UID}, heka_role=Admin"
 fi
 
 # --- Summary -------------------------------------------------------------------
 DOMAIN="$(auth0 tenants list --json 2>/dev/null | json 'const a=JSON.parse(require("fs").readFileSync(0,"utf8"));const t=a.find(x=>x.active)||a[0];console.log(t?t.name:"<tenant>.<region>.auth0.com")')"
 cat <<EOF
 
-Done. Settings for the platform components:
+Done. Users who signed in before HEKA_DEFAULT_ROLE was User keep the role the post-login Action persisted
+in app_metadata.heka_role (usually Admin): reassign everyone who isn't a platform operator to User.
+
+Settings for the platform components:
 
 heka-identity-service (.env)
   OIDC_ISSUER_URL=https://${DOMAIN}/

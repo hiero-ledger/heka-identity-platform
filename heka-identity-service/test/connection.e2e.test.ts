@@ -16,7 +16,14 @@ import {
 } from 'src/connection/dto'
 import { uuid } from 'src/utils/misc'
 
-import { initializeMikroOrm, signJwt, startTestApp, testOidcAudience, testOidcIssuer, waitForNotificationSocket } from './helpers'
+import {
+  initializeMikroOrm,
+  signJwt,
+  startTestApp,
+  waitForNotificationSocket,
+  testOidcAudience,
+  testOidcIssuer,
+} from './helpers'
 
 describe('E2E connection', () => {
   let ormSchemaGenerator: SchemaGenerator

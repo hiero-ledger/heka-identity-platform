@@ -1,7 +1,7 @@
 # heka-sso-service on its own: the bridge and its Postgres (host port 5434, also used by
 # `yarn test:e2e`). heka-identity-service (3000) and the OIDC provider (8080) run on the host and
 # are reached through host.docker.internal. The whole platform, Keycloak included, runs from the
-# repository root instead (docs/root-docker-compose.md); the two scopes share host port 3005, so
+# repository root instead (root docker-compose.yml); the two scopes share host port 3005, so
 # run one or the other.
 #
 #   docker compose up -d --build     build the image from this directory and run it
@@ -37,6 +37,8 @@ services:
         NODE_ENV: development
     ports:
       - '3005:3005'
+    # heka-identity-service (3000) and the OIDC provider (Keycloak, 8080) run outside this compose
+    # project, published on the host: inside the container "localhost" is the container itself.
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     environment:

@@ -16,8 +16,8 @@ interface TokenResponse {
  * Supplies the bearer token for heka-identity-service API calls.
  *
  * Either a static token (`IDENTITY_SERVICE_AUTH_TOKEN`, tests/dev) or an OAuth 2.0 Client Credentials
- * grant (RFC 6749 section 4.4) against the OIDC provider that heka-identity-service trusts — Keycloak,
- * Auth0, or any other — using the confidential client configured with `IDENTITY_SERVICE_TOKEN_URL`,
+ * grant (RFC 6749 section 4.4) against the OIDC provider that heka-identity-service trusts � Keycloak,
+ * Auth0, or any other - using the confidential client configured with `IDENTITY_SERVICE_TOKEN_URL`,
  * `IDENTITY_SERVICE_CLIENT_ID` and `IDENTITY_SERVICE_CLIENT_SECRET`. The token is cached and re-acquired
  * shortly before `expires_in` elapses.
  */

@@ -2,16 +2,6 @@
  * Prepares the demo account's wallet in the identity service and records its DID in `.env`
  * (`REACT_APP_DEMO_USER_DID`), which the public demo pages use as their verifier / issuer id.
  *
- * Provider-neutral: the demo account itself is created by the OIDC provider recipe (the `heka-demo`
- * service-account client in the Keycloak realm or the Auth0 tenant script), and its token comes from
- * the identity service's demo-token broker (`GET /demo/token`, enabled there with `DEMO_*`). The web
- * UI fetches that token at runtime too, so the DID is the only thing baked into the bundle.
- *
- * Environment:
- *   REACT_APP_AGENCY_ENDPOINT  identity service base URL (default http://localhost:3000)
- *   DEMO_ACCESS_TOKEN          optional: a token to use instead of the broker (e.g. a user token),
- *                              in which case the DID lands in that token's tenant
- *
  * Run: yarn prepare-demo-user
  */
 import assert from 'assert';
@@ -40,7 +30,7 @@ const schemaLogoUrl =
   'https://cdn.theorg.com/fda49f46-96e2-49b8-99aa-0ff5165953b7_medium.jpg';
 
 const schemas = [
-    {
+  {
     name: 'Passport',
     bgColor: '#171717',
     fields: [
@@ -58,7 +48,7 @@ const schemas = [
       },
     ],
   },
-      {
+  {
     name: 'mDL',
     bgColor: '#1a3a5c',
     fields: [
@@ -153,7 +143,7 @@ async function fetchSchemaLogo(fallback: Buffer): Promise<Blob> {
     console.warn(
       `schema logo download failed (${String(error)}), using the local avatar`,
     );
-      }
+  }
   return new Blob([new Uint8Array(fallback)], { type: 'image/png' });
 }
 
