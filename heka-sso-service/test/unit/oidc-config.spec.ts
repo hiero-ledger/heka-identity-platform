@@ -136,6 +136,67 @@ describe('OidcConfig', () => {
     ).toThrow()
   })
 
+  describe('static clients and login configs from files', () => {
+    const client = {
+      clientId: 'file-broker',
+      clientSecret: 'file-secret-value-long-enough',
+      redirectUris: ['https://idp.example.com/callback'],
+      loginConfigId: 'default',
+    }
+    const loginConfig = {
+      id: 'from-file',
+      verificationTemplate: 'default',
+      dcqlQuery: {
+        credentials: [{ id: 'pid', format: 'dc+sd-jwt', meta: { vct_values: ['urn:eudi:pid:1'] }, claims: [{ path: ['given_name'] }] }],
+      },
+      claimMapping: { 'pid.given_name': 'given_name' },
+      subStrategy: 'derived',
+    }
+
+    const withTempFile = (name: string, content: string, run: (file: string) => void) => {
+      const file = join(tmpdir(), `${name}-${process.pid}-${Date.now()}.json`)
+      writeFileSync(file, content)
+      try {
+        run(file)
+      } finally {
+        rmSync(file)
+      }
+    }
+
+    test('are read from OIDC_CLIENTS_FILE and OIDC_LOGIN_CONFIGS_FILE when the inline variables are unset', () => {
+      withTempFile('clients', JSON.stringify([client]), (clientsFile) => {
+        withTempFile('login-configs', JSON.stringify([loginConfig]), (loginConfigsFile) => {
+          const config = validate({ OIDC_CLIENTS_FILE: clientsFile, OIDC_LOGIN_CONFIGS_FILE: loginConfigsFile }).oidc
+          expect(config.clients.map((c) => c.clientId)).toEqual(['file-broker'])
+          expect(config.loginConfigs.map((c) => c.id)).toEqual(['from-file'])
+        })
+      })
+    })
+
+    test('inline variables take precedence over the files', () => {
+      withTempFile('clients', JSON.stringify([client]), (clientsFile) => {
+        const config = new OidcConfig({
+          OIDC_CLIENTS: JSON.stringify([{ ...client, clientId: 'inline-broker' }]),
+          OIDC_CLIENTS_FILE: clientsFile,
+        })
+        expect(config.clients.map((c) => c.clientId)).toEqual(['inline-broker'])
+      })
+    })
+
+    test('a missing or malformed file is reported under the _FILE variable name', () => {
+      const missing = join(tmpdir(), `missing-${process.pid}-${Date.now()}.json`)
+      expect(() => new OidcConfig({ OIDC_CLIENTS_FILE: missing })).toThrow(/OIDC_CLIENTS_FILE could not be read/)
+      expect(() => new OidcConfig({ OIDC_LOGIN_CONFIGS_FILE: missing })).toThrow(/OIDC_LOGIN_CONFIGS_FILE could not be read/)
+
+      withTempFile('bad-clients', 'not-json', (file) => {
+        expect(() => new OidcConfig({ OIDC_CLIENTS_FILE: file })).toThrow(/OIDC_CLIENTS_FILE contains invalid JSON/)
+      })
+      withTempFile('bad-login-configs', '{"not":"an array"}', (file) => {
+        expect(() => new OidcConfig({ OIDC_LOGIN_CONFIGS_FILE: file })).toThrow(/OIDC_LOGIN_CONFIGS_FILE must be a JSON array/)
+      })
+    })
+  })
+
   describe('login configuration DCQL / claim-mapping consistency', () => {
     const loginConfig = (overrides: Record<string, unknown>) => ({
       OIDC_LOGIN_CONFIGS: JSON.stringify([

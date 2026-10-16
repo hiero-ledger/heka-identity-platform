@@ -137,17 +137,21 @@ yarn build
 
 ## Docker
 
-To build the image locally:
+`docker-compose.yml` in this directory runs the identity service and its Postgres on their own; the OIDC provider (and anything else) is expected on the host and reached through `host.docker.internal`. Values come from this directory's `.env`, under the same names `yarn start` uses, and default to the dev Keycloak of the root project. One difference from `yarn start`: a URL the service itself calls must not say `localhost`, which inside the container is the container. Leave `OIDC_JWKS_URI` and `DEMO_TOKEN_URL` unset to get the compose file's `host.docker.internal` defaults, or set them to `http://host.docker.internal:8080/...` yourself; the browser-facing `OIDC_ISSUER_URL` stays on `localhost`.
+
+To build the image and run it:
 
 ```shell
-docker compose -f docker-compose.dev.yml build
+docker compose up -d --build
 ```
 
-To run the service in Docker:
+To run the image named by `IMAGE` in `.env` without building:
 
 ```shell
-docker compose -f docker-compose.dev.yml up -d
+docker compose up -d
 ```
+
+To run the whole platform, Keycloak included, use the root project instead: [Running the platform with Docker Compose](../../docs/root-docker-compose.md). The two scopes share host ports, so run one or the other. For just the dev Keycloak next to a host-run identity service: `docker compose --profile keycloak up -d keycloak` at the repository root.
 
 ## Run the app
 
@@ -475,7 +479,7 @@ Webhook deliveries always connect directly to the validated address and ignore `
 
 `WEBHOOK_ALLOW_PRIVATE_ADDRESSES` only relaxes the address and hostname rules. The scheme rule, the credential check, the redirect prohibition, the timeout and the response size cap always apply.
 
-To deliver notifications to a local sink or to a sibling Compose container, enable both settings, for example in `.env` (loaded by `yarn start` and used by `docker compose -f docker-compose.dev.yml` for variable substitution):
+To deliver notifications to a local sink or to a sibling Compose container, enable both settings, for example in `.env` (loaded by `yarn start` and used by `docker compose` for variable substitution):
 
 ```dotenv
 WEBHOOK_ALLOW_HTTP=true

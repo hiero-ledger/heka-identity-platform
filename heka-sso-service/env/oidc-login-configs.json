@@ -1,0 +1,25 @@
+[
+  {
+    "id": "default",
+    "verificationTemplate": "default",
+    "dcqlQuery": {
+      "credentials": [
+        {
+          "id": "passport",
+          "format": "mso_mdoc",
+          "meta": { "doctype_value": "Passport" },
+          "claims": [
+            { "path": ["Passport", "given_name"] },
+            { "path": ["Passport", "family_name"] }
+          ]
+        }
+      ]
+    },
+    "claimMapping": {
+      "passport.given_name": "given_name",
+      "passport.family_name": "family_name"
+    },
+    "subStrategy": "derived",
+    "issuerAllowlist": []
+  }
+]

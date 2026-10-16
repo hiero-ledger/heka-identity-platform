@@ -6,7 +6,7 @@ import request from 'supertest'
 
 import { initializeMikroOrm, startTestApp } from './helpers'
 
-// Opt-in: needs the dev Postgres (docker-compose.dev.yml, port 5434).
+// Opt-in: needs this package's Postgres (docker compose up -d postgres, port 5434).
 // Run with `yarn test:e2e` (or E2E=true in the environment).
 describe.skipIf(process.env.E2E !== 'true')('E2E health', () => {
   let ormSchemaGenerator: SchemaGenerator

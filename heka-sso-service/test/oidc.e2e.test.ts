@@ -153,7 +153,7 @@ const exchangeCode = (app: Server, code: string | null, codeVerifier: string, cl
 
 const decodeJwtPayload = (jwt: string) => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString())
 
-// Opt-in: needs the dev Postgres (docker-compose.dev.yml, port 5434).
+// Opt-in: needs this package's Postgres (docker compose up -d postgres, port 5434).
 // Run with `yarn test:e2e` (or E2E=true in the environment).
 describe.skipIf(process.env.E2E !== 'true')('E2E OIDC provider', () => {
   let ormSchemaGenerator: SchemaGenerator

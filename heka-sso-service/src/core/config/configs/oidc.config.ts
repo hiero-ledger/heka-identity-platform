@@ -40,7 +40,9 @@ export enum OidcConfigKeys {
   ttlGrant = 'OIDC_TTL_GRANT',
   clockTolerance = 'OIDC_CLOCK_TOLERANCE',
   clients = 'OIDC_CLIENTS',
+  clientsFile = 'OIDC_CLIENTS_FILE',
   loginConfigs = 'OIDC_LOGIN_CONFIGS',
+  loginConfigsFile = 'OIDC_LOGIN_CONFIGS_FILE',
   jwks = 'OIDC_JWKS',
   jwksFile = 'OIDC_JWKS_FILE',
   stubLogin = 'OIDC_STUB_LOGIN',
@@ -522,7 +524,9 @@ export class OidcConfig {
       ? parseInt(env[OidcConfigKeys.clockTolerance])
       : oidcConfigDefaults.clockTolerance
 
-    this.clients = OidcConfig.parseJsonArray(env, OidcConfigKeys.clients, problems).map((client) => new OidcClientConfig(client))
+    this.clients = OidcConfig.parseJsonArray(env, OidcConfigKeys.clients, OidcConfigKeys.clientsFile, problems).map(
+      (client) => new OidcClientConfig(client)
+    )
     for (const client of this.clients) {
       refuseKnownDefault(OidcConfigKeys.clients, [client.clientSecret])
       if (isProduction && client.clientSecret && client.clientSecret.length < 16) {
@@ -530,7 +534,7 @@ export class OidcConfig {
       }
     }
 
-    this.loginConfigs = OidcConfig.parseJsonArray(env, OidcConfigKeys.loginConfigs, problems).map(
+    this.loginConfigs = OidcConfig.parseJsonArray(env, OidcConfigKeys.loginConfigs, OidcConfigKeys.loginConfigsFile, problems).map(
       (loginConfig) => new OidcLoginConfig(loginConfig)
     )
     for (const loginConfig of this.loginConfigs) {
@@ -618,17 +622,32 @@ export class OidcConfig {
     return jwks
   }
 
-  private static parseJsonArray(env: Record<string, any>, key: OidcConfigKeys, problems: string[]): any[] {
-    if (!env[key]) return []
+  /**
+   * A JSON array from the inline variable, or from the file named by the `_FILE` variable when
+   * the inline one is unset (same precedence as `OIDC_JWKS` / `OIDC_JWKS_FILE`). Problems name
+   * the variable the value actually came from.
+   */
+  private static parseJsonArray(env: Record<string, any>, key: OidcConfigKeys, fileKey: OidcConfigKeys, problems: string[]): any[] {
+    let raw: string | undefined = env[key]
+    const source = raw ? key : fileKey
+    if (!raw && env[fileKey]) {
+      try {
+        raw = readFileSync(env[fileKey], 'utf8')
+      } catch {
+        problems.push(`${fileKey} could not be read: ${env[fileKey]}`)
+        return []
+      }
+    }
+    if (!raw) return []
     try {
-      const parsed = JSON.parse(env[key])
+      const parsed = JSON.parse(raw)
       if (!Array.isArray(parsed)) {
-        problems.push(`${key} must be a JSON array`)
+        problems.push(`${source} must be a JSON array`)
         return []
       }
       return parsed
     } catch {
-      problems.push(`${key} contains invalid JSON`)
+      problems.push(`${source} contains invalid JSON`)
       return []
     }
   }

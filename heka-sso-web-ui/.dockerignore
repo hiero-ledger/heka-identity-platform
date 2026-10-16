@@ -1,0 +1,14 @@
+# Build context of the nginx image (Dockerfile). Keep the developer's local state out of it.
+.git
+node_modules
+dist
+dist-ssr
+coverage
+.yarn/cache
+.yarn/install-state.gz
+# Local configuration is never baked in; Vite reads only the build args.
+.env
+.env.*
+!.env.example
+Dockerfile
+.dockerignore

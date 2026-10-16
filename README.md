@@ -42,6 +42,8 @@ flowchart LR
 
 Each component is set up and run independently. For specific setup and configuration steps, please refer to specific README files in component folders.
 
+To run the web-facing components together with one command, with Keycloak as the identity provider, see [Running the platform with Docker Compose](./docs/root-docker-compose.md).
+
 The recommended approach for exploring the platform is the following:
 - Set up and get familiar with core functional components - [Identity Service](./heka-identity-service) and [Heka Wallet (Mobile application)](./heka-wallet)
 - Explore the [Identity Service Web UI](./heka-identity-service-web-ui) together with an OIDC provider set up from the [Keycloak](./heka-sso-service/keycloak) or [Auth0](./heka-sso-service/auth0) recipe. The Web UI is a more general-purpose application that still represents a crucial piece for complete experience and testing capabilities
