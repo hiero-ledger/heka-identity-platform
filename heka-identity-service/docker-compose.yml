@@ -49,6 +49,8 @@ services:
       OIDC_CLAIM_ROLES: ${OIDC_CLAIM_ROLES:-}
       OIDC_CLAIM_NAME: ${OIDC_CLAIM_NAME:-}
       OIDC_CLAIM_ORG_ID: ${OIDC_CLAIM_ORG_ID:-}
+      OIDC_CLAIM_ORG_ID_FIELD: ${OIDC_CLAIM_ORG_ID_FIELD:-}
+      ROLE_MODEL_ENABLED: ${ROLE_MODEL_ENABLED:-false}
       # Demo-token broker for the web UI's public demo pages (docs/setup.md#demo-token-broker);
       # the token endpoint is reached through the host gateway like the JWKS. Dev secret of the
       # shipped realm.
@@ -70,7 +72,6 @@ services:
       WEBHOOK_HTTP_TIMEOUT_MS: ${WEBHOOK_HTTP_TIMEOUT_MS:-10000}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
-      ROLE_MODEL_ENABLED: ${ROLE_MODEL_ENABLED:-false}
     ports:
       - '3000:3000'
       - '3001:3001'

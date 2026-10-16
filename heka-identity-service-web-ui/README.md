@@ -87,7 +87,8 @@ Cross-device on desktop Chrome may require the `chrome://flags#web-identity-digi
   on `http://localhost:3000`
 - An OpenID Connect provider with the Heka recipe, e.g. the Keycloak `heka-platform` realm from
   [heka-sso-service](../heka-sso-service/keycloak/README.md) on `http://localhost:8080`
-  (`docker compose -f docker-compose.dev.yml up -d keycloak` in `heka-sso-service`)
+  (`docker compose --profile keycloak up -d keycloak` at the repository root, see
+  [docs/root-docker-compose.md](../docs/root-docker-compose.md))
 - Mobile phone with installed [Heka Wallet](https://github.com/hiero-ledger/heka-identity-platform/tree/main/heka-wallet)
 
 ### How to Start

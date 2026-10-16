@@ -267,9 +267,9 @@ building):
 docker compose up -d --build
 ```
 
-`docker-compose.dev.yml` builds the image and brings up Keycloak with the `heka` realm (plus the `heka-platform` realm that heka-identity-service uses, see [keycloak/README.md](keycloak/README.md)); it uses the
-dev-only stub login, so no wallet is involved. `docker-compose.yml` runs the published image against
-a real wallet login and needs the verifier heka-identity-service creates sessions under:
+The defaults give the dev stub login, so no wallet is involved. A real wallet login needs the
+verifier heka-identity-service creates sessions under and the DID that signs authorization requests,
+with the stub switched off:
 
 ```bash
 IDENTITY_SERVICE_PUBLIC_VERIFIER_ID=<public verifier id> \
@@ -278,12 +278,12 @@ OIDC_STUB_LOGIN=false \
   docker compose up -d
 ```
 
-Compose refuses to start without those two — a bridge that binds no identity acquirer denies every
-`/authorize`. heka-identity-service (`:3000`) and the OIDC provider (Keycloak, `:8080`) are expected
-on the host and are reached over `host.docker.internal`; override `IDENTITY_SERVICE_BASE_URL` /
-`IDENTITY_SERVICE_TOKEN_URL` when they live elsewhere, and `IDENTITY_SERVICE_CLIENT_ID` /
-`IDENTITY_SERVICE_CLIENT_SECRET` (plus `IDENTITY_SERVICE_TOKEN_PARAMS` for Auth0) when the service
-account is not the dev client from `keycloak/realm-heka.json`.
+Compose reads `./.env` for substitution, not `env/.env` (that one is for `yarn start` and holds
+multi-line JSON); set overrides on the command line or with `--env-file`. Override
+`IDENTITY_SERVICE_BASE_URL` / `IDENTITY_SERVICE_TOKEN_URL` when the identity service or the
+provider live elsewhere, and `IDENTITY_SERVICE_CLIENT_ID` / `IDENTITY_SERVICE_CLIENT_SECRET` (plus
+`IDENTITY_SERVICE_TOKEN_PARAMS` for Auth0) when the service account is not the dev client from
+`keycloak/realm-heka-platform.json`.
 
 The image runs as the unprivileged `node` user and defaults to `NODE_ENV=production`. The compose
 file overrides it to `development`, because it ships the dev-only cookie key, `sub` salt and broker
