@@ -3,7 +3,6 @@ import { IncomingMessage } from 'http'
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common'
-import { JwtService } from '@nestjs/jwt'
 
 import { Agent } from 'common/agent'
 import { Role } from 'common/auth'
