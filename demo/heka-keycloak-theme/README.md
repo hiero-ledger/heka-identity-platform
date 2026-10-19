@@ -35,11 +35,11 @@ yarn build-keycloak-theme
 
 ## Use it in the demo realm
 
-The root Compose project (`keycloak` profile of the root `docker-compose.yml`) rebuilds the jar in a `keycloak-theme-builder` container (from [Dockerfile.builder](Dockerfile.builder), so no local Java/Maven needed) on every `up`, hands it to Keycloak through a shared volume, and disables theme caching in dev; `heka-sso-service/keycloak/realm-heka.json` sets `"loginTheme": "heka"`. The builder copies this directory into its own working volume, so nothing is written here. To pick up theme changes, recreate Keycloak — the builder reruns first:
+The root Compose project (`keycloak` profile of the root `docker-compose.yml`) rebuilds the jar when the `keycloak-theme-builder` container runs (from [Dockerfile.builder](Dockerfile.builder), so no local Java/Maven needed), hands it to Keycloak through a shared volume, and disables theme caching in dev; `heka-sso-service/keycloak/realm-heka.json` sets `"loginTheme": "heka"`. The builder copies this directory into its own working volume, so nothing is written here. To pick up theme changes, recreate the builder and Keycloak:
 
 ```sh
 # at the repository root
-docker compose --profile keycloak up -d --force-recreate keycloak
+docker compose --profile keycloak up -d --force-recreate keycloak-theme-builder keycloak
 ```
 
 To see the page in the demo chain, run the RP with `VITE_KC_IDP_HINT=` (empty) so Keycloak's login page is not skipped.

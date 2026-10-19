@@ -137,7 +137,7 @@ A role change also moves the user to another wallet; the previous wallet keeps i
 
 `--import-realm` only imports a realm that doesn't exist yet. A Keycloak started with an older version of this file may still give `heka-users` (and so every self-registered user) `Admin`, have `Admin` on both service accounts, lack Organizations, and let users edit their own `org_id`. To bring it up to date, either:
 
-- **Dev, no data to keep:** recreate the container, which re-imports the file: `docker compose --profile keycloak up -d --force-recreate keycloak` at the repository root.
+- **Dev, no data to keep:** recreate the realm copier and Keycloak, which re-imports the file: `docker compose --profile keycloak up -d --force-recreate keycloak-realms keycloak` at the repository root.
 - **Keep the existing users:** in the admin console (`heka-platform` realm):
   1. **Groups:** create `heka-admins` with client role `heka-identity-service` → `Admin`. In `heka-users`, replace the `Admin` client role with `User`. Every member of `heka-users` becomes a `User` with their next token.
   2. **Operators:** move the real operators from `heka-users` to `heka-admins`.
