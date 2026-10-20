@@ -9,6 +9,8 @@
 # The token URL, client id, secret and token params are read from the SSO_SERVICE_IDENTITY_SERVICE_*
 # lines of the .env, active or commented out, picking the block whose TOKEN_URL belongs to the
 # provider (/realms/ for Keycloak, auth0.com for Auth0). host.docker.internal is replaced with localhost.
+# Values are read with the dotenv rules Docker Compose applies to the same file (quotes, inline
+# comments); ${VAR} references are not expanded.
 #
 # Usage:
 #   bash docker/prepare-sso-verifier.sh --provider keycloak
@@ -57,6 +59,24 @@ for tool in curl jq; do
 done
 [ -f "$env_file" ] || die "Env file not found: $env_file"
 
+# Normalises a raw dotenv value the way Docker Compose reads it: surrounding whitespace is
+# trimmed; a single-quoted value is taken literally; a double-quoted value has \" and \\
+# unescaped; an unquoted value ends at the first `#` preceded by whitespace.
+dotenv_value() {
+  local value
+  value=$(printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  case $value in
+    \'*\') value=${value:1:${#value}-2} ;;
+    \"*\")
+      value=${value:1:${#value}-2}
+      value=${value//\\\"/\"}
+      value=${value//\\\\/\\}
+      ;;
+    *) value=$(printf '%s' "$value" | sed -E 's/[[:space:]]+#.*$//') ;;
+  esac
+  printf '%s' "$value"
+}
+
 # Group the SSO token settings into blocks, each starting at a TOKEN_URL line, and pick the
 # first block whose TOKEN_URL belongs to the provider.
 token_url='' client_id='' client_secret='' token_params=''
@@ -65,7 +85,7 @@ while IFS= read -r line || [ -n "$line" ]; do
   line=${line%$'\r'}
   if [[ $line =~ ^[[:space:]]*#?[[:space:]]*SSO_SERVICE_IDENTITY_SERVICE_(TOKEN_URL|CLIENT_ID|CLIENT_SECRET|TOKEN_PARAMS)=(.*)$ ]]; then
     key=${BASH_REMATCH[1]}
-    value=$(printf '%s' "${BASH_REMATCH[2]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    value=$(dotenv_value "${BASH_REMATCH[2]}")
     if [ "$key" = TOKEN_URL ]; then
       if [ -n "$token_url" ]; then break; fi
       if [[ $value =~ $token_url_pattern ]]; then
