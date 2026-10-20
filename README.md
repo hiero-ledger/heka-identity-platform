@@ -48,7 +48,7 @@ To run the web-facing components together, use the Compose project at the reposi
 2. Only when a phone wallet or Auth0 has to reach the services from outside your machine: start an https tunnel (e.g. ngrok) to the identity service's OID4VC port 3003, which serves credential offers, presentation requests and logos, and to `heka-sso-service` (port 3005) when Auth0 brokers to it. DIDComm flows with a remote wallet also need ports 3001 and 3002; a free ngrok account exposes one port, see the nginx recipe in [local-config-for-heka-wallet-integration.md](./heka-identity-service/docs/local-config-for-heka-wallet-integration.md). For a desktop-only run skip this step.
 3. Copy `.env.example` to `.env` and set the variables: the tunnel URLs from step 2 (leave them empty without a tunnel) and the identity provider block for the chosen profile.
 4. Copy the OIDC client configuration of the SSO service: `cp heka-sso-service/env/oidc-clients.example.json heka-sso-service/env/oidc-clients.json`.
-5. Create or adjust the verifiable credentials the SSO service requests at login in `heka-sso-service/env/oidc-login-configs.json`. The committed file asks for the given and family name from an mDoc passport credential:
+5. Create or adjust the verifiable credentials the SSO service requests at login in `heka-sso-service/env/oidc-login-configs.json`. The committed file asks for the given name, family name and the age-over-18 flag from an SD-JWT mDL credential, the same credential `heka-sso-service/env/.env.example` configures for a host-run service:
 
    ```json
    [
@@ -58,19 +58,17 @@ To run the web-facing components together, use the Compose project at the reposi
        "dcqlQuery": {
          "credentials": [
            {
-             "id": "passport",
-             "format": "mso_mdoc",
-             "meta": { "doctype_value": "Passport" },
-             "claims": [
-               { "path": ["Passport", "given_name"] },
-               { "path": ["Passport", "family_name"] }
-             ]
+             "id": "mdl",
+             "format": "dc+sd-jwt",
+             "meta": { "vct_values": ["mDL"] },
+             "claims": [{ "path": ["given_name"] }, { "path": ["family_name"] }, { "path": ["age_over_18"] }]
            }
          ]
        },
        "claimMapping": {
-         "passport.given_name": "given_name",
-         "passport.family_name": "family_name"
+         "mdl.given_name": "given_name",
+         "mdl.family_name": "family_name",
+         "mdl.age_over_18": "age_over_18"
        },
        "subStrategy": "derived",
        "issuerAllowlist": []

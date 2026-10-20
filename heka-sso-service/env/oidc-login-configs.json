@@ -5,19 +5,17 @@
     "dcqlQuery": {
       "credentials": [
         {
-          "id": "passport",
-          "format": "mso_mdoc",
-          "meta": { "doctype_value": "Passport" },
-          "claims": [
-            { "path": ["Passport", "given_name"] },
-            { "path": ["Passport", "family_name"] }
-          ]
+          "id": "mdl",
+          "format": "dc+sd-jwt",
+          "meta": { "vct_values": ["mDL"] },
+          "claims": [{ "path": ["given_name"] }, { "path": ["family_name"] }, { "path": ["age_over_18"] }]
         }
       ]
     },
     "claimMapping": {
-      "passport.given_name": "given_name",
-      "passport.family_name": "family_name"
+      "mdl.given_name": "given_name",
+      "mdl.family_name": "family_name",
+      "mdl.age_over_18": "age_over_18"
     },
     "subStrategy": "derived",
     "issuerAllowlist": []
