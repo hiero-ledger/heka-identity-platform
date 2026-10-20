@@ -7,8 +7,8 @@
 #   docker compose up -d             run the image named by IMAGE (default: the local build)
 #
 # Values come from this directory's .env (same names as for `yarn start`). Provider values
-# default to the dev Keycloak of the root project (`docker compose --profile keycloak up -d
-# keycloak` at the root). For Auth0 set OIDC_JWKS_URI= (empty) to switch to discovery; to turn
+# default to the dev Keycloak of the root project (at the root, with .env copied from
+# .env.example: `docker compose --profile keycloak up -d keycloak`). For Auth0 set OIDC_JWKS_URI= (empty) to switch to discovery; to turn
 # the demo broker off set DEMO_TOKEN_URL= (empty): those use `${VAR-default}`, which keeps an
 # empty value, where the others use `${VAR:-default}`.
 

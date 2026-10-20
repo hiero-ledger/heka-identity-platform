@@ -225,7 +225,7 @@ Applies to Nest controllers only — provider endpoints get rate limits at the r
 
 | Variable   | Default                                             | Description                                                                                                                                                                                                                                                                                                               |
 | ---------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV` | `production` (including when unset) | Selects the deployment mode. `production` arms the startup guards on the secrets above and switches the logger to non-pretty JSON output; only `development` relaxes them (`test` also skips the dev-secret warning). Set `NODE_ENV=development` for local dev, as both compose files do. |
+| `NODE_ENV` | `production` (including when unset) | Selects the deployment mode. `production` arms the startup guards on the secrets above and switches the logger to non-pretty JSON output; only `development` relaxes them (`test` also skips the dev-secret warning). Set `NODE_ENV=development` for local dev, as this package's and the root compose file do. |
 
 ## Migrations
 

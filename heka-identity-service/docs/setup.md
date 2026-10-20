@@ -139,6 +139,8 @@ yarn build
 
 `docker-compose.yml` in this directory runs the identity service and its Postgres on their own; the OIDC provider (and anything else) is expected on the host and reached through `host.docker.internal`. Values come from this directory's `.env`, under the same names `yarn start` uses, and default to the dev Keycloak of the root project. One difference from `yarn start`: a URL the service itself calls must not say `localhost`, which inside the container is the container. Leave `OIDC_JWKS_URI` and `DEMO_TOKEN_URL` unset to get the compose file's `host.docker.internal` defaults, or set them to `http://host.docker.internal:8080/...` yourself; the browser-facing `OIDC_ISSUER_URL` stays on `localhost`.
 
+The image does not contain your `.env` (`.dockerignore` keeps it out of the build context, so no secret is baked into `heka-identity-service:latest`); inside the container only the variables of the compose file's `environment` block are set. A variable the compose file does not pass, for example `HEDERA_OPERATOR_ID` / `HEDERA_OPERATOR_KEY` or the `INDY_*` endorser values, falls back to the service default. To use your own value in the container, add the variable to the `environment` block (`HEDERA_OPERATOR_KEY: ${HEDERA_OPERATOR_KEY:-}` reads it from `.env` for substitution).
+
 The compose file holds no database password: set `MIKRO_ORM_PASSWORD` in `.env`, or Compose refuses to start. Postgres takes it when it first creates the database, and the service uses it for the app data and the wallets alike; after changing it, recreate the `postgres` container. Postgres is published on `127.0.0.1:5432` only, so a host-run `yarn start` can use it but other devices on the network cannot.
 
 To build the image and run it:
@@ -153,7 +155,7 @@ To run the image named by `IMAGE` in `.env` without building:
 docker compose up -d
 ```
 
-To run the whole platform, Keycloak included, use the Compose project at the repository root instead (`docker-compose.yml` and `.env.example` there). The two scopes share host ports, so run one or the other. For just the dev Keycloak next to a host-run identity service: `docker compose --profile keycloak up -d keycloak` at the repository root.
+To run the whole platform, Keycloak included, use the Compose project at the repository root instead (`docker-compose.yml` and `.env.example` there). The two scopes share host ports, so run one or the other. For just the dev Keycloak next to a host-run identity service: at the repository root copy `.env.example` to `.env` once (Compose validates every variable of the file, even for one service; the defaults are enough for Keycloak alone), then `docker compose --profile keycloak up -d keycloak`.
 
 ## Run the app
 

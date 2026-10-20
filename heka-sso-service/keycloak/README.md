@@ -1,6 +1,6 @@
 # Keycloak realms
 
-The root Compose project (`docker compose --profile keycloak up -d keycloak` at the repository root) starts Keycloak with `start-dev --import-realm`, which imports the `realm-*.json` files of this directory on every start. A realm that already exists in the Keycloak database is **not** overwritten; delete the `keycloak` container to re-import. Three realms are defined:
+The root Compose project (at the repository root: copy `.env.example` to `.env` once, its defaults are enough for Keycloak alone, then `docker compose --profile keycloak up -d keycloak`) starts Keycloak with `start-dev --import-realm`, which imports the `realm-*.json` files of this directory on every start. A realm that already exists in the Keycloak database is **not** overwritten; delete the `keycloak` container to re-import. Three realms are defined:
 
 | File                        | Realm           | Purpose                                                                                                                                                                                            |
 | --------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -177,7 +177,7 @@ After either path, decode a token of each service account and check the roles (s
 Start Keycloak (the theme builder runs first and needs network access on the first run):
 
 ```sh
-# at the repository root
+# at the repository root, with .env copied from .env.example
 docker compose --profile keycloak up -d keycloak
 ```
 

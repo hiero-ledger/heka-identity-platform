@@ -42,7 +42,47 @@ flowchart LR
 
 Each component is set up and run independently. For specific setup and configuration steps, please refer to specific README files in component folders.
 
-To run the web-facing components together with one command, with Keycloak as the identity provider, use the Compose project at the repository root: copy `.env.example` to `.env`, fill in the values, and run `docker compose --profile keycloak up -d --build` (`--profile auth0` with Auth0).
+To run the web-facing components together, use the Compose project at the repository root. The `<profile>` below is the identity provider: `keycloak` (started by Compose) or `auth0` (your own tenant, see [heka-sso-service/auth0](./heka-sso-service/auth0)).
+
+1. Start Docker Desktop (or another Docker engine with Compose v2).
+2. Only when a phone wallet or Auth0 has to reach the services from outside your machine: start an https tunnel (e.g. ngrok) to the identity service's OID4VC port 3003, which serves credential offers, presentation requests and logos, and to `heka-sso-service` (port 3005) when Auth0 brokers to it. DIDComm flows with a remote wallet also need ports 3001 and 3002; a free ngrok account exposes one port, see the nginx recipe in [local-config-for-heka-wallet-integration.md](./heka-identity-service/docs/local-config-for-heka-wallet-integration.md). For a desktop-only run skip this step.
+3. Copy `.env.example` to `.env` and set the variables: the tunnel URLs from step 2 (leave them empty without a tunnel) and the identity provider block for the chosen profile.
+4. Copy the OIDC client configuration of the SSO service: `cp heka-sso-service/env/oidc-clients.example.json heka-sso-service/env/oidc-clients.json`.
+5. Create or adjust the verifiable credentials the SSO service requests at login in `heka-sso-service/env/oidc-login-configs.json`. The committed file asks for the given and family name from an mDoc passport credential:
+
+   ```json
+   [
+     {
+       "id": "default",
+       "verificationTemplate": "default",
+       "dcqlQuery": {
+         "credentials": [
+           {
+             "id": "passport",
+             "format": "mso_mdoc",
+             "meta": { "doctype_value": "Passport" },
+             "claims": [
+               { "path": ["Passport", "given_name"] },
+               { "path": ["Passport", "family_name"] }
+             ]
+           }
+         ]
+       },
+       "claimMapping": {
+         "passport.given_name": "given_name",
+         "passport.family_name": "family_name"
+       },
+       "subStrategy": "derived",
+       "issuerAllowlist": []
+     }
+   ]
+   ```
+
+   `dcqlQuery` is the DCQL query the SSO service sends to the Identity Service when it creates the verification session; `claimMapping` maps the disclosed claims (`<credential query id>.<claim path>`) to OIDC claims; `subStrategy` selects how the OIDC `sub` is derived; `issuerAllowlist` lists the trusted credential issuers. The entry's `id` is referenced by `loginConfigId` in `oidc-clients.json`. See the [SSO service README](./heka-sso-service/README.md#oidc-provider) for the full format.
+6. Run `docker compose --profile <profile> up -d --build`.
+7. Prepare the SSO verifier wallet and record its DID in `.env`: `./docker/prepare-sso-verifier.ps1 -Provider <profile>` on Windows, `bash docker/prepare-sso-verifier.sh --provider <profile>` on Linux / macOS.
+8. Restart the SSO service with the new DID: `docker compose --profile <profile> up -d heka-sso-service`.
+9. Optional, for the public demo pages of the identity web UI: run `yarn install && yarn prepare-demo-user` in `heka-identity-service-web-ui` (it talks to the identity service on `localhost:3000` and uses the demo-token broker the stack enables), copy the printed DID into `IDENTITY_WEBUI_DEMO_USER_DID` in `.env`, then rebuild the UI image: `docker compose --profile <profile> up -d --build heka-identity-web-ui`. The script also writes the DID into that package's own `.env`, which only a host-run `yarn start` uses.
 
 The recommended approach for exploring the platform is the following:
 - Set up and get familiar with core functional components - [Identity Service](./heka-identity-service) and [Heka Wallet (Mobile application)](./heka-wallet)

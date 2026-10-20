@@ -33,8 +33,6 @@ services:
     image: heka-sso-service:latest
     build:
       context: .
-      args:
-        NODE_ENV: development
     ports:
       - '3005:3005'
     # heka-identity-service (3000) and the OIDC provider (Keycloak, 8080) run outside this compose
