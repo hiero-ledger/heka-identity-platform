@@ -249,6 +249,7 @@ Real deployments should set `NODE_ENV=production` explicitly: an unset `NODE_ENV
 | `EXPRESS_HOST`         | `localhost` | Host the server binds to.                                   |
 | `EXPRESS_PORT`         | `3000`      | Port for the REST API and Swagger UI.                       |
 | `EXPRESS_PREFIX`       | _(unset)_   | Optional global URL prefix (e.g. `/api`).                   |
+| `APP_ENDPOINT`         | `http://${EXPRESS_HOST}:${EXPRESS_PORT}` plus the prefix | Public base URL of the REST API, embedded into status-list credential URLs (`/credentials/status/<id>`) and revocation tails URLs (`/revocation/tails/<hash>`). Set it to the https tunnel of port 3000 when wallets or verifiers resolve them remotely. An empty value is used as is, so leave it unset rather than empty. |
 | `EXPRESS_ENABLE_CORS`  | `true`      | Enable CORS handling.                                       |
 | `EXPRESS_CORS_OPTIONS` | `{}`        | JSON-encoded options passed to the Express CORS middleware. |
 

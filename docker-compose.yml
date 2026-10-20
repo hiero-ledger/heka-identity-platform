@@ -47,6 +47,9 @@ services:
       DEMO_TOKEN_PARAMS: ${IDENTITY_SERVICE_DEMO_TOKEN_PARAMS:-}
       DEMO_CLIENT_AUTH_METHOD: ${IDENTITY_SERVICE_DEMO_CLIENT_AUTH_METHOD:-}
       DEMO_TOKEN_RATE_LIMIT: ${IDENTITY_SERVICE_DEMO_TOKEN_RATE_LIMIT:-}
+      # Public base URL of the REST API, embedded into status-list credential URLs and revocation
+      # tails URLs; the https tunnel to 3000 when wallets or verifiers resolve them remotely.
+      APP_ENDPOINT: ${IDENTITY_SERVICE_APP_ENDPOINT:-http://localhost:3000}
       AGENT_OID4VCI_ENDPOINT: ${IDENTITY_SERVICE_AGENT_OID4VCI_ENDPOINT:-http://localhost:3003}
       AGENT_HTTP_ENDPOINT: ${IDENTITY_SERVICE_AGENT_HTTP_ENDPOINT:-http://localhost:3001}
       AGENT_WS_ENDPOINT: ${IDENTITY_SERVICE_AGENT_WS_ENDPOINT:-ws://localhost:3002}

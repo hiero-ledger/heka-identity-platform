@@ -42,6 +42,8 @@ services:
       MIKRO_ORM_PASSWORD: ${MIKRO_ORM_PASSWORD:?set MIKRO_ORM_PASSWORD in .env, see .env.example}
       WALLET_POSTGRES_PASSWORD: ${MIKRO_ORM_PASSWORD:?set MIKRO_ORM_PASSWORD in .env, see .env.example}
       EXPRESS_PORT: ${EXPRESS_PORT:-3000}
+      # Public base URL of the REST API (status-list credential and revocation tails URLs).
+      APP_ENDPOINT: ${APP_ENDPOINT:-http://localhost:3000}
       EXPRESS_PREFIX: ${EXPRESS_PREFIX:-}
       EXPRESS_ENABLE_CORS: ${EXPRESS_ENABLE_CORS:-}
       EXPRESS_CORS_OPTIONS: ${EXPRESS_CORS_OPTIONS:-}
