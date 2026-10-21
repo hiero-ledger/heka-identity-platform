@@ -28,10 +28,6 @@ describe('E2E HTTP authentication', () => {
   })
 
   afterAll(async () => {
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(2000)
-
     await nestApp.close()
 
     await ormSchemaGenerator.clear()
@@ -324,7 +320,8 @@ describe('E2E HTTP authentication', () => {
     expect(getUserResponse.status).toBe(401)
   })
 
-  test('rejects if bearer token contains org_id when must not', async () => {
+  // An organization in a User token is ignored, not rejected: a provider adds one for a member without an organization role
+  test('ignores org_id in a bearer token with User role', async () => {
     const userAuthToken = await signJwt(
       {
         name: 'John',
@@ -342,7 +339,7 @@ describe('E2E HTTP authentication', () => {
 
     const getUserResponse = await request(app).get('/user').auth(userAuthToken, { type: 'bearer' })
 
-    expect(getUserResponse.status).toBe(401)
+    expect(getUserResponse.status).toBe(200)
   })
 
   test('rejects if bearer token does not contain org_id when must', async () => {

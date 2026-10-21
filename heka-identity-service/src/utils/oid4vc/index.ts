@@ -16,6 +16,8 @@ import {
 } from '@credo-ts/openid4vc'
 import { v4 } from 'uuid'
 
+import { normalizeMdocNamespaces } from './mdoc-namespaces'
+
 export interface CredentialIssuanceMetadata {
   format: string
   type: string | string[]
@@ -91,7 +93,7 @@ export const createCredentialRequestToCredentialMapper =
         credentials: [
           {
             docType: issuanceMetadata.type as string,
-            namespaces: issuanceMetadata.namespaces,
+            namespaces: normalizeMdocNamespaces(issuanceMetadata.namespaces),
             validityInfo: { validUntil },
             issuerCertificate,
             holderKey,

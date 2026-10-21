@@ -8,9 +8,8 @@ import request from 'supertest'
 
 import { Role } from 'src/common/auth'
 import { uuid } from 'src/utils/misc'
-import { sleep } from 'src/utils/timers'
 
-import { initializeMikroOrm, startTestApp } from './helpers'
+import { initializeMikroOrm, startTestApp, waitUntil } from './helpers'
 import { createAuthToken } from './helpers/jwt'
 import { createAgent, TestAgentModulesMap } from './helpers/test-agent'
 
@@ -83,10 +82,6 @@ describe('E2E verification session', () => {
   })
 
   afterAll(async () => {
-    // TODO: Find a way to explicitly await the required condition
-    // Give AFJ event listeners some time to process pending events
-    await sleep(2000)
-
     await nestApp.close()
 
     await ormSchemaGenerator.clear()
@@ -261,12 +256,18 @@ describe('E2E verification session', () => {
 
     expect(res.serverResponse?.status).toEqual(200)
     // Wait for event processing and verify the session contains shared attributes
-    await sleep(1000)
     const sessionId = response.body.verificationSession.id
 
-    const getSessionResponse = await request(app)
-      .get(`/openid4vc/verification-session/${sessionId}`)
-      .auth(firstAdminAuthToken, { type: 'bearer' })
+    let getSessionResponse!: request.Response
+    await waitUntil(
+      async () => {
+        getSessionResponse = await request(app)
+          .get(`/openid4vc/verification-session/${sessionId}`)
+          .auth(firstAdminAuthToken, { type: 'bearer' })
+        return getSessionResponse.statusCode === 200 && getSessionResponse.body.state === 'ResponseVerified'
+      },
+      { message: 'Verification session did not reach ResponseVerified' },
+    )
 
     expect(getSessionResponse.statusCode).toBe(200)
     expect(getSessionResponse.body.state).toBe('ResponseVerified')

@@ -11,12 +11,15 @@ export interface PostLoginEvent {
     app_metadata?: Record<string, unknown>
   }
   authorization?: { roles?: string[] }
+  /** Set when the user logs in through an Auth0 Organization. */
+  organization?: { id: string; name?: string; display_name?: string; metadata?: Record<string, string | undefined> }
 }
 
 export interface PostLoginApi {
   accessToken: { setCustomClaim(name: string, value: unknown): void }
   idToken: { setCustomClaim(name: string, value: unknown): void }
   user: { setAppMetadata(name: string, value: unknown): void }
+  access: { deny(reason: string): void }
 }
 
 export function onExecutePostLogin(event: PostLoginEvent, api: PostLoginApi): Promise<void>

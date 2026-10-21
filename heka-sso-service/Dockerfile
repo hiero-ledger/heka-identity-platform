@@ -21,8 +21,7 @@ FROM node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3e
 
 RUN apt-get update && apt-get install curl -y
 
-ARG NODE_ENV=production
-ENV NODE_ENV=${NODE_ENV}
+ENV NODE_ENV=production
 
 # node:22-bookworm-slim ships an unprivileged 'node' user; the service needs no root privilege,
 # and `yarn start` compiles into the working directory, so it owns the whole app directory.

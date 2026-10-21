@@ -10,6 +10,8 @@
   The token URL, client id, secret and token params are read from the SSO_SERVICE_IDENTITY_SERVICE_*
   lines of the .env, active or commented out, picking the block whose TOKEN_URL belongs to the
   provider (/realms/ for Keycloak, auth0.com for Auth0). host.docker.internal is replaced with localhost.
+  Values are read with the dotenv rules Docker Compose applies to the same file (quotes, inline
+  comments); ${VAR} references are not expanded.
 
 .EXAMPLE
   ./docker/prepare-sso-verifier.ps1 -Provider keycloak
@@ -36,13 +38,27 @@ if (-not (Test-Path $EnvFile)) { throw "Env file not found: $EnvFile" }
 $EnvFile = (Resolve-Path $EnvFile).Path
 $content = [IO.File]::ReadAllText($EnvFile)
 
+# Normalises a raw dotenv value the way Docker Compose reads it: surrounding whitespace is
+# trimmed; a single-quoted value is taken literally; a double-quoted value has \" and \\
+# unescaped; an unquoted value ends at the first `#` preceded by whitespace.
+function ConvertFrom-DotenvValue([string]$Raw) {
+  $value = $Raw.Trim()
+  if ($value.Length -ge 2 -and $value[0] -eq "'" -and $value[-1] -eq "'") {
+    return $value.Substring(1, $value.Length - 2)
+  }
+  if ($value.Length -ge 2 -and $value[0] -eq '"' -and $value[-1] -eq '"') {
+    return $value.Substring(1, $value.Length - 2).Replace('\"', '"').Replace('\\', '\')
+  }
+  return ($value -replace '\s+#.*$', '')
+}
+
 # Group the SSO token settings into blocks, each starting at a TOKEN_URL line
 $blocks = @()
 $current = $null
 foreach ($line in ($content -split "\r?\n")) {
   if ($line -match '^\s*#?\s*SSO_SERVICE_IDENTITY_SERVICE_(TOKEN_URL|CLIENT_ID|CLIENT_SECRET|TOKEN_PARAMS)=(.*)$') {
     $key = $Matches[1]
-    $value = $Matches[2].Trim()
+    $value = ConvertFrom-DotenvValue $Matches[2]
     if ($key -eq 'TOKEN_URL') {
       $current = @{ TOKEN_URL = $value }
       $blocks += $current

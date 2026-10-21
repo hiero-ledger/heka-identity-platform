@@ -1,14 +1,14 @@
 # heka-identity-service on its own: this service and its Postgres. Everything else (the OIDC
 # provider on 8080, the web UI, the SSO bridge) runs on the host and is reached through
 # host.docker.internal. The whole platform runs from the repository root instead
-# (docs/root-docker-compose.md); the two scopes share host ports, so run one or the other.
+# (root docker-compose.yml); the two scopes share host ports, so run one or the other.
 #
 #   docker compose up -d --build     build the image from this directory and run it
 #   docker compose up -d             run the image named by IMAGE (default: the local build)
 #
 # Values come from this directory's .env (same names as for `yarn start`). Provider values
-# default to the dev Keycloak of the root project (`docker compose --profile keycloak up -d
-# keycloak` at the root). For Auth0 set OIDC_JWKS_URI= (empty) to switch to discovery; to turn
+# default to the dev Keycloak of the root project (at the root, with .env copied from
+# .env.example: `docker compose --profile keycloak up -d keycloak`). For Auth0 set OIDC_JWKS_URI= (empty) to switch to discovery; to turn
 # the demo broker off set DEMO_TOKEN_URL= (empty): those use `${VAR-default}`, which keeps an
 # empty value, where the others use `${VAR:-default}`.
 
@@ -16,11 +16,14 @@ services:
   postgres:
     image: postgres:15
     shm_size: '256m'
+    # Loopback only: a host-run `yarn start` reaches it, other devices on the network do not.
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     environment:
       POSTGRES_USER: heka
-      POSTGRES_PASSWORD: heka1
+      # No committed password: set MIKRO_ORM_PASSWORD in .env. Postgres applies it only when it
+      # creates the database, so recreate the container after changing it.
+      POSTGRES_PASSWORD: ${MIKRO_ORM_PASSWORD:?set MIKRO_ORM_PASSWORD in .env, see .env.example}
       POSTGRES_DB: heka-identity-service
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -d heka-identity-service -U heka']
@@ -35,7 +38,12 @@ services:
     environment:
       MIKRO_ORM_HOST: postgres
       WALLET_POSTGRES_HOST: postgres
+      # The wallets live in the same Postgres as the app data, so both use its one password.
+      MIKRO_ORM_PASSWORD: ${MIKRO_ORM_PASSWORD:?set MIKRO_ORM_PASSWORD in .env, see .env.example}
+      WALLET_POSTGRES_PASSWORD: ${MIKRO_ORM_PASSWORD:?set MIKRO_ORM_PASSWORD in .env, see .env.example}
       EXPRESS_PORT: ${EXPRESS_PORT:-3000}
+      # Public base URL of the REST API (status-list credential and revocation tails URLs).
+      APP_ENDPOINT: ${APP_ENDPOINT:-http://localhost:${EXPRESS_PORT:-3000}}
       EXPRESS_PREFIX: ${EXPRESS_PREFIX:-}
       EXPRESS_ENABLE_CORS: ${EXPRESS_ENABLE_CORS:-}
       EXPRESS_CORS_OPTIONS: ${EXPRESS_CORS_OPTIONS:-}
@@ -49,6 +57,8 @@ services:
       OIDC_CLAIM_ROLES: ${OIDC_CLAIM_ROLES:-}
       OIDC_CLAIM_NAME: ${OIDC_CLAIM_NAME:-}
       OIDC_CLAIM_ORG_ID: ${OIDC_CLAIM_ORG_ID:-}
+      OIDC_CLAIM_ORG_ID_FIELD: ${OIDC_CLAIM_ORG_ID_FIELD:-}
+      ROLE_MODEL_ENABLED: ${ROLE_MODEL_ENABLED:-false}
       # Demo-token broker for the web UI's public demo pages (docs/setup.md#demo-token-broker);
       # the token endpoint is reached through the host gateway like the JWKS. Dev secret of the
       # shipped realm.
@@ -63,16 +73,15 @@ services:
       AGENT_OID4VCI_ENDPOINT: ${AGENT_OID4VCI_ENDPOINT:-http://localhost:3003}
       AGENT_HTTP_ENDPOINT: ${AGENT_HTTP_ENDPOINT:-http://localhost:3001}
       AGENT_WS_ENDPOINT: ${AGENT_WS_ENDPOINT:-ws://localhost:3002}
-      FILE_STORAGE_FS_URL: ${FILE_STORAGE_FS_URL:-http://localhost:3000}
+      FILE_STORAGE_FS_URL: ${FILE_STORAGE_FS_URL:-http://localhost:${EXPRESS_PORT:-3000}}
       FILE_STORAGE_FS_PUBLIC_URL: ${FILE_STORAGE_FS_PUBLIC_URL:-}
       WEBHOOK_ALLOW_HTTP: ${WEBHOOK_ALLOW_HTTP:-false}
       WEBHOOK_ALLOW_PRIVATE_ADDRESSES: ${WEBHOOK_ALLOW_PRIVATE_ADDRESSES:-false}
       WEBHOOK_HTTP_TIMEOUT_MS: ${WEBHOOK_HTTP_TIMEOUT_MS:-10000}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
-      ROLE_MODEL_ENABLED: ${ROLE_MODEL_ENABLED:-false}
     ports:
-      - '3000:3000'
+      - '${EXPRESS_PORT:-3000}:${EXPRESS_PORT:-3000}'
       - '3001:3001'
       - '3002:3002'
       - '3003:3003'

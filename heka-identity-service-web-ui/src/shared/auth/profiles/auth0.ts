@@ -11,14 +11,23 @@ export const auth0Profile: ProfileFactory = (config) => {
   if (config.audience) {
     authorizeParams.audience = config.audience;
   }
+  // Auth0 Organizations: the login goes through this organization, so the token carries its org_id and the roles
+  // of that membership (see heka-sso-service/auth0/actions/post-login.js).
+  if (config.organization) {
+    authorizeParams.organization = config.organization;
+  }
 
   return {
     name: 'auth0',
     defaultScope: 'openid profile offline_access',
     authorizeParams,
     nameClaims: ['nickname', 'name', 'email'],
+    // A per-call `extraQueryParams` replaces the client's (oidc-client-ts doesn't merge them), so the audience and
+    // organization are repeated here: without the audience, Auth0 issues an opaque token the API rejects.
     signUp: (auth) =>
-      auth.signinRedirect({ extraQueryParams: { screen_hint: 'signup' } }),
+      auth.signinRedirect({
+        extraQueryParams: { ...authorizeParams, screen_hint: 'signup' },
+      }),
     changePassword: config.accountUrl
       ? () => {
           window.location.assign(config.accountUrl as string);

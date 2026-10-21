@@ -1,8 +1,14 @@
 .dockerignore
 .gitignore
+.git
 Dockerfile
 README.md
 docker-compose.yml
+# Local configuration is never baked in (the Dockerfile does `COPY . .`); Compose and the
+# deployment pass every value as environment.
+.env
+.env.*
+!.env.example
 
 node_modules
 .idea

@@ -1,0 +1,78 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`route coverage of the role model > the role matrix only changes on purpose (review the snapshot diff) 1`] = `
+"| Route | Admin | OrgAdmin | OrgManager | OrgMember | Issuer | Verifier | User |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| \`GET /connections\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /connections/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /connections/accept-invitation\` | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ |
+| \`POST /connections/create-invitation\` | ✓ | ✓ | ✓ |  | ✓ | ✓ |  |
+| \`GET /credential-definitions\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /credential-definitions\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /credential-definitions/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /credentials\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /credentials/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /credentials/:id/accept\` | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ |
+| \`POST /credentials/:id/revoke\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /credentials/config\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /credentials/offer\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /credentials/status/:id\` | public | public | public | public | public | public | public |
+| \`GET /demo/token\` | public | public | public | public | public | public | public |
+| \`GET /dids\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /dids\` | ✓ | ✓ |  |  | ✓ | ✓ |  |
+| \`GET /dids/:did\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /dids/methods\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /health\` | public | public | public | public | public | public | public |
+| \`GET /issuance-templates\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /issuance-templates\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`DELETE /issuance-templates/:id\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /issuance-templates/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`PATCH /issuance-templates/:id\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /openid4vc/issuance-session\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /openid4vc/issuance-session/:id/revoke\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`DELETE /openid4vc/issuance-session/:issuanceSessionId\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /openid4vc/issuance-session/:issuanceSessionId\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /openid4vc/issuance-session/offer\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /openid4vc/issuer\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /openid4vc/issuer\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`PUT /openid4vc/issuer/:issuerId\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /openid4vc/issuer/supported-credentials\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /openid4vc/verification-session\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`DELETE /openid4vc/verification-session/:verificationSessionId\` | ✓ | ✓ | ✓ |  |  | ✓ |  |
+| \`GET /openid4vc/verification-session/:verificationSessionId\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /openid4vc/verification-session/:verificationSessionId/verify\` | ✓ | ✓ | ✓ |  |  | ✓ |  |
+| \`POST /openid4vc/verification-session/request\` | ✓ | ✓ | ✓ |  |  | ✓ |  |
+| \`GET /openid4vc/verifier\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /openid4vc/verifier\` | ✓ | ✓ | ✓ |  |  | ✓ |  |
+| \`POST /prepare-wallet\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /proofs\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /proofs/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /proofs/:id/present\` | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ |
+| \`POST /proofs/request\` | ✓ | ✓ | ✓ |  | ✓ | ✓ |  |
+| \`GET /revocation-registries\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /revocation-registries\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /revocation-registries/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /revocation/tails/:hash\` | public | public | public | public | public | public | public |
+| \`GET /schemas\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /schemas\` | ✓ | ✓ | ✓ |  |  |  |  |
+| \`GET /schemas/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /status-lists\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /status-lists\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /status-lists/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`PUT /status-lists/:id\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /user\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`PATCH /user\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /v2/credentials/offer-by-template\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`POST /v2/credentials/proof-by-template\` | ✓ | ✓ | ✓ |  | ✓ | ✓ |  |
+| \`GET /v2/schemas\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /v2/schemas\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /v2/schemas/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`PATCH /v2/schemas/:id\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /v2/schemas/:id/registration\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /v2/schemas/:id/registration\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /verification-templates\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /verification-templates\` | ✓ | ✓ | ✓ |  | ✓ | ✓ |  |
+| \`DELETE /verification-templates/:id\` | ✓ | ✓ | ✓ |  | ✓ | ✓ |  |
+| \`GET /verification-templates/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`PATCH /verification-templates/:id\` | ✓ | ✓ | ✓ |  | ✓ | ✓ |  |"
+`;

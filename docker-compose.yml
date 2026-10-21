@@ -4,8 +4,10 @@ services:
   postgres:
     image: postgres:15
     shm_size: '256m'
+    # Loopback only: the services reach it on the Compose network, a host-run `yarn start` or
+    # `yarn test` on 127.0.0.1; other devices on the network do not, the dev password is committed.
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     environment:
       POSTGRES_USER: heka
       POSTGRES_PASSWORD: heka1
@@ -30,19 +32,24 @@ services:
       EXPRESS_PORT: '3000'
       EXPRESS_ENABLE_CORS: 'true'
       EXPRESS_CORS_OPTIONS: '{"origin":["http://localhost:8000","http://localhost:5173"],"credentials":true}'
-      OIDC_ISSUER_URL: ${IDENTITY_SERVICE_OIDC_ISSUER_URL:?platform IdP issuer, see .env.example section 1.[P] or 2.[P]}
+      OIDC_ISSUER_URL: ${IDENTITY_SERVICE_OIDC_ISSUER_URL:?platform IdP issuer, see the Keycloak or Auth0 block of .env.example}
       OIDC_JWKS_URI: ${IDENTITY_SERVICE_OIDC_JWKS_URI:-}
-      OIDC_AUDIENCE: ${IDENTITY_SERVICE_OIDC_AUDIENCE:?platform IdP audience, see .env.example section 1.[P] or 2.[P]}
+      OIDC_AUDIENCE: ${IDENTITY_SERVICE_OIDC_AUDIENCE:?platform IdP audience, see the Keycloak or Auth0 block of .env.example}
       OIDC_CLAIM_USER_ID: ${IDENTITY_SERVICE_OIDC_CLAIM_USER_ID:-}
       OIDC_CLAIM_ROLES: ${IDENTITY_SERVICE_OIDC_CLAIM_ROLES:-}
       OIDC_CLAIM_NAME: ${IDENTITY_SERVICE_OIDC_CLAIM_NAME:-}
       OIDC_CLAIM_ORG_ID: ${IDENTITY_SERVICE_OIDC_CLAIM_ORG_ID:-}
+      OIDC_CLAIM_ORG_ID_FIELD: ${IDENTITY_SERVICE_OIDC_CLAIM_ORG_ID_FIELD:-}
+      ROLE_MODEL_ENABLED: ${IDENTITY_SERVICE_ROLE_MODEL_ENABLED:-false}
       DEMO_TOKEN_URL: ${IDENTITY_SERVICE_DEMO_TOKEN_URL:-}
       DEMO_CLIENT_ID: ${IDENTITY_SERVICE_DEMO_CLIENT_ID:-}
       DEMO_CLIENT_SECRET: ${IDENTITY_SERVICE_DEMO_CLIENT_SECRET:-}
       DEMO_TOKEN_PARAMS: ${IDENTITY_SERVICE_DEMO_TOKEN_PARAMS:-}
       DEMO_CLIENT_AUTH_METHOD: ${IDENTITY_SERVICE_DEMO_CLIENT_AUTH_METHOD:-}
       DEMO_TOKEN_RATE_LIMIT: ${IDENTITY_SERVICE_DEMO_TOKEN_RATE_LIMIT:-}
+      # Public base URL of the REST API, embedded into status-list credential URLs and revocation
+      # tails URLs; the https tunnel to 3000 when wallets or verifiers resolve them remotely.
+      APP_ENDPOINT: ${IDENTITY_SERVICE_APP_ENDPOINT:-http://localhost:3000}
       AGENT_OID4VCI_ENDPOINT: ${IDENTITY_SERVICE_AGENT_OID4VCI_ENDPOINT:-http://localhost:3003}
       AGENT_HTTP_ENDPOINT: ${IDENTITY_SERVICE_AGENT_HTTP_ENDPOINT:-http://localhost:3001}
       AGENT_WS_ENDPOINT: ${IDENTITY_SERVICE_AGENT_WS_ENDPOINT:-ws://localhost:3002}
@@ -73,8 +80,6 @@ services:
     image: heka-sso-service:latest
     build:
       context: ./heka-sso-service
-      args:
-        NODE_ENV: development
     environment:
       # The image defaults to production, which refuses the dev-only secrets below.
       NODE_ENV: development
@@ -88,13 +93,13 @@ services:
       DB_NAME: heka-sso-service
       DB_USER: heka
       DB_PASSWORD: heka1
-      OIDC_ISSUER_URL: ${SSO_SERVICE_OIDC_ISSUER_URL:?bridge issuer, see .env.example section 1.[R] or 2.[R]}
+      OIDC_ISSUER_URL: ${SSO_SERVICE_OIDC_ISSUER_URL:?bridge issuer, see the Keycloak or Auth0 block of .env.example}
       OIDC_COOKIE_KEYS: dev-only-cookie-key-do-not-use-in-production
       OIDC_SUB_HMAC_SALT: dev-only-sub-hmac-salt-do-not-use-in-production
       IDENTITY_SERVICE_BASE_URL: http://heka-identity-service:3000
-      IDENTITY_SERVICE_TOKEN_URL: ${SSO_SERVICE_IDENTITY_SERVICE_TOKEN_URL:?platform IdP token endpoint for the bridge's service account, see .env.example section 1.[P] or 2.[P]}
-      IDENTITY_SERVICE_CLIENT_ID: ${SSO_SERVICE_IDENTITY_SERVICE_CLIENT_ID:?bridge service-account client id, see .env.example section 1.[P] or 2.[P]}
-      IDENTITY_SERVICE_CLIENT_SECRET: ${SSO_SERVICE_IDENTITY_SERVICE_CLIENT_SECRET:?bridge service-account client secret, see .env.example section 1.[P] or 2.[P]}
+      IDENTITY_SERVICE_TOKEN_URL: ${SSO_SERVICE_IDENTITY_SERVICE_TOKEN_URL:?platform IdP token endpoint for the bridge's service account, see the Keycloak or Auth0 block of .env.example}
+      IDENTITY_SERVICE_CLIENT_ID: ${SSO_SERVICE_IDENTITY_SERVICE_CLIENT_ID:?bridge service-account client id, see the Keycloak or Auth0 block of .env.example}
+      IDENTITY_SERVICE_CLIENT_SECRET: ${SSO_SERVICE_IDENTITY_SERVICE_CLIENT_SECRET:?bridge service-account client secret, see the Keycloak or Auth0 block of .env.example}
       IDENTITY_SERVICE_TOKEN_PARAMS: ${SSO_SERVICE_IDENTITY_SERVICE_TOKEN_PARAMS:-}
       IDENTITY_SERVICE_CLIENT_AUTH_METHOD: ${SSO_SERVICE_IDENTITY_SERVICE_CLIENT_AUTH_METHOD:-}
       IDENTITY_SERVICE_PUBLIC_VERIFIER_ID: ${SSO_SERVICE_IDENTITY_SERVICE_PUBLIC_VERIFIER_ID:-}
@@ -138,17 +143,20 @@ services:
       context: ./heka-identity-service-web-ui
       additional_contexts:
         nginxconf: ./docker/nginx
-      # Baked into the bundle: a change here needs `docker compose up -d --build heka-identity-web-ui`.
       args:
         REACT_APP_AGENCY_ENDPOINT: ${IDENTITY_WEBUI_AGENCY_ENDPOINT:-http://localhost:3000}
-        # [P] platform IdP (.env section 1.[P] or 2.[P])
-        REACT_APP_AUTH_PROVIDER: ${IDENTITY_WEBUI_AUTH_PROVIDER:?keycloak or auth0, see .env.example section 1.[P] or 2.[P]}
-        REACT_APP_OIDC_AUTHORITY: ${IDENTITY_WEBUI_OIDC_AUTHORITY:?platform IdP authority for the web UI, see .env.example section 1.[P] or 2.[P]}
-        REACT_APP_OIDC_CLIENT_ID: ${IDENTITY_WEBUI_OIDC_CLIENT_ID:?platform IdP client id for the web UI, see .env.example section 1.[P] or 2.[P]}
+        # The IdP that signs users in to the identity web UI (Keycloak or Auth0 block of .env.example).
+        REACT_APP_AUTH_PROVIDER: ${IDENTITY_WEBUI_AUTH_PROVIDER:?keycloak or auth0, see the Keycloak or Auth0 block of .env.example}
+        REACT_APP_OIDC_AUTHORITY: ${IDENTITY_WEBUI_OIDC_AUTHORITY:?platform IdP authority for the web UI, see the Keycloak or Auth0 block of .env.example}
+        REACT_APP_OIDC_CLIENT_ID: ${IDENTITY_WEBUI_OIDC_CLIENT_ID:?platform IdP client id for the web UI, see the Keycloak or Auth0 block of .env.example}
         REACT_APP_OIDC_AUDIENCE: ${IDENTITY_WEBUI_OIDC_AUDIENCE:-}
         REACT_APP_OIDC_SCOPE: ${IDENTITY_WEBUI_OIDC_SCOPE:-}
+        REACT_APP_OIDC_ORGANIZATION: ${IDENTITY_WEBUI_OIDC_ORGANIZATION:-}
         REACT_APP_AUTH_ACCOUNT_URL: ${IDENTITY_WEBUI_AUTH_ACCOUNT_URL:-}
-        # Bootstrap value (.env section 3), written by `yarn prepare-demo-user`.
+        # DID of the demo account for the public demo pages. `yarn prepare-demo-user` in
+        # heka-identity-service-web-ui prints it (and writes that package's .env, which is not
+        # part of this build): copy it into the root .env and rebuild this image. Left empty, the
+        # demo pages render but every issuance and verification they start fails.
         REACT_APP_DEMO_USER_DID: ${IDENTITY_WEBUI_DEMO_USER_DID:-}
     ports:
       - '8000:80'
@@ -164,10 +172,10 @@ services:
       context: ./heka-sso-web-ui
       additional_contexts:
         nginxconf: ./docker/nginx
-      # Baked into the bundle: a change here needs `docker compose up -d --build heka-sso-web-ui`.
       args:
-        # [R] relying-party IdP (.env section 1.[R] or 2.[R]); the inactive provider's values are empty.
-        VITE_AUTH_PROVIDER: ${VITE_SSO_WEBUI_AUTH_PROVIDER:?keycloak or auth0, see .env.example section 1.[R] or 2.[R]}
+        # The IdP the SSO web UI signs in with; it brokers to heka-sso-service (Keycloak or Auth0 block
+        # of .env.example). The inactive provider's values stay empty.
+        VITE_AUTH_PROVIDER: ${VITE_SSO_WEBUI_AUTH_PROVIDER:?keycloak or auth0, see the Keycloak or Auth0 block of .env.example}
         VITE_KC_URL: ${VITE_SSO_WEBUI_KC_URL:-}
         VITE_KC_REALM: ${VITE_SSO_WEBUI_KC_REALM:-}
         VITE_KC_CLIENT_ID: ${VITE_SSO_WEBUI_KC_CLIENT_ID:-}
@@ -204,7 +212,7 @@ services:
     profiles: [keycloak]
     image: busybox:1.37
     environment:
-      SSO_ISSUER_URL: ${SSO_SERVICE_OIDC_ISSUER_URL:?bridge issuer, see .env.example section 1.[R] or 2.[R]}
+      SSO_ISSUER_URL: ${SSO_SERVICE_OIDC_ISSUER_URL:?bridge issuer, see the Keycloak or Auth0 block of .env.example}
     volumes:
       - ./docker/keycloak/prepare-realms.sh:/prepare-realms.sh:ro
       - ./heka-sso-service/keycloak:/realms-src:ro
@@ -213,7 +221,7 @@ services:
 
   keycloak:
     profiles: [keycloak]
-    image: quay.io/keycloak/keycloak:26.3
+    image: quay.io/keycloak/keycloak:26.8.1
     command: start-dev --import-realm --spi-theme-static-max-age=-1 --spi-theme-cache-themes=false --spi-theme-cache-templates=false
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
@@ -222,7 +230,7 @@ services:
       KC_HEALTH_ENABLED: 'true'
       # Not read by Keycloak: a change of the broker issuer must recreate this container so the
       # rewritten realm is imported again (dev mode keeps no volume, a recreate starts empty).
-      SSO_ISSUER_URL: ${SSO_SERVICE_OIDC_ISSUER_URL:?bridge issuer, see .env.example section 1.[R] or 2.[R]}
+      SSO_ISSUER_URL: ${SSO_SERVICE_OIDC_ISSUER_URL:?bridge issuer, see the Keycloak or Auth0 block of .env.example}
     volumes:
       - keycloak-realms:/opt/keycloak/data/import:ro
       - keycloak-theme:/opt/keycloak/providers:ro

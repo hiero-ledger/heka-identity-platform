@@ -23,9 +23,12 @@ describe('E2E role model', () => {
   let nestApp: INestApplication
   let app: Server
 
-  const startApp = async (roleModelEnabled: boolean) => {
-    await ormSchemaGenerator.refresh()
-    nestApp = await startTestApp({ roleModelEnabled })
+  const startApp = async (
+    roleModelEnabled: boolean,
+    { keepData = false, storeId }: { keepData?: boolean; storeId?: string } = {},
+  ) => {
+    if (!keepData) await ormSchemaGenerator.refresh()
+    nestApp = await startTestApp({ roleModelEnabled, storeId })
     app = nestApp.getHttpServer() as Server
   }
 
@@ -50,7 +53,7 @@ describe('E2E role model', () => {
   describe('disabled (default): self-service onboarding', () => {
     beforeEach(() => startApp(false))
 
-    // A self-registered user gets the `User` role from the bundled Auth Service
+    // A self-registered user gets the `User` role from the OIDC provider recipes (Keycloak default group, Auth0 Action)
     test('a sign-up (User) prepares its own wallet and can use every endpoint', async () => {
       const token = await tokenFor(Role.User)
 
@@ -95,7 +98,7 @@ describe('E2E role model', () => {
   describe('enabled: endpoint role restrictions', () => {
     beforeEach(() => startApp(true))
 
-    // The `@Roles` lists are the same as before the role model became optional
+    // Every route has an explicit decision (@Roles or @AnyRole); see src/common/authz/__tests__/route-coverage.test.ts
     test.each([
       ['get', '/dids?own=true', Role.User, true],
       ['patch', '/user', Role.OrgMember, true],
@@ -104,12 +107,28 @@ describe('E2E role model', () => {
       ['post', '/connections/create-invitation', Role.User, false],
       ['post', '/connections/create-invitation', Role.Verifier, true],
       ['post', '/dids', Role.OrgManager, false],
-      ['post', '/dids', Role.Verifier, false],
+      ['post', '/dids', Role.Verifier, true],
+      ['post', '/dids', Role.OrgMember, false],
       ['post', '/dids', Role.Admin, true],
       ['post', '/credentials/offer', Role.Verifier, false],
       ['post', '/proofs/request', Role.Issuer, true],
       ['post', '/proofs/request', Role.User, false],
       ['post', '/openid4vc/verifier', Role.Issuer, false],
+      // Former bypasses: these writes had no role list before
+      ['post', '/v2/credentials/offer-by-template', Role.Verifier, false],
+      ['post', '/v2/credentials/offer-by-template', Role.User, false],
+      ['post', '/v2/credentials/offer-by-template', Role.Issuer, true],
+      ['post', '/v2/credentials/proof-by-template', Role.Verifier, true],
+      ['post', '/v2/credentials/proof-by-template', Role.User, false],
+      ['post', '/v2/schemas', Role.Verifier, false],
+      ['post', '/v2/schemas', Role.OrgManager, true],
+      ['post', '/issuance-templates', Role.User, false],
+      ['post', '/verification-templates', Role.Verifier, true],
+      ['post', '/verification-templates', Role.OrgMember, false],
+      // Reads are open to every authenticated role
+      ['get', '/status-lists/00000000-0000-0000-0000-000000000000', Role.User, true],
+      ['get', '/revocation-registries/x', Role.Issuer, true],
+      ['get', '/user', Role.OrgMember, true],
     ])('%s %s as %s is allowed=%s', async (method: string, path: string, role: Role, allowed: boolean) => {
       const token = await tokenFor(role)
 
@@ -133,6 +152,30 @@ describe('E2E role model', () => {
     })
   })
 
+  describe('switching the flag', () => {
+    test('a wallet keeps its data when the role model is turned on; only permissions change', async () => {
+      const userId = uuid()
+      const token = await tokenFor(Role.User, userId)
+
+      // Both starts use one agent store, so the second app sees the tenants of the first
+      const storeId = `tenant-${uuid()}`
+      await startApp(false, { storeId })
+      const did = (await post('/prepare-wallet', token)).body.did as string
+      expect((await post('/v2/schemas', token, { name: 'Diploma', fields: ['name'] })).status).toBe(201)
+      await sleep(2000)
+      await nestApp.close()
+
+      await startApp(true, { keepData: true, storeId })
+      const dids = await request(app).get('/dids').query({ own: true }).auth(token, { type: 'bearer' })
+      expect((dids.body as Array<{ id: string }>).map((d) => d.id)).toContain(did)
+      const schemas = await request(app).get('/v2/schemas').auth(token, { type: 'bearer' })
+      expect(schemas.status).toBe(200)
+      expect(JSON.stringify(schemas.body)).toContain('Diploma')
+      // ...but a User may no longer create schemas
+      expect((await post('/v2/schemas', token, { name: 'Other', fields: ['name'] })).status).toBe(403)
+    })
+  })
+
   describe('enabled: prepare-wallet by role', () => {
     const orgId = uuid()
 
@@ -153,6 +196,20 @@ describe('E2E role model', () => {
 
       // A did:hedera is controlled by the organization's did:hedera, which does not exist yet
       expect((await post('/dids', token, { method: 'hedera' })).status).toBe(422)
+    })
+
+    test('a Verifier prepares its own wallet with a did:key, but may not create a ledger DID', async () => {
+      const token = await tokenFor(Role.Verifier, uuid(), orgId)
+
+      const prepareResponse = await post('/prepare-wallet', token)
+      expect(prepareResponse.status).toBe(201)
+      expect(prepareResponse.body.did).toMatch(/^did:key:/)
+
+      expect((await post('/dids', token, { method: 'hedera' })).status).toBe(403)
+      // It can now create the verifier its verification requests are signed with
+      expect(
+        (await post('/openid4vc/verifier', token, { publicVerifierId: prepareResponse.body.did })).status,
+      ).not.toBe(403)
     })
 
     test('an OrgManager gets 403 until an OrgAdmin has prepared the organization wallet, then its DID', async () => {

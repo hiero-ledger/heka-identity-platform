@@ -51,9 +51,13 @@ import { testDbHost, testDbPassword, testDbPort, testDbUser } from '../config/db
 export interface TestAppOptions {
   // Enforce role capabilities (`ROLE_MODEL_ENABLED=true`). Defaults to `false`, as in production.
   roleModelEnabled?: boolean
+  // Askar store of the agent. Defaults to a new store per app start; pass the same id to restart an app on the same
+  // tenants (e.g. switching ROLE_MODEL_ENABLED with existing data).
+  storeId?: string
 }
 
 export async function startTestApp(options: TestAppOptions = {}): Promise<INestApplication> {
+  const storeId = options.storeId ?? `tenant-${uuid()}`
   process.env.PINO_LEVEL = 'error'
 
   const moduleRef = await Test.createTestingModule({
@@ -85,8 +89,8 @@ export async function startTestApp(options: TestAppOptions = {}): Promise<INestA
           askar: new AskarModule({
             askar: NativeAskar.instance,
             store: {
-              id: `tenant-${uuid()}`,
-              key: `tenant-${uuid()}`,
+              id: storeId,
+              key: storeId,
               database: {
                 type: 'postgres',
                 config: {
