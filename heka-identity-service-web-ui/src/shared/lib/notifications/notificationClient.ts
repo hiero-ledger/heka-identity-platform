@@ -1,6 +1,6 @@
 import {
   getSessionAccessToken,
-  refreshSessionToken,
+  renewSessionToken,
 } from '@/shared/auth/sessionBridge';
 
 import {
@@ -28,6 +28,8 @@ let status: NotificationStatus = 'closed';
 let shouldConnect = false;
 let retryAttempt = 0;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
+// Set after a 3000 close; a second 3000 before the socket opens means a renewed token won't help
+let unauthorizedRetried = false;
 
 /** The gateway listens on the API server's root, independent of any REST path prefix. */
 export const getNotificationsUrl = (
@@ -58,17 +60,24 @@ const scheduleReconnect = (delayMs: number) => {
   retryTimer = setTimeout(open, delayMs);
 };
 
-const onClose = async (event: CloseEvent) => {
+const onClose = async (event: CloseEvent, socketToken: string) => {
   socket = null;
   setStatus('closed');
   if (!shouldConnect) return;
+
+  if (event.code === UNAUTHORIZED_CLOSE_CODE) {
+    // The server also rejected the renewed token (e.g. no Heka role): stop, retrying won't fix it
+    if (unauthorizedRetried) return;
+    unauthorizedRetried = true;
+  }
 
   if (
     event.code === TOKEN_EXPIRED_CLOSE_CODE ||
     event.code === UNAUTHORIZED_CLOSE_CODE
   ) {
     // The server rejected or retired our token; only a renewed session can reconnect
-    const token = await refreshSessionToken().catch(() => null);
+    // Shares the renewal with the API layer; a token already renewed in the background is reused
+    const token = await renewSessionToken(socketToken).catch(() => null);
     if (!token || !shouldConnect) return;
     scheduleReconnect(
       event.code === TOKEN_EXPIRED_CLOSE_CODE ? 0 : nextRetryDelay(),
@@ -105,18 +114,20 @@ function open() {
 
   ws.onopen = () => {
     retryAttempt = 0;
+    unauthorizedRetried = false;
     setStatus('open');
   };
   ws.onmessage = onMessage;
   ws.onclose = (event) => {
     // A socket replaced by disconnect/connect must not touch the new one
-    if (socket === ws) void onClose(event);
+    if (socket === ws) void onClose(event, token);
   };
 }
 
 /** Opens the shared socket for the signed-in session; safe to call more than once. */
 export const connect = () => {
   shouldConnect = true;
+  unauthorizedRetried = false;
   open();
 };
 

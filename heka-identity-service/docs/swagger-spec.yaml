@@ -1582,7 +1582,7 @@ paths:
                   info:
                     type: object
                     example: &a39
-                      database:
+                      database: &a40
                         status: up
                     additionalProperties:
                       type: object
@@ -1628,9 +1628,7 @@ paths:
                     example: error
                   info:
                     type: object
-                    example:
-                      database: &a40
-                        status: up
+                    example: *a39
                     additionalProperties:
                       type: object
                       required:

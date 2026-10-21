@@ -1,31 +1,25 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { AxiosInstance } from 'axios';
-
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
+import {
+  createMockApi,
+  createTestStore,
+  MockApi,
+} from '@/shared/lib/tests/renderWithProviders';
 
 import { createConnection } from './createConnection';
 import { fetchConnections } from './fetchConnections';
 import { updateConnectionState } from './updateConnectionState';
-import { ConnectionState } from '../types/connection';
+import { ConnectionRecord, ConnectionState } from '../types/connection';
 
 jest.mock('react-hot-toast', () => ({
   __esModule: true,
   default: { error: jest.fn() },
 }));
 
-const makeApi = (data: unknown): AxiosInstance =>
-  ({
-    get: jest.fn().mockResolvedValue({ data }),
-    post: jest.fn().mockResolvedValue({ data }),
-  }) as unknown as AxiosInstance;
-
-const runThunk = async (
-  thunk: any,
-  agencyApi: AxiosInstance,
-  agencyDemoApi: AxiosInstance = makeApi(undefined),
-) => {
-  const dispatch = jest.fn();
-  return thunk(dispatch, () => ({}), { agencyApi, agencyDemoApi });
+const makeApi = (data: unknown): MockApi => {
+  const api = createMockApi();
+  api.get.mockResolvedValue({ data });
+  api.post.mockResolvedValue({ data });
+  return api;
 };
 
 describe('fetchConnections', () => {
@@ -42,10 +36,12 @@ describe('fetchConnections', () => {
   test('keeps completed connections only, newest first', async () => {
     const api = makeApi(records);
 
-    const action = await runThunk(fetchConnections({}), api);
+    const action = await createTestStore({}, api).dispatch(
+      fetchConnections({}),
+    );
 
     expect(api.get).toHaveBeenCalledWith(agencyEndpoints.getConnections);
-    expect(action.payload.map((c: { id: string }) => c.id)).toEqual([
+    expect((action.payload as ConnectionRecord[]).map((c) => c.id)).toEqual([
       'new',
       'old',
     ]);
@@ -55,10 +51,8 @@ describe('fetchConnections', () => {
     const api = makeApi([]);
     const demoApi = makeApi(records);
 
-    const action = await runThunk(
+    const action = await createTestStore({}, api, demoApi).dispatch(
       fetchConnections({ useDemo: true }),
-      api,
-      demoApi,
     );
 
     expect(api.get).not.toHaveBeenCalled();
@@ -67,13 +61,12 @@ describe('fetchConnections', () => {
   });
 
   test('rejects with the server message on failure', async () => {
-    const api = {
-      get: jest
-        .fn()
-        .mockRejectedValue({ response: { data: { message: 'boom' } } }),
-    } as unknown as AxiosInstance;
+    const api = createMockApi();
+    api.get.mockRejectedValue({ response: { data: { message: 'boom' } } });
 
-    const action = await runThunk(fetchConnections({}), api);
+    const action = await createTestStore({}, api).dispatch(
+      fetchConnections({}),
+    );
 
     expect(action.type).toBe('connections/list/rejected');
     expect(action.payload).toBe('boom');
@@ -86,7 +79,9 @@ describe('createConnection', () => {
   test('creates a single-use invitation without alias by default', async () => {
     const api = makeApi(response);
 
-    const action = await runThunk(createConnection({}), api);
+    const action = await createTestStore({}, api).dispatch(
+      createConnection({}),
+    );
 
     expect(api.post).toHaveBeenCalledWith(agencyEndpoints.createConnection, {
       multiUseInvitation: false,
@@ -101,14 +96,16 @@ describe('createConnection', () => {
   test('sends a trimmed alias and omits a blank one', async () => {
     const api = makeApi(response);
 
-    await runThunk(createConnection({ alias: '  Alice Smith ' }), api);
-    await runThunk(createConnection({ alias: '   ' }), api);
+    const store = createTestStore({}, api);
 
-    expect((api.post as jest.Mock).mock.calls[0][1]).toEqual({
+    await store.dispatch(createConnection({ alias: '  Alice Smith ' }));
+    await store.dispatch(createConnection({ alias: '   ' }));
+
+    expect(api.post.mock.calls[0][1]).toEqual({
       multiUseInvitation: false,
       alias: 'Alice Smith',
     });
-    expect((api.post as jest.Mock).mock.calls[1][1]).toEqual({
+    expect(api.post.mock.calls[1][1]).toEqual({
       multiUseInvitation: false,
     });
   });
@@ -117,7 +114,9 @@ describe('createConnection', () => {
     const api = makeApi(response);
     const demoApi = makeApi(response);
 
-    await runThunk(createConnection({ useDemo: true }), api, demoApi);
+    await createTestStore({}, api, demoApi).dispatch(
+      createConnection({ useDemo: true }),
+    );
 
     expect(api.post).not.toHaveBeenCalled();
     expect(demoApi.post).toHaveBeenCalled();
@@ -129,10 +128,8 @@ describe('updateConnectionState', () => {
     const api = makeApi(null);
     const demoApi = makeApi({ id: 'conn-1', state: 'completed' });
 
-    const action = await runThunk(
+    const action = await createTestStore({}, api, demoApi).dispatch(
       updateConnectionState({ id: 'oob-1', useDemo: true }),
-      api,
-      demoApi,
     );
 
     expect(api.get).not.toHaveBeenCalled();
@@ -146,9 +143,8 @@ describe('updateConnectionState', () => {
   });
 
   test('reports start while no connection exists yet', async () => {
-    const action = await runThunk(
+    const action = await createTestStore({}, makeApi(null)).dispatch(
       updateConnectionState({ id: 'oob-1' }),
-      makeApi(null),
     );
 
     expect(action.payload).toEqual({

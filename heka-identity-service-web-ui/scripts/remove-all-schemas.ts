@@ -1,25 +1,18 @@
 /**
- * Removes every schema of every account from the identity service database, together with what
- * hangs off them: schema fields, schema registrations, and the issuance / verification templates
- * built on those schemas (with their fields). Everything is deleted in one transaction.
+ * Deletes every schema of every account from the identity service database, with their fields,
+ * registrations and the templates built on them, in one transaction. Uses SQL because the API
+ * cannot delete schemas. Issued credentials, ledger objects and logo files stay.
+ * Then run `yarn prepare-demo-user` to bring the demo schemas back.
  *
- * The identity service has no API for deleting schemas, so this talks to its Postgres directly.
- * Already issued credentials, ledger / registry objects and uploaded logo files are left as they
- * are. Run `yarn prepare-demo-user` afterwards to bring the demo schemas back.
+ * Env (identity service names): MIKRO_ORM_PASSWORD (required), MIKRO_ORM_HOST (local only,
+ * default localhost), MIKRO_ORM_PORT (5432), MIKRO_ORM_USER (heka), MIKRO_ORM_DATABASE (heka-identity-service).
  *
- * Environment (same names and defaults as the identity service):
- *   MIKRO_ORM_HOST      database host (default localhost)
- *   MIKRO_ORM_PORT      database port (default 5432)
- *   MIKRO_ORM_USER      database user (default heka)
- *   MIKRO_ORM_PASSWORD  database password (default: the local docker-compose one)
- *   MIKRO_ORM_DATABASE  database name (default heka-identity-service)
- *
- * Run: yarn remove-all-schemas [--yes]
- *   Without --yes it only prints what would be deleted.
+ * Run: yarn remove-all-schemas [--yes] [--allow-remote]
+ *   Without --yes it only prints what would be deleted; --allow-remote permits a non-local host.
  */
 import { Client } from 'pg';
 
-const confirmed = process.argv.includes('--yes');
+import { describeTarget, resolveOptions } from './remove-all-schemas.target';
 
 /** Tables in deletion order: each one only references tables further down the list. */
 const tables = [
@@ -33,15 +26,10 @@ const tables = [
 ];
 
 async function main() {
-  const client = new Client({
-    host: process.env.MIKRO_ORM_HOST || 'localhost',
-    port: process.env.MIKRO_ORM_PORT
-      ? parseInt(process.env.MIKRO_ORM_PORT, 10)
-      : 5432,
-    user: process.env.MIKRO_ORM_USER || 'heka',
-    password: process.env.MIKRO_ORM_PASSWORD || 'heka1',
-    database: process.env.MIKRO_ORM_DATABASE || 'heka-identity-service',
-  });
+  const { target, confirmed } = resolveOptions(process.env, process.argv);
+  console.log(`Database: ${describeTarget(target)}`);
+
+  const client = new Client(target);
   await client.connect();
 
   try {

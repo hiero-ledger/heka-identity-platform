@@ -4,7 +4,7 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { Draggable, DraggableArea, useSortableSensors } from './Draggable';
 import { DraggableProps } from './types';
@@ -167,10 +167,6 @@ describe('keyboard sorting', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
-  // dnd-kit measures the drop targets asynchronously once a drag starts
-  const settle = () =>
-    act(() => new Promise<void>((resolve) => setTimeout(resolve, 50)));
-
   test('moves an item with Space and the arrow keys alone', async () => {
     const onDragEnd = jest.fn();
     render(<List onDragEnd={onDragEnd} />);
@@ -179,14 +175,14 @@ describe('keyboard sorting', () => {
     handle.focus();
     expect(handle).toHaveFocus();
 
+    // dnd-kit measures the drop targets asynchronously: wait for its screen-reader announcements
     fireEvent.keyDown(handle, { code: 'Space' });
-    await settle();
+    await screen.findByText(/moved over droppable area first/i);
     fireEvent.keyDown(handle, { code: 'ArrowDown' });
-    await settle();
+    await screen.findByText(/moved over droppable area second/i);
     fireEvent.keyDown(handle, { code: 'Space' });
-    await settle();
 
-    expect(onDragEnd).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onDragEnd).toHaveBeenCalledTimes(1));
     const event = onDragEnd.mock.calls[0][0] as DragEndEvent;
     expect(event.active.id).toBe('first');
     expect(event.over?.id).toBe('second');

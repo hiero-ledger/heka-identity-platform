@@ -56,9 +56,7 @@ describe('notificationClient', () => {
     jest
       .spyOn(sessionBridge, 'getSessionAccessToken')
       .mockReturnValue('token-1');
-    jest
-      .spyOn(sessionBridge, 'refreshSessionToken')
-      .mockResolvedValue('token-2');
+    jest.spyOn(sessionBridge, 'renewSessionToken').mockResolvedValue('token-2');
   });
 
   afterEach(() => {
@@ -142,12 +140,13 @@ describe('notificationClient', () => {
     await flushPromises();
     jest.advanceTimersByTime(0);
 
-    expect(sessionBridge.refreshSessionToken).toHaveBeenCalled();
+    // The token the socket was opened with, so a token renewed meanwhile is reused
+    expect(sessionBridge.renewSessionToken).toHaveBeenCalledWith('token-1');
     expect(latestSocket().protocols).toEqual([BEARER_PROTOCOL, 'token-2']);
   });
 
   test('stops when the session cannot be renewed', async () => {
-    jest.spyOn(sessionBridge, 'refreshSessionToken').mockResolvedValue(null);
+    jest.spyOn(sessionBridge, 'renewSessionToken').mockResolvedValue(null);
     connect();
 
     latestSocket().serverClose(UNAUTHORIZED_CLOSE_CODE);
@@ -155,6 +154,65 @@ describe('notificationClient', () => {
     jest.advanceTimersByTime(60_000);
 
     expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+
+  test('retries once with a renewed token after an unauthorized close', async () => {
+    connect();
+
+    latestSocket().serverClose(UNAUTHORIZED_CLOSE_CODE);
+    await flushPromises();
+    jest.advanceTimersByTime(60_000);
+
+    expect(sessionBridge.renewSessionToken).toHaveBeenCalledTimes(1);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+  });
+
+  test('stops when the renewed token is also rejected', async () => {
+    connect();
+
+    latestSocket().serverClose(UNAUTHORIZED_CLOSE_CODE);
+    await flushPromises();
+    jest.advanceTimersByTime(60_000);
+    latestSocket().serverClose(UNAUTHORIZED_CLOSE_CODE);
+    await flushPromises();
+    jest.advanceTimersByTime(60_000);
+
+    expect(sessionBridge.renewSessionToken).toHaveBeenCalledTimes(1);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    expect(getStatus()).toBe('closed');
+  });
+
+  test('retries an unauthorized close again once a socket has opened', async () => {
+    connect();
+
+    latestSocket().serverClose(UNAUTHORIZED_CLOSE_CODE);
+    await flushPromises();
+    jest.advanceTimersByTime(60_000);
+    latestSocket().open();
+    latestSocket().serverClose(UNAUTHORIZED_CLOSE_CODE);
+    await flushPromises();
+    jest.advanceTimersByTime(60_000);
+
+    expect(sessionBridge.renewSessionToken).toHaveBeenCalledTimes(2);
+    expect(FakeWebSocket.instances).toHaveLength(3);
+  });
+
+  test('a new connect retries an unauthorized close again', async () => {
+    connect();
+    latestSocket().serverClose(UNAUTHORIZED_CLOSE_CODE);
+    await flushPromises();
+    jest.advanceTimersByTime(60_000);
+    latestSocket().serverClose(UNAUTHORIZED_CLOSE_CODE);
+    await flushPromises();
+
+    disconnect();
+    connect();
+    latestSocket().serverClose(UNAUTHORIZED_CLOSE_CODE);
+    await flushPromises();
+    jest.advanceTimersByTime(60_000);
+
+    expect(sessionBridge.renewSessionToken).toHaveBeenCalledTimes(2);
+    expect(FakeWebSocket.instances).toHaveLength(4);
   });
 
   test('disconnect closes the socket and stops reconnecting', () => {
