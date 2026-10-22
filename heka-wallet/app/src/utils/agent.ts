@@ -58,6 +58,14 @@ const PUBLIC_DID_KEY = 'PUBLIC_DID'
 
 const PUBLIC_INVITATION_ID_KEY = 'PUBLIC_INVITATION_ID'
 
+const MEDIATOR_CONNECTION_TIMEOUT_MS = 10000
+const MEDIATION_GRANT_TIMEOUT_MS = 10000
+const MEDIATOR_SETUP_RETRY_MIN_DELAY_MS = 5000
+const MEDIATOR_SETUP_RETRY_MAX_DELAY_MS = 5 * 60 * 1000
+
+const agentsWithMediatorSetupInProgress = new WeakSet<Agent>()
+const mediatorSetupAttemptsInProgress = new WeakMap<Agent, Promise<void>>()
+
 export const TRUSTED_X509_CERTIFICATES = [
   'MIIBwDCCAWWgAwIBAgIUSMdjaVc1KHI+3o6qJXhSC4sJh+cwCgYIKoZIzj0EAwIwNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMB4XDTI2MDMyNzIxNDA1NloXDTM2MDMyNDIxNDA1NlowNTEXMBUGA1UEAwwObURMIElzc3VlciBEZXYxDTALBgNVBAoMBEhla2ExCzAJBgNVBAYTAlVTMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1nIrm3O9VX8MdPrKWMhqqV0QMS4UtxKj6uUc8IdGE2fSsWyi7XQN3HoE1Ln9TDtOIHvSyW8Eyr98MlWGBBF/vqNTMFEwHQYDVR0OBBYEFNfkrHxd2nwtni96XrrYhaMgUFImMB8GA1UdIwQYMBaAFNfkrHxd2nwtni96XrrYhaMgUFImMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAP0V5EW7j6Pb+lJktzdWrtEqhI3mYs9Fd+qh0p2kNXJPAiEAqK+q7Wk+t5e2yzvO3b6t3P5nIEnoQt3cvDsaUZY1dT0=',
 ] as const
@@ -101,7 +109,6 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
       ...getAgentModules({
         walletSecret,
         indyNetworks: indyLedgers,
-        mediatorInvitationUrl: Config.MEDIATOR_URL,
       }),
       didcomm: new DidCommModule({
         useDidSovPrefixWhereAllowed: true,
@@ -134,8 +141,8 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
             }),
           ],
         },
+        // Mediator connection is set up after agent initialization, see 'setupMediatorIfNeeded'
         mediationRecipient: {
-          mediatorInvitationUrl: Config.MEDIATOR_URL,
           mediatorPickupStrategy: DidCommMediatorPickupStrategy.PickUpV2,
         },
       }),
@@ -331,27 +338,107 @@ export async function ensureExampleCredentialCreated(agent: Agent): Promise<void
   await agent.sdJwtVc.store({ record })
 }
 
-export async function setupMediatorWithPublicDidIfNeeded(agent: Agent, mediatorPublicDid: string): Promise<void> {
+/**
+ * Connects to the mediator using provided invitation URL, requests mediation and starts message pickup.
+ * Does nothing if the default mediator is already set up - in this case message pickup is started by Credo on agent initialization.
+ *
+ * Note: We intentionally don't use 'mediatorInvitationUrl' option of Credo mediation recipient module,
+ * as it blocks agent initialization until the mediator is connected (so wallet cannot be initialized offline).
+ *
+ * Concurrent calls for the same agent share a single setup attempt, so they don't create duplicate mediator connections.
+ */
+export function setupMediatorIfNeeded(agent: Agent, mediatorInvitationUrl: string): Promise<void> {
+  const attemptInProgress = mediatorSetupAttemptsInProgress.get(agent)
+  if (attemptInProgress) return attemptInProgress
+
+  const attempt = connectToMediator(agent, mediatorInvitationUrl).finally(() =>
+    mediatorSetupAttemptsInProgress.delete(agent)
+  )
+  mediatorSetupAttemptsInProgress.set(agent, attempt)
+  return attempt
+}
+
+async function connectToMediator(agent: Agent, mediatorInvitationUrl: string): Promise<void> {
   const existingMediationRecord = await agent.didcomm.mediationRecipient.findDefaultMediator()
   if (existingMediationRecord) return
 
-  let { connectionRecord: mediatorConnectionRecord } = await agent.didcomm.oob.receiveImplicitInvitation({
-    label: 'Cloud Mediator',
-    did: mediatorPublicDid,
-    alias: 'Cloud Mediator',
-    autoAcceptConnection: true,
+  const outOfBandInvitation = await agent.didcomm.oob.parseInvitation(mediatorInvitationUrl)
+
+  // Clean up leftovers of previous unsuccessful attempt, if any
+  const existingOutOfBandRecord = await agent.didcomm.oob.findByReceivedInvitationId(outOfBandInvitation.id)
+  if (existingOutOfBandRecord) {
+    const existingConnectionRecords = await agent.didcomm.connections.findAllByOutOfBandId(existingOutOfBandRecord.id)
+    for (const connectionRecord of existingConnectionRecords) {
+      await agent.didcomm.connections.deleteById(connectionRecord.id)
+    }
+    await agent.didcomm.oob.deleteById(existingOutOfBandRecord.id)
+  }
+
+  // We don't want to use the current default mediator (if any) when connecting to the mediator
+  const routing = await agent.didcomm.mediationRecipient.getRouting({ useDefaultMediator: false })
+
+  let { connectionRecord: mediatorConnectionRecord } = await agent.didcomm.oob.receiveInvitation(outOfBandInvitation, {
+    label: '',
+    alias: 'Mediator',
+    routing,
   })
 
   if (!mediatorConnectionRecord) {
-    throw new Error(`Failed to connect with mediator via public DID: ${mediatorPublicDid}`)
+    throw new Error('Failed to create connection with mediator')
   }
 
   mediatorConnectionRecord = await agent.didcomm.connections.returnWhenIsConnected(mediatorConnectionRecord.id, {
-    timeoutMs: 5000,
+    timeoutMs: MEDIATOR_CONNECTION_TIMEOUT_MS,
   })
 
-  const mediationRecord = await agent.didcomm.mediationRecipient.provision(mediatorConnectionRecord)
+  const mediationRecord = await agent.didcomm.mediationRecipient.requestAndAwaitGrant(
+    mediatorConnectionRecord,
+    MEDIATION_GRANT_TIMEOUT_MS
+  )
+  await agent.didcomm.mediationRecipient.setDefaultMediator(mediationRecord)
   await agent.didcomm.mediationRecipient.initiateMessagePickup(mediationRecord)
+}
+
+/**
+ * Tries to set up the mediator without blocking further wallet initialization.
+ * If the mediator is not reachable, setup is retried in background.
+ */
+export async function trySetupMediator(agent: Agent, mediatorInvitationUrl: string): Promise<void> {
+  try {
+    await setupMediatorIfNeeded(agent, mediatorInvitationUrl)
+  } catch (error) {
+    agent.config.logger.warn('Failed to set up mediator, will retry in background', { error })
+    setupMediatorInBackground(agent, mediatorInvitationUrl)
+  }
+}
+
+/**
+ * Keeps trying to set up the mediator in background (with exponential backoff) until it succeeds or agent is shut down.
+ * Used when the mediator is not reachable on agent initialization (e.g. device is offline or mediator is unavailable).
+ */
+export function setupMediatorInBackground(agent: Agent, mediatorInvitationUrl: string): void {
+  if (agentsWithMediatorSetupInProgress.has(agent)) return
+  agentsWithMediatorSetupInProgress.add(agent)
+
+  const scheduleAttempt = (delayMs: number) =>
+    setTimeout(async () => {
+      if (!agent.isInitialized) {
+        agentsWithMediatorSetupInProgress.delete(agent)
+        return
+      }
+
+      try {
+        await setupMediatorIfNeeded(agent, mediatorInvitationUrl)
+        agentsWithMediatorSetupInProgress.delete(agent)
+        agent.config.logger.info('Mediator is set up')
+      } catch (error) {
+        const nextDelayMs = Math.min(delayMs * 2, MEDIATOR_SETUP_RETRY_MAX_DELAY_MS)
+        agent.config.logger.warn(`Failed to set up mediator, retrying in ${nextDelayMs / 1000}s`, { error })
+        scheduleAttempt(nextDelayMs)
+      }
+    }, delayMs)
+
+  scheduleAttempt(MEDIATOR_SETUP_RETRY_MIN_DELAY_MS)
 }
 
 export async function createAnoncredsLinkSecretIfRequired(agent: HekaWalletAgent): Promise<void> {

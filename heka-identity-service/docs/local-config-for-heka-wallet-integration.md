@@ -57,6 +57,16 @@ http {
         location /openId/ {
             proxy_pass http://localhost:{YOUR_IDENTITY_SERVICE_AGENT_OPENID_PORT}/;
         }
+
+        # DIDComm mediator (HTTP and WebSocket share the same port)
+        location /mediator {
+            rewrite ^/mediator/?(.*)$ /$1 break;
+            proxy_pass http://localhost:{YOUR_MEDIATOR_PORT};
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "Upgrade";
+            proxy_set_header Host $host;
+        }
     }
 
     include servers/*;
@@ -80,3 +90,14 @@ AGENT_OID4VCI_ENDPOINT=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/o
 ```
 
 This way the Heka Identity Service will include the ngrok endpoints in OOB invitations and DID documents, making them reachable by the Heka Wallet over the public network.
+
+### DIDComm Mediator
+
+To receive inbound DIDComm messages (credential offers, proof requests, etc.), the Heka Wallet needs a [DIDComm mediator](../../mediator) reachable from the device.
+With the nginx config above, the mediator is exposed under the same ngrok domain. Set its endpoints in `mediator/.env`, for example:
+
+```shell
+AGENT_ENDPOINTS=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/mediator,wss://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/mediator
+```
+
+Then start the mediator and set its invitation URL as `MEDIATOR_URL` in the wallet config, see [mediator setup](../../mediator/README.md#setup).

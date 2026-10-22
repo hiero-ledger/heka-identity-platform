@@ -12,7 +12,7 @@ import {
   createPublicDidOrGetExisting,
   createPublicInvitationOrGetExisting,
   ensureExampleCredentialCreated,
-  setupMediatorWithPublicDidIfNeeded,
+  trySetupMediator,
   tryRestartExistingAgent,
   createAnoncredsLinkSecretIfRequired,
   useHekaAgent,
@@ -74,6 +74,11 @@ export const Splash: React.FC = () => {
           const isAgentRestarted = await tryRestartExistingAgent(agent, walletSecret)
 
           if (isAgentRestarted) {
+            // Public DID and invitation already exist here, so there is no need to wait for the mediator
+            if (Config.MEDIATOR_URL) {
+              void trySetupMediator(agent, Config.MEDIATOR_URL)
+            }
+
             // The onboarding workflow transitions to the main stack automatically once
             // the agent is set — no navigation needed here.
             return
@@ -106,8 +111,10 @@ export const Splash: React.FC = () => {
           })
         }
 
-        if (Config.MEDIATOR_PUBLIC_DID) {
-          await setupMediatorWithPublicDidIfNeeded(newAgent, Config.MEDIATOR_PUBLIC_DID)
+        if (Config.MEDIATOR_URL) {
+          await trySetupMediator(newAgent, Config.MEDIATOR_URL)
+        } else {
+          logger.warn('MEDIATOR_URL is not set, inbound DIDComm messages will not be received')
         }
 
         const publicDid = await createPublicDidOrGetExisting(newAgent)

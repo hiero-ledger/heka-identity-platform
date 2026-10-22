@@ -16,7 +16,7 @@ Heka Wallet acts as a Verifiable Credentials Holder — it receives, stores, and
 - **Presentation protocols:** OpenID4VP, DIDComm v2 (Aries Present Proof v2).
 - **DID methods — create:** `did:key`, `did:peer`, `did:jwk`, `did:hedera`.
 - **DID methods — resolve:** `did:web`, `did:key`, `did:peer`, `did:jwk`, `did:hedera`, `did:indybesu`.
-- **Mediation:** DIDComm message pickup via a configurable mediator.
+- **Mediation:** DIDComm message pickup via a configurable (self-hosted) mediator, see [DIDComm Mediator](../mediator).
 - **Optional integrations (feature-flagged):**
   - Passkey-based wallet backup (`ENABLE_WALLET_BACKUP`).
   - External OAuth-based authentication (`ENABLE_EXTERNAL_AUTH`).
@@ -36,6 +36,7 @@ Heka Wallet acts as a Verifiable Credentials Holder — it receives, stores, and
 
 - **Android**: Android Studio with the Android SDK plus an emulator or a physical Android device.
 - **iOS**: macOS with Xcode (matching iOS SDK for the target device) and CocoaPods.
+- A reachable **DIDComm Mediator** for inbound DIDComm messages. See the [DIDComm Mediator setup](../mediator/README.md).
 - A reachable **Heka Identity Service** (or compatible backend) for issuance / verification flows. See the [Identity Service setup guide](../heka-identity-service/docs/setup.md). To expose a local instance to a wallet running on a phone, see [Local Configuration for Heka Wallet Integration](../heka-identity-service/docs/local-config-for-heka-wallet-integration.md).
 
 > First `yarn install` pulls Credo, AnonCreds, and React Native native dependencies. Expect 5–10 minutes and ~1.5 GB on disk.
@@ -60,9 +61,12 @@ The wallet is configured via environment variables loaded by [`react-native-conf
 
 ### DIDComm
 
-| Variable       | Required    | Default   | Description                                                                  |
-|----------------|-------------|-----------|------------------------------------------------------------------------------|
-| `MEDIATOR_URL` | Recommended | _(unset)_ | DIDComm mediator invitation URL. Required for inbound DIDComm in production. |
+| Variable       | Required    | Default   | Description                                                                                                                                      |
+|----------------|-------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| `MEDIATOR_URL` | Recommended | _(unset)_ | DIDComm mediator invitation URL. Required for inbound DIDComm. See [DIDComm Mediator](../mediator/README.md) for how to run one and get the URL. |
+
+The mediator connection does not block wallet initialization: if the mediator is not reachable (e.g. the device is offline), the wallet starts normally and keeps retrying the mediator setup in background.
+Until the mediator is set up, inbound DIDComm messages are not received.
 
 ### Hedera
 
