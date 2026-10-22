@@ -27,7 +27,7 @@ export const VerificationTemplates = () => {
   }, [dispatch]);
 
   const changeTemplateOrder = useCallback(
-    async (templateId: string, previousTemplateId?: string) => {
+    async (templateId: string, previousTemplateId: string | null) => {
       await dispatch(
         updateVerificationTemplate({
           templateId,
@@ -35,18 +35,23 @@ export const VerificationTemplates = () => {
             previousTemplateId,
           },
         }),
-      );
+      ).unwrap();
     },
     [dispatch],
   );
 
   const onDeleteTemplate = useCallback(
     async (templateId: string) => {
-      await dispatch(
-        deleteVerificationTemplate({
-          templateId,
-        }),
-      );
+      try {
+        await dispatch(
+          deleteVerificationTemplate({
+            templateId,
+          }),
+        ).unwrap();
+      } catch {
+        // The thunk has already shown the error
+        return;
+      }
       toast.success(t('Template.messages.deleted'));
     },
     [dispatch, t],

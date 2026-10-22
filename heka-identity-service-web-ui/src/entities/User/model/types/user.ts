@@ -18,6 +18,8 @@ export interface User {
   did?: string | null;
   didMethods?: Array<string>;
   didDocuments?: Array<DidDocument>;
+  /** The DID method `didDocuments` were fetched for */
+  didDocumentsMethod?: string;
   messageDeliveryType?: string | null;
   webHook?: string | null;
   issuerName?: string | null;
@@ -31,4 +33,6 @@ export interface UserSchema {
   isPreparing: boolean;
   data?: User;
   error?: string;
+  /** requestId of the latest fetchDidDocuments: answers for a previously selected network are ignored */
+  didDocumentsRequestId?: string;
 }

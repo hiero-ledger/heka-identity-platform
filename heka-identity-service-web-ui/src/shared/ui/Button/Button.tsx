@@ -126,6 +126,37 @@ interface ButtonProps extends AriaButtonPropsType {
   alignment?: 'center' | 'left';
 }
 
+/** The icon a `Button` shows for `leftIcon`/`rightIcon` */
+export const ButtonIconGlyph = ({ name }: { name: ButtonIcon }) => (
+  <>{buttonIconsMapper[name]}</>
+);
+
+/**
+ * The classes of a `Button` with these options. Lets another react-aria element that exposes
+ * the same `data-hovered`/`data-pressed`/`data-focus-visible` states (e.g. a `MenuItem`) look
+ * like a button without nesting one inside it.
+ */
+export const buttonClassName = ({
+  buttonType = 'filled',
+  isSmall,
+  alignment,
+  fullWidth,
+  className,
+}: Pick<
+  ButtonProps,
+  'buttonType' | 'isSmall' | 'alignment' | 'fullWidth' | 'className'
+>) => {
+  const mods: Mods = {
+    [cls.small]: isSmall,
+    [cls.leftAligned]: alignment === 'left',
+  };
+  return classNames(cls.Button, mods, [
+    className,
+    cls[buttonType],
+    fullWidth ? cls.fullWidth : undefined,
+  ]);
+};
+
 export const Button = memo((props: ButtonProps) => {
   const {
     className,
@@ -141,20 +172,15 @@ export const Button = memo((props: ButtonProps) => {
     ...otherProps
   } = props;
 
-  const mods: Mods = {
-    [cls.small]: isSmall,
-    [cls.leftAligned]: alignment === 'left',
-  };
-
-  const additionalClasses = [
-    className,
-    cls[buttonType],
-    fullWidth ? cls.fullWidth : undefined,
-  ];
-
   return (
     <AriaButton
-      className={classNames(cls.Button, mods, additionalClasses)}
+      className={buttonClassName({
+        buttonType,
+        isSmall,
+        alignment,
+        fullWidth,
+        className,
+      })}
       isDisabled={isDisabled || isLoading}
       {...otherProps}
     >

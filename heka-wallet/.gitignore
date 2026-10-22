@@ -84,6 +84,7 @@ aries-framework-javascript/
 
 # dotenv environment variables file
 .env.test
+.env.e2e
 .env
 
 # parcel-bundler cache (https://parceljs.org/)

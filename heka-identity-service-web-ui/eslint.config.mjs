@@ -7,6 +7,7 @@ import pluginReactHooks from 'eslint-plugin-react-hooks';
 import pluginStorybook from 'eslint-plugin-storybook';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import unusedImports from "eslint-plugin-unused-imports";
 
 export default [
   {
@@ -35,6 +36,7 @@ export default [
   // eslint-plugin-react and jsx-a11y still call ESLint <10 context APIs
   // (e.g. context.getFilename); fixup shims them onto the ESLint 10 API.
   ...fixupConfigRules(pluginReact.configs.flat.recommended),
+  ...fixupConfigRules(pluginReact.configs.flat['jsx-runtime']),
   ...fixupConfigRules(pluginJsxA11y.flatConfigs.recommended),
   {
     plugins: {
@@ -42,7 +44,7 @@ export default [
     },
     rules: {
       'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/exhaustive-deps': 'error',
     },
   },
   {
@@ -92,11 +94,18 @@ export default [
     },
   },
   {
+    plugins: {
+      'unused-imports': unusedImports,
+    },
+    rules: {
+      "unused-imports/no-unused-imports": "error",
+    },
+  },
+  {
     rules: {
       'jsx-a11y/no-static-element-interactions': 0,
       'jsx-a11y/click-events-have-key-events': 0,
       'react/display-name': 1,
-      'react/react-in-jsx-scope': 0,
       'react/require-default-props': 0,
       'react/function-component-definition': 0,
       'react/no-unstable-nested-components': 1,

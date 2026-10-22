@@ -4,6 +4,7 @@
     "noImplicitAny": true,
     "module": "ESNext",
     "target": "es5",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "allowJs": true,
     "strict": true,

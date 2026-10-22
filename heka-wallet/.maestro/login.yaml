@@ -1,0 +1,17 @@
+appId: com.heka.wallet
+name: Keycloak login opens the onboarding tutorial
+tags:
+  - external-auth
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/Login'
+    timeout: 30000
+- runFlow: subflows/login.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/OnboardingNext'
+    timeout: 30000

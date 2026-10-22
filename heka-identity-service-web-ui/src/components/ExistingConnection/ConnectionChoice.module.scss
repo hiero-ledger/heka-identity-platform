@@ -1,0 +1,68 @@
+@import '@/shared/styles/mixins';
+
+.ConnectionChoice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: var(--space-xl);
+
+  @include desktop {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+  }
+}
+
+.qrColumn {
+  gap: var(--space-xl);
+}
+
+.panel {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--space-xl);
+  gap: var(--space-md);
+  background-color: var(--color-light-high-emphasis);
+  border-radius: var(--space-md);
+}
+
+.panelTitle {
+  color: var(--color-dark-high-emphasis);
+  font: var(--font-subtitle-m);
+}
+
+.nameForm {
+  width: 100%;
+}
+
+.nameColumn {
+  width: 100%;
+  gap: var(--space-xs);
+}
+
+.nameRow {
+  width: 100%;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.hint {
+  color: var(--color-dark-medium-emphasis);
+  font: var(--font-body-s);
+}
+
+.waiting {
+  gap: var(--space-xl);
+}
+
+.waitingText {
+  max-width: 400px;
+  color: var(--color-light-high-emphasis);
+  font: var(--font-body-m);
+  text-align: center;
+}
+
+.textButton {
+  color: var(--color-light-high-emphasis);
+}

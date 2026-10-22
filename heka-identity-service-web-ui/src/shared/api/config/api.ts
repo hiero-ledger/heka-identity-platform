@@ -1,13 +1,10 @@
-import { Mutex } from 'async-mutex';
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 import {
   dropSession,
   getSessionAccessToken,
-  refreshSessionToken,
+  renewSessionToken,
 } from '@/shared/auth/sessionBridge';
-
-const mutex = new Mutex();
 
 export const $agencyApi = axios.create({
   baseURL: `${process.env.REACT_APP_AGENCY_ENDPOINT}`,
@@ -18,6 +15,11 @@ export const $agencyApi = axios.create({
  * use the demo client instead (demoApi.ts), which authenticates with the demo-token broker.
  */
 export const currentAccessToken = (): string | null => getSessionAccessToken();
+
+const bearerToken = (authorization: unknown): string | null =>
+  typeof authorization === 'string' && authorization.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length)
+    : null;
 
 const setAuthHeader = (config: InternalAxiosRequestConfig) => {
   // A retry after a token renewal already carries the fresh token.
@@ -76,9 +78,9 @@ const handleApiError = async (api: AxiosInstance, error: unknown) => {
       if (!originalConfig._retry) {
         originalConfig._retry = true;
 
-        // Use mutex to prevent multiple simultaneous renewals
-        const accessToken = await mutex.runExclusive(() =>
-          refreshSessionToken(),
+        // Several requests often fail with 401 together: they share one renewal
+        const accessToken = await renewSessionToken(
+          bearerToken(originalConfig.headers?.Authorization),
         );
 
         if (accessToken) {

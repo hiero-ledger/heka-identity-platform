@@ -27,7 +27,7 @@ export const IssueTemplates = () => {
   }, [dispatch]);
 
   const changeTemplateOrder = useCallback(
-    async (templateId: string, previousTemplateId?: string) => {
+    async (templateId: string, previousTemplateId: string | null) => {
       await dispatch(
         updateIssuanceTemplate({
           templateId,
@@ -35,18 +35,23 @@ export const IssueTemplates = () => {
             previousTemplateId,
           },
         }),
-      );
+      ).unwrap();
     },
     [dispatch],
   );
 
   const onDeleteTemplate = useCallback(
     async (templateId: string) => {
-      await dispatch(
-        deleteIssuanceTemplate({
-          templateId,
-        }),
-      );
+      try {
+        await dispatch(
+          deleteIssuanceTemplate({
+            templateId,
+          }),
+        ).unwrap();
+      } catch {
+        // The thunk has already shown the error
+        return;
+      }
       toast.success(t('Template.messages.deleted'));
     },
     [dispatch, t],

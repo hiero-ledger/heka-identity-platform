@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 

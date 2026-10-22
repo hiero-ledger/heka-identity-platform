@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
@@ -8,6 +8,7 @@ import { PendingPresentation } from '@/components/Steps/VerificationRequest/stat
 import { PresentationReceived } from '@/components/Steps/VerificationRequest/states/PresentationReceived';
 import { getIsPresentationCompleted } from '@/entities/Presentation/model/selectors/presentationSelector';
 import { requestPresentation } from '@/entities/Presentation/model/services/requestPresentation';
+import { usePresentationActions } from '@/entities/Presentation/model/slices/presentationSlice';
 import { useConnection } from '@/shared/hooks/connection';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Row } from '@/shared/ui/Grid';
@@ -56,14 +57,42 @@ export const PresentationRequested = <T extends object>({
     ],
   );
 
-  const { connectionInvitation } = useConnection({
+  const { reset: resetPresentationState } = usePresentationActions();
+
+  const {
+    connectionInvitation,
+    connections,
+    isExistingConnectionSelected,
+    connectionAlias,
+    canRename,
+    renameInvitation,
+    selectConnection,
+    restartWithQr,
+  } = useConnection({
     onComplete: sendPresentationRequest,
+    useDemo: context.useDemo,
   });
+
+  // The request may already be out on the abandoned connection, so start the presentation state over too
+  const onUseQr = useCallback(() => {
+    resetPresentationState();
+    restartWithQr();
+  }, [resetPresentationState, restartWithQr]);
 
   return (
     <PendingPresentation
       value={connectionInvitation}
       protocolType={context.protocolType}
+      useDemo={context.useDemo}
+      connection={{
+        connections,
+        isExistingConnectionSelected,
+        connectionAlias,
+        canRename,
+        renameInvitation,
+        selectConnection,
+        onUseQr,
+      }}
     />
   );
 };

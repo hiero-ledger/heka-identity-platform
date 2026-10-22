@@ -3,49 +3,46 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { useCallback, useEffect } from 'react';
-import { Control, useFieldArray, UseFormRegister } from 'react-hook-form';
+import { useCallback } from 'react';
+import {
+  Control,
+  FieldArrayWithId,
+  UseFieldArrayMove,
+  UseFieldArrayRemove,
+} from 'react-hook-form';
 
 import {
   CreateSchemaFormData,
   Credential,
 } from '@/components/CreateSchema/CreateSchema.form';
 import CredentialField from '@/components/CreateSchema/CredentialFields/CredentialField/CredentialField';
+import { useSortableSensors } from '@/components/Draggable/Draggable';
 
 interface CredentialFieldsProps {
   control: Control<CreateSchemaFormData>;
-  register: UseFormRegister<CreateSchemaFormData>;
-  credentials: Credential[];
+  /** The credentials field array, owned by the form (`useFieldArray` in the parent) */
+  fields: FieldArrayWithId<CreateSchemaFormData, 'credentials'>[];
+  remove: UseFieldArrayRemove;
+  move: UseFieldArrayMove;
   onChangeFields?: (field?: Credential) => void;
 }
 
 export default function CredentialFields({
   control,
-  register,
-  credentials,
+  fields,
+  remove,
+  move,
   onChangeFields,
 }: CredentialFieldsProps) {
-  const { fields, remove, move } = useFieldArray({
-    control,
-    name: 'credentials',
-  });
-
-  useEffect(() => {
-    remove();
-    if (onChangeFields) onChangeFields();
-    // Attention: Don't add onChangeFields to dependencies array
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remove]);
-
   const removeCredential = useCallback(
     (index: number) => {
-      if (credentials.length) {
-        remove(index);
-        if (onChangeFields) onChangeFields();
-      }
+      remove(index);
+      if (onChangeFields) onChangeFields();
     },
-    [credentials, onChangeFields, remove],
+    [onChangeFields, remove],
   );
+
+  const sensors = useSortableSensors();
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -58,7 +55,10 @@ export default function CredentialFields({
 
   return (
     <>
-      <DndContext onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        onDragEnd={handleDragEnd}
+      >
         <SortableContext
           items={fields.map((f) => ({ id: f.id }))}
           strategy={verticalListSortingStrategy}
@@ -69,7 +69,6 @@ export default function CredentialFields({
               field={field}
               fieldIndex={index}
               control={control}
-              register={register}
               onChangeField={() => {
                 if (onChangeFields) onChangeFields(field);
               }}

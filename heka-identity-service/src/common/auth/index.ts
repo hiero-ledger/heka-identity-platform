@@ -1,6 +1,6 @@
 export { AuthInfo, Role } from './auth-info.interface'
 export { AuthModule } from './auth.module'
-export { AuthService } from './auth.service'
+export { AuthService, WEBSOCKET_BEARER_PROTOCOL } from './auth.service'
 export { getClaim, mapClaims } from './claims'
 export { JwtAuthGuard } from './jwt-auth.guard'
 export { ReqAuthInfo } from './req-auth-info.decorator'

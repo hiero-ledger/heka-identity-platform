@@ -23,10 +23,15 @@ jobs:
         working-directory: ./heka-identity-service-web-ui
     name: Build and check
     runs-on: ubuntu-latest
+    permissions:
+      # Required to check out the repository
+      contents: read
+      # Required by vitest-coverage-report-action to post the coverage comment
+      pull-requests: write
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
 
@@ -58,5 +63,15 @@ jobs:
       - name: Run Stylelint
         run: yarn lint:scss
 
+      # Also enforces the coverageThreshold floors in config/jest/jest.config.ts
       - name: Run tests
-        run: yarn test:unit
+        run: yarn test:coverage
+
+      # Jest writes the same Istanbul JSON reports (json-summary, json) that this action reads
+      - name: Report coverage
+        uses: davelosert/vitest-coverage-report-action@8f86cfb56ed6d5613ea8cdc5259f207fbfd51ece # v2.13.1
+        with:
+          name: Identity Service Web UI
+          working-directory: ./heka-identity-service-web-ui
+          json-summary-path: ./coverage/coverage-summary.json
+          json-final-path: ./coverage/coverage-final.json

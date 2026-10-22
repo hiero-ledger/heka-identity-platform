@@ -4,7 +4,7 @@ export default {
       logo: 'Heka Identity Service',
       copyLink: 'click this link to copy.',
       scanQR: 'Scan QR code with your mobile wallet or',
-      schemas: 'Schemes',
+      schemas: 'Schemas',
       templates: 'Templates',
       loadingSchemas: 'Loading schemes ...',
       loadingTemplates: 'Loading templates ...',
@@ -18,8 +18,6 @@ export default {
       logo: 'Logo',
       background: 'Background color',
       esc: 'Esc',
-      elevatedType: 'elevated',
-      textType: 'text',
       saveAsTemplate: 'Save as template',
       plus: 'Plus',
       save: 'Save',
@@ -28,6 +26,9 @@ export default {
       menu: 'Menu',
       yes: 'Yes',
       cancel: 'Cancel',
+      create: 'Create',
+      showText: 'Show text',
+      hideText: 'Hide text',
     },
     imageAlts: {
       schemaLogo: 'Schema logo',
@@ -35,6 +36,11 @@ export default {
     },
     messages: {
       copyLink: 'Copied',
+      notImplemented: 'Not implemented yet',
+    },
+    values: {
+      yes: 'Yes',
+      no: 'No',
     },
   },
   Home: {
@@ -74,6 +80,25 @@ export default {
       startAgain: 'Start again',
     },
   },
+  Connection: {
+    titles: {
+      existing: 'Send to an existing connection',
+      selectConnection: 'Select connection',
+      name: 'Connection name (optional)',
+      nameHint:
+        'Helps you find this connection later. Only you can see it; the holder does not.',
+      unnamed: 'Unnamed connection ({{id}})',
+      waitingOffer:
+        'Credential offer sent. Waiting for the holder to accept it in their wallet.',
+      waitingRequest:
+        'Verification request sent. Waiting for the holder to respond in their wallet.',
+    },
+    buttons: {
+      apply: 'Apply',
+      send: 'Send',
+      useQr: 'Use QR code instead',
+    },
+  },
   Profile: {
     titles: {
       main: 'Profile',
@@ -88,6 +113,10 @@ export default {
       submit: 'Save',
       changePassword: 'Change password',
     },
+    validation: {
+      issuerRequired: 'Issuer is required',
+      issuerMaxLength: 'Maximum length is {{max}}',
+    },
   },
   Demo: {
     titles: {
@@ -95,12 +124,21 @@ export default {
     },
   },
   AgeVerificationDemo: {
+    titles: {
+      main: 'Age Verification Demo',
+    },
     ageCheck: {
       label: 'Verify age (18+)',
     },
     result: {
       verified: 'Age Verified',
       notVerified: 'Age Not Verified',
+    },
+    messages: {
+      noMdlSchema:
+        'This demo needs the "{{name}}" schema, which the demo account does not have.',
+      schemasNotLoaded:
+        'The demo schemas could not be loaded. Please try again later.',
     },
   },
   PresentationOptions: {
@@ -148,7 +186,7 @@ export default {
     },
     menuItemNames: {
       templates: 'Templates',
-      schemas: 'Schemes',
+      schemas: 'Schemas',
       credentialDefinitions: 'Credential definitions',
       dids: 'DIDs',
       issuedCredentials: 'Issued credentials',
@@ -168,6 +206,10 @@ export default {
       issuedBy: 'Issued by {{issuerName}}',
       hidden: 'Schema was hidden successfully',
       activated: 'Schema was activated successfully',
+      filters: {
+        active: 'Active',
+        hidden: 'Hidden',
+      },
       actions: {
         edit: 'Edit',
         register: 'Register',
@@ -215,7 +257,7 @@ export default {
     },
     warnings: {
       schemaIsNotRegistered:
-        'The scheme is not yet registered. For verification, please register it first in the "Issue credential.Schemes" section.',
+        'The schema is not yet registered. For verification, please register it first in the "Issue credential.Schemas" section.',
     },
     errors: {
       BadContext: 'Credential verification context is invalid',
@@ -251,6 +293,16 @@ export default {
       noCredentialFields: 'No credential fields',
       credentialFieldsRequired: 'Credential fields are required',
       credentialFieldsShouldBeUnique: 'Credential fields names must be unique',
+    },
+    validation: {
+      nameRequired: 'Schema name is required',
+      nameMaxLength:
+        'Schema name length must be less than or equal to {{max}} characters long',
+      fieldRequired: 'Credential field is required',
+      fieldMaxLength:
+        'Credential field length must be less than or equal to {{max}} characters long',
+      fieldPattern:
+        'Credential field must contain only latin chars, digits, parentheses, underscores and dashes',
     },
     buttons: {
       submit: 'Create',
@@ -311,7 +363,7 @@ export default {
     warnings: {
       verification: {
         schemaIsNotRegistered:
-          'The scheme is not yet registered. For create verification template, please register it first in the "Issue credential.Schemes" section.',
+          'The schema is not yet registered. For create verification template, please register it first in the "Issue credential.Schemas" section.',
       },
     },
     confirmation: {

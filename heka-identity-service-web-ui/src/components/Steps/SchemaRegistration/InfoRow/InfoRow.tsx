@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { classNames } from '@/shared/lib/classNames';
 import { Row } from '@/shared/ui/Grid';
 

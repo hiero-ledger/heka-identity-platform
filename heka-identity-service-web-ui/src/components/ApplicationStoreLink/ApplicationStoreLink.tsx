@@ -1,4 +1,4 @@
-import React, { ReactElement } from 'react';
+import { ReactElement } from 'react';
 
 import GooglePlay from '@/shared/assets/icons/android_app_download.svg';
 import AppStore from '@/shared/assets/icons/ios_app_download.svg';

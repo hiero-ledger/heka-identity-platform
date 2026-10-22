@@ -12,7 +12,7 @@ import {
   Openid4CredentialFormat,
   ProtocolType,
 } from '@/entities/Schema/model/types/schema';
-import { getVerificationTemplatesIsLoading } from '@/entities/VerificationTemplate/model/selectors/verificationTemplatesSelector';
+import { getVerificationTemplatesIsMutating } from '@/entities/VerificationTemplate/model/selectors/verificationTemplatesSelector';
 import { createVerificationTemplate } from '@/entities/VerificationTemplate/model/services/createVerificationTemplate';
 import { updateVerificationTemplate } from '@/entities/VerificationTemplate/model/services/updateVerificationTemplate';
 import { VerifyCredentialContext } from '@/pages/VerifyCredential/VerifyCredential.config';
@@ -38,7 +38,7 @@ export const RequestFieldsVerification = ({
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
   const navigate = useNavigate();
-  const isLoading = useSelector(getVerificationTemplatesIsLoading);
+  const isLoading = useSelector(getVerificationTemplatesIsMutating);
   const [isTemplateModalOpen, setTemplateModalOpen] = useState(false);
   const { schema, protocolType, credentialType } = context;
 
@@ -93,7 +93,7 @@ export const RequestFieldsVerification = ({
           schema: context.schema!,
           attributes: selectedAttributes,
         }),
-      );
+      ).unwrap();
       navigate(ROUTES.VERIFY_CREDENTIAL_TEMPLATES);
     },
     [navigate, selectedAttributes, dispatch, context],
@@ -102,19 +102,24 @@ export const RequestFieldsVerification = ({
   const onUpdateTemplate = useCallback(async () => {
     if (!context.templateId) return;
 
-    await dispatch(
-      updateVerificationTemplate({
-        templateId: context.templateId,
-        params: {
-          protocolType: context.protocolType,
-          credentialType: context.credentialType,
-          network: context.network,
-          did: context.did,
-          schema: context.schema,
-          attributes: selectedAttributes,
-        },
-      }),
-    );
+    try {
+      await dispatch(
+        updateVerificationTemplate({
+          templateId: context.templateId,
+          params: {
+            protocolType: context.protocolType,
+            credentialType: context.credentialType,
+            network: context.network,
+            did: context.did,
+            schema: context.schema,
+            attributes: selectedAttributes,
+          },
+        }),
+      ).unwrap();
+    } catch {
+      // The thunk has already shown the error; stay on the page
+      return;
+    }
     toast.success(
       t('Template.messages.updateSuccess', { name: context.templateName }),
     );

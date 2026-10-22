@@ -284,6 +284,78 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "heka-e2e",
+      "name": "Heka e2e test service account",
+      "description": "Confidential client the wallet's Maestro device e2e flows use to create issuers and credential offers in heka-identity-service via Client Credentials.",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-only-heka-e2e-secret-do-not-use-in-production",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "heka roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "usermodel.clientRoleMapping.clientId": "heka-identity-service",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "heka org_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "org_id",
+            "claim.name": "org_id",
+            "jsonType.label": "String",
+            "multivalued": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "heka_uid",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "id",
+            "claim.name": "heka_uid",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "heka audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "heka-identity-service",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "roles": {
@@ -421,6 +493,17 @@
       "serviceAccountClientId": "heka-demo",
       "clientRoles": {
         "heka-identity-service": ["User"]
+      }
+    },
+    {
+      "username": "service-account-heka-e2e",
+      "enabled": true,
+      "serviceAccountClientId": "heka-e2e",
+      "attributes": {
+        "org_id": ["heka-e2e"]
+      },
+      "clientRoles": {
+        "heka-identity-service": ["OrgAdmin"]
       }
     }
   ]

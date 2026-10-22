@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Label } from 'react-aria-components';
-import { RegisterOptions, useForm } from 'react-hook-form';
+import { UseControllerProps, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { EditField } from '@/components/EditField/EditField';
@@ -24,7 +24,7 @@ interface TextFieldModalProps {
   alignOnStart?: boolean;
   isLoading?: boolean;
   isEditDisabled?: boolean;
-  fieldValidator?: RegisterOptions<TextFieldFormData, 'value'>;
+  fieldValidator?: UseControllerProps<TextFieldFormData, 'value'>['rules'];
 }
 
 export const TextField = ({
@@ -46,7 +46,6 @@ export const TextField = ({
   const {
     handleSubmit,
     control,
-    register,
     reset,
     formState: { isDirty, isValid },
   } = useForm<TextFieldFormData>({
@@ -103,8 +102,9 @@ export const TextField = ({
         >
           <TextInput
             label={t(labelKey)}
-            {...register('value', fieldValidator)}
+            name="value"
             control={control}
+            rules={fieldValidator}
           />
         </EditForm>
       </Modal>

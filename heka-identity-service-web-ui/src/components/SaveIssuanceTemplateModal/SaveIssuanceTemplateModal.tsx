@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useSelector } from 'react-redux';
 
-import { getIssuanceTemplatesIsLoading } from '@/entities/IssuanceTemplate/model/selectors/issuanceTemplatesSelector';
+import { getIssuanceTemplatesIsMutating } from '@/entities/IssuanceTemplate/model/selectors/issuanceTemplatesSelector';
 import { createIssuanceTemplate } from '@/entities/IssuanceTemplate/model/services/createIssuanceTemplate';
 import { IssueCredentialContext } from '@/pages/IssueCredential/IssueCredential.config';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
@@ -20,7 +20,7 @@ export const SaveIssuanceTemplateModal = ({
   context,
 }: SaveAsTemplateProps) => {
   const dispatch = useAppDispatch();
-  const isLoading = useSelector(getIssuanceTemplatesIsLoading);
+  const isLoading = useSelector(getIssuanceTemplatesIsMutating);
 
   const saveTemplate = useCallback(
     async (name: string) => {

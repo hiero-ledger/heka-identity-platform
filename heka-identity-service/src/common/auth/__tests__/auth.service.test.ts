@@ -161,6 +161,49 @@ describe('AuthService', () => {
     })
   })
 
+  describe('validateWebSocketToken', () => {
+    const jwt = 'my-jwt'
+    const payload = { sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer], exp: 1_900_000_000 }
+
+    beforeEach(() => {
+      vi.mocked(tokenVerifier.verify).mockResolvedValue(payload)
+      vi.mocked(em.findOne)
+        .mockResolvedValueOnce(makeUser({ id: '11' }))
+        .mockResolvedValueOnce(makeWallet())
+    })
+
+    test('reads the token that follows the bearer marker in Sec-WebSocket-Protocol', async () => {
+      const request = { headers: { 'sec-websocket-protocol': `heka.bearer, ${jwt}` } } as unknown as IncomingMessage
+
+      const result = await service.validateWebSocketToken(request)
+
+      expect(tokenVerifier.verify).toHaveBeenCalledWith(jwt)
+      expect(result.authInfo.userId).toBe('11')
+      expect(result.expiresAt).toBe(1_900_000_000)
+    })
+
+    test('falls back to the Authorization header', async () => {
+      const request = { headers: { authorization: `Bearer ${jwt}` } } as IncomingMessage
+
+      await service.validateWebSocketToken(request)
+
+      expect(tokenVerifier.verify).toHaveBeenCalledWith(jwt)
+    })
+
+    test('ignores subprotocols without the bearer marker', async () => {
+      const request = { headers: { 'sec-websocket-protocol': 'chat, something' } } as unknown as IncomingMessage
+
+      await expect(service.validateWebSocketToken(request)).rejects.toThrow('Authorization token is missing')
+      expect(tokenVerifier.verify).not.toHaveBeenCalled()
+    })
+
+    test('rejects a marker without a token', async () => {
+      const request = { headers: { 'sec-websocket-protocol': 'heka.bearer' } } as unknown as IncomingMessage
+
+      await expect(service.validateWebSocketToken(request)).rejects.toThrow('Authorization token is missing')
+    })
+  })
+
   describe('validateTokenPayload', () => {
     test('throws UnauthorizedException when payload has multiple roles', async () => {
       const payload = { sub: '11', org_id: '7', name: 'test', roles: [Role.Admin, Role.Issuer] } as any

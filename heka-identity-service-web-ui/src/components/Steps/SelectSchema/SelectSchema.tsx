@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 
@@ -23,6 +23,7 @@ import {
   SchemaField,
 } from '@/entities/Schema/model/types/schema';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
+import { useLatest } from '@/shared/lib/hooks/useLatest';
 import { Button } from '@/shared/ui/Button';
 import { ButtonCards } from '@/shared/ui/ButtonCards';
 import { Column, Row } from '@/shared/ui/Grid';
@@ -74,6 +75,10 @@ export const SelectSchema = ({
   const schemasList = useSelector(getSchemas);
   const singleSchema = useSelector(getSchema);
 
+  // The parent passes a new `setSchema` on every render: effects call the latest one through a
+  // ref instead of depending on it, which would re-run them on every render
+  const setSchemaRef = useLatest(setSchema);
+
   const backgroundColor: string =
     schema?.bgColor ?? defaultSchemaBackgroundColor;
 
@@ -87,20 +92,16 @@ export const SelectSchema = ({
 
   useEffect(() => {
     if (singleSchema) {
-      setSchema(singleSchema);
+      setSchemaRef.current(singleSchema);
     }
     if (schemasList && !singleSchema) {
-      setSchema(schemasList[0]);
+      setSchemaRef.current(schemasList[0]);
     }
-    // Attention: Don't add setSchema to dependencies array. It will provide infinity load
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [singleSchema, schemasList]);
+  }, [setSchemaRef, singleSchema, schemasList]);
 
   useEffect(() => {
-    if (schema) setSchema(schema);
-    // Attention: Don't add setSchema to dependencies array. It will provide infinity load
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema, schemasList]);
+    if (schema) setSchemaRef.current(schema);
+  }, [setSchemaRef, schema, schemasList]);
 
   const selectOptions: Option[] = useMemo(() => {
     return (
@@ -129,11 +130,9 @@ export const SelectSchema = ({
   const onSchemaCreated = useCallback(
     async (schema: Schema) => {
       await dispatch(getSchemaList({ isHidden: false }));
-      setSchema(schema);
+      setSchemaRef.current(schema);
     },
-    // Attention: Don't add setSchema to dependencies array. It will provide infinity load
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dispatch],
+    [dispatch, setSchemaRef],
   );
 
   const isSchemaRegistered = useCallback(() => {

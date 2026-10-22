@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { classNames } from '@/shared/lib/classNames';
@@ -41,37 +41,40 @@ export function CheckboxGroup({
     );
   }, [options.length, selectedOptions]);
 
-  const toggleAllCheckboxes = useCallback(() => {
-    setSelectedOptions((prev) => {
-      const allSelected =
-        options.length ===
-        Object.keys(prev).filter((option) => prev[option]).length;
-      const updatedOptions: Record<string, boolean> = options.reduce(
-        (prev, option) => ({
-          ...prev,
-          [option]: !allSelected,
-        }),
-        {},
-      );
+  // Computes the next selection outside the state updater, then updates both this group and
+  // the parent: calling the parent's setter from inside an updater is a side effect during render
+  const applySelection = useCallback(
+    (updatedOptions: Record<string, boolean>) => {
+      setSelectedOptions(updatedOptions);
       setSelected(
         Object.keys(updatedOptions).filter((option) => updatedOptions[option]),
       );
-      return updatedOptions;
-    });
-  }, [options, setSelected]);
-
-  const toggleCheckbox = useCallback(
-    (option: string) => {
-      setSelectedOptions((prev) => {
-        const updatedOptions = { ...prev, [option]: !prev[option] };
-        setSelected(
-          Object.keys(updatedOptions).filter((key) => updatedOptions[key]),
-        );
-        return updatedOptions;
-      });
     },
     [setSelected],
   );
+
+  const toggleAllCheckboxes = useCallback(() => {
+    applySelection(
+      options.reduce(
+        (prev, option) => ({ ...prev, [option]: !areAllSelected }),
+        {} as Record<string, boolean>,
+      ),
+    );
+  }, [applySelection, areAllSelected, options]);
+
+  const toggleCheckbox = useCallback(
+    (option: string) => {
+      applySelection({
+        ...selectedOptions,
+        [option]: !selectedOptions[option],
+      });
+    },
+    [applySelection, selectedOptions],
+  );
+
+  const idPrefix = useId();
+  const optionId = (index: number) => `${idPrefix}-option-${index}`;
+  const selectAllId = `${idPrefix}-all`;
 
   if (!options.length) {
     return null;
@@ -89,17 +92,21 @@ export function CheckboxGroup({
         className={classNames(cls.option, {}, [cls.optionsController])}
       >
         <input
+          id={selectAllId}
           type="checkbox"
           checked={areAllSelected}
           onChange={toggleAllCheckboxes}
           disabled={disabled}
         />
 
-        <p className={cls.optionsControllerLabel}>
+        <label
+          htmlFor={selectAllId}
+          className={cls.optionsControllerLabel}
+        >
           {t('Common.buttons.selectAll')}
-        </p>
+        </label>
       </Row>
-      {options.map((option) => (
+      {options.map((option, index) => (
         <Row
           key={option}
           justifyContent="flex-start"
@@ -107,15 +114,21 @@ export function CheckboxGroup({
           className={cls.option}
         >
           <input
+            id={optionId(index)}
             type="checkbox"
             name={option}
-            checked={selectedOptions[option]}
+            checked={!!selectedOptions[option]}
             onChange={() => toggleCheckbox(option)}
             disabled={disabled}
             value={''}
           />
 
-          <p className={cls.optionLabel}>{option}</p>
+          <label
+            htmlFor={optionId(index)}
+            className={cls.optionLabel}
+          >
+            {option}
+          </label>
         </Row>
       ))}
     </Column>

@@ -11,6 +11,7 @@ export interface DemoContext extends WizardContext {
   network?: string;
   schema?: Schema;
   attributes?: Array<string>;
+  credentialValues?: Record<string, string>;
 }
 
 export enum DemoSteps {

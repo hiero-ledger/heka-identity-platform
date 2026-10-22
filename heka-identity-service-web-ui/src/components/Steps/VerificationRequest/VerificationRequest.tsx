@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { NextStepName, StepDetails } from '@/components/Steps/Step.types';
 import { AnoncredsVerificationRequest } from '@/components/Steps/VerificationRequest/protocols/AnoncredsVerificationRequest';
 import { OpenIdVerificationRequest } from '@/components/Steps/VerificationRequest/protocols/OpenIdVerificationRequest';

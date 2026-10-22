@@ -1,0 +1,44 @@
+# Fresh install -> [Keycloak login] -> tutorial -> terms -> create PIN -> skip biometrics -> Home.
+# Input: env PIN; KC_USERNAME, KC_PASSWORD for builds with ENABLE_EXTERNAL_AUTH=true.
+appId: com.heka.wallet
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/(Login|OnboardingNext)'
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: 'com.ariesbifold:id/Login'
+    file: login.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/OnboardingNext'
+    timeout: 30000
+- repeat:
+    while:
+      visible:
+        id: 'com.ariesbifold:id/OnboardingNext'
+    times: 6
+    commands:
+      - tapOn:
+          id: 'com.ariesbifold:id/OnboardingNext'
+# Accept is below the terms text.
+- scrollUntilVisible:
+    element:
+      id: 'com.ariesbifold:id/Accept'
+- tapOn:
+    id: 'com.ariesbifold:id/Accept'
+# Create PIN, then repeat it.
+- runFlow: enter-pin.yaml
+- runFlow: enter-pin.yaml
+- tapOn:
+    id: 'com.ariesbifold:id/SkipBiometrics'
+# Splash initialises the agent before Home appears.
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/TabCredentials'
+    timeout: 60000

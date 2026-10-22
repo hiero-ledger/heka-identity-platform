@@ -20,7 +20,7 @@ export default function CreateSchemaCredential({
 }: CreateSchemaCredentialProps) {
   const { t } = useTranslation();
 
-  const { control, register, reset } = useForm<CreateSchemaCredentialFormData>({
+  const { control, reset } = useForm<CreateSchemaCredentialFormData>({
     defaultValues: CreateSchemaCredentialFormDefaultValues,
     mode: 'onSubmit',
     reValidateMode: 'onChange',
@@ -41,7 +41,7 @@ export default function CreateSchemaCredential({
         <div className={cls.inputWrapper}>
           <TextInput
             label={t('CreateSchema.titles.newCredentialField')}
-            {...register('name')}
+            name="name"
             control={control}
             onChangeValue={onChangeValue}
           />

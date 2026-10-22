@@ -4,13 +4,14 @@ import { ThunkConfig } from '@/app/providers/StoreProvider';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { handleError } from '@/shared/api/utils/error';
 
-import { Schema, SchemasParams, SchemasResponse } from '../types/schema';
+import { Schema, SchemasResponse } from '../types/schema';
 
+/** Lists the demo tenant's schemas; the slice stores them like `getSchemaList`. */
 export const getDemoSchemaList = createAsyncThunk<
   Schema[],
-  SchemasParams | undefined,
+  void,
   ThunkConfig<string>
->('schema/getSchemaList', async (params, thunkAPI) => {
+>('schema/getDemoSchemaList', async (_, thunkAPI) => {
   const { extra, rejectWithValue, dispatch } = thunkAPI;
 
   try {

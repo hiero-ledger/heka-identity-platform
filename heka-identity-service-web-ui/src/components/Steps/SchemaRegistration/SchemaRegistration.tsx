@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
@@ -13,7 +13,6 @@ import {
   CredentialFormat,
   credentialFormatToCredentialRegistrationFormat,
 } from '@/entities/Schema/model/types/schema';
-import { ApiError, errorMessage } from '@/shared/api/utils/error';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
 import { Row } from '@/shared/ui/Grid';
@@ -71,12 +70,8 @@ export const SchemaRegistration = ({
       ).unwrap();
       await dispatch(getSingleSchema(schema!.id)).unwrap();
       return onNext();
-    } catch (error) {
-      toast.error(
-        errorMessage(
-          (error as ApiError).response?.data.message ?? 'Unknown server error',
-        ),
-      );
+    } catch {
+      // The thunks have already shown the error
     }
   }, [props, dispatch, onNext, schema]);
 

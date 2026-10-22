@@ -96,10 +96,10 @@ export const userSlice = buildSlice({
           };
         },
       )
-      .addCase(prepareWallet.rejected, (state, payload) => {
+      .addCase(prepareWallet.rejected, (state, action) => {
         state.isLoading = false;
         state.isPreparing = false;
-        state.error = payload.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(
         fetchDidMethods.fulfilled,
@@ -112,24 +112,29 @@ export const userSlice = buildSlice({
           };
         },
       )
-      .addCase(fetchDidMethods.rejected, (state, payload) => {
+      .addCase(fetchDidMethods.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = payload.error.message;
+        state.error = action.payload ?? action.error.message;
       })
-      .addCase(
-        fetchDidDocuments.fulfilled,
-        (state, action: PayloadAction<GetDidDocumentsResult>) => {
-          state.isLoading = false;
-          state.error = undefined;
-          state.data = {
-            ...(state.data ?? {}),
-            didDocuments: action.payload.didDocuments,
-          };
-        },
-      )
-      .addCase(fetchDidDocuments.rejected, (state, payload) => {
+      .addCase(fetchDidDocuments.pending, (state, action) => {
+        state.didDocumentsRequestId = action.meta.requestId;
+      })
+      .addCase(fetchDidDocuments.fulfilled, (state, action) => {
+        if (action.meta.requestId !== state.didDocumentsRequestId) return;
+        const result: GetDidDocumentsResult = action.payload;
         state.isLoading = false;
-        state.error = payload.error.message;
+        state.error = undefined;
+        state.data = {
+          ...(state.data ?? {}),
+          didDocuments: result.didDocuments,
+          // Lets the UI tell which network the DIDs belong to
+          didDocumentsMethod: action.meta.arg.method,
+        };
+      })
+      .addCase(fetchDidDocuments.rejected, (state, action) => {
+        if (action.meta.requestId !== state.didDocumentsRequestId) return;
+        state.isLoading = false;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(signOut.pending, (state) => {
         state.isLoading = false;

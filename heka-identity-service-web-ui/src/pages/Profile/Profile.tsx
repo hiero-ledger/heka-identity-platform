@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Label } from 'react-aria-components';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +33,8 @@ import { Column, Row } from '@/shared/ui/Grid';
 import { Loader } from '@/shared/ui/Loader';
 
 import * as cls from './Profile.module.scss';
+
+const ISSUER_NAME_MAX_LENGTH = 250;
 
 const Profile = () => {
   const user = useSelector(getUser);
@@ -69,7 +71,7 @@ const Profile = () => {
 
   const handleUpdateAgencyUser = useCallback(
     (data: TextFieldFormData) => {
-      patchAgencyUserProperty({ key: data.field, value: data.value });
+      patchAgencyUserProperty({ key: data.field, value: data.value?.trim() });
     },
     [patchAgencyUserProperty],
   );
@@ -97,22 +99,25 @@ const Profile = () => {
     }
   }, [t, user, isUserFetching, firstLoginNotified]);
 
+  // Validates the name as it will be saved, i.e. trimmed: `setValueAs` would never run, because
+  // TextInput writes the value through a Controller rather than a registered input
   const issuerNameValidation = {
-    setValueAs: (value: string) => value.trim(),
-    required: {
-      value: true,
-      message: 'Issuer is required',
-    },
-    maxLength: {
-      value: 250,
-      message: 'Maximum length is 250',
+    validate: (value?: string) => {
+      const name = (value ?? '').trim();
+      if (!name) return t('Profile.validation.issuerRequired');
+      if (name.length > ISSUER_NAME_MAX_LENGTH) {
+        return t('Profile.validation.issuerMaxLength', {
+          max: ISSUER_NAME_MAX_LENGTH,
+        });
+      }
+      return true;
     },
   };
 
   return (
     <Row className={cls.ProfileWrapper}>
       <BasicPanel
-        title="Profile"
+        title={t('Profile.titles.main')}
         icon={'vault'}
       />
       <Row
@@ -134,7 +139,9 @@ const Profile = () => {
                   labelKey="Profile.titles.name"
                   field="username"
                   value={user?.name ?? ''}
-                  onSubmit={() => toast.error('Not implemented yet')}
+                  onSubmit={() =>
+                    toast.error(t('Common.messages.notImplemented'))
+                  }
                   className={
                     session.changePassword
                       ? cls.intermediateField

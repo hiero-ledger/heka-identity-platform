@@ -1,0 +1,5 @@
+# Maestro workspace: runs the top-level flows; subflows/ holds reusable steps.
+flows:
+  - '*.yaml'
+executionOrder:
+  continueOnFailure: true

@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { ApplicationStoreLink } from '@/components/ApplicationStoreLink';
 
 type ApplicationStoreLinksProps = {

@@ -3,6 +3,7 @@ import {
   SettingStack,
   Stacks as BifoldStacks,
   TabStacks as BifoldTabStacks,
+  testIdWithKey,
   TOKENS,
   useContainer,
   useNetwork,
@@ -111,6 +112,7 @@ export const TabStack: React.FC = () => {
             ),
             tabBarShowLabel: false,
             tabBarAccessibilityLabel: `${t('TabStack.Credentials')} (${notifications.length ?? 0})`,
+            tabBarTestID: testIdWithKey('TabCredentials'),
             // TODO: Find a way to pass styled text here without cast to any
             tabBarBadge: notifications.length
               ? ((<Text style={styles.notificationsBadgeText}>{notifications.length}</Text>) as any)
@@ -136,6 +138,7 @@ export const TabStack: React.FC = () => {
             ),
             tabBarShowLabel: false,
             tabBarAccessibilityLabel: t('TabStack.Scan'),
+            tabBarTestID: testIdWithKey('TabScan'),
           }}
           listeners={({ navigation }) => ({
             tabPress: (e) => {
@@ -162,6 +165,7 @@ export const TabStack: React.FC = () => {
             ),
             tabBarShowLabel: false,
             tabBarAccessibilityLabel: t('TabStack.Settings'),
+            tabBarTestID: testIdWithKey('TabSettings'),
           }}
         />
       </Tab.Navigator>

@@ -1,7 +1,8 @@
-import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useMobile } from '@/components/Screen/Screen';
 import AddSVG from '@/shared/assets/icons/add.svg';
+import { clickableProps } from '@/shared/lib/a11y/clickable';
 import { classNames } from '@/shared/lib/classNames';
 import { Column } from '@/shared/ui/Grid';
 
@@ -19,6 +20,10 @@ export interface ButtonCardsProps {
   direction?: 'row' | 'column';
   limitWidth?: boolean;
   onCreate?: () => void;
+  /** Accessible name of the option group */
+  label?: string;
+  /** Accessible name of the create button; defaults to "Create" */
+  createLabel?: string;
 }
 
 export function ButtonCards({
@@ -28,13 +33,18 @@ export function ButtonCards({
   onCreate,
   direction = 'row',
   limitWidth,
+  label,
+  createLabel,
 }: ButtonCardsProps) {
+  const { t } = useTranslation();
   const isMobile = useMobile();
   const columnDirection =
     direction === 'column' || (isMobile && options.length > 3);
 
   return (
     <div
+      role="radiogroup"
+      aria-label={label}
       className={classNames(cls.ButtonGroup, {
         [cls.ButtonGroupRow]: !columnDirection,
         [cls.ButtonGroupColumn]: columnDirection,
@@ -49,8 +59,11 @@ export function ButtonCards({
             [cls.ButtonGroupColumn]: !columnDirection,
             [cls.limitWidth]: limitWidth,
           })}
-          onClick={() => onChange(option.value)}
           title={option.content}
+          {...clickableProps(() => onChange(option.value), {
+            role: 'radio',
+            checked: option.value === selected,
+          })}
         >
           <Column
             justifyContent="center"
@@ -67,7 +80,9 @@ export function ButtonCards({
       {onCreate && (
         <div
           className={classNames(cls.ButtonCreate)}
-          onClick={onCreate}
+          {...clickableProps(onCreate, {
+            label: createLabel ?? t('Common.buttons.create'),
+          })}
         >
           <AddSVG
             width={24}

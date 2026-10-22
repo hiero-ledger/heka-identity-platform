@@ -16,7 +16,8 @@ export interface UpdateIssuanceTemplateParams {
     did?: string;
     schema?: Schema;
     credentialValues?: Record<string, string>;
-    previousTemplateId?: string;
+    // `null` moves the template to the top; omitted leaves the order unchanged
+    previousTemplateId?: string | null;
   };
 }
 

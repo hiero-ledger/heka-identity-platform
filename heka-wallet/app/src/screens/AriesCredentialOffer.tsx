@@ -49,8 +49,14 @@ export const AriesCredentialOffer: React.FC<Props> = ({ route }) => {
     setIsCredentialLoading(true)
     mapCredentialRecord(credentialExchangeRecord, agent)
       .then((credential) => setCredential(credential))
+      .catch((err: unknown) => {
+        DeviceEventEmitter.emit(
+          EventTypes.ERROR_ADDED,
+          new BifoldError(t('Error.Title1025'), t('Error.Message1025'), (err as Error)?.message ?? err, 1025)
+        )
+      })
       .finally(() => setIsCredentialLoading(false))
-  }, [agent, credentialExchangeRecord, credential])
+  }, [t, agent, credentialExchangeRecord, credential])
 
   useEffect(() => {
     if (!agent) {

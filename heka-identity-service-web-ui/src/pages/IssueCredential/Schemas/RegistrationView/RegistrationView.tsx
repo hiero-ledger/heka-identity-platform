@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +13,6 @@ import {
   RegisterSchemaFormData,
   RegisterSchemaFormDefaultValues,
 } from '@/pages/IssueCredential/Schemas/RegistrationView/RegisterSchema.form';
-import { ApiError, errorMessage } from '@/shared/api/utils/error';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button/Button';
 import { FormSelect } from '@/shared/ui/FormSelect';
@@ -42,20 +41,13 @@ export const RegistrationView = ({
   const { id: schemaId } = schema;
   const isLoading = useSelector(selectSchemaLoading);
 
-  const [isCredentialFormatDisabled, setIsCredentialFormatDisabled] =
-    useState<boolean>(true);
-  const [isNetworkDisabled, setIsNetworkDisabled] = useState<boolean>(true);
-  const [isDidDisabled, setIsDidDisabled] = useState<boolean>(true);
-
   const {
     control,
     handleSubmit,
-    register,
     clearErrors,
     reset,
     resetField,
     watch,
-    getValues,
     setValue,
   } = useForm<RegisterSchemaFormData>({
     defaultValues: RegisterSchemaFormDefaultValues,
@@ -65,21 +57,20 @@ export const RegistrationView = ({
 
   const resetForm = useCallback(() => {
     reset(RegisterSchemaFormDefaultValues);
-    setIsCredentialFormatDisabled(true);
-    setIsNetworkDisabled(true);
-    setIsDidDisabled(true);
   }, [reset]);
 
-  const [protocol, credentialFormat, network] = watch([
+  const [protocol, credentialFormat, network, did] = watch([
     'protocol',
     'credentialFormat',
     'network',
+    'did',
   ]);
 
-  const formComplete = useCallback(() => {
-    const { protocol, credentialFormat, network, did } = getValues();
-    return protocol && credentialFormat && network && did;
-  }, [getValues]);
+  // Each select opens once the one before it has a value; Submit once all four do
+  const isCredentialFormatDisabled = !protocol;
+  const isNetworkDisabled = !credentialFormat;
+  const isDidDisabled = !network;
+  const isFormComplete = !!(protocol && credentialFormat && network && did);
 
   const handleRegisterSchema = useCallback(
     async (data: RegisterSchemaFormData) => {
@@ -98,13 +89,8 @@ export const RegistrationView = ({
         );
         resetForm();
         onOpenChange(false);
-      } catch (error) {
-        toast.error(
-          errorMessage(
-            (error as ApiError).response?.data.message ??
-              'Unknown server error',
-          ),
-        );
+      } catch {
+        // The thunk has already shown the error; keep the modal open
       }
     },
     [dispatch, schemaId, onOpenChange, resetForm, t],
@@ -162,19 +148,6 @@ export const RegistrationView = ({
   }, [resetForm]);
 
   useEffect(() => {
-    setIsCredentialFormatDisabled(!protocol);
-    setIsNetworkDisabled(!credentialFormat);
-    setIsDidDisabled(!network);
-  }, [
-    setIsCredentialFormatDisabled,
-    setIsNetworkDisabled,
-    setIsDidDisabled,
-    protocol,
-    credentialFormat,
-    network,
-  ]);
-
-  useEffect(() => {
     resetField('credentialFormat');
   }, [resetField, protocol]);
 
@@ -224,7 +197,7 @@ export const RegistrationView = ({
     >
       <form onSubmit={handleSubmit(handleRegisterSchema)}>
         <FormSelect
-          {...register('protocol')}
+          name="protocol"
           control={control}
           clearErrors={clearErrors}
           placeholder={t('IssueCredential.schema.registrationDetails.protocol')}
@@ -233,7 +206,7 @@ export const RegistrationView = ({
         />
         {
           <FormSelect
-            {...register('credentialFormat')}
+            name="credentialFormat"
             control={control}
             clearErrors={clearErrors}
             placeholder={t(
@@ -245,7 +218,7 @@ export const RegistrationView = ({
           />
         }
         <FormSelect
-          {...register('network')}
+          name="network"
           control={control}
           clearErrors={clearErrors}
           placeholder={t('IssueCredential.schema.registrationDetails.network')}
@@ -254,7 +227,7 @@ export const RegistrationView = ({
           isDisabled={isNetworkDisabled}
         />
         <FormSelect
-          {...register('did')}
+          name="did"
           control={control}
           clearErrors={clearErrors}
           placeholder={t('IssueCredential.schema.registrationDetails.did')}
@@ -265,7 +238,7 @@ export const RegistrationView = ({
         <Row className={cls.submitBtn}>
           <Button
             type="submit"
-            isDisabled={!formComplete()}
+            isDisabled={!isFormComplete}
             isLoading={isLoading}
             fullWidth
           >

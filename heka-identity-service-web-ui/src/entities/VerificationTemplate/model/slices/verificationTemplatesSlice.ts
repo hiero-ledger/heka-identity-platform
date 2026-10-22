@@ -14,6 +14,8 @@ import {
 const initialState: VerificationTemplateSchema = {
   isLoading: false,
   error: undefined,
+  isMutating: false,
+  mutationError: undefined,
   verificationTemplates: undefined,
   verificationTemplate: undefined,
 };
@@ -25,6 +27,8 @@ export const verificationTemplatesSlice = buildSlice({
     reset: (state) => {
       state.isLoading = initialState.isLoading;
       state.error = initialState.error;
+      state.isMutating = initialState.isMutating;
+      state.mutationError = initialState.mutationError;
       state.verificationTemplates = initialState.verificationTemplates;
       state.verificationTemplate = initialState.verificationTemplate;
     },
@@ -51,9 +55,9 @@ export const verificationTemplatesSlice = buildSlice({
           state.verificationTemplates = action.payload;
         },
       )
-      .addCase(getVerificationTemplateList.rejected, (state, payload) => {
+      .addCase(getVerificationTemplateList.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = payload.error.message;
+        state.error = action.payload ?? action.error.message;
         state.verificationTemplates = undefined;
       })
       // Single verification template
@@ -69,43 +73,45 @@ export const verificationTemplatesSlice = buildSlice({
           state.verificationTemplate = action.payload;
         },
       )
-      .addCase(getVerificationTemplate.rejected, (state, payload) => {
+      .addCase(getVerificationTemplate.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = payload.error.message;
+        state.error = action.payload ?? action.error.message;
         state.verificationTemplate = undefined;
       })
-      // Create verification template
+      // Create and delete only track the mutation: the list stays visible and keeps its own
+      // loading/error state
       .addCase(createVerificationTemplate.pending, (state) => {
-        state.isLoading = true;
-        state.error = undefined;
+        state.isMutating = true;
+        state.mutationError = undefined;
       })
       .addCase(
         createVerificationTemplate.fulfilled,
         (state, action: PayloadAction<VerificationTemplate>) => {
-          state.isLoading = false;
-          state.error = undefined;
+          state.isMutating = false;
           state.verificationTemplates?.push(action.payload);
         },
       )
-      .addCase(createVerificationTemplate.rejected, (state, payload) => {
-        state.isLoading = false;
-        state.error = payload.error.message;
+      .addCase(createVerificationTemplate.rejected, (state, action) => {
+        state.isMutating = false;
+        state.mutationError = action.payload ?? action.error.message;
       })
-      // Delete verification template
       .addCase(deleteVerificationTemplate.pending, (state) => {
-        state.isLoading = true;
-        state.error = undefined;
+        state.isMutating = true;
+        state.mutationError = undefined;
       })
       .addCase(deleteVerificationTemplate.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.error = undefined;
+        const { templateId } = action.payload;
+        state.isMutating = false;
         state.verificationTemplates = state.verificationTemplates?.filter(
-          (template) => template.id != action.payload.templateId,
+          (template) => template.id !== templateId,
         );
+        if (state.verificationTemplate?.id === templateId) {
+          state.verificationTemplate = undefined;
+        }
       })
-      .addCase(deleteVerificationTemplate.rejected, (state, payload) => {
-        state.isLoading = false;
-        state.error = payload.error.message;
+      .addCase(deleteVerificationTemplate.rejected, (state, action) => {
+        state.isMutating = false;
+        state.mutationError = action.payload ?? action.error.message;
       }),
 });
 

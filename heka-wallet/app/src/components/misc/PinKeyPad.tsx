@@ -1,3 +1,4 @@
+import { testIdWithKey } from '@bifold/core'
 import { minPINLength } from '@bifold/core/src/constants'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import React, { useCallback, useEffect, useState } from 'react'
@@ -89,6 +90,7 @@ const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
             <TouchableOpacity
               disabled={item === ''} // empty space
               onPress={() => onPinChanged(item)}
+              testID={testIdWithKey(item === deleteSymbol ? 'PinKeyDelete' : `PinKey${item}`)}
             >
               <View style={styles.itemContainer}>
                 {item === deleteSymbol ? <DeleteIcon /> : <Text style={styles.itemText}>{item}</Text>}

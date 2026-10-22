@@ -1,4 +1,11 @@
-import { Button, ButtonType, TabStacks as BifoldTabStacks, Stacks as BifoldStacks, SafeAreaModal } from '@bifold/core'
+import {
+  Button,
+  ButtonType,
+  TabStacks as BifoldTabStacks,
+  Stacks as BifoldStacks,
+  SafeAreaModal,
+  testIdWithKey,
+} from '@bifold/core'
 import { useCredentialById } from '@bifold/react-hooks'
 import { DidCommCredentialState } from '@credo-ts/didcomm'
 import { ColorPalette, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
@@ -115,6 +122,7 @@ export const CredentialOfferAcceptModal: React.FC<Props> = ({
             <Button
               title={t('Global.Done')}
               accessibilityLabel={t('Global.Done')}
+              testID={testIdWithKey('CredentialOfferDone')}
               onPress={navigateToHome}
               buttonType={ButtonType.ModalPrimary}
             />

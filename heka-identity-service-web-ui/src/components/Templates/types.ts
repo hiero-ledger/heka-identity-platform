@@ -15,9 +15,10 @@ export interface TemplatesState {
 export interface TemplatesProps {
   templateType: TemplateType;
   templatesState: TemplatesState;
+  /** Moves the template after `previousTemplateId` (`null` = to the top); rejects when the update fails. */
   changeTemplateOrder: (
-    TemplateId: string,
-    previousTemplateId?: string,
+    templateId: string,
+    previousTemplateId: string | null,
   ) => Promise<void>;
   deleteTemplate: (templateId: string) => Promise<void>;
   navigateOnCreateTemplate: string;
