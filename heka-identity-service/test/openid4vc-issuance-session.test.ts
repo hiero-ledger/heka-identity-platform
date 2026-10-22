@@ -260,7 +260,9 @@ describe('E2E issuance session', () => {
     await testCredentialIssuance('key', 'EdDSA')
   })
 
-  // Need to add Indy-Besu network to CI
+  // did:indybesu creation works against a local Indy-Besu network (INDY_BESU_E2E=true), but this test itself does not
+  // fit a non-key DID: it decodes the issuer DID with `DidKey.fromDid` and has the stale offer expectations of the
+  // `key` case above. Re-enable both together.
   test.skip('create offer with `indybesu` DID method', async () => {
     await testCredentialIssuance('indybesu', 'ES256K')
   })

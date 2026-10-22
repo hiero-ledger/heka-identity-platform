@@ -6,6 +6,7 @@ import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionSta
 import { Injectable, InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
+import { assertDidNotDeactivated } from 'common/did-registrar'
 
 import {
   OpenId4VcVerificationSessionCreateRequestDto,
@@ -36,7 +37,9 @@ export class OpenId4VcVerificationSessionService {
       if (!req.requestSigner?.did) {
         throw new UnprocessableEntityException('requestSigner.did is required')
       }
-      const { didDocument } = await tenantAgent.dids.resolve(req.requestSigner.did)
+      const { didDocument, didDocumentMetadata } = await tenantAgent.dids.resolve(req.requestSigner.did)
+      // A deactivated did:indybesu keeps its keys, so this is checked first
+      await assertDidNotDeactivated(tenantAgent, req.requestSigner.did, didDocumentMetadata)
       if (!didDocument || !didDocument.verificationMethod?.length) {
         throw new UnprocessableEntityException(`Unable to resolve signing key for DID: ${req.requestSigner.did}`)
       }
