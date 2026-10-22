@@ -8,6 +8,5 @@
     "isolatedModules": false,
     "jsx": "preserve"
   },
-  "include": ["./*.ts"],
-  "exclude": ["./*.test.ts"]
+  "include": ["./*.ts"]
 }
