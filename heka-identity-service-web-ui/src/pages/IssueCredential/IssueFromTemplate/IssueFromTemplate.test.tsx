@@ -4,17 +4,15 @@ import toast from 'react-hot-toast';
 
 import ROUTES from '@/app/routes/RoutePaths';
 import {
+  LocationDisplay,
+  readLocationState,
+} from '@/shared/lib/tests/LocationDisplay';
+import {
   createMockApi,
   renderWithProviders,
 } from '@/shared/lib/tests/renderWithProviders';
 
-import {
-  INDY_DID,
-  issuanceTemplate,
-  LocationProbe,
-  readLocationState,
-  routeAgencyGets,
-} from '../testUtils';
+import { INDY_DID, issuanceTemplate, routeAgencyGets } from '../testUtils';
 import { IssueFromTemplate } from './IssueFromTemplate';
 
 jest.mock('react-hot-toast', () => ({
@@ -32,7 +30,7 @@ const renderIssueFromTemplate = (
   const result = renderWithProviders(
     <>
       <IssueFromTemplate />
-      <LocationProbe />
+      <LocationDisplay />
     </>,
     {
       api,
@@ -49,7 +47,7 @@ describe('IssueFromTemplate', () => {
     // e.g. the page was opened in a new tab or its URL typed in
     const { api } = renderIssueFromTemplate(null);
 
-    expect(screen.getByTestId('pathname')).toHaveTextContent(
+    expect(screen.getByTestId('location')).toHaveTextContent(
       ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
     );
     expect(api.get).not.toHaveBeenCalled();
@@ -63,7 +61,7 @@ describe('IssueFromTemplate', () => {
     renderWithProviders(
       <>
         <IssueFromTemplate />
-        <LocationProbe />
+        <LocationDisplay />
       </>,
       {
         api,
@@ -75,7 +73,7 @@ describe('IssueFromTemplate', () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId('pathname')).toHaveTextContent(
+      expect(screen.getByTestId('location')).toHaveTextContent(
         ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
       ),
     );
@@ -103,7 +101,7 @@ describe('IssueFromTemplate', () => {
     await user.click(screen.getByRole('button', { name: 'Issue' }));
 
     await waitFor(() =>
-      expect(screen.getByTestId('pathname')).toHaveTextContent(
+      expect(screen.getByTestId('location')).toHaveTextContent(
         ROUTES.CREDENTIAL_OFFER,
       ),
     );
@@ -129,7 +127,7 @@ describe('IssueFromTemplate', () => {
     await user.click(screen.getByRole('button', { name: 'Issue' }));
 
     expect(await screen.findByText('lastName is required')).toBeInTheDocument();
-    expect(screen.getByTestId('pathname')).toHaveTextContent(
+    expect(screen.getByTestId('location')).toHaveTextContent(
       ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
     );
   });

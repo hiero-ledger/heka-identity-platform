@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import ROUTES from '@/app/routes/RoutePaths';
 import { ProtocolType } from '@/entities/Schema';
 import { AriesCredentialFormat } from '@/entities/Schema/model/types/schema';
+import { LocationDisplay } from '@/shared/lib/tests/LocationDisplay';
 import {
   createMockApi,
   renderWithProviders,
@@ -18,7 +19,6 @@ import {
 import { IssueCredentialMenu } from './IssueCredentialMenu/IssueCredentialMenu';
 import {
   INDY_DID,
-  LocationProbe,
   registeredSchema,
   routeAgencyGets,
   unregisteredSchema,
@@ -34,7 +34,7 @@ const renderAt = (pathname: string) => {
   const result = renderWithProviders(
     <>
       <IssueCredential />
-      <LocationProbe />
+      <LocationDisplay />
     </>,
     { api, route: pathname, path: '/issue-credential/*' },
   );
@@ -56,13 +56,13 @@ describe('IssueCredential page', () => {
     // The schemes menu item; the page header also shows the active item
     const [schemesItem] = screen.getAllByText('Schemas');
     await user.click(schemesItem);
-    expect(screen.getByTestId('pathname')).toHaveTextContent(
+    expect(screen.getByTestId('location')).toHaveTextContent(
       ROUTES.ISSUE_CREDENTIAL_SCHEMAS,
     );
     expect(await screen.findByTitle('Passport')).toBeInTheDocument();
 
     await user.click(screen.getByText('Advanced issue'));
-    expect(screen.getByTestId('pathname')).toHaveTextContent(
+    expect(screen.getByTestId('location')).toHaveTextContent(
       ROUTES.ISSUE_ADVANCED_ISSUE,
     );
   });
@@ -141,7 +141,7 @@ describe('IssueCredentialMenu', () => {
     renderWithProviders(
       <>
         <IssueCredentialMenu onClick={onClick} />
-        <LocationProbe />
+        <LocationDisplay />
       </>,
       { route: ROUTES.ISSUE_CREDENTIAL_SCHEMAS },
     );
@@ -149,7 +149,7 @@ describe('IssueCredentialMenu', () => {
     await userEvent.setup().click(screen.getByText('Templates'));
 
     expect(onClick).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('pathname')).toHaveTextContent(
+    expect(screen.getByTestId('location')).toHaveTextContent(
       ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
     );
   });

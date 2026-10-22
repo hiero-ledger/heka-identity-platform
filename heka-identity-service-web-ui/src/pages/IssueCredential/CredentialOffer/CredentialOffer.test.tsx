@@ -5,12 +5,13 @@ import ROUTES from '@/app/routes/RoutePaths';
 import { OpenIdIssuanceState } from '@/entities/Credential/model/types/credential';
 import { ProtocolType } from '@/entities/Schema';
 import { Openid4CredentialFormat } from '@/entities/Schema/model/types/schema';
+import { LocationDisplay } from '@/shared/lib/tests/LocationDisplay';
 import {
   createMockApi,
   renderWithProviders,
 } from '@/shared/lib/tests/renderWithProviders';
 
-import { KEY_DID, LocationProbe, registeredSchema } from '../testUtils';
+import { KEY_DID, registeredSchema } from '../testUtils';
 import CredentialOffer from './CredentialOffer';
 
 jest.mock('@/shared/lib/notifications', () => ({
@@ -49,7 +50,7 @@ describe('CredentialOffer page', () => {
     renderWithProviders(
       <>
         <CredentialOffer />
-        <LocationProbe />
+        <LocationDisplay />
       </>,
       {
         api,
@@ -75,7 +76,7 @@ describe('CredentialOffer page', () => {
       .click(screen.getByRole('button', { name: 'Issue more credential' }));
 
     await waitFor(() =>
-      expect(screen.getByTestId('pathname')).toHaveTextContent(
+      expect(screen.getByTestId('location')).toHaveTextContent(
         ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
       ),
     );

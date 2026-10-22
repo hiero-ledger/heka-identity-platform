@@ -15,6 +15,7 @@ import { VerificationFromTemplate } from '@/pages/VerifyCredential/VerificationF
 import VerificationRequest from '@/pages/VerifyCredential/VerificationRequest/VerificationRequest';
 import VerifyCredential from '@/pages/VerifyCredential/VerifyCredential';
 import { useAuthSession } from '@/shared/auth/session';
+import { routerFuture } from '@/shared/config/router';
 import { LoaderView } from '@/shared/ui/Loader/Loader';
 
 const AuthenticatedRoutes = () => (
@@ -114,7 +115,7 @@ const Router = () => {
   }
 
   return (
-    <BrowserRouter>
+    <BrowserRouter future={routerFuture}>
       {isAuthenticated ? <AuthenticatedRoutes /> : <UnauthenticatedRoutes />}
     </BrowserRouter>
   );

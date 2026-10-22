@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 
 import ROUTES from '@/app/routes/RoutePaths';
 import { WizardType } from '@/app/types/WizardContext';
-import { LocationDisplay } from '@/pages/VerifyCredential/testUtils';
+import { LocationDisplay } from '@/shared/lib/tests/LocationDisplay';
 import { renderWithProviders } from '@/shared/lib/tests/renderWithProviders';
 
 import VerifyCredential from './VerifyCredential';

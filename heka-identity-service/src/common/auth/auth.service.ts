@@ -3,7 +3,6 @@ import { IncomingMessage } from 'http'
 import { EntityManager } from '@mikro-orm/core'
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import { Mutex } from 'async-mutex'
-import { decodeJwt } from 'jose'
 
 import { Agent, AGENT_TOKEN } from 'common/agent'
 import { User, Wallet } from 'common/entities'
@@ -39,15 +38,10 @@ export class AuthService {
     logger.trace('>')
 
     const token = extractTokenFromHeader(request)
-    if (!token) {
-      throw new UnauthorizedException('Authorization token is missing')
-    }
     logger.traceObject({ token })
 
-    const payload = await this.tokenVerifier.verify(token)
-    logger.traceObject({ payload })
-
-    return this.validateTokenPayload(payload)
+    const { authInfo } = await this.authenticateToken(token)
+    return authInfo
   }
 
   /**
@@ -61,17 +55,21 @@ export class AuthService {
     logger.trace('>')
 
     const token = extractTokenFromProtocolHeader(request) ?? extractTokenFromHeader(request)
+    const result = await this.authenticateToken(token)
+
+    logger.trace({ userId: result.authInfo.userId, expiresAt: result.expiresAt }, '<')
+    return result
+  }
+
+  /** Verifies a bearer token and resolves its user and wallet; `expiresAt` is the token's `exp`. */
+  private async authenticateToken(token: string | undefined): Promise<{ authInfo: AuthInfo; expiresAt?: number }> {
     if (!token) {
       throw new UnauthorizedException('Authorization token is missing')
     }
 
     const payload = await this.tokenVerifier.verify(token)
     const authInfo = await this.validateTokenPayload(payload)
-    // The signature and `exp` were verified above, so reading the claim without verification is safe here
-    const { exp } = decodeJwt(token)
-
-    logger.trace({ userId: authInfo.userId, expiresAt: exp }, '<')
-    return { authInfo, expiresAt: exp }
+    return { authInfo, expiresAt: payload.exp }
   }
 
   public async validateTokenPayload(tokenPayload: TokenPayload): Promise<AuthInfo> {

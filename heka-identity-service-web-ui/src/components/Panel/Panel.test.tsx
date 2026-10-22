@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { setViewportWidth } from '@/components/testUtils/viewport';
+import { routerFuture } from '@/shared/config/router';
 
 import { BasicPanel, ColorizedPanel, PanelWithMenu, TopPanel } from './Panel';
 import { AdvancedMenuIcons, AdvancedMenuItem } from './shared/AdvancedMenuItem';
@@ -145,7 +146,7 @@ describe('AdvancedMenuItem', () => {
     setIsPopupOpen?: jest.Mock,
   ) =>
     render(
-      <MemoryRouter>
+      <MemoryRouter future={routerFuture}>
         <Routes>
           <Route
             path="/"

@@ -1,15 +1,12 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 
 import { StateSchema } from '@/app/providers/StoreProvider';
+import { LocationDisplay } from '@/shared/lib/tests/LocationDisplay';
 import { renderWithProviders } from '@/shared/lib/tests/renderWithProviders';
 
 import { DesktopNavigationMenu, MobileNavigationMenu } from './NavigationMenu';
-
-const LocationDisplay = () => (
-  <p data-testid="location">{useLocation().pathname}</p>
-);
 
 const signedInState: Partial<StateSchema> = {
   user: {

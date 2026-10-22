@@ -38,15 +38,3 @@ if (!('ResizeObserver' in window)) {
     value: ResizeObserverStub,
   });
 }
-
-// React Router v6 announces its v7 future flags on every router mount; keep test output readable
-const originalWarn = console.warn;
-console.warn = (...args: unknown[]) => {
-  if (
-    typeof args[0] === 'string' &&
-    args[0].includes('React Router Future Flag Warning')
-  ) {
-    return;
-  }
-  originalWarn(...args);
-};

@@ -9,11 +9,11 @@ import {
   ProtocolType,
 } from '@/entities/Schema/model/types/schema';
 import { VerificationTemplate } from '@/entities/VerificationTemplate/model/types/verificationTemplate';
+import { makeVerificationTemplate } from '@/pages/VerifyCredential/testUtils';
 import {
   LocationDisplay,
-  makeVerificationTemplate,
   readLocationState,
-} from '@/pages/VerifyCredential/testUtils';
+} from '@/shared/lib/tests/LocationDisplay';
 import {
   createMockApi,
   renderWithProviders,

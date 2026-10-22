@@ -4,6 +4,7 @@ import { PropsWithChildren } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 import { IssuanceTemplate } from '@/entities/IssuanceTemplate';
+import { routerFuture } from '@/shared/config/router';
 
 import { Templates } from './Templates';
 import { TemplatesProps, TemplateType } from './types';
@@ -78,7 +79,7 @@ const renderTemplates = (
   changeTemplateOrder: TemplatesProps['changeTemplateOrder'],
 ) =>
   render(
-    <MemoryRouter>
+    <MemoryRouter future={routerFuture}>
       <Templates
         templateType={TemplateType.Issue}
         templatesState={{ templates, isLoading: false, error: '' }}

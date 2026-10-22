@@ -66,10 +66,11 @@ export class TokenVerifier implements OnModuleInit {
     )
   }
 
-  /** Verifies the token and returns its claims mapped onto the identity service's contract. */
+  /** Verifies the token and returns its claims mapped onto the identity service's contract, plus its `exp`. */
   public async verify(token: string): Promise<TokenPayload> {
     const payload = await this.verifyJwt(token)
-    return mapClaims(payload, this.config.claims)
+    const claims = mapClaims(payload, this.config.claims)
+    return payload.exp === undefined ? claims : { ...claims, exp: payload.exp }
   }
 
   /** Verifies signature, issuer, audience and time claims and returns the raw payload. */

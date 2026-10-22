@@ -5,7 +5,7 @@ import ROUTES from '@/app/routes/RoutePaths';
 import { NextStepName } from '@/components/Steps/Step.types';
 import { PresentationRequestContext } from '@/components/Steps/VerificationRequest/VerificationRequest';
 import { ProtocolType } from '@/entities/Schema/model/types/schema';
-import { LocationDisplay } from '@/pages/VerifyCredential/testUtils';
+import { LocationDisplay } from '@/shared/lib/tests/LocationDisplay';
 import { renderWithProviders } from '@/shared/lib/tests/renderWithProviders';
 
 import VerificationRequest from './VerificationRequest';

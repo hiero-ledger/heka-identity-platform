@@ -5,6 +5,10 @@ import toast from 'react-hot-toast';
 import ROUTES from '@/app/routes/RoutePaths';
 import { ProtocolType } from '@/entities/Schema';
 import {
+  LocationDisplay,
+  readLocationState,
+} from '@/shared/lib/tests/LocationDisplay';
+import {
   createMockApi,
   createTestStore,
   renderWithProviders,
@@ -12,8 +16,6 @@ import {
 
 import {
   INDY_DID,
-  LocationProbe,
-  readLocationState,
   registeredSchema,
   routeAgencyGets,
   unregisteredSchema,
@@ -58,7 +60,7 @@ const renderAdvancedIssue = (
   const result = renderWithProviders(
     <>
       <AdvancedIssue type={type} />
-      <LocationProbe />
+      <LocationDisplay />
     </>,
     {
       api,
@@ -137,7 +139,7 @@ describe('AdvancedIssue', () => {
     await user.click(screen.getByRole('button', { name: 'Issue' }));
 
     await waitFor(() =>
-      expect(screen.getByTestId('pathname')).toHaveTextContent(
+      expect(screen.getByTestId('location')).toHaveTextContent(
         ROUTES.CREDENTIAL_OFFER,
       ),
     );
@@ -163,7 +165,7 @@ describe('AdvancedIssue', () => {
     await user.click(screen.getByRole('button', { name: 'Issue' }));
 
     expect(await screen.findByText('lastName is required')).toBeInTheDocument();
-    expect(screen.getByTestId('pathname')).toHaveTextContent(
+    expect(screen.getByTestId('location')).toHaveTextContent(
       ROUTES.ISSUE_ADVANCED_ISSUE,
     );
   });
@@ -308,7 +310,7 @@ describe('AdvancedIssue', () => {
       ),
     );
     await waitFor(() =>
-      expect(screen.getByTestId('pathname')).toHaveTextContent(
+      expect(screen.getByTestId('location')).toHaveTextContent(
         ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
       ),
     );
@@ -346,7 +348,7 @@ describe('AdvancedIssue', () => {
         'Template My passport template was saved successfully',
       ),
     );
-    expect(screen.getByTestId('pathname')).toHaveTextContent(
+    expect(screen.getByTestId('location')).toHaveTextContent(
       ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
     );
   });

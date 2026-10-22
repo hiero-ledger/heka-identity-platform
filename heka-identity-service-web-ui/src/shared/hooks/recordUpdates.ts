@@ -1,8 +1,9 @@
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useSelector } from 'react-redux';
 
 import { pollTimeout, safetyPollTimeout } from '@/const/behaviour';
 import { getUserMessageDeliveryType } from '@/entities/User/model/selectors/userSelector';
+import { useLatest } from '@/shared/lib/hooks/useLatest';
 import {
   getNotificationRecordId,
   getStatus,
@@ -41,20 +42,19 @@ export function useRecordUpdates({
   const isActive = !!recordId && !isDone;
 
   // Callers rebuild refresh on every render; the effects must not resubscribe for that
-  const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
+  const refreshRef = useLatest(refresh);
 
   useEffect(() => {
     if (!isActive || !isPushAvailable) return;
     return subscribe((message) => {
       if (getNotificationRecordId(message) === recordId) refreshRef.current();
     });
-  }, [isActive, isPushAvailable, recordId]);
+  }, [isActive, isPushAvailable, recordId, refreshRef]);
 
   // Events sent before the socket opened (or while it reconnected) are lost, so catch up once
   useEffect(() => {
     if (isActive && isPushAvailable) refreshRef.current();
-  }, [isActive, isPushAvailable]);
+  }, [isActive, isPushAvailable, refreshRef]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -63,5 +63,5 @@ export function useRecordUpdates({
       isPushAvailable ? safetyPollTimeout : pollTimeout,
     );
     return () => clearInterval(polling);
-  }, [isActive, isPushAvailable]);
+  }, [isActive, isPushAvailable, refreshRef]);
 }

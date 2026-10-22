@@ -162,13 +162,8 @@ describe('AuthService', () => {
   })
 
   describe('validateWebSocketToken', () => {
-    // Shape-only JWT: verification is mocked, the service only decodes `exp` from it
-    const makeJwt = (claims: Record<string, unknown>) =>
-      [{ alg: 'RS256' }, claims, 'sig']
-        .map((part) => (typeof part === 'string' ? part : Buffer.from(JSON.stringify(part)).toString('base64url')))
-        .join('.')
-
-    const payload = { sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer] }
+    const jwt = 'my-jwt'
+    const payload = { sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer], exp: 1_900_000_000 }
 
     beforeEach(() => {
       vi.mocked(tokenVerifier.verify).mockResolvedValue(payload)
@@ -178,7 +173,6 @@ describe('AuthService', () => {
     })
 
     test('reads the token that follows the bearer marker in Sec-WebSocket-Protocol', async () => {
-      const jwt = makeJwt({ sub: '11', exp: 1_900_000_000 })
       const request = { headers: { 'sec-websocket-protocol': `heka.bearer, ${jwt}` } } as unknown as IncomingMessage
 
       const result = await service.validateWebSocketToken(request)
@@ -189,7 +183,6 @@ describe('AuthService', () => {
     })
 
     test('falls back to the Authorization header', async () => {
-      const jwt = makeJwt({ sub: '11', exp: 1_900_000_000 })
       const request = { headers: { authorization: `Bearer ${jwt}` } } as IncomingMessage
 
       await service.validateWebSocketToken(request)

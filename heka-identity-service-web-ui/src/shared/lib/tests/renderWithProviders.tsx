@@ -12,6 +12,7 @@ import {
 import '@/translations';
 import { createReduxStore, StateSchema } from '@/app/providers/StoreProvider';
 import { AuthSession, AuthSessionContext } from '@/shared/auth/session';
+import { routerFuture } from '@/shared/config/router';
 
 /** Axios-shaped mock whose HTTP methods are `jest.fn()`s; stub them per test with `mockResolvedValue`. */
 export type MockApi = {
@@ -89,7 +90,10 @@ export const renderWithProviders = (
   const result = render(
     <Provider store={store}>
       <AuthSessionContext.Provider value={authSession}>
-        <MemoryRouter initialEntries={[route]}>
+        <MemoryRouter
+          initialEntries={[route]}
+          future={routerFuture}
+        >
           {path ? (
             <Routes>
               <Route

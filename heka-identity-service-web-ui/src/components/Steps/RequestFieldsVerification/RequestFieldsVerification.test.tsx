@@ -8,11 +8,9 @@ import {
   Openid4CredentialFormat,
   ProtocolType,
 } from '@/entities/Schema/model/types/schema';
-import {
-  LocationDisplay,
-  makeSchema,
-} from '@/pages/VerifyCredential/testUtils';
+import { makeSchema } from '@/pages/VerifyCredential/testUtils';
 import { VerifyCredentialContext } from '@/pages/VerifyCredential/VerifyCredential.config';
+import { LocationDisplay } from '@/shared/lib/tests/LocationDisplay';
 import { renderWithProviders } from '@/shared/lib/tests/renderWithProviders';
 
 import { RequestFieldsVerification } from './RequestFieldsVerification';

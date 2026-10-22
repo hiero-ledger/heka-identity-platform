@@ -9,11 +9,11 @@ import {
   Openid4CredentialFormat,
   ProtocolType,
 } from '@/entities/Schema/model/types/schema';
+import { makeVerificationTemplate } from '@/pages/VerifyCredential/testUtils';
 import {
   LocationDisplay,
-  makeVerificationTemplate,
   readLocationState,
-} from '@/pages/VerifyCredential/testUtils';
+} from '@/shared/lib/tests/LocationDisplay';
 import {
   createMockApi,
   createTestStore,

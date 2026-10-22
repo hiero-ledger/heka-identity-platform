@@ -1,27 +1,9 @@
-import { useLocation } from 'react-router-dom';
-
 import { Schema } from '@/entities/Schema';
 import {
   AriesCredentialFormat,
   ProtocolType,
 } from '@/entities/Schema/model/types/schema';
 import { VerificationTemplate } from '@/entities/VerificationTemplate/model/types/verificationTemplate';
-
-/** Renders the current location so tests can assert on navigation. */
-export const LocationDisplay = () => {
-  const location = useLocation();
-  return (
-    <>
-      <div data-testid="location">{location.pathname}</div>
-      <pre data-testid="location-state">
-        {JSON.stringify(location.state ?? null)}
-      </pre>
-    </>
-  );
-};
-
-export const readLocationState = (element: HTMLElement) =>
-  JSON.parse(element.textContent ?? 'null');
 
 export const makeSchema = (overrides: Partial<Schema> = {}): Schema => ({
   id: 'schema-1',
