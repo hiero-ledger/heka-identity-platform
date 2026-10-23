@@ -59,6 +59,14 @@ services:
       OIDC_CLAIM_ORG_ID: ${OIDC_CLAIM_ORG_ID:-}
       OIDC_CLAIM_ORG_ID_FIELD: ${OIDC_CLAIM_ORG_ID_FIELD:-}
       ROLE_MODEL_ENABLED: ${ROLE_MODEL_ENABLED:-false}
+      # Optional token introspection (docs/setup.md). OIDC_ISSUER_URL (localhost) is unreachable from the container, so
+      # set OIDC_INTROSPECTION_URL=http://host.docker.internal:8080/realms/heka-platform/protocol/openid-connect/token/introspect
+      OIDC_INTROSPECTION_ENABLED: ${OIDC_INTROSPECTION_ENABLED:-false}
+      OIDC_INTROSPECTION_URL: ${OIDC_INTROSPECTION_URL:-}
+      OIDC_INTROSPECTION_CLIENT_ID: ${OIDC_INTROSPECTION_CLIENT_ID:-}
+      OIDC_INTROSPECTION_CLIENT_SECRET: ${OIDC_INTROSPECTION_CLIENT_SECRET:-}
+      OIDC_INTROSPECTION_CLIENT_AUTH_METHOD: ${OIDC_INTROSPECTION_CLIENT_AUTH_METHOD:-}
+      OIDC_INTROSPECTION_TIMEOUT_MS: ${OIDC_INTROSPECTION_TIMEOUT_MS:-}
       # Demo-token broker for the web UI's public demo pages (docs/setup.md#demo-token-broker);
       # the token endpoint is reached through the host gateway like the JWKS. Dev secret of the
       # shipped realm.

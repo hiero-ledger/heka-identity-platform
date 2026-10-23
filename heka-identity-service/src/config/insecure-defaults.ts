@@ -96,6 +96,14 @@ function isNonProductionEnv(normalizedNodeEnv: string | undefined): boolean {
 }
 
 /**
+ * True unless `NODE_ENV` is unset, empty, `development` or `test` (case-insensitive): the same fail-closed
+ * rule `assertSecureConfiguration` uses, for other security checks that only apply to production.
+ */
+export function isProductionNodeEnv(nodeEnv: unknown = process.env.NODE_ENV): boolean {
+  return !isNonProductionEnv(normalizeNodeEnv(nodeEnv))
+}
+
+/**
  * Warns when publicly known default values are in use, and refuses to start unless `NODE_ENV`
  * is unset, empty, `development` or `test` (case-insensitive). Any other value is treated as production.
  * Intended to be used as the `validate` hook of `ConfigModule.forRoot`.

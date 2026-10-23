@@ -16,7 +16,7 @@ Everything in these files is **dev configuration**: the client secrets, the `dem
 
 | Item                                | Purpose                                                                                                                                                                                                                                                                                             |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Client `heka-identity-service`      | Bearer-only resource server. Owns the client roles `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User` and is the audience (`aud`) of accepted tokens. Never logs in.                                                                                                     |
+| Client `heka-identity-service`      | Resource server. Owns the client roles `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User` and is the audience (`aud`) of accepted tokens. Never logs in (all flows disabled); its secret is only used for optional token introspection. Dev secret: `dev-only-heka-identity-service-secret-do-not-use-in-production`. |
 | Client `heka-identity-web-ui`       | Public SPA client for heka-identity-service-web-ui: Authorization Code + PKCE (S256), refresh tokens, redirect URIs and web origins for `http://localhost:8000`.                                                                                                                                     |
 | Client `heka-sso-service`           | Confidential client with a service account; heka-sso-service obtains its identity-service token with Client Credentials. Its service-account user holds `OrgAdmin` with the attribute `org_id` = `heka-sso`, so the SSO verifier and its signing DID live in the `Organization_heka-sso` wallet, not in the shared `Administration` wallet. `OrgAdmin` rather than `Verifier`, because with `ROLE_MODEL_ENABLED=true` only `Admin`, `OrgAdmin` and `Issuer` can create the signing DID. Dev secret: `dev-only-heka-sso-service-secret-do-not-use-in-production`.                                               |
 | Client `heka-demo`                  | Confidential client with a service account for the identity service's demo-token broker (`GET /demo/token`, enabled there with `DEMO_*`): the public demo pages of the web UI act as this account. Its service-account user has the fixed id `e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9` (so `heka_uid`, and with it the demo tenant and DID, survive a re-import) and holds the `User` role: its token is handed out without login, so it must never be `Admin` (which would open the shared `Administration` wallet to anyone). Dev secret: `dev-only-heka-demo-secret-do-not-use-in-production`. |
@@ -62,6 +62,18 @@ OIDC_CLAIM_ORG_ID_FIELD=heka_org_id
 ```
 
 The organization id comes from the organization chosen at login (`heka_organization`, its `heka_org_id` attribute), and otherwise from the `org_id` user attribute ([Organizations](#organizations)). The other claim paths keep their defaults (`sub`, `roles`, `name,preferred_username,nickname`). When the identity service runs in a container, keep `OIDC_ISSUER_URL` at the browser-facing value and point `OIDC_JWKS_URI` at `http://host.docker.internal:8080/realms/heka-platform/protocol/openid-connect/certs` (see `heka-identity-service/docker-compose.yml`).
+
+To reject tokens revoked in Keycloak (logout, ended session) before they expire, enable token introspection ([setup](../../heka-identity-service/docs/setup.md#token-introspection-revocation-check)). Keycloak only answers introspection requests for tokens whose audience contains the calling client, so the service authenticates as `heka-identity-service`:
+
+```
+OIDC_INTROSPECTION_ENABLED=true
+OIDC_INTROSPECTION_CLIENT_ID=heka-identity-service
+OIDC_INTROSPECTION_CLIENT_SECRET=dev-only-heka-identity-service-secret-do-not-use-in-production
+# only when the identity service runs in a container (OIDC_ISSUER_URL is localhost):
+# OIDC_INTROSPECTION_URL=http://host.docker.internal:8080/realms/heka-platform/protocol/openid-connect/token/introspect
+```
+
+A Keycloak that imported the realm before the client got its secret answers `invalid_client`: recreate it so the realm is imported again (`docker compose --profile keycloak up -d --force-recreate keycloak-realms keycloak` at the repository root).
 
 `KC_HOSTNAME` is pinned to `http://localhost:8080` in the root `docker-compose.yml`, so `iss` is the same string whether Keycloak is reached from the host or from a container. Change both `KC_HOSTNAME` and `OIDC_ISSUER_URL` together when deploying elsewhere.
 
@@ -122,7 +134,7 @@ The realm has Keycloak **Organizations** enabled, so organizations and their mem
 
 A change applies with the user's **next access token**:
 - **Access token lifetime:** 300 s, Keycloak's default; the realm doesn't override it.
-- **Already-issued tokens** keep the old role until they expire, because heka-identity-service doesn't check revocation.
+- **Already-issued tokens** keep the old role until they expire. [Token introspection](../../heka-identity-service/docs/setup.md#token-introspection-revocation-check), when enabled, rejects tokens Keycloak no longer considers active, but it does not update role claims.
 - **Refreshes** pick up the new role.
 - **Service accounts** get it with the next Client Credentials grant.
 

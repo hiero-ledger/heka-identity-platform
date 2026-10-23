@@ -8,6 +8,20 @@ import oidc from './oidc'
 import pino from './pino'
 import prepareWallet from './prepare-wallet'
 import roleModel from './role-model'
+import tokenIntrospection from './token-introspection'
 import webhook from './webhook'
 
-export default [agent, express, health, oidc, demo, mikroOrm, pino, fileStorage, webhook, roleModel, prepareWallet]
+export default [
+  agent,
+  express,
+  health,
+  oidc,
+  tokenIntrospection,
+  demo,
+  mikroOrm,
+  pino,
+  fileStorage,
+  webhook,
+  roleModel,
+  prepareWallet,
+]
