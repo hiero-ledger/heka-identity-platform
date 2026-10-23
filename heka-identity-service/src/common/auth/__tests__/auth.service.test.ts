@@ -99,6 +99,25 @@ describe('AuthService', () => {
       ...overrides,
     }) as Wallet
 
+  const SECRET_QUERY = 'preAuthorizedCode=PRE-SNTL&cNonce=NONCE-SNTL&credentialOfferUri=OFFER-SNTL&publicIssuerId=pub1'
+  const MASKED_QUERY = 'preAuthorizedCode=******&cNonce=******&credentialOfferUri=******&publicIssuerId=pub1'
+  const SECRET_SENTINELS = ['PRE-SNTL', 'NONCE-SNTL', 'OFFER-SNTL']
+
+  /** A logger whose children record their bindings and every log call. */
+  const makeRecordingLogger = () => {
+    const calls: Array<{ method: string; args: unknown[] }> = []
+    const childLogger: Record<string, unknown> = {}
+    for (const method of ['trace', 'traceObject', 'debug', 'info', 'warn', 'error', 'fatal']) {
+      childLogger[method] = (...args: unknown[]) => calls.push({ method, args })
+    }
+    const child = vi.fn((context: string, bindings?: object) => {
+      calls.push({ method: 'child', args: [context, bindings] })
+      return childLogger
+    })
+    childLogger.child = child
+    return { calls, child, logger: { child } as unknown as Logger }
+  }
+
   beforeEach(() => {
     agent = createMock<Agent>({
       modules: {
@@ -159,6 +178,82 @@ describe('AuthService', () => {
       expect(result.walletId).toBe('Issuer_11_in_Organization_7')
       expect(result.tenantId).toBe('tenant-xyz')
     })
+
+    test('does not log the bearer token or the raw request', async () => {
+      const calls: unknown[] = []
+      const record =
+        (method: string) =>
+        (...args: unknown[]) => {
+          calls.push({ method, args })
+        }
+      const childLogger = {
+        trace: vi.fn(record('trace')),
+        traceObject: vi.fn(record('traceObject')),
+        debug: vi.fn(record('debug')),
+        info: vi.fn(record('info')),
+        warn: vi.fn(record('warn')),
+        error: vi.fn(record('error')),
+      } as unknown as Logger & { child: Logger['child'] }
+      const child = vi.fn((context: string, bindings?: object) => {
+        calls.push({ method: 'child', args: [context, bindings] })
+        return childLogger
+      })
+      childLogger.child = child
+      const recordingLogger = { child } as unknown as Logger
+      service = new AuthService(agent, tokenVerifier, em, recordingLogger)
+      calls.length = 0
+
+      const request = {
+        method: 'GET',
+        url: '/schemas',
+        headers: { authorization: 'Bearer my-jwt' },
+        rawHeaders: ['authorization', 'Bearer my-jwt'],
+      } as unknown as IncomingMessage
+      vi.mocked(tokenVerifier.verify).mockResolvedValue({ sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer] })
+      vi.mocked(em.findOne)
+        .mockResolvedValueOnce(makeUser({ id: '11' }))
+        .mockResolvedValueOnce(makeWallet())
+
+      await service.validateRequestToken(request)
+
+      const logged = JSON.stringify(calls)
+      expect(logged).not.toContain('my-jwt')
+      expect(logged).not.toContain('authorization')
+      expect(child).toHaveBeenCalledWith(
+        'validateRequestToken',
+        expect.objectContaining({ method: 'GET', url: '/schemas' }),
+      )
+    })
+  })
+
+  describe('validateRequestToken URL logging', () => {
+    test('masks OID4VCI secrets in the bound URL and keeps the path and other parameters', async () => {
+      const recording = makeRecordingLogger()
+      service = new AuthService(agent, tokenVerifier, em, recording.logger)
+      recording.calls.length = 0
+
+      const request = {
+        method: 'GET',
+        url: `/openid4vc/issuance-session?${SECRET_QUERY}`,
+        headers: { authorization: 'Bearer my-jwt' },
+      } as unknown as IncomingMessage
+      vi.mocked(tokenVerifier.verify).mockResolvedValue({ sub: '11', org_id: '7', name: 'test', roles: [Role.Issuer] })
+      vi.mocked(em.findOne)
+        .mockResolvedValueOnce(makeUser({ id: '11' }))
+        .mockResolvedValueOnce(makeWallet())
+
+      const result = await service.validateRequestToken(request)
+
+      expect(result.userId).toBe('11')
+      const logged = JSON.stringify(recording.calls)
+      for (const secret of [...SECRET_SENTINELS, 'my-jwt']) {
+        expect(logged).not.toContain(secret)
+      }
+      expect(recording.child).toHaveBeenCalledWith('validateRequestToken', {
+        method: 'GET',
+        url: `/openid4vc/issuance-session?${MASKED_QUERY}`,
+      })
+    })
   })
 
   describe('validateWebSocketToken', () => {
@@ -195,6 +290,26 @@ describe('AuthService', () => {
 
       await expect(service.validateWebSocketToken(request)).rejects.toThrow('Authorization token is missing')
       expect(tokenVerifier.verify).not.toHaveBeenCalled()
+    })
+
+    test('masks OID4VCI secrets in the bound URL', async () => {
+      const recording = makeRecordingLogger()
+      service = new AuthService(agent, tokenVerifier, em, recording.logger)
+      recording.calls.length = 0
+      const request = {
+        url: `/notifications?${SECRET_QUERY}`,
+        headers: { 'sec-websocket-protocol': `heka.bearer, ${jwt}` },
+      } as unknown as IncomingMessage
+
+      await service.validateWebSocketToken(request)
+
+      const logged = JSON.stringify(recording.calls)
+      for (const secret of [...SECRET_SENTINELS, jwt]) {
+        expect(logged).not.toContain(secret)
+      }
+      expect(recording.child).toHaveBeenCalledWith('validateWebSocketToken', {
+        url: `/notifications?${MASKED_QUERY}`,
+      })
     })
 
     test('rejects a marker without a token', async () => {

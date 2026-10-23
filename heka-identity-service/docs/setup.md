@@ -450,6 +450,8 @@ Required when issuing `mso_mdoc` credentials (mobile driving licences and simila
 | `PINO_FILE_DESTINATION` | _(unset — stdout)_ | Path to write logs to instead of stdout.                                                                                                                                                                                                                                                                                                |
 | `NODE_ENV`              | _(unset)_          | When set to exactly `production`, switches the logger to non-pretty JSON output. Unless `NODE_ENV` is unset, empty, `development` or `test` (case-insensitive, surrounding whitespace ignored), the service refuses to start with [insecure default credentials](#security-sensitive-variables); in those cases it only logs a warning. |
 
+The `Authorization`, `Proxy-Authorization`, `Cookie` and `Sec-WebSocket-Protocol` request headers, the `Set-Cookie` response header and the OID4VCI `preAuthorizedCode`, `credentialOfferUri` and `cNonce` query parameters are logged as `******` at every level. Other request data is not masked: the rest of the URL and query string is logged as is, and at `debug` and `trace` the service also logs request bodies, responses and token claims, so treat log output as sensitive.
+
 ### Health
 
 The service exposes `GET /health`, which checks memory, database connectivity, and agent state:

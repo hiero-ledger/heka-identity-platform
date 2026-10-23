@@ -6,7 +6,7 @@ import { OnGatewayConnection, WebSocketGateway } from '@nestjs/websockets'
 import WebSocket from 'ws'
 
 import { AuthInfo, AuthService, WEBSOCKET_BEARER_PROTOCOL } from 'common/auth'
-import { InjectLogger, Logger } from 'common/logger'
+import { InjectLogger, Logger, maskSecretsInUrl } from 'common/logger'
 
 import { NotificationDto } from './dto'
 
@@ -42,8 +42,8 @@ export class NotificationGateway implements OnGatewayConnection {
 
   @CreateRequestContext()
   public async handleConnection(socket: WebSocket, request: IncomingMessage): Promise<void> {
-    // The upgrade request carries the access token, so only its URL is logged
-    const logger = this.logger.child('handleConnection', { url: request.url })
+    // The upgrade request carries the access token, so only its URL is logged, with OID4VCI secrets masked
+    const logger = this.logger.child('handleConnection', { url: maskSecretsInUrl(request.url) })
     logger.trace('>')
 
     // Here we need to validate token manually as AuthGuard will not work inside this method

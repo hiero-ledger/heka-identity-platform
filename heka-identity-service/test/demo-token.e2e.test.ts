@@ -26,6 +26,8 @@ describe('E2E demo token broker', () => {
   let tokenEndpoint: HttpServer
   const grants: Array<{ authorization?: string; form: Record<string, string> }> = []
   const originalEnv = { ...process.env }
+  let pinoLevelBeforeStart: string | undefined
+  let pinoLevelAfterStart: string | undefined
 
   beforeAll(async () => {
     tokenEndpoint = createServer((req, res) => {
@@ -51,7 +53,9 @@ describe('E2E demo token broker', () => {
 
     await ormSchemaGenerator.refresh()
 
+    pinoLevelBeforeStart = process.env.PINO_LEVEL
     nestApp = await startTestApp()
+    pinoLevelAfterStart = process.env.PINO_LEVEL
     app = nestApp.getHttpServer() as Server
   })
 
@@ -66,6 +70,10 @@ describe('E2E demo token broker', () => {
 
     await new Promise<void>((resolve) => tokenEndpoint.close(() => resolve()))
     process.env = originalEnv
+  })
+
+  test('startTestApp leaves PINO_LEVEL as it was', () => {
+    expect(pinoLevelAfterStart).toBe(pinoLevelBeforeStart)
   })
 
   test('hands out the demo service account token obtained with Client Credentials, once per lifetime', async () => {
