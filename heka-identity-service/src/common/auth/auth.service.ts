@@ -34,13 +34,14 @@ export class AuthService {
    * Throws `UnauthorizedException` when the token is missing, invalid, or does not meet the claim contract.
    */
   public async validateRequestToken(request: IncomingMessage): Promise<AuthInfo> {
-    const logger = this.logger.child('validateRequestToken', { request })
+    // Bind only the method and URL: the request carries the access token in its headers
+    const logger = this.logger.child('validateRequestToken', { method: request.method, url: request.url })
     logger.trace('>')
 
     const token = extractTokenFromHeader(request)
-    logger.traceObject({ token })
-
     const { authInfo } = await this.authenticateToken(token)
+
+    logger.trace({ userId: authInfo.userId }, '<')
     return authInfo
   }
 
