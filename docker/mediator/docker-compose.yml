@@ -1,0 +1,25 @@
+# DIDComm mediator with FCM push notifications, for testing Heka Wallet push on a phone (dev only).
+# Not part of the root stack. Setup: copy .env.example to .env and fill it in, then
+#   docker compose -f docker/mediator/docker-compose.yml up -d
+# The wallet uses the invitation URL the mediator logs at start ("Out of band invitation url")
+# as MEDIATOR_URL in heka-wallet/app/.env.
+name: heka-mediator
+
+services:
+  mediator:
+    # Release v0.0.2 (2026-10-20); the registry publishes commit-sha tags only, no `latest`
+    image: ghcr.io/openwallet-foundation/didcomm-mediator-credo/mediator:8617ac6
+    env_file: .env
+    environment:
+      AGENT_PORT: 3110
+      # Queue messages for the wallet; with the default DirectDelivery the mediator never pushes
+      MESSAGE_PICKUP__FORWARDING_STRATEGY: QueueOnly
+    # Bound on all interfaces: the phone reaches the mediator over the LAN (AGENT_ENDPOINTS in .env)
+    ports:
+      - '3110:3110'
+    volumes:
+      # Askar keeps its SQLite store under the home of the image's `agent` user
+      - mediator-data:/nonexistent
+
+volumes:
+  mediator-data:

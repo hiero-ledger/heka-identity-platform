@@ -88,7 +88,6 @@
     "@credo-ts/hedera": "0.7.0",
     "@credo-ts/indy-vdr": "0.7.0",
     "@credo-ts/openid4vc": "0.7.0",
-    "@credo-ts/push-notifications": "0.7.1",
     "@credo-ts/question-answer": "0.7.0",
     "@credo-ts/react-native": "patch:@credo-ts/react-native@npm%3A0.7.0#~/.yarn/patches/@credo-ts-react-native-npm-0.7.0-29cae8f9f6.patch",
     "@credo-ts/webvh": "0.7.0",
