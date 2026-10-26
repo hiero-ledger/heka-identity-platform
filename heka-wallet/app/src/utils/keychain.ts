@@ -45,7 +45,8 @@ export function getKeychainAccessOptions(service: KeychainServices, useBiometric
 
   if (Platform.OS === 'android') {
     options.securityLevel = Keychain.SECURITY_LEVEL.ANY
-    options.storage = useBiometrics ? Keychain.STORAGE_TYPE.RSA : Keychain.STORAGE_TYPE.AES_GCM
+    // Since react-native-keychain v10 'AES_GCM' requires biometric auth; 'AES_GCM_NO_AUTH' is the one without a prompt
+    options.storage = useBiometrics ? Keychain.STORAGE_TYPE.RSA : Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH
   }
 
   return options
