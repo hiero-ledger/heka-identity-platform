@@ -17,3 +17,23 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+
+  # Security updates only for the yarn projects: version updates are disabled
+  # (limit 0) and every security fix is grouped into one PR per directory.
+  - package-ecosystem: "npm"
+    directories:
+      - "/demo/a2a-oid4vp"
+      - "/demo/heka-keycloak-theme"
+      - "/heka-identity-service"
+      - "/heka-identity-service-web-ui"
+      - "/heka-sso-service"
+      - "/heka-sso-web-ui"
+      - "/heka-wallet"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
