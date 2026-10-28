@@ -66,12 +66,14 @@ jobs:
           ENVFILE: .env.example
         run: ./gradlew assembleDebug --no-daemon -PreactNativeArchitectures=${{ env.EMULATOR_ARCH }}
 
+      # The warm-up URL must match the debug app's request (react-native DevServerHelper.kt): Metro caches the
+      # bundle per query, and a cold build on first launch outlasts the flows' 30 s wait for the first screen.
       - name: Start Metro and warm the bundle
         working-directory: ./heka-wallet/app
         run: |
           nohup yarn start > ../metro.log 2>&1 &
           timeout 120 bash -c 'until curl -sf http://localhost:8081/status; do sleep 2; done'
-          curl -sf -o /dev/null --max-time 900 'http://localhost:8081/index.bundle?platform=android&dev=true&minify=false'
+          curl -sf -o /dev/null --max-time 900 'http://localhost:8081/index.bundle?platform=android&dev=true&lazy=true&minify=false&app=com.heka.wallet&modulesOnly=false&runModule=true&excludeSource=true&sourcePaths=url-server'
 
       - name: Install Maestro
         run: |
