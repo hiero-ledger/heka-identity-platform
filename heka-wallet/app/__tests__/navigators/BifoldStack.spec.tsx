@@ -2,7 +2,9 @@ import { act, render, screen } from '@testing-library/react-native'
 import React, { createContext, useContext, useState, type MutableRefObject } from 'react'
 import { DeviceEventEmitter, Text } from 'react-native'
 
-import { AGENT_SHUTDOWN_TIMEOUT_MS, BifoldStack } from '../../src/navigators/BifoldStack'
+import { AgentLockoutProvider } from '../../src/contexts/AgentLockout'
+import { AGENT_SHUTDOWN_TIMEOUT_MS } from '../../src/hooks/useAgentLockoutShutdown'
+import { BifoldStack } from '../../src/navigators/BifoldStack'
 
 type FakeAgent = { shutdown: jest.Mock<Promise<void>, []> }
 
@@ -14,6 +16,8 @@ type HarnessValue = {
 
 type HarnessControls = {
   setDidAuthenticate: (value: boolean) => void
+  setAgent: (agent: FakeAgent | null) => void
+  setLoggedIn: (value: boolean) => void
   currentAgent: () => FakeAgent | null
 }
 
@@ -76,12 +80,14 @@ const Harness: React.FC<{ initialAgent: FakeAgent; controls: MutableRefObject<Ha
 }) => {
   const [agent, setAgent] = useState<FakeAgent | null>(initialAgent)
   const [didAuthenticate, setDidAuthenticate] = useState(true)
+  // RootStack renders BifoldStack only while the user is logged in
+  const [loggedIn, setLoggedIn] = useState(true)
 
-  controls.current = { setDidAuthenticate, currentAgent: () => agent }
+  controls.current = { setDidAuthenticate, setAgent, setLoggedIn, currentAgent: () => agent }
 
   return (
     <mockHarnessContext.Provider value={{ didAuthenticate, agent, setAgent }}>
-      <BifoldStack />
+      <AgentLockoutProvider>{loggedIn && <BifoldStack />}</AgentLockoutProvider>
     </mockHarnessContext.Provider>
   )
 }
@@ -108,6 +114,10 @@ function renderUnlockedWallet() {
     lock: () => act(() => harness().setDidAuthenticate(false)),
     // Correct PIN (or biometry) on the PIN screen.
     unlock: () => act(() => harness().setDidAuthenticate(true)),
+    logOut: () => act(() => harness().setLoggedIn(false)),
+    logIn: () => act(() => harness().setLoggedIn(true)),
+    // Splash finished initializing a fresh agent.
+    setAgent: (agent: FakeAgent) => act(() => harness().setAgent(agent)),
     finishShutdown: () =>
       act(async () => {
         shutdown.resolve()
@@ -177,6 +187,36 @@ describe('BifoldStack lockout', () => {
       expect(wallet.currentAgent()).toBeNull()
       expect(screen.getByText(ONBOARDING_STACK)).toBeOnTheScreen()
     })
+  })
+
+  it('does not shut the agent down again when the user logs out and back in during the shutdown', async () => {
+    const wallet = renderUnlockedWallet()
+
+    wallet.lock()
+    wallet.logOut()
+    wallet.logIn()
+    wallet.unlock()
+
+    try {
+      expect(wallet.agent.shutdown).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText(MAIN_STACK)).not.toBeOnTheScreen()
+    } finally {
+      await wallet.finishShutdown()
+    }
+    expect(wallet.currentAgent()).toBeNull()
+  })
+
+  it('keeps a fresh agent that was set while the old one was still shutting down', async () => {
+    const wallet = renderUnlockedWallet()
+    const freshAgent: FakeAgent = { shutdown: jest.fn(() => Promise.resolve()) }
+
+    wallet.lock()
+    wallet.unlock()
+    wallet.setAgent(freshAgent)
+    await wallet.finishShutdown()
+
+    expect(wallet.currentAgent()).toBe(freshAgent)
+    expect(freshAgent.shutdown).not.toHaveBeenCalled()
   })
 
   it('clears the agent when the shutdown fails', async () => {

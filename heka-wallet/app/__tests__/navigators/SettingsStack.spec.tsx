@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native'
 import React from 'react'
 import { Pressable } from 'react-native'
+import Toast from 'react-native-toast-message'
 
 import { SettingsStack } from '../../src/navigators/SettingsStack'
 
@@ -59,5 +60,19 @@ describe('SettingsStack log out', () => {
 
     await waitFor(() => expect(mockLogOut).toHaveBeenCalled())
     expect(mockCalls).toEqual(['lockWallet', 'logOut'])
+  })
+
+  it('shows an error when logging out fails', async () => {
+    mockLogOut.mockRejectedValueOnce(new Error('logout failed'))
+
+    render(<SettingsStack />)
+
+    fireEvent.press(screen.getByTestId('Log Out'))
+
+    await waitFor(() =>
+      expect(Toast.show).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error', text1: 'Error.Problem', text2: 'logout failed' })
+      )
+    )
   })
 })

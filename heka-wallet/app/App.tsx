@@ -23,7 +23,12 @@ import { AppContainer } from './container-impl'
 import { localization, RootStoreProvider } from './src'
 import { ToastConfig } from './src/components/misc/Toast'
 import { ErrorModal } from './src/components/modals/ErrorModal'
-import { MdocRecordProvider, SdJwtVcRecordProvider, W3cCredentialRecordProvider } from './src/contexts'
+import {
+  AgentLockoutProvider,
+  MdocRecordProvider,
+  SdJwtVcRecordProvider,
+  W3cCredentialRecordProvider,
+} from './src/contexts'
 import { RootStack } from './src/navigators'
 import { useIOSKeychainResetOnFirstLaunch } from './src/utils/keychain'
 
@@ -74,7 +79,9 @@ const App = () => {
                               backgroundColor={theme.ColorPalette.brand.primaryBackground}
                               translucent={false}
                             />
-                            <RootStack />
+                            <AgentLockoutProvider>
+                              <RootStack />
+                            </AgentLockoutProvider>
                             <ErrorModal />
                             <Toast config={ToastConfig} position="bottom" />
                           </NetworkProvider>
