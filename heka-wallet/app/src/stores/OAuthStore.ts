@@ -78,7 +78,7 @@ export class OAuthStore {
   async logIn(): Promise<void> {
     try {
       const state = await authorize(this._config.oauthConfig)
-      logger.debug('Logged in with auth state:', state)
+      logger.debug('Logged in, access token expires at:', state.accessTokenExpirationDate)
 
       await this.saveAuthState(state)
       await this.refreshUserInfo()
@@ -144,7 +144,7 @@ export class OAuthStore {
     const keychainCredentials = await Keychain.getGenericPassword(OAuthStore.keychainOptions)
     if (keychainCredentials) {
       const authState = JSON.parse(keychainCredentials.password)
-      logger.debug('Loaded auth state:', authState)
+      logger.debug('Loaded auth state, access token expires at:', authState.accessTokenExpirationDate)
 
       runInAction(() => (this._authState = authState))
     }
