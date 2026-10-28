@@ -38,8 +38,8 @@ appId: com.heka.wallet
 - runFlow: enter-pin.yaml
 - tapOn:
     id: 'com.ariesbifold:id/SkipBiometrics'
-# Splash initialises the agent before Home appears.
+# Splash initialises the agent before Home appears; on a CI emulator that takes about 40 s.
 - extendedWaitUntil:
     visible:
       id: 'com.ariesbifold:id/TabCredentials'
-    timeout: 60000
+    timeout: 120000

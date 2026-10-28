@@ -17,4 +17,4 @@ env:
 - extendedWaitUntil:
     visible:
       id: 'com.ariesbifold:id/TabCredentials'
-    timeout: 60000
+    timeout: 120000
