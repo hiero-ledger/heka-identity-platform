@@ -27,6 +27,27 @@ Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
 use_frameworks! :linkage => linkage.to_sym
 $RNFirebaseAsStaticFramework = (linkage == 'static')
 
+# Pods that do not build as frameworks stay static libraries, as before use_frameworks!:
+# - anoncreds, indy-vdr: the pod framework would shadow the vendored native Anoncreds.framework /
+#   indy_vdr.framework of the same name, and their .mm sources include cpp/ headers without a header map
+# - react-native-user-identity: its npm package ships ios/DerivedData with duplicate generated headers
+# - react-native-orientation-locker: imported by HekaWallet-Bridging-Header.h by its pod name
+STATIC_LIBRARY_PODS = %w[anoncreds indy-vdr react-native-user-identity react-native-orientation-locker].freeze
+
+pre_install do |installer|
+  # A renamed or removed pod would silently fall back to a framework and break the build again
+  unknown_pods = STATIC_LIBRARY_PODS - installer.pod_targets.map(&:name)
+  raise Pod::Informative, "STATIC_LIBRARY_PODS lists unknown pods: #{unknown_pods.join(', ')}" unless unknown_pods.empty?
+
+  installer.pod_targets.each do |pod|
+    next unless STATIC_LIBRARY_PODS.include?(pod.name)
+
+    def pod.build_type
+      Pod::BuildType.static_library
+    end
+  end
+end
+
 target 'HekaWallet' do
   use_expo_modules!
   config = use_native_modules!

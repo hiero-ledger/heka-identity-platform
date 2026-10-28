@@ -2,12 +2,7 @@ import type { HekaWalletAgent } from '../agent'
 
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getApps } from '@react-native-firebase/app'
-import {
-  getMessaging,
-  getToken,
-  isDeviceRegisteredForRemoteMessages,
-  registerDeviceForRemoteMessages,
-} from '@react-native-firebase/messaging'
+import { getMessaging, getToken, registerDeviceForRemoteMessages } from '@react-native-firebase/messaging'
 import { Platform } from 'react-native'
 
 // Set while the mediator may hold this device's token, so turning push off is retried until it succeeds
@@ -18,7 +13,7 @@ export type ShouldSend = () => boolean
 
 /**
  * Push notifications work only when the build has a Firebase config (`android/app/google-services.json`,
- * `ios/HekaWallet/GoogleService-Info.plist`); both are optional. iOS is configured but has not been built yet.
+ * `ios/HekaWallet/GoogleService-Info.plist`); both are optional.
  */
 export function isPushNotificationsSupported(): boolean {
   return (Platform.OS === 'android' || Platform.OS === 'ios') && getApps().length > 0
@@ -85,8 +80,10 @@ export async function registerDeviceToken(
     try {
       const messaging = getMessaging()
       // iOS: automatic APNs registration is off (`app/firebase.json`) — on a build without the Firebase plist it
-      // would hand the APNs token to an unconfigured Firebase; register here, where Firebase is known to exist
-      if (Platform.OS === 'ios' && !isDeviceRegisteredForRemoteMessages(messaging)) {
+      // would hand the APNs token to an unconfigured Firebase; register here, where Firebase is known to exist.
+      // Always register: RNFB resolves at once when already registered, and its `isDeviceRegisteredForRemoteMessages`
+      // can report true before any registration (it defaults to true when the native value is missing).
+      if (Platform.OS === 'ios') {
         await registerDeviceForRemoteMessages(messaging)
       }
       deviceToken = await getToken(messaging)
