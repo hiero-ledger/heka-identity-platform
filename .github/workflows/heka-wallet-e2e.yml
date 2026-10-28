@@ -1,0 +1,132 @@
+name: Heka Wallet device e2e (Maestro)
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'heka-wallet/**'
+      - '.github/workflows/heka-wallet-e2e.yml'
+  workflow_dispatch:
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Android emulator settings, shared by the AVD cache key and both emulator steps
+  EMULATOR_API_LEVEL: 34
+  EMULATOR_TARGET: google_apis
+  EMULATOR_ARCH: x86_64
+  MAESTRO_VERSION: 2.11.0
+
+jobs:
+  e2e-android:
+    defaults:
+      run:
+        working-directory: ./heka-wallet
+    name: Maestro flows without backend (Android emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Prepare Github Runner
+        uses: pandaswhocode/initialize-github-job@74303607c68fe88ff9b7bfc05c40ca948fa04b13 # v1.5.0
+        with:
+          checkout: 'true'
+          checkout-ref: '${{ github.ref }}'
+          checkout-token: '${{ secrets.GITHUB_TOKEN }}'
+          setup-java: 'true'
+          java-version: '17'
+          java-distribution: 'zulu'
+          java-cache: 'gradle'
+          setup-node: 'true'
+          node-version: '22'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      # Debug build without the JS bundle: release bundles fail agent init, so the app loads JS from Metro.
+      # .env.example has ENABLE_EXTERNAL_AUTH=false, so onboarding needs no Keycloak.
+      - name: Build debug APK
+        working-directory: ./heka-wallet/app/android
+        env:
+          ENVFILE: .env.example
+        run: ./gradlew assembleDebug --no-daemon -PreactNativeArchitectures=${{ env.EMULATOR_ARCH }}
+
+      - name: Start Metro and warm the bundle
+        working-directory: ./heka-wallet/app
+        run: |
+          nohup yarn start > ../metro.log 2>&1 &
+          timeout 120 bash -c 'until curl -sf http://localhost:8081/status; do sleep 2; done'
+          curl -sf -o /dev/null --max-time 900 'http://localhost:8081/index.bundle?platform=android&dev=true&minify=false'
+
+      - name: Install Maestro
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Cache AVD
+        id: avd-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.EMULATOR_API_LEVEL }}-${{ env.EMULATOR_TARGET }}-${{ env.EMULATOR_ARCH }}
+
+      - name: Create AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ env.EMULATOR_API_LEVEL }}
+          target: ${{ env.EMULATOR_TARGET }}
+          arch: ${{ env.EMULATOR_ARCH }}
+          disk-size: 6000M
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Run Maestro flows
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          MAESTRO_CLI_NO_ANALYTICS: 1
+        with:
+          api-level: ${{ env.EMULATOR_API_LEVEL }}
+          target: ${{ env.EMULATOR_TARGET }}
+          arch: ${{ env.EMULATOR_ARCH }}
+          disk-size: 6000M
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          working-directory: ./heka-wallet
+          script: bash scripts/e2e-ci.sh
+
+      - name: Upload e2e results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: maestro-results
+          path: |
+            heka-wallet/e2e-output/
+            heka-wallet/metro.log
+          if-no-files-found: ignore

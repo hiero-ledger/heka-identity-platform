@@ -87,6 +87,10 @@ aries-framework-javascript/
 .env.e2e
 .env
 
+# Maestro e2e output (scripts/e2e-ci.sh)
+e2e-output/
+metro.log
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 
