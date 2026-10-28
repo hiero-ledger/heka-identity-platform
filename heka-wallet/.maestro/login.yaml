@@ -9,7 +9,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'com.ariesbifold:id/Login'
-    timeout: 30000
+    timeout: 120000
 - runFlow: subflows/login.yaml
 - extendedWaitUntil:
     visible:

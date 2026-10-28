@@ -12,7 +12,7 @@ env:
 - extendedWaitUntil:
     visible:
       id: 'com.ariesbifold:id/PinKey0'
-    timeout: 30000
+    timeout: 120000
 - runFlow: subflows/enter-pin.yaml
 - extendedWaitUntil:
     visible:

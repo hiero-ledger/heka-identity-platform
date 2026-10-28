@@ -5,10 +5,11 @@ appId: com.heka.wallet
 - launchApp:
     clearState: true
     clearKeychain: true
+# A debug build on a CI emulator needs over 30 s to start its JS.
 - extendedWaitUntil:
     visible:
       id: 'com.ariesbifold:id/(Login|OnboardingNext)'
-    timeout: 30000
+    timeout: 120000
 - runFlow:
     when:
       visible:
