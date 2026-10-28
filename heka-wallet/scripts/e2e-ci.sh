@@ -14,6 +14,8 @@ status=0
 maestro test .maestro --include-tags no-backend \
   --format junit --output "$out/report.xml" --debug-output "$out/debug" || status=$?
 
+# Maestro's default output (screenshots of failed steps), in case --debug-output wrote nothing.
+cp -r "$HOME/.maestro/tests" "$out/maestro-tests" 2>/dev/null || true
 adb shell run-as com.heka.wallet cat files/log.txt > "$out/app-log.txt" 2>/dev/null || true
 adb logcat -d > "$out/logcat.txt" || true
 
