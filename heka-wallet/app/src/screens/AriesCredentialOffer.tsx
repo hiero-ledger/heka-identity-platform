@@ -19,6 +19,7 @@ import { CredentialOfferView } from '../components/views'
 import LoadingView from '../components/views/LoadingView'
 import { Credential, mapCredentialRecord } from '../credentials'
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
 
 type Props = StackScreenProps<NotificationStackParams, BifoldScreens.CredentialOffer>
 
@@ -49,8 +50,18 @@ export const AriesCredentialOffer: React.FC<Props> = ({ route }) => {
     setIsCredentialLoading(true)
     mapCredentialRecord(credentialExchangeRecord, agent)
       .then((credential) => setCredential(credential))
+      .catch((err: unknown) => {
+        agent.config.logger.error('Failed to map the credential offer', {
+          credentialExchangeRecordId: credentialExchangeRecord.id,
+          error: formatError(err),
+        })
+        DeviceEventEmitter.emit(
+          EventTypes.ERROR_ADDED,
+          new BifoldError(t('Error.Title1033'), t('Error.Message1033'), (err as Error)?.message ?? err, 1033)
+        )
+      })
       .finally(() => setIsCredentialLoading(false))
-  }, [agent, credentialExchangeRecord, credential])
+  }, [agent, credentialExchangeRecord, credential, t])
 
   useEffect(() => {
     if (!agent) {

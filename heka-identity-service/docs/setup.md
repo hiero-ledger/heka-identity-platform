@@ -181,11 +181,11 @@ yarn test
 ## CORS Configuration
 
 Cross-Origin Resource Sharing (CORS) controls which browser origins are permitted to call the Heka Identity Service API.
-CORS is **disabled by default** — it must be explicitly opted in via environment variables.
+CORS is **enabled by default** (with `Access-Control-Allow-Origin: *`) so that the Web UI works out of the box in local setups. Disable it, or restrict the allowed origins, via environment variables.
 
 | Variable               | Description                                                                                                                                                                                    | Default |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `EXPRESS_ENABLE_CORS`  | Set to `true` to enable CORS. Any other value (including unset) disables it.                                                                                                                   | `false` |
+| `EXPRESS_ENABLE_CORS`  | Set to `false` (or any non-empty value other than `true`) to disable CORS. Unset or empty enables it.                                                                                          | `true`  |
 | `EXPRESS_CORS_OPTIONS` | JSON string of [CORS options](https://github.com/expressjs/cors#configuration-options) passed directly to `app.enableCors()`. Must be valid JSON; invalid JSON crashes on startup (fail-fast). | `{}`    |
 
 > **Security warning:** Enabling CORS without setting an `origin` inside `EXPRESS_CORS_OPTIONS` defaults to `Access-Control-Allow-Origin: *`.
@@ -244,14 +244,16 @@ Real deployments should set `NODE_ENV=production` explicitly: an unset `NODE_ENV
 
 ### HTTP server (Express)
 
-| Variable               | Default     | Description                                                 |
-| ---------------------- | ----------- | ----------------------------------------------------------- |
-| `EXPRESS_HOST`         | `localhost` | Host the server binds to.                                   |
-| `EXPRESS_PORT`         | `3000`      | Port for the REST API and Swagger UI.                       |
-| `EXPRESS_PREFIX`       | _(unset)_   | Optional global URL prefix (e.g. `/api`).                   |
-| `APP_ENDPOINT`         | `http://${EXPRESS_HOST}:${EXPRESS_PORT}` plus the prefix | Public base URL of the REST API, embedded into status-list credential URLs (`/credentials/status/<id>`) and revocation tails URLs (`/revocation/tails/<hash>`). Set it to the https tunnel of port 3000 when wallets or verifiers resolve them remotely. An empty value is used as is, so leave it unset rather than empty. |
-| `EXPRESS_ENABLE_CORS`  | `true`      | Enable CORS handling.                                       |
-| `EXPRESS_CORS_OPTIONS` | `{}`        | JSON-encoded options passed to the Express CORS middleware. |
+| Variable               | Default                                                           | Description                                                                                          |
+| ---------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `EXPRESS_HOST`         | `localhost`                                                       | Host in the default URLs (`APP_ENDPOINT`, `AGENT_*_ENDPOINT`); servers listen on all interfaces.     |
+| `EXPRESS_PORT`         | `3000`                                                            | Port for the REST API and Swagger UI.                                                                |
+| `EXPRESS_PREFIX`       | _(unset)_                                                         | Optional global URL prefix, without a leading slash (e.g. `api`).                                    |
+| `APP_ENDPOINT`         | `http://${EXPRESS_HOST}:${EXPRESS_PORT}` (+ `/${EXPRESS_PREFIX}`) | Public REST API URL used in AnonCreds tails file and status list URLs. Must be reachable by wallets. |
+| `EXPRESS_ENABLE_CORS`  | `true`                                                            | Enable CORS handling.                                                                                |
+| `EXPRESS_CORS_OPTIONS` | `{}`                                                              | JSON-encoded options passed to the Express CORS middleware.                                          |
+
+`APP_ENDPOINT` falls back to the default only when it is unset: an empty `APP_ENDPOINT=` is used as is and produces relative URLs, so leave the variable out instead.
 
 ### Agent transports
 

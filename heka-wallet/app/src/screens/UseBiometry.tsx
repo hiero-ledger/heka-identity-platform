@@ -1,5 +1,5 @@
 import { Button, ButtonType, DispatchAction, useAuth, useStore } from '@bifold/core'
-import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
+import { GlobalLogger, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleSheet, Text, View, Modal, Switch, ScrollView, Pressable, Linking, Platform } from 'react-native'
@@ -10,6 +10,8 @@ import { AlertModal } from '../components/modals'
 import { Loader } from '../components/views/LoadingView'
 
 import PINEnter, { PINEntryUsage } from './PINEnter'
+
+const logger = GlobalLogger.createContextLogger('UseBiometry')
 
 const ANDROID_SETTINGS_INTENT = 'android.settings.SETTINGS'
 const IOS_SETTINGS_URL = 'App-prefs:root'
@@ -70,9 +72,14 @@ const UseBiometry: React.FC = () => {
   const [showSettingsPopup, setShowSettingsPopup] = useState(false)
 
   useEffect(() => {
-    isBiometricsActive().then((result) => {
-      setBiometryAvailable(result)
-    })
+    isBiometricsActive()
+      .then((result) => {
+        setBiometryAvailable(result)
+      })
+      .catch((error: unknown) => {
+        logger.error('Failed to check whether biometrics are available', error)
+        setBiometryAvailable(false)
+      })
   }, [isBiometricsActive])
 
   const continueTouched = async () => {

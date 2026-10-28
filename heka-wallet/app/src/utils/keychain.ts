@@ -1,9 +1,12 @@
+import { GlobalLogger } from '@heka-wallet/shared'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useState } from 'react'
 import { Platform } from 'react-native'
 import * as Keychain from 'react-native-keychain'
 
 import { KeychainServices, KeychainServicesList } from '../types/keychain'
+
+const logger = GlobalLogger.createContextLogger('Keychain')
 
 export const APP_LAUNCHED_KEY = 'AppLaunched'
 
@@ -24,6 +27,7 @@ export const useIOSKeychainResetOnFirstLaunch = () => {
         await resetKeychainData()
         await AsyncStorage.setItem(APP_LAUNCHED_KEY, 'true')
       })
+      .catch((error: unknown) => logger.error('iOS keychain reset on first launch failed', error))
       .finally(() => setInProgress(false))
   }, [])
 
@@ -45,7 +49,8 @@ export function getKeychainAccessOptions(service: KeychainServices, useBiometric
 
   if (Platform.OS === 'android') {
     options.securityLevel = Keychain.SECURITY_LEVEL.ANY
-    options.storage = useBiometrics ? Keychain.STORAGE_TYPE.RSA : Keychain.STORAGE_TYPE.AES_GCM
+    // Since react-native-keychain v10 'AES_GCM' requires biometric auth; 'AES_GCM_NO_AUTH' is the one without a prompt
+    options.storage = useBiometrics ? Keychain.STORAGE_TYPE.RSA : Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH
   }
 
   return options

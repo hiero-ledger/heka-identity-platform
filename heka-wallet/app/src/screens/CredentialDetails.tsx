@@ -13,6 +13,7 @@ import CredentialContextMenu from '../components/misc/CredentialContextMenu'
 import LoadingView from '../components/views/LoadingView'
 import { mapCredentialRecord, Credential } from '../credentials'
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
 
 type CredentialStackParams = {
   [Screens.CredentialDetails]: { credentialId: string | Credential }
@@ -71,12 +72,13 @@ export const CredentialDetails: React.FC<Props> = ({ navigation, route }) => {
     setShown(newShowStates)
   }
 
-  // TODO: Rework current resetShown function to fix eslint error
+  // A loaded credential opens with every value hidden
   useEffect(() => {
-    if (credential) {
-      resetShown()
-    }
-  }, [credential]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!credential) return
+
+    setShown(credential.display.attributes.map(() => false))
+    setShowAll(true)
+  }, [credential])
 
   useEffect(() => {
     if (credential || !routeWithCredentialId || !agent) return
@@ -88,8 +90,18 @@ export const CredentialDetails: React.FC<Props> = ({ navigation, route }) => {
       .getById(routeCredential)
       .then((record) => mapCredentialRecord(record, agent))
       .then((credential) => setCredential(credential))
+      .catch((err: unknown) => {
+        agent.config.logger.error('Failed to load the credential', {
+          credentialId: routeCredential,
+          error: formatError(err),
+        })
+        DeviceEventEmitter.emit(
+          EventTypes.ERROR_ADDED,
+          new BifoldError(t('Error.Title1033'), t('Error.Message1033'), (err as Error)?.message ?? err, 1033)
+        )
+      })
       .finally(() => setIsCredentialLoading(false))
-  }, [agent, routeCredential, credential, routeWithCredentialId])
+  }, [agent, routeCredential, credential, routeWithCredentialId, t])
 
   useEffect(() => {
     if (!agent) {

@@ -15,7 +15,7 @@ import {
   DidCommProofExchangeRecord,
   DidCommProofState,
 } from '@credo-ts/didcomm'
-import { useHekaTheme, ColorPalette } from '@heka-wallet/shared'
+import { useHekaTheme, ColorPalette, GlobalLogger } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { Fragment, useCallback, useEffect, useState } from 'react'
@@ -26,6 +26,8 @@ import { ChatEvent, EventDetails, EventStates, EventTypes } from '../components/
 import { ExtendedChatMessage } from '../components/chat/ChatMessage'
 import { Role } from '../components/chat/types'
 import { resolveOverlay } from '../credentials'
+
+const logger = GlobalLogger.createContextLogger('ChatMessages')
 
 const pendingEventStyles = {
   backgroundColor: ColorPalette.brand.primaryBackground,
@@ -156,144 +158,149 @@ export const useChatMessagesByConnection = (connection: DidCommConnectionRecord)
     setTheirLabel(getConnectionName(connection, store.preferences.alternateContactNames))
   }, [connection, store.preferences.alternateContactNames])
 
-  const prepareChatMessages = useCallback(
-    async () => {
-      const transformedMessages: Array<ExtendedChatMessage> = basicMessages.map((record: DidCommBasicMessageRecord) => {
-        const role = getMessageEventRole(record)
-        // eslint-disable-next-line
-        const linkRegex = /(?:https?\:\/\/\w+(?:\.\w+)+\S*)|(?:[\w\d\.\_\-]+@\w+(?:\.\w+)+)/gim
-        // eslint-disable-next-line
-        const mailRegex = /^[\w\d\.\_\-]+@\w+(?:\.\w+)+$/gim
-        const links = record.content.match(linkRegex) ?? []
-        const handleLinkPress = (link: string) => {
-          if (link.match(mailRegex)) {
-            link = 'mailto:' + link
-          }
-          Linking.openURL(link)
+  const prepareChatMessages = useCallback(async (): Promise<ExtendedChatMessage[]> => {
+    const transformedMessages: Array<ExtendedChatMessage> = basicMessages.map((record: DidCommBasicMessageRecord) => {
+      const role = getMessageEventRole(record)
+      // eslint-disable-next-line
+      const linkRegex = /(?:https?\:\/\/\w+(?:\.\w+)+\S*)|(?:[\w\d\.\_\-]+@\w+(?:\.\w+)+)/gim
+      // eslint-disable-next-line
+      const mailRegex = /^[\w\d\.\_\-]+@\w+(?:\.\w+)+$/gim
+      const links = record.content.match(linkRegex) ?? []
+      const handleLinkPress = (link: string) => {
+        if (link.match(mailRegex)) {
+          link = 'mailto:' + link
         }
-        const msgText = (
-          <Text style={role === Role.me ? theme.rightText : theme.leftText}>
-            {record.content.split(linkRegex).map((split, i) => {
-              if (i < links.length) {
-                const link = links[i]
-                return (
-                  <Fragment key={`${record.id}-${i}`}>
-                    <Text>{split}</Text>
-                    <Text
-                      onPress={() => handleLinkPress(link)}
-                      style={{ color: ColorPalette.brand.link, textDecorationLine: 'underline' }}
-                      accessibilityRole={'link'}
-                    >
-                      {link}
-                    </Text>
-                  </Fragment>
-                )
-              }
-              return <Text key={`${record.id}-${i}`}>{split}</Text>
-            })}
-          </Text>
-        )
-        return {
-          _id: record.id,
-          text: record.content,
-          renderEvent: () => msgText,
-          createdAt: record.updatedAt || record.createdAt,
-          type: record.type,
-          user: { _id: role },
-        }
-      })
-
-      for (const record of credentials) {
-        const event = await getRecordEventDetails(record, connection)
-        const onPressEvent = () => {
-          if (record.state === DidCommCredentialState.Done) {
-            navigation.navigate(Stacks.ContactStack as any, {
-              screen: Screens.CredentialDetails,
-              params: { credential: record },
-            })
-          }
-          if (record.state === DidCommCredentialState.OfferReceived) {
-            navigation.navigate(Stacks.NotificationStack as any, {
-              screen: Screens.CredentialOffer,
-              params: { credentialId: record.id },
-            })
-          }
-        }
-
-        transformedMessages.push({
-          _id: record.id,
-          text: record.type,
-          renderEvent: () => <ChatEvent event={event} onPress={onPressEvent} />,
-          eventStyles: event.styles,
-          createdAt: record.updatedAt || record.createdAt,
-          user: { _id: event.role },
-        })
+        Linking.openURL(link)
       }
-
-      for (const record of proofs) {
-        const event = await getRecordEventDetails(record, connection)
-        const onPressEvent = () => {
-          if (
-            record.state === DidCommProofState.Done ||
-            record.state === DidCommProofState.PresentationSent ||
-            record.state === DidCommProofState.PresentationReceived
-          ) {
-            navigation.navigate(Stacks.ContactStack as any, {
-              screen: Screens.ProofDetails,
-              params: {
-                recordId: record.id,
-                isHistory: true,
-                senderReview:
-                  record.state === DidCommProofState.PresentationSent ||
-                  (record.state === DidCommProofState.Done && record.isVerified === undefined),
-              },
-            })
-          }
-          if (record.state === DidCommProofState.RequestReceived) {
-            navigation.navigate(Stacks.NotificationStack as any, {
-              screen: Screens.ProofRequest,
-              params: { proofId: record.id },
-            })
-          }
-        }
-
-        transformedMessages.push({
-          _id: record.id,
-          text: record.type,
-          renderEvent: () => <ChatEvent event={event} onPress={onPressEvent} />,
-          eventStyles: event.styles,
-          createdAt: record.updatedAt || record.createdAt,
-          user: { _id: event.role },
-        })
-      }
-
-      const connectedMessage = connection
-        ? {
-            _id: 'connected',
-            text: `${t('Chat.YouConnected')} ${theirLabel}`,
-            renderEvent: () => (
-              <Text style={theme.rightText}>
-                {t('Chat.YouConnected')}
-                <Text style={[theme.rightText, theme.rightTextHighlighted]}> {theirLabel}</Text>
-              </Text>
-            ),
-            createdAt: connection.createdAt,
-            user: { _id: Role.me },
-          }
-        : undefined
-
-      setMessages(
-        connectedMessage
-          ? [...transformedMessages.sort((a: any, b: any) => b.createdAt - a.createdAt), connectedMessage]
-          : transformedMessages.sort((a: any, b: any) => b.createdAt - a.createdAt)
+      const msgText = (
+        <Text style={role === Role.me ? theme.rightText : theme.leftText}>
+          {record.content.split(linkRegex).map((split, i) => {
+            if (i < links.length) {
+              const link = links[i]
+              return (
+                <Fragment key={`${record.id}-${i}`}>
+                  <Text>{split}</Text>
+                  <Text
+                    onPress={() => handleLinkPress(link)}
+                    style={{ color: ColorPalette.brand.link, textDecorationLine: 'underline' }}
+                    accessibilityRole={'link'}
+                  >
+                    {link}
+                  </Text>
+                </Fragment>
+              )
+            }
+            return <Text key={`${record.id}-${i}`}>{split}</Text>
+          })}
+        </Text>
       )
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [basicMessages, credentials, proofs, theirLabel]
-  )
+      return {
+        _id: record.id,
+        text: record.content,
+        renderEvent: () => msgText,
+        createdAt: record.updatedAt || record.createdAt,
+        type: record.type,
+        user: { _id: role },
+      }
+    })
+
+    for (const record of credentials) {
+      const event = await getRecordEventDetails(record, connection)
+      const onPressEvent = () => {
+        if (record.state === DidCommCredentialState.Done) {
+          navigation.navigate(Stacks.ContactStack as any, {
+            screen: Screens.CredentialDetails,
+            params: { credential: record },
+          })
+        }
+        if (record.state === DidCommCredentialState.OfferReceived) {
+          navigation.navigate(Stacks.NotificationStack as any, {
+            screen: Screens.CredentialOffer,
+            params: { credentialId: record.id },
+          })
+        }
+      }
+
+      transformedMessages.push({
+        _id: record.id,
+        text: record.type,
+        renderEvent: () => <ChatEvent event={event} onPress={onPressEvent} />,
+        eventStyles: event.styles,
+        createdAt: record.updatedAt || record.createdAt,
+        user: { _id: event.role },
+      })
+    }
+
+    for (const record of proofs) {
+      const event = await getRecordEventDetails(record, connection)
+      const onPressEvent = () => {
+        if (
+          record.state === DidCommProofState.Done ||
+          record.state === DidCommProofState.PresentationSent ||
+          record.state === DidCommProofState.PresentationReceived
+        ) {
+          navigation.navigate(Stacks.ContactStack as any, {
+            screen: Screens.ProofDetails,
+            params: {
+              recordId: record.id,
+              isHistory: true,
+              senderReview:
+                record.state === DidCommProofState.PresentationSent ||
+                (record.state === DidCommProofState.Done && record.isVerified === undefined),
+            },
+          })
+        }
+        if (record.state === DidCommProofState.RequestReceived) {
+          navigation.navigate(Stacks.NotificationStack as any, {
+            screen: Screens.ProofRequest,
+            params: { proofId: record.id },
+          })
+        }
+      }
+
+      transformedMessages.push({
+        _id: record.id,
+        text: record.type,
+        renderEvent: () => <ChatEvent event={event} onPress={onPressEvent} />,
+        eventStyles: event.styles,
+        createdAt: record.updatedAt || record.createdAt,
+        user: { _id: event.role },
+      })
+    }
+
+    const connectedMessage = connection
+      ? {
+          _id: 'connected',
+          text: `${t('Chat.YouConnected')} ${theirLabel}`,
+          renderEvent: () => (
+            <Text style={theme.rightText}>
+              {t('Chat.YouConnected')}
+              <Text style={[theme.rightText, theme.rightTextHighlighted]}> {theirLabel}</Text>
+            </Text>
+          ),
+          createdAt: connection.createdAt,
+          user: { _id: Role.me },
+        }
+      : undefined
+
+    return connectedMessage
+      ? [...transformedMessages.sort((a: any, b: any) => b.createdAt - a.createdAt), connectedMessage]
+      : transformedMessages.sort((a: any, b: any) => b.createdAt - a.createdAt)
+  }, [basicMessages, credentials, proofs, theirLabel, connection, navigation, t, theme, ColorPalette])
 
   useEffect(() => {
+    // A newer run replaces the result of one still in progress
+    let cancelled = false
+
     prepareChatMessages()
+      .then((preparedMessages) => {
+        if (!cancelled) setMessages(preparedMessages)
+      })
+      .catch((error: unknown) => logger.error('Failed to prepare chat messages', error))
+
+    return () => {
+      cancelled = true
+    }
   }, [prepareChatMessages])
 
   return messages

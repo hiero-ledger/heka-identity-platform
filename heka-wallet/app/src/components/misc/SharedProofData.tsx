@@ -6,6 +6,7 @@ import { FlatList, StyleSheet, View } from 'react-native'
 
 import { preparePresentationData, PresentationDetails, useCredentials } from '../../credentials'
 import { useHekaAgent } from '../../utils/agent'
+import { formatError } from '../../utils/error'
 import { CredentialCard, SectionCard } from '../cards'
 import { Loader } from '../views/LoadingView'
 
@@ -52,6 +53,12 @@ const SharedProofData: React.FC<SharedProofDataProps> = ({ record }) => {
 
     preparePresentationData(record, agent, credentials)
       .then((data) => setPresentationData(data))
+      .catch((error: unknown) =>
+        agent.config.logger.error('Failed to prepare shared proof data', {
+          proofExchangeRecordId: record.id,
+          error: formatError(error),
+        })
+      )
       .finally(() => setLoading(false))
   }, [record, credentials, agent])
 

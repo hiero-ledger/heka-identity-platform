@@ -1,9 +1,11 @@
 import { minPINLength } from '@bifold/core/src/constants'
-import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
+import { GlobalLogger, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import React, { useCallback, useEffect, useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 import DeleteIcon from '../../assets/delete.svg'
+
+const logger = GlobalLogger.createContextLogger('PinKeyPad')
 
 const useStyles = ({ ColorPalette, TextTheme, Spacing, BorderRadius }: HekaTheme) => {
   return StyleSheet.create({
@@ -60,9 +62,14 @@ const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
 
   useEffect(() => {
     if (PIN.length === minPINLength) {
-      onPinEntered(PIN).then((valid) => {
-        if (!valid) setPIN('')
-      })
+      onPinEntered(PIN)
+        .then((valid) => {
+          if (!valid) setPIN('')
+        })
+        .catch((error: unknown) => {
+          logger.error('PIN entry handler failed', error)
+          setPIN('')
+        })
     }
   }, [PIN, onPinEntered])
 

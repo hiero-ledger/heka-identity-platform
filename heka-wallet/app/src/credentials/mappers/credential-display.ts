@@ -30,6 +30,43 @@ import { parseCredentialName } from './utils'
 const UNKNOWN_CREDENTIAL_LABEL = 'Unknown credential'
 const UNKNOWN_ISSUER_LABEL = 'Unknown issuer'
 
+// The remote OCA bundle source is checked for updates once per app run.
+// The check has no timeout of its own and may hang for minutes if the host is unreachable,
+// so rendering waits for it only for a short time and then falls back to the default branding.
+const OCA_UPDATE_CHECK_TIMEOUT_MS = 3000
+
+let ocaBundleResolver: RemoteOCABundleResolver | undefined
+let ocaUpdateCheck: Promise<void> | undefined
+
+function getOcaBundleResolver(): RemoteOCABundleResolver {
+  if (!ocaBundleResolver) {
+    ocaBundleResolver = new RemoteOCABundleResolver(`${agencyProviderURL}/oca`, {
+      language: i18n.language,
+      brandingOverlayType: BrandingOverlayType.Branding10,
+    })
+  }
+
+  return ocaBundleResolver
+}
+
+async function waitForOcaUpdateCheck(bundleResolver: RemoteOCABundleResolver): Promise<void> {
+  if (!ocaUpdateCheck) {
+    // A failed check is not critical: credentials are then shown with the default branding
+    ocaUpdateCheck = bundleResolver.checkForUpdates().catch(() => undefined)
+  }
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<void>((resolve) => {
+    timeoutId = setTimeout(resolve, OCA_UPDATE_CHECK_TIMEOUT_MS)
+  })
+
+  try {
+    await Promise.race([ocaUpdateCheck, timeout])
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 export function getSdJwtCredentialDisplay(
   credentialPayload: Record<string, unknown>,
   openId4VcMetadata?: OpenId4VcCredentialMetadata | null
@@ -260,12 +297,9 @@ export async function resolveOverlay(
     language: i18n.language,
   }
 
-  const bundleResolver = new RemoteOCABundleResolver(`${agencyProviderURL}/oca`, {
-    language: i18n.language,
-    brandingOverlayType: BrandingOverlayType.Branding10,
-  })
+  const bundleResolver = getOcaBundleResolver()
 
-  await bundleResolver.checkForUpdates()
+  await waitForOcaUpdateCheck(bundleResolver)
 
   return (await bundleResolver.resolveAllBundles(resolverParams)) as CredentialOverlay<BrandingOverlay>
 }

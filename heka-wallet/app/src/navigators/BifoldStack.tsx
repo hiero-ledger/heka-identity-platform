@@ -3,40 +3,22 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
 
+import { useShuttingDownAgent } from '../contexts/AgentLockout'
 import { useHekaAgent } from '../utils/agent'
 
 export const BifoldStack: React.FC = () => {
   const [store, dispatch] = useStore()
   const { t } = useTranslation()
   const [OnBoardingStack, loadState] = useServices([TOKENS.STACK_ONBOARDING, TOKENS.LOAD_STATE])
-  const { agent, setAgent } = useHekaAgent()
+  const { agent } = useHekaAgent()
+  // AgentLockoutProvider shuts the agent down on lockout
+  const shuttingDownAgent = useShuttingDownAgent()
   const [onboardingComplete, setOnboardingComplete] = useState(false)
 
   const shouldRenderMainStack = useMemo(
     () => onboardingComplete && store.authentication.didAuthenticate,
     [onboardingComplete, store.authentication.didAuthenticate]
   )
-
-  useEffect(() => {
-    // if user gets locked out, shut down and erase agent so the onboarding
-    // workflow re-runs Splash on re-unlock and re-initializes a fresh agent
-    if (store.authentication.didAuthenticate || !agent) return
-
-    let cancelled = false
-    ;(async () => {
-      try {
-        await agent.shutdown()
-      } catch (err) {
-        console.warn(`Agent shutdown failed during lockout: ${err}`)
-      } finally {
-        if (!cancelled) setAgent(null)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [store.authentication.didAuthenticate, agent, setAgent])
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener(EventTypes.DID_COMPLETE_ONBOARDING, () => {
@@ -57,7 +39,7 @@ export const BifoldStack: React.FC = () => {
     })
   }, [dispatch, loadState, t, store.stateLoaded])
 
-  if (shouldRenderMainStack && agent) {
+  if (shouldRenderMainStack && agent && agent !== shuttingDownAgent) {
     return (
       <ActivityProvider>
         <MainStack />

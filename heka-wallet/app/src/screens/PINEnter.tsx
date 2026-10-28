@@ -15,7 +15,7 @@ import { defaultAutoLockTime, minPINLength } from '@bifold/core/src/constants'
 import { hashPIN } from '@bifold/core/src/utils/crypto'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation, CommonActions } from '@react-navigation/native'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleSheet, Text, View, DeviceEventEmitter, InteractionManager } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -66,6 +66,18 @@ export enum PINEntryUsage {
   WalletUnlock,
 }
 
+const getLockoutPenalty = (attempts: number): number | undefined => {
+  let penalty = attemptLockoutConfig.baseRules[attempts]
+  if (
+    !penalty &&
+    attempts >= attemptLockoutConfig.thresholdRules.threshold &&
+    !(attempts % attemptLockoutConfig.thresholdRules.increment)
+  ) {
+    penalty = attemptLockoutConfig.thresholdRules.thresholdPenaltyDuration
+  }
+  return penalty
+}
+
 const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryUsage.WalletUnlock }) => {
   const { t } = useTranslation()
   const { checkWalletPIN, getWalletSecret, isBiometricsActive, disableBiometrics } = useAuth()
@@ -112,35 +124,26 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
     })
   }, [dispatch, store.loginAttempt.loginAttempts])
 
-  const attemptLockout = async (penalty: number) => {
-    // set the attempt lockout time
-    dispatch({
-      type: DispatchAction.ATTEMPT_UPDATED,
-      payload: [
-        { loginAttempts: store.loginAttempt.loginAttempts, lockoutDate: Date.now() + penalty, servedPenalty: false },
-      ],
-    })
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: Screens.AttemptLockout }],
+  const attemptLockout = useCallback(
+    (penalty: number) => {
+      // set the attempt lockout time
+      dispatch({
+        type: DispatchAction.ATTEMPT_UPDATED,
+        payload: [
+          { loginAttempts: store.loginAttempt.loginAttempts, lockoutDate: Date.now() + penalty, servedPenalty: false },
+        ],
       })
-    )
-  }
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: Screens.AttemptLockout }],
+        })
+      )
+    },
+    [dispatch, navigation, store.loginAttempt.loginAttempts]
+  )
 
-  const getLockoutPenalty = (attempts: number): number | undefined => {
-    let penalty = attemptLockoutConfig.baseRules[attempts]
-    if (
-      !penalty &&
-      attempts >= attemptLockoutConfig.thresholdRules.threshold &&
-      !(attempts % attemptLockoutConfig.thresholdRules.increment)
-    ) {
-      penalty = attemptLockoutConfig.thresholdRules.thresholdPenaltyDuration
-    }
-    return penalty
-  }
-
-  const loadWalletCredentials = async () => {
+  const loadWalletCredentials = useCallback(async () => {
     if (usage === PINEntryUsage.PINCheck) {
       return
     }
@@ -161,10 +164,18 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
 
       setAuthenticated(true)
     }
-  }
+  }, [usage, getWalletSecret, dispatch, setAuthenticated])
+
+  // The biometric unlock runs once per mount; later dependency changes must not prompt again.
+  const biometryCheckStartedRef = useRef(false)
 
   useEffect(() => {
+    if (biometryCheckStartedRef.current) {
+      return
+    }
+
     const handle = InteractionManager.runAfterInteractions(async () => {
+      biometryCheckStartedRef.current = true
       if (!store.preferences.useBiometry) {
         return
       }
@@ -187,70 +198,90 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
     })
 
     return handle.cancel
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [store.preferences.useBiometry, isBiometricsActive, disableBiometrics, dispatch, loadWalletCredentials, logger])
+
+  // attemptLockout sets servedPenalty to false, which re-runs the effect below; lock out once per attempt count.
+  const lockoutAppliedAtRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     // check number of login attempts and determine if app should apply lockout
     const attempts = store.loginAttempt.loginAttempts
     const penalty = getLockoutPenalty(attempts)
-    if (penalty && !store.loginAttempt.servedPenalty) {
+    if (penalty && !store.loginAttempt.servedPenalty && lockoutAppliedAtRef.current !== attempts) {
       // only apply lockout if user has not served their penalty
+      lockoutAppliedAtRef.current = attempts
       attemptLockout(penalty)
     }
 
     // display warning if we are one away from a lockout
     const displayWarning = !!getLockoutPenalty(attempts + 1)
     setDisplayLockoutWarning(displayWarning)
-  }, [store.loginAttempt.loginAttempts]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [store.loginAttempt.loginAttempts, store.loginAttempt.servedPenalty, attemptLockout])
 
-  const unlockWalletWithPIN = useCallback(async (PIN: string) => {
-    try {
-      setIsPinChecking(true)
-      const result = await checkWalletPIN(PIN)
+  const unlockWalletWithPIN = useCallback(
+    async (PIN: string) => {
+      try {
+        setIsPinChecking(true)
+        const result = await checkWalletPIN(PIN)
 
-      if (store.loginAttempt.servedPenalty) {
-        // once the user starts entering their PIN, unMark them as having served their lockout penalty
-        unMarkServedPenalty()
-      }
-
-      if (!result) {
-        const newAttempt = store.loginAttempt.loginAttempts + 1
-        if (!getLockoutPenalty(newAttempt)) {
-          // skip displaying modals if we are going to lockout
-          setAlertModalVisible(true)
+        if (store.loginAttempt.servedPenalty) {
+          // once the user starts entering their PIN, unMark them as having served their lockout penalty
+          unMarkServedPenalty()
         }
 
-        // log incorrect login attempts
+        if (!result) {
+          const newAttempt = store.loginAttempt.loginAttempts + 1
+          if (!getLockoutPenalty(newAttempt)) {
+            // skip displaying modals if we are going to lockout
+            setAlertModalVisible(true)
+          }
+
+          // log incorrect login attempts
+          dispatch({
+            type: DispatchAction.ATTEMPT_UPDATED,
+            payload: [{ loginAttempts: newAttempt }],
+          })
+
+          return false
+        }
+
+        // reset login attempts if login is successful
         dispatch({
           type: DispatchAction.ATTEMPT_UPDATED,
-          payload: [{ loginAttempts: newAttempt }],
+          payload: [{ loginAttempts: 0 }],
         })
 
+        // remove lockout notification if login is successful
+        dispatch({
+          type: DispatchAction.LOCKOUT_UPDATED,
+          payload: [{ displayNotification: false }],
+        })
+
+        setAuthenticated(true)
+        return true
+      } catch (err: unknown) {
+        const error = new BifoldError(
+          t('Error.Title1041'),
+          t('Error.Message1041'),
+          (err as Error)?.message ?? err,
+          1041
+        )
+        DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
         return false
+      } finally {
+        setIsPinChecking(false)
       }
-
-      // reset login attempts if login is successful
-      dispatch({
-        type: DispatchAction.ATTEMPT_UPDATED,
-        payload: [{ loginAttempts: 0 }],
-      })
-
-      // remove lockout notification if login is successful
-      dispatch({
-        type: DispatchAction.LOCKOUT_UPDATED,
-        payload: [{ displayNotification: false }],
-      })
-
-      setAuthenticated(true)
-      return true
-    } catch (err: unknown) {
-      const error = new BifoldError(t('Error.Title1041'), t('Error.Message1041'), (err as Error)?.message ?? err, 1041)
-      DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
-      return false
-    } finally {
-      setIsPinChecking(false)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    },
+    [
+      checkWalletPIN,
+      store.loginAttempt.loginAttempts,
+      store.loginAttempt.servedPenalty,
+      unMarkServedPenalty,
+      dispatch,
+      setAuthenticated,
+      t,
+    ]
+  )
 
   const clearAlertModal = useCallback(() => {
     switch (usage) {
@@ -268,28 +299,36 @@ const PINEnter: React.FC<PINEnterProps> = ({ setAuthenticated, usage = PINEntryU
     setAlertModalVisible(false)
   }, [setAuthenticated, usage])
 
-  const verifyPIN = useCallback(async (PIN: string) => {
-    try {
-      const walletSecret = await getWalletSecret()
-      if (!walletSecret) {
-        throw new Error('Wallet secret is not defined')
-      }
+  const verifyPIN = useCallback(
+    async (PIN: string) => {
+      try {
+        const walletSecret = await getWalletSecret()
+        if (!walletSecret) {
+          throw new Error('Wallet secret is not defined')
+        }
 
-      const key = await hashPIN(PIN, walletSecret.salt)
+        const key = await hashPIN(PIN, walletSecret.salt)
 
-      if (walletSecret.key !== key) {
-        setAlertModalVisible(true)
+        if (walletSecret.key !== key) {
+          setAlertModalVisible(true)
+          return false
+        }
+
+        setAuthenticated(true)
+        return true
+      } catch (err: unknown) {
+        const error = new BifoldError(
+          t('Error.Title1042'),
+          t('Error.Message1042'),
+          (err as Error)?.message ?? err,
+          1042
+        )
+        DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
         return false
       }
-
-      setAuthenticated(true)
-      return true
-    } catch (err: unknown) {
-      const error = new BifoldError(t('Error.Title1042'), t('Error.Message1042'), (err as Error)?.message ?? err, 1042)
-      DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
-      return false
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    },
+    [getWalletSecret, setAuthenticated, t]
+  )
 
   // both of the async functions called in this function are completely wrapped in trycatch
   const onPINInputCompleted = useCallback(

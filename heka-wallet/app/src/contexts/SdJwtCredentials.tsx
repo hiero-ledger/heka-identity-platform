@@ -6,6 +6,7 @@ import { SdJwtVcRecord } from '@credo-ts/core'
 import { createContext, useContext, useEffect, useState } from 'react'
 
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
 
 type SdJwtVcRecordState = {
   sdJwtVcRecords: Array<SdJwtVcRecord>
@@ -67,7 +68,13 @@ export const SdJwtVcRecordProvider: React.FC<PropsWithChildren> = ({ children })
 
   useEffect(() => {
     if (!agent) return
-    agent.sdJwtVc.getAll().then((sdJwtVcRecords) => setState({ sdJwtVcRecords, isLoading: false }))
+    agent.sdJwtVc
+      .getAll()
+      .then((sdJwtVcRecords) => setState({ sdJwtVcRecords, isLoading: false }))
+      .catch((error: unknown) => {
+        agent.config.logger.error('Failed to load SD-JWT VC records', { error: formatError(error) })
+        setState((prev) => ({ ...prev, isLoading: false }))
+      })
   }, [agent])
 
   useEffect(() => {

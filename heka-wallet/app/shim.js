@@ -6,6 +6,27 @@ import { TextDecoder, TextEncoder } from 'text-encoding-polyfill'
 global.TextEncoder = TextEncoder
 global.TextDecoder = TextDecoder
 
+// Hermes doesn't implement String.prototype.isWellFormed (ES2024).
+// '@scure/base' (used by Credo for UTF-8 encoding) falls back to a shim when it's missing,
+// but in production bundles Metro evaluates that check at build time (in Node, where the method exists)
+// and keeps only the 'str.isWellFormed()' call, which throws at runtime without this polyfill.
+const stringPrototype = String.prototype
+if (typeof stringPrototype.isWellFormed !== 'function') {
+  Object.defineProperty(stringPrototype, 'isWellFormed', {
+    configurable: true,
+    writable: true,
+    value: function isWellFormed() {
+      // encodeURI throws on lone surrogates, i.e. on strings that are not well-formed UTF-16
+      try {
+        encodeURI(this)
+        return true
+      } catch {
+        return false
+      }
+    },
+  })
+}
+
 if (typeof __dirname === 'undefined') global.__dirname = '/'
 if (typeof __filename === 'undefined') global.__filename = ''
 if (typeof process === 'undefined') {

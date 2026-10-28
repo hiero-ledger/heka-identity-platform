@@ -6,6 +6,7 @@ import { W3cCredentialRecord } from '@credo-ts/core'
 import { createContext, useContext, useEffect, useState } from 'react'
 
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
 
 type W3cCredentialRecordState = {
   w3cCredentialRecords: Array<W3cCredentialRecord>
@@ -67,7 +68,13 @@ export const W3cCredentialRecordProvider: React.FC<PropsWithChildren> = ({ child
 
   useEffect(() => {
     if (!agent) return
-    agent.w3cCredentials.getAll().then((w3cCredentialRecords) => setState({ w3cCredentialRecords, isLoading: false }))
+    agent.w3cCredentials
+      .getAll()
+      .then((w3cCredentialRecords) => setState({ w3cCredentialRecords, isLoading: false }))
+      .catch((error: unknown) => {
+        agent.config.logger.error('Failed to load W3C credential records', { error: formatError(error) })
+        setState((prev) => ({ ...prev, isLoading: false }))
+      })
   }, [agent])
 
   useEffect(() => {

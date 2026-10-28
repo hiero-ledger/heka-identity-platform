@@ -7,6 +7,7 @@ import { renderHook, waitFor } from '@testing-library/react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { APP_LAUNCHED_KEY } from '../../src/utils/keychain'
 import { mockFunction } from '../../../jest-helpers/helpers'
+import { GlobalLogger } from '@heka-wallet/shared'
 
 const testKeychainServiceName = KeychainServices.Key
 
@@ -56,6 +57,17 @@ describe('Keychain Utils', () => {
       expect(Keychain.resetGenericPassword).toBeCalledTimes(0)
       expect(AsyncStorage.setItem).toBeCalledTimes(0)
     })
+
+    it('should log a failed reset and finish', async () => {
+      const error = new Error('Storage unavailable')
+      mockFunction(AsyncStorage.getItem).mockRejectedValueOnce(error)
+
+      const { result } = renderHook(() => useIOSKeychainResetOnFirstLaunch())
+
+      await waitFor(() => expect(result.current.inProgress).toBe(false))
+
+      expect(GlobalLogger.error).toBeCalledWith('iOS keychain reset on first launch failed', error)
+    })
   })
 
   describe('resetKeychainData', () => {
@@ -81,7 +93,8 @@ describe('Keychain Utils', () => {
 
       if (platform === 'android') {
         expect(options.securityLevel).toBe(Keychain.SECURITY_LEVEL.ANY)
-        expect(options.storage).toBe(Keychain.STORAGE_TYPE.AES_GCM)
+        // 'AES_GCM' needs enrolled biometrics, which broke OAuth login on devices without them
+        expect(options.storage).toBe(Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH)
       }
 
       const optionsWithBiometry = getKeychainAccessOptions(testKeychainServiceName, true)

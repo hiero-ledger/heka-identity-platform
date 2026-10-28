@@ -85,6 +85,14 @@ describe('OAuthStore', () => {
     await waitFor(() => expect(oauthStore.isLoading).toBe(false))
   })
 
+  it('should finish loading logged out when the stored auth state cannot be read', async () => {
+    mockFunction(Keychain.getGenericPassword).mockRejectedValueOnce(new Error('Keychain unavailable'))
+
+    const oauthStore = await createAndInitializeStore()
+
+    expect(oauthStore.isLoggedIn).toBe(false)
+  })
+
   it('should initialize with empty auth state', async () => {
     mockFunction(Keychain.getGenericPassword).mockResolvedValueOnce(false)
 

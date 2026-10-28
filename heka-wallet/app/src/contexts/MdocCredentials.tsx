@@ -6,6 +6,7 @@ import { MdocRecord } from '@credo-ts/core'
 import { createContext, useContext, useEffect, useState } from 'react'
 
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
 
 export { Mdoc, MdocRecord } from '@credo-ts/core'
 
@@ -69,7 +70,13 @@ export const MdocRecordProvider: React.FC<PropsWithChildren> = ({ children }) =>
 
   useEffect(() => {
     if (!agent) return
-    agent.mdoc.getAll().then((mdocCredentialRecords) => setState({ mdocCredentialRecords, isLoading: false }))
+    agent.mdoc
+      .getAll()
+      .then((mdocCredentialRecords) => setState({ mdocCredentialRecords, isLoading: false }))
+      .catch((error: unknown) => {
+        agent.config.logger.error('Failed to load mdoc records', { error: formatError(error) })
+        setState((prev) => ({ ...prev, isLoading: false }))
+      })
   }, [agent])
 
   useEffect(() => {
