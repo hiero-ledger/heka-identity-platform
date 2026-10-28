@@ -48,7 +48,8 @@ export const useAgentLockoutShutdown = (): HekaWalletAgent | null => {
     shutdownAgentForLockout(agent).finally(() => {
       // Splash may have set a fresh agent meanwhile; keep it
       if (currentAgent.current === agent) setAgent(null)
-      setShuttingDownAgent(null)
+      // A newer agent may be shutting down by now; keep its marker
+      setShuttingDownAgent((current) => (current === agent ? null : current))
     })
   }, [store.authentication.didAuthenticate, agent, shuttingDownAgent, setAgent])
 

@@ -219,6 +219,30 @@ describe('BifoldStack lockout', () => {
     expect(freshAgent.shutdown).not.toHaveBeenCalled()
   })
 
+  it('keeps shutting down a fresh agent locked out while the old one was still shutting down', async () => {
+    const wallet = renderUnlockedWallet()
+    const freshShutdown = deferred()
+    const freshAgent: FakeAgent = { shutdown: jest.fn(() => freshShutdown.promise) }
+
+    wallet.lock()
+    wallet.unlock()
+    wallet.setAgent(freshAgent)
+    wallet.lock()
+    await wallet.finishShutdown()
+    wallet.unlock()
+
+    try {
+      expect(freshAgent.shutdown).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText(MAIN_STACK)).not.toBeOnTheScreen()
+    } finally {
+      await act(async () => {
+        freshShutdown.resolve()
+        await new Promise((resolve) => setImmediate(resolve))
+      })
+    }
+    expect(wallet.currentAgent()).toBeNull()
+  })
+
   it('clears the agent when the shutdown fails', async () => {
     const wallet = renderUnlockedWallet()
 
