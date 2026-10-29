@@ -24,7 +24,17 @@ export default registerAs('pino', () => ({
   transport,
   level: process.env.PINO_LEVEL || 'info',
   redact: {
-    paths: ['password', '*.password'],
+    paths: [
+      'password',
+      '*.password',
+      // pino-http logs the serialized request and response on every line of a request
+      'req.headers.authorization',
+      'req.headers["proxy-authorization"]',
+      'req.headers.cookie',
+      // the notifications WebSocket carries the access token in this header; redacted in case a request with it reaches pino-http
+      'req.headers["sec-websocket-protocol"]',
+      'res.headers["set-cookie"]',
+    ],
     censor: '******',
   },
 }))
