@@ -161,8 +161,26 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
     navigateToHome()
   }
 
+  // Rendered while loading too: the credential is requested only after the PIN is entered.
+  const credentialPinModal = (
+    <ConfirmationInputModal
+      title={t('CredentialOffer.EnterCredentialPIN')}
+      inputType={ConfirmationInputType.Password}
+      inputLabel={t('Common.Code')}
+      isVisible={isCredentialPinInputVisible}
+      doneButtonTitle={t('Global.Confirm')}
+      onConfirm={onCredentialPinConfirm}
+      onCancel={onCredentialPinCancel}
+    />
+  )
+
   if (isLoading || !credential) {
-    return <LoadingView />
+    return (
+      <>
+        <LoadingView />
+        {credentialPinModal}
+      </>
+    )
   }
 
   return (
@@ -174,15 +192,7 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
         isAccepted={isAccepted}
         isUseBackAsDecline={true}
       />
-      <ConfirmationInputModal
-        title={t('CredentialOffer.EnterCredentialPIN')}
-        inputType={ConfirmationInputType.Password}
-        inputLabel={t('Common.Code')}
-        isVisible={isCredentialPinInputVisible}
-        doneButtonTitle={t('Global.Confirm')}
-        onConfirm={onCredentialPinConfirm}
-        onCancel={onCredentialPinCancel}
-      />
+      {credentialPinModal}
     </SafeAreaView>
   )
 }

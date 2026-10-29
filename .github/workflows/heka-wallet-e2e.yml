@@ -125,26 +125,9 @@ jobs:
 
       - name: Wait for the backend
         if: matrix.suite == 'backend'
-        working-directory: .
         run: |
-          wait_for() {
-            local url=$1 deadline=$((SECONDS + $2))
-            until curl -sf -o /dev/null --max-time 10 "$url"; do
-              if [ -s heka-wallet/e2e-output/compose-up.exit ] && [ "$(cat heka-wallet/e2e-output/compose-up.exit)" != 0 ]; then
-                echo "docker compose up failed with exit code $(cat heka-wallet/e2e-output/compose-up.exit):"
-                tail -n 100 heka-wallet/e2e-output/compose-up.log
-                exit 1
-              fi
-              if [ "$SECONDS" -ge "$deadline" ]; then
-                echo "Timed out waiting for $url"
-                exit 1
-              fi
-              sleep 10
-            done
-          }
-          wait_for http://localhost:8080/realms/heka-wallet/.well-known/openid-configuration 1200
-          wait_for http://localhost:3000/health 600
-          docker compose --profile keycloak ps
+          bash scripts/e2e-wait-backend.sh
+          docker compose -f ../docker-compose.yml --profile keycloak ps
 
       # Pinned release archive verified by checksum instead of piping the unpinned get.maestro.mobile.dev installer to bash.
       - name: Install Maestro

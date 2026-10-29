@@ -59,11 +59,8 @@ export const useOpenIdHandlers = () => {
         throw new Error('Either data or uri must be provided')
       }
 
-      agent.config.logger.info(`Receiving openid uri ${offerUri}`, {
-        offerUri,
-        data: offer.data,
-        uri: offer.uri,
-      })
+      // Never log the offer itself: it can carry a pre-authorized code, and the log file can be exported.
+      agent.config.logger.info('Resolving OpenID4VCI credential offer', { passedBy: offer.uri ? 'uri' : 'data' })
 
       const resolvedCredentialOffer = await agent.openid4vc.holder.resolveCredentialOffer(offerUri)
       let resolvedAuthorizationRequest: OpenId4VciResolvedAuthorizationRequest | undefined = undefined
