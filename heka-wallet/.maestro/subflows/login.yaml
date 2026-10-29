@@ -1,7 +1,9 @@
 # Logs in through Keycloak in a Chrome Custom Tab. Input: env KC_USERNAME, KC_PASSWORD.
-# Chrome keeps the Keycloak session across clearState, so the form may not appear.
+# Chrome keeps the Keycloak session across clearState, so the form may not appear and the session may be another
+# user's: onboard.yaml checks the account on Home when output.loggedIn is set.
 appId: com.heka.wallet
 ---
+- evalScript: ${output.loggedIn = true}
 - tapOn:
     id: 'com.ariesbifold:id/Login'
 - extendedWaitUntil:

@@ -7,16 +7,23 @@ const mockInvitationUrl = 'https://mediator.example/invite?oob=abc'
 const mockMediatorPublicDid = 'did:web:mediator.example'
 const mockInvitation = { id: 'invitation-id' }
 const mockRouting = { endpoints: ['didcomm:transport/queue'] }
-const mockMediationRecord = { id: 'mediation-id' }
+const mockMediationRecord = { id: 'mediation-id', state: 'granted', isReady: true }
+const requestedMediationRecord = { id: 'requested-mediation-id', state: 'requested', isReady: false }
 const readyConnection = { id: 'ready-connection-id', isReady: true }
 const pendingConnection = { id: 'pending-connection-id', isReady: false }
 
+const mediationRepository = { delete: jest.fn() }
+
 const mockAgent = {
+  context: {},
+  dependencyManager: { resolve: () => mediationRepository },
   didcomm: {
     mediationRecipient: {
       findDefaultMediator: jest.fn(),
+      findByConnectionId: jest.fn(),
       getRouting: jest.fn(),
       provision: jest.fn(),
+      setDefaultMediator: jest.fn(),
       initiateMessagePickup: jest.fn(),
     },
     oob: {
@@ -41,9 +48,18 @@ const loggerWarn = GlobalLogger.createContextLogger('Mediator').warn
 describe('trySetupMediator', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mediationRecipient.findDefaultMediator.mockResolvedValue(null)
+    // Like Credo: a fresh grant in provision() becomes the default mediator.
+    let defaultMediator: unknown = null
+    mediationRecipient.findDefaultMediator.mockImplementation(async () => defaultMediator)
+    mediationRecipient.setDefaultMediator.mockImplementation(async (record) => {
+      defaultMediator = record
+    })
+    mediationRecipient.findByConnectionId.mockResolvedValue(null)
     mediationRecipient.getRouting.mockResolvedValue(mockRouting)
-    mediationRecipient.provision.mockResolvedValue(mockMediationRecord)
+    mediationRecipient.provision.mockImplementation(async () => {
+      defaultMediator = mockMediationRecord
+      return mockMediationRecord
+    })
     mediationRecipient.initiateMessagePickup.mockResolvedValue(undefined)
     oob.parseInvitation.mockResolvedValue(mockInvitation)
     oob.findByReceivedInvitationId.mockResolvedValue(null)
@@ -102,6 +118,36 @@ describe('trySetupMediator', () => {
 
     expect(oob.receiveInvitation).not.toHaveBeenCalled()
     expect(mediationRecipient.provision).toHaveBeenCalledWith(readyConnection)
+  })
+
+  it('requests mediation again when a grant timed out on a reused connection', async () => {
+    oob.findByReceivedInvitationId.mockResolvedValue({ id: 'oob-id' })
+    connections.findAllByOutOfBandId.mockResolvedValue([readyConnection])
+    mediationRecipient.findByConnectionId.mockResolvedValue(requestedMediationRecord)
+
+    await expect(trySetupMediator(agent, { invitationUrl: mockInvitationUrl })).resolves.toBe(true)
+
+    expect(mediationRepository.delete).toHaveBeenCalledWith(mockAgent.context, requestedMediationRecord)
+    expect(mediationRecipient.provision).toHaveBeenCalledWith(readyConnection)
+  })
+
+  it('returns false without starting pickup when provisioning leaves mediation ungranted', async () => {
+    mediationRecipient.provision.mockResolvedValue(requestedMediationRecord)
+
+    await expect(trySetupMediator(agent, { invitationUrl: mockInvitationUrl })).resolves.toBe(false)
+
+    expect(mediationRecipient.initiateMessagePickup).not.toHaveBeenCalled()
+  })
+
+  it('sets a grant that arrived after the timeout as the default mediator', async () => {
+    mediationRecipient.findByConnectionId.mockResolvedValue(mockMediationRecord)
+    // provision() returns an existing record as is and sets no default.
+    mediationRecipient.provision.mockResolvedValue(mockMediationRecord)
+
+    await expect(trySetupMediator(agent, { invitationUrl: mockInvitationUrl })).resolves.toBe(true)
+
+    expect(mediationRepository.delete).not.toHaveBeenCalled()
+    expect(mediationRecipient.setDefaultMediator).toHaveBeenCalledWith(mockMediationRecord)
   })
 
   it('deletes a connection left unfinished by a failed start and connects again', async () => {

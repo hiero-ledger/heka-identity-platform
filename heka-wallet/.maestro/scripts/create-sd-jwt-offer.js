@@ -40,6 +40,15 @@ function postJson(path, token, body) {
   return json(response.body)
 }
 
+function putJson(path, token, body) {
+  const response = http.put(`${requireEnv('IDENTITY_SERVICE_URL', IDENTITY_SERVICE_URL)}${path}`, {
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) throw new Error(`PUT ${path} failed: ${response.status} ${response.body}`)
+  return json(response.body)
+}
+
 const token = getToken()
 const credentialId = 'MaestroE2ESdJwt'
 
@@ -47,18 +56,19 @@ const ownDids = getJson('/dids?own=true', token)
 const did = ownDids.length ? ownDids[0].id : postJson('/dids', token, { method: 'key' }).id
 
 const issuers = getJson(`/openid4vc/issuer?publicIssuerId=${encodeURIComponent(did)}`, token)
-const hasCredential = issuers.some((issuer) => issuer.credentialsSupported.some((c) => c.id === credentialId))
-if (!hasCredential) {
-  postJson('/openid4vc/issuer', token, {
-    publicIssuerId: did,
-    credentialsSupported: [
-      {
-        id: credentialId,
-        format: 'vc+sd-jwt',
-        vct: 'https://example.com/maestro-e2e',
-        proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['EdDSA', 'ES256'] } },
-      },
-    ],
+const credentialSupported = {
+  id: credentialId,
+  format: 'vc+sd-jwt',
+  vct: 'https://example.com/maestro-e2e',
+  proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['EdDSA', 'ES256'] } },
+}
+// One issuer per DID: create it on the first run, add the credential to it if something else created it.
+if (!issuers.length) {
+  postJson('/openid4vc/issuer', token, { publicIssuerId: did, credentialsSupported: [credentialSupported] })
+} else if (!issuers.some((issuer) => issuer.credentialsSupported.some((c) => c.id === credentialId))) {
+  putJson(`/openid4vc/issuer/${encodeURIComponent(did)}`, token, {
+    action: 'add',
+    credentialsSupported: [credentialSupported],
   })
 }
 

@@ -43,7 +43,6 @@ jobs:
         uses: pandaswhocode/initialize-github-job@74303607c68fe88ff9b7bfc05c40ca948fa04b13 # v1.5.0
         with:
           checkout: 'true'
-          checkout-ref: '${{ github.ref }}'
           checkout-token: '${{ secrets.GITHUB_TOKEN }}'
           setup-java: 'true'
           java-version: '17'

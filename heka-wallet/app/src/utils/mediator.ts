@@ -1,6 +1,7 @@
 import type { HekaWalletAgent } from './agent'
-import type { DidCommConnectionRecord } from '@credo-ts/didcomm'
+import type { DidCommConnectionRecord, DidCommMediationRecord } from '@credo-ts/didcomm'
 
+import { DidCommMediationRepository } from '@credo-ts/didcomm'
 import { GlobalLogger } from '@heka-wallet/shared'
 
 const logger = GlobalLogger.createContextLogger('Mediator')
@@ -37,13 +38,43 @@ export async function trySetupMediator(
       return false
     }
 
-    const mediationRecord = await agent.didcomm.mediationRecipient.provision(connection)
+    const mediationRecord = await provisionMediation(agent, connection)
     await agent.didcomm.mediationRecipient.initiateMessagePickup(mediationRecord)
     return true
   } catch (error) {
     logger.warn('Mediator is unavailable, continuing without it:', (error as Error)?.stack ?? error)
     return false
   }
+}
+
+/**
+ * Credo's provision() returns an existing mediation record as is and sets the default mediator only on a fresh
+ * grant. A grant that timed out on an earlier start leaves a Requested record on the reused connection.
+ */
+async function provisionMediation(
+  agent: HekaWalletAgent,
+  connection: DidCommConnectionRecord
+): Promise<DidCommMediationRecord> {
+  const { mediationRecipient } = agent.didcomm
+
+  const existingRecord = await mediationRecipient.findByConnectionId(connection.id)
+  if (existingRecord && !existingRecord.isReady) {
+    // Drop the unfinished request so provision() requests mediation again.
+    await agent.dependencyManager.resolve(DidCommMediationRepository).delete(agent.context, existingRecord)
+  }
+
+  const mediationRecord = await mediationRecipient.provision(connection)
+  if (!mediationRecord.isReady) {
+    throw new Error(`Mediation is ${mediationRecord.state}, not granted`)
+  }
+
+  // A grant that arrived after the timeout is ready but not the default yet.
+  const defaultMediator = await mediationRecipient.findDefaultMediator()
+  if (defaultMediator?.id !== mediationRecord.id) {
+    await mediationRecipient.setDefaultMediator(mediationRecord)
+  }
+
+  return mediationRecord
 }
 
 async function connectWithInvitation(agent: HekaWalletAgent, invitationUrl: string): Promise<DidCommConnectionRecord> {

@@ -1,7 +1,8 @@
 # Fresh install -> [Keycloak login] -> tutorial -> terms -> create PIN -> skip biometrics -> Home.
-# Input: env PIN; KC_USERNAME, KC_PASSWORD for builds with ENABLE_EXTERNAL_AUTH=true.
+# Input: env PIN; KC_USERNAME, KC_PASSWORD, KC_EMAIL for builds with ENABLE_EXTERNAL_AUTH=true.
 appId: com.heka.wallet
 ---
+- evalScript: ${output.loggedIn = false}
 - launchApp:
     clearState: true
     clearKeychain: true
@@ -43,3 +44,7 @@ appId: com.heka.wallet
     visible:
       id: 'com.ariesbifold:id/TabCredentials'
     timeout: 120000
+- runFlow:
+    when:
+      true: ${output.loggedIn}
+    file: assert-account.yaml
