@@ -29,7 +29,7 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
   const { t } = useTranslation()
 
   const { offer } = route.params
-  const { agent, publicDid } = useHekaAgent()
+  const { agent } = useHekaAgent()
 
   const { resolveOpenId4VciOffer, acquireAccessToken, receiveCredentialFromOpenId4VciOffer } = useOpenIdHandlers()
   const { storeCredentialRecord } = useCredentialRecordHelpers()
@@ -48,7 +48,7 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
 
   const requestCredential = useCallback(
     async (userPin?: string) => {
-      if (!agent || !publicDid || !offerResolutionResult) return
+      if (!agent || !offerResolutionResult) return
       const { resolvedCredentialOffer } = offerResolutionResult
 
       try {
@@ -81,19 +81,11 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
         navigateToHome()
       }
     },
-    [
-      agent,
-      publicDid,
-      offerResolutionResult,
-      acquireAccessToken,
-      receiveCredentialFromOpenId4VciOffer,
-      t,
-      navigateToHome,
-    ]
+    [agent, offerResolutionResult, acquireAccessToken, receiveCredentialFromOpenId4VciOffer, t, navigateToHome]
   )
 
   useEffect(() => {
-    if (!publicDid) return
+    if (!agent) return
     const resolveCredentialOffer = async () => {
       setIsLoading(true)
       try {
@@ -119,7 +111,7 @@ export const OpenIdCredentialOffer: React.FC<CredentialOfferProps> = ({ navigati
       }
     }
     resolveCredentialOffer()
-  }, [publicDid, offer, resolveOpenId4VciOffer, t, navigateToHome])
+  }, [agent, offer, resolveOpenId4VciOffer, t, navigateToHome])
 
   useEffect(() => {
     if (!offerResolutionResult) return

@@ -36,7 +36,7 @@ const formatOfferedCredentialDescriptions = (
     .join(', ')
 
 export const useOpenIdHandlers = () => {
-  const { agent, publicDid } = useHekaAgent()
+  const { agent } = useHekaAgent()
 
   const resolveOpenId4VciOffer = useCallback(
     async ({
@@ -149,7 +149,8 @@ export const useOpenIdHandlers = () => {
       // TODO: cNonce could be provided separately (multiple calls can have different c_nonce values)
       accessToken: OpenId4VciRequestTokenResponse
     }) => {
-      if (!agent || !publicDid) {
+      // No public DID needed: credentialBindingResolver binds the credential to a fresh did:jwk / did:key or jwk.
+      if (!agent) {
         throw new Error('Credo agent is not initialized')
       }
 
@@ -295,7 +296,7 @@ export const useOpenIdHandlers = () => {
 
       return record
     },
-    [agent, publicDid]
+    [agent]
   )
 
   const resolveOpenId4VpPresentationRequest = useCallback(

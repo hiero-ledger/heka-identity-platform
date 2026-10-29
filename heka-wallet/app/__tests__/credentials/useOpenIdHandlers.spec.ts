@@ -4,6 +4,7 @@ import { renderHook } from '@testing-library/react-native'
 
 import { mockFunction } from '../../../jest-helpers/helpers'
 import { useOpenIdHandlers } from '../../src/credentials/useOpenIdHandlers'
+import { useHekaAgent } from '../../src/utils/agent'
 
 import { hekaIdentityServiceSdJwtVc } from './fixtures'
 import { Kms } from '@credo-ts/core'
@@ -215,6 +216,28 @@ describe('useOpenIdHandlers', () => {
           credentialBindingResolver: expect.any(Function),
         })
       )
+      expect(mockAgent.openid4vc.holder.requestCredentials).toHaveBeenCalledTimes(1)
+    })
+
+    it('should receive credential when the wallet has no public DID (no mediator)', async () => {
+      const credentialConfiguration =
+        fixture.resolvedCredentialOfferPreAuth.offeredCredentialConfigurations['mock-id-1']
+      mockFunction(useHekaAgent).mockReturnValueOnce({
+        loading: false,
+        agent: mockAgent,
+        publicDid: undefined,
+      } as unknown as ReturnType<typeof useHekaAgent>)
+      mockFunction(mockAgent.openid4vc.holder.requestCredentials).mockResolvedValueOnce({
+        credentials: [{ record: { id: 'mock-record', metadata: { set: jest.fn() } }, credentialConfiguration }],
+      })
+
+      const { receiveCredentialFromOpenId4VciOffer } = renderOpenIdHandlersHookValue()
+      const credentialRecord = await receiveCredentialFromOpenId4VciOffer({
+        resolvedCredentialOffer: fixture.resolvedCredentialOfferPreAuth,
+        accessToken: fixture.tokenResponse,
+      })
+
+      expect(credentialRecord).toMatchObject({ id: 'mock-record' })
       expect(mockAgent.openid4vc.holder.requestCredentials).toHaveBeenCalledTimes(1)
     })
 
