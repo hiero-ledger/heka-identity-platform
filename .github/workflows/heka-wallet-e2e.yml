@@ -46,7 +46,7 @@ jobs:
             external-auth: true
             maestro-args: >-
               --include-tags backend,external-auth
-              -e KC_USERNAME=wallet-demo -e KC_PASSWORD=Password1234!
+              -e KC_USERNAME=wallet-demo -e KC_PASSWORD=Password1234! -e KC_EMAIL=wallet-demo@example.com
               -e IDENTITY_SERVICE_URL=http://localhost:3000
               -e TOKEN_URL=http://localhost:8080/realms/heka-platform/protocol/openid-connect/token
               -e E2E_CLIENT_ID=heka-e2e -e E2E_CLIENT_SECRET=dev-only-heka-e2e-secret-do-not-use-in-production
