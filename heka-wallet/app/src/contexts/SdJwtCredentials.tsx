@@ -11,13 +11,14 @@ import { formatError } from '../utils/error'
 type SdJwtVcRecordState = {
   sdJwtVcRecords: Array<SdJwtVcRecord>
   isLoading: boolean
+  error?: unknown
 }
 
 const addRecord = (record: SdJwtVcRecord, state: SdJwtVcRecordState): SdJwtVcRecordState => {
   const newRecordsState = [...state.sdJwtVcRecords]
   newRecordsState.unshift(record)
   return {
-    isLoading: state.isLoading,
+    ...state,
     sdJwtVcRecords: newRecordsState,
   }
 }
@@ -29,7 +30,7 @@ const updateRecord = (record: SdJwtVcRecord, state: SdJwtVcRecordState): SdJwtVc
     newRecordsState[index] = record
   }
   return {
-    isLoading: state.isLoading,
+    ...state,
     sdJwtVcRecords: newRecordsState,
   }
 }
@@ -37,7 +38,7 @@ const updateRecord = (record: SdJwtVcRecord, state: SdJwtVcRecordState): SdJwtVc
 const removeRecord = (record: SdJwtVcRecord, state: SdJwtVcRecordState): SdJwtVcRecordState => {
   const newRecordsState = state.sdJwtVcRecords.filter((r) => r.id !== record.id)
   return {
-    isLoading: state.isLoading,
+    ...state,
     sdJwtVcRecords: newRecordsState,
   }
 }
@@ -73,7 +74,7 @@ export const SdJwtVcRecordProvider: React.FC<PropsWithChildren> = ({ children })
       .then((sdJwtVcRecords) => setState({ sdJwtVcRecords, isLoading: false }))
       .catch((error: unknown) => {
         agent.config.logger.error('Failed to load SD-JWT VC records', { error: formatError(error) })
-        setState((prev) => ({ ...prev, isLoading: false }))
+        setState((prev) => ({ ...prev, isLoading: false, error }))
       })
   }, [agent])
 

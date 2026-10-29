@@ -48,7 +48,7 @@ const cases = [
 ]
 
 describe.each(cases)('$name', ({ getAll, Provider, useRecords, message }) => {
-  it('stops loading and logs the error when the records cannot be loaded', async () => {
+  it('stops loading, logs and exposes the error when the records cannot be loaded', async () => {
     const error = new Error('Storage unavailable')
     getAll.mockRejectedValue(error)
     const wrapper = ({ children }: PropsWithChildren) => <Provider>{children}</Provider>
@@ -56,6 +56,7 @@ describe.each(cases)('$name', ({ getAll, Provider, useRecords, message }) => {
     const { result } = renderHook(() => useRecords(), { wrapper })
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.error).toBe(error)
     expect(mockAgent.config.logger.error).toBeCalledWith(message, { error: error.stack })
   })
 })

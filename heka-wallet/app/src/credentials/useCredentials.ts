@@ -34,9 +34,9 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
 
   const [{ credentialHideList }] = useServices([TOKENS.CONFIG])
 
-  const { w3cCredentialRecords, isLoading: isW3cCredentialsLoading } = useW3cCredentialRecords()
-  const { sdJwtVcRecords, isLoading: isSdJwtCredentialsLoading } = useSdJwtVcRecords()
-  const { mdocCredentialRecords, isLoading: isMdocCredentialsLoading } = useMdocRecords()
+  const { w3cCredentialRecords, isLoading: isW3cCredentialsLoading, error: w3cError } = useW3cCredentialRecords()
+  const { sdJwtVcRecords, isLoading: isSdJwtCredentialsLoading, error: sdJwtError } = useSdJwtVcRecords()
+  const { mdocCredentialRecords, isLoading: isMdocCredentialsLoading, error: mdocError } = useMdocRecords()
 
   const credentialExchangeRecords = useCredentialByState([
     DidCommCredentialState.CredentialReceived,
@@ -127,5 +127,6 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
     loadCredentials()
   }, [loadCredentials])
 
-  return { credentials, isLoading, error }
+  // A provider that failed to load contributes no records, so its error is reported with the partial list
+  return { credentials, isLoading, error: error ?? w3cError ?? sdJwtError ?? mdocError }
 }

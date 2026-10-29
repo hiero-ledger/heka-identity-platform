@@ -53,27 +53,25 @@ export const useWalletBackupHelpers = () => {
     [t, passkeysStore]
   )
 
+  // Resolves to false when the user has no backup; any other download failure rejects.
   const tryDownloadRemoteBackup = useCallback(async (user: string) => {
-    try {
-      const remoteBackupPath = `${DocumentDirectoryPath}/${BACKUP_NAME}-remote.zip`
+    const remoteBackupPath = `${DocumentDirectoryPath}/${BACKUP_NAME}-remote.zip`
 
-      const { promise: backupDownloadPromise } = downloadFile({
-        fromUrl: `${walletProviderURL}/backup/${user}`,
-        toFile: remoteBackupPath,
-      })
+    const { promise: backupDownloadPromise } = downloadFile({
+      fromUrl: `${walletProviderURL}/backup/${user}`,
+      toFile: remoteBackupPath,
+    })
 
-      const downloadResult = await backupDownloadPromise
-      if (downloadResult.statusCode !== 200) {
-        console.error(`Wallet backup download failed with status code: ${downloadResult.statusCode}`)
-        return false
-      }
-
-      setRemoteBackupPath(remoteBackupPath)
-      return true
-    } catch (error: unknown) {
-      console.error('Error on downloading wallet backup', error)
+    const { statusCode } = await backupDownloadPromise
+    if (statusCode === 404) {
       return false
     }
+    if (statusCode !== 200) {
+      throw new Error(`Wallet backup download failed with status code: ${statusCode}`)
+    }
+
+    setRemoteBackupPath(remoteBackupPath)
+    return true
   }, [])
 
   const backupWallet = useCallback(

@@ -59,6 +59,11 @@ const useStyles = ({
       ...HekaTextTheme.bodySmall,
       color: ColorPalette.grayscale.mediumGrey,
     },
+    loadError: {
+      ...TextTheme.normal,
+      color: ColorPalette.semantic.error,
+      paddingVertical: Spacing.sm,
+    },
   })
 
 interface CredentialRowProps {
@@ -96,7 +101,9 @@ export const CredentialRow: React.FC<CredentialRowProps> = ({ onPress, credentia
 export const CredentialList: React.FC = () => {
   const { t } = useTranslation()
 
-  const { ColorPalette, Spacing } = useHekaTheme()
+  const theme = useHekaTheme()
+  const { ColorPalette, Spacing } = theme
+  const styles = useStyles(theme)
 
   const navigation = useNavigation<StackNavigationProp<NotificationStackParams>>()
 
@@ -105,7 +112,7 @@ export const CredentialList: React.FC = () => {
     TOKENS.COMPONENT_CRED_EMPTY_LIST,
   ])
 
-  const { credentials, isLoading } = useCredentials()
+  const { credentials, isLoading, error } = useCredentials()
 
   return (
     <View>
@@ -123,9 +130,13 @@ export const CredentialList: React.FC = () => {
             onPress={() => navigation.navigate(BifoldScreens.CredentialDetails, { credentialId: credential as any })}
           />
         )}
-        ListEmptyComponent={() =>
-          isLoading ? <LoadingView /> : <CredentialEmptyList message={t('Credentials.EmptyList')} />
-        }
+        // A failed load is reported above whatever did load, never as an empty wallet
+        ListHeaderComponent={error ? <Text style={styles.loadError}>{t('Credentials.LoadFailed')}</Text> : null}
+        ListEmptyComponent={() => {
+          if (isLoading) return <LoadingView />
+          if (error) return null
+          return <CredentialEmptyList message={t('Credentials.EmptyList')} />
+        }}
       />
       <CredentialListOptions />
     </View>

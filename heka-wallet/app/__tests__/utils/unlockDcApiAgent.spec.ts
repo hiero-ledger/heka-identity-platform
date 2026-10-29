@@ -48,6 +48,14 @@ describe('unlockDcApiAgent', () => {
     await expect(unlockDcApiAgent('000000', hashPIN)).resolves.toBeNull()
   })
 
+  it('throws when the wallet salt is missing', async () => {
+    mockFunction(loadWalletSalt).mockResolvedValue(undefined)
+
+    await expect(unlockDcApiAgent('123456', hashPIN)).rejects.toThrow('Wallet salt is not available')
+    expect(secretForPIN).not.toBeCalled()
+    expect(createDcApiAgent).not.toBeCalled()
+  })
+
   it('rethrows any other failure', async () => {
     const error = new Error('Native module failed')
     mockFunction(createDcApiAgent).mockRejectedValue(error)

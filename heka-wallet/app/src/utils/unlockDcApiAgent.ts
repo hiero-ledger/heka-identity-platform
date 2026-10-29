@@ -22,7 +22,7 @@ function isInvalidStoreKeyError(error: unknown): boolean {
 export async function unlockDcApiAgent(pin: string, hashPIN: HashPIN): Promise<HekaWalletAgent | null> {
   const salt = await loadWalletSalt()
   if (!salt?.salt) {
-    return null
+    throw new Error('Wallet salt is not available')
   }
 
   const secret = await secretForPIN(pin, hashPIN, salt.salt)
