@@ -29,9 +29,27 @@ jobs:
     defaults:
       run:
         working-directory: ./heka-wallet
-    name: Maestro flows without backend (Android emulator)
+    name: Maestro ${{ matrix.suite }} flows (Android emulator)
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Onboarding and PIN unlock; external auth off, so no Keycloak.
+          - suite: no-backend
+            external-auth: false
+            maestro-args: --include-tags no-backend
+          # Keycloak login and an OID4VCI offer from identity-service, against the root Compose stack.
+          # Dev-only values from heka-sso-service/keycloak (realm files and README): user wallet-demo, client heka-e2e.
+          - suite: backend
+            external-auth: true
+            maestro-args: >-
+              --include-tags backend,external-auth
+              -e KC_USERNAME=wallet-demo -e KC_PASSWORD=Password1234!
+              -e IDENTITY_SERVICE_URL=http://localhost:3000
+              -e TOKEN_URL=http://localhost:8080/realms/heka-platform/protocol/openid-connect/token
+              -e E2E_CLIENT_ID=heka-e2e -e E2E_CLIENT_SECRET=dev-only-heka-e2e-secret-do-not-use-in-production
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
@@ -51,28 +69,60 @@ jobs:
           setup-node: 'true'
           node-version: '22'
 
+      # Docker images, Gradle, node_modules and the emulator together outgrow the runner's free disk.
+      - name: Free disk space
+        if: matrix.suite == 'backend'
+        working-directory: .
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost "$AGENT_TOOLSDIRECTORY/CodeQL"
+          df -h /
+
+      # Builds and starts in the background while the APK builds; "Wait for the backend" checks it is up.
+      - name: Start the backend (Postgres, Keycloak, identity-service)
+        if: matrix.suite == 'backend'
+        working-directory: .
+        run: |
+          cp .env.example .env
+          mkdir -p heka-wallet/e2e-output
+          nohup docker compose --profile keycloak up -d --build postgres keycloak heka-identity-service \
+            > heka-wallet/e2e-output/compose-up.log 2>&1 &
+
       - name: Enable Corepack
         run: corepack enable
 
       - name: Install dependencies
         run: yarn install --immutable
 
+      # .env.example has ENABLE_EXTERNAL_AUTH=false; the backend suite turns it on to log in through Keycloak.
+      - name: Prepare app env file
+        working-directory: ./heka-wallet/app
+        run: |
+          sed 's/^ENABLE_EXTERNAL_AUTH=.*/ENABLE_EXTERNAL_AUTH=${{ matrix.external-auth }}/' .env.example > .env.ci
+          grep '^ENABLE_EXTERNAL_AUTH=' .env.ci
+
       # Debug build without the JS bundle: release bundles fail agent init, so the app loads JS from Metro.
-      # .env.example has ENABLE_EXTERNAL_AUTH=false, so onboarding needs no Keycloak.
       - name: Build debug APK
         working-directory: ./heka-wallet/app/android
         env:
-          ENVFILE: .env.example
+          ENVFILE: .env.ci
         run: ./gradlew assembleDebug --no-daemon -PreactNativeArchitectures=${{ env.EMULATOR_ARCH }}
 
       # The warm-up URL must match the debug app's request (react-native DevServerHelper.kt): Metro caches the
-      # bundle per query, and a cold build on first launch outlasts the flows' 30 s wait for the first screen.
+      # bundle per query, and a cold build on first launch outlasts the flows' wait for the first screen.
       - name: Start Metro and warm the bundle
         working-directory: ./heka-wallet/app
         run: |
           nohup yarn start > ../metro.log 2>&1 &
           timeout 120 bash -c 'until curl -sf http://localhost:8081/status; do sleep 2; done'
           curl -sf -o /dev/null --max-time 900 'http://localhost:8081/index.bundle?platform=android&dev=true&lazy=true&minify=false&app=com.heka.wallet&modulesOnly=false&runModule=true&excludeSource=true&sourcePaths=url-server'
+
+      - name: Wait for the backend
+        if: matrix.suite == 'backend'
+        working-directory: .
+        run: |
+          timeout 1200 bash -c 'until curl -sf -o /dev/null http://localhost:8080/realms/heka-wallet/.well-known/openid-configuration; do sleep 10; done'
+          timeout 600 bash -c 'until curl -sf http://localhost:3000/health; do sleep 10; done'
+          docker compose --profile keycloak ps
 
       - name: Install Maestro
         run: |
@@ -120,13 +170,21 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           working-directory: ./heka-wallet
-          script: bash scripts/e2e-ci.sh
+          script: bash scripts/e2e-ci.sh ${{ matrix.maestro-args }}
+
+      - name: Collect backend logs
+        if: always() && matrix.suite == 'backend'
+        working-directory: .
+        run: |
+          mkdir -p heka-wallet/e2e-output
+          docker compose --profile keycloak ps -a > heka-wallet/e2e-output/compose-ps.txt 2>&1 || true
+          docker compose --profile keycloak logs --no-color > heka-wallet/e2e-output/backend.log 2>&1 || true
 
       - name: Upload e2e results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: maestro-results
+          name: maestro-results-${{ matrix.suite }}
           path: |
             heka-wallet/e2e-output/
             heka-wallet/metro.log
