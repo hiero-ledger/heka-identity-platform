@@ -4,14 +4,22 @@ on:
   pull_request:
     branches:
       - main
+    # The backend suite runs against the root Compose stack: also run on changes to what it builds or mounts.
     paths:
       - 'heka-wallet/**'
+      - 'heka-identity-service/**'
+      - 'heka-sso-service/keycloak/**'
+      - 'demo/heka-keycloak-theme/**'
+      - 'docker/keycloak/**'
+      - 'docker/postgres/**'
+      - 'docker-compose.yml'
+      - '.env.example'
       - '.github/workflows/heka-wallet-e2e.yml'
   workflow_dispatch:
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -22,7 +30,9 @@ env:
   EMULATOR_API_LEVEL: 34
   EMULATOR_TARGET: google_apis
   EMULATOR_ARCH: x86_64
+  # Bump both together: the SHA-256 of maestro.zip is in the release's checksums_sha256.txt
   MAESTRO_VERSION: 2.11.0
+  MAESTRO_SHA256: 5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a
 
 jobs:
   e2e-android:
@@ -78,14 +88,17 @@ jobs:
           df -h /
 
       # Builds and starts in the background while the APK builds; "Wait for the backend" checks it is up.
+      # compose-up.exit records the exit status so a failed build fails the wait at once instead of at its timeout.
       - name: Start the backend (Postgres, Keycloak, identity-service)
         if: matrix.suite == 'backend'
         working-directory: .
         run: |
           cp .env.example .env
           mkdir -p heka-wallet/e2e-output
-          nohup docker compose --profile keycloak up -d --build postgres keycloak heka-identity-service \
-            > heka-wallet/e2e-output/compose-up.log 2>&1 &
+          nohup bash -c '
+            docker compose --profile keycloak up -d --build postgres keycloak heka-identity-service
+            echo $? > heka-wallet/e2e-output/compose-up.exit
+          ' > heka-wallet/e2e-output/compose-up.log 2>&1 &
 
       - name: Enable Corepack
         run: corepack enable
@@ -120,14 +133,36 @@ jobs:
         if: matrix.suite == 'backend'
         working-directory: .
         run: |
-          timeout 1200 bash -c 'until curl -sf -o /dev/null http://localhost:8080/realms/heka-wallet/.well-known/openid-configuration; do sleep 10; done'
-          timeout 600 bash -c 'until curl -sf http://localhost:3000/health; do sleep 10; done'
+          wait_for() {
+            local url=$1 deadline=$((SECONDS + $2))
+            until curl -sf -o /dev/null --max-time 10 "$url"; do
+              if [ -s heka-wallet/e2e-output/compose-up.exit ] && [ "$(cat heka-wallet/e2e-output/compose-up.exit)" != 0 ]; then
+                echo "docker compose up failed with exit code $(cat heka-wallet/e2e-output/compose-up.exit):"
+                tail -n 100 heka-wallet/e2e-output/compose-up.log
+                exit 1
+              fi
+              if [ "$SECONDS" -ge "$deadline" ]; then
+                echo "Timed out waiting for $url"
+                exit 1
+              fi
+              sleep 10
+            done
+          }
+          wait_for http://localhost:8080/realms/heka-wallet/.well-known/openid-configuration 1200
+          wait_for http://localhost:3000/health 600
           docker compose --profile keycloak ps
 
+      # Pinned release archive verified by checksum instead of piping the unpinned get.maestro.mobile.dev installer to bash.
       - name: Install Maestro
+        working-directory: ${{ runner.temp }}
+        env:
+          MAESTRO_CLI_NO_ANALYTICS: 1
         run: |
-          curl -Ls https://get.maestro.mobile.dev | bash
-          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          curl -fsSL -o maestro.zip "https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
+          echo "${MAESTRO_SHA256}  maestro.zip" | sha256sum --check --strict
+          unzip -q maestro.zip -d "$HOME/.maestro-dist"
+          echo "$HOME/.maestro-dist/maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/.maestro-dist/maestro/bin/maestro" --version
 
       - name: Enable KVM
         run: |
