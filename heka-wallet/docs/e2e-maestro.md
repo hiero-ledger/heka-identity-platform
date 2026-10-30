@@ -10,23 +10,23 @@
 
 > **Warning:** every flow starts with `clearState` and `clearKeychain`. Running a flow wipes the wallet on the device.
 
-| Path | What it is |
-|---|---|
+| Path                   | What it is                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------ |
 | `.maestro/config.yaml` | Workspace config: runs every top-level `*.yaml`, continues after a failed flow |
-| `.maestro/*.yaml` | The test flows (one test each) |
-| `.maestro/subflows/` | Reusable steps called with `runFlow`; not run on their own |
-| `.maestro/scripts/` | JavaScript run by Maestro (`runScript`) to call the backend |
+| `.maestro/*.yaml`      | The test flows (one test each)                                                 |
+| `.maestro/subflows/`   | Reusable steps called with `runFlow`; not run on their own                     |
+| `.maestro/scripts/`    | JavaScript run by Maestro (`runScript`) to call the backend                    |
 
 ## Flows
 
 Tags group the flows:
 
-| Tag | Meaning |
-|---|---|
-| `no-backend` | Needs only the app and Metro |
-| `backend` | Needs Keycloak and identity-service |
-| `external-auth` | Needs a build with `ENABLE_EXTERNAL_AUTH=true` |
-| `onboarding`, `pin` | Topic tags; not used to select a suite |
+| Tag                 | Meaning                                        |
+| ------------------- | ---------------------------------------------- |
+| `no-backend`        | Needs only the app and Metro                   |
+| `backend`           | Needs Keycloak and identity-service            |
+| `external-auth`     | Needs a build with `ENABLE_EXTERNAL_AUTH=true` |
+| `onboarding`, `pin` | Topic tags; not used to select a suite         |
 
 ### `onboarding.yaml` — Onboarding with a new PIN opens Home
 
@@ -82,14 +82,14 @@ With the `heka-e2e` client the test data lands in the `Organization_heka-e2e` te
 
 ### Subflows
 
-| Subflow | What it does | Input |
-|---|---|---|
-| `subflows/onboard.yaml` | Fresh install → [Keycloak login] → tutorial pages → Terms (scroll, Accept) → create PIN twice → skip biometrics → Home → [account check]. The login and the account check run only when the build shows the Login screen | `PIN`; `KC_USERNAME`, `KC_PASSWORD`, `KC_EMAIL` with external auth |
-| `subflows/login.yaml` | Taps Login and fills the Keycloak form in the Chrome Custom Tab. Chrome keeps its Keycloak session across `clearState`, so the form is filled only when it appears | `KC_USERNAME`, `KC_PASSWORD` |
-| `subflows/assert-account.yaml` | Settings → User profile must show `KC_EMAIL`, then back to Home. Catches a reused Chrome session of another user | `KC_EMAIL` |
-| `subflows/enter-pin.yaml` | Taps the 6 PIN digits on the keypad | `PIN` |
-| `subflows/dismiss-chrome-password-sheet.yaml` | Closes Chrome's "use saved password?" sheet if it covers the form | — |
-| `subflows/choose-heka-wallet.yaml` | Picks Heka Wallet "just once" when another app on the device also handles the deep-link scheme | — |
+| Subflow                                       | What it does                                                                                                                                                                                                             | Input                                                              |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `subflows/onboard.yaml`                       | Fresh install → [Keycloak login] → tutorial pages → Terms (scroll, Accept) → create PIN twice → skip biometrics → Home → [account check]. The login and the account check run only when the build shows the Login screen | `PIN`; `KC_USERNAME`, `KC_PASSWORD`, `KC_EMAIL` with external auth |
+| `subflows/login.yaml`                         | Taps Login and fills the Keycloak form in the Chrome Custom Tab. Chrome keeps its Keycloak session across `clearState`, so the form is filled only when it appears                                                       | `KC_USERNAME`, `KC_PASSWORD`                                       |
+| `subflows/assert-account.yaml`                | Settings → User profile must show `KC_EMAIL`, then back to Home. Catches a reused Chrome session of another user                                                                                                         | `KC_EMAIL`                                                         |
+| `subflows/enter-pin.yaml`                     | Taps the 6 PIN digits on the keypad                                                                                                                                                                                      | `PIN`                                                              |
+| `subflows/dismiss-chrome-password-sheet.yaml` | Closes Chrome's "use saved password?" sheet if it covers the form                                                                                                                                                        | —                                                                  |
+| `subflows/choose-heka-wallet.yaml`            | Picks Heka Wallet "just once" when another app on the device also handles the deep-link scheme                                                                                                                           | —                                                                  |
 
 ## UI Testing with Maestro Studio
 
@@ -99,11 +99,11 @@ With the `heka-e2e` client the test data lands in the `Organization_heka-e2e` te
 
 Download the installer from the [Maestro quickstart](https://docs.maestro.dev/get-started/quickstart):
 
-| OS | Installer | Install |
-|---|---|---|
-| Windows | [MaestroStudio.exe](https://studio.maestro.dev/MaestroStudio.exe) | Run the `.exe` and follow the wizard |
-| macOS | [MaestroStudio.dmg](https://studio.maestro.dev/MaestroStudio.dmg) | Open the `.dmg` and drag Maestro Studio to `Applications` |
-| Linux | [MaestroStudio.AppImage](https://studio.maestro.dev/MaestroStudio.AppImage) | `chmod +x MaestroStudio.AppImage && ./MaestroStudio.AppImage --no-sandbox` |
+| OS      | Installer                                                                   | Install                                                                    |
+| ------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Windows | [MaestroStudio.exe](https://studio.maestro.dev/MaestroStudio.exe)           | Run the `.exe` and follow the wizard                                       |
+| macOS   | [MaestroStudio.dmg](https://studio.maestro.dev/MaestroStudio.dmg)           | Open the `.dmg` and drag Maestro Studio to `Applications`                  |
+| Linux   | [MaestroStudio.AppImage](https://studio.maestro.dev/MaestroStudio.AppImage) | `chmod +x MaestroStudio.AppImage && ./MaestroStudio.AppImage --no-sandbox` |
 
 Running the flows locally needs no Maestro Cloud account.
 
@@ -113,10 +113,10 @@ Running the flows locally needs no Maestro Cloud account.
 
 2. **Pick the build variant.** The `ENABLE_EXTERNAL_AUTH` flag in the app env file decides which flows can run:
 
-   | Build | What onboarding does | Flows that can run |
-   |---|---|---|
-   | `ENABLE_EXTERNAL_AUTH=false` | Starts at the tutorial; no login | `onboarding`, `unlock-with-pin`, `credential-offer` |
-   | `ENABLE_EXTERNAL_AUTH=true` | Logs in through Keycloak first, then checks the account | all flows |
+   | Build                        | What onboarding does                                    | Flows that can run                                  |
+   | ---------------------------- | ------------------------------------------------------- | --------------------------------------------------- |
+   | `ENABLE_EXTERNAL_AUTH=false` | Starts at the tutorial; no login                        | `onboarding`, `unlock-with-pin`, `credential-offer` |
+   | `ENABLE_EXTERNAL_AUTH=true`  | Logs in through Keycloak first, then checks the account | all flows                                           |
 
    For the `false` variant, make a copy of the env file with the flag off (`.env.e2e` is git-ignored):
 
@@ -125,7 +125,7 @@ Running the flows locally needs no Maestro Cloud account.
    sed 's/^ENABLE_EXTERNAL_AUTH=.*/ENABLE_EXTERNAL_AUTH=false/' .env.example > .env.e2e
    ```
 
-3. **Build and install a debug APK.** Use a debug build that loads its JavaScript from Metro. A dev bundle inside the APK shows a LogBox devtools error; a production bundle fails agent initialisation on the Splash screen. Rebuild after any change to the env file.
+3. **Build and install a debug APK.** Use a debug build that loads its JavaScript from Metro. A dev bundle inside the APK shows a LogBox devtools error. Rebuild after any change to the env file.
 
    macOS / Linux:
 
@@ -190,20 +190,20 @@ Studio keeps variables in **environments**. Create one per build variant:
 3. Optionally set **Included** / **Excluded** tags, e.g. exclude `external-auth` for the `ENABLE_EXTERNAL_AUTH=false` build.
 4. Select the environment before you run a flow.
 
-| Environment | Variables |
-|---|---|
-| `local-no-auth` (build `ENABLE_EXTERNAL_AUTH=false`) | `IDENTITY_SERVICE_URL`, `TOKEN_URL`, `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET` — only for `credential-offer` |
-| `local-auth` (build `ENABLE_EXTERNAL_AUTH=true`) | `KC_USERNAME`, `KC_PASSWORD`, `KC_EMAIL`, `IDENTITY_SERVICE_URL`, `TOKEN_URL`, `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET` |
+| Environment                                          | Variables                                                                                                           |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `local-no-auth` (build `ENABLE_EXTERNAL_AUTH=false`) | `IDENTITY_SERVICE_URL`, `TOKEN_URL`, `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET` — only for `credential-offer`             |
+| `local-auth` (build `ENABLE_EXTERNAL_AUTH=true`)     | `KC_USERNAME`, `KC_PASSWORD`, `KC_EMAIL`, `IDENTITY_SERVICE_URL`, `TOKEN_URL`, `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET` |
 
-| Variable | Used by | Local value |
-|---|---|---|
-| `PIN` | `onboarding`, `unlock-with-pin`, `credential-offer` | Set in each flow (`482916`); add it to the environment only to override |
-| `KC_USERNAME`, `KC_PASSWORD` | `subflows/login.yaml` | A user of the `heka-wallet` realm, e.g. `wallet-demo` |
-| `KC_EMAIL` | `subflows/assert-account.yaml` | The email of `KC_USERNAME`, e.g. `wallet-demo@example.com` |
-| `IDENTITY_SERVICE_URL` | `scripts/create-sd-jwt-offer.js` | `http://localhost:3000` |
-| `TOKEN_URL` | `scripts/create-sd-jwt-offer.js` | `http://localhost:8080/realms/heka-platform/protocol/openid-connect/token` |
-| `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET` | `scripts/create-sd-jwt-offer.js` | Client `heka-e2e`. Its token needs an issuer-capable role: `Admin`, `OrgAdmin`, `OrgManager` or `Issuer` |
-| `ISSUER_TOKEN` | `scripts/create-sd-jwt-offer.js` | Optional: a ready access token; replaces `TOKEN_URL`, `E2E_CLIENT_ID` and `E2E_CLIENT_SECRET` |
+| Variable                             | Used by                                             | Local value                                                                                              |
+| ------------------------------------ | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `PIN`                                | `onboarding`, `unlock-with-pin`, `credential-offer` | Set in each flow (`482916`); add it to the environment only to override                                  |
+| `KC_USERNAME`, `KC_PASSWORD`         | `subflows/login.yaml`                               | A user of the `heka-wallet` realm, e.g. `wallet-demo`                                                    |
+| `KC_EMAIL`                           | `subflows/assert-account.yaml`                      | The email of `KC_USERNAME`, e.g. `wallet-demo@example.com`                                               |
+| `IDENTITY_SERVICE_URL`               | `scripts/create-sd-jwt-offer.js`                    | `http://localhost:3000`                                                                                  |
+| `TOKEN_URL`                          | `scripts/create-sd-jwt-offer.js`                    | `http://localhost:8080/realms/heka-platform/protocol/openid-connect/token`                               |
+| `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET` | `scripts/create-sd-jwt-offer.js`                    | Client `heka-e2e`. Its token needs an issuer-capable role: `Admin`, `OrgAdmin`, `OrgManager` or `Issuer` |
+| `ISSUER_TOKEN`                       | `scripts/create-sd-jwt-offer.js`                    | Optional: a ready access token; replaces `TOKEN_URL`, `E2E_CLIENT_ID` and `E2E_CLIENT_SECRET`            |
 
 The local dev password and client secret are in [`heka-sso-service/keycloak/README.md`](../../heka-sso-service/keycloak/README.md). They are dev-only: use them only against a local Keycloak, and never put real credentials in a Studio environment.
 
@@ -238,35 +238,31 @@ maestro test .maestro/onboarding.yaml
 
 ### Troubleshooting
 
-| Symptom | Cause and fix |
-|---|---|
-| The first screen does not appear within 120 s | Metro is not running, `adb reverse tcp:8081` is missing, or the bundle is cold. Repeat steps 4 and 5 of [Prepare the device and the app](#2-prepare-the-device-and-the-app) |
-| Red LogBox about devtools websocket, or agent init fails on Splash | The APK has a bundle inside. Use a debug build with Metro |
-| Login screen is shown in a build that should skip it (or the reverse) | The APK was built with another env file. Rebuild with the right `ENVFILE` |
-| The account check fails with another user's email | Chrome reused another user's Keycloak session. Log out in Chrome or clear Chrome's data |
-| OAuth login fails on a physical device | The device has no secure lock screen. Set a PIN or pattern on the device |
-| Chrome welcome screens cover the login | Turn off Chrome's first-run screens (step 6) |
-| `create-sd-jwt-offer.js` fails with `Missing env ...` or `Token request failed` | The selected environment lacks a variable, or the client id or secret is wrong, or Keycloak is down |
-| The credential offer screen never appears | The wallet cannot reach the offer URL. Check `adb reverse tcp:3003` and identity-service's `AGENT_OID4VCI_ENDPOINT` |
+| Symptom                                                                         | Cause and fix                                                                                                                                                               |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The first screen does not appear within 120 s                                   | Metro is not running, `adb reverse tcp:8081` is missing, or the bundle is cold. Repeat steps 4 and 5 of [Prepare the device and the app](#2-prepare-the-device-and-the-app) |
+| Red LogBox about devtools websocket                                             | The debug APK has a bundle inside. Use a debug build with Metro                                                                                                             |
+| Login screen is shown in a build that should skip it (or the reverse)           | The APK was built with another env file. Rebuild with the right `ENVFILE`                                                                                                   |
+| The account check fails with another user's email                               | Chrome reused another user's Keycloak session. Log out in Chrome or clear Chrome's data                                                                                     |
+| OAuth login fails on a physical device                                          | The device has no secure lock screen. Set a PIN or pattern on the device                                                                                                    |
+| Chrome welcome screens cover the login                                          | Turn off Chrome's first-run screens (step 6)                                                                                                                                |
+| `create-sd-jwt-offer.js` fails with `Missing env ...` or `Token request failed` | The selected environment lacks a variable, or the client id or secret is wrong, or Keycloak is down                                                                         |
+| The credential offer screen never appears                                       | The wallet cannot reach the offer URL. Check `adb reverse tcp:3003` and identity-service's `AGENT_OID4VCI_ENDPOINT`                                                         |
 
 The app log (debug builds): `adb shell run-as com.heka.wallet cat files/log.txt`.
 
 ## CI/CD
 
-Workflow: [`.github/workflows/heka-wallet-e2e.yml`](../../.github/workflows/heka-wallet-e2e.yml) — "Heka Wallet device e2e (Maestro)".
+Two workflows, one suite each. Both call the reusable [`.github/workflows/heka-wallet-e2e-run.yml`](../../.github/workflows/heka-wallet-e2e-run.yml), which holds the steps. They use a GitHub-hosted Android emulator; no Maestro Cloud, no account.
 
-**When it runs:** on pull requests to `main` that change `heka-wallet/**` or what the backend suite builds or mounts (`heka-identity-service/**`, the Keycloak realms and theme, `docker/keycloak/**`, `docker/postgres/**`, root `docker-compose.yml`, root `.env.example`), and by hand (`workflow_dispatch`). It uses a GitHub-hosted Android emulator; no Maestro Cloud, no account.
+| Workflow                                                                                                  | Suite        | Flows                                                                                             | Build                        | Backend                                                                                  | Runs on pull requests to `main` that change                                                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`heka-wallet-e2e.yml`](../../.github/workflows/heka-wallet-e2e.yml) — "Heka Wallet device e2e (Maestro)" | `no-backend` | tag `no-backend`: `onboarding`, `unlock-with-pin`                                                 | `ENABLE_EXTERNAL_AUTH=false` | none                                                                                     | `heka-wallet/**`                                                                                                                                                                                           |
+| [`heka-e2e.yml`](../../.github/workflows/heka-e2e.yml) — "Heka platform e2e (wallet + backend, Maestro)"  | `backend`    | tags `backend`, `external-auth`: `credential-offer`, `login`; onboarding logs in as `wallet-demo` | `ENABLE_EXTERNAL_AUTH=true`  | root Compose stack: `postgres`, `keycloak` (profile `keycloak`), `heka-identity-service` | `heka-wallet/**` or what the stack builds or mounts: `heka-identity-service/**`, the Keycloak realms and theme, `docker/keycloak/**`, `docker/postgres/**`, root `docker-compose.yml`, root `.env.example` |
 
-**Suites:** a matrix runs two jobs in parallel:
+Both also run when their own workflow file or the reusable one changes, and by hand (`workflow_dispatch`). `heka-e2e.yml` passes the dev-only Keycloak user and the `heka-e2e` client as `-e` variables in `maestro-args`.
 
-| Suite | Flows | Build | Backend |
-|---|---|---|---|
-| `no-backend` | tag `no-backend`: `onboarding`, `unlock-with-pin` | `ENABLE_EXTERNAL_AUTH=false` | none |
-| `backend` | tags `backend`, `external-auth`: `credential-offer`, `login`; onboarding logs in as `wallet-demo` | `ENABLE_EXTERNAL_AUTH=true` | root Compose stack: `postgres`, `keycloak` (profile `keycloak`), `heka-identity-service` |
-
-The `backend` suite passes the dev-only Keycloak user and the `heka-e2e` client as `-e` variables in the matrix.
-
-**Steps of each job:**
+**Steps of each run:**
 
 1. Checks out the code, sets up Java 17 and Node 22, runs `yarn install --immutable`.
 2. `backend` only: starts the Compose stack in the background while the APK builds.
@@ -281,14 +277,14 @@ The `backend` suite passes the dev-only Keycloak user and the `heka-e2e` client 
 
 **Results:** download the `maestro-results-no-backend` or `maestro-results-backend` artifact from the workflow run. It holds:
 
-| File | Content |
-|---|---|
-| `e2e-output/report.xml` | JUnit report |
-| `e2e-output/debug/` | Maestro debug output per flow (commands, screenshots) |
-| `e2e-output/test-output/` | Maestro test output |
-| `e2e-output/logcat.txt` | Device logcat for the whole run |
-| `e2e-output/app-log.txt` | The app's `files/log.txt` |
-| `e2e-output/backend.log`, `compose-ps.txt` | Compose logs (`backend` suite) |
-| `metro.log` | Metro output |
+| File                                       | Content                                               |
+| ------------------------------------------ | ----------------------------------------------------- |
+| `e2e-output/report.xml`                    | JUnit report                                          |
+| `e2e-output/debug/`                        | Maestro debug output per flow (commands, screenshots) |
+| `e2e-output/test-output/`                  | Maestro test output                                   |
+| `e2e-output/logcat.txt`                    | Device logcat for the whole run                       |
+| `e2e-output/app-log.txt`                   | The app's `files/log.txt`                             |
+| `e2e-output/backend.log`, `compose-ps.txt` | Compose logs (`backend` suite)                        |
+| `metro.log`                                | Metro output                                          |
 
 **Updating Maestro:** change `MAESTRO_VERSION` and `MAESTRO_SHA256` together. The SHA-256 of `maestro.zip` is in the release's `checksums_sha256.txt`.
