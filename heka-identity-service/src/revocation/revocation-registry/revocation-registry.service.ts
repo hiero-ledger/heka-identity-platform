@@ -86,6 +86,8 @@ export class RevocationRegistryService {
       throw new BadRequestException(`Timestamp must be a valid number. Received: ${timestamp_}`)
     }
 
+    // getOrCreate repairs only the registry it picks; any other legacy registry is repaired on its first read
+    await this.ensureIndyIssuanceTypeMetadata(tenantAgent, id)
     const { revocationStatusList } = await tenantAgent.modules.anoncreds.getRevocationStatusList(id, timestamp)
 
     if (!revocationStatusList) {

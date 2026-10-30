@@ -228,6 +228,21 @@ describe('RevocationRegistryService', () => {
       expect(repository.update).not.toHaveBeenCalled()
     })
 
+    test('get repairs an Indy registry created without issuanceType before reading its status list', async () => {
+      const { record, repository } = givenRevocationRegistryDefinitionRecord({})
+      vi.mocked(tenantAgent.modules.anoncreds.getRevocationStatusList).mockImplementation(() => {
+        expect(issuanceTypeOf(record)).toBe('ISSUANCE_BY_DEFAULT')
+        return Promise.resolve({ revocationStatusList: { revocationList: [0, 1] } } as Awaited<
+          ReturnType<TenantAgent['modules']['anoncreds']['getRevocationStatusList']>
+        >)
+      })
+
+      const result = await service.get(tenantAgent, indyRevocationRegistryId, '1700000000')
+
+      expect(result.revocationStatusList).toEqual([0, 1])
+      expect(repository.update).toHaveBeenCalledWith(tenantAgent.context, record)
+    })
+
     test('does not touch registries on other ledgers', async () => {
       const { repository } = givenRevocationRegistryDefinitionRecord({})
       const hederaRevocationRegistryId = 'did:hedera:testnet:zHNJ37tiLbGxD7XPvnTkaZCAV3PCe5P4HJFGMGUkVVZAM_0.0.12345'
