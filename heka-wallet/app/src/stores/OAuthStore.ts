@@ -140,7 +140,9 @@ export class OAuthStore {
     return Linking.openURL(this._config.accountDeletionURL)
   }
 
+  // Never rejects: a failed load leaves the user logged out instead of keeping the app loading.
   private async initialize(): Promise<void> {
+    try {
     const keychainCredentials = await Keychain.getGenericPassword(OAuthStore.keychainOptions)
     if (keychainCredentials) {
       const authState = JSON.parse(keychainCredentials.password)
@@ -156,8 +158,11 @@ export class OAuthStore {
 
       runInAction(() => (this._userInfo = userInfo))
     }
-
+    } catch (error) {
+      logger.error('Failed to load the stored auth state', error)
+    } finally {
     runInAction(() => (this._isInitialized = true))
+  }
   }
 
   private get isTokenExpired(): boolean {

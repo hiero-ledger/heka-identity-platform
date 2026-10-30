@@ -7,10 +7,10 @@ import {
   ToastType,
   useStore as useBifoldStore,
 } from '@bifold/core'
-import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
+import { GlobalLogger, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/core'
 import { StackNavigationProp } from '@react-navigation/stack'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native'
 import Toast from 'react-native-toast-message'
@@ -21,6 +21,8 @@ import { Loader } from '../components/views/LoadingView'
 import { useRootStore } from '../contexts'
 import { RootStackParams, Stacks } from '../navigators/types'
 import { useWalletBackupHelpers } from '../utils/useWalletBackupHelpers'
+
+const logger = GlobalLogger.createContextLogger('WalletRestore')
 
 const useStyles = ({ TextTheme, Spacing }: HekaTheme) => {
   return StyleSheet.create({
@@ -75,12 +77,30 @@ export const WalletRestore: React.FC = () => {
 
   const [isBackupAvailable, setIsBackupAvailable] = useState(false)
 
+  const showErrorToast = useCallback(
+    (error: unknown) =>
+      Toast.show({
+        type: ToastType.Error,
+        text1: t('Global.Failure'),
+        text2: (error as Error)?.message || t('Error.Unknown'),
+        visibilityTime: 2000,
+      }),
+    [t]
+  )
+
   useEffect(() => {
     if (user) {
       return
     }
-    passkeysStore.getUser().then((usr) => setUser(usr))
-  }, [user, passkeysStore])
+    passkeysStore
+      .getUser()
+      .then((usr) => setUser(usr))
+      .catch((error: unknown) => {
+        logger.error('Failed to read the passkey user', error)
+        showErrorToast(error)
+        setIsLoading(false)
+      })
+  }, [user, passkeysStore, showErrorToast])
 
   useEffect(() => {
     if (!user) {
@@ -96,8 +116,12 @@ export const WalletRestore: React.FC = () => {
       .then((isBackupAvailable) => {
         setIsBackupAvailable(isBackupAvailable)
       })
+      .catch((error: unknown) => {
+        logger.error('Failed to download the remote backup', error)
+        showErrorToast(error)
+      })
       .finally(() => setIsLoading(false))
-  }, [user, passkeysStore.isAuthenticated, showPasskeysAuthModal, tryDownloadRemoteBackup])
+  }, [user, passkeysStore.isAuthenticated, showPasskeysAuthModal, tryDownloadRemoteBackup, showErrorToast])
 
   const setBifoldTutorialCompleted = () => {
     dispatch({
@@ -121,13 +145,8 @@ export const WalletRestore: React.FC = () => {
 
       navigation.navigate(Stacks.BifoldStack, { screen: BifoldScreens.Terms })
     } catch (error: unknown) {
-      console.error(error)
-      Toast.show({
-        type: ToastType.Error,
-        text1: t('Global.Failure'),
-        text2: (error as Error)?.message || t('Error.Unknown'),
-        visibilityTime: 2000,
-      })
+      logger.error('Failed to restore the wallet', error)
+      showErrorToast(error)
     } finally {
       setInProgress(false)
     }

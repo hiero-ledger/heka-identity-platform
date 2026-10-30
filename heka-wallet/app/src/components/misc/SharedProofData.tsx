@@ -2,17 +2,22 @@ import { DidCommProofExchangeRecord } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FlatList, StyleSheet, View } from 'react-native'
+import { FlatList, StyleSheet, Text, View } from 'react-native'
 
 import { preparePresentationData, PresentationDetails, useCredentials } from '../../credentials'
 import { useHekaAgent } from '../../utils/agent'
+import { formatError } from '../../utils/error'
 import { CredentialCard, SectionCard } from '../cards'
 import { Loader } from '../views/LoadingView'
 
 import { Record } from './Record'
 
-const useStyles = ({ Spacing }: HekaTheme) => {
+const useStyles = ({ Spacing, TextTheme, ColorPalette }: HekaTheme) => {
   return StyleSheet.create({
+    loadError: {
+      ...TextTheme.normal,
+      color: ColorPalette.semantic.error,
+    },
     container: {
       flexGrow: 1,
     },
@@ -45,15 +50,25 @@ const SharedProofData: React.FC<SharedProofDataProps> = ({ record }) => {
   const [loading, setLoading] = useState<boolean>(true)
   const [presentationData, setPresentationData] = useState<PresentationDetails[] | undefined>(undefined)
 
-  const { credentials } = useCredentials()
+  const { credentials, isLoading: isCredentialsLoading, error: credentialsError } = useCredentials()
 
   useEffect(() => {
-    if (!credentials.length) return
+    if (isCredentialsLoading) return
+    if (credentialsError) {
+      setLoading(false)
+      return
+    }
 
     preparePresentationData(record, agent, credentials)
       .then((data) => setPresentationData(data))
+      .catch((error: unknown) =>
+        agent.config.logger.error('Failed to prepare shared proof data', {
+          proofExchangeRecordId: record.id,
+          error: formatError(error),
+        })
+      )
       .finally(() => setLoading(false))
-  }, [record, credentials, agent])
+  }, [record, credentials, isCredentialsLoading, credentialsError, agent])
 
   if (loading) {
     return (
@@ -66,6 +81,7 @@ const SharedProofData: React.FC<SharedProofDataProps> = ({ record }) => {
   return (
     <View style={styles.container}>
       <SectionCard title={t('Proof.SharedInformation')}>
+        {credentialsError ? <Text style={styles.loadError}>{t('Credentials.LoadFailed')}</Text> : null}
         <FlatList
           data={presentationData}
           contentContainerStyle={styles.credentialsContainer}

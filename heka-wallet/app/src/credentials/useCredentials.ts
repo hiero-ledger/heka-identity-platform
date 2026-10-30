@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { useMdocRecords, useSdJwtVcRecords, useW3cCredentialRecords } from '../contexts'
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
 
 import { mapCredentialRecord } from './mappers'
 import { Credential, CredentialRecord } from './types'
@@ -23,6 +24,7 @@ function compareCredentialRecordsByMostRecent(first: CredentialRecord, second: C
 interface CredentialsState {
   credentials: Credential[]
   isLoading: boolean
+  error?: unknown
 }
 
 export const useCredentials = (maxCount?: number): CredentialsState => {
@@ -32,9 +34,9 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
 
   const [{ credentialHideList }] = useServices([TOKENS.CONFIG])
 
-  const { w3cCredentialRecords, isLoading: isW3cCredentialsLoading } = useW3cCredentialRecords()
-  const { sdJwtVcRecords, isLoading: isSdJwtCredentialsLoading } = useSdJwtVcRecords()
-  const { mdocCredentialRecords, isLoading: isMdocCredentialsLoading } = useMdocRecords()
+  const { w3cCredentialRecords, isLoading: isW3cCredentialsLoading, error: w3cError } = useW3cCredentialRecords()
+  const { sdJwtVcRecords, isLoading: isSdJwtCredentialsLoading, error: sdJwtError } = useSdJwtVcRecords()
+  const { mdocCredentialRecords, isLoading: isMdocCredentialsLoading, error: mdocError } = useMdocRecords()
 
   const credentialExchangeRecords = useCredentialByState([
     DidCommCredentialState.CredentialReceived,
@@ -59,12 +61,14 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
 
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<unknown>()
 
   const loadCredentials = useCallback(async () => {
     if (!agent?.isInitialized || isW3cCredentialsLoading || isSdJwtCredentialsLoading || isMdocCredentialsLoading)
       return
 
     setIsLoading(true)
+    setError(undefined)
     try {
       let anoncredsCredentialsToShow: DidCommCredentialExchangeRecord[] = anoncredsCredentials
 
@@ -100,7 +104,8 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
       const credentialsData = await Promise.all(credentialRecords.map((record) => mapCredentialRecord(record, agent)))
       setCredentials(credentialsData)
     } catch (e) {
-      console.error(e)
+      agent.config.logger.error('Failed to load credentials', { error: formatError(e) })
+      setError(e)
     } finally {
       setIsLoading(false)
     }
@@ -122,5 +127,6 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
     loadCredentials()
   }, [loadCredentials])
 
-  return { credentials, isLoading }
+  // A provider that failed to load contributes no records, so its error is reported with the partial list
+  return { credentials, isLoading, error: error ?? w3cError ?? sdJwtError ?? mdocError }
 }

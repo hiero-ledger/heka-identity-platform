@@ -185,6 +185,7 @@ const translation = {
     "Issuer": "Émetteur",
     "AddCredential": "Ajouter un certificat",
     "EmptyList": "Votre portefeuille est vide.",
+    "LoadFailed": "Certains certificats n'ont pas pu être chargés.",
     "AddFirstCredential": "Ajoutez votre premier certificat",
     "UnknownIssuer": "Émetteur inconnu",
     "UnknownVerifier": "Vérificateur inconnu"

@@ -77,21 +77,29 @@ const PINCreate: React.FC<PINCreateProps> = ({ setAuthenticated, route }) => {
 
   const [{ PINSecurity }] = useServices([TOKENS.CONFIG, TOKENS.COMPONENT_BUTTON])
 
-  const createPin = useCallback(async (PIN: string) => {
-    try {
-      await setWalletPIN(PIN)
-      // This will trigger initAgent
-      setAuthenticated(true)
+  const createPin = useCallback(
+    async (PIN: string) => {
+      try {
+        await setWalletPIN(PIN)
+        // This will trigger initAgent
+        setAuthenticated(true)
 
-      // This dispatch action triggers navigation under-the-hood (since Bifold 3.0.0)
-      dispatch({
-        type: DispatchAction.DID_CREATE_PIN,
-      })
-    } catch (err: unknown) {
-      const error = new BifoldError(t('Error.Title1040'), t('Error.Message1040'), (err as Error)?.message ?? err, 1040)
-      DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+        // This dispatch action triggers navigation under-the-hood (since Bifold 3.0.0)
+        dispatch({
+          type: DispatchAction.DID_CREATE_PIN,
+        })
+      } catch (err: unknown) {
+        const error = new BifoldError(
+          t('Error.Title1040'),
+          t('Error.Message1040'),
+          (err as Error)?.message ?? err,
+          1040
+        )
+        DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
+      }
+    },
+    [setWalletPIN, setAuthenticated, dispatch, t]
+  )
 
   const changePin = useCallback(
     async (oldPIN: string, newPIN: string) => {
@@ -109,7 +117,7 @@ const PINCreate: React.FC<PINCreateProps> = ({ setAuthenticated, route }) => {
         })
       }
     },
-    [agent] // eslint-disable-line react-hooks/exhaustive-deps
+    [agent, rekeyWallet, store.preferences.useBiometry, t, navigation]
   )
 
   const onPinOldSet = useCallback(
@@ -131,7 +139,7 @@ const PINCreate: React.FC<PINCreateProps> = ({ setAuthenticated, route }) => {
       setPinEntry(PinEntry.New)
       return true
     },
-    [PIN, checkWalletPIN, t] // eslint-disable-line react-hooks/exhaustive-deps
+    [checkWalletPIN, t]
   )
 
   const onPinSet = useCallback(

@@ -15,6 +15,7 @@ import { SectionCard } from '../components/cards'
 import { ExternalPartyDisplay } from '../components/misc/ExternalPartyDisplay'
 import SharedProofData from '../components/misc/SharedProofData'
 import LoadingView from '../components/views/LoadingView'
+import { formatError } from '../utils/error'
 
 type ProofDetailsProps = StackScreenProps<ProofRequestsStackParams, Screens.ProofDetails>
 
@@ -108,13 +109,24 @@ const ProofDetails: React.FC<ProofDetailsProps> = ({ route }) => {
   useEffect(() => {
     return () => {
       if (!store.preferences.useDataRetention) {
-        agent?.didcomm.proofs.deleteById(recordId)
+        agent?.didcomm.proofs
+          .deleteById(recordId)
+          .catch((error: unknown) =>
+            agent.config.logger.error('Failed to delete the proof record', { recordId, error: formatError(error) })
+          )
       }
       if ((proofRecord?.metadata.get(ProofMetadata.customMetadata) as ProofCustomMetadata).delete_conn_after_seen) {
-        agent?.didcomm.connections.deleteById(proofRecord?.connectionId ?? '')
+        const connectionId = proofRecord?.connectionId ?? ''
+        agent?.didcomm.connections.deleteById(connectionId).catch((error: unknown) =>
+          agent.config.logger.error('Failed to delete the connection after the proof was seen', {
+            connectionId,
+            error: formatError(error),
+          })
+        )
       }
     }
   }, [
+    agent?.config.logger,
     agent?.didcomm.connections,
     agent?.didcomm.proofs,
     proofRecord?.connectionId,
@@ -125,7 +137,12 @@ const ProofDetails: React.FC<ProofDetailsProps> = ({ route }) => {
 
   useEffect(() => {
     if (agent && proofRecord && !proofRecord.metadata?.data?.customMetadata?.details_seen) {
-      markProofAsViewed(agent, proofRecord)
+      markProofAsViewed(agent, proofRecord).catch((error: unknown) =>
+        agent.config.logger.error('Failed to mark the proof as viewed', {
+          recordId: proofRecord.id,
+          error: formatError(error),
+        })
+      )
     }
   }, [agent, proofRecord])
 

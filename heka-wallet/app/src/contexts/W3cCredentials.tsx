@@ -6,17 +6,19 @@ import { W3cCredentialRecord } from '@credo-ts/core'
 import { createContext, useContext, useEffect, useState } from 'react'
 
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
 
 type W3cCredentialRecordState = {
   w3cCredentialRecords: Array<W3cCredentialRecord>
   isLoading: boolean
+  error?: unknown
 }
 
 const addRecord = (record: W3cCredentialRecord, state: W3cCredentialRecordState): W3cCredentialRecordState => {
   const newRecordsState = [...state.w3cCredentialRecords]
   newRecordsState.unshift(record)
   return {
-    isLoading: state.isLoading,
+    ...state,
     w3cCredentialRecords: newRecordsState,
   }
 }
@@ -28,7 +30,7 @@ const updateRecord = (record: W3cCredentialRecord, state: W3cCredentialRecordSta
     newRecordsState[index] = record
   }
   return {
-    isLoading: state.isLoading,
+    ...state,
     w3cCredentialRecords: newRecordsState,
   }
 }
@@ -36,7 +38,7 @@ const updateRecord = (record: W3cCredentialRecord, state: W3cCredentialRecordSta
 const removeRecord = (record: W3cCredentialRecord, state: W3cCredentialRecordState): W3cCredentialRecordState => {
   const newRecordsState = state.w3cCredentialRecords.filter((r) => r.id !== record.id)
   return {
-    isLoading: state.isLoading,
+    ...state,
     w3cCredentialRecords: newRecordsState,
   }
 }
@@ -67,7 +69,13 @@ export const W3cCredentialRecordProvider: React.FC<PropsWithChildren> = ({ child
 
   useEffect(() => {
     if (!agent) return
-    agent.w3cCredentials.getAll().then((w3cCredentialRecords) => setState({ w3cCredentialRecords, isLoading: false }))
+    agent.w3cCredentials
+      .getAll()
+      .then((w3cCredentialRecords) => setState({ w3cCredentialRecords, isLoading: false }))
+      .catch((error: unknown) => {
+        agent.config.logger.error('Failed to load W3C credential records', { error: formatError(error) })
+        setState((prev) => ({ ...prev, isLoading: false, error }))
+      })
   }, [agent])
 
   useEffect(() => {
