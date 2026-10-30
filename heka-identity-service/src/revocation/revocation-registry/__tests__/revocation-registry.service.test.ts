@@ -1,5 +1,12 @@
+import {
+  AnonCredsRevocationRegistryDefinition,
+  AnonCredsRevocationRegistryDefinitionRecord,
+  AnonCredsRevocationRegistryDefinitionRecordMetadataKeys,
+  AnonCredsRevocationStatusList,
+} from '@credo-ts/anoncreds'
+import { GenericRecord } from '@credo-ts/core'
 import { createMock } from '@golevelup/ts-vitest'
-import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common'
 
 import { didRecordStub } from '../../../../test/helpers/mock-records'
 import { TenantAgent } from '../../../common/agent'
@@ -29,6 +36,17 @@ describe('RevocationRegistryService', () => {
         findAllByQuery: vi.fn(),
         update: vi.fn(),
       },
+      dependencyManager: {
+        resolve: vi.fn(),
+      },
+      context: {},
+    })
+
+    // create() requires the status list registration to finish
+    vi.mocked(tenantAgent.modules.anoncreds.registerRevocationStatusList).mockResolvedValue({
+      revocationStatusListState: { state: 'finished', revocationStatusList: {} as AnonCredsRevocationStatusList },
+      registrationMetadata: {},
+      revocationStatusListMetadata: {},
     })
 
     service = new RevocationRegistryService(anoncredsRegistryService)
@@ -61,6 +79,7 @@ describe('RevocationRegistryService', () => {
       expect(result.revocationRegistryDefinitionId).toBe(revocationRegistryDefinitionId)
       expect(result.index).toBe(0)
       expect(result.maximumCredentialNumber).toBe(defaultMaximumCredentialNumber)
+      expect(tenantAgent.modules.anoncreds.registerRevocationStatusList).toHaveBeenCalledTimes(1)
       expect(tenantAgent.modules.anoncreds.registerRevocationStatusList).toHaveBeenCalledWith({
         revocationStatusList: {
           revocationRegistryDefinitionId,
@@ -113,6 +132,147 @@ describe('RevocationRegistryService', () => {
 
       await expect(service.create(tenantAgent, { credentialDefinitionId, issuerId })).rejects.toThrow(NotFoundException)
       expect(tenantAgent.dids.getCreatedDids).toHaveBeenCalledWith({ did: issuerId })
+    })
+
+    test('should fail and not save the registry when the revocation status list is not registered', async () => {
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did: issuerId })])
+      vi.mocked(anoncredsRegistryService.registerRevocationRegistryDefinition).mockResolvedValue({
+        revocationRegistryDefinitionId,
+        revocationRegistryDefinition: {} as AnonCredsRevocationRegistryDefinition,
+      })
+      vi.mocked(tenantAgent.modules.anoncreds.registerRevocationStatusList).mockResolvedValue({
+        revocationStatusListState: { state: 'failed', reason: 'ledger write rejected' },
+        registrationMetadata: {},
+        revocationStatusListMetadata: {},
+      })
+
+      await expect(service.create(tenantAgent, { credentialDefinitionId, issuerId })).rejects.toThrow(
+        InternalServerErrorException,
+      )
+      expect(tenantAgent.genericRecords.save).not.toHaveBeenCalled()
+    })
+  })
+
+  // Credo's Indy VDR registrar stores the revocation registry definition record with empty metadata, while
+  // getRevocationStatusList needs `issuanceType` from it when the issuer is served from that record.
+  describe('Indy revocation registry issuanceType metadata', () => {
+    const indyRevocationRegistryId =
+      'did:indy:bcovrin:test:7pkMHz5wKgaZgYBbDxfhVL/anoncreds/v0/REV_REG_DEF/3305118/default/tag1'
+    const indyIssuerId = 'did:indy:bcovrin:test:7pkMHz5wKgaZgYBbDxfhVL'
+    const indyCredentialDefinitionId =
+      'did:indy:bcovrin:test:7pkMHz5wKgaZgYBbDxfhVL/anoncreds/v0/CLAIM_DEF/3305118/default'
+
+    function givenRevocationRegistryDefinitionRecord(metadata?: Record<string, unknown>) {
+      const record = new AnonCredsRevocationRegistryDefinitionRecord({
+        revocationRegistryDefinitionId: indyRevocationRegistryId,
+        revocationRegistryDefinition: {} as AnonCredsRevocationRegistryDefinition,
+      })
+      if (metadata) {
+        record.metadata.set(
+          AnonCredsRevocationRegistryDefinitionRecordMetadataKeys.RevocationRegistryDefinitionMetadata,
+          metadata,
+        )
+      }
+      const repository = {
+        findSingleByQuery: vi.fn().mockResolvedValue(record),
+        update: vi.fn(),
+      }
+      vi.mocked(tenantAgent.dependencyManager.resolve).mockReturnValue(repository)
+      return { record, repository }
+    }
+
+    const issuanceTypeOf = (record: AnonCredsRevocationRegistryDefinitionRecord) =>
+      record.metadata.get(AnonCredsRevocationRegistryDefinitionRecordMetadataKeys.RevocationRegistryDefinitionMetadata)
+        ?.issuanceType
+
+    test('create stores issuanceType ISSUANCE_BY_DEFAULT on a new Indy registry', async () => {
+      const { record, repository } = givenRevocationRegistryDefinitionRecord()
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did: indyIssuerId })])
+      vi.mocked(anoncredsRegistryService.registerRevocationRegistryDefinition).mockResolvedValue({
+        revocationRegistryDefinitionId: indyRevocationRegistryId,
+        revocationRegistryDefinition: {} as AnonCredsRevocationRegistryDefinition,
+      })
+
+      await service.create(tenantAgent, { credentialDefinitionId: indyCredentialDefinitionId, issuerId: indyIssuerId })
+
+      expect(issuanceTypeOf(record)).toBe('ISSUANCE_BY_DEFAULT')
+      expect(repository.update).toHaveBeenCalledWith(tenantAgent.context, record)
+    })
+
+    test('getOrCreate repairs an existing Indy registry created without issuanceType', async () => {
+      const { record, repository } = givenRevocationRegistryDefinitionRecord({})
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue([
+        {
+          content: { revocationRegistryDefinitionId: indyRevocationRegistryId, index: 3, maximumCredentialNumber: 100 },
+        },
+      ] as unknown as GenericRecord[])
+
+      const result = await service.getOrCreate(tenantAgent, indyCredentialDefinitionId, indyIssuerId)
+
+      expect(result.revocationRegistryDefinitionId).toBe(indyRevocationRegistryId)
+      expect(issuanceTypeOf(record)).toBe('ISSUANCE_BY_DEFAULT')
+      expect(repository.update).toHaveBeenCalledWith(tenantAgent.context, record)
+    })
+
+    test('leaves a record that already has issuanceType unchanged', async () => {
+      const { record, repository } = givenRevocationRegistryDefinitionRecord({ issuanceType: 'ISSUANCE_ON_DEMAND' })
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue([
+        {
+          content: { revocationRegistryDefinitionId: indyRevocationRegistryId, index: 3, maximumCredentialNumber: 100 },
+        },
+      ] as unknown as GenericRecord[])
+
+      await service.getOrCreate(tenantAgent, indyCredentialDefinitionId, indyIssuerId)
+
+      expect(issuanceTypeOf(record)).toBe('ISSUANCE_ON_DEMAND')
+      expect(repository.update).not.toHaveBeenCalled()
+    })
+
+    test('get repairs an Indy registry created without issuanceType before reading its status list', async () => {
+      const { record, repository } = givenRevocationRegistryDefinitionRecord({})
+      vi.mocked(tenantAgent.modules.anoncreds.getRevocationStatusList).mockImplementation(() => {
+        expect(issuanceTypeOf(record)).toBe('ISSUANCE_BY_DEFAULT')
+        return Promise.resolve({ revocationStatusList: { revocationList: [0, 1] } } as Awaited<
+          ReturnType<TenantAgent['modules']['anoncreds']['getRevocationStatusList']>
+        >)
+      })
+
+      const result = await service.get(tenantAgent, indyRevocationRegistryId, '1700000000')
+
+      expect(result.revocationStatusList).toEqual([0, 1])
+      expect(repository.update).toHaveBeenCalledWith(tenantAgent.context, record)
+    })
+
+    test('does not touch registries on other ledgers', async () => {
+      const { repository } = givenRevocationRegistryDefinitionRecord({})
+      const hederaRevocationRegistryId = 'did:hedera:testnet:zHNJ37tiLbGxD7XPvnTkaZCAV3PCe5P4HJFGMGUkVVZAM_0.0.12345'
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue([
+        {
+          content: {
+            revocationRegistryDefinitionId: hederaRevocationRegistryId,
+            index: 3,
+            maximumCredentialNumber: 100,
+          },
+        },
+      ] as unknown as GenericRecord[])
+
+      await service.getOrCreate(tenantAgent, 'did:hedera:testnet:creddef', 'did:hedera:testnet:issuer')
+
+      expect(repository.findSingleByQuery).not.toHaveBeenCalled()
+      expect(repository.update).not.toHaveBeenCalled()
+    })
+
+    test('does nothing when the agent has no local record for the registry', async () => {
+      const { repository } = givenRevocationRegistryDefinitionRecord()
+      repository.findSingleByQuery.mockResolvedValue(null)
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue([
+        {
+          content: { revocationRegistryDefinitionId: indyRevocationRegistryId, index: 3, maximumCredentialNumber: 100 },
+        },
+      ] as unknown as GenericRecord[])
+
+      await expect(service.getOrCreate(tenantAgent, indyCredentialDefinitionId, indyIssuerId)).resolves.toBeDefined()
+      expect(repository.update).not.toHaveBeenCalled()
     })
   })
 
