@@ -4,6 +4,7 @@ import { renderHook } from '@testing-library/react-native'
 
 import { mockFunction } from '../../../jest-helpers/helpers'
 import { useOpenIdHandlers } from '../../src/credentials/useOpenIdHandlers'
+import { useHekaAgent } from '../../src/utils/agent'
 
 import { hekaIdentityServiceSdJwtVc } from './fixtures'
 import { Kms } from '@credo-ts/core'
@@ -114,6 +115,19 @@ describe('useOpenIdHandlers', () => {
       expect(mockAgent.openid4vc.holder.resolveOpenId4VciAuthorizationRequest).toHaveBeenCalledTimes(1)
     })
 
+    it('should not log the offer, which can carry a pre-authorized code', async () => {
+      mockFunction(mockAgent.openid4vc.holder.resolveCredentialOffer).mockResolvedValueOnce(
+        fixture.resolvedCredentialOfferPreAuth
+      )
+
+      const { resolveOpenId4VciOffer } = renderOpenIdHandlersHookValue()
+      await resolveOpenId4VciOffer({ offer: { uri: fixture.credentialOfferUrl } })
+
+      const loggedText = JSON.stringify(mockAgent.config.logger.info.mock.calls)
+      expect(loggedText).not.toContain(fixture.credentialOfferUrl)
+      expect(loggedText).not.toContain(encodeURIComponent(fixture.credentialOfferUrl))
+    })
+
     it('should throw if no authorization params provided for authorization code flow', async () => {
       mockFunction(mockAgent.openid4vc.holder.resolveCredentialOffer).mockResolvedValueOnce(
         () => fixture.resolvedCredentialOfferAuthorizationCode
@@ -216,6 +230,85 @@ describe('useOpenIdHandlers', () => {
         })
       )
       expect(mockAgent.openid4vc.holder.requestCredentials).toHaveBeenCalledTimes(1)
+    })
+
+    describe('when the wallet has no public DID (no mediator)', () => {
+      const mockKeyId = 'mock-key-id'
+      const jwtProofTypes = { jwt: { supportedSignatureAlgorithms: ['EdDSA'], keyAttestationsRequired: false } }
+
+      // Runs the hook's credentialBindingResolver the way Credo does before it requests the credential.
+      function mockRequestCredentialsWithBinding(issuerBindingSupport: Record<string, unknown>) {
+        const credentialConfiguration =
+          fixture.resolvedCredentialOfferPreAuth.offeredCredentialConfigurations['mock-id-1']
+        const bindings: unknown[] = []
+        mockFunction(mockAgent.openid4vc.holder.requestCredentials).mockImplementationOnce(
+          async ({ credentialBindingResolver }) => {
+            bindings.push(
+              await credentialBindingResolver({
+                proofTypes: jwtProofTypes,
+                credentialFormat: 'vc+sd-jwt',
+                ...issuerBindingSupport,
+              })
+            )
+            return {
+              credentials: [{ record: { id: 'mock-record', metadata: { set: jest.fn() } }, credentialConfiguration }],
+            }
+          }
+        )
+        return bindings
+      }
+
+      beforeEach(() => {
+        mockFunction(useHekaAgent).mockReturnValueOnce({
+          loading: false,
+          agent: mockAgent,
+          publicDid: undefined,
+        } as unknown as ReturnType<typeof useHekaAgent>)
+        mockFunction(mockAgent.kms.createKeyForSignatureAlgorithm).mockResolvedValueOnce({ publicJwk: {} })
+        mockFunction(Kms.PublicJwk.fromUnknown).mockReturnValueOnce({ keyId: mockKeyId } as unknown as ReturnType<
+          typeof Kms.PublicJwk.fromUnknown
+        >)
+      })
+
+      it('should bind the credential to a fresh did:jwk', async () => {
+        mockFunction(mockAgent.dids.create).mockResolvedValueOnce({
+          didState: { state: 'finished', did: 'did:jwk:mock' },
+        })
+        const bindings = mockRequestCredentialsWithBinding({
+          supportedDidMethods: ['did:jwk'],
+          supportsAllDidMethods: false,
+          supportsJwk: false,
+        })
+
+        const { receiveCredentialFromOpenId4VciOffer } = renderOpenIdHandlersHookValue()
+        const credentialRecord = await receiveCredentialFromOpenId4VciOffer({
+          resolvedCredentialOffer: fixture.resolvedCredentialOfferPreAuth,
+          accessToken: fixture.tokenResponse,
+        })
+
+        expect(credentialRecord).toMatchObject({ id: 'mock-record' })
+        expect(mockAgent.kms.createKeyForSignatureAlgorithm).toHaveBeenCalledWith({ algorithm: 'EdDSA' })
+        expect(mockAgent.dids.create).toHaveBeenCalledWith({ method: 'jwk', options: { keyId: mockKeyId } })
+        expect(bindings).toEqual([{ method: 'did', didUrls: ['mock-vm-id'] }])
+      })
+
+      it('should fail when the issuer supports no binding method the wallet has', async () => {
+        mockRequestCredentialsWithBinding({
+          supportedDidMethods: ['did:web'],
+          supportsAllDidMethods: false,
+          supportsJwk: false,
+        })
+
+        const { receiveCredentialFromOpenId4VciOffer } = renderOpenIdHandlersHookValue()
+
+        await expect(
+          receiveCredentialFromOpenId4VciOffer({
+            resolvedCredentialOffer: fixture.resolvedCredentialOfferPreAuth,
+            accessToken: fixture.tokenResponse,
+          })
+        ).rejects.toThrow(/No supported binding method could be found/)
+        expect(mockAgent.dids.create).toHaveBeenCalledTimes(0)
+      })
     })
 
     it('should receive first supported credential from resolved offer if no id is specified', async () => {

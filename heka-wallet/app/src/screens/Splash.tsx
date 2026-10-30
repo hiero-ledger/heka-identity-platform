@@ -1,5 +1,6 @@
 import { DispatchAction, useAuth, useStore, TOKENS, EventTypes, BifoldError, useServices } from '@bifold/core'
 import { DidCommHttpOutboundTransport, DidCommWsOutboundTransport } from '@credo-ts/didcomm'
+import { GlobalLogger } from '@heka-wallet/shared'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
@@ -12,11 +13,14 @@ import {
   createPublicDidOrGetExisting,
   createPublicInvitationOrGetExisting,
   ensureExampleCredentialCreated,
-  setupMediatorWithPublicDidIfNeeded,
+  findExistingPublicDid,
   tryRestartExistingAgent,
   createAnoncredsLinkSecretIfRequired,
   useHekaAgent,
 } from '../utils/agent'
+import { trySetupMediator } from '../utils/mediator'
+
+const fileLogger = GlobalLogger.createContextLogger('Splash')
 
 /**
  * To customize this splash screen set the background color of the
@@ -106,14 +110,22 @@ export const Splash: React.FC = () => {
           })
         }
 
-        if (Config.MEDIATOR_PUBLIC_DID) {
-          await setupMediatorWithPublicDidIfNeeded(newAgent, Config.MEDIATOR_PUBLIC_DID)
+        const hasMediator = await trySetupMediator(newAgent, {
+          invitationUrl: Config.MEDIATOR_URL,
+          publicDid: Config.MEDIATOR_PUBLIC_DID,
+        })
+
+        const publicDid = hasMediator
+          ? await createPublicDidOrGetExisting(newAgent)
+          : await findExistingPublicDid(newAgent)
+
+        if (publicDid) {
+          logger.info(`Public DID: ${publicDid}`)
+        } else {
+          fileLogger.warn('No mediator: public DID creation deferred to the next start')
         }
 
-        const publicDid = await createPublicDidOrGetExisting(newAgent)
-        logger.info(`Public DID: ${publicDid}`)
-
-        if (isPublicInvitationEnabled) {
+        if (publicDid && isPublicInvitationEnabled) {
           const invitationUrl = await createPublicInvitationOrGetExisting(
             newAgent,
             publicDid,
@@ -127,11 +139,13 @@ export const Splash: React.FC = () => {
         }
 
         setAgent(newAgent)
-        setPublicDid(publicDid)
+        if (publicDid) setPublicDid(publicDid)
 
         // The onboarding workflow transitions to the main stack automatically once
         // the agent is set — no navigation needed here.
       } catch (err: unknown) {
+        // The Bifold logger does not reach log.txt; keep the stack for diagnosis.
+        fileLogger.error('Agent initialization failed:', (err as Error)?.stack ?? err)
         const error = new BifoldError(
           t('Error.Title1045'),
           t('Error.Message1045'),

@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "jest",
+    "test:e2e": "maestro test .maestro",
     "bundle-app:android:debug": "cd app && yarn bundle:android:debug",
     "bundle-app:android:release": "cd app && yarn bundle:android:release"
   },

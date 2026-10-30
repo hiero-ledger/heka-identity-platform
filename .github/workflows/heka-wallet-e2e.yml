@@ -1,0 +1,30 @@
+name: Heka Wallet device e2e (Maestro)
+
+# Wallet-only flows (onboarding, PIN unlock) with no backend; flows that need the backend run in heka-e2e.yml.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'heka-wallet/**'
+      - '.github/workflows/heka-wallet-e2e.yml'
+      - '.github/workflows/heka-wallet-e2e-run.yml'
+  workflow_dispatch:
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # External auth off, so no Keycloak.
+  e2e:
+    uses: ./.github/workflows/heka-wallet-e2e-run.yml
+    with:
+      suite: no-backend
+      external-auth: false
+      backend: false
+      maestro-args: --include-tags no-backend

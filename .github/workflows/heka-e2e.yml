@@ -1,0 +1,44 @@
+name: Heka platform e2e (wallet + backend, Maestro)
+
+# Cross-app flows: the wallet against the root Compose stack (Postgres, Keycloak, identity-service).
+# Runs on changes to the wallet and to what the stack builds or mounts.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'heka-wallet/**'
+      - 'heka-identity-service/**'
+      - 'heka-sso-service/keycloak/**'
+      - 'demo/heka-keycloak-theme/**'
+      - 'docker/keycloak/**'
+      - 'docker/postgres/**'
+      - 'docker-compose.yml'
+      - '.env.example'
+      - '.github/workflows/heka-e2e.yml'
+      - '.github/workflows/heka-wallet-e2e-run.yml'
+  workflow_dispatch:
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Keycloak login and an OID4VCI offer from identity-service.
+  # Dev-only values from heka-sso-service/keycloak (realm files and README): user wallet-demo, client heka-e2e.
+  e2e:
+    uses: ./.github/workflows/heka-wallet-e2e-run.yml
+    with:
+      suite: backend
+      external-auth: true
+      backend: true
+      maestro-args: >-
+        --include-tags backend,external-auth
+        -e KC_USERNAME=wallet-demo -e KC_PASSWORD=Password1234! -e KC_EMAIL=wallet-demo@example.com
+        -e IDENTITY_SERVICE_URL=http://localhost:3000
+        -e TOKEN_URL=http://localhost:8080/realms/heka-platform/protocol/openid-connect/token
+        -e E2E_CLIENT_ID=heka-e2e -e E2E_CLIENT_SECRET=dev-only-heka-e2e-secret-do-not-use-in-production

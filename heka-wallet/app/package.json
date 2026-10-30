@@ -11,7 +11,7 @@
     "test": "jest",
     "android:clean-drawable-output": "npx rimraf ./android/app/src/main/res/drawable-* && npx rimraf ./android/app/src/main/res/raw",
     "bundle:android:debug": "npx react-native bundle --platform android --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res && cd android && ./gradlew assembleDebug -Pandroid.injected.version.name=\"$VERSION\" -Pandroid.injected.version.code=\"$(cd .. && yarn version:code:get)\" && yarn android:clean-drawable-output",
-    "bundle:android:release": "cd android && ./gradlew bundleRelease -Pandroid.injected.version.name=\"1.0.0\" -Pandroid.injected.version.code=\"1.0.0\"",
+    "bundle:android:release": "node ./runGradle.js bundleRelease -Pandroid.injected.version.name=\"1.0.0\" -Pandroid.injected.version.code=\"$(node ./versionUtils.js 1.0.0)\"",
     "version:name:get": "nbgv get-version -v SimpleVersion",
     "version:code:get": "node ./versionUtils.js $VERSION"
   },
