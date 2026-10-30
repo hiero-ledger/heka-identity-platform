@@ -375,7 +375,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# GoogleService-Info.plist is gitignored and optional: without it the app builds without Firebase (push off)\nPLIST=\"${SRCROOT}/HekaWallet/GoogleService-Info.plist\"\nif [ -f \"$PLIST\" ]; then\n  cp \"$PLIST\" \"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nelse\n  echo \"warning: HekaWallet/GoogleService-Info.plist not found - building without Firebase, push notifications off\"\nfi\n";
+			shellScript = "# GoogleService-Info.plist is gitignored and optional: without it the app builds without Firebase (push off)\nPLIST=\"${SRCROOT}/HekaWallet/GoogleService-Info.plist\"\nif [ -f \"$PLIST\" ]; then\n  cp \"$PLIST\" \"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nelse\n  rm -f \"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\n  echo \"warning: HekaWallet/GoogleService-Info.plist not found - building without Firebase, push notifications off\"\nfi\n";
 		};
 		6E66A285A45036A6A21D7C7D /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;

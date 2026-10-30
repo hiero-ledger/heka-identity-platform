@@ -12,7 +12,7 @@ import {
   ShouldSend,
   unregisterDeviceToken,
 } from '../../../src/utils/push-notifications/registration'
-import { usePushNotifications } from '../../../src/utils/push-notifications/usePushNotifications'
+import { SYNC_RETRY_DELAYS_MS, usePushNotifications } from '../../../src/utils/push-notifications/usePushNotifications'
 
 jest.mock('@bifold/core', () => ({ useStore: jest.fn() }))
 jest.mock('@react-native-firebase/messaging', () => ({
@@ -206,6 +206,65 @@ describe('usePushNotifications', () => {
     await act(async () => finishUnregister())
 
     await waitFor(() => expect(registerDeviceToken).toHaveBeenCalledTimes(1))
+  })
+
+  describe('when the mediator does not accept the sync', () => {
+    beforeEach(() => jest.useFakeTimers())
+    afterEach(() => {
+      jest.useRealTimers()
+      // clearMocks keeps implementations; restore the module mock's success for the other tests
+      mockFunction(registerDeviceToken).mockReset().mockResolvedValue(true)
+      mockFunction(unregisterDeviceToken).mockReset().mockResolvedValue(true)
+    })
+
+    it('retries registering after a delay', async () => {
+      givenWallet()
+      mockFunction(registerDeviceToken).mockResolvedValueOnce(false)
+      renderHook(() => usePushNotifications())
+      await waitFor(() => expect(registerDeviceToken).toHaveBeenCalledTimes(1))
+
+      await act(async () => jest.advanceTimersByTime(SYNC_RETRY_DELAYS_MS[0]))
+
+      await waitFor(() => expect(registerDeviceToken).toHaveBeenCalledTimes(2))
+    })
+
+    it('retries unregistering after a delay', async () => {
+      givenWallet({ usePushNotifications: false, registered: true })
+      mockFunction(unregisterDeviceToken).mockResolvedValueOnce(false)
+      renderHook(() => usePushNotifications())
+      await waitFor(() => expect(unregisterDeviceToken).toHaveBeenCalledTimes(1))
+
+      await act(async () => jest.advanceTimersByTime(SYNC_RETRY_DELAYS_MS[0]))
+
+      await waitFor(() => expect(unregisterDeviceToken).toHaveBeenCalledTimes(2))
+    })
+
+    it('stops retrying after the last delay', async () => {
+      givenWallet()
+      mockFunction(registerDeviceToken).mockResolvedValue(false)
+      renderHook(() => usePushNotifications())
+
+      for (const [attempt, delay] of SYNC_RETRY_DELAYS_MS.entries()) {
+        await waitFor(() => expect(registerDeviceToken).toHaveBeenCalledTimes(attempt + 1))
+        await act(async () => jest.advanceTimersByTime(delay))
+      }
+      await waitFor(() => expect(registerDeviceToken).toHaveBeenCalledTimes(SYNC_RETRY_DELAYS_MS.length + 1))
+      await act(async () => jest.advanceTimersByTime(Math.max(...SYNC_RETRY_DELAYS_MS)))
+
+      expect(registerDeviceToken).toHaveBeenCalledTimes(SYNC_RETRY_DELAYS_MS.length + 1)
+    })
+
+    it('drops a pending retry on unmount', async () => {
+      givenWallet()
+      mockFunction(registerDeviceToken).mockResolvedValueOnce(false)
+      const { unmount } = renderHook(() => usePushNotifications())
+      await waitFor(() => expect(registerDeviceToken).toHaveBeenCalledTimes(1))
+
+      unmount()
+      await act(async () => jest.advanceTimersByTime(SYNC_RETRY_DELAYS_MS[0]))
+
+      expect(registerDeviceToken).toHaveBeenCalledTimes(1)
+    })
   })
 
   it.each([

@@ -34,6 +34,8 @@ $RNFirebaseAsStaticFramework = (linkage == 'static')
 # - react-native-orientation-locker: imported by HekaWallet-Bridging-Header.h by its pod name
 STATIC_LIBRARY_PODS = %w[anoncreds indy-vdr react-native-user-identity react-native-orientation-locker].freeze
 
+APP_EXCLUDED_PRIVACY_REASONS = %w[C56D.1 0A2A.1 1C8F.1].freeze
+
 pre_install do |installer|
   # A renamed or removed pod would silently fall back to a framework and break the build again
   unknown_pods = STATIC_LIBRARY_PODS - installer.pod_targets.map(&:name)
@@ -87,6 +89,16 @@ target 'HekaWallet' do
         config[:reactNativePath],
         :mac_catalyst_enabled => false
       )
+
+      # react_native_post_install merges every pod's privacy reasons into the app's manifest. Apple allows
+      # C56D.1 and 0A2A.1 only in third-party SDK manifests (the pods ship their own); 1C8F.1 needs an App
+      # Group, which the app does not have. Drop them from the app's manifest.
+      privacy_manifest = File.join(__dir__, 'HekaWallet', 'PrivacyInfo.xcprivacy')
+      privacy_info = Xcodeproj::Plist.read_from_path(privacy_manifest)
+      privacy_info['NSPrivacyAccessedAPITypes'].each do |api|
+        api['NSPrivacyAccessedAPITypeReasons'] -= APP_EXCLUDED_PRIVACY_REASONS
+      end
+      Xcodeproj::Plist.write_to_path(privacy_info, privacy_manifest)
 
       # fmt 11.0.2 (bundled with RN 0.81) fails to compile with newer Apple
       # clang ("call to consteval function ... is not a constant expression").

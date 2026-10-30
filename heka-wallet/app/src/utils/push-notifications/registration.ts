@@ -49,12 +49,14 @@ async function sendDeviceToken(
     // The user may have changed the setting while the token or the mediator was being looked up
     if (!shouldSend()) return false
 
+    // Mark before sending: a failed write after a delivered token would hide it from unregistering
+    if (deviceToken) await AsyncStorage.setItem(DEVICE_TOKEN_REGISTERED_KEY, 'true')
     await agent.modules.pushNotificationsFcm.setDeviceInfo({
       connectionId: mediator.connectionId,
       // RFC 0734: token and platform are both set, or both null to remove the device
       deviceInfo: { deviceToken, devicePlatform: deviceToken ? devicePlatform() : null },
     })
-    await AsyncStorage.setItem(DEVICE_TOKEN_REGISTERED_KEY, String(deviceToken !== null))
+    if (!deviceToken) await AsyncStorage.setItem(DEVICE_TOKEN_REGISTERED_KEY, 'false')
     logger.info(`Push notifications: device token ${deviceToken ? 'registered with' : 'removed from'} the mediator`)
     return true
   } catch (error) {

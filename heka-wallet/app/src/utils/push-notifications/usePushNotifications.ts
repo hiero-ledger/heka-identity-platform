@@ -16,6 +16,9 @@ import {
 // reads the registered flag only after the previous one has written it, and the mediator gets them in order.
 let lastSend: Promise<unknown> = Promise.resolve()
 
+// Waits before each retry of a sync the mediator did not accept (e.g. unreachable); then the next agent start retries
+export const SYNC_RETRY_DELAYS_MS = [5_000, 30_000, 120_000]
+
 function afterLastSend<T>(send: () => Promise<T>): Promise<T> {
   const next = lastSend.then(send)
   // The caller handles the failure; the queue only waits for it
@@ -27,7 +30,8 @@ function afterLastSend<T>(send: () => Promise<T>): Promise<T> {
  * Keeps the mediator's copy of the FCM token in line with the stored push setting whenever a ready agent
  * appears (app start, a fresh agent after lockout) or the setting changes:
  * - push on and notifications allowed by the OS → register, and again when FCM rotates the token;
- * - otherwise, if the mediator may still hold the token → unregister (a failed attempt is retried next time).
+ * - otherwise, if the mediator may still hold the token → unregister.
+ * A failed sync is retried after each of SYNC_RETRY_DELAYS_MS, then on the next agent start.
  * A send still waiting when the setting or the agent changes is cancelled; one already sent finishes first.
  */
 export function usePushNotifications(): void {
@@ -41,24 +45,34 @@ export function usePushNotifications(): void {
     if (!agent || !agentReady || !authenticated || !isPushNotificationsSupported()) return
 
     let cancelled = false
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
     const shouldSend = () => !cancelled
 
-    const sync = async () => {
+    // Returns whether the mediator is in line with the setting
+    const sync = async (): Promise<boolean> => {
       const wantPush = usePush && (await hasNotificationPermission())
-      if (cancelled) return
+      if (cancelled) return true
 
-      await afterLastSend(async () => {
-        if (cancelled) return
-        if (wantPush) {
-          await registerDeviceToken(agent, undefined, shouldSend)
-        } else if (await isDeviceTokenRegistered()) {
-          await unregisterDeviceToken(agent, shouldSend)
-        }
+      return afterLastSend(async () => {
+        if (cancelled) return true
+        if (wantPush) return registerDeviceToken(agent, undefined, shouldSend)
+        if (await isDeviceTokenRegistered()) return unregisterDeviceToken(agent, shouldSend)
+        return true
       })
     }
-    sync().catch((error: unknown) => {
-      agent.config.logger.error(`Push notifications: syncing the device token failed: ${String(error)}`)
-    })
+
+    const syncWithRetry = (attempt: number): void => {
+      sync()
+        .then((synced) => {
+          const delay = SYNC_RETRY_DELAYS_MS[attempt]
+          if (synced || cancelled || delay === undefined) return
+          retryTimer = setTimeout(() => syncWithRetry(attempt + 1), delay)
+        })
+        .catch((error: unknown) => {
+          agent.config.logger.error(`Push notifications: syncing the device token failed: ${String(error)}`)
+        })
+    }
+    syncWithRetry(0)
 
     const unsubscribe = usePush
       ? onTokenRefresh(getMessaging(), (token) => {
@@ -72,6 +86,7 @@ export function usePushNotifications(): void {
 
     return () => {
       cancelled = true
+      clearTimeout(retryTimer)
       unsubscribe?.()
     }
   }, [agent, agentReady, authenticated, usePush])

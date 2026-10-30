@@ -68,6 +68,37 @@ describe('push notifications registration', () => {
     await expect(isDeviceTokenRegistered()).resolves.toBe(true)
   })
 
+  it('marks the token as possibly registered before sending it', async () => {
+    const { agent, hekaAgent } = createAgent()
+    let registeredWhileSending: boolean | undefined
+    agent.modules.pushNotificationsFcm.setDeviceInfo.mockImplementation(async () => {
+      registeredWhileSending = await isDeviceTokenRegistered()
+    })
+
+    await registerDeviceToken(hekaAgent)
+
+    expect(registeredWhileSending).toBe(true)
+  })
+
+  it('keeps the registered mark when sending the token fails, as the mediator may have received it', async () => {
+    const { agent, hekaAgent } = createAgent()
+    agent.modules.pushNotificationsFcm.setDeviceInfo.mockRejectedValue(new Error('response timed out'))
+
+    await expect(registerDeviceToken(hekaAgent)).resolves.toBe(false)
+
+    await expect(isDeviceTokenRegistered()).resolves.toBe(true)
+  })
+
+  it('does not send the token when the registered mark cannot be stored', async () => {
+    const { agent, hekaAgent } = createAgent()
+    jest.spyOn(AsyncStorage, 'setItem').mockRejectedValueOnce(new Error('storage full'))
+
+    await expect(registerDeviceToken(hekaAgent)).resolves.toBe(false)
+
+    expect(agent.modules.pushNotificationsFcm.setDeviceInfo).not.toHaveBeenCalled()
+    expect(agent.config.logger.error).toHaveBeenCalled()
+  })
+
   it('does not send when the caller cancelled while the token was being fetched', async () => {
     const { agent, hekaAgent } = createAgent()
 

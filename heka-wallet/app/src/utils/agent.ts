@@ -174,7 +174,6 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
       x509: new X509Module({
         trustedCertificates: [...TRUSTED_X509_CERTIFICATES],
       }),
-      // Sends the FCM device token to the mediator (push-notifications-fcm/1.0), so it can push on queued messages
       pushNotificationsFcm: new DidCommPushNotificationsFcmModule(),
     },
   })
