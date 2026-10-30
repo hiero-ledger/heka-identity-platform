@@ -78,7 +78,11 @@ export class OpenId4VcIssuanceSessionController {
     @ReqTenantAgent() tenantAgent: TenantAgent,
     @Query() query: GetIssuanceSessionByQueryDto,
   ): Promise<OpenId4VcIssuanceSessionRecordDto[]> {
-    const logger = this.logger.child('getIssuanceSessionsByQuery', query)
+    // Bind only non-secret filters: the pre-authorized code, offer URI and c_nonce must not reach the log
+    const logger = this.logger.child('getIssuanceSessionsByQuery', {
+      publicIssuerId: query.publicIssuerId,
+      state: query.state,
+    })
     logger.trace('>')
 
     const res = await this.issuanceService.getIssuanceSessionsByQuery(tenantAgent, query)
