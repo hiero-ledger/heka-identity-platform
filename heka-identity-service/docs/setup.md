@@ -319,6 +319,21 @@ The service refuses to start when `OIDC_ISSUER_URL` or `OIDC_AUDIENCE` is missin
 
 A claim path is resolved in this order: as a literal top-level key (so namespaced names such as `https://heka/roles` work as-is), as a JSON pointer when it starts with `/` (RFC 6901, e.g. `/realm_access/roles` or `/https:~1~1heka~1roles`), otherwise as a dotted path (`realm_access.roles`).
 
+### Contributor GitHub linking
+
+A signed-in Heka user links a GitHub account before the GPG challenge. Linking does not create a session. `yarn start` in the web UI serves the app on port 8000, while this API stays on port 3000. Create a GitHub OAuth app and set its callback URL to `http://localhost:8000/github/callback`. That page posts the code to `POST /v2/contributor-onboarding/github/link/callback`.
+
+| Variable                    | Default                                    | Description                                                      |
+| --------------------------- | ------------------------------------------ | ---------------------------------------------------------------- |
+| `GITHUB_CLIENT_ID`          | _(unset)_                                  | GitHub OAuth app client ID. Required to start linking.          |
+| `GITHUB_CLIENT_SECRET`      | _(unset)_                                  | GitHub OAuth app client secret. Required to exchange the code.  |
+| `GITHUB_CALLBACK_URL`       | _(unset)_                                  | Callback URL registered with GitHub. Must match the token exchange. |
+| `GITHUB_OAUTH_AUTHORIZE_URL`| `https://github.com/login/oauth/authorize` | Override only for tests or GitHub Enterprise.                    |
+| `GITHUB_OAUTH_TOKEN_URL`    | `https://github.com/login/oauth/access_token` | Override only for tests or GitHub Enterprise.                 |
+| `GITHUB_USER_API_URL`       | `https://api.github.com/user`              | Authenticated GitHub user endpoint.                              |
+| `GITHUB_GPG_KEY_BASE_URL`   | `https://github.com`                       | Host for `https://github.com/<username>.gpg`.                    |
+| `GITHUB_REQUEST_TIMEOUT_MS` | `8000`                                     | Timeout for outbound GitHub requests.                            |
+
 #### Required JWT claims
 
 `TokenVerifier` (`src/common/auth/token-verifier.service.ts`) verifies the token and `mapClaims` (`src/common/auth/claims.ts`) applies the contract. The claim names below are the defaults; each one is read through its `OIDC_CLAIM_*` path.

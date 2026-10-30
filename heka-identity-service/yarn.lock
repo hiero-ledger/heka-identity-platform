@@ -5990,6 +5990,7 @@ __metadata:
     minio: "npm:8.0.7"
     nestjs-pino: "npm:3.5.0"
     nodemon: "npm:^2.0.22"
+    openpgp: "npm:6.3.2"
     patch-package: "npm:^8.0.0"
     pg: "npm:8.23.0"
     pino: "npm:8.21.0"
@@ -7085,6 +7086,18 @@ __metadata:
     is-docker: "npm:^2.0.0"
     is-wsl: "npm:^2.1.1"
   checksum: 10c0/77573a6a68f7364f3a19a4c80492712720746b63680ee304555112605ead196afe91052bd3c3d165efdf4e9d04d255e87de0d0a77acec11ef47fd5261251813f
+  languageName: node
+  linkType: hard
+
+"openpgp@npm:6.3.2":
+  version: 6.3.2
+  resolution: "openpgp@npm:6.3.2"
+  peerDependencies:
+    "@openpgp/web-stream-tools": ~0.3.0
+  peerDependenciesMeta:
+    "@openpgp/web-stream-tools":
+      optional: true
+  checksum: 10c0/f4c4da52b272af5a9d2435143a909f304146a085db5d468affc61c02e954060790a93d17fc9dfce17b59ee3a00fe64340002292259f5b1dcfd94b5bae9e2a0e3
   languageName: node
   linkType: hard
 

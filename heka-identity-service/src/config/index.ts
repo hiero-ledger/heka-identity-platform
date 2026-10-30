@@ -2,6 +2,7 @@ import agent from './agent'
 import demo from './demo'
 import express from './express'
 import fileStorage from './file-storage'
+import github from './github'
 import health from './health'
 import mikroOrm from './mikro-orm'
 import oidc from './oidc'
@@ -10,4 +11,17 @@ import prepareWallet from './prepare-wallet'
 import roleModel from './role-model'
 import webhook from './webhook'
 
-export default [agent, express, health, oidc, demo, mikroOrm, pino, fileStorage, webhook, roleModel, prepareWallet]
+export default [
+  agent,
+  express,
+  health,
+  oidc,
+  demo,
+  mikroOrm,
+  pino,
+  fileStorage,
+  webhook,
+  roleModel,
+  prepareWallet,
+  github,
+]

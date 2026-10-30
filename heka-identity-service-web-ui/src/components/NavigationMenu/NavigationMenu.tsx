@@ -11,6 +11,7 @@ import {
   getUserName,
 } from '@/entities/User/model/selectors/userSelector';
 import IssueIcon from '@/shared/assets/icons/dashboard-outline.svg';
+import UserIcon from '@/shared/assets/icons/user.svg';
 import VerifyIcon from '@/shared/assets/icons/verified-outline-rounded.svg';
 import WalletIcon from '@/shared/assets/icons/wallet-outline.svg';
 import { clickableProps } from '@/shared/lib/a11y/clickable';
@@ -67,7 +68,14 @@ const desktopMenuItems: Array<DesktopMenuItem> = [
       ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
     ],
   },
+  {
+    icon: <UserIcon {...desktopIconProps} />,
+    title: 'Contributor Hub',
+    route: ROUTES.CONTRIBUTOR,
+    active: [ROUTES.CONTRIBUTOR, ROUTES.CONTRIBUTOR_ONBOARDING],
+  },
 ];
+
 export const DesktopNavigationMenu = () => {
   const { t } = useTranslation();
 
@@ -184,6 +192,12 @@ const mobileMenuItems: Array<DesktopMenuItem> = [
       ROUTES.VERIFICATION_REQUEST,
       ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
     ],
+  },
+  {
+    icon: <UserIcon {...mobileIconProps} />,
+    title: 'Contributor Hub',
+    route: ROUTES.CONTRIBUTOR,
+    active: [ROUTES.CONTRIBUTOR, ROUTES.CONTRIBUTOR_ONBOARDING],
   },
 ];
 

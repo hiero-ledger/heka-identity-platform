@@ -17,10 +17,13 @@ import { LoggerModule } from './common/logger'
 import { OCAModule } from './common/oca/oca.module'
 import { fileStorageConfigDefaults } from './config/file-storage'
 import { ConnectionModule } from './connection'
+import { ContributorCredentialModule } from './contributor-credential'
+import { ContributorOnboardingModule } from './contributor-onboarding'
 import { CoreModule } from './core'
 import { CredentialModule } from './credential'
 import { CredentialDefinitionModule } from './credential-definition'
 import { DidModule } from './did'
+import { GpgChallengeModule } from './gpg-challenge/gpg-challenge.module'
 import { HealthModule } from './health'
 import { IssuanceTemplateModule } from './issuance-template'
 import { OpenId4VcVerificationSessionModule } from './openid4vc/verification-sessions'
@@ -57,6 +60,9 @@ const _appRoot = typeof __dirname !== 'undefined' ? resolve(__dirname, '..') : p
     RevocationModule,
     PrepareWalletModule,
     CredentialV2Module,
+    ContributorOnboardingModule,
+    GpgChallengeModule,
+    ContributorCredentialModule,
     OCAModule,
     DemoModule,
     EventEmitterModule.forRoot(),

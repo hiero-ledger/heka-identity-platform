@@ -12,6 +12,7 @@ The service is configured via environment variables. The full reference (~70 var
 
 - `OIDC_ISSUER_URL`, `OIDC_AUDIENCE` (plus `OIDC_CLAIM_*` for providers that namespace custom claims) — the OpenID Connect provider whose bearer tokens the API accepts; see [Authentication (OIDC)](docs/setup.md#authentication-oidc).
 - `DEMO_TOKEN_URL`, `DEMO_CLIENT_ID`, `DEMO_CLIENT_SECRET` (optional) — enable `GET /demo/token`, the short-lived token broker behind the web UI's public demo pages; see [Demo token broker](docs/setup.md#demo-token-broker).
+- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_CALLBACK_URL` — required to link a GitHub account. The callback is the web UI route, `http://localhost:8000/github/callback` when the UI is started with `yarn start`. Linking does not create a session.
 - `HEDERA_OPERATOR_ID`, `HEDERA_OPERATOR_KEY`, `HEDERA_NETWORK` — see [Hedera Integration](docs/hedera.md).
 - `MIKRO_ORM_HOST`, `MIKRO_ORM_PORT`, `MIKRO_ORM_USER`, `MIKRO_ORM_PASSWORD`, `MIKRO_ORM_DATABASE` — application database connection.
 - `DID_METHODS` — comma-separated list of enabled DID methods (default `indy,key,hedera`).

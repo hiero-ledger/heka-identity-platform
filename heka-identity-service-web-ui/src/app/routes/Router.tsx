@@ -4,7 +4,10 @@ import ROUTES from '@/app/routes/RoutePaths';
 import AuthenticatedLayout from '@/components/Layout/AuthenticatedLayout';
 import UnauthenticatedLayout from '@/components/Layout/UnauthenticatedLayout';
 import AgeVerificationDemo from '@/pages/AgeVerificationDemo/AgeVerificationDemo';
+import ContributorHub from '@/pages/Contributor/ContributorHub';
+import ContributorOnboarding from '@/pages/Contributor/Onboarding/ContributorOnboarding';
 import Demo from '@/pages/Demo/Demo';
+import GithubCallback from '@/pages/GithubCallback/GithubCallback';
 import Home from '@/pages/Home/Home';
 import CredentialOffer from '@/pages/IssueCredential/CredentialOffer/CredentialOffer';
 import IssueCredential from '@/pages/IssueCredential/IssueCredential';
@@ -32,6 +35,10 @@ const AuthenticatedRoutes = () => (
       <Route
         path={ROUTES.PROFILE}
         element={<Profile />}
+      />
+      <Route
+        path={ROUTES.GITHUB_CALLBACK}
+        element={<GithubCallback />}
       />
       <Route
         path={ROUTES.DEMO}
@@ -65,10 +72,9 @@ const AuthenticatedRoutes = () => (
         path={ROUTES.VERIFICATION_REQUEST}
         element={<VerificationRequest />}
       />
-      <Route
-        path="*"
-        element={<Navigate to={ROUTES.MAIN} />}
-      />
+      <Route path={ROUTES.CONTRIBUTOR} element={<ContributorHub />} />
+      <Route path={ROUTES.CONTRIBUTOR_ONBOARDING} element={<ContributorOnboarding />} />
+      <Route path="*" element={<Navigate to={ROUTES.MAIN} />} />
     </Route>
   </Routes>
 );
@@ -89,10 +95,8 @@ const UnauthenticatedRoutes = () => (
         path={ROUTES.AGE_DEMO}
         element={<AgeVerificationDemo />}
       />
-      <Route
-        path="*"
-        element={<Navigate to={ROUTES.MAIN} />}
-      />
+      <Route path="*" element={<Navigate to={ROUTES.MAIN} />} />
+
     </Route>
     <Route element={<UnauthenticatedLayout />}>
       <Route
