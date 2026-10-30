@@ -16,7 +16,7 @@ Heka Wallet acts as a Verifiable Credentials Holder — it receives, stores, and
 - **Presentation protocols:** OpenID4VP, DIDComm v2 (Aries Present Proof v2).
 - **DID methods — create:** `did:key`, `did:peer`, `did:jwk`, `did:hedera`.
 - **DID methods — resolve:** `did:web`, `did:key`, `did:peer`, `did:jwk`, `did:hedera`, `did:indybesu`.
-- **Mediation:** DIDComm message pickup via a configurable mediator.
+- **Mediation:** DIDComm message pickup via a configurable (self-hosted) mediator, see [DIDComm Mediator](../mediator).
 - **Optional integrations (feature-flagged):**
   - Passkey-based wallet backup (`ENABLE_WALLET_BACKUP`).
   - External OAuth-based authentication (`ENABLE_EXTERNAL_AUTH`).
@@ -36,6 +36,7 @@ Heka Wallet acts as a Verifiable Credentials Holder — it receives, stores, and
 
 - **Android**: Android Studio with the Android SDK plus an emulator or a physical Android device.
 - **iOS**: macOS with Xcode (matching iOS SDK for the target device) and CocoaPods.
+- A reachable **DIDComm Mediator** for inbound DIDComm messages. See the [DIDComm Mediator setup](../mediator/README.md).
 - A reachable **Heka Identity Service** (or compatible backend) for issuance / verification flows. See the [Identity Service setup guide](../heka-identity-service/docs/setup.md). To expose a local instance to a wallet running on a phone, see [Local Configuration for Heka Wallet Integration](../heka-identity-service/docs/local-config-for-heka-wallet-integration.md).
 
 > First `yarn install` pulls Credo, AnonCreds, and React Native native dependencies. Expect 5–10 minutes and ~1.5 GB on disk.
@@ -60,9 +61,25 @@ The wallet is configured via environment variables loaded by [`react-native-conf
 
 ### DIDComm
 
-| Variable       | Required    | Default   | Description                                                                  |
-|----------------|-------------|-----------|------------------------------------------------------------------------------|
-| `MEDIATOR_URL` | Recommended | _(unset)_ | DIDComm mediator invitation URL. Required for inbound DIDComm in production. |
+| Variable              | Required    | Default   | Description                                                                                                                                                                                       |
+|-----------------------|-------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `MEDIATOR_URL`        | Recommended | _(unset)_ | DIDComm mediator invitation URL. Required for inbound DIDComm (or `MEDIATOR_PUBLIC_DID`). See [DIDComm Mediator](../mediator/README.md) for how to run one and get the URL.                       |
+| `MEDIATOR_PUBLIC_DID` | No          | _(unset)_ | Public DID of a DIDComm mediator (e.g. `did:web:...`), used as an implicit invitation. For third-party mediators that publish a DID instead of an invitation URL. Ignored if `MEDIATOR_URL` is set. |
+
+Set one of `MEDIATOR_URL` or `MEDIATOR_PUBLIC_DID`. If both are set, `MEDIATOR_URL` is used and a warning is logged.
+
+The mediator setup does not fail wallet initialization. While the mediator is not set up yet, the wallet waits on startup for one setup attempt: up to ~20 s (~35 s with a short invitation URL without `oob`, `c_i` or `d_m`, or with a `MEDIATOR_PUBLIC_DID` resolved over the network with cached resolution, such as `did:web` or `did:hedera`) if the mediator is reachable but slow to respond.
+If the mediator is not reachable (e.g. the device is offline), the wallet starts right away and keeps retrying the mediator setup in background.
+Until the mediator is set up, inbound DIDComm messages are not received.
+
+Connections created before the mediator is set up (e.g. while the mediator is unavailable and the wallet is still retrying) have no mediator routing, and they don't receive inbound DIDComm messages even after the mediator is connected.
+To fix it, create the connection again (scan the invitation again) once the mediator is set up.
+
+If the mediator is not reachable on the first launch, the wallet's public DID is created without mediator routing, and DIDComm messages sent to that DID are not received.
+OpenID4VC flows are not affected.
+
+With `ENABLE_PUBLIC_INVITATION`, the public invitation is created only after the mediator is set up (on startup or later, when the background setup succeeds), and it always uses mediator routing.
+If no mediator is configured (neither `MEDIATOR_URL` nor `MEDIATOR_PUBLIC_DID` is set), the public invitation is not created.
 
 ### Hedera
 
