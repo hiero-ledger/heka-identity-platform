@@ -178,6 +178,24 @@ The service binds to the ports listed under [HTTP server (Express)](#http-server
 yarn test
 ```
 
+## Local Indy-Besu network
+
+`did:indybesu` needs an Indy-Besu network. For development and for the Indy-Besu e2e tests, run one locally:
+
+```bash
+git clone https://github.com/hyperledger-indy/indy-besu.git
+cd indy-besu && git checkout 543ec57   # version verified with this service
+docker compose up -d validator1 validator2 validator3 validator4 validator5 rpcnode
+curl -s -X POST -H 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' http://localhost:8545   # → "0x539"
+```
+
+- The monitoring services of the compose file are skipped: Grafana would take port 3000, the port of this service.
+- Enable the method with `DID_METHODS=indy,key,hedera,indybesu`. `INDY_BESU_NODE_ADDRESS=http://localhost:8545`, `INDY_BESU_CHAIN_ID=1337` and `INDY_BESU_NETWORK=testnet` are the defaults. The endorser defaults are the dev key, which is a Trustee in the network's genesis.
+- Gas is free on this network and every account may send transactions, so the DIDs' own accounts send their updates and deactivations without funds.
+- Run the Indy-Besu e2e tests, which are skipped otherwise: `INDY_BESU_E2E=true yarn vitest run test/dids.e2e.test.ts`.
+- Stop the network and remove its data with `docker compose down -v`.
+
 ## CORS Configuration
 
 Cross-Origin Resource Sharing (CORS) controls which browser origins are permitted to call the Heka Identity Service API.
@@ -419,13 +437,15 @@ The demo account is created by the provider recipe: the Keycloak realm ships the
 
 **Indy Besu** — when `indybesu` is enabled:
 
-| Variable                         | Default                 | Description                         |
-| -------------------------------- | ----------------------- | ----------------------------------- |
-| `INDY_BESU_CHAIN_ID`             | `1337`                  | EVM chain ID.                       |
-| `INDY_BESU_NODE_ADDRESS`         | `http://localhost:8545` | RPC endpoint.                       |
-| `INDY_BESU_NETWORK`              | `testnet`               | Indy Besu network identifier.       |
-| `INDY_BESU_ENDORSER_PRIVATE_KEY` | _(dev key)_             | Endorser private key (32-byte hex). |
-| `INDY_BESU_ENDORSER_PUBLIC_KEY`  | _(dev key)_             | Endorser public key.                |
+| Variable                         | Default                 | Description                                                                                          |
+| -------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `INDY_BESU_CHAIN_ID`             | `1337`                  | EVM chain ID.                                                                                        |
+| `INDY_BESU_NODE_ADDRESS`         | `http://localhost:8545` | RPC endpoint.                                                                                        |
+| `INDY_BESU_NETWORK`              | `testnet`               | Indy Besu network identifier.                                                                        |
+| `INDY_BESU_ENDORSER_PRIVATE_KEY` | _(dev key)_             | Endorser private key (secp256k1, 32-byte hex).                                                       |
+| `INDY_BESU_ENDORSER_PUBLIC_KEY`  | _(dev key)_             | Compressed secp256k1 public key of the endorser (hex); must match the private key, or startup fails. |
+
+The dev endorser key is **public** (it is in this repository) and a Trustee only on a local network ([Local Indy-Besu network](#local-indy-besu-network)). Production must set its own key, which needs the Endorser, Steward or Trustee role on the network to create DIDs. Updates and deactivations of DIDs do not use it: each DID's own account sends them. The endorser key is imported into the wallet of each tenant that creates a `did:indybesu`.
 
 **Hedera** — see [Hedera Integration](hedera.md) for the full guide. Variables:
 

@@ -21,6 +21,8 @@ exports[`route coverage of the role model > the role matrix only changes on purp
 | \`GET /dids\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`POST /dids\` | ✓ | ✓ |  |  | ✓ | ✓ |  |
 | \`GET /dids/:did\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`PATCH /dids/:did\` | ✓ | ✓ |  |  | ✓ |  |  |
+| \`POST /dids/:did/deactivate\` | ✓ | ✓ |  |  | ✓ |  |  |
 | \`GET /dids/methods\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`GET /health\` | public | public | public | public | public | public | public |
 | \`GET /issuance-templates\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |

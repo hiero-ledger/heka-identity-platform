@@ -73,7 +73,7 @@ describe('PrepareWalletService', () => {
 
   describe('one call at a time per wallet (8.1, 8.2, 8.3)', () => {
     test('runs the whole preparation under the lock of the wallet, with the configured timeout', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'], capabilities: {} })
       vi.mocked(didService.create).mockImplementation(() => {
         expect(walletLockService.runExclusive).toHaveBeenCalledTimes(1)
         return Promise.resolve({ id: 'did:key:z1' } as any)
@@ -86,7 +86,7 @@ describe('PrepareWalletService', () => {
 
     test('re-reads the wallet after taking the lock, so it sees what the previous holder prepared', async () => {
       wallet.publicDid = 'did:key:existing'
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'], capabilities: {} })
 
       await prepare()
 
@@ -95,7 +95,7 @@ describe('PrepareWalletService', () => {
 
     test('a caller after a completed preparation creates nothing and gets every DID as existing', async () => {
       wallet.publicDid = 'did:key:z1'
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'], capabilities: {} })
       vi.mocked(didService.findOwnDid).mockResolvedValue('did:hedera:zH')
       vi.mocked(issuerService.find).mockResolvedValue([{}] as any)
       vi.mocked(verifierService.find).mockResolvedValue([{}] as any)
@@ -116,7 +116,7 @@ describe('PrepareWalletService', () => {
     })
 
     test('uses a main DID that another instance created through POST /dids in the meantime', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'], capabilities: {} })
       vi.mocked(didService.create).mockImplementation((_authInfo, { method }) => {
         if (method === 'key') {
           wallet.publicDid = 'did:key:concurrent'
@@ -134,7 +134,7 @@ describe('PrepareWalletService', () => {
     })
 
     test('returns 409 as is when the wallet still has no main DID', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'], capabilities: {} })
       const error = new ConflictException('conflict')
       vi.mocked(didService.create).mockRejectedValue(error)
 
@@ -144,7 +144,7 @@ describe('PrepareWalletService', () => {
 
   describe('missing parts are reported and created by a repeated call (8.4)', () => {
     test('reports a failed method, and a repeated call creates it', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'], capabilities: {} })
       vi.mocked(didService.create)
         .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
         .mockRejectedValueOnce(new UnprocessableEntityException('A hedera DID created by Administration is required'))
@@ -170,7 +170,7 @@ describe('PrepareWalletService', () => {
     })
 
     test('a method the role may not use is reported as skipped', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'], capabilities: {} })
       vi.mocked(didService.create)
         .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
         .mockRejectedValueOnce(new ForbiddenException("Role 'Verifier' can only create did:key DIDs, not 'hedera'"))
@@ -182,7 +182,7 @@ describe('PrepareWalletService', () => {
 
     test('creates missing OID4VC records of an existing DID', async () => {
       wallet.publicDid = 'did:key:z1'
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'], capabilities: {} })
       vi.mocked(issuerService.find).mockResolvedValue([{}] as any)
 
       const result = await prepare()
@@ -193,7 +193,7 @@ describe('PrepareWalletService', () => {
     })
 
     test('reports a DID whose OID4VC records could not be created as failed', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'], capabilities: {} })
       vi.mocked(didService.create).mockResolvedValue({ id: 'did:key:z1' } as any)
       vi.mocked(issuerService.createIssuer).mockRejectedValue(new Error('storage failure'))
 
@@ -210,7 +210,7 @@ describe('PrepareWalletService', () => {
 
     test('a failed DID lookup fails only that method', async () => {
       wallet.publicDid = 'did:key:z1'
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'], capabilities: {} })
       vi.mocked(didService.findOwnDid).mockRejectedValue(new Error('wallet lookup failure'))
 
       const result = await prepare()
@@ -224,7 +224,7 @@ describe('PrepareWalletService', () => {
 
   describe('first preparation', () => {
     test('creates DIDs for all methods, initializes OID4VC, and patches user', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'], capabilities: {} })
       vi.mocked(didService.create)
         .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
         .mockResolvedValueOnce({ id: 'did:indy:z2' } as any)
@@ -246,7 +246,7 @@ describe('PrepareWalletService', () => {
     })
 
     test('returns the main DID error as is when the main method fails', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'], capabilities: {} })
       const error = new Error('KMS failure')
       vi.mocked(didService.create).mockRejectedValue(error)
 
@@ -255,7 +255,7 @@ describe('PrepareWalletService', () => {
     })
 
     test('creates the main-method DID first regardless of the configured order', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['indy', 'key', 'hedera'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['indy', 'key', 'hedera'], capabilities: {} })
       vi.mocked(didService.create)
         .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
         .mockResolvedValueOnce({ id: 'did:indy:z2' } as any)
@@ -270,7 +270,7 @@ describe('PrepareWalletService', () => {
     })
 
     test('a main-method failure leaves no non-main DID or OID4VC record behind', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['indy', 'key'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['indy', 'key'], capabilities: {} })
       const error = new Error('KMS failure')
       vi.mocked(didService.create).mockRejectedValue(error)
 
@@ -284,7 +284,7 @@ describe('PrepareWalletService', () => {
     })
 
     test('continues when a non-main DID method fails', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'indy'], capabilities: {} })
       vi.mocked(didService.create)
         .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
         .mockRejectedValueOnce(new Error('Indy failure'))
@@ -309,7 +309,7 @@ describe('PrepareWalletService', () => {
     })
 
     test('creates and registers schemas when provided', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'], capabilities: {} })
       vi.mocked(didService.create).mockResolvedValue({ id: 'did:key:z1' } as any)
 
       const result = await prepare(schemaRequest([{ protocol: 'Oid4vc', credentialFormat: 'SdJwtVc' }]))
@@ -331,7 +331,7 @@ describe('PrepareWalletService', () => {
     })
 
     test('registers schema against the DID matching the registration network', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'], capabilities: {} })
       vi.mocked(didService.create)
         .mockResolvedValueOnce({ id: 'did:key:z1' } as any)
         .mockResolvedValueOnce({ id: 'did:hedera:zH' } as any)
@@ -347,7 +347,7 @@ describe('PrepareWalletService', () => {
     })
 
     test('skips registration when no DID exists for the requested network', async () => {
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key'], capabilities: {} })
       vi.mocked(didService.create).mockResolvedValue({ id: 'did:key:z1' } as any)
 
       await prepare(schemaRequest([{ protocol: 'Oid4vc', credentialFormat: 'SdJwtVc', network: 'hedera' }]))
@@ -357,7 +357,7 @@ describe('PrepareWalletService', () => {
 
     test('an existing schema is not created again, but gets the registrations the previous call missed', async () => {
       wallet.publicDid = 'did:key:z1'
-      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'] })
+      vi.mocked(didService.getMethods).mockReturnValue({ methods: ['key', 'hedera'], capabilities: {} })
       vi.mocked(didService.findOwnDid).mockResolvedValue('did:hedera:zH')
       vi.mocked(em.findOne).mockResolvedValue({ id: 'schema-existing' } as Schema)
       vi.mocked(schemaV2Service.registration)

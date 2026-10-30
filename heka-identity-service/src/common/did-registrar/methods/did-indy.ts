@@ -15,6 +15,11 @@ export class DidIndyRegistrar extends DidRegistrar {
   // on Indy, authority over writes comes from the endorser instead. Tracked as a follow-up.
   public readonly supportsController = false
 
+  // TODO(did:indy update/deactivate): NYM verkey rotation / verkey=null deactivation and ATTRIB endpoints need custom
+  // indy-vdr requests signed by the DID and the endorser. Follow-up task.
+  public readonly supportsUpdate = false
+  public readonly supportsDeactivate = false
+
   private readonly endorserSeed!: string
   private readonly endorserDid!: string
 

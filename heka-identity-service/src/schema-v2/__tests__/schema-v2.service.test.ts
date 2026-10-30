@@ -1,6 +1,6 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
-import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { BadRequestException, NotFoundException, UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
 import { AnoncredsRegistryService } from 'common/anoncreds-registry'
@@ -20,6 +20,7 @@ import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
 import { RevocationRegistryService } from 'revocation/revocation-registry/revocation-registry.service'
 import { StatusListService } from 'revocation/status-list/status-list.service'
 
+import { didRecordStub, didResolutionResultStub } from '../../../test/helpers/mock-records'
 import { SchemaV2Service } from '../schema-v2.service'
 
 describe('SchemaV2Service', () => {
@@ -70,6 +71,10 @@ describe('SchemaV2Service', () => {
     tenantAgent = createMock<TenantAgent>({
       openid4vc: {
         issuer: { getIssuerByIssuerId: vi.fn(), updateIssuerMetadata: vi.fn() },
+      },
+      dids: {
+        getCreatedDids: vi.fn().mockResolvedValue([]),
+        resolve: vi.fn().mockResolvedValue(didResolutionResultStub()),
       },
     })
   })
@@ -237,6 +242,56 @@ describe('SchemaV2Service', () => {
       ).rejects.toThrow(BadRequestException)
     })
 
+    test('rejects a DID the wallet deactivated with 422, before anything is registered', async () => {
+      vi.mocked(em.findOne).mockImplementation((entity: any) =>
+        Promise.resolve(
+          entity === Schema
+            ? ({ id: 'schema-1', name: 'Test', owner: mockWallet, fields: { toArray: () => [] } } as any)
+            : null,
+        ),
+      )
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([
+        didRecordStub({ did: 'did:hedera:testnet:z1_0.0.1', getTag: (name: string) => name === 'hekaDeactivated' }),
+      ])
+
+      const registration = schemaV2Service.registration(authInfo, tenantAgent, 'schema-1', {
+        protocol: ProtocolType.Aries,
+        credentialFormat: 'AnonCreds',
+        did: 'did:hedera:testnet:z1_0.0.1',
+      } as any)
+
+      await expect(registration).rejects.toThrow(UnprocessableEntityException)
+      await expect(registration).rejects.toThrow('DID is deactivated: did:hedera:testnet:z1_0.0.1')
+      expect(tenantAgent.dids.getCreatedDids).toHaveBeenCalledWith({ did: 'did:hedera:testnet:z1_0.0.1' })
+      expect(anoncredsRegistryService.registerSchema).not.toHaveBeenCalled()
+    })
+
+    test('rejects a DID deactivated on its ledger with 422, before anything is registered', async () => {
+      vi.mocked(em.findOne).mockImplementation((entity: any) =>
+        Promise.resolve(
+          entity === Schema
+            ? ({ id: 'schema-1', name: 'Test', owner: mockWallet, fields: { toArray: () => [] } } as any)
+            : null,
+        ),
+      )
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({ didDocumentMetadata: { deactivated: true } }),
+      )
+
+      const registration = schemaV2Service.registration(authInfo, tenantAgent, 'schema-1', {
+        protocol: ProtocolType.Oid4vc,
+        credentialFormat: OpenId4VCCredentialRegistrationFormat.SdJwtVc,
+        did: 'did:indybesu:testnet:0x1',
+      } as any)
+
+      await expect(registration).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:indybesu:testnet:0x1', {
+        useCache: false,
+        useLocalCreatedDidRecord: false,
+      })
+      expect(openId4VcIssuerService.updateIssuerMetadata).not.toHaveBeenCalled()
+    })
+
     test('throws BadRequestException for unsupported protocol', async () => {
       const mockSchema = {
         id: 'schema-1',
@@ -294,6 +349,14 @@ describe('SchemaV2Service', () => {
       expect(anoncredsRegistryService.registerSchema).toHaveBeenCalledWith(
         tenantAgent,
         expect.objectContaining({ attrNames: ['zeroth', 'first', 'second'] }),
+        { issuerDidChecked: true },
+      )
+      // The issuer DID is resolved once for the request, not again by each AnonCreds write
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledOnce()
+      expect(anoncredsRegistryService.registerCredentialDefinition).toHaveBeenCalledWith(
+        tenantAgent,
+        { issuerId: 'did:key:z1', schemaId: 'schema-id', tag: 'default' },
+        { issuerDidChecked: true },
       )
     })
   })

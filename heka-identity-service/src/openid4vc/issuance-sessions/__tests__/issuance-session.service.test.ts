@@ -8,6 +8,7 @@ import { AuthInfo, Role } from 'common/auth'
 import AgentConfig from 'config/agent'
 
 import {
+  didRecordStub,
   didResolutionResultStub,
   issuanceSessionRecordStub,
   issuerRecordStub,
@@ -66,6 +67,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       context: {},
       dids: {
         resolve: vi.fn(),
+        getCreatedDids: vi.fn().mockResolvedValue([]),
       },
     })
 
@@ -230,6 +232,41 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       await expect(service.offer(authInfo, tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
+    })
+
+    test.each([
+      ['deactivated on its ledger (did:indybesu keeps its keys)', { deactivated: true }, undefined],
+      ['deactivated by the wallet', {}, () => true],
+    ])('rejects an issuer DID %s with 422 before signing', async (_, didDocumentMetadata, getTag) => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+        issuerRecordStub({
+          issuerId: 'issuer-1',
+          credentialConfigurationsSupported: { 'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' } },
+        }),
+      )
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      const did = 'did:indybesu:testnet:0x2c7536E3605D9C16a7a3D7b1898e529396a65c23'
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: { id: did, verificationMethod: [{ id: `${did}#KEY-1` }] },
+          didDocumentMetadata,
+        }),
+      )
+      if (getTag) {
+        vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did, getTag })])
+      }
+
+      const offer = service.offer(authInfo, tenantAgent, {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          { credentialSupportedId: 'cred-1', format: OpenId4VciCredentialFormatProfile.SdJwtVc, issuer: { did } },
+        ],
+        baseUri: 'https://example.com',
+      } as any)
+
+      await expect(offer).rejects.toThrow(UnprocessableEntityException)
+      await expect(offer).rejects.toThrow(`DID is deactivated: ${did}`)
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).not.toHaveBeenCalled()
     })
 
     test('should create issuance session for SdJwtVc format without credentialStatus', async () => {
