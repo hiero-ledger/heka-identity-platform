@@ -195,7 +195,6 @@ export const useWalletSettings = (): SettingSection[] => {
           value: undefined,
           accessibilityLabel: t('Settings.Notifications'),
           onPress: () =>
-            // Bifold's SettingStack registers the toggle screen, not the onboarding PushNotifications screen
             navigation.getParent()?.navigate(BifoldStacks.SettingStack, {
               screen: BifoldScreens.TogglePushNotifications,
             }),

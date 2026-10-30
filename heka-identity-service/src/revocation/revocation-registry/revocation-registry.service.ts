@@ -149,6 +149,7 @@ export class RevocationRegistryService {
    * record with empty metadata, but `getRevocationStatusList` serves the issuer from that record and requires
    * `issuanceType`. Without it every issue from the registry fails with "Could not retrieve revocation status
    * list". The registrar always writes ISSUANCE_BY_DEFAULT to the ledger, so the record gets the same value.
+   * TODO: Remove this after upgrade to Credo 0.7.4
    */
   private async ensureIndyIssuanceTypeMetadata(tenantAgent: TenantAgent, revocationRegistryDefinitionId: string) {
     if (

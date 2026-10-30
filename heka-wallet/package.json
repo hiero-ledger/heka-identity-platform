@@ -80,6 +80,7 @@
     "tslib": "2.6.2",
     "tsyringe": "4.10.0",
     "reflect-metadata": "0.2.2",
+    "@grpc/grpc-js": "1.14.7",
     "@credo-ts/anoncreds": "0.7.0",
     "@credo-ts/askar": "0.7.0",
     "@credo-ts/core": "0.7.0",
