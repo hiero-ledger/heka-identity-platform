@@ -4,7 +4,6 @@ import {
   AnonCredsDidCommCredentialFormatService,
   AnonCredsModule,
   AnonCredsDidCommProofFormatService,
-  DataIntegrityDidCommCredentialFormatService,
   LegacyIndyDidCommCredentialFormatService,
   LegacyIndyDidCommProofFormatService,
 } from '@credo-ts/anoncreds'
@@ -27,6 +26,7 @@ import {
   DidCommAutoAcceptCredential,
   DidCommAutoAcceptProof,
   DidCommCredentialV2Protocol,
+  DidCommDataIntegrityCredentialFormatService,
   DidCommDifPresentationExchangeProofFormatService,
   DidCommModule,
   DidCommProofV2Protocol,
@@ -59,7 +59,7 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
   const proofFormatService = new AnonCredsDidCommProofFormatService()
   const legacyIndyCredentialFormatService = new LegacyIndyDidCommCredentialFormatService()
   const legacyIndyProofFormatService = new LegacyIndyDidCommProofFormatService()
-  const dataIntegrityCredentialFormatService = new DataIntegrityDidCommCredentialFormatService()
+  const dataIntegrityCredentialFormatService = new DidCommDataIntegrityCredentialFormatService()
   const presentationExchangeProofFormatService = new DidCommDifPresentationExchangeProofFormatService()
 
   const didResolvers: DidResolver[] = [
