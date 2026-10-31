@@ -1,8 +1,8 @@
 diff --git a/build/modules/basic-messages/handlers/BasicMessageHandler.mjs b/build/modules/basic-messages/handlers/BasicMessageHandler.mjs
-index 6ae4e6ec02fb50e90e972af5e6c7fd31ff8bd656..2400e4e54917f04d4149a1a45235495fbeb04bfe 100644
+index 5bb14a5c712841d628865a34fb2a0eece91a3ab5..7ca9a5cf4bf0ea2bda871d3bd092986e6cf89844 100644
 --- a/build/modules/basic-messages/handlers/BasicMessageHandler.mjs
 +++ b/build/modules/basic-messages/handlers/BasicMessageHandler.mjs
-@@ -8,7 +8,14 @@ var DidCommBasicMessageHandler = class {
+@@ -7,7 +7,14 @@ var DidCommBasicMessageHandler = class {
  		this.basicMessageService = basicMessageService;
  	}
  	async handle(messageContext) {
@@ -19,10 +19,10 @@ index 6ae4e6ec02fb50e90e972af5e6c7fd31ff8bd656..2400e4e54917f04d4149a1a45235495f
  	}
  };
 diff --git a/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs b/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs
-index 41a63cc5a458a993b80e3735b6c4e5c3ac50febd..55618afb5d55205151808d30e81742a6159d3f06 100644
+index 9399af48bc369018ffe62a7cd91ab5733a0ee1ce..abd8164017c59897442bb4436a456b2abae7443f 100644
 --- a/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs
 +++ b/build/modules/oob/messages/DidCommOutOfBandInvitation.mjs
-@@ -114,7 +114,7 @@ __decorate([
+@@ -112,7 +112,7 @@ __decorate([
  ], DidCommOutOfBandInvitation.prototype, "services", void 0);
  __decorate([
  	IsOptional(),
