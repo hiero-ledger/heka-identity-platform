@@ -79,6 +79,19 @@ http {
         location /.well-known/ {
             proxy_pass http://localhost:{YOUR_IDENTITY_SERVICE_AGENT_OPENID_PORT};
         }
+        
+        # DIDComm mediator (HTTP and WebSocket share the same port)
+        location /mediator {
+            rewrite ^/mediator/?(.*)$ /$1 break;
+            proxy_pass http://localhost:{YOUR_MEDIATOR_PORT};
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "Upgrade";
+            proxy_set_header Host $host;
+            # nginx closes idle proxied connections after 60s by default,
+            # while the wallet keeps the message pickup WebSocket open
+            proxy_read_timeout 3600s;
+        }
     }
 
     include servers/*;
@@ -93,16 +106,18 @@ Run ngrok using the following command (`9000` is the server port used by nginx):
 ngrok http 9000
 ```
 
+In the examples below, replace `{YOUR_NGROK_DOMAIN}` with the domain printed by `ngrok http 9000`.
+
 Modify the agent endpoints in the Heka Identity Service config via environment variables (`.env`), for example:
 
 ```shell
-AGENT_HTTP_ENDPOINT=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/agent-http
-AGENT_WS_ENDPOINT=wss://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/agent-ws
-AGENT_OID4VCI_ENDPOINT=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/openId
+AGENT_HTTP_ENDPOINT=https://{YOUR_NGROK_DOMAIN}/agent-http
+AGENT_WS_ENDPOINT=wss://{YOUR_NGROK_DOMAIN}/agent-ws
+AGENT_OID4VCI_ENDPOINT=https://{YOUR_NGROK_DOMAIN}/openId
 # logos referenced from OID4VCI issuer metadata must be reachable over https too
-FILE_STORAGE_FS_PUBLIC_URL=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/openId
+FILE_STORAGE_FS_PUBLIC_URL=https://{YOUR_NGROK_DOMAIN}/openId
 # tails files and status lists (REST API port)
-APP_ENDPOINT=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io
+APP_ENDPOINT=https://{YOUR_NGROK_DOMAIN}
 ```
 
 When the Identity Service runs from the root `docker-compose.yml`, set the same values in the root `.env` with the `IDENTITY_SERVICE_` prefix (e.g. `IDENTITY_SERVICE_APP_ENDPOINT`, `IDENTITY_SERVICE_AGENT_HTTP_ENDPOINT`).
@@ -117,3 +132,14 @@ Keep in mind that these URLs are persisted at creation time:
 - Logo URLs (`FILE_STORAGE_FS_PUBLIC_URL`) are stored in the issuer metadata when a user profile or a schema is saved — re-save the profile and the schemas after changing it.
 - The tails file URL (`APP_ENDPOINT`) is written to the ledger when an AnonCreds schema is registered (revocation registry) — register a new schema after changing it. With the default `http://localhost:3000`, wallets fail to share proofs for such credentials ("Could not connect to the server").
 - Status-list URLs (`APP_ENDPOINT`) are written into `credentialStatus` when revocable OID4VC credentials are issued — issue replacement credentials (`POST /openid4vc/issuance-session/offer`) after changing it. Registering a new schema creates a new status list but does not update credentials already issued.
+
+### DIDComm Mediator
+
+To receive inbound DIDComm messages (credential offers, proof requests, etc.), the Heka Wallet needs a [DIDComm mediator](../../mediator) reachable from the device.
+With the nginx config above, the mediator is exposed under the same ngrok domain. Set its endpoints in `mediator/.env`, for example:
+
+```shell
+AGENT_ENDPOINTS=https://{YOUR_NGROK_DOMAIN}/mediator,wss://{YOUR_NGROK_DOMAIN}/mediator
+```
+
+Then start the mediator and set its invitation URL as `MEDIATOR_URL` in the wallet config, see [mediator setup](../../mediator/README.md#setup).
