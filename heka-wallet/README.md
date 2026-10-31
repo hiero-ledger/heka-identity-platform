@@ -124,6 +124,8 @@ yarn lint
 yarn test
 ```
 
+- Device e2e tests (Maestro, Android): see [Device E2E Tests (Maestro)](docs/e2e-maestro.md)
+
 ## Run the App
 
 Note that it's strongly recommended to use a physical device instead of emulator.

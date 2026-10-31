@@ -39,6 +39,7 @@ import {
   routingToServices,
   // @ts-expect-error - TODO: Resolve type import issues or move helpers implementation to project codebase
 } from '@credo-ts/didcomm/build/modules/connections/services/helpers.mjs'
+import { DidCommPushNotificationsFcmModule } from '@credo-ts/didcomm-push-notifications'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
 import { IndyVdrAnonCredsRegistry, IndyVdrPoolConfig } from '@credo-ts/indy-vdr'
 import { agentDependencies } from '@credo-ts/react-native'
@@ -173,6 +174,7 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
       x509: new X509Module({
         trustedCertificates: [...TRUSTED_X509_CERTIFICATES],
       }),
+      pushNotificationsFcm: new DidCommPushNotificationsFcmModule(),
     },
   })
 }
