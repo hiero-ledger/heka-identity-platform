@@ -1,0 +1,15 @@
+# Types a 6-digit PIN on the Heka PinKeyPad. Input: env PIN.
+appId: com.heka.wallet
+---
+- tapOn:
+    id: 'com.ariesbifold:id/PinKey${PIN.charAt(0)}'
+- tapOn:
+    id: 'com.ariesbifold:id/PinKey${PIN.charAt(1)}'
+- tapOn:
+    id: 'com.ariesbifold:id/PinKey${PIN.charAt(2)}'
+- tapOn:
+    id: 'com.ariesbifold:id/PinKey${PIN.charAt(3)}'
+- tapOn:
+    id: 'com.ariesbifold:id/PinKey${PIN.charAt(4)}'
+- tapOn:
+    id: 'com.ariesbifold:id/PinKey${PIN.charAt(5)}'

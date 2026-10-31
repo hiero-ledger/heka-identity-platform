@@ -1,0 +1,50 @@
+# Fresh install -> [Keycloak login] -> tutorial -> terms -> create PIN -> skip biometrics -> Home.
+# Input: env PIN; KC_USERNAME, KC_PASSWORD, KC_EMAIL for builds with ENABLE_EXTERNAL_AUTH=true.
+appId: com.heka.wallet
+---
+- evalScript: ${output.loggedIn = false}
+- launchApp:
+    clearState: true
+    clearKeychain: true
+# A debug build on a CI emulator needs over 30 s to start its JS.
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/(Login|OnboardingNext)'
+    timeout: 120000
+- runFlow:
+    when:
+      visible:
+        id: 'com.ariesbifold:id/Login'
+    file: login.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/OnboardingNext'
+    timeout: 30000
+- repeat:
+    while:
+      visible:
+        id: 'com.ariesbifold:id/OnboardingNext'
+    times: 6
+    commands:
+      - tapOn:
+          id: 'com.ariesbifold:id/OnboardingNext'
+# Accept is below the terms text.
+- scrollUntilVisible:
+    element:
+      id: 'com.ariesbifold:id/Accept'
+- tapOn:
+    id: 'com.ariesbifold:id/Accept'
+# Create PIN, then repeat it.
+- runFlow: enter-pin.yaml
+- runFlow: enter-pin.yaml
+- tapOn:
+    id: 'com.ariesbifold:id/SkipBiometrics'
+# Splash initialises the agent before Home appears; on a CI emulator that takes about 40 s.
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/TabCredentials'
+    timeout: 120000
+- runFlow:
+    when:
+      true: ${output.loggedIn}
+    file: assert-account.yaml

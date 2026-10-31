@@ -89,6 +89,8 @@ const config = mergeConfig(defaultConfig, {
         drop_console: process.env.NODE_ENV === 'production',
         drop_debugger: true,
         pure_funcs: ['console.log'],
+        // terser bug: full inlining breaks ethers AbstractProvider (#perform) under keep_fnames
+        inline: 1,
       },
     },
   },

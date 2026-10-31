@@ -1,0 +1,33 @@
+# Logs in through Keycloak in a Chrome Custom Tab. Input: env KC_USERNAME, KC_PASSWORD.
+# Chrome keeps the Keycloak session across clearState, so the form may not appear and the session may be another
+# user's: onboard.yaml checks the account on Home when output.loggedIn is set.
+appId: com.heka.wallet
+---
+- evalScript: ${output.loggedIn = true}
+- tapOn:
+    id: 'com.ariesbifold:id/Login'
+- extendedWaitUntil:
+    visible:
+      id: 'username'
+    timeout: 15000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: 'username'
+    commands:
+      - tapOn:
+          id: 'username'
+      - runFlow: dismiss-chrome-password-sheet.yaml
+      - eraseText
+      - inputText: ${KC_USERNAME}
+      # The keyboard can cover the password field.
+      - hideKeyboard
+      - tapOn:
+          id: 'password'
+      - runFlow: dismiss-chrome-password-sheet.yaml
+      - eraseText
+      - inputText: ${KC_PASSWORD}
+      - hideKeyboard
+      - tapOn:
+          id: 'kc-login'

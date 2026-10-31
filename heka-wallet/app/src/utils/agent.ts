@@ -101,7 +101,6 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
       ...getAgentModules({
         walletSecret,
         indyNetworks: indyLedgers,
-        mediatorInvitationUrl: Config.MEDIATOR_URL,
       }),
       didcomm: new DidCommModule({
         useDidSovPrefixWhereAllowed: true,
@@ -134,8 +133,9 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
             }),
           ],
         },
+        // No mediatorInvitationUrl: Credo would connect inside initialize() and fail it when the
+        // mediator is down. Splash sets the mediator up afterwards (utils/mediator.ts).
         mediationRecipient: {
-          mediatorInvitationUrl: Config.MEDIATOR_URL,
           mediatorPickupStrategy: DidCommMediatorPickupStrategy.PickUpV2,
         },
       }),
@@ -177,33 +177,40 @@ export async function createAgent({ walletSecret, indyLedgers, indyBesuConfig }:
   })
 }
 
-export async function createPublicDidOrGetExisting(agent: Agent): Promise<string> {
-  let publicDid = await AsyncStorage.getItem(PUBLIC_DID_KEY)
+export async function findExistingPublicDid(agent: Agent): Promise<string | undefined> {
+  const publicDid = await AsyncStorage.getItem(PUBLIC_DID_KEY)
+  if (!publicDid) return undefined
 
-  if (publicDid) {
-    const didRecordSearchResult = await agent.dids.getCreatedDids({
-      method: 'peer',
-      did: publicDid,
-    })
+  const didRecordSearchResult = await agent.dids.getCreatedDids({
+    method: 'peer',
+    did: publicDid,
+  })
 
-    // Should not be possible from UI/UX perspective or other reasons, just sanity check
-    if (didRecordSearchResult.length === 0) {
-      throw new Error('Public DID is already created, but corresponding DID record is not found')
-    }
-  } else {
-    const routing = await agent.didcomm.mediationRecipient.getRouting({})
-
-    const { didDocument: didPeerDocument } = await createPeerDidFromServices(
-      agent.context,
-      routingToServices(routing),
-      PeerDidNumAlgo.MultipleInceptionKeyWithoutDoc
-    )
-
-    publicDid = didPeerDocument.id
-    await AsyncStorage.setItem(PUBLIC_DID_KEY, publicDid!)
+  // Should not be possible from UI/UX perspective or other reasons, just sanity check
+  if (didRecordSearchResult.length === 0) {
+    throw new Error('Public DID is already created, but corresponding DID record is not found')
   }
 
-  return publicDid!
+  return publicDid
+}
+
+// The DID keeps the routing it is created with, so create it only once the mediator is set up.
+export async function createPublicDidOrGetExisting(agent: Agent): Promise<string> {
+  const existingPublicDid = await findExistingPublicDid(agent)
+  if (existingPublicDid) return existingPublicDid
+
+  const routing = await agent.didcomm.mediationRecipient.getRouting({})
+
+  const { didDocument: didPeerDocument } = await createPeerDidFromServices(
+    agent.context,
+    routingToServices(routing),
+    PeerDidNumAlgo.MultipleInceptionKeyWithoutDoc
+  )
+
+  const publicDid: string = didPeerDocument.id
+  await AsyncStorage.setItem(PUBLIC_DID_KEY, publicDid)
+
+  return publicDid
 }
 
 export async function tryRestartExistingAgent(agent: Agent, credentials: WalletSecret): Promise<boolean> {
@@ -329,29 +336,6 @@ export async function ensureExampleCredentialCreated(agent: Agent): Promise<void
   setOpenId4VcCredentialMetadata(record, EXAMPLE_CREDENTIAL_METADATA)
 
   await agent.sdJwtVc.store({ record })
-}
-
-export async function setupMediatorWithPublicDidIfNeeded(agent: Agent, mediatorPublicDid: string): Promise<void> {
-  const existingMediationRecord = await agent.didcomm.mediationRecipient.findDefaultMediator()
-  if (existingMediationRecord) return
-
-  let { connectionRecord: mediatorConnectionRecord } = await agent.didcomm.oob.receiveImplicitInvitation({
-    label: 'Cloud Mediator',
-    did: mediatorPublicDid,
-    alias: 'Cloud Mediator',
-    autoAcceptConnection: true,
-  })
-
-  if (!mediatorConnectionRecord) {
-    throw new Error(`Failed to connect with mediator via public DID: ${mediatorPublicDid}`)
-  }
-
-  mediatorConnectionRecord = await agent.didcomm.connections.returnWhenIsConnected(mediatorConnectionRecord.id, {
-    timeoutMs: 5000,
-  })
-
-  const mediationRecord = await agent.didcomm.mediationRecipient.provision(mediatorConnectionRecord)
-  await agent.didcomm.mediationRecipient.initiateMessagePickup(mediationRecord)
 }
 
 export async function createAnoncredsLinkSecretIfRequired(agent: HekaWalletAgent): Promise<void> {
