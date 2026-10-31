@@ -38,6 +38,7 @@ import AgentConfig from 'src/config/agent'
 import FileStorageConfig from 'src/config/file-storage'
 import MikroOrmConfig from 'src/config/mikro-orm'
 import OidcConfig from 'src/config/oidc'
+import PinoConfig from 'src/config/pino'
 import RoleModelConfig from 'src/config/role-model'
 import { createCredentialRequestToCredentialMapper } from 'src/utils/oid4vc'
 import TestAgentConfig from 'test/config/agent'
@@ -58,7 +59,6 @@ export interface TestAppOptions {
 
 export async function startTestApp(options: TestAppOptions = {}): Promise<INestApplication> {
   const storeId = options.storeId ?? `tenant-${uuid()}`
-  process.env.PINO_LEVEL = 'error'
 
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
@@ -80,6 +80,11 @@ export async function startTestApp(options: TestAppOptions = {}): Promise<INestA
     .overrideProvider(OidcConfig.KEY)
     .useFactory({
       factory: TestOidcConfig,
+    })
+    // Log errors only, without changing process.env.PINO_LEVEL for the test files that run later in the same process
+    .overrideProvider(PinoConfig.KEY)
+    .useFactory({
+      factory: () => ({ ...PinoConfig(), level: 'error' }),
     })
     .overrideProvider(AGENT_MODULES_TOKEN)
     .useFactory({

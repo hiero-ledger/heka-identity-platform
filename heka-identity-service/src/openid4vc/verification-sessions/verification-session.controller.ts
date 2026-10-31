@@ -97,7 +97,11 @@ export class OpenId4VcVerificationSessionController {
     @ReqTenantAgent() tenantAgent: TenantAgent,
     @Query() query: GetVerificationSessionByQueryDto,
   ): Promise<OpenId4VcVerificationSessionRecordDto[]> {
-    const logger = this.logger.child('getVerificationSessionsByQuery', { query })
+    // Bind only non-secret filters: the nonce, authorization request URI and payload state must not reach the log
+    const logger = this.logger.child('getVerificationSessionsByQuery', {
+      publicVerifierId: query.publicVerifierId,
+      state: query.state,
+    })
     logger.trace('>')
 
     const res = await this.verificationService.getVerificationSessionsByQuery(tenantAgent, query)

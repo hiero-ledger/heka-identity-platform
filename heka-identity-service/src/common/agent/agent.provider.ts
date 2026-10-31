@@ -7,6 +7,7 @@ import { ConfigType } from '@nestjs/config'
 import { Logger, LoggerProvider } from 'common/logger'
 import AgentConfig from 'config/agent'
 
+import { summarizeAgentConfig } from './agent-config-summary'
 import { AgencyModulesMap, AGENT_MODULES_TOKEN, TenantModulesMap } from './agent-modules.provider'
 import { CredoLogger } from './credo-logger'
 
@@ -34,7 +35,8 @@ export class Agent extends CredoAgent<AgencyModulesMap> implements OnApplication
     const logger = this.agencyLogger.child('initialize')
     logger.trace('>')
 
-    logger.info(`Agent config:\n${JSON.stringify(this.agencyConfig, undefined, 2)}`)
+    // Log an allow-listed summary only: the config holds seeds, private keys and the wallet key and DB password
+    logger.info({ agentConfig: summarizeAgentConfig(this.agencyConfig) }, 'Agent config')
 
     this.modules.didcomm.registerOutboundTransport(new DidCommHttpOutboundTransport())
     if (this.agencyConfig.httpPort) {
