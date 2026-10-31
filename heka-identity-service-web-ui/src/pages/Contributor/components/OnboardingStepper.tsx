@@ -6,7 +6,7 @@ export interface OnboardingStep {
 }
 
 export const ONBOARDING_STEPS: OnboardingStep[] = [
-  { id: 'github-login', label: 'GitHub Login' },
+  { id: 'github-login', label: 'Link GitHub' },
   { id: 'gpg-challenge', label: 'GPG Challenge' },
   { id: 'sign', label: 'Sign & Submit' },
   { id: 'credential', label: 'Credential' },

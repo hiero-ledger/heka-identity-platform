@@ -59,4 +59,24 @@ describe('DCQL presentation', () => {
       origin: resolved.origin,
     })
   })
+
+  it('submits the same selection on a later presentation', async () => {
+    const selectedCredentials = { github: [] }
+    const resolved = {
+      authorizationRequestPayload: { client_id: 'verifier' },
+      origin: 'https://verifier.example',
+    }
+    acceptOpenId4VpAuthorizationRequest.mockResolvedValue({ ok: true })
+
+    await submitPresentation(
+      resolved as unknown as Parameters<typeof submitPresentation>[0],
+      selectedCredentials as unknown as Parameters<typeof submitPresentation>[1],
+    )
+    await submitPresentation(
+      resolved as unknown as Parameters<typeof submitPresentation>[0],
+      selectedCredentials as unknown as Parameters<typeof submitPresentation>[1],
+    )
+
+    expect(acceptOpenId4VpAuthorizationRequest).toHaveBeenCalledTimes(2)
+  })
 })

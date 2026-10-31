@@ -9,7 +9,8 @@
     "build": "vite build",
     "type-check": "tsc --noEmit",
     "lint": "eslint \"src/**/*.{ts,tsx}\" vite.config.ts eslint.config.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:csp": "node scripts/check-csp.mjs"
   },
   "dependencies": {
     "@credo-ts/core": "0.7.0",

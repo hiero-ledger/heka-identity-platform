@@ -5,6 +5,7 @@ import { getOrCreateAgent } from '../credo/lazy-agent'
 import { describeCredentialOffer, transactionCodeError, type OfferPreview } from '../oid4vci/offer-preview'
 import { acceptCredentialOffer, resolveIncomingOffer, type ResolvedCredentialOffer } from '../oid4vci/receive'
 import { handlePresentationRequest, submitPresentation, type ResolvedPresentationRequest } from '../oid4vp/present'
+import { presentErrorMessage } from '../oid4vp/present-errors'
 import { describePresentation, type PresentationPreview } from '../oid4vp/presentation-preview'
 import { needsHostGrant, requestOptionalHostAccess } from '../wallet/host-access'
 import {
@@ -15,6 +16,7 @@ import {
   type PendingOffer,
 } from '../wallet/pending-offer'
 import { PENDING_OFFER_KEY, PENDING_REQUEST_KEY, RECEIVE_STATUS_KEY } from '../wallet/storage-keys'
+import { syncCredentialSummaryCache } from '../wallet/summary-cache'
 
 type Status = { state: 'loading' } | { state: 'ready' } | { state: 'error'; message: string }
 type FlowStatus = { state: 'idle' } | { state: 'working' } | { state: 'done'; message: string } | { state: 'error'; message: string }
@@ -50,7 +52,8 @@ export const WalletPage: React.FC = () => {
     void (async () => {
       try {
         const started = performance.now()
-        await getOrCreateAgent()
+        const agent = await getOrCreateAgent()
+        await syncCredentialSummaryCache(agent)
         if (cancelled) return
         setInitMs(Math.round(performance.now() - started))
         setStatus({ state: 'ready' })
@@ -436,11 +439,7 @@ async function openPresentation(
     })
     setFlow({ state: 'idle' })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Presentation request failed'
-    setFlow({
-      state: 'error',
-      message: `${message} The request is still saved. Retry when the verifier is reachable.`,
-    })
+    setFlow({ state: 'error', message: presentErrorMessage(error) })
   }
 }
 
