@@ -6,6 +6,12 @@ import { handleError } from '@/shared/api/utils/error';
 
 import { ConnectionSession, ConnectionState } from '../types/connection';
 
+export interface CreateConnectionParams {
+  useDemo?: boolean;
+  // Operator-chosen name, stored on the connection once the wallet connects
+  alias?: string;
+}
+
 export type CreateConnectionResult = ConnectionSession;
 
 interface CreateConnectionResponse {
@@ -15,15 +21,19 @@ interface CreateConnectionResponse {
 
 export const createConnection = createAsyncThunk<
   CreateConnectionResult,
-  void,
+  CreateConnectionParams,
   ThunkConfig<string>
->('connections/create', async (_, thunkAPI) => {
+>('connections/create', async (params, thunkAPI) => {
   const { extra, rejectWithValue, dispatch } = thunkAPI;
+  const api = params.useDemo ? extra.agencyDemoApi : extra.agencyApi;
+  const alias = params.alias?.trim();
+
   try {
-    const response = await extra.agencyApi.post<CreateConnectionResponse>(
+    const response = await api.post<CreateConnectionResponse>(
       agencyEndpoints.createConnection,
       {
         multiUseInvitation: false,
+        ...(alias ? { alias } : {}),
       },
     );
     return {

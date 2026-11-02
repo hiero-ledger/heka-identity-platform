@@ -1,5 +1,3 @@
-import React from 'react';
-
 import LinearSpinner from '@/shared/assets/icons/linear-spinner.svg';
 import Spinner from '@/shared/assets/icons/spinner.svg';
 import { Row } from '@/shared/ui/Grid';

@@ -1,8 +1,9 @@
-import { PayloadAction } from '@reduxjs/toolkit';
+import { isAnyOf, PayloadAction } from '@reduxjs/toolkit';
 
 import { buildSlice } from '@/shared/lib/store';
 
 import { createNewSchema } from '../services/createSchema';
+import { getDemoSchemaList } from '../services/getDemoSchemaList';
 import { getSchemaList } from '../services/getSchemaList';
 import { getSingleSchema } from '../services/getSingleSchema';
 import { registerSchema } from '../services/registerSchema';
@@ -25,6 +26,7 @@ export const schemasSlice = buildSlice({
       state.error = initialState.error;
       state.schemas = initialState.schemas;
       state.schema = initialState.schema;
+      state.listRequestId = undefined;
     },
 
     updateSchema: (state, action: PayloadAction<Schema>) => {
@@ -33,25 +35,6 @@ export const schemasSlice = buildSlice({
   },
   extraReducers: (builder) =>
     builder
-      // List of schema
-      .addCase(getSchemaList.pending, (state) => {
-        state.isLoading = true;
-        state.error = undefined;
-        state.schemas = undefined;
-      })
-      .addCase(
-        getSchemaList.fulfilled,
-        (state, action: PayloadAction<Schema[]>) => {
-          state.schemas = action.payload;
-          state.isLoading = false;
-          state.error = undefined;
-        },
-      )
-      .addCase(getSchemaList.rejected, (state, payload) => {
-        state.isLoading = false;
-        state.schemas = undefined;
-        state.error = payload.error.message;
-      })
       // Single schema
       .addCase(getSingleSchema.pending, (state) => {
         state.isLoading = true;
@@ -65,10 +48,10 @@ export const schemasSlice = buildSlice({
           state.error = undefined;
         },
       )
-      .addCase(getSingleSchema.rejected, (state, payload) => {
+      .addCase(getSingleSchema.rejected, (state, action) => {
         state.isLoading = false;
         state.schema = undefined;
-        state.error = payload.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       // Create schema
       .addCase(createNewSchema.pending, (state) => {
@@ -79,9 +62,9 @@ export const schemasSlice = buildSlice({
         state.isLoading = false;
         state.error = undefined;
       })
-      .addCase(createNewSchema.rejected, (state, payload) => {
+      .addCase(createNewSchema.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = payload.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       // Register schema
       .addCase(registerSchema.pending, (state) => {
@@ -100,9 +83,9 @@ export const schemasSlice = buildSlice({
           state.schema = schema;
         },
       )
-      .addCase(registerSchema.rejected, (state, payload) => {
+      .addCase(registerSchema.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = payload.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       // Update schema
       .addCase(updateSchemaView.pending, (state) => {
@@ -124,10 +107,40 @@ export const schemasSlice = buildSlice({
             : schema;
         });
       })
-      .addCase(updateSchemaView.rejected, (state, payload) => {
+      .addCase(updateSchemaView.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = payload.error.message;
-      }),
+        state.error = action.payload ?? action.error.message;
+      })
+      // List of schemas: the tenant's and the demo tenant's share the same state
+      // (matchers must follow all addCase calls)
+      .addMatcher(
+        isAnyOf(getSchemaList.pending, getDemoSchemaList.pending),
+        (state, action) => {
+          state.listRequestId = action.meta.requestId;
+          state.isLoading = true;
+          state.error = undefined;
+          state.schemas = undefined;
+        },
+      )
+      .addMatcher(
+        isAnyOf(getSchemaList.fulfilled, getDemoSchemaList.fulfilled),
+        (state, action) => {
+          // A newer list request (another filter, or the demo list) has been sent since
+          if (action.meta.requestId !== state.listRequestId) return;
+          state.schemas = action.payload;
+          state.isLoading = false;
+          state.error = undefined;
+        },
+      )
+      .addMatcher(
+        isAnyOf(getSchemaList.rejected, getDemoSchemaList.rejected),
+        (state, action) => {
+          if (action.meta.requestId !== state.listRequestId) return;
+          state.isLoading = false;
+          state.schemas = undefined;
+          state.error = action.payload ?? action.error.message;
+        },
+      ),
 });
 
 export const {

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
@@ -77,7 +77,9 @@ const VerificationMethodSelect = ({
         alignItems="flex-start"
         className={cls.header}
       >
-        <Row className={cls.title}>{t('PresentationOptions.titles.chooseMethod')}</Row>
+        <Row className={cls.title}>
+          {t('PresentationOptions.titles.chooseMethod')}
+        </Row>
         <Row className={cls.description}>
           <p>{t('PresentationOptions.descriptions.chooseMethod')}</p>
         </Row>

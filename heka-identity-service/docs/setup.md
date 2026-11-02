@@ -199,11 +199,11 @@ curl -s -X POST -H 'content-type: application/json' \
 ## CORS Configuration
 
 Cross-Origin Resource Sharing (CORS) controls which browser origins are permitted to call the Heka Identity Service API.
-CORS is **disabled by default** — it must be explicitly opted in via environment variables.
+CORS is **enabled by default** (with `Access-Control-Allow-Origin: *`) so that the Web UI works out of the box in local setups. Disable it, or restrict the allowed origins, via environment variables.
 
 | Variable               | Description                                                                                                                                                                                    | Default |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `EXPRESS_ENABLE_CORS`  | Set to `true` to enable CORS. Any other value (including unset) disables it.                                                                                                                   | `false` |
+| `EXPRESS_ENABLE_CORS`  | Set to `false` (or any non-empty value other than `true`) to disable CORS. Unset or empty enables it.                                                                                          | `true`  |
 | `EXPRESS_CORS_OPTIONS` | JSON string of [CORS options](https://github.com/expressjs/cors#configuration-options) passed directly to `app.enableCors()`. Must be valid JSON; invalid JSON crashes on startup (fail-fast). | `{}`    |
 
 > **Security warning:** Enabling CORS without setting an `origin` inside `EXPRESS_CORS_OPTIONS` defaults to `Access-Control-Allow-Origin: *`.
@@ -262,14 +262,16 @@ Real deployments should set `NODE_ENV=production` explicitly: an unset `NODE_ENV
 
 ### HTTP server (Express)
 
-| Variable               | Default     | Description                                                 |
-| ---------------------- | ----------- | ----------------------------------------------------------- |
-| `EXPRESS_HOST`         | `localhost` | Host the server binds to.                                   |
-| `EXPRESS_PORT`         | `3000`      | Port for the REST API and Swagger UI.                       |
-| `EXPRESS_PREFIX`       | _(unset)_   | Optional global URL prefix (e.g. `/api`).                   |
-| `APP_ENDPOINT`         | `http://${EXPRESS_HOST}:${EXPRESS_PORT}` plus the prefix | Public base URL of the REST API, embedded into status-list credential URLs (`/credentials/status/<id>`) and revocation tails URLs (`/revocation/tails/<hash>`). Set it to the https tunnel of port 3000 when wallets or verifiers resolve them remotely. An empty value is used as is, so leave it unset rather than empty. |
-| `EXPRESS_ENABLE_CORS`  | `true`      | Enable CORS handling.                                       |
-| `EXPRESS_CORS_OPTIONS` | `{}`        | JSON-encoded options passed to the Express CORS middleware. |
+| Variable               | Default                                                           | Description                                                                                          |
+| ---------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `EXPRESS_HOST`         | `localhost`                                                       | Host in the default URLs (`APP_ENDPOINT`, `AGENT_*_ENDPOINT`); servers listen on all interfaces.     |
+| `EXPRESS_PORT`         | `3000`                                                            | Port for the REST API and Swagger UI.                                                                |
+| `EXPRESS_PREFIX`       | _(unset)_                                                         | Optional global URL prefix, without a leading slash (e.g. `api`).                                    |
+| `APP_ENDPOINT`         | `http://${EXPRESS_HOST}:${EXPRESS_PORT}` (+ `/${EXPRESS_PREFIX}`) | Public REST API URL used in AnonCreds tails file and status list URLs. Must be reachable by wallets. |
+| `EXPRESS_ENABLE_CORS`  | `true`                                                            | Enable CORS handling.                                                                                |
+| `EXPRESS_CORS_OPTIONS` | `{}`                                                              | JSON-encoded options passed to the Express CORS middleware.                                          |
+
+`APP_ENDPOINT` falls back to the default only when it is unset: an empty `APP_ENDPOINT=` is used as is and produces relative URLs, so leave the variable out instead.
 
 ### Agent transports
 
@@ -330,6 +332,28 @@ API requests must carry a Bearer token issued by an OpenID Connect provider — 
 | `OIDC_CLAIM_ORG_ID_FIELD` | _(unset)_                          | Field that holds the Heka organization id inside an organization object, e.g. `heka_org_id` for Keycloak Organizations (`{ "<alias>": { "heka_org_id": ["<id>"] } }`).                                                                                       |
 
 The service refuses to start when `OIDC_ISSUER_URL` or `OIDC_AUDIENCE` is missing, and logs the effective issuer, audience, key source and claim paths at startup. A failed discovery is reported as a server error, not as `401`, so a wrong `OIDC_ISSUER_URL` is distinguishable from a bad token. A failed JWKS fetch (non-200 response, invalid JSON, timeout) is reported as `401`, like a bad token; the warning in the log carries the cause, e.g. `Expected 200 OK from the JSON Web Key Set HTTP response`. Only an unreachable JWKS host is a server error.
+
+#### Token introspection (revocation check)
+
+By default tokens are verified statelessly, so a token revoked at the provider (logout, ended session, admin revocation) keeps working until it expires. With token introspection enabled, the service also asks the provider about every bearer token that passed signature verification, using OAuth 2.0 Token Introspection ([RFC 7662](https://www.rfc-editor.org/rfc/rfc7662)), and rejects it unless the answer is `{"active": true}`. The check runs before the user and the wallet are looked up or provisioned, for both REST requests and WebSocket connections.
+
+| Variable                                | Default               | Description                                                                                                                          |
+| --------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `OIDC_INTROSPECTION_ENABLED`            | `false`               | `true` or `false` (any case) to turn the check on or off; any other value is refused at startup.                                     |
+| `OIDC_INTROSPECTION_URL`                | _(from discovery)_    | Introspection endpoint; when unset it is taken from `introspection_endpoint` in the discovery document. Must be https in production. |
+| `OIDC_INTROSPECTION_CLIENT_ID`          | _(required if on)_    | Confidential client the service authenticates with.                                                                                  |
+| `OIDC_INTROSPECTION_CLIENT_SECRET`      | _(required if on)_    | Its secret. The shipped dev secret and secrets shorter than 16 characters are refused in production.                                 |
+| `OIDC_INTROSPECTION_CLIENT_AUTH_METHOD` | `client_secret_basic` | `client_secret_basic` or `client_secret_post`.                                                                                       |
+| `OIDC_INTROSPECTION_TIMEOUT_MS`         | `3000`                | Deadline for one introspection or discovery request.                                                                                 |
+
+The check fails closed: for the introspection request, an inactive token, `429`, `5xx`, a redirect, a timeout, a network error or a malformed answer all result in `401`. Rejected client credentials (`400`/`401`/`403` from the provider, logged as an error) and discovery failures (HTTP error, redirect, timeout, an `issuer` that differs from `OIDC_ISSUER_URL`, no valid `introspection_endpoint`, an http endpoint in production) are server errors (`500`), like a failed JWKS discovery. In production (any `NODE_ENV` other than unset, `development` or `test`) the introspection endpoint (configured or discovered) and the issuer used for discovery must be https; a configured http endpoint or an http issuer without `OIDC_INTROSPECTION_URL` is refused at startup. The check itself logs neither the token nor the client secret.
+
+Provider notes:
+
+- **Keycloak** answers only for tokens whose audience contains the calling client, so authenticate as the `OIDC_AUDIENCE` client. The shipped `heka-platform` realm gives the `heka-identity-service` client a dev secret for this (`dev-only-heka-identity-service-secret-do-not-use-in-production`); it still has no login flows.
+- **Auth0** has no RFC 7662 endpoint for access tokens, so leave the check disabled and rely on short access token lifetimes.
+
+Trade-offs: every authenticated request makes one extra call to the provider, adding its latency, and the API is unavailable (`401`) whenever the provider is unreachable. On the notifications WebSocket every refusal, a server error included, closes the socket with code `3000` (`Unauthorized`), so a client cannot tell a revoked token from a misconfiguration; check the server log. A WebSocket connection is checked once, at the handshake: a token revoked later keeps an open socket until the token's `exp`, when the service closes it.
 
 #### Claim paths
 
@@ -399,7 +423,7 @@ A fresh deployment needs no action. A deployment that still runs heka-auth-servi
 
 #### Provider recipes
 
-**Keycloak** — the `heka-platform` realm shipped in [`heka-sso-service/keycloak/realm-heka-platform.json`](../../heka-sso-service/keycloak/README.md) already contains the recipe: a bearer-only client `heka-identity-service` owning the client roles `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User`, and on each client that requests tokens the protocol mappers User Client Role → claim `roles` (multivalued, in the access token), User Attribute `org_id` → `org_id`, User Property `id` → `heka_uid`, and Audience `heka-identity-service`. The display name comes from the built-in `profile` scope (`name` / `preferred_username`), which the default `OIDC_CLAIM_NAME` fallback list already reads. Roles: the default group `heka-users` grants `User` to every new user, and the group `heka-admins` grants `Admin` to operators. Organizations: the realm has Keycloak Organizations enabled; the Web UI requests the `organization` scope, so a member of several organizations picks one at login, and the client mapper `heka organization` emits it as `heka_organization` with the organization attribute `heka_org_id`. Then set `OIDC_ISSUER_URL=http://<keycloak>/realms/heka-platform`, `OIDC_AUDIENCE=heka-identity-service`, `OIDC_CLAIM_ORG_ID=heka_organization,org_id` and `OIDC_CLAIM_ORG_ID_FIELD=heka_org_id`; the other claim paths keep their defaults. For another realm, recreate the same client, roles and mappers.
+**Keycloak** — the `heka-platform` realm shipped in [`heka-sso-service/keycloak/realm-heka-platform.json`](../../heka-sso-service/keycloak/README.md) already contains the recipe: a client `heka-identity-service` (no login flows; its secret is used only for [token introspection](#token-introspection-revocation-check)) owning the client roles `Admin`, `OrgAdmin`, `OrgManager`, `OrgMember`, `Issuer`, `Verifier`, `User`, and on each client that requests tokens the protocol mappers User Client Role → claim `roles` (multivalued, in the access token), User Attribute `org_id` → `org_id`, User Property `id` → `heka_uid`, and Audience `heka-identity-service`. The display name comes from the built-in `profile` scope (`name` / `preferred_username`), which the default `OIDC_CLAIM_NAME` fallback list already reads. Roles: the default group `heka-users` grants `User` to every new user, and the group `heka-admins` grants `Admin` to operators. Organizations: the realm has Keycloak Organizations enabled; the Web UI requests the `organization` scope, so a member of several organizations picks one at login, and the client mapper `heka organization` emits it as `heka_organization` with the organization attribute `heka_org_id`. Then set `OIDC_ISSUER_URL=http://<keycloak>/realms/heka-platform`, `OIDC_AUDIENCE=heka-identity-service`, `OIDC_CLAIM_ORG_ID=heka_organization,org_id` and `OIDC_CLAIM_ORG_ID_FIELD=heka_org_id`; the other claim paths keep their defaults. For another realm, recreate the same client (with a client secret when token introspection is enabled), roles and mappers.
 
 **Auth0** — the recipe lives in [`heka-sso-service/auth0`](../../heka-sso-service/auth0/README.md): `setup-tenant.sh` creates the API `https://heka-identity` (RS256), the SPA and machine-to-machine applications, the Heka roles, and deploys two Actions (`post-login`, `credentials-exchange`) that set the namespaced custom claims `https://heka/roles` (array with one role), `https://heka/name`, `https://heka/org_id` and `https://heka/heka_uid` on access tokens requested with that audience — namespaced names are mandatory in Auth0 access tokens with an API audience. Then set `OIDC_ISSUER_URL=https://<tenant>.<region>.auth0.com/` (trailing slash), `OIDC_AUDIENCE=https://heka-identity`, `OIDC_CLAIM_ROLES=https://heka/roles`, `OIDC_CLAIM_NAME=https://heka/name,name,nickname`, `OIDC_CLAIM_ORG_ID=https://heka/org_id` and `OIDC_CLAIM_USER_ID=https://heka/heka_uid`. Clients must request the API `audience`, otherwise Auth0 issues opaque access tokens. A login through an Auth0 Organization (the Web UI sends `organization` when `REACT_APP_OIDC_ORGANIZATION` is set) carries that organization's `metadata.heka_org_id` as `https://heka/org_id` and the role of the membership.
 
@@ -469,6 +493,8 @@ Required when issuing `mso_mdoc` credentials (mobile driving licences and simila
 | `PINO_LEVEL`            | `info`             | Logger level. One of `trace`, `debug`, `info`, `warn`, `error`, `fatal`.                                                                                                                                                                                                                                                                |
 | `PINO_FILE_DESTINATION` | _(unset — stdout)_ | Path to write logs to instead of stdout.                                                                                                                                                                                                                                                                                                |
 | `NODE_ENV`              | _(unset)_          | When set to exactly `production`, switches the logger to non-pretty JSON output. Unless `NODE_ENV` is unset, empty, `development` or `test` (case-insensitive, surrounding whitespace ignored), the service refuses to start with [insecure default credentials](#security-sensitive-variables); in those cases it only logs a warning. |
+
+The `Authorization`, `Proxy-Authorization`, `Cookie` and `Sec-WebSocket-Protocol` request headers, the `Set-Cookie` response header, the OID4VCI `preAuthorizedCode`, `credentialOfferUri` and `cNonce` query parameters and the OID4VP `nonce`, `authorizationRequestUri` and `payloadState` query parameters are logged as `******` at every level. Other request data is not masked: the rest of the URL and query string is logged as is. At `debug` and `trace` the service also logs objects such as token claims, some request bodies and Credo agent data. Inside an HTTP request, values logged under the `req` or `res` key are reduced to the standard request fields and the response status code, but values under other keys, and `req` or `res` values logged outside an HTTP request (for example during WebSocket authentication), are logged in full, so treat log output as sensitive.
 
 ### Health
 

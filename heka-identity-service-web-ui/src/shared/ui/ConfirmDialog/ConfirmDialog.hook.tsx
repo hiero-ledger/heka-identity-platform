@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import { ConfirmForm } from './ConfirmDialog';
+import { ConfirmFormProps } from './ConfirmDialog';
 
 interface ConfirmDialogProps {
   text?: string;
@@ -11,6 +11,11 @@ interface ConfirmDialogProps {
   onCancel?: () => Promise<void>;
 }
 
+/**
+ * Open/close state for a confirmation dialog. Render it with `<ConfirmForm {...dialogProps} />`:
+ * the hook returns props rather than a component, so the dialog is not remounted (losing its
+ * close animation and focus restore) whenever the caller re-renders.
+ */
 export default function useConfirmDialog({
   text,
   details,
@@ -21,9 +26,7 @@ export default function useConfirmDialog({
 }: ConfirmDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const confirm = () => {
-    setIsOpen(true);
-  };
+  const confirm = useCallback(() => setIsOpen(true), []);
 
   const handleCancel = useCallback(async () => {
     setIsOpen(false);
@@ -35,36 +38,28 @@ export default function useConfirmDialog({
     if (onAccept) await onAccept();
   }, [onAccept]);
 
-  const ConfirmDialog = useCallback(
-    () => (
-      <ConfirmForm
-        isOpen={isOpen}
-        handleToggle={async (isOpen) => {
-          if (onCancel) await onCancel();
-          setIsOpen(isOpen);
-        }}
-        text={text}
-        details={details}
-        cancelButtonText={cancelButtonText}
-        acceptButtonText={acceptButtonText}
-        onAccept={handleAccept}
-        onCancel={handleCancel}
-      />
-    ),
-    [
-      isOpen,
-      text,
-      details,
-      cancelButtonText,
-      acceptButtonText,
-      onCancel,
-      handleAccept,
-      handleCancel,
-    ],
+  // Closing with the close button, the backdrop or Escape counts as cancelling
+  const handleToggle = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setIsOpen(true);
+      } else {
+        void handleCancel();
+      }
+    },
+    [handleCancel],
   );
 
-  return {
-    ConfirmDialog,
-    confirm,
+  const dialogProps: ConfirmFormProps = {
+    isOpen,
+    handleToggle,
+    text,
+    details,
+    cancelButtonText,
+    acceptButtonText,
+    onAccept: handleAccept,
+    onCancel: handleCancel,
   };
+
+  return { dialogProps, confirm };
 }

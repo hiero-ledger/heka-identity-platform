@@ -1,5 +1,3 @@
-import React from 'react';
-
 import * as cls from './Link.module.scss';
 
 interface LinkProps {

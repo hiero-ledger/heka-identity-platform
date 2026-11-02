@@ -33,4 +33,6 @@ export interface PresentationSchema {
   isLoading: boolean;
   error?: string;
   presentationSession?: PresentationSession;
+  /** requestId of the latest requestPresentation: answers to older or reset requests are ignored */
+  latestRequestId?: string;
 }

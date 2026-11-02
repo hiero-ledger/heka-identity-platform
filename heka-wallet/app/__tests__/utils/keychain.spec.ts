@@ -81,7 +81,8 @@ describe('Keychain Utils', () => {
 
       if (platform === 'android') {
         expect(options.securityLevel).toBe(Keychain.SECURITY_LEVEL.ANY)
-        expect(options.storage).toBe(Keychain.STORAGE_TYPE.AES_GCM)
+        // 'AES_GCM' needs enrolled biometrics, which broke OAuth login on devices without them
+        expect(options.storage).toBe(Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH)
       }
 
       const optionsWithBiometry = getKeychainAccessOptions(testKeychainServiceName, true)

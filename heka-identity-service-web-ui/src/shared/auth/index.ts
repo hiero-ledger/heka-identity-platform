@@ -10,6 +10,7 @@ export {
   getSessionAccessToken,
   refreshSessionToken,
   registerSessionBridge,
+  renewSessionToken,
   signOutSession,
 } from './sessionBridge';
 export type { SessionBridge } from './sessionBridge';

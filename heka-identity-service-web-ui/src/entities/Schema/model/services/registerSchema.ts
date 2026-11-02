@@ -2,6 +2,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { ThunkConfig } from '@/app/providers/StoreProvider';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
+import { handleError } from '@/shared/api/utils/error';
 
 import { Schema, SchemaRegistration } from '../types/schema';
 
@@ -10,7 +11,7 @@ export const registerSchema = createAsyncThunk<
   SchemaRegistration,
   ThunkConfig<string>
 >('schema/register', async (body, thunkAPI) => {
-  const { extra, rejectWithValue } = thunkAPI;
+  const { extra, rejectWithValue, dispatch } = thunkAPI;
   const { schemaId, ...data } = body;
 
   try {
@@ -22,6 +23,6 @@ export const registerSchema = createAsyncThunk<
 
     return response.data;
   } catch (error) {
-    return rejectWithValue(error);
+    return handleError(error, rejectWithValue, dispatch);
   }
 });

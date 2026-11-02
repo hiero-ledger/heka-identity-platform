@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useCallback, useEffect, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useState } from 'react';
 import { TextArea } from 'react-aria-components';
 
 import { classNames } from '@/shared/lib/classNames';
@@ -20,15 +20,15 @@ const TextAreaComponent = ({
   onChange,
   disabled,
 }: TextAreaProps) => {
-  const [value, setValue] = useState<string | undefined>(undefined);
+  // Always a string, so the textarea stays controlled even when empty
+  const [value, setValue] = useState(initValue ?? '');
 
   useEffect(() => {
-    setValue(initValue);
+    setValue(initValue ?? '');
   }, [initValue]);
 
   const onChangeHandler = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
-      if (!event.target.value) return;
       setValue(event.target.value);
       if (onChange) {
         onChange(event.target.value);

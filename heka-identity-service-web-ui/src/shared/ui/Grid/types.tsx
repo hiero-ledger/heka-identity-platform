@@ -7,7 +7,9 @@ type ContentAlign =
   | 'space-between'
   | 'space-around';
 
-export interface IFlexContainer {
+/** Layout props, plus any other `div` attributes (role, tabIndex, aria-*, key handlers) */
+export interface IFlexContainer
+  extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onClick' | 'style'> {
   children?: React.ReactNode;
   justifyContent?: ContentAlign;
   alignItems?: ContentAlign;

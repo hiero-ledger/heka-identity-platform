@@ -1,6 +1,6 @@
 import { joiResolver } from '@hookform/resolvers/joi';
-import React, { useCallback, useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFieldArray, useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
@@ -25,7 +25,7 @@ import { TextInput } from '@/shared/ui/TextInput/TextInput';
 import {
   CreateSchemaFormData,
   CreateSchemaFormDefaultValues,
-  CreateSchemaFormSchema,
+  createSchemaFormSchema,
   Credential,
 } from './CreateSchema.form';
 
@@ -50,34 +50,33 @@ export const CreateSchemaModal = ({
   const isLoading = useSelector(selectSchemaLoading);
 
   const [logo, setLogo] = useState<File | string>(defaultLogoImagePath);
+  // The default logo as a file, once loaded: the form resets to it, not to its path
+  const defaultLogoFile = useRef<File | undefined>(undefined);
   const [color, setColor] = useState<string>(defaultSchemaBackgroundColor);
 
   const [credentialErrors, setErrorMessage] = useState<string | undefined>(
     undefined,
   );
-  const [isNewField, setIsNewField] = useState<boolean>(false);
 
   const formName = 'schema-form';
+
+  const formSchema = useMemo(() => createSchemaFormSchema(t), [t]);
 
   const {
     handleSubmit,
     control,
-    register,
-    watch,
     reset,
-    setValue,
-    setFocus,
     formState: { isValid },
     trigger,
   } = useForm<CreateSchemaFormData>({
     defaultValues: CreateSchemaFormDefaultValues,
-    resolver: joiResolver(CreateSchemaFormSchema),
+    resolver: joiResolver(formSchema),
     mode: 'onChange',
     criteriaMode: 'all',
   });
 
   const resetForm = useCallback(() => {
-    setLogo(defaultLogoImagePath);
+    setLogo(defaultLogoFile.current ?? defaultLogoImagePath);
     setColor(defaultSchemaBackgroundColor);
     reset(CreateSchemaFormDefaultValues);
   }, [reset]);
@@ -85,8 +84,6 @@ export const CreateSchemaModal = ({
   useEffect(() => {
     resetForm();
   }, [resetForm]);
-
-  const { credentials } = watch();
 
   useEffect(() => {
     const loadDefaultImage = async () => {
@@ -96,7 +93,11 @@ export const CreateSchemaModal = ({
         const defaultFile = new File([blob], DEFAULT_IMAGE_NAME, {
           type: blob.type,
         });
-        setLogo(defaultFile);
+        defaultLogoFile.current = defaultFile;
+        // Replace only the placeholder path, never a logo the user has already picked
+        setLogo((current) =>
+          typeof current === 'string' ? defaultFile : current,
+        );
       } catch (error) {
         console.error('Failed to load default image', error);
       }
@@ -125,7 +126,9 @@ export const CreateSchemaModal = ({
 
       const formData = new FormData();
       formData.append('name', data.name);
-      if (logo) formData.append('logo', logo);
+      // Only upload a real file. If the default image could not be loaded, send no logo:
+      // the schema then shows the default image
+      if (logo instanceof File) formData.append('logo', logo);
       if (color) formData.append('bgColor', color);
       data.credentials.forEach((credential) => {
         formData.append('fields[]', credential.name);
@@ -157,21 +160,21 @@ export const CreateSchemaModal = ({
     ],
   );
 
+  // The single owner of the credentials array; the field list below only renders it
+  const { fields, append, remove, move } = useFieldArray({
+    control,
+    name: 'credentials',
+  });
+
   const handleOnCredentialFieldCreate = useCallback(
     async (name: string) => {
-      const fields = [...credentials, { name } as Credential];
-      setValue('credentials', fields);
+      // `append` focuses the new field, so typing continues in it
+      append({ name });
       setErrorMessage(undefined);
-      setIsNewField(true);
       await trigger();
     },
-    [setValue, credentials, trigger],
+    [append, trigger],
   );
-
-  useEffect(() => {
-    setFocus(`credentials.${credentials.length - 1}.name`);
-    setIsNewField(false);
-  }, [setFocus, isNewField, setIsNewField, credentials.length]);
 
   return (
     <Modal
@@ -203,15 +206,16 @@ export const CreateSchemaModal = ({
           </Column>
           <TextInput
             label={t('CreateSchema.titles.schemaName')}
-            {...register('name')}
+            name="name"
             control={control}
           />
           <Delimiter />
 
           <CredentialFields
             control={control}
-            register={register}
-            credentials={credentials}
+            fields={fields}
+            remove={remove}
+            move={move}
             onChangeFields={() => {
               setErrorMessage(undefined);
             }}

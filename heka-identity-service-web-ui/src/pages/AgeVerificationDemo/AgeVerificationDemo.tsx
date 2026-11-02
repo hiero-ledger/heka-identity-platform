@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 
@@ -52,7 +52,11 @@ interface AgeVerificationFieldsProps {
   onNext: (attributes: Array<string>) => void;
 }
 
-const AgeVerificationResultView = () => {
+const AgeVerificationResultView = ({
+  onStartAgain,
+}: {
+  onStartAgain: () => void;
+}) => {
   const { t } = useTranslation();
   const revealedAttributes = useSelector(getPresentationSharedAttributes);
 
@@ -65,9 +69,9 @@ const AgeVerificationResultView = () => {
         {revealedAttributes?.map((attr) => {
           const displayValue =
             String(attr.value) === 'true'
-              ? 'Yes'
+              ? t('Common.values.yes')
               : String(attr.value) === 'false'
-                ? 'No'
+                ? t('Common.values.no')
                 : String(attr.value);
           const isAgeField = attr.name === AGE_FIELD;
           const isVerified = isAgeField && String(attr.value) === 'true';
@@ -96,6 +100,9 @@ const AgeVerificationResultView = () => {
           );
         })}
       </Column>
+      <Row className={cls.stepNavigation}>
+        <Button onPress={onStartAgain}>{t('Flow.buttons.startAgain')}</Button>
+      </Row>
     </div>
   );
 };
@@ -121,14 +128,17 @@ const AgeVerificationFields = ({
 
   const [selectedFields, setSelectedFields] = useState<Array<string>>([]);
   const [ageCheckEnabled, setAgeCheckEnabled] = useState(true);
+  const ageCheckId = useId();
+  // The age check only counts when the schema has the age field
+  const isAgeChecked = hasAgeField && ageCheckEnabled;
 
   const onRequest = useCallback(() => {
     const attrs = [...selectedFields];
-    if (hasAgeField && ageCheckEnabled) {
+    if (isAgeChecked) {
       attrs.push(AGE_FIELD);
     }
     onNext(attrs);
-  }, [selectedFields, hasAgeField, ageCheckEnabled, onNext]);
+  }, [selectedFields, isAgeChecked, onNext]);
 
   return (
     <>
@@ -148,13 +158,17 @@ const AgeVerificationFields = ({
           className={cls.ageCheck}
         >
           <input
+            id={ageCheckId}
             type="checkbox"
             checked={ageCheckEnabled}
             onChange={() => setAgeCheckEnabled((v) => !v)}
           />
-          <p className={cls.ageCheckLabel}>
+          <label
+            htmlFor={ageCheckId}
+            className={cls.ageCheckLabel}
+          >
             {t('AgeVerificationDemo.ageCheck.label')}
-          </p>
+          </label>
         </Row>
       )}
       <Row className={cls.stepNavigation}>
@@ -167,7 +181,8 @@ const AgeVerificationFields = ({
         </Button>
         <Button
           onPress={onRequest}
-          isDisabled={selectedFields.length === 0 && !ageCheckEnabled}
+          // Never send an empty request: nothing selected and no age check to make
+          isDisabled={selectedFields.length === 0 && !isAgeChecked}
         >
           {t('Flow.buttons.request')}
         </Button>
@@ -177,8 +192,13 @@ const AgeVerificationFields = ({
 };
 
 const AgeVerificationDemo = () => {
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const schemas = useSelector(getSchemas);
+  // From this page's own request: the store may still hold another page's schema list
+  const [schemaStatus, setSchemaStatus] = useState<
+    'loading' | 'ready' | 'missing' | 'failed'
+  >('loading');
   const isPresentationCompleted = useSelector(getIsPresentationCompleted);
 
   const initialContext = {
@@ -202,7 +222,24 @@ const AgeVerificationDemo = () => {
 
   useEffect(() => {
     resetFlowState();
-    dispatch(getDemoSchemaList());
+    let isCurrent = true;
+    setSchemaStatus('loading');
+    dispatch(getDemoSchemaList())
+      .unwrap()
+      .then(
+        (list) => {
+          if (!isCurrent) return;
+          const hasMdl = list.some((s) => s.name === MDL_SCHEMA_NAME);
+          setSchemaStatus(hasMdl ? 'ready' : 'missing');
+        },
+        () => {
+          // getDemoSchemaList has already shown the error
+          if (isCurrent) setSchemaStatus('failed');
+        },
+      );
+    return () => {
+      isCurrent = false;
+    };
   }, [resetFlowState, dispatch]);
 
   useEffect(() => {
@@ -212,8 +249,7 @@ const AgeVerificationDemo = () => {
       onChangeContextProperty('schema')(mdlSchema);
       onChangeContextProperty('credentialValues')(MDL_DEFAULT_VALUES);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schemas]);
+  }, [schemas, onChangeContextProperty]);
 
   if (step.name === DemoSteps.CredentialOffer) {
     return (
@@ -229,7 +265,7 @@ const AgeVerificationDemo = () => {
     return (
       <Row className={cls.AgeDemo}>
         <BasicPanel
-          title="Age Verification Demo"
+          title={t('AgeVerificationDemo.titles.main')}
           icon="car"
         />
         <div className={cls.contentPanel}>
@@ -249,7 +285,12 @@ const AgeVerificationDemo = () => {
   if (step.name === DemoSteps.PresentationRequest) {
     const handleStartAgain = () => {
       resetFlowState();
-      setFlowContext({ ...initialContext, schema: flowContext.schema });
+      // A fresh run of the same demo: keep the mDL schema and its prefilled values
+      setFlowContext({
+        ...initialContext,
+        schema: flowContext.schema,
+        credentialValues: MDL_DEFAULT_VALUES,
+      });
       onChangeStep(DemoSteps.IssueNewCredential);
     };
 
@@ -257,10 +298,10 @@ const AgeVerificationDemo = () => {
       return (
         <Row className={cls.AgeDemo}>
           <BasicPanel
-            title="Age Verification Demo"
+            title={t('AgeVerificationDemo.titles.main')}
             icon="car"
           />
-          <AgeVerificationResultView />
+          <AgeVerificationResultView onStartAgain={handleStartAgain} />
         </Row>
       );
     }
@@ -277,10 +318,18 @@ const AgeVerificationDemo = () => {
   return (
     <Row className={cls.AgeDemo}>
       <BasicPanel
-        title="Age Verification Demo"
+        title={t('AgeVerificationDemo.titles.main')}
         icon="car"
       />
-      {!flowContext.schema ? (
+      {schemaStatus === 'missing' || schemaStatus === 'failed' ? (
+        <p role="status">
+          {schemaStatus === 'missing'
+            ? t('AgeVerificationDemo.messages.noMdlSchema', {
+                name: MDL_SCHEMA_NAME,
+              })
+            : t('AgeVerificationDemo.messages.schemasNotLoaded')}
+        </p>
+      ) : !flowContext.schema ? (
         <Loader />
       ) : (
         <PreparationStepLayout

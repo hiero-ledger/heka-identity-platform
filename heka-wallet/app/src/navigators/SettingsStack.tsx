@@ -25,8 +25,9 @@ export const SettingsStack: React.FC = () => {
 
   const onLogOut = async () => {
     try {
-      await oauthStore.logOut()
+      // Lock first: logging out unmounts BifoldStack, which shuts the agent down on lockout
       await lockWallet()
+      await oauthStore.logOut()
     } catch (error) {
       Toast.show({
         type: ToastType.Error,

@@ -14,9 +14,13 @@ import { $agencyApi } from '@/shared/api/config/api';
 import { createReducerManager } from './reducerManager';
 import { StateSchema, ThunkExtraArg } from './StateSchema';
 
+/**
+ * @param extraArgOverrides replaces the API clients injected into thunks (tests pass mocks)
+ */
 export function createReduxStore(
   initialState?: StateSchema,
   asyncReducers?: ReducersMapObject<StateSchema>,
+  extraArgOverrides?: Partial<ThunkExtraArg>,
 ) {
   const rootReducers: ReducersMapObject<StateSchema> = {
     ...asyncReducers,
@@ -34,6 +38,7 @@ export function createReduxStore(
   const extraArg: ThunkExtraArg = {
     agencyDemoApi: $agencyDemoApi,
     agencyApi: $agencyApi,
+    ...extraArgOverrides,
   };
 
   const store = configureStore({

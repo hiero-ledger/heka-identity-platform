@@ -23,10 +23,7 @@ export interface SelectOption {
   isDisabled?: boolean;
 }
 
-type AriaSelectPropsType = AriaSelectProps<SelectOption> &
-  React.RefAttributes<HTMLDivElement>;
-
-export interface SelectProps extends AriaSelectPropsType {
+export interface SelectProps extends AriaSelectProps<SelectOption> {
   items: Iterable<SelectOption>;
   className?: string;
   onSelect?: (value: string) => void;
@@ -36,8 +33,7 @@ export interface SelectProps extends AriaSelectPropsType {
 
 const DEFAULT_PLACEHOLDER = 'Select value';
 
-// todo: Research why the forwardRef is required. Fix it.
-export const Select = React.forwardRef((props: SelectProps, _ref) => {
+export const Select = (props: SelectProps) => {
   const {
     className,
     placeholder,
@@ -45,15 +41,14 @@ export const Select = React.forwardRef((props: SelectProps, _ref) => {
     onSelect,
     description,
     errorMessage,
+    defaultSelectedKey,
     ...otherProps
   } = props;
-  const [value, setValue] = React.useState<Key | undefined>(
-    otherProps.defaultSelectedKey,
-  );
+  const [value, setValue] = React.useState<Key | undefined>(defaultSelectedKey);
 
   useEffect(() => {
-    setValue(otherProps.defaultSelectedKey);
-  }, [otherProps.defaultSelectedKey]);
+    setValue(defaultSelectedKey);
+  }, [defaultSelectedKey]);
 
   const onChangeHandler = useCallback(
     (key: Key) => {
@@ -98,7 +93,9 @@ export const Select = React.forwardRef((props: SelectProps, _ref) => {
       aria-label={placeholder}
       className={classNames(cls.Select, {}, [className])}
       placeholder={placeholder}
-      selectedKey={value}
+      // `null` = controlled with nothing selected; `undefined` would make react-aria switch from
+      // uncontrolled to controlled on the first choice
+      selectedKey={value ?? null}
       onSelectionChange={onChangeHandler}
       {...otherProps}
     >
@@ -145,6 +142,4 @@ export const Select = React.forwardRef((props: SelectProps, _ref) => {
       )}
     </AriaSelect>
   );
-});
-
-Select.displayName = 'Select';
+};

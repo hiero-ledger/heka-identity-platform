@@ -61,14 +61,16 @@ describe('TokenVerifier', () => {
   }
 
   describe('verify', () => {
-    test('verifies a token and maps its claims', async () => {
-      const token = await sign(contractClaims)
+    test('verifies a token and maps its claims, keeping its expiry', async () => {
+      const exp = nowSeconds() + 300
+      const token = await sign(contractClaims, { exp })
 
       await expect(makeVerifier().verify(token)).resolves.toEqual({
         sub: 'user-1',
         roles: ['Issuer'],
         name: 'Alice',
         org_id: 'org-1',
+        exp,
       })
     })
 
@@ -145,6 +147,7 @@ describe('TokenVerifier', () => {
         roles: ['Verifier'],
         name: 'bob',
         org_id: 'org-2',
+        exp: expect.any(Number),
       })
     })
 

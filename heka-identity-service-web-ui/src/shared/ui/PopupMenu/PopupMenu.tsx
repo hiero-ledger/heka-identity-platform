@@ -1,8 +1,13 @@
-import React, { CSSProperties } from 'react';
+import { CSSProperties } from 'react';
 import { Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components';
 
 import { classNames } from '@/shared/lib/classNames';
-import { Button, ButtonIcon } from '@/shared/ui/Button';
+import {
+  Button,
+  buttonClassName as buttonClass,
+  ButtonIcon,
+  ButtonIconGlyph,
+} from '@/shared/ui/Button';
 
 import * as cls from './PopupMenu.module.scss';
 
@@ -41,27 +46,29 @@ export const PopupMenu = ({
           alignment="left"
           className={buttonClassName}
           style={buttonStyle}
+          aria-label={buttonHint}
         />
       </div>
       <Popover
         className={classNames(cls.popover, {}, [popupClassName])}
         placement={popupPlacement}
       >
-        <Menu>
+        <Menu aria-label={buttonHint}>
           {items.map((i) => (
+            // The menu item itself is the interactive element (no nested button), styled as one
             <MenuItem
               key={i.caption}
+              textValue={i.caption}
               onAction={i.onAction}
+              className={buttonClass({
+                buttonType: 'text',
+                alignment: 'left',
+                fullWidth: true,
+                className: i.className,
+              })}
             >
-              <Button
-                buttonType="text"
-                alignment="left"
-                leftIcon={i.iconName}
-                className={i.className}
-                fullWidth
-              >
-                {i.caption}
-              </Button>
+              {i.iconName && <ButtonIconGlyph name={i.iconName} />}
+              {i.caption}
             </MenuItem>
           ))}
         </Menu>

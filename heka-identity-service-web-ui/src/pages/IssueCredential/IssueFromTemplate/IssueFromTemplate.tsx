@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { AppDispatch } from '@/app/providers/StoreProvider';
 import { RootState } from '@/app/providers/StoreProvider/config/store';
@@ -46,14 +46,18 @@ export const IssueFromTemplate = () => {
     resetCredential();
   }, [resetIssuanceTemplates, resetCredential]);
 
+  const templateId: string | undefined = state?.context?.templateId;
+  const [loadFailed, setLoadFailed] = useState(false);
+
   useEffect(() => {
-    if (!state?.context?.templateId) return;
-    dispatch(
-      getIssuanceTemplate({
-        id: state?.context.templateId,
-      }),
-    );
-  }, [dispatch, state?.context?.templateId]);
+    if (!templateId) return;
+    dispatch(getIssuanceTemplate({ id: templateId }))
+      .unwrap()
+      .catch(() => {
+        // The thunk has already shown the error
+        setLoadFailed(true);
+      });
+  }, [dispatch, templateId]);
 
   const defaultFormValues = useMemo(
     () =>
@@ -98,20 +102,35 @@ export const IssueFromTemplate = () => {
   const onSaveTemplate = useCallback(async () => {
     if (!issuanceTemplate) return;
 
-    await dispatch(
-      updateIssuanceTemplate({
-        templateId: issuanceTemplate.id,
-        params: {
-          schema: issuanceTemplate.schema,
-          credentialValues: getValues(),
-        },
-      }),
-    );
+    try {
+      await dispatch(
+        updateIssuanceTemplate({
+          templateId: issuanceTemplate.id,
+          params: {
+            schema: issuanceTemplate.schema,
+            credentialValues: getValues(),
+          },
+        }),
+      ).unwrap();
+    } catch {
+      // The thunk has already shown the error
+      return;
+    }
 
     toast.success(t('IssueFromTemplate.messages.success'));
   }, [dispatch, getValues, issuanceTemplate, t]);
 
   const onSaveTemplateAs = useCallback(() => setTemplateModalOpen(true), []);
+
+  // Opened without a template (new tab, typed URL) or it could not be loaded: back to the list
+  if (!templateId || loadFailed) {
+    return (
+      <Navigate
+        to={ROUTES.ISSUE_CREDENTIAL_TEMPLATES}
+        replace
+      />
+    );
+  }
 
   if (!issuanceTemplate) {
     return <LoaderView />;

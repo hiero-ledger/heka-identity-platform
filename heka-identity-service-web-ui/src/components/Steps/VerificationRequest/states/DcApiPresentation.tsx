@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 
@@ -26,6 +26,16 @@ export const DcApiPresentation = ({
   const isLoading = useSelector(getPresentationRequestIsLoading);
   const [error, setError] = useState<string | undefined>();
   const requestRef = useRef<{ abort: () => void } | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Leaving the step must not let a picker that is still open complete the request later
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      requestRef.current?.abort();
+    };
+  }, []);
 
   const onPresent = async () => {
     if (!context.protocolType || !context.credentialType || !context.schema) {
@@ -51,6 +61,7 @@ export const DcApiPresentation = ({
     const result = await request;
     requestRef.current = null;
 
+    if (!isMountedRef.current) return;
     if (requestPresentation.rejected.match(result)) {
       // `meta.aborted` is set when we abort via Cancel; otherwise the payload carries the
       // classified DcApiErrorCode ('cancelled' | 'unsupported' | 'failed') from the thunk.

@@ -127,6 +127,8 @@ export interface SchemasSchema {
   error?: string;
   schemas?: Schema[];
   schema?: Schema;
+  /** requestId of the latest schema list request: answers to older ones are ignored */
+  listRequestId?: string;
 }
 
 export interface UpdateSchemaParams {
@@ -134,7 +136,8 @@ export interface UpdateSchemaParams {
   params: {
     logo?: File;
     bgColor?: string;
-    prevSchemaId?: string;
+    // `null` moves the schema to the top; omitted leaves the order unchanged
+    prevSchemaId?: string | null;
     isHidden?: boolean;
   };
 }

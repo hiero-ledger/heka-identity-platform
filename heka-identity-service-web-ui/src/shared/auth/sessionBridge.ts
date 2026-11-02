@@ -1,3 +1,5 @@
+import { Mutex } from 'async-mutex';
+
 /**
  * Lets non-React code (the axios interceptors, thunks) reach the current session without
  * importing the OIDC client: `OidcAuthProvider` registers an implementation while mounted.
@@ -24,6 +26,21 @@ export const getSessionAccessToken = (): string | null =>
 
 export const refreshSessionToken = (): Promise<string | null> =>
   bridge ? bridge.refresh() : Promise.resolve(null);
+
+const renewMutex = new Mutex();
+
+/**
+ * Renews the session after `staleToken` was rejected. One renewal runs at a time; if the
+ * session already holds a newer token, that one is returned without another refresh grant.
+ */
+export const renewSessionToken = (
+  staleToken: string | null,
+): Promise<string | null> =>
+  renewMutex.runExclusive(() => {
+    const currentToken = getSessionAccessToken();
+    if (currentToken && currentToken !== staleToken) return currentToken;
+    return refreshSessionToken();
+  });
 
 export const dropSession = (): Promise<void> =>
   bridge ? bridge.dropSession() : Promise.resolve();

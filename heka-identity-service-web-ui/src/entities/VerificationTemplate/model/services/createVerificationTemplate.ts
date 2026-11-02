@@ -10,6 +10,7 @@ import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { handleError } from '@/shared/api/utils/error';
 
 import { VerificationTemplate } from '../types/verificationTemplate';
+import { toTemplateFields } from '../utils/templateFields';
 
 interface CreateVerificationTemplateParams {
   name: string;
@@ -31,14 +32,7 @@ export const createVerificationTemplate = createAsyncThunk<
 
   try {
     const fields =
-      schema && attributes
-        ? attributes.map((attribute: string) => {
-            const field = schema.fields?.find(
-              (field) => field.name === attribute,
-            );
-            return { schemaFieldId: field?.id };
-          })
-        : undefined;
+      schema && attributes ? toTemplateFields(schema, attributes) : undefined;
 
     const { data } = await extra.agencyApi.post(
       agencyEndpoints.createVerificationTemplate,

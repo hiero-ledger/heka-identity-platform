@@ -1,5 +1,4 @@
 import { PressEvent } from '@react-types/shared/src/events';
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ChevronRightSVG from '@/shared/assets/icons/chevron-right.svg';

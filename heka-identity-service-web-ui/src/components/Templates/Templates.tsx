@@ -1,15 +1,16 @@
 import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext } from '@dnd-kit/sortable';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
+import { useSortableSensors } from '@/components/Draggable/Draggable';
 import { NoItemFound } from '@/components/NoItemFound/NoItemFound';
 import { DesktopView } from '@/components/Screen/Screen';
 import { Template } from '@/components/Template/Template';
 import { IssuanceTemplate } from '@/entities/IssuanceTemplate';
 import { VerificationTemplate } from '@/entities/VerificationTemplate';
-import useConfirmDialog from '@/shared/ui/ConfirmDialog';
+import useConfirmDialog, { ConfirmForm } from '@/shared/ui/ConfirmDialog';
 import { Column, Row } from '@/shared/ui/Grid';
 import { LoaderView } from '@/shared/ui/Loader';
 import { Search } from '@/shared/ui/Search/Search';
@@ -65,7 +66,7 @@ export const Templates = ({
       )
     : localTemplates;
 
-  const { ConfirmDialog, confirm } = useConfirmDialog({
+  const { dialogProps, confirm } = useConfirmDialog({
     text: t('Template.confirmation.deleteTemplate'),
     cancelButtonText: t('Template.buttons.cancelConfirm'),
     acceptButtonText: t('Template.buttons.deleteConfirm'),
@@ -83,26 +84,34 @@ export const Templates = ({
     confirm();
   };
 
+  const sensors = useSortableSensors();
+
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
       const { active, over } = event;
 
       if (!over || active.id === over.id) return;
 
-      const oldIndex = event.active.data.current?.sortable.index ?? 0;
-      const newIndex = event.over?.data.current?.sortable.index ?? 0;
+      // Resolve positions by id in the full list: the sortable indexes refer to the
+      // filtered list while a search is active
+      const oldIndex = localTemplates.findIndex((t) => t.id === active.id);
+      const newIndex = localTemplates.findIndex((t) => t.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
 
-      let previousTemplateId;
-      setLocalTemplates((templates) => {
-        const updatedLocalTemplates = arrayMove(templates, oldIndex, newIndex);
-        previousTemplateId =
-          newIndex === 0 ? null : updatedLocalTemplates[newIndex - 1].id;
-        return updatedLocalTemplates;
-      });
+      const previousOrder = localTemplates;
+      const updatedOrder = arrayMove(localTemplates, oldIndex, newIndex);
+      const previousTemplateId =
+        newIndex === 0 ? null : updatedOrder[newIndex - 1].id;
+      setLocalTemplates(updatedOrder);
 
-      await changeTemplateOrder(String(active.id), previousTemplateId);
+      try {
+        await changeTemplateOrder(String(active.id), previousTemplateId);
+      } catch {
+        // The error has already been shown; put the list back as the server has it
+        setLocalTemplates(previousOrder);
+      }
     },
-    [changeTemplateOrder],
+    [changeTemplateOrder, localTemplates],
   );
 
   const onClickTemplate = useCallback(
@@ -162,7 +171,10 @@ export const Templates = ({
             </DesktopView>
           )}
           {filteredTemplates.length > 0 && (
-            <DndContext onDragEnd={handleDragEnd}>
+            <DndContext
+              sensors={sensors}
+              onDragEnd={handleDragEnd}
+            >
               <SortableContext items={filteredTemplates}>
                 {filteredTemplates.map((template) => (
                   <Template
@@ -180,7 +192,7 @@ export const Templates = ({
           )}
         </div>
       )}
-      <ConfirmDialog />
+      <ConfirmForm {...dialogProps} />
     </Column>
   );
 };

@@ -5,6 +5,7 @@ import IconCredentials from '@/shared/assets/icons/credentials.svg';
 import DropDown from '@/shared/assets/icons/drop_down.svg';
 import IconVault from '@/shared/assets/icons/vault-new.svg';
 import IconWallet from '@/shared/assets/icons/wallet-new.svg';
+import { clickableProps } from '@/shared/lib/a11y/clickable';
 import { Column, Row } from '@/shared/ui/Grid';
 import { getTextColor } from '@/shared/utils/colors';
 
@@ -165,7 +166,9 @@ export const PanelWithMenu = ({
           alignItems="center"
           justifyContent="center"
           className={cls.dropDown}
-          onClick={handleToggleModal}
+          aria-expanded={isMenuPopupOpen}
+          aria-haspopup="menu"
+          {...clickableProps(handleToggleModal)}
         >
           {activeItem}
           <DropDown />

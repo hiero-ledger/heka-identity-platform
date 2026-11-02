@@ -27,7 +27,7 @@
     "@credo-ts/core": "0.7.0",
     "@credo-ts/didcomm": "patch:@credo-ts/didcomm@npm%3A0.7.0#~/.yarn/patches/@credo-ts-didcomm-npm-0.7.0-e7c274e2fd.patch",
     "@credo-ts/drpc": "0.7.0",
-    "@credo-ts/hedera": "0.7.0",
+    "@credo-ts/hedera": "patch:@credo-ts/hedera@npm%3A0.7.0#~/.yarn/patches/@credo-ts-hedera-npm-0.7.0-2be6e6e871.patch",
     "@credo-ts/indy-vdr": "0.7.0",
     "@credo-ts/openid4vc": "0.7.0",
     "@credo-ts/push-notifications": "0.7.1",
