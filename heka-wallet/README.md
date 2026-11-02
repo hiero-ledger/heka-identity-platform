@@ -16,7 +16,7 @@ Heka Wallet acts as a Verifiable Credentials Holder — it receives, stores, and
 - **Presentation protocols:** OpenID4VP, DIDComm v2 (Aries Present Proof v2).
 - **DID methods — create:** `did:key`, `did:peer`, `did:jwk`, `did:hedera`.
 - **DID methods — resolve:** `did:web`, `did:key`, `did:peer`, `did:jwk`, `did:hedera`, `did:indybesu`.
-- **Mediation:** DIDComm message pickup via a configurable (self-hosted) mediator, see [DIDComm Mediator](../mediator).
+- **Mediation:** DIDComm message pickup via a configurable mediator, see [DIDComm Mediator](../mediator) for self-hosted option.
 - **Optional integrations (feature-flagged):**
   - Passkey-based wallet backup (`ENABLE_WALLET_BACKUP`).
   - External OAuth-based authentication (`ENABLE_EXTERNAL_AUTH`).

@@ -237,10 +237,6 @@ export async function tryRestartExistingAgent(agent: Agent, credentials: WalletS
   return true
 }
 
-/**
- * Returns true if DIDComm messages sent to the DID are routed through a mediator.
- * The public DID created while the mediator was not set up has no routing keys and uses the default queue endpoint.
- */
 async function isDidRoutedThroughMediator(agent: Agent, did: string): Promise<boolean> {
   const didDocument = await agent.dids.resolveDidDocument(did)
   return didDocument.didCommServices.some((service) => (service.routingKeys?.length ?? 0) > 0)
@@ -394,9 +390,6 @@ export async function ensureExampleCredentialCreated(agent: Agent): Promise<void
   await agent.sdJwtVc.store({ record })
 }
 
-/**
- * Where the wallet gets the mediator invitation from: an invitation URL, or a public DID of the mediator (implicit invitation).
- */
 export type MediatorSource = { type: 'invitationUrl'; invitationUrl: string } | { type: 'publicDid'; publicDid: string }
 
 /**
@@ -546,9 +539,6 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId))
 }
 
-/**
- * Called once the default mediator is set up, either during agent startup or by the background mediator setup.
- */
 export type OnMediatorReady = () => Promise<void> | void
 
 async function runOnMediatorReady(agent: Agent, onMediatorReady?: OnMediatorReady): Promise<void> {
