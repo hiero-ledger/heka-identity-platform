@@ -1,4 +1,4 @@
-import { Button, ButtonType, OnboardingStackParams, useStore, DispatchAction } from '@bifold/core'
+import { Button, ButtonType, OnboardingStackParams, useStore, DispatchAction, testIdWithKey } from '@bifold/core'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
@@ -197,6 +197,7 @@ const Onboarding: React.FC<OnboardingProps> = () => {
             <Button
               title={t('Onboarding.RestoreWallet')}
               accessibilityLabel={t('Onboarding.RestoreWallet')}
+              testID={testIdWithKey('RestoreWallet')}
               onPress={() => navigation.navigate(Stacks.BackupStack, { screen: Screens.WalletRestore })}
               buttonType={ButtonType.Secondary}
             />
@@ -207,6 +208,7 @@ const Onboarding: React.FC<OnboardingProps> = () => {
           title={t(steps[activeIndex].buttonTitle)}
           /*@ts-ignore - ignore localization key check*/
           accessibilityLabel={t(steps[activeIndex].buttonTitle)}
+          testID={testIdWithKey('OnboardingNext')}
           onPress={next}
           buttonType={ButtonType.Primary}
         />
