@@ -1,11 +1,14 @@
 import { act, render, waitFor } from '@testing-library/react-native'
 import React from 'react'
+import { DeviceEventEmitter } from 'react-native'
 
 import { Splash } from '../../src/screens/Splash'
 import { createAgent, createPublicDidOrGetExisting } from '../../src/utils/agent'
 
 const mockSetAgent = jest.fn()
 const mockSetPublicDid = jest.fn()
+// The mounted Splash's store dispatch, so a test can change an init dependency on the same instance.
+let mockStoreDispatch: (action: { type: string }) => void = () => undefined
 
 interface MockStoreState {
   authentication: { didAuthenticate: boolean }
@@ -46,7 +49,11 @@ jest.mock('@bifold/core', () => {
     TOKENS: { UTIL_LEDGERS: 'ledgers', UTIL_LOGGER: 'logger' },
     useAuth: () => auth,
     useServices: () => services,
-    useStore: () => useReducer(reducer, initialState),
+    useStore: () => {
+      const store = useReducer(reducer, initialState)
+      mockStoreDispatch = store[1]
+      return store
+    },
   }
 })
 
@@ -127,5 +134,23 @@ describe('Splash', () => {
     await waitFor(() => expect(mockSetAgent).toBeCalledWith(newAgent))
     await waitFor(() => expect(mockSetPublicDid).toBeCalledTimes(1))
     expect(createAgent).toBeCalledTimes(1)
+  })
+
+  it('reports a failed init and retries it when a dependency changes', async () => {
+    const emitSpy = jest.spyOn(DeviceEventEmitter, 'emit')
+    jest.mocked(createAgent).mockRejectedValue(new Error('Wallet is locked'))
+
+    render(<Splash />)
+
+    await waitFor(() => expect(emitSpy).toBeCalledWith('ErrorAdded', expect.any(Error)))
+    expect(createAgent).toBeCalledTimes(1)
+    expect(mockSetAgent).not.toBeCalled()
+
+    // Same mounted instance, so the in-progress guard is the one the failed init left behind.
+    await act(async () => {
+      mockStoreDispatch({ type: 'migration/didMigrateToAskar' })
+    })
+
+    await waitFor(() => expect(createAgent).toBeCalledTimes(2))
   })
 })

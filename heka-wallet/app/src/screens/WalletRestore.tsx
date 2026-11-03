@@ -118,6 +118,7 @@ export const WalletRestore: React.FC = () => {
       })
       .catch((error: unknown) => {
         logger.error('Failed to download the remote backup', error)
+        setIsBackupAvailable(false)
         showErrorToast(error)
       })
       .finally(() => setIsLoading(false))

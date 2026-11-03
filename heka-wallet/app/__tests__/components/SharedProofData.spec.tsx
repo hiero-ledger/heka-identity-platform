@@ -38,7 +38,12 @@ const record = { id: 'proof-id' } as DidCommProofExchangeRecord
 
 describe('SharedProofData', () => {
   it('stops loading and shows the error when credentials cannot be loaded', async () => {
-    mockFunction(useCredentials).mockReturnValue({ credentials: [], isLoading: false, error: new Error('Failed') })
+    mockFunction(useCredentials).mockReturnValue({
+      credentials: [],
+      isLoading: false,
+      error: new Error('Failed'),
+      isPartial: false,
+    })
 
     render(<SharedProofData record={record} />)
 
@@ -47,8 +52,25 @@ describe('SharedProofData', () => {
     expect(preparePresentationData).not.toBeCalled()
   })
 
+  it('prepares the shared data from the credentials that loaded when a provider failed', async () => {
+    const credentials = [{ id: 'credential-id' }] as never
+    mockFunction(useCredentials).mockReturnValue({
+      credentials,
+      isLoading: false,
+      error: new Error('Storage unavailable'),
+      isPartial: true,
+    })
+    mockFunction(preparePresentationData).mockResolvedValue([])
+
+    render(<SharedProofData record={record} />)
+
+    await waitFor(() => expect(screen.queryByText('loader')).toBeNull())
+    expect(screen.getByText('Credentials.LoadFailed')).toBeTruthy()
+    expect(preparePresentationData).toBeCalledWith(record, expect.anything(), credentials)
+  })
+
   it('stops loading when the wallet has no credentials', async () => {
-    mockFunction(useCredentials).mockReturnValue({ credentials: [], isLoading: false })
+    mockFunction(useCredentials).mockReturnValue({ credentials: [], isLoading: false, isPartial: false })
     mockFunction(preparePresentationData).mockResolvedValue([])
 
     render(<SharedProofData record={record} />)
@@ -58,7 +80,7 @@ describe('SharedProofData', () => {
   })
 
   it('waits while credentials are loading', () => {
-    mockFunction(useCredentials).mockReturnValue({ credentials: [], isLoading: true })
+    mockFunction(useCredentials).mockReturnValue({ credentials: [], isLoading: true, isPartial: false })
 
     render(<SharedProofData record={record} />)
 

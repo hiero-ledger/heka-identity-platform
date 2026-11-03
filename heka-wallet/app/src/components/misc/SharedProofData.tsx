@@ -50,11 +50,11 @@ const SharedProofData: React.FC<SharedProofDataProps> = ({ record }) => {
   const [loading, setLoading] = useState<boolean>(true)
   const [presentationData, setPresentationData] = useState<PresentationDetails[] | undefined>(undefined)
 
-  const { credentials, isLoading: isCredentialsLoading, error: credentialsError } = useCredentials()
+  const { credentials, isLoading: isCredentialsLoading, error: credentialsError, isPartial } = useCredentials()
 
   useEffect(() => {
     if (isCredentialsLoading) return
-    if (credentialsError) {
+    if (credentialsError && !isPartial) {
       setLoading(false)
       return
     }
@@ -68,7 +68,7 @@ const SharedProofData: React.FC<SharedProofDataProps> = ({ record }) => {
         })
       )
       .finally(() => setLoading(false))
-  }, [record, credentials, isCredentialsLoading, credentialsError, agent])
+  }, [record, credentials, isCredentialsLoading, credentialsError, isPartial, agent])
 
   if (loading) {
     return (

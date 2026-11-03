@@ -25,6 +25,8 @@ interface CredentialsState {
   credentials: Credential[]
   isLoading: boolean
   error?: unknown
+  // True when only a provider failed: the credentials that did load are current and usable
+  isPartial: boolean
 }
 
 export const useCredentials = (maxCount?: number): CredentialsState => {
@@ -128,5 +130,6 @@ export const useCredentials = (maxCount?: number): CredentialsState => {
   }, [loadCredentials])
 
   // A provider that failed to load contributes no records, so its error is reported with the partial list
-  return { credentials, isLoading, error: error ?? w3cError ?? sdJwtError ?? mdocError }
+  const providerError = w3cError ?? sdJwtError ?? mdocError
+  return { credentials, isLoading, error: error ?? providerError, isPartial: !error && !!providerError }
 }
