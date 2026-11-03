@@ -1,5 +1,5 @@
 appId: com.heka.wallet
-name: Five wrong PINs lock the wallet, the right PIN unlocks it after the lockout
+name: Five wrong PINs lock the wallet; after the lockout a wrong PIN is only rejected and the right PIN unlocks it
 tags:
   - pin
   - no-backend
@@ -50,8 +50,26 @@ env:
     visible:
       id: 'com.ariesbifold:id/PinKey0'
     timeout: 15000
+# A served lockout must not come back: wrong PIN 6 only shows the alert.
+- runFlow:
+    file: subflows/enter-pin.yaml
+    env:
+      PIN: ${WRONG_PIN}
+- extendedWaitUntil:
+    visible: 'Incorrect PIN'
+    timeout: 30000
+- tapOn: 'Okay'
+- assertNotVisible: 'Your wallet is temporarily locked'
 - runFlow: subflows/enter-pin.yaml
 - extendedWaitUntil:
     visible:
       id: 'com.ariesbifold:id/TabCredentials'
     timeout: 120000
+# The successful unlock reset the stored attempts, so the next launch asks for the PIN, not the lockout.
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/PinKey0'
+    timeout: 120000
+- assertNotVisible: 'Your wallet is temporarily locked'

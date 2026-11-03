@@ -49,17 +49,19 @@ Tags: `pin`, `no-backend`.
 
 Proves: the PIN set at onboarding unlocks the wallet after a restart.
 
-### `pin-lockout.yaml` — Five wrong PINs lock the wallet, the right PIN unlocks it after the lockout
+### `pin-lockout.yaml` — Five wrong PINs lock the wallet; after the lockout a wrong PIN is only rejected and the right PIN unlocks it
 
 Tags: `pin`, `no-backend`. Takes over a minute: it waits out the lockout.
 
 1. Runs `subflows/onboard.yaml`, then stops and starts the app
 2. Enters a wrong PIN (`WRONG_PIN`) 4 times; each time the Incorrect PIN alert appears and is closed. The 4th alert must warn about the lockout
 3. Enters a 5th wrong PIN; the lockout screen appears (Bifold's first penalty: 1 minute)
-4. Waits for Try Again, taps it, enters the right PIN
-5. Waits for Home
+4. Waits for Try Again and taps it
+5. Enters a 6th wrong PIN; only the Incorrect PIN alert appears, not the lockout
+6. Enters the right PIN and waits for Home
+7. Stops and starts the app; the PIN screen appears, not the lockout
 
-Proves: each wrong PIN counts once, the lockout starts at the 5th, and it ends after its penalty. A wrong PIN counted twice locks the wallet for 10 minutes and fails step 2 or 4.
+Proves: each wrong PIN counts once, the lockout starts at the 5th, and it ends after its penalty. A wrong PIN counted twice locks the wallet for 10 minutes and fails step 2 or 4. A served lockout that comes back on the next PIN (Android renders each store update on its own) fails step 5 or 7.
 
 ### `change-pin.yaml` — Changed PIN unlocks the restarted wallet, the old PIN does not
 
