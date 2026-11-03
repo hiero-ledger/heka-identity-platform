@@ -1,4 +1,4 @@
-import { Button, ButtonType, DispatchAction, OnboardingStackParams, useStore } from '@bifold/core'
+import { Button, ButtonType, DispatchAction, OnboardingStackParams, testIdWithKey, useStore } from '@bifold/core'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
@@ -105,6 +105,7 @@ export const Terms: React.FC = () => {
               <Button
                 title={t('Global.Back')}
                 accessibilityLabel={t('Global.Back')}
+                testID={testIdWithKey('Back')}
                 onPress={onBackPressed}
                 buttonType={ButtonType.Secondary}
               />
@@ -114,6 +115,7 @@ export const Terms: React.FC = () => {
             <Button
               title={t('Global.Accept')}
               accessibilityLabel={t('Global.Accept')}
+              testID={testIdWithKey('Accept')}
               onPress={onSubmitPressed}
               buttonType={ButtonType.Primary}
             />
