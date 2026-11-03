@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react-native'
+import { render, screen, waitFor } from '@testing-library/react-native'
 import React from 'react'
 import { DeviceEventEmitter } from 'react-native'
 
@@ -43,8 +43,18 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
 }))
 
-jest.mock('../../src/components/views', () => ({ PresentationRequestView: () => null }))
-jest.mock('../../src/components/views/LoadingView', () => ({ __esModule: true, default: () => null }))
+jest.mock('../../src/components/views', () => {
+  const { Text } = jest.requireActual('react-native')
+  return {
+    PresentationRequestView: ({ presentationSubmission }: { presentationSubmission: { verifierName: string } }) => (
+      <Text>{`request from ${presentationSubmission.verifierName}`}</Text>
+    ),
+  }
+})
+jest.mock('../../src/components/views/LoadingView', () => {
+  const { Text } = jest.requireActual('react-native')
+  return { __esModule: true, default: () => <Text>loading</Text> }
+})
 
 jest.mock('../../src/credentials', () => ({
   mapAnoncredsProofExchangeRecord: jest.fn(),
@@ -59,6 +69,17 @@ jest.mock('../../src/utils/agent', () => {
 const route = { key: 'ProofRequest', name: 'ProofRequest', params: { proofId: 'proof-id' } } as never
 
 describe('AriesPresentationRequest', () => {
+  it('shows the mapped proof request', async () => {
+    const emitSpy = jest.spyOn(DeviceEventEmitter, 'emit')
+    mockFunction(mapAnoncredsProofExchangeRecord).mockResolvedValue({ verifierName: 'Verifier' } as never)
+
+    render(<AriesPresentationRequest route={route} navigation={{} as never} />)
+
+    expect(await screen.findByText('request from Verifier')).toBeTruthy()
+    expect(screen.queryByText('loading')).toBeNull()
+    expect(emitSpy).not.toBeCalledWith('ErrorAdded', expect.anything())
+  })
+
   it('reports a proof request that cannot be mapped as error 1027', async () => {
     const emitSpy = jest.spyOn(DeviceEventEmitter, 'emit')
     mockFunction(mapAnoncredsProofExchangeRecord).mockRejectedValue(new Error('Mapping failed'))

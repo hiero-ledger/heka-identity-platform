@@ -32,7 +32,13 @@ jest.mock('../../src/components/views/LoadingView', () => {
   const { Text } = jest.requireActual('react-native')
   return { Loader: () => <Text>loader</Text> }
 })
-jest.mock('../../src/components/misc/Record', () => ({ Record: () => null }))
+jest.mock('../../src/components/misc/Record', () => {
+  const { Text } = jest.requireActual('react-native')
+  return {
+    Record: ({ fields }: { fields: { name: string; value: string }[] }) =>
+      fields.map(({ name, value }) => <Text key={name}>{`${name}: ${value}`}</Text>),
+  }
+})
 
 const record = { id: 'proof-id' } as DidCommProofExchangeRecord
 
@@ -52,7 +58,7 @@ describe('SharedProofData', () => {
     expect(preparePresentationData).not.toBeCalled()
   })
 
-  it('prepares the shared data from the credentials that loaded when a provider failed', async () => {
+  it('shows the shared data of the credentials that loaded when a provider failed', async () => {
     const credentials = [{ id: 'credential-id' }] as never
     mockFunction(useCredentials).mockReturnValue({
       credentials,
@@ -60,12 +66,13 @@ describe('SharedProofData', () => {
       error: new Error('Storage unavailable'),
       isPartial: true,
     })
-    mockFunction(preparePresentationData).mockResolvedValue([])
+    mockFunction(preparePresentationData).mockResolvedValue([{ shared: [{ name: 'degree', value: 'Bachelor' }] }])
 
     render(<SharedProofData record={record} />)
 
-    await waitFor(() => expect(screen.queryByText('loader')).toBeNull())
+    expect(await screen.findByText('degree: Bachelor')).toBeTruthy()
     expect(screen.getByText('Credentials.LoadFailed')).toBeTruthy()
+    expect(screen.queryByText('loader')).toBeNull()
     expect(preparePresentationData).toBeCalledWith(record, expect.anything(), credentials)
   })
 

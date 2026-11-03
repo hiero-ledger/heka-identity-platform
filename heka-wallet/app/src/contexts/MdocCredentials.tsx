@@ -76,7 +76,8 @@ export const MdocRecordProvider: React.FC<PropsWithChildren> = ({ children }) =>
       .then((mdocCredentialRecords) => setState({ mdocCredentialRecords, isLoading: false }))
       .catch((error: unknown) => {
         agent.config.logger.error('Failed to load mdoc records', { error: formatError(error) })
-        setState((prev) => ({ ...prev, isLoading: false, error }))
+        // Records of a previous agent must not outlive a failed reload
+        setState({ mdocCredentialRecords: [], isLoading: false, error })
       })
   }, [agent])
 
