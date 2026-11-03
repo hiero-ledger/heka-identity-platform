@@ -208,7 +208,7 @@ describe('usePushNotifications', () => {
     await waitFor(() => expect(registerDeviceToken).toHaveBeenCalledTimes(1))
   })
 
-  describe('when the mediator does not accept the sync', () => {
+  describe('when a sync fails', () => {
     beforeEach(() => jest.useFakeTimers())
     afterEach(() => {
       jest.useRealTimers()
@@ -237,6 +237,20 @@ describe('usePushNotifications', () => {
       await act(async () => jest.advanceTimersByTime(SYNC_RETRY_DELAYS_MS[0]))
 
       await waitFor(() => expect(unregisterDeviceToken).toHaveBeenCalledTimes(2))
+    })
+
+    it('retries unregistering when reading the registered flag throws', async () => {
+      givenWallet({ usePushNotifications: false, registered: true })
+      mockFunction(isDeviceTokenRegistered).mockRejectedValueOnce(new Error('AsyncStorage read failed'))
+      renderHook(() => usePushNotifications())
+      await waitFor(() =>
+        expect(agent.config.logger.error).toHaveBeenCalledWith(expect.stringContaining('AsyncStorage read failed'))
+      )
+      expect(unregisterDeviceToken).not.toHaveBeenCalled()
+
+      await act(async () => jest.advanceTimersByTime(SYNC_RETRY_DELAYS_MS[0]))
+
+      await waitFor(() => expect(unregisterDeviceToken).toHaveBeenCalledTimes(1))
     })
 
     it('stops retrying after the last delay', async () => {

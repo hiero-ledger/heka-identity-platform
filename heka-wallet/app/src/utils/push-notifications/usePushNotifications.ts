@@ -16,7 +16,7 @@ import {
 // reads the registered flag only after the previous one has written it, and the mediator gets them in order.
 let lastSend: Promise<unknown> = Promise.resolve()
 
-// Waits before each retry of a sync the mediator did not accept (e.g. unreachable); then the next agent start retries
+// Waits before each retry of a failed sync (mediator unreachable, a local check threw); then the next agent start retries
 export const SYNC_RETRY_DELAYS_MS = [5_000, 30_000, 120_000]
 
 function afterLastSend<T>(send: () => Promise<T>): Promise<T> {
@@ -63,13 +63,15 @@ export function usePushNotifications(): void {
 
     const syncWithRetry = (attempt: number): void => {
       sync()
+        // A local check that throws (permission, AsyncStorage) is retried like a send the mediator did not accept
+        .catch((error: unknown) => {
+          agent.config.logger.error(`Push notifications: syncing the device token failed: ${String(error)}`)
+          return false
+        })
         .then((synced) => {
           const delay = SYNC_RETRY_DELAYS_MS[attempt]
           if (synced || cancelled || delay === undefined) return
           retryTimer = setTimeout(() => syncWithRetry(attempt + 1), delay)
-        })
-        .catch((error: unknown) => {
-          agent.config.logger.error(`Push notifications: syncing the device token failed: ${String(error)}`)
         })
     }
     syncWithRetry(0)
