@@ -17,6 +17,7 @@ on:
       - '.env.example'
       - '.github/workflows/heka-e2e.yml'
       - '.github/workflows/heka-wallet-e2e-run.yml'
+      - '!**/*.md'
   workflow_dispatch:
 
 # This allows a subsequently queued workflow run to interrupt previous runs

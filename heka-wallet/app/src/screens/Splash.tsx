@@ -11,14 +11,16 @@ import { indyBesuConfig, isExampleCredentialEnabled, isPublicInvitationEnabled }
 import {
   createAgent,
   createPublicDidOrGetExisting,
-  createPublicInvitationOrGetExisting,
+  createPublicInvitationWhenMediatorReady,
   ensureExampleCredentialCreated,
-  findExistingPublicDid,
+  getMediatorSource,
+  HekaWalletAgent,
+  OnMediatorReady,
+  trySetupMediator,
   tryRestartExistingAgent,
   createAnoncredsLinkSecretIfRequired,
   useHekaAgent,
 } from '../utils/agent'
-import { trySetupMediator } from '../utils/mediator'
 
 const fileLogger = GlobalLogger.createContextLogger('Splash')
 
@@ -64,6 +66,20 @@ export const Splash: React.FC = () => {
       return
     }
 
+    // The public invitation is created only once the default mediator is set up,
+    // otherwise it would not be able to receive DIDComm messages
+    const getOnMediatorReady = (targetAgent: HekaWalletAgent): OnMediatorReady | undefined => {
+      if (!isPublicInvitationEnabled) return undefined
+
+      return async () => {
+        const invitationUrl = await createPublicInvitationWhenMediatorReady(
+          targetAgent,
+          store.preferences.walletName ?? 'Heka Wallet'
+        )
+        logger.info(`Public invitation URL: ${invitationUrl}`)
+      }
+    }
+
     const initAgent = async (): Promise<void> => {
       try {
         const walletSecret = await getWalletSecret()
@@ -72,12 +88,23 @@ export const Splash: React.FC = () => {
           return
         }
 
+        const mediatorSource = getMediatorSource(
+          { mediatorUrl: Config.MEDIATOR_URL, mediatorPublicDid: Config.MEDIATOR_PUBLIC_DID },
+          logger
+        )
+
         if (agent) {
           logger.info('Agent already initialized, restarting...')
 
           const isAgentRestarted = await tryRestartExistingAgent(agent, walletSecret)
 
           if (isAgentRestarted) {
+            // Public DID already exists here, so there is no need to wait for the mediator.
+            // The public invitation, if it does not exist yet, is created once the mediator is set up.
+            if (mediatorSource) {
+              void trySetupMediator(agent, mediatorSource, getOnMediatorReady(agent))
+            }
+
             // The onboarding workflow transitions to the main stack automatically once
             // the agent is set — no navigation needed here.
             return
@@ -110,36 +137,32 @@ export const Splash: React.FC = () => {
           })
         }
 
-        const hasMediator = await trySetupMediator(newAgent, {
-          invitationUrl: Config.MEDIATOR_URL,
-          publicDid: Config.MEDIATOR_PUBLIC_DID,
-        })
-
-        const publicDid = hasMediator
-          ? await createPublicDidOrGetExisting(newAgent)
-          : await findExistingPublicDid(newAgent)
-
-        if (publicDid) {
-          logger.info(`Public DID: ${publicDid}`)
+        // If the mediator is set up right away, the public invitation is created here, before the agent is set.
+        // Otherwise it is created later, when the background mediator setup succeeds.
+        if (mediatorSource) {
+          await trySetupMediator(newAgent, mediatorSource, getOnMediatorReady(newAgent))
         } else {
-          fileLogger.warn('No mediator: public DID creation deferred to the next start')
+          logger.warn(
+            'Neither MEDIATOR_URL nor MEDIATOR_PUBLIC_DID is set, inbound DIDComm messages will not be received'
+          )
+          if (isPublicInvitationEnabled) {
+            logger.warn(
+              'Neither MEDIATOR_URL nor MEDIATOR_PUBLIC_DID is set, the public invitation is not created because it requires a mediator'
+            )
+          }
         }
 
-        if (publicDid && isPublicInvitationEnabled) {
-          const invitationUrl = await createPublicInvitationOrGetExisting(
-            newAgent,
-            publicDid,
-            store.preferences.walletName ?? 'Heka Wallet'
-          )
-          logger.info(`Public invitation URL: ${invitationUrl}`)
-        }
+        // The public DID is created even if the mediator is not set up yet. OpenID4VC flows don't use it; if it lacks
+        // mediator routing, the public invitation uses inline services instead (see 'createPublicInvitationOrGetExisting')
+        const publicDid = await createPublicDidOrGetExisting(newAgent)
+        logger.info(`Public DID: ${publicDid}`)
 
         if (isExampleCredentialEnabled) {
           await ensureExampleCredentialCreated(newAgent)
         }
 
         setAgent(newAgent)
-        if (publicDid) setPublicDid(publicDid)
+        setPublicDid(publicDid)
 
         // The onboarding workflow transitions to the main stack automatically once
         // the agent is set — no navigation needed here.

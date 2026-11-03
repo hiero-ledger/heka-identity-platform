@@ -6,11 +6,12 @@ import { Mutex } from 'async-mutex'
 
 import { Agent, AGENT_TOKEN } from 'common/agent'
 import { User, Wallet } from 'common/entities'
-import { InjectLogger, Logger } from 'common/logger'
+import { InjectLogger, Logger, maskSecretsInUrl } from 'common/logger'
 import { getWalletId } from 'utils/auth'
 import { withTenantAgent } from 'utils/multi-tenancy'
 
 import { AuthInfo, isRole } from './auth-info.interface'
+import { TokenIntrospectionService } from './token-introspection.service'
 import { TokenPayload } from './token-payload.interface'
 import { TokenVerifier } from './token-verifier.service'
 
@@ -21,6 +22,7 @@ export class AuthService {
     @Inject(AGENT_TOKEN)
     private readonly agent: Agent,
     private readonly tokenVerifier: TokenVerifier,
+    private readonly tokenIntrospection: TokenIntrospectionService,
     private readonly em: EntityManager,
     @InjectLogger(AuthService)
     private readonly logger: Logger,
@@ -31,16 +33,21 @@ export class AuthService {
 
   /**
    * Authenticates an incoming HTTP or WebSocket upgrade request by its bearer token.
-   * Throws `UnauthorizedException` when the token is missing, invalid, or does not meet the claim contract.
+   * Throws `UnauthorizedException` when the token is missing, invalid, revoked (with token introspection enabled),
+   * or does not meet the claim contract.
    */
   public async validateRequestToken(request: IncomingMessage): Promise<AuthInfo> {
-    const logger = this.logger.child('validateRequestToken', { request })
+    // Bind only the method and the URL with OID4VC session secrets masked: the request carries the access token in its headers
+    const logger = this.logger.child('validateRequestToken', {
+      method: request.method,
+      url: maskSecretsInUrl(request.url),
+    })
     logger.trace('>')
 
     const token = extractTokenFromHeader(request)
-    logger.traceObject({ token })
-
     const { authInfo } = await this.authenticateToken(token)
+
+    logger.trace({ userId: authInfo.userId }, '<')
     return authInfo
   }
 
@@ -51,7 +58,7 @@ export class AuthService {
    * Returns the token's `exp` (seconds since epoch) so the caller can close the socket when it expires.
    */
   public async validateWebSocketToken(request: IncomingMessage): Promise<{ authInfo: AuthInfo; expiresAt?: number }> {
-    const logger = this.logger.child('validateWebSocketToken', { url: request.url })
+    const logger = this.logger.child('validateWebSocketToken', { url: maskSecretsInUrl(request.url) })
     logger.trace('>')
 
     const token = extractTokenFromProtocolHeader(request) ?? extractTokenFromHeader(request)
@@ -68,6 +75,10 @@ export class AuthService {
     }
 
     const payload = await this.tokenVerifier.verify(token)
+
+    // Checked before the payload is used, so a revoked token never provisions a user or a wallet
+    await this.tokenIntrospection.assertTokenActive(token)
+
     const authInfo = await this.validateTokenPayload(payload)
     return { authInfo, expiresAt: payload.exp }
   }

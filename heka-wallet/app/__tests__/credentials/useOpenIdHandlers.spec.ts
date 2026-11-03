@@ -232,7 +232,7 @@ describe('useOpenIdHandlers', () => {
       expect(mockAgent.openid4vc.holder.requestCredentials).toHaveBeenCalledTimes(1)
     })
 
-    describe('when the wallet has no public DID (no mediator)', () => {
+    describe('when the wallet has no public DID', () => {
       const mockKeyId = 'mock-key-id'
       const jwtProofTypes = { jwt: { supportedSignatureAlgorithms: ['EdDSA'], keyAttestationsRequired: false } }
 

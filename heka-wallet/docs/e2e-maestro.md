@@ -109,6 +109,8 @@ Running the flows locally needs no Maestro Cloud account.
 
 ### 2. Prepare the device and the app
 
+The commands assume a POSIX shell: macOS, Linux, or Git Bash/WSL on Windows. Step 3 also shows Windows `cmd`.
+
 1. **Start an Android emulator or connect a device.** Check it is listed by `adb devices`. Keep only one device connected.
 
 2. **Pick the build variant.** The `ENABLE_EXTERNAL_AUTH` flag in the app env file decides which flows can run:
@@ -118,12 +120,14 @@ Running the flows locally needs no Maestro Cloud account.
    | `ENABLE_EXTERNAL_AUTH=false` | Starts at the tutorial; no login                        | `onboarding`, `unlock-with-pin`, `credential-offer` |
    | `ENABLE_EXTERNAL_AUTH=true`  | Logs in through Keycloak first, then checks the account | all flows                                           |
 
-   For the `false` variant, make a copy of the env file with the flag off (`.env.e2e` is git-ignored):
+   For the `false` variant, copy `.env.example`, which has the flag off (`.env.e2e` is git-ignored):
 
    ```shell
    cd heka-wallet/app
-   sed 's/^ENABLE_EXTERNAL_AUTH=.*/ENABLE_EXTERNAL_AUTH=false/' .env.example > .env.e2e
+   cp .env.example .env.e2e
    ```
+
+   For the `true` variant (`ENVFILE=.env` in step 3), that env file needs `ENABLE_EXTERNAL_AUTH=true` and an `OAUTH_STORE_CONFIG` with the `localhost:8080` endpoints of the `heka-wallet` realm, as in `.env.example`.
 
 3. **Build and install a debug APK.** Use a debug build that loads its JavaScript from Metro. A dev bundle inside the APK shows a LogBox devtools error. Rebuild after any change to the env file.
 
@@ -174,6 +178,8 @@ Running the flows locally needs no Maestro Cloud account.
    cp .env.example .env
    docker compose --profile keycloak up -d --build postgres keycloak heka-identity-service
    ```
+
+   The stack publishes Postgres on `127.0.0.1:5432`, so stop anything else that uses that port first.
 
 ### 3. Open the workspace
 
@@ -244,7 +250,7 @@ maestro test .maestro/onboarding.yaml
 | Red LogBox about devtools websocket                                             | The debug APK has a bundle inside. Use a debug build with Metro                                                                                                             |
 | Login screen is shown in a build that should skip it (or the reverse)           | The APK was built with another env file. Rebuild with the right `ENVFILE`                                                                                                   |
 | The account check fails with another user's email                               | Chrome reused another user's Keycloak session. Log out in Chrome or clear Chrome's data                                                                                     |
-| OAuth login fails on a physical device                                          | The device has no secure lock screen. Set a PIN or pattern on the device                                                                                                    |
+| OAuth login fails on a physical device                                          | Check the app log. Older builds needed a secure lock screen to store the OAuth tokens; if the log shows a keychain error, set a PIN or pattern on the device                |
 | Chrome welcome screens cover the login                                          | Turn off Chrome's first-run screens (step 6)                                                                                                                                |
 | `create-sd-jwt-offer.js` fails with `Missing env ...` or `Token request failed` | The selected environment lacks a variable, or the client id or secret is wrong, or Keycloak is down                                                                         |
 | The credential offer screen never appears                                       | The wallet cannot reach the offer URL. Check `adb reverse tcp:3003` and identity-service's `AGENT_OID4VCI_ENDPOINT`                                                         |

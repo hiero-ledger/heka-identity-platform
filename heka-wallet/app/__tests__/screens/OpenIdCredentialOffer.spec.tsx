@@ -61,7 +61,7 @@ jest.mock('../../src/credentials', () => ({
 }))
 
 // utils/agent.ts eagerly imports native/ESM Credo modules; only the hook is needed here.
-// No public DID: the wallet started without a mediator.
+// No public DID: OID4VCI must not depend on it.
 jest.mock('../../src/utils/agent', () => ({
   useHekaAgent: () => ({ loading: false, agent: mockAgent, publicDid: undefined }),
 }))
