@@ -4,8 +4,10 @@ import { AddressInfo, Server } from 'net'
 import { MikroORM } from '@mikro-orm/core'
 import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
+import { ConfigType } from '@nestjs/config'
 import request from 'supertest'
 
+import PinoConfig from 'src/config/pino'
 import { sleep } from 'src/utils/timers'
 
 import { initializeMikroOrm, startTestApp } from './helpers'
@@ -26,6 +28,10 @@ describe('E2E demo token broker', () => {
   let tokenEndpoint: HttpServer
   const grants: Array<{ authorization?: string; form: Record<string, string> }> = []
   const originalEnv = { ...process.env }
+  // Earlier e2e files run in the same process, so PINO_LEVEL is set to a known value that the helper itself would not
+  // set: with a helper that assigns PINO_LEVEL ('error'), the value after start would differ from it
+  const pinoLevelBeforeStart = 'warn'
+  let pinoLevelAfterStart: string | undefined
 
   beforeAll(async () => {
     tokenEndpoint = createServer((req, res) => {
@@ -51,7 +57,9 @@ describe('E2E demo token broker', () => {
 
     await ormSchemaGenerator.refresh()
 
+    process.env.PINO_LEVEL = pinoLevelBeforeStart
     nestApp = await startTestApp()
+    pinoLevelAfterStart = process.env.PINO_LEVEL
     app = nestApp.getHttpServer() as Server
   })
 
@@ -66,6 +74,11 @@ describe('E2E demo token broker', () => {
 
     await new Promise<void>((resolve) => tokenEndpoint.close(() => resolve()))
     process.env = originalEnv
+  })
+
+  test('startTestApp logs errors only and leaves PINO_LEVEL as it was', () => {
+    expect(pinoLevelAfterStart).toBe(pinoLevelBeforeStart)
+    expect(nestApp.get<ConfigType<typeof PinoConfig>>(PinoConfig.KEY).level).toBe('error')
   })
 
   test('hands out the demo service account token obtained with Client Credentials, once per lifetime', async () => {
