@@ -37,4 +37,20 @@ describe('PinKeyPad', () => {
     await waitFor(() => expect(onPinEntered).toBeCalledTimes(2))
     expect(onPinEntered).toHaveBeenLastCalledWith('222222')
   })
+
+  it('submits a PIN once when the entry handler changes while it is checked', async () => {
+    let resolveFirst: (valid: boolean) => void = () => undefined
+    const firstHandler = jest.fn(() => new Promise<boolean>((resolve) => (resolveFirst = resolve)))
+    const nextHandler = jest.fn().mockResolvedValue(false)
+    const { rerender } = render(<PinKeyPad onPinEntered={firstHandler} />)
+
+    await enterPIN('1')
+    await waitFor(() => expect(firstHandler).toBeCalledTimes(1))
+
+    // PINEnter recreates its handler when a wrong PIN updates the attempt count
+    rerender(<PinKeyPad onPinEntered={nextHandler} />)
+    await act(async () => resolveFirst(false))
+
+    expect(nextHandler).not.toBeCalled()
+  })
 })

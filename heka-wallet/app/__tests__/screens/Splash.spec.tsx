@@ -55,6 +55,8 @@ jest.mock('@credo-ts/didcomm', () => ({
   DidCommWsOutboundTransport: jest.fn(),
 }))
 
+jest.mock('@heka-wallet/shared', () => jest.requireActual('../../../jest-helpers/__mocks__/logger').default)
+
 jest.mock('react-i18next', () => {
   const translation = { t: (key: string) => key }
   return { useTranslation: () => translation }
@@ -84,9 +86,10 @@ jest.mock('../../src/utils/agent', () => {
     createAgent: jest.fn(),
     createAnoncredsLinkSecretIfRequired: jest.fn(),
     createPublicDidOrGetExisting: jest.fn().mockResolvedValue('did:example:public'),
-    createPublicInvitationOrGetExisting: jest.fn(),
+    createPublicInvitationWhenMediatorReady: jest.fn(),
     ensureExampleCredentialCreated: jest.fn(),
-    setupMediatorWithPublicDidIfNeeded: jest.fn(),
+    getMediatorSource: jest.fn(),
+    trySetupMediator: jest.fn(),
     tryRestartExistingAgent: jest.fn(),
     useHekaAgent,
   }

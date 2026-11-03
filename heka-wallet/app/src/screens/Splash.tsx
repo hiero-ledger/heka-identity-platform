@@ -1,7 +1,7 @@
 import { DispatchAction, useAuth, useStore, TOKENS, EventTypes, BifoldError, useServices } from '@bifold/core'
 import { DidCommHttpOutboundTransport, DidCommWsOutboundTransport } from '@credo-ts/didcomm'
 import { GlobalLogger } from '@heka-wallet/shared'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
 import { Config } from 'react-native-config'
@@ -154,7 +154,7 @@ export const Splash: React.FC = () => {
             logger.warn(
               'Neither MEDIATOR_URL nor MEDIATOR_PUBLIC_DID is set, the public invitation is not created because it requires a mediator'
             )
-        }
+          }
         }
 
         // The public DID is created even if the mediator is not set up yet. OpenID4VC flows don't use it; if it lacks

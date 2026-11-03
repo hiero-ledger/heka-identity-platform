@@ -143,26 +143,26 @@ export class OAuthStore {
   // Never rejects: a failed load leaves the user logged out instead of keeping the app loading.
   private async initialize(): Promise<void> {
     try {
-    const keychainCredentials = await Keychain.getGenericPassword(OAuthStore.keychainOptions)
-    if (keychainCredentials) {
-      const authState = JSON.parse(keychainCredentials.password)
-      logger.debug('Loaded auth state, access token expires at:', authState.accessTokenExpirationDate)
+      const keychainCredentials = await Keychain.getGenericPassword(OAuthStore.keychainOptions)
+      if (keychainCredentials) {
+        const authState = JSON.parse(keychainCredentials.password)
+        logger.debug('Loaded auth state, access token expires at:', authState.accessTokenExpirationDate)
 
-      runInAction(() => (this._authState = authState))
-    }
+        runInAction(() => (this._authState = authState))
+      }
 
-    const userInfoData = await AsyncStorage.getItem(OAUTH_USER_INFO_KEY)
-    if (userInfoData) {
-      const userInfo = JSON.parse(userInfoData)
-      logger.debug('Loaded user info:', userInfo)
+      const userInfoData = await AsyncStorage.getItem(OAUTH_USER_INFO_KEY)
+      if (userInfoData) {
+        const userInfo = JSON.parse(userInfoData)
+        logger.debug('Loaded user info:', userInfo)
 
-      runInAction(() => (this._userInfo = userInfo))
-    }
+        runInAction(() => (this._userInfo = userInfo))
+      }
     } catch (error) {
       logger.error('Failed to load the stored auth state', error)
     } finally {
-    runInAction(() => (this._isInitialized = true))
-  }
+      runInAction(() => (this._isInitialized = true))
+    }
   }
 
   private get isTokenExpired(): boolean {

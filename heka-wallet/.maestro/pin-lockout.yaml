@@ -1,0 +1,57 @@
+appId: com.heka.wallet
+name: Five wrong PINs lock the wallet, the right PIN unlocks it after the lockout
+tags:
+  - pin
+  - no-backend
+env:
+  PIN: '482916'
+  WRONG_PIN: '111111'
+---
+- evalScript: ${output.lockoutWarned = false}
+- runFlow: subflows/onboard.yaml
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/PinKey0'
+    timeout: 120000
+# Wrong PINs 1-4 show the Incorrect PIN alert; the 4th also warns about the lockout.
+- repeat:
+    times: 4
+    commands:
+      - runFlow:
+          file: subflows/enter-pin.yaml
+          env:
+            PIN: ${WRONG_PIN}
+      - extendedWaitUntil:
+          visible: 'Incorrect PIN'
+          timeout: 30000
+      - runFlow:
+          when:
+            visible: '(?s).*temporarily lock the wallet.*'
+          commands:
+            - evalScript: ${output.lockoutWarned = true}
+      - tapOn: 'Okay'
+- assertTrue: ${output.lockoutWarned}
+# Bifold's first penalty: 5 attempts -> 1 minute.
+- runFlow:
+    file: subflows/enter-pin.yaml
+    env:
+      PIN: ${WRONG_PIN}
+- extendedWaitUntil:
+    visible: 'Your wallet is temporarily locked'
+    timeout: 30000
+- assertVisible: 'You can try again in:'
+- extendedWaitUntil:
+    visible: 'Try Again'
+    timeout: 90000
+- tapOn: 'Try Again'
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/PinKey0'
+    timeout: 15000
+- runFlow: subflows/enter-pin.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/TabCredentials'
+    timeout: 120000

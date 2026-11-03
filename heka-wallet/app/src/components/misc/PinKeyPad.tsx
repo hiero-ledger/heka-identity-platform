@@ -1,7 +1,7 @@
 import { testIdWithKey } from '@bifold/core'
 import { minPINLength } from '@bifold/core/src/constants'
 import { GlobalLogger, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 import DeleteIcon from '../../assets/delete.svg'
@@ -61,9 +61,16 @@ const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
     })
   }, [])
 
+  // A failed attempt updates the store and so the handler; a new handler must not resubmit the same PIN.
+  const onPinEnteredRef = useRef(onPinEntered)
+  useEffect(() => {
+    onPinEnteredRef.current = onPinEntered
+  }, [onPinEntered])
+
   useEffect(() => {
     if (PIN.length === minPINLength) {
-      onPinEntered(PIN)
+      onPinEnteredRef
+        .current(PIN)
         .then((valid) => {
           if (!valid) setPIN('')
         })
@@ -72,7 +79,7 @@ const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
           setPIN('')
         })
     }
-  }, [PIN, onPinEntered])
+  }, [PIN])
 
   return (
     <View style={styles.container}>
