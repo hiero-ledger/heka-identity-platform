@@ -68,15 +68,22 @@ export const SdJwtVcRecordProvider: React.FC<PropsWithChildren> = ({ children })
   })
 
   useEffect(() => {
+    // Records of a previous agent must not outlive an agent change
+    setState({ sdJwtVcRecords: [], isLoading: true })
     if (!agent) return
+    let isCurrent = true
     agent.sdJwtVc
       .getAll()
-      .then((sdJwtVcRecords) => setState({ sdJwtVcRecords, isLoading: false }))
+      .then((sdJwtVcRecords) => {
+        if (isCurrent) setState({ sdJwtVcRecords, isLoading: false })
+      })
       .catch((error: unknown) => {
         agent.config.logger.error('Failed to load SD-JWT VC records', { error: formatError(error) })
-        // Records of a previous agent must not outlive a failed reload
-        setState({ sdJwtVcRecords: [], isLoading: false, error })
+        if (isCurrent) setState({ sdJwtVcRecords: [], isLoading: false, error })
       })
+    return () => {
+      isCurrent = false
+    }
   }, [agent])
 
   useEffect(() => {

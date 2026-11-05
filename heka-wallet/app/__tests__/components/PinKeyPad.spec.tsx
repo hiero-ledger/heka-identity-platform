@@ -61,6 +61,42 @@ describe('PinKeyPad', () => {
     expect(onPinEntered).toHaveBeenLastCalledWith('222222')
   })
 
+  it('ignores key presses while the PIN is being checked', async () => {
+    let rejectFirst: (error: Error) => void = () => undefined
+    const onPinEntered = jest
+      .fn()
+      .mockReturnValueOnce(new Promise<boolean>((_, reject) => (rejectFirst = reject)))
+      .mockResolvedValue(true)
+    render(<PinKeyPad onPinEntered={onPinEntered} />)
+
+    await enterPIN('1')
+    await waitFor(() => expect(onPinEntered).toBeCalledTimes(1))
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('PinKeyDelete'))
+      fireEvent.press(screen.getByText('2'))
+    })
+    await act(async () => rejectFirst(new Error('Unlock failed')))
+
+    expect(onPinEntered).toBeCalledTimes(1)
+  })
+
+  it('accepts keys again after the PIN is rejected', async () => {
+    let resolveFirst: (valid: boolean) => void = () => undefined
+    const onPinEntered = jest
+      .fn()
+      .mockReturnValueOnce(new Promise<boolean>((resolve) => (resolveFirst = resolve)))
+      .mockResolvedValue(true)
+    render(<PinKeyPad onPinEntered={onPinEntered} />)
+
+    await enterPIN('1')
+    await waitFor(() => expect(onPinEntered).toBeCalledTimes(1))
+    await act(async () => resolveFirst(false))
+    await enterPIN('3')
+
+    await waitFor(() => expect(onPinEntered).toBeCalledTimes(2))
+    expect(onPinEntered).toHaveBeenLastCalledWith('333333')
+  })
+
   it('submits a PIN once when the entry handler changes while it is checked', async () => {
     let resolveFirst: (valid: boolean) => void = () => undefined
     const firstHandler = jest.fn(() => new Promise<boolean>((resolve) => (resolveFirst = resolve)))

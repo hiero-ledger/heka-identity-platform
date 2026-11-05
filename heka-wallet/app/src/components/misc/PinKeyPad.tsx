@@ -55,6 +55,8 @@ const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
   const styles = useStyles(theme, height < COMPACT_KEYPAD_WINDOW_HEIGHT)
 
   const [PIN, setPIN] = useState('')
+  // Keys stay disabled until the handler settles, so a newer entry cannot be cleared by an older result
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const onPinChanged = useCallback((value: string) => {
     setPIN((prev) => {
@@ -74,6 +76,7 @@ const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
 
   useEffect(() => {
     if (PIN.length === minPINLength) {
+      setIsSubmitting(true)
       onPinEnteredRef
         .current(PIN)
         .then((valid) => {
@@ -83,6 +86,7 @@ const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
           logger.error('PIN entry handler failed', error)
           setPIN('')
         })
+        .finally(() => setIsSubmitting(false))
     }
   }, [PIN])
 
@@ -107,7 +111,7 @@ const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
         renderItem={({ item }) => {
           return (
             <TouchableOpacity
-              disabled={item === ''} // empty space
+              disabled={item === '' || isSubmitting} // '' is the empty space
               onPress={() => onPinChanged(item)}
               testID={testIdWithKey(item === deleteSymbol ? 'PinKeyDelete' : `PinKey${item}`)}
             >

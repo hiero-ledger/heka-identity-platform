@@ -68,15 +68,22 @@ export const W3cCredentialRecordProvider: React.FC<PropsWithChildren> = ({ child
   })
 
   useEffect(() => {
+    // Records of a previous agent must not outlive an agent change
+    setState({ w3cCredentialRecords: [], isLoading: true })
     if (!agent) return
+    let isCurrent = true
     agent.w3cCredentials
       .getAll()
-      .then((w3cCredentialRecords) => setState({ w3cCredentialRecords, isLoading: false }))
+      .then((w3cCredentialRecords) => {
+        if (isCurrent) setState({ w3cCredentialRecords, isLoading: false })
+      })
       .catch((error: unknown) => {
         agent.config.logger.error('Failed to load W3C credential records', { error: formatError(error) })
-        // Records of a previous agent must not outlive a failed reload
-        setState({ w3cCredentialRecords: [], isLoading: false, error })
+        if (isCurrent) setState({ w3cCredentialRecords: [], isLoading: false, error })
       })
+    return () => {
+      isCurrent = false
+    }
   }, [agent])
 
   useEffect(() => {
