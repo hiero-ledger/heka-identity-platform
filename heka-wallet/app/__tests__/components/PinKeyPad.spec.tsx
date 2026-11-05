@@ -1,19 +1,25 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native'
 import React from 'react'
 
-import PinKeyPad from '../../src/components/misc/PinKeyPad'
+import PinKeyPad, { COMPACT_KEYPAD_WINDOW_HEIGHT } from '../../src/components/misc/PinKeyPad'
 
 jest.mock('@heka-wallet/shared', () => ({
   ...jest.requireActual('../../../jest-helpers/__mocks__/logger').default,
   useHekaTheme: () => ({
     ColorPalette: { brand: {} },
     TextTheme: {},
-    Spacing: {},
+    Spacing: { sm: 12, xxl: 32, xxxl: 40 },
     BorderRadius: {},
   }),
 }))
 
 jest.mock('../../src/assets/delete.svg', () => 'DeleteIcon')
+
+const mockWindowHeight = { current: 800 }
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => ({ width: 320, height: mockWindowHeight.current, scale: 1, fontScale: 1 }),
+}))
 
 // minPINLength in the Bifold mock is 6.
 const enterPIN = async (digit: string) => {
@@ -24,7 +30,24 @@ const enterPIN = async (digit: string) => {
   }
 }
 
+const renderInWindow = (height: number) => {
+  mockWindowHeight.current = height
+  render(<PinKeyPad onPinEntered={jest.fn().mockResolvedValue(true)} />)
+}
+
 describe('PinKeyPad', () => {
+  it('uses a compact key margin on a short window so the screen title stays visible', () => {
+    renderInWindow(COMPACT_KEYPAD_WINDOW_HEIGHT - 80)
+
+    expect(screen.getByText('1').parent?.parent).toHaveStyle({ marginVertical: 12 })
+  })
+
+  it('keeps the full key margin on a tall window', () => {
+    renderInWindow(COMPACT_KEYPAD_WINDOW_HEIGHT + 80)
+
+    expect(screen.getByText('1').parent?.parent).toHaveStyle({ marginVertical: 32 })
+  })
+
   it('clears the PIN when the entry handler fails', async () => {
     const onPinEntered = jest.fn().mockRejectedValueOnce(new Error('Unlock failed')).mockResolvedValue(true)
     render(<PinKeyPad onPinEntered={onPinEntered} />)

@@ -2,13 +2,16 @@ import { testIdWithKey } from '@bifold/core'
 import { minPINLength } from '@bifold/core/src/constants'
 import { GlobalLogger, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native'
 
 import DeleteIcon from '../../assets/delete.svg'
 
 const logger = GlobalLogger.createContextLogger('PinKeyPad')
 
-const useStyles = ({ ColorPalette, TextTheme, Spacing, BorderRadius }: HekaTheme) => {
+// Window height (dp) below which the full-size key pad leaves no room for the screen title above it.
+export const COMPACT_KEYPAD_WINDOW_HEIGHT = 720
+
+const useStyles = ({ ColorPalette, TextTheme, Spacing, BorderRadius }: HekaTheme, compact: boolean) => {
   return StyleSheet.create({
     container: {
       alignItems: 'center',
@@ -30,7 +33,8 @@ const useStyles = ({ ColorPalette, TextTheme, Spacing, BorderRadius }: HekaTheme
     itemContainer: {
       justifyContent: 'center',
       alignItems: 'center',
-      margin: Spacing.xxl,
+      marginHorizontal: Spacing.xxl,
+      marginVertical: compact ? Spacing.sm : Spacing.xxl,
       width: Spacing.xxxl,
       height: Spacing.xxxl,
     },
@@ -47,7 +51,8 @@ interface KeyPadProps {
 
 const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
   const theme = useHekaTheme()
-  const styles = useStyles(theme)
+  const { height } = useWindowDimensions()
+  const styles = useStyles(theme, height < COMPACT_KEYPAD_WINDOW_HEIGHT)
 
   const [PIN, setPIN] = useState('')
 
