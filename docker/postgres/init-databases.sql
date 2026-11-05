@@ -7,7 +7,7 @@
 -- `docker compose down -v` re-runs it too, but deletes the postgres-data volume with the
 -- identity service and Askar wallet databases. The identity service's Askar wallet databases
 -- are created by the service at runtime under the same superuser and need nothing here.
--- Plain SQL on purpose: the entrypoint pipes *.sql to psql, so it does not depend on the file
--- mode (a *.sh file is executed or sourced depending on the execute bit, which a bind mount on
--- Docker Desktop for macOS reports inconsistently).
+-- Plain SQL on purpose: the entrypoint runs *.sql with psql -f and does not look at the
+-- execute bit (a *.sh file is executed or sourced depending on it, which a bind mount on
+-- Docker Desktop for macOS reports inconsistently). The file only has to be readable.
 CREATE DATABASE "heka-sso-service";
