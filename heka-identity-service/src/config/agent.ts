@@ -78,12 +78,15 @@ export default registerAs('agent', () => {
   const indyEndorserSeed = process.env.INDY_ENDORSER_SEED ?? INSECURE_DEFAULTS.INDY_ENDORSER_SEED
   //const indyEndorserId = process.env.INDY_ENDORSER_ID ?? ''
   const indyEndorserDid = process.env.INDY_ENDORSER_DID ?? 'did:indy:bcovrin:test:4bbYgjU6JbV4DShPbGoQcA'
+  // Ledgers whose auth rules require an endorser for DIDs without a role also need it on updates and deactivations
+  const indyEndorseDidChanges = process.env.INDY_ENDORSE_DID_CHANGES === 'true'
 
   const indyBesuChainId = process.env.INDY_BESU_CHAIN_ID ? parseInt(process.env.INDY_BESU_CHAIN_ID) : 1337
   const indyBesuNodeAddress = process.env.INDY_BESU_NODE_ADDRESS ?? 'http://localhost:8545'
   const indyBesuNetwork = process.env.INDY_BESU_NETWORK ?? 'testnet'
   const indyBesuEndorserPrivateKey =
     process.env.INDY_BESU_ENDORSER_PRIVATE_KEY ?? INSECURE_DEFAULTS.INDY_BESU_ENDORSER_PRIVATE_KEY
+  const indyBesuEndorseDidChanges = process.env.INDY_BESU_ENDORSE_DID_CHANGES === 'true'
 
   const hederaNetwork: HederaNetwork = (process.env.HEDERA_NETWORK as HederaNetwork) ?? 'testnet'
   const hederaOperatorId = process.env.HEDERA_OPERATOR_ID ?? '0.0.5489553'
@@ -166,10 +169,12 @@ export default registerAs('agent', () => {
     didMethods,
     indyEndorserSeed,
     indyEndorserDid,
+    indyEndorseDidChanges,
     indyBesuChainId,
     indyBesuNodeAddress,
     indyBesuNetwork,
     indyBesuEndorserPrivateKey,
+    indyBesuEndorseDidChanges,
     hederaNetwork,
     hederaOperatorId,
     hederaOperatorKey,

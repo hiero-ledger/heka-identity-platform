@@ -20,6 +20,7 @@ import {
   getPublicJwkFromVerificationMethod,
   JsonTransformer,
   Kms,
+  TypedArrayEncoder,
 } from '@credo-ts/core'
 import { IndyVdrIndyDidRegistrar, IndyVdrIndyDidResolver, IndyVdrPoolService } from '@credo-ts/indy-vdr'
 import { CustomRequest, GetNymRequest, NymRequest } from '@hyperledger/indy-vdr-shared'
@@ -49,6 +50,8 @@ export function indyBaseDidDocument(did: string, verkeyBase58: string): DidDocum
  * - update: the NYM's `diddocContent` (the did:indy spec), everything the document holds beyond what the ledger derives
  *   from the verkey. The verkey is cannot be modified.
  * - deactivation: the verkey set to `null`. The DID can then no longer be changed, and its document no longer resolves.
+ * With `options.endorserDid` (a DID of the wallet) the request is also endorsed, for ledgers whose auth rules require
+ * an endorser for DIDs without a role.
  */
 export class IndyDidRegistrar implements DidRegistrar {
   public readonly supportedMethods = ['indy']
@@ -90,7 +93,8 @@ export class IndyDidRegistrar implements DidRegistrar {
     let writeRequest: NymRequest
     try {
       const request = new NymRequest({ submitterDid: namespaceIdentifier, dest: namespaceIdentifier, diddocContent })
-      writeRequest = await pool.prepareWriteRequest(agentContext, request, signingKey)
+      writeRequest = await pool.prepareWriteRequest(agentContext, request, signingKey, options.options?.endorserDid)
+      await endorse(agentContext, writeRequest, options.options?.endorserDid)
     } catch (error) {
       return failedResult(errorReason(error), NOT_SUBMITTED)
     }
@@ -136,11 +140,14 @@ export class IndyDidRegistrar implements DidRegistrar {
         operation: Record<string, unknown>
       }
       body.operation.verkey = null
+      const endorserDid = (options.options as IndyDidChangeOptions | undefined)?.endorserDid
       writeRequest = await prepared.pool.prepareWriteRequest(
         agentContext,
         new CustomRequest({ customRequest: body }),
         prepared.signingKey,
+        endorserDid,
       )
+      await endorse(agentContext, writeRequest, endorserDid)
     } catch (error) {
       return failedResult(errorReason(error), NOT_SUBMITTED)
     }
@@ -208,6 +215,22 @@ async function prepareNymWrite(agentContext: AgentContext, did: string) {
 
   const pool = agentContext.dependencyManager.resolve(IndyVdrPoolService).getPoolForNamespace(namespace)
   return { didRecord, namespaceIdentifier, pool, signingKey, verkey: verkeyMethod.publicKeyBase58 }
+}
+
+export interface IndyDidChangeOptions {
+  endorserDid?: string
+}
+
+/** Adds the endorser's signature to a request prepared with `endorserDid` (the author's signature is already on it). */
+async function endorse(agentContext: AgentContext, request: NymRequest | CustomRequest, endorserDid?: string) {
+  if (!endorserDid) return
+  const { namespaceIdentifier, signingKey } = await prepareNymWrite(agentContext, endorserDid)
+  const { signature } = await agentContext.dependencyManager.resolve(Kms.KeyManagementApi).sign({
+    data: TypedArrayEncoder.fromUtf8String(request.signatureInput),
+    algorithm: 'EdDSA',
+    keyId: signingKey.keyId,
+  })
+  request.setMultiSignature({ identifier: namespaceIdentifier, signature })
 }
 
 async function readNym(

@@ -3763,6 +3763,9 @@ components:
           type: string
         did:
           type: string
+        keyId:
+          type: string
+          example: "#key-1"
         name:
           type: string
         url:

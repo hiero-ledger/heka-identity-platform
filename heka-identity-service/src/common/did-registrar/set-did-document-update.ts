@@ -22,11 +22,16 @@ export interface SetDidDocumentUpdateOptions extends DidUpdateOptions {
     // Keys of verification methods new in the document
     keys?: DidDocumentKey[]
   }
+  options?: {
+    // did:indy: the endorser that also signs the update
+    endorserDid?: string
+  }
 }
 
 export async function updateBySettingDidDocument(
   tenantAgent: TenantAgent,
   options: UpdateDidOptions,
+  registrarOptions?: SetDidDocumentUpdateOptions['options'],
 ): Promise<DidUpdateResult> {
   const { did, currentDidDocument } = options
   const createdKeys: DidDocumentKey[] = []
@@ -81,6 +86,7 @@ export async function updateBySettingDidDocument(
       didDocumentOperation: 'setDidDocument',
       didDocument: JsonTransformer.fromJSON(json, DidDocument),
       secret: { keys: createdKeys },
+      options: registrarOptions,
     })
     if (result.didState.state !== 'finished') {
       await releaseKeys(tenantAgent, createdKeys, result.didRegistrationMetadata.transactionSubmitted === false, did)

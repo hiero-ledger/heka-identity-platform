@@ -147,6 +147,38 @@ describe('IndyDidRegistrar', () => {
     expect(result.didDocumentMetadata).toEqual({ deactivated: true })
     expect(written[0].operation).toMatchObject({ dest: DID.split(':').pop(), verkey: null })
   })
+
+  test('with an endorserDid, update and deactivate are endorsed and signed by the endorser too', async () => {
+    const endorserKey = Key.generate(KeyAlgorithm.Ed25519)
+    const endorserVerkey = TypedArrayEncoder.toBase58(endorserKey.publicBytes)
+    const endorserNamespaceId = TypedArrayEncoder.toBase58(endorserKey.publicBytes.slice(0, 16))
+    const endorserDid = `did:indy:bcovrin:test:${endorserNamespaceId}`
+    const endorserRecord = new DidRecord({
+      did: endorserDid,
+      role: 'created' as DidRecord['role'],
+      didDocument: indyBaseDidDocument(endorserDid, endorserVerkey),
+      keys: [{ kmsKeyId: 'endorser-key', didDocumentRelativeKeyId: '#verkey' }],
+    })
+    const { agentContext, didRecord, didRepository, pool } = context({ verkey: VERKEY })
+    didRepository.findCreatedDid.mockImplementation((_context: unknown, did: string) =>
+      Promise.resolve(did === endorserDid ? endorserRecord : didRecord),
+    )
+    const kms = { sign: vi.fn().mockResolvedValue({ signature: new Uint8Array(64).fill(1) }) }
+    const resolve = agentContext.dependencyManager.resolve.bind(agentContext.dependencyManager)
+    agentContext.dependencyManager.resolve = ((token: unknown) =>
+      token === Kms.KeyManagementApi ? kms : resolve(token as never)) as typeof resolve
+
+    await registrar.update(agentContext, { did: DID, didDocument: updatedDocument(), options: { endorserDid } })
+    await registrar.deactivate(agentContext, { did: DID, options: { endorserDid } })
+
+    for (const [, request, signingKey, endorser] of pool.prepareWriteRequest.mock.calls) {
+      expect(signingKey).toMatchObject({ keyId: 'owner-key' })
+      expect(endorser).toBe(endorserDid)
+      expect(JSON.parse(request.body)).toMatchObject({ signatures: { [endorserNamespaceId]: expect.any(String) } })
+    }
+    expect(kms.sign).toHaveBeenCalledTimes(2)
+    expect(kms.sign.mock.calls[0][0]).toMatchObject({ keyId: 'endorser-key', algorithm: 'EdDSA' })
+  })
 })
 
 describe('IndyDidResolver', () => {

@@ -151,6 +151,7 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
       chainId: agencyConfig.indyBesuChainId,
       nodeAddress: agencyConfig.indyBesuNodeAddress,
       endorserPrivateKey: agencyConfig.indyBesuEndorserPrivateKey,
+      endorseDidChanges: agencyConfig.indyBesuEndorseDidChanges,
     }),
     hedera: new HekaHederaModule({
       networks: [

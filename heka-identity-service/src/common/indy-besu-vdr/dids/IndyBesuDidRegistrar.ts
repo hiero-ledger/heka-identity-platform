@@ -135,7 +135,13 @@ export class IndyBesuDidRegistrar implements DidRegistrar {
         )
       }
 
-      await didRegistry.updateDid(ledgerDocument, await IndyBesuSigner.create(agentContext, ownerKey.kmsKeyId))
+      const identity = await IndyBesuSigner.create(agentContext, ownerKey.kmsKeyId)
+      const endorser = didUpdateOperationEndorser(agentContext)
+      if (endorser) {
+        await didRegistry.endorseUpdateDid(ledgerDocument, identity, endorser)
+      } else {
+        await didRegistry.updateDid(ledgerDocument, identity)
+      }
     } catch (error) {
       // The transaction may have been mined although waiting for it failed: the ledger decides
       const written = await didRegistry
@@ -181,7 +187,11 @@ export class IndyBesuDidRegistrar implements DidRegistrar {
     }
 
     try {
-      await didRegistry.deactivateDid(did, await IndyBesuSigner.create(agentContext, ownerKey.kmsKeyId))
+      const identity = await IndyBesuSigner.create(agentContext, ownerKey.kmsKeyId)
+      const endorser = didUpdateOperationEndorser(agentContext)
+      await (endorser
+        ? didRegistry.endorseDeactivateDid(did, identity, endorser)
+        : didRegistry.deactivateDid(did, identity))
     } catch (error) {
       const deactivated = await didRegistry
         .resolveDid(did)
@@ -254,6 +264,11 @@ export interface IndyBesuDidUpdateOptions extends DidUpdateOptions {
 }
 
 export type IndyBesuDidDeactivateOptions = DidDeactivateOptions
+
+function didUpdateOperationEndorser(agentContext: AgentContext): IndyBesuSigner | undefined {
+  const { endorseDidChanges, endorserPrivateKey } = agentContext.dependencyManager.resolve(IndyBesuModuleConfig)
+  return endorseDidChanges ? IndyBesuSigner.fromPrivateKey(endorserPrivateKey) : undefined
+}
 
 function findOwnerKey(keys: DidDocumentKey[] = []): DidDocumentKey | undefined {
   return keys.find(({ didDocumentRelativeKeyId }) => didDocumentRelativeKeyId.endsWith(OWNER_KEY_FRAGMENT))

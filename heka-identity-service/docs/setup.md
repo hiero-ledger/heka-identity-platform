@@ -451,10 +451,11 @@ The demo account is created by the provider recipe: the Keycloak realm ships the
 
 **Hyperledger Indy** — when `indy` is enabled:
 
-| Variable             | Default                                        | Description                                    |
-| -------------------- | ---------------------------------------------- | ---------------------------------------------- |
-| `INDY_ENDORSER_SEED` | _(dev seed)_                                   | Endorser seed for writing to the Indy network. |
-| `INDY_ENDORSER_DID`  | `did:indy:bcovrin:test:4bbYgjU6JbV4DShPbGoQcA` | Endorser DID.                                  |
+| Variable                   | Default                                        | Description                                                                                                                                                                                                                                    |
+| -------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INDY_ENDORSER_SEED`       | _(dev seed)_                                   | Endorser seed for writing to the Indy network.                                                                                                                                                                                                 |
+| `INDY_ENDORSER_DID`        | `did:indy:bcovrin:test:4bbYgjU6JbV4DShPbGoQcA` | Endorser DID.                                                                                                                                                                                                                                  |
+| `INDY_ENDORSE_DID_CHANGES` | `false`                                        | `true`: the endorser also signs DID updates and deactivations. Needed on ledgers whose auth rules require an endorser for DIDs without a role (the did:indy spec leaves it to the ledger); BCovrin test accepts the DID's own signature alone. |
 
 Credo signs endorsements with the wallet of the tenant whose DID, schema, credential definition or revocation registry is written, so the endorser DID and its key (from `INDY_ENDORSER_SEED`) are imported into each such wallet on its first Indy write.
 
@@ -466,8 +467,9 @@ Credo signs endorsements with the wallet of the tenant whose DID, schema, creden
 | `INDY_BESU_NODE_ADDRESS`         | `http://localhost:8545` | RPC endpoint.                                                                                                                                                                                 |
 | `INDY_BESU_NETWORK`              | `testnet`               | Indy Besu network identifier.                                                                                                                                                                 |
 | `INDY_BESU_ENDORSER_PRIVATE_KEY` | _(dev key)_             | Private key (32-byte hex) of the platform account that submits the endorsed DID, schema and credential definition transactions; it needs the Trustee, Endorser or Steward role on the ledger. |
+| `INDY_BESU_ENDORSE_DID_CHANGES`  | `false`                 | `true`: DID updates and deactivations are signed by the DID's account and submitted by the endorser, for networks where DID accounts may not send transactions.                               |
 
-The dev endorser key is **public** (it is in this repository) and a Trustee only on a local network ([Local Indy-Besu network](#local-indy-besu-network)). Production must set its own key. Updates and deactivations of DIDs do not use it: each DID's own account sends them. The endorser key stays in the service configuration; it is never imported into tenant wallets.
+The dev endorser key is **public** (it is in this repository) and a Trustee only on a local network ([Local Indy-Besu network](#local-indy-besu-network)). Production must set its own key. Updates and deactivations of DIDs use it only with `INDY_BESU_ENDORSE_DID_CHANGES=true`; otherwise each DID's own account sends them. The endorser key stays in the service configuration; it is never imported into tenant wallets.
 
 The DID key is a secp256k1 key in the tenant wallet; the DID's own key signs the endorsing data and the endorser account submits the transaction.
 

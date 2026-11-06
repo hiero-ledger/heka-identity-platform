@@ -6,7 +6,7 @@ import { ConfigType } from '@nestjs/config'
 
 import AgentConfig from '../../../config/agent'
 import { TenantAgent } from '../../agent'
-import { indyBaseDidDocument, VERKEY_FRAGMENT } from '../../indy-vdr/indy-did'
+import { IndyDidChangeOptions, indyBaseDidDocument, VERKEY_FRAGMENT } from '../../indy-vdr/indy-did'
 import { CreateDidOptions, DidRegistrar, UpdateDidOptions } from '../did-registrar.types'
 import { updateBySettingDidDocument } from '../set-did-document-update'
 
@@ -22,11 +22,13 @@ export class DidIndyRegistrar extends DidRegistrar {
 
   private readonly endorserSeed!: string
   private readonly endorserDid!: string
+  private readonly endorseDidChanges!: boolean
 
   public constructor(agencyConfig: ConfigType<typeof AgentConfig>) {
     super()
     this.endorserSeed = agencyConfig.indyEndorserSeed
     this.endorserDid = agencyConfig.indyEndorserDid
+    this.endorseDidChanges = agencyConfig.indyEndorseDidChanges
   }
 
   public async createDid(tenantAgent: TenantAgent, options: CreateDidOptions): Promise<DidCreateResult> {
@@ -44,12 +46,19 @@ export class DidIndyRegistrar extends DidRegistrar {
 
   /** One replacement of the document: the NYM's `diddocContent`. */
   public async updateDid(tenantAgent: TenantAgent, options: UpdateDidOptions): Promise<DidUpdateResult> {
-    return await updateBySettingDidDocument(tenantAgent, options)
+    return await updateBySettingDidDocument(tenantAgent, options, await this.changeOptions(tenantAgent))
   }
 
   /** `DidService` does not send a second deactivation. */
-  public deactivateDid(tenantAgent: TenantAgent, did: string): Promise<DidDeactivateResult> {
-    return tenantAgent.dids.deactivate({ did })
+  public async deactivateDid(tenantAgent: TenantAgent, did: string): Promise<DidDeactivateResult> {
+    return await tenantAgent.dids.deactivate({ did, options: { ...(await this.changeOptions(tenantAgent)) } })
+  }
+
+  /** The endorser also signs updates and deactivations when `INDY_ENDORSE_DID_CHANGES` is set. */
+  private async changeOptions(tenantAgent: TenantAgent): Promise<IndyDidChangeOptions> {
+    if (!this.endorseDidChanges) return {}
+    await ensureIndyEndorserDid(tenantAgent, this.endorserDid, this.endorserSeed)
+    return { endorserDid: this.endorserDid }
   }
 }
 

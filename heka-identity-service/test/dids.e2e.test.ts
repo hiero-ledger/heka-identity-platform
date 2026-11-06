@@ -4,7 +4,7 @@ import { HederaLedgerService } from '@credo-ts/hedera'
 import { MikroORM } from '@mikro-orm/core'
 import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
-import { JsonRpcProvider } from 'ethers'
+import { computeAddress, JsonRpcProvider } from 'ethers'
 import request from 'supertest'
 
 import { DID_PATTERN } from 'src/__tests__/constants'
@@ -575,7 +575,7 @@ describe('E2E public DIDs creation', () => {
 
     // Needs a local Indy-Besu network and `indybesu` in DID_METHODS (see docs/setup.md, "Local Indy-Besu network")
     test.skipIf(!indyBesuE2E)(
-      'did:indybesu: the DID account replaces the document and deactivates it, without the endorser',
+      'did:indybesu: the DID account replaces the document and deactivates it, endorsed only when configured',
       async () => {
         const agencyConfig = nestApp.get<string, Agent>(AGENT_TOKEN).agencyConfig
         const provider = new JsonRpcProvider(agencyConfig.indyBesuNodeAddress)
@@ -597,6 +597,11 @@ describe('E2E public DIDs creation', () => {
         expect(created.status).toBe(201)
         const did = created.body.id as string
         const address = did.split(':').pop()!
+        // INDY_BESU_ENDORSE_DID_CHANGES: the endorser submits what the DID account signs
+        const endorserKey = agencyConfig.indyBesuEndorserPrivateKey
+        const sender = agencyConfig.indyBesuEndorseDidChanges
+          ? computeAddress(endorserKey.startsWith('0x') ? endorserKey : `0x${endorserKey}`)
+          : address
         // The DID's account never received any funds: gas is free on the network
         expect(await provider.getBalance(address)).toBe(BigInt(0))
         const ownerKey = (await resolveFromLedger(did)).didDocument!.verificationMethod![0]
@@ -617,7 +622,7 @@ describe('E2E public DIDs creation', () => {
         expect(onLedger.verificationMethod![0]).toEqual(ownerKey)
         const updateTransactions = await registryTransactions(fromBlock)
         expect(updateTransactions).toHaveLength(1)
-        expect(updateTransactions[0].from.toLowerCase()).toBe(address.toLowerCase())
+        expect(updateTransactions[0].from.toLowerCase()).toBe(sender.toLowerCase())
 
         // AC21: a new Ed25519 key, then its removal with every reference in one transaction
         const withKey = await DidUtilities.update(app, adminToken, did, {
@@ -671,7 +676,7 @@ describe('E2E public DIDs creation', () => {
 
         await createOid4VcRecords(adminToken, did)
 
-        // AC23, AC25: deactivated by the DID account; a repeated call sends no transaction
+        // AC23, AC25: deactivated by the DID account (or endorsed); a repeated call sends no transaction
         fromBlock = await provider.getBlockNumber()
         const deactivated = await DidUtilities.deactivate(app, adminToken, did)
         expect(deactivated.status).toBe(200)
@@ -682,7 +687,7 @@ describe('E2E public DIDs creation', () => {
         expect(resolution.didDocument!.verificationMethod).toEqual([ownerKey])
         const deactivationTransactions = await registryTransactions(fromBlock)
         expect(deactivationTransactions).toHaveLength(1)
-        expect(deactivationTransactions[0].from.toLowerCase()).toBe(address.toLowerCase())
+        expect(deactivationTransactions[0].from.toLowerCase()).toBe(sender.toLowerCase())
 
         fromBlock = await provider.getBlockNumber()
         const again = await DidUtilities.deactivate(app, adminToken, did)
