@@ -28,6 +28,7 @@ import { Role } from '../components/chat/types'
 import ConnectionContextMenu from '../components/misc/ConnectionContextMenu'
 import { useChatMessagesByConnection } from '../hooks/chat-messages'
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
 
 type ChatProps = StackScreenProps<ContactStackParams, Screens.Chat> | StackScreenProps<RootStackParams, Screens.Chat>
 
@@ -80,7 +81,12 @@ const Chat: React.FC<ChatProps> = ({ route }) => {
       if (agent && !meta?.seen) {
         msg.metadata.set(BasicMessageMetadata.customMetadata, { ...meta, seen: true })
         const basicMessageRepository = agent.context.dependencyManager.resolve(DidCommBasicMessageRepository)
-        basicMessageRepository.update(agent.context, msg)
+        basicMessageRepository.update(agent.context, msg).catch((error: unknown) =>
+          agent.config.logger.error('Failed to mark a basic message as seen', {
+            basicMessageId: msg.id,
+            error: formatError(error),
+          })
+        )
       }
     })
   }, [basicMessages, agent])

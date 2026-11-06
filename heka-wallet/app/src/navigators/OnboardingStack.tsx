@@ -12,7 +12,7 @@ import {
   useDefaultStackOptions,
 } from '@bifold/core'
 import { Agent } from '@credo-ts/core'
-import { useHekaTheme } from '@heka-wallet/shared'
+import { GlobalLogger, useHekaTheme } from '@heka-wallet/shared'
 import { StackActions, useNavigation, useNavigationState } from '@react-navigation/native'
 import { StackNavigationProp, createStackNavigator } from '@react-navigation/stack'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
@@ -24,6 +24,8 @@ import { useHekaAgent } from '../utils/agent'
 import { getOnboardingScreens } from './OnboardingScreens'
 
 const Stack = createStackNavigator()
+
+const logger = GlobalLogger.createContextLogger('OnboardingStack')
 
 const useOnboardingState = (
   store: State,
@@ -109,12 +111,15 @@ export const OnboardingStack: React.FC = () => {
   )
 
   useEffect(() => {
-    versionMonitor?.checkForUpdate?.().then((versionInfo) => {
-      dispatch({
-        type: DispatchAction.SET_VERSION_INFO,
-        payload: [versionInfo],
+    versionMonitor
+      ?.checkForUpdate?.()
+      .then((versionInfo) => {
+        dispatch({
+          type: DispatchAction.SET_VERSION_INFO,
+          payload: [versionInfo],
+        })
       })
-    })
+      .catch((error: unknown) => logger.error('App version check failed', error))
   }, [versionMonitor, dispatch])
 
   const onAuthenticated = useCallback(

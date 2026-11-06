@@ -1,6 +1,7 @@
 import { DispatchAction, useAuth, useStore, TOKENS, EventTypes, BifoldError, useServices } from '@bifold/core'
 import { DidCommHttpOutboundTransport, DidCommWsOutboundTransport } from '@credo-ts/didcomm'
-import React, { useEffect, useState } from 'react'
+import { GlobalLogger } from '@heka-wallet/shared'
+import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
 import { Config } from 'react-native-config'
@@ -20,6 +21,8 @@ import {
   createAnoncredsLinkSecretIfRequired,
   useHekaAgent,
 } from '../utils/agent'
+
+const fileLogger = GlobalLogger.createContextLogger('Splash')
 
 /**
  * To customize this splash screen set the background color of the
@@ -53,12 +56,16 @@ export const Splash: React.FC = () => {
     dispatch({ type: DispatchAction.SET_ATTESTATION_COMPLETED, payload: [true] })
   }, [store.authentication.didAuthenticate, store.attestation.isAttestationComplete, dispatch])
 
+  // The init changes its own dependencies (store dispatches, the loaded wallet secret); a re-run must not start a second agent.
+  const isInitInProgressRef = useRef(false)
+
   useEffect(() => {
     if (
       !mounted ||
       !store.authentication.didAuthenticate ||
       !store.onboarding.didConsiderBiometry ||
-      agent?.isInitialized
+      agent?.isInitialized ||
+      isInitInProgressRef.current
     ) {
       return
     }
@@ -78,6 +85,7 @@ export const Splash: React.FC = () => {
     }
 
     const initAgent = async (): Promise<void> => {
+      isInitInProgressRef.current = true
       try {
         const walletSecret = await getWalletSecret()
         if (!walletSecret?.key) {
@@ -149,7 +157,8 @@ export const Splash: React.FC = () => {
           }
         }
 
-        // The public DID is created even if the mediator is not set up yet, as it is also used for OpenID4VC flows
+        // The public DID is created even if the mediator is not set up yet. OpenID4VC flows don't use it; if it lacks
+        // mediator routing, the public invitation uses inline services instead (see 'createPublicInvitationOrGetExisting')
         const publicDid = await createPublicDidOrGetExisting(newAgent)
         logger.info(`Public DID: ${publicDid}`)
 
@@ -163,6 +172,8 @@ export const Splash: React.FC = () => {
         // The onboarding workflow transitions to the main stack automatically once
         // the agent is set — no navigation needed here.
       } catch (err: unknown) {
+        // The Bifold logger does not reach log.txt; keep the stack for diagnosis.
+        fileLogger.error('Agent initialization failed:', (err as Error)?.stack ?? err)
         const error = new BifoldError(
           t('Error.Title1045'),
           t('Error.Message1045'),
@@ -170,16 +181,20 @@ export const Splash: React.FC = () => {
           1045
         )
         DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
+      } finally {
+        isInitInProgressRef.current = false
       }
     }
 
     initAgent()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     t,
     logger,
     agent,
     dispatch,
+    getWalletSecret,
+    setAgent,
+    setPublicDid,
     indyLedgers,
     mounted,
     store.authentication.didAuthenticate,
@@ -187,8 +202,6 @@ export const Splash: React.FC = () => {
     store.preferences.walletName,
     store.migration.didMigrateToAskar,
   ])
-  // Here 'getWalletCredentials', 'setAgent' and 'setPublicDid' are not placed in useEffect dependencies intentionally
-  // The reason is that their implementation is not wrapped in useCallback and may cause updates on every re-render
 
   return <LoadingView />
 }

@@ -1,0 +1,13 @@
+appId: com.heka.wallet
+name: Onboarding with a new PIN opens Home
+tags:
+  - onboarding
+  - no-backend
+env:
+  PIN: '482916'
+---
+- runFlow: subflows/onboard.yaml
+- assertVisible:
+    id: 'com.ariesbifold:id/TabScan'
+- assertVisible:
+    id: 'com.ariesbifold:id/TabSettings'

@@ -7,7 +7,7 @@ export const useDeeplinks = () => {
   const { handleInvitationUrl } = useInvitationHandlers()
 
   useEffect(() => {
-    Linking.addEventListener('url', ({ url }) => handleInvitationUrl(url))
-    return () => Linking.removeAllListeners('url')
+    const subscription = Linking.addEventListener('url', ({ url }) => handleInvitationUrl(url))
+    return () => subscription.remove()
   }, [handleInvitationUrl])
 }

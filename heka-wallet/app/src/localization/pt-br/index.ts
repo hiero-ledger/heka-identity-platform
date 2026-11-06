@@ -185,6 +185,7 @@ const translation = {
     "Issuer": "Emissor",
     "AddCredential": "Adicionar credencial",
     "EmptyList": "Sua carteira está vazia.",
+    "LoadFailed": "Algumas credenciais não puderam ser carregadas.",
     "AddFirstCredential": "Adicione sua primeira credencial",
     "UnknownIssuer": "Emissor desconhecido",
     "UnknownVerifier": "Verificador desconhecido"
