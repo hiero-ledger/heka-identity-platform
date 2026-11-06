@@ -67,19 +67,18 @@ export class OpenId4VcIssuanceSessionService {
       // MsoMdoc uses X.509 certificates, not DIDs — skip DID resolution
       let issuerDidUrl: string | undefined
       if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
-        const issuerCredential = credential as { issuer: { did: string } }
+        const issuerCredential = credential as { issuer: { did: string; keyId?: string } }
         const { didDocument, didDocumentMetadata } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
         await assertDidActive(tenantAgent, issuerCredential.issuer.did, didDocumentMetadata)
-        // SD-JWT VC verifiers require an `assertionMethod` key; Credo signs W3C credentials only with a key that is
-        // `authentication` as well
         const purposes: Array<'assertionMethod' | 'authentication'> =
           credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc
             ? ['assertionMethod']
             : ['assertionMethod', 'authentication']
-        issuerDidUrl = didDocument ? signingKeyId(didDocument, purposes) : undefined
+        const { keyId } = issuerCredential.issuer
+        issuerDidUrl = didDocument ? signingKeyId(didDocument, purposes, keyId) : undefined
         if (!issuerDidUrl) {
           throw new UnprocessableEntityException(
-            `DID ${issuerCredential.issuer.did} has no key for signing credentials (a verification method referenced from ${purposes.join(' and ')})`,
+            `DID ${issuerCredential.issuer.did} has no ${keyId ? `key ${keyId}` : 'key'} for signing credentials (a verification method referenced from ${purposes.join(' and ')})`,
           )
         }
       }
@@ -122,11 +121,13 @@ export class OpenId4VcIssuanceSessionService {
           namespaces: credential.namespaces,
         }
       } else {
+        // `keyId` is resolved into `didUrl`
+        const { keyId: _keyId, ...issuer } = credential.issuer
         credentialIssuanceMeta = {
           ...credential,
           type,
           issuer: {
-            ...credential.issuer,
+            ...issuer,
             didUrl: issuerDidUrl,
           },
           credentialStatus,

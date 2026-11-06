@@ -27,13 +27,17 @@ import { normalizeMdocNamespaces } from './mdoc-namespaces'
 export function signingKeyId(
   didDocument: DidDocument,
   purposes: Array<'assertionMethod' | 'authentication'>,
+  keyId?: string,
 ): string | undefined {
   const absolute = (entry: string | VerificationMethod) => {
     const id = typeof entry === 'string' ? entry : entry.id
     return id.startsWith('#') ? `${didDocument.id}${id}` : id
   }
   const referenced = purposes.map((purpose) => new Set((didDocument[purpose] ?? []).map(absolute)))
-  return (didDocument.verificationMethod ?? []).map(absolute).find((id) => referenced.every((ids) => ids.has(id)))
+  const wanted = keyId && absolute(keyId)
+  return (didDocument.verificationMethod ?? [])
+    .map(absolute)
+    .find((id) => (!wanted || id === wanted) && referenced.every((ids) => ids.has(id)))
 }
 
 export interface CredentialIssuanceMetadata {

@@ -261,6 +261,52 @@ describe('OpenId4VcIssuanceSessionService', () => {
       await expect(offer).rejects.toThrow('has no key for signing credentials')
     })
 
+    test('signs with the key named by issuer.keyId and keeps keyId out of the issuance metadata', async () => {
+      const did = 'did:indy:bcovrin:test:Uwy7n9G7pecHxPRxLgsuNU'
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+        issuerRecordStub({
+          issuerId: 'issuer-1',
+          credentialConfigurationsSupported: { 'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' } },
+        }),
+      )
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: {
+            id: did,
+            verificationMethod: [{ id: `${did}#verkey` }, { id: `${did}#key-1` }, { id: `${did}#key-2` }],
+            authentication: [`${did}#verkey`],
+            assertionMethod: ['#key-1', '#key-2'],
+          },
+        }),
+      )
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://...',
+        issuanceSession: issuanceSessionRecordStub({ id: 'session-new', issuerId: 'issuer-1' }),
+      })
+      const offer = (keyId: string) =>
+        service.offer(authInfo, tenantAgent, {
+          publicIssuerId: 'issuer-1',
+          credentials: [
+            {
+              credentialSupportedId: 'cred-1',
+              format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+              issuer: { did, keyId },
+            },
+          ],
+          baseUri: 'https://example.com',
+        } as any)
+
+      await offer('#key-2')
+
+      const [{ issuanceMetadata }] = vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0]
+      expect((issuanceMetadata as any).credentials[0].issuer).toEqual({ did, didUrl: `${did}#key-2` })
+
+      // #verkey exists but is not an assertionMethod; #key-3 does not exist
+      await expect(offer('#verkey')).rejects.toThrow(`DID ${did} has no key #verkey for signing credentials`)
+      await expect(offer('#key-3')).rejects.toThrow(UnprocessableEntityException)
+    })
+
     test.each([
       ['deactivated on its ledger (did:indybesu keeps its keys)', { deactivated: true }, undefined],
       ['deactivated by the wallet', {}, () => true],

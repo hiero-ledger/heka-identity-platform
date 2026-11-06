@@ -1,7 +1,17 @@
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Length, ValidateNested } from 'class-validator'
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  ValidateNested,
+} from 'class-validator'
 
 import { IsValidDynamicObject } from '../../../utils/validation'
 
@@ -30,6 +40,16 @@ export class CredentialIssuer {
   @IsOptional()
   @IsString()
   public did!: string
+
+  /**
+   * Relative id of the DID's verification method to sign the credential (or the OpenID4VP request) with.
+   * Defaults to the first one with the purposes signing needs.
+   * @example #key-1
+   */
+  @ApiPropertyOptional({ example: '#key-1' })
+  @IsOptional()
+  @Matches(/^#.+/, { message: 'keyId must be a relative DID URL, e.g. #key-1' })
+  public keyId?: string
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -41,10 +41,11 @@ export class OpenId4VcVerificationSessionService {
       const { didDocument, didDocumentMetadata } = await tenantAgent.dids.resolve(req.requestSigner.did)
       await assertDidActive(tenantAgent, req.requestSigner.did, didDocumentMetadata)
       // Wallets accept a signed request only from an `authentication` key
-      const didUrl = didDocument ? signingKeyId(didDocument, ['authentication']) : undefined
+      const { keyId } = req.requestSigner
+      const didUrl = didDocument ? signingKeyId(didDocument, ['authentication'], keyId) : undefined
       if (!didUrl) {
         throw new UnprocessableEntityException(
-          `DID ${req.requestSigner.did} has no key for signing requests (a verification method referenced from authentication)`,
+          `DID ${req.requestSigner.did} has no ${keyId ? `key ${keyId}` : 'key'} for signing requests (a verification method referenced from authentication)`,
         )
       }
       requestSigner = { method: 'did', didUrl }

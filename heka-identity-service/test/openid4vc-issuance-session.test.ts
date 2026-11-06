@@ -50,8 +50,13 @@ describe('E2E issuance session', () => {
   /**
    * `addSigningKey`: the DID's own key cannot sign credentials (the did:indy `#verkey` is `authentication` only), so a
    * key with the default purposes (`assertionMethod`, `authentication`) is added first and the service signs with it.
+   * `keyId`: the added key is named in the offer, so it signs although the DID's own key also could
    */
-  async function testCredentialIssuance(didMethod: string, expectedAlg: string, { addSigningKey = false } = {}) {
+  async function testCredentialIssuance(
+    didMethod: string,
+    expectedAlg: string,
+    { addSigningKey = false, keyId = false } = {},
+  ) {
     const issuerAccountId = uuid()
     const issuerAccountAuthToken = await createAuthToken(issuerAccountId, Role.Admin)
 
@@ -108,6 +113,7 @@ describe('E2E issuance session', () => {
             issuer: {
               method: 'did',
               did: issuerId,
+              ...(keyId && { keyId: '#signing-key' }),
             },
             payload: {
               first_name: 'John',
@@ -301,6 +307,11 @@ describe('E2E issuance session', () => {
 
   test.skipIf(!didMethods.includes('hedera'))('create offer with `hedera` DID method', async () => {
     await testCredentialIssuance('hedera', 'EdDSA')
+  })
+
+  test.skipIf(!didMethods.includes('indybesu'))('create offer signed with a key named by `keyId`', async () => {
+    // The did:indybesu own key is secp256k1 (ES256K); the added key is Ed25519
+    await testCredentialIssuance('indybesu', 'EdDSA', { addSigningKey: true, keyId: true })
   })
 
   test.skipIf(!didMethods.includes('indybesu'))('create offer with `indybesu` DID method', async () => {

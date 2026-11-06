@@ -21,6 +21,11 @@ describe('signingKeyId', () => {
     expect(signingKeyId(didDocument, ['authentication'])).toBe(`${did}#a`)
     expect(signingKeyId(didDocument, ['assertionMethod'])).toBe(`${did}#b`)
     expect(signingKeyId(didDocument, ['assertionMethod', 'authentication'])).toBe(`${did}#c`)
+
+    // A named key, relative or absolute, is taken only when it has the purposes
+    expect(signingKeyId(didDocument, ['assertionMethod'], '#c')).toBe(`${did}#c`)
+    expect(signingKeyId(didDocument, ['assertionMethod'], `${did}#c`)).toBe(`${did}#c`)
+    expect(signingKeyId(didDocument, ['assertionMethod'], '#a')).toBeUndefined()
   })
 
   test('finds no key for credentials in a did:indy base document: #verkey is authentication only', () => {

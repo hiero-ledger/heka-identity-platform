@@ -269,6 +269,38 @@ describe('OpenId4VcVerificationSessionService', () => {
       expect(result.verificationSession.publicVerifierId).toBe('verifier-1')
     })
 
+    test('signs the request with the key named by requestSigner.keyId, if it is an authentication key', async () => {
+      const did = 'did:key:z6Mk1234'
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: {
+            id: did,
+            verificationMethod: [{ id: `${did}#a` }, { id: `${did}#b` }, { id: `${did}#c` }],
+            authentication: ['#a', '#b'],
+            assertionMethod: ['#c'],
+          },
+        }),
+      )
+      mockCreateAuthorizationRequest.mockResolvedValue({
+        authorizationRequest: 'openid://?request_uri=https://example.com/auth',
+        verificationSession: makeSessionRecord(),
+      })
+      const createRequest = (keyId: string) =>
+        service.createRequest(tenantAgent, {
+          publicVerifierId: 'verifier-1',
+          requestSigner: { did, keyId },
+          presentationExchange: { definition: { id: 'def-1', input_descriptors: [] } },
+        } as any)
+
+      await createRequest('#b')
+      expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ requestSigner: { method: 'did', didUrl: `${did}#b` } }),
+      )
+
+      // #c is not an authentication key
+      await expect(createRequest('#c')).rejects.toThrow(`DID ${did} has no key #c for signing requests`)
+    })
+
     test('should throw UnprocessableEntityException when DID cannot be resolved', async () => {
       const req = {
         publicVerifierId: 'verifier-1',
