@@ -18,8 +18,6 @@ export class DidIndyRegistrar extends DidRegistrar {
   public readonly supportsController = false
 
   // NYM transactions of the DID's own key (`IndyDidRegistrar`); the key `#verkey` never changes
-  public readonly supportsUpdate = true
-  public readonly supportsDeactivate = true
   public readonly protectedKeyFragment = VERKEY_FRAGMENT
 
   private readonly endorserSeed!: string

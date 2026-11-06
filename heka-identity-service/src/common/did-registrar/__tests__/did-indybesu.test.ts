@@ -84,10 +84,8 @@ describe('did:indybesu registrar wrapper', () => {
       } as unknown as TenantAgent
     })
 
-    test('protects the owner key and supports update and deactivation', () => {
+    test('protects the owner key', () => {
       expect(registrar.protectedKeyFragment).toBe('#KEY-1')
-      expect(registrar.supportsUpdate).toBe(true)
-      expect(registrar.supportsDeactivate).toBe(true)
     })
 
     test('adds services and Ed25519 keys with full DID URLs, referenced by string, after the owner key', async () => {

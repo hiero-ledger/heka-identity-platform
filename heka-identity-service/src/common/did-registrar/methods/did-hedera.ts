@@ -26,8 +26,6 @@ export class DidHederaRegistrar implements DidRegistrar {
 
   public readonly supportsController = true
 
-  public readonly supportsUpdate = true
-  public readonly supportsDeactivate = true
   public readonly protectedKeyFragment = '#did-root-key'
 
   public createDid(tenantAgent: TenantAgent, options: CreateDidOptions): Promise<DidCreateResult> {

@@ -43,8 +43,6 @@ export abstract class DidRegistrar {
   public static readonly method: string
 
   public abstract readonly supportsController: boolean
-  public abstract readonly supportsUpdate: boolean
-  public abstract readonly supportsDeactivate: boolean
 
   // The fragment of the key that holds the authority over the DID on its ledger; it is never changed by an update
   public readonly protectedKeyFragment?: string

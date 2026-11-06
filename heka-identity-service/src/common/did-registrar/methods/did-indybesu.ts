@@ -20,8 +20,6 @@ export class DidIndyBesuRegistrar implements DidRegistrar {
   public readonly supportsController = false
 
   // Sent by the DID's own account; the owner key `#KEY-1` (the DID's address) never changes
-  public readonly supportsUpdate = true
-  public readonly supportsDeactivate = true
   public readonly protectedKeyFragment = '#KEY-1'
 
   private readonly network!: string

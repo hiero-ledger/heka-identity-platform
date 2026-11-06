@@ -104,10 +104,8 @@ describe('DidHederaRegistrar', () => {
     } as unknown as TenantAgent
   })
 
-  test('protects the root key and supports update and deactivation', () => {
+  test('protects the root key', () => {
     expect(registrar.protectedKeyFragment).toBe('#did-root-key')
-    expect(registrar.supportsUpdate).toBe(true)
-    expect(registrar.supportsDeactivate).toBe(true)
   })
 
   test('adds services and new Ed25519 keys with addToDidDocument, by relative fragment', async () => {

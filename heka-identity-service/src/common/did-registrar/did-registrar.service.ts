@@ -95,7 +95,7 @@ export class DidRegistrarService implements OnApplicationBootstrap {
       throw new UnprocessableEntityException(NOT_UPDATABLE_REASONS[method])
     }
     const didRegistrar = this.getDidRegistrar(method)
-    const supported = operation === 'update' ? didRegistrar.supportsUpdate : didRegistrar.supportsDeactivate
+    const supported = operation === 'update' ? didRegistrar.updateDid : didRegistrar.deactivateDid
     if (!supported) {
       throw new UnprocessableEntityException(
         NOT_UPDATABLE_REASONS[method] ??
@@ -106,11 +106,11 @@ export class DidRegistrarService implements OnApplicationBootstrap {
   }
 
   public supportsUpdate(method: string): boolean {
-    return this.getDidRegistrar(method).supportsUpdate
+    return !!this.getDidRegistrar(method).updateDid
   }
 
   public supportsDeactivate(method: string): boolean {
-    return this.getDidRegistrar(method).supportsDeactivate
+    return !!this.getDidRegistrar(method).deactivateDid
   }
 
   public async createDid(tenantId: string, method: string = DidKeyRegistrar.method, options: CreateDidOptions) {
