@@ -53,7 +53,7 @@ With the role model enabled, a public DID created by an `OrgAdmin` names a DID o
 | ---------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `hedera`   | Set on the ledger when the DID is created. Until the controller wallet has an active `hedera` DID, creation fails (`422`). | Services and Ed25519 keys; root key fixed                                                |
 | `key`      | Not possible: a `did:key` document is derived from the key, so it is always its own controller.                            | Immutable                                                                                |
-| `indy`     | Not supported: Credo's Indy registrar always makes the DID its own controller.                                             | Not implemented yet                                                                      |
+| `indy`     | Not supported: Credo's Indy registrar always makes the DID its own controller.                                             | Services and Ed25519 keys (NYM `diddocContent`); `#verkey` fixed; by the DID's own key   |
 | `indybesu` | Not supported yet: whether the ledger accepts another controller hasn't been verified.                                     | Services (5 types) and Ed25519 keys; owner key fixed; submitted by the DID's own account |
 
 DIDs of the methods without a controller are created without one. `POST /prepare-wallet` creates the DIDs of all configured methods and skips a DID whose controller doesn't exist yet.

@@ -250,6 +250,8 @@ describe('OpenId4VcVerificationSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
           },
         }),
       )
@@ -353,6 +355,8 @@ describe('OpenId4VcVerificationSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
           },
         }),
       )
@@ -388,6 +392,8 @@ describe('OpenId4VcVerificationSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
           },
         }),
       )
@@ -423,6 +429,8 @@ describe('OpenId4VcVerificationSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
           },
         }),
       )
@@ -488,6 +496,8 @@ describe('OpenId4VcVerificationSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
           },
         }),
       )
@@ -522,7 +532,11 @@ describe('OpenId4VcVerificationSessionService', () => {
 
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
         didResolutionResultStub({
-          didDocument: { verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }] },
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
+          },
         }),
       )
 

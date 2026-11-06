@@ -93,16 +93,18 @@ Run ngrok using the following command (`9000` is the server port used by nginx):
 ngrok http 9000
 ```
 
+In the examples below, replace `{YOUR_NGROK_DOMAIN}` with the domain printed by `ngrok http 9000`.
+
 Modify the agent endpoints in the Heka Identity Service config via environment variables (`.env`), for example:
 
 ```shell
-AGENT_HTTP_ENDPOINT=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/agent-http
-AGENT_WS_ENDPOINT=wss://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/agent-ws
-AGENT_OID4VCI_ENDPOINT=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/openId
+AGENT_HTTP_ENDPOINT=https://{YOUR_NGROK_DOMAIN}/agent-http
+AGENT_WS_ENDPOINT=wss://{YOUR_NGROK_DOMAIN}/agent-ws
+AGENT_OID4VCI_ENDPOINT=https://{YOUR_NGROK_DOMAIN}/openId
 # logos referenced from OID4VCI issuer metadata must be reachable over https too
-FILE_STORAGE_FS_PUBLIC_URL=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io/openId
+FILE_STORAGE_FS_PUBLIC_URL=https://{YOUR_NGROK_DOMAIN}/openId
 # tails files and status lists (REST API port)
-APP_ENDPOINT=https://fd31-2a03-ed80-1-0-1c38-8e52-ec9d-30e7.ngrok.io
+APP_ENDPOINT=https://{YOUR_NGROK_DOMAIN}
 ```
 
 When the Identity Service runs from the root `docker-compose.yml`, set the same values in the root `.env` with the `IDENTITY_SERVICE_` prefix (e.g. `IDENTITY_SERVICE_APP_ENDPOINT`, `IDENTITY_SERVICE_AGENT_HTTP_ENDPOINT`).

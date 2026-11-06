@@ -6,7 +6,8 @@ import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionSta
 import { Injectable, InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
-import { assertDidNotDeactivated } from 'common/did-registrar'
+import { assertDidActive } from 'common/did-registrar'
+import { signingKeyId } from 'utils/oid4vc'
 
 import {
   OpenId4VcVerificationSessionCreateRequestDto,
@@ -38,12 +39,15 @@ export class OpenId4VcVerificationSessionService {
         throw new UnprocessableEntityException('requestSigner.did is required')
       }
       const { didDocument, didDocumentMetadata } = await tenantAgent.dids.resolve(req.requestSigner.did)
-      // A deactivated did:indybesu keeps its keys, so this is checked first
-      await assertDidNotDeactivated(tenantAgent, req.requestSigner.did, didDocumentMetadata)
-      if (!didDocument || !didDocument.verificationMethod?.length) {
-        throw new UnprocessableEntityException(`Unable to resolve signing key for DID: ${req.requestSigner.did}`)
+      await assertDidActive(tenantAgent, req.requestSigner.did, didDocumentMetadata)
+      // Wallets accept a signed request only from an `authentication` key
+      const didUrl = didDocument ? signingKeyId(didDocument, ['authentication']) : undefined
+      if (!didUrl) {
+        throw new UnprocessableEntityException(
+          `DID ${req.requestSigner.did} has no key for signing requests (a verification method referenced from authentication)`,
+        )
       }
-      requestSigner = { method: 'did', didUrl: didDocument.verificationMethod[0].id }
+      requestSigner = { method: 'did', didUrl }
     }
 
     const { authorizationRequest, verificationSession, authorizationRequestObject } =

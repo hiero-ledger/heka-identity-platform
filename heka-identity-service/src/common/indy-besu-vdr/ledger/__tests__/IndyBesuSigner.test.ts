@@ -72,6 +72,27 @@ describe('IndyBesuSigner', () => {
     expect(fetchKey).toHaveBeenCalledWith({ name: 'endorser' })
   })
 
+  test('signs with a configured private key, with or without 0x, without the wallet', async () => {
+    for (const privateKey of [DEV_PRIVATE_KEY, `0x${DEV_PRIVATE_KEY}`]) {
+      const signer = IndyBesuSigner.fromPrivateKey(privateKey)
+      const digest = getBytes(keccak256(toUtf8Bytes('endorsing data')))
+
+      const { recovery_id, signature } = await signer.sign(digest)
+
+      expect(signer.address).toBe(DEV_ADDRESS)
+      const recovered = recoverAddress(
+        digest,
+        Signature.from({
+          r: hexlify(signature.slice(0, 32)),
+          s: hexlify(signature.slice(32)),
+          yParity: recovery_id as 0 | 1,
+        }),
+      )
+      expect(recovered).toBe(DEV_ADDRESS)
+    }
+    expect(fetchKey).not.toHaveBeenCalled()
+  })
+
   // Best effort: ethers' SigningKey keeps its own copy of the secret, which cannot be wiped
   test('frees the Askar key handle and zeroes the secret buffer it read after signing', async () => {
     const signer = await IndyBesuSigner.create(agentContext, 'endorser')

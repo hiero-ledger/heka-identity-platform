@@ -16,6 +16,7 @@ import type {
 
 import { type AgentContext, CredoError, DidRepository, DidsApi } from '@credo-ts/core'
 
+import { IndyBesuModuleConfig } from '../IndyBesuModuleConfig'
 import { CredentialDefinitionRegistry, IndyBesuSigner, SchemaRegistry } from '../ledger'
 import { indyBesuAnonCredsRegistryIdentifierRegex } from '../utils/identifier'
 
@@ -57,7 +58,7 @@ export class IndyBesuAnonCredsRegistry implements AnonCredsRegistry {
       const schemaRegistry = agentContext.dependencyManager.resolve(SchemaRegistry)
 
       const issuer = await this.getSigner(agentContext, options.schema.issuerId)
-      const endorser = await this.getEndorserSigner(agentContext, options.options.endorserKey)
+      const endorser = this.getEndorserSigner(agentContext)
       const schemaId = await schemaRegistry.endorseSchema(options.schema, issuer, endorser)
 
       return {
@@ -121,7 +122,7 @@ export class IndyBesuAnonCredsRegistry implements AnonCredsRegistry {
       }
 
       const issuer = await this.getSigner(agentContext, options.credentialDefinition.issuerId)
-      const endorser = await this.getEndorserSigner(agentContext, options.options.endorserKey)
+      const endorser = this.getEndorserSigner(agentContext)
       const createCredentialDefinitionId = await credentialDefinitionRegistry.endorseCredentialDefinition(
         {
           ...options.credentialDefinition,
@@ -205,15 +206,15 @@ export class IndyBesuAnonCredsRegistry implements AnonCredsRegistry {
     return await IndyBesuSigner.create(agentContext, key.kmsKeyId)
   }
 
-  private async getEndorserSigner(agentContext: AgentContext, endorserKeyId: string) {
-    return await IndyBesuSigner.create(agentContext, endorserKeyId)
+  private getEndorserSigner(agentContext: AgentContext) {
+    const { endorserPrivateKey } = agentContext.dependencyManager.resolve(IndyBesuModuleConfig)
+    return IndyBesuSigner.fromPrivateKey(endorserPrivateKey)
   }
 }
 
 export interface IndyBesuRegisterSchemaOptions extends RegisterSchemaOptions {
   options: {
     issuerId: string
-    endorserKey: string
   }
 }
 
@@ -221,6 +222,5 @@ export interface IndyBesuRegisterCredentialDefinitionOptions extends RegisterCre
   options: {
     supportRevocation: boolean
     issuerId: string
-    endorserKey: string
   }
 }

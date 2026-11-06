@@ -20,7 +20,7 @@ export interface AgentConfigSummary {
   didMethods: string[]
   indyNetworks: Array<{ indyNamespace: string; isProduction: boolean; connectOnStartup?: boolean }>
   indyEndorserDid: string
-  indyBesu: { chainId: number; network: string; nodeAddress: string; endorserPublicKey: string }
+  indyBesu: { chainId: number; network: string; nodeAddress: string }
   hedera: { network: string; operatorId: string }
   askarStore: { databaseType?: string; host?: string }
   mdlIssuer: { certificateConfigured: boolean; keyId?: string }
@@ -54,7 +54,6 @@ export function summarizeAgentConfig(config: ConfigType<typeof AgentConfig>): Ag
       chainId: config.indyBesuChainId,
       network: config.indyBesuNetwork,
       nodeAddress: urlOrigin(config.indyBesuNodeAddress),
-      endorserPublicKey: config.indyBesuEndorserPublicKey,
     },
     hedera: {
       network: config.hederaNetwork,

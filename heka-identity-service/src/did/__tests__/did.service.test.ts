@@ -816,11 +816,12 @@ describe('DidService', () => {
       })
 
       test.each([
-        [{ addServices: [{ id: '#svc-1', type: 'LinkedDomains', serviceEndpoint: 'https://a' }] }, 'already exists'],
+        [{ addServices: [{ id: '#svc-1', type: 'LinkedDomains', serviceEndpoint: 'https://b' }] }, 'already exists'],
         [{ addVerificationMethods: [{ id: '#Key-1' }] }, 'already exists'],
+        [{ addVerificationMethods: [{ id: '#key-1' }] }, 'already exists'],
         [{ addVerificationMethods: [{ id: '#key-9' }, { id: '#key-9' }] }, 'already exists'],
-        [{ removeServices: ['#svc-9'] }, 'Service #svc-9 does not exist'],
         [{ removeServices: ['#key-1'] }, 'Service #key-1 does not exist'],
+        [{ removeServices: ['#svc-9', '#svc-9'] }, 'is named more than once'],
         [{ removeVerificationMethods: ['#svc-1'] }, 'Verification method #svc-1 does not exist'],
         [{ removeVerificationMethods: ['#key-1', '#key-1'] }, 'is named more than once'],
       ])('rejects %j with 422 (%s)', async (req, message) => {
@@ -828,6 +829,36 @@ describe('DidService', () => {
 
         await expect(update).rejects.toThrow(UnprocessableEntityException)
         await expect(update).rejects.toThrow(message)
+        expect(didRegistrarService.updateDid).not.toHaveBeenCalled()
+      })
+
+      test('drops operations the ledger document already shows (a retry after a partly applied update)', async () => {
+        await didService.update(orgAdmin, tenantAgent, did, {
+          addServices: [
+            { id: '#svc-1', type: 'LinkedDomains', serviceEndpoint: 'https://a' },
+            { id: '#svc-2', type: 'LinkedDomains', serviceEndpoint: 'https://b' },
+          ],
+          addVerificationMethods: [{ id: '#key-1', purposes: ['assertionMethod'] }],
+          removeServices: ['#svc-9'],
+          removeVerificationMethods: ['#key-1'],
+        })
+
+        expect(vi.mocked(didRegistrarService.updateDid).mock.calls[0][2]).toMatchObject({
+          addServices: [{ id: '#svc-2', type: 'LinkedDomains', serviceEndpoint: 'https://b' }],
+          addVerificationMethods: [],
+          removeServices: [],
+          removeVerificationMethods: ['#key-1'],
+        })
+      })
+
+      test('writes nothing and returns the ledger document when everything is applied already', async () => {
+        const result = await didService.update(orgAdmin, tenantAgent, did, {
+          addServices: [{ id: '#svc-1', type: 'LinkedDomains', serviceEndpoint: 'https://a' }],
+          removeServices: ['#svc-9'],
+          removeVerificationMethods: ['#key-9'],
+        })
+
+        expect(result.id).toBe(did)
         expect(didRegistrarService.updateDid).not.toHaveBeenCalled()
       })
 
@@ -867,26 +898,6 @@ describe('DidService', () => {
           new NotFoundException('DID not found in this wallet'),
         )
         expect(tenantAgent.dids.getCreatedDids).toHaveBeenCalledWith({ did })
-      })
-
-      test('a Verifier cannot change DIDs (403); with the role model disabled it can', async () => {
-        const verifier = makeAuthInfo(Role.Verifier)
-
-        await expect(didService.update(verifier, tenantAgent, did, { removeServices: ['#svc-1'] })).rejects.toThrow(
-          ForbiddenException,
-        )
-        const unrestricted = new DidService(
-          agent,
-          em,
-          logger,
-          didRegistrarService,
-          agentConfig,
-          new AuthorizationService({ enabled: false }),
-          walletLockService,
-        )
-        await expect(
-          unrestricted.update(verifier, tenantAgent, did, { removeServices: ['#svc-1'] }),
-        ).resolves.toBeDefined()
       })
 
       test('fails with 503 when the ledger cannot be read, instead of trusting the wallet copy', async () => {

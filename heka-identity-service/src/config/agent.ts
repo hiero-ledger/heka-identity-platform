@@ -84,8 +84,6 @@ export default registerAs('agent', () => {
   const indyBesuNetwork = process.env.INDY_BESU_NETWORK ?? 'testnet'
   const indyBesuEndorserPrivateKey =
     process.env.INDY_BESU_ENDORSER_PRIVATE_KEY ?? INSECURE_DEFAULTS.INDY_BESU_ENDORSER_PRIVATE_KEY
-  const indyBesuEndorserPublicKey =
-    process.env.INDY_BESU_ENDORSER_PUBLIC_KEY ?? '03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d'
 
   const hederaNetwork: HederaNetwork = (process.env.HEDERA_NETWORK as HederaNetwork) ?? 'testnet'
   const hederaOperatorId = process.env.HEDERA_OPERATOR_ID ?? '0.0.5489553'
@@ -172,7 +170,6 @@ export default registerAs('agent', () => {
     indyBesuNodeAddress,
     indyBesuNetwork,
     indyBesuEndorserPrivateKey,
-    indyBesuEndorserPublicKey,
     hederaNetwork,
     hederaOperatorId,
     hederaOperatorKey,

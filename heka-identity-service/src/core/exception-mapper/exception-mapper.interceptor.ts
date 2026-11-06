@@ -1,10 +1,11 @@
-import { CredoError } from '@credo-ts/core'
+import { CredoError, RecordNotFoundError } from '@credo-ts/core'
 import {
   CallHandler,
   ExecutionContext,
   Injectable,
   InternalServerErrorException,
   NestInterceptor,
+  NotFoundException,
 } from '@nestjs/common'
 import { Observable, throwError } from 'rxjs'
 import { catchError } from 'rxjs/operators'
@@ -21,6 +22,9 @@ export class ExceptionMapperInterceptor implements NestInterceptor {
   public intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     return next.handle().pipe(
       catchError((err) => {
+        if (err instanceof RecordNotFoundError) {
+          return throwError(() => new NotFoundException(err.message))
+        }
         if (err instanceof CredoError) {
           const logger = this.logger.child('intercept')
           logger.error(err)

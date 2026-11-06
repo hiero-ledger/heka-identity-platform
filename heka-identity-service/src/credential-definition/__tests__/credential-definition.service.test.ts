@@ -1,4 +1,5 @@
 import { createMock } from '@golevelup/ts-vitest'
+import { UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
 import { AnoncredsRegistryService } from 'common/anoncreds-registry'
@@ -8,6 +9,7 @@ import {
   anonCredsCredentialDefinitionStub,
   anonCredsCredentialDefinitionRecordStub,
   anonCredsSchemaStub,
+  didResolutionResultStub,
 } from '../../../test/helpers/mock-records'
 import { CredentialDefinitionService } from '../credential-definition.service'
 
@@ -22,6 +24,10 @@ describe('CredentialDefinitionService', () => {
     anoncredsRegistryService = createMock<AnoncredsRegistryService>()
     credDefService = new CredentialDefinitionService(logger, anoncredsRegistryService)
     tenantAgent = createMock<TenantAgent>({
+      dids: {
+        getCreatedDids: vi.fn().mockResolvedValue([]),
+        resolve: vi.fn().mockResolvedValue(didResolutionResultStub()),
+      },
       modules: { anoncreds: { getCreatedCredentialDefinitions: vi.fn() } },
     })
   })
@@ -119,6 +125,22 @@ describe('CredentialDefinitionService', () => {
       expect(result.id).toBe('creddef-new')
       expect(result.schemaId).toBe('schema-1')
       expect(result.tag).toBe('default')
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('issuer-1', expect.anything())
+    })
+
+    test('rejects an issuer DID deactivated on its ledger with 422 and registers nothing', async () => {
+      vi.mocked(anoncredsRegistryService.getSchema).mockResolvedValue({
+        schemaId: 'schema-1',
+        schema: anonCredsSchemaStub(),
+      })
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({ didDocumentMetadata: { deactivated: true } }),
+      )
+
+      await expect(
+        credDefService.create(tenantAgent, { schemaId: 'schema-1', issuerId: 'issuer-1', tag: 'default' }),
+      ).rejects.toThrow(UnprocessableEntityException)
+      expect(anoncredsRegistryService.registerCredentialDefinition).not.toHaveBeenCalled()
     })
 
     test('propagates error when schema does not exist', async () => {

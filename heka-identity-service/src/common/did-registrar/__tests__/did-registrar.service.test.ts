@@ -9,7 +9,7 @@ import AgentConfig from 'config/agent'
 import { INSECURE_DEFAULTS } from 'config/insecure-defaults'
 
 import { DidRegistrarService } from '../did-registrar.service'
-import { DidHederaRegistrar, DidIndyBesuRegistrar } from '../methods'
+import { DidHederaRegistrar, DidIndyBesuRegistrar, DidIndyRegistrar } from '../methods'
 
 describe('DidRegistrarService: update and deactivate', () => {
   let service: DidRegistrarService
@@ -30,7 +30,6 @@ describe('DidRegistrarService: update and deactivate', () => {
 
   test.each([
     ['key', 'did:key DIDs are immutable'],
-    ['indy', 'did:indy update and deactivation are not implemented yet'],
     ['jwk', 'did:jwk DIDs are immutable'],
     ['peer', 'did:peer update and deactivation are not implemented yet'],
     ['web', 'did:web DIDs are not hosted by the Identity Service'],
@@ -39,6 +38,12 @@ describe('DidRegistrarService: update and deactivate', () => {
       expect(() => service.getUpdatingDidRegistrar(method, operation)).toThrow(UnprocessableEntityException)
       expect(() => service.getUpdatingDidRegistrar(method, operation)).toThrow(message)
     }
+  })
+
+  test('indy DIDs can be updated and deactivated, the key #verkey never changed', () => {
+    expect(service.getUpdatingDidRegistrar('indy', 'update')).toBeInstanceOf(DidIndyRegistrar)
+    expect(service.getUpdatingDidRegistrar('indy', 'deactivate')).toBeInstanceOf(DidIndyRegistrar)
+    expect(service.getUpdatingDidRegistrar('indy', 'update').protectedKeyFragment).toBe('#verkey')
   })
 
   test('a method that is not configured is not supported (400), as on creation', () => {
@@ -52,7 +57,6 @@ describe('DidRegistrarService: update and deactivate', () => {
         didMethods: ['key', 'indybesu'],
         indyBesuNetwork: 'testnet',
         indyBesuEndorserPrivateKey: INSECURE_DEFAULTS.INDY_BESU_ENDORSER_PRIVATE_KEY,
-        indyBesuEndorserPublicKey: '03af80b90d25145da28c583359beb47b21796b2fe1a23c1511e443e7a64dfdb27d',
       }),
       createMock<EntityManager>(),
     )

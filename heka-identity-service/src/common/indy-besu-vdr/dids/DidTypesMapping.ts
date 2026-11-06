@@ -22,8 +22,7 @@ type DidDocumentJson = {
 }
 
 export function toIndyBesuDidDocument(didDocument: DidDocument): IndyBesuDidDocument {
-  // The VDR takes plain JSON: Credo class instances and `undefined` properties (e.g. a second key-material property of
-  // a verification method) are rejected by its document validation
+  // The VDR takes plain JSON: Credo class instances and `undefined` properties are rejected by its document validation
   const json = withoutUndefined(JsonTransformer.toJSON(didDocument)) as DidDocumentJson
   return {
     '@context': ensureArray(json['@context'] ?? []),

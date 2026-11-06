@@ -17,6 +17,7 @@ import {
   Kms,
 } from '@credo-ts/core'
 
+import { IndyBesuModuleConfig } from '../IndyBesuModuleConfig'
 import { DidRegistry, IndyBesuSigner, TransactionOutcomeUnknownError } from '../ledger'
 
 import { fromIndyBesuDidDocument, toIndyBesuDidDocument } from './DidTypesMapping'
@@ -49,7 +50,8 @@ export class IndyBesuDidRegistrar implements DidRegistrar {
         endpoints: options.options.endpoints,
       })
 
-      const endorser = await IndyBesuSigner.create(agentContext, options.options.endorserKeyId)
+      const { endorserPrivateKey } = agentContext.dependencyManager.resolve(IndyBesuModuleConfig)
+      const endorser = IndyBesuSigner.fromPrivateKey(endorserPrivateKey)
       const identity = await IndyBesuSigner.create(agentContext, key.keyId)
 
       await didRegistry.endorseDid(toIndyBesuDidDocument(didDocument), identity, endorser)
@@ -94,12 +96,6 @@ export class IndyBesuDidRegistrar implements DidRegistrar {
     }
   }
 
-  /**
-   * Replaces the DID document on the ledger, sent by the DID's own account (`updateDid`, no endorser). The owner key must
-   * stay the first verification method, unchanged: it is the DID's address and the only key the ledger accepts. The new
-   * keys in `secret.keys` belong to the caller. A failed result tells it whether it may delete them: see
-   * `isNothingSubmitted`.
-   */
   public async update(agentContext: AgentContext, options: IndyBesuDidUpdateOptions): Promise<DidUpdateResult> {
     const didRegistry = agentContext.dependencyManager.resolve(DidRegistry)
     const didRepository = agentContext.dependencyManager.resolve(DidRepository)
@@ -170,10 +166,6 @@ export class IndyBesuDidRegistrar implements DidRegistrar {
     }
   }
 
-  /**
-   * Deactivates the DID on the ledger, sent by the DID's own account (`deactivateDid`). The ledger keeps the document
-   * and rejects a second deactivation. The keys stay in the wallet.
-   */
   public async deactivate(
     agentContext: AgentContext,
     options: IndyBesuDidDeactivateOptions,
@@ -247,7 +239,6 @@ export interface IndyBesuDidCreateOptions extends DidCreateOptions {
   options: {
     network: string
     endpoints?: IndyBesuEndpoint[]
-    endorserKeyId: string
   }
   secret?: Record<string, never>
 }
@@ -268,7 +259,6 @@ function findOwnerKey(keys: DidDocumentKey[] = []): DidDocumentKey | undefined {
   return keys.find(({ didDocumentRelativeKeyId }) => didDocumentRelativeKeyId.endsWith(OWNER_KEY_FRAGMENT))
 }
 
-/** The reason of a failure, as returned to the API client: a KMS error names the KMS key id, so it is not passed on. */
 function errorReason(error: unknown): string {
   if (error instanceof Kms.KeyManagementError) {
     return 'A key of the DID is not available in the wallet'
@@ -277,14 +267,6 @@ function errorReason(error: unknown): string {
 }
 
 const NOT_SUBMITTED = { transactionSubmitted: false }
-
-/**
- * Whether a failed `update` certainly sent nothing to the ledger, so that the keys created for it can be deleted. Any
- * other failure (including one that does not say) may still be mined.
- */
-export function isNothingSubmitted(result: DidUpdateResult): boolean {
-  return result.didRegistrationMetadata.transactionSubmitted === false
-}
 
 function failedResult(
   reason: string,

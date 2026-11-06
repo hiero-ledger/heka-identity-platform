@@ -1,6 +1,6 @@
 import { Server } from 'net'
 
-import { Agent, DidKey, KeyDidCreateOptions, Kms, SdJwtVcRecord } from '@credo-ts/core'
+import { Agent, KeyDidCreateOptions, Kms, SdJwtVcRecord } from '@credo-ts/core'
 import { MikroORM } from '@mikro-orm/core'
 import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
@@ -8,11 +8,16 @@ import request from 'supertest'
 
 import { DidKeyRegistrar } from 'common/did-registrar/methods'
 import { Role } from 'src/common/auth'
+import { parseDidMethods } from 'src/config/insecure-defaults'
 import { uuid } from 'src/utils/misc'
 
 import { initializeMikroOrm, startTestApp } from './helpers'
 import { createAuthToken } from './helpers/jwt'
 import { createAgent, TestAgentModulesMap } from './helpers/test-agent'
+
+// Issuer DID methods beyond `key` are tested when enabled in DID_METHODS. `indybesu` needs a local Indy-Besu network
+// (see docs/setup.md, "Local Indy-Besu network"); `indy` and `hedera` write to BCovrin Test and Hedera testnet
+const didMethods = parseDidMethods(process.env)
 
 describe('E2E issuance session', () => {
   let ormSchemaGenerator: SchemaGenerator
@@ -20,7 +25,6 @@ describe('E2E issuance session', () => {
 
   let nestApp: INestApplication
   let app: Server
-  let issuerDidKey: DidKey
   let agent: Agent<TestAgentModulesMap>
 
   beforeAll(async () => {
@@ -43,7 +47,11 @@ describe('E2E issuance session', () => {
     await orm.close(true)
   })
 
-  async function testCredentialIssuance(didMethod: string, expectedAlg: string) {
+  /**
+   * `addSigningKey`: the DID's own key cannot sign credentials (the did:indy `#verkey` is `authentication` only), so a
+   * key with the default purposes (`assertionMethod`, `authentication`) is added first and the service signs with it.
+   */
+  async function testCredentialIssuance(didMethod: string, expectedAlg: string, { addSigningKey = false } = {}) {
     const issuerAccountId = uuid()
     const issuerAccountAuthToken = await createAuthToken(issuerAccountId, Role.Admin)
 
@@ -52,8 +60,17 @@ describe('E2E issuance session', () => {
     })
     expect(postDidResponse.statusCode).toBe(201)
 
-    const issuerId = postDidResponse.body.id
-    issuerDidKey = DidKey.fromDid(issuerId as string)
+    const issuerId = postDidResponse.body.id as string
+    // The service signs with the first verification method that is an `assertionMethod`
+    let issuerKeyId = postDidResponse.body.verificationMethod[0].id as string
+    if (addSigningKey) {
+      const updateResponse = await request(app)
+        .patch(`/dids/${issuerId}`)
+        .auth(issuerAccountAuthToken, { type: 'bearer' })
+        .send({ addVerificationMethods: [{ id: '#signing-key' }] })
+      expect(updateResponse.statusCode).toBe(200)
+      issuerKeyId = `${issuerId}#signing-key`
+    }
 
     const issuerResponse = await request(app)
       .post(`/openid4vc/issuer`)
@@ -90,7 +107,7 @@ describe('E2E issuance session', () => {
             format: 'vc+sd-jwt',
             issuer: {
               method: 'did',
-              did: issuerDidKey.did,
+              did: issuerId,
             },
             payload: {
               first_name: 'John',
@@ -114,7 +131,6 @@ describe('E2E issuance session', () => {
         credentialOfferPayload: {
           credential_configuration_ids: ['SdJwtVcExample'],
           credential_issuer: expect.stringMatching(new RegExp(`/oid4vci/${issuerId}$`)),
-          credentials: ['SdJwtVcExample'],
           grants: {
             'urn:ietf:params:oauth:grant-type:pre-authorized_code': {
               'pre-authorized_code': expect.any(String),
@@ -134,8 +150,8 @@ describe('E2E issuance session', () => {
               credentialSupportedId: 'SdJwtVcExample',
               format: 'vc+sd-jwt',
               issuer: {
-                did: issuerDidKey.did,
-                didUrl: `${issuerDidKey.did}#${issuerDidKey.publicJwk.fingerprint}`,
+                did: issuerId,
+                didUrl: issuerKeyId,
                 method: 'did',
               },
               payload: {
@@ -214,11 +230,11 @@ describe('E2E issuance session', () => {
     const credential = (requestCredentialsResult.credentials[0].record as SdJwtVcRecord).firstCredential
 
     expect(credential).toMatchObject({
-      claimFormat: 'vc+sd-jwt',
+      claimFormat: 'dc+sd-jwt',
       encoded: expect.any(String),
       compact: expect.any(String),
 
-      header: { alg: expectedAlg, kid: `#${issuerDidKey.publicJwk.fingerprint}`, typ: 'vc+sd-jwt' },
+      header: { alg: expectedAlg, kid: `#${issuerKeyId.split('#')[1]}`, typ: 'vc+sd-jwt' },
       payload: {
         _sd_alg: 'sha-256',
         age: {
@@ -251,19 +267,43 @@ describe('E2E issuance session', () => {
     })
   }
 
-  // TODO: re-enable when we increase test coverage. The expected
-  // `credentialOfferPayload` still references the legacy `credentials` field
-  // which the server no longer emits (only `credential_configuration_ids`
-  // since OID4VCI draft 13+). Pre-existing failure surfaced when CI tests
-  // were re-enabled — see migrate-from-jest-to-vitest.
-  test.skip('create offer with `key` DID method', async () => {
+  test('an offer for a DID without an OpenID4VC issuer is 404', async () => {
+    const token = await createAuthToken(uuid(), Role.Admin)
+    // The issuer is looked up first, so the DID does not need to exist
+    const did = 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK'
+
+    const response = await request(app)
+      .post('/openid4vc/issuance-session/offer')
+      .auth(token, { type: 'bearer' })
+      .send({
+        publicIssuerId: did,
+        credentials: [
+          {
+            credentialSupportedId: 'SdJwtVcExample',
+            format: 'vc+sd-jwt',
+            issuer: { method: 'did', did },
+            payload: { first_name: 'John' },
+          },
+        ],
+      })
+
+    expect(response.statusCode).toBe(404)
+    expect(response.body.message).toContain('OpenId4VcIssuerRecord')
+  })
+
+  test('create offer with `key` DID method', async () => {
     await testCredentialIssuance('key', 'EdDSA')
   })
 
-  // did:indybesu creation works against a local Indy-Besu network (INDY_BESU_E2E=true), but this test itself does not
-  // fit a non-key DID: it decodes the issuer DID with `DidKey.fromDid` and has the stale offer expectations of the
-  // `key` case above. Re-enable both together.
-  test.skip('create offer with `indybesu` DID method', async () => {
+  test.skipIf(!didMethods.includes('indy'))('create offer with `indy` DID method', async () => {
+    await testCredentialIssuance('indy', 'EdDSA', { addSigningKey: true })
+  })
+
+  test.skipIf(!didMethods.includes('hedera'))('create offer with `hedera` DID method', async () => {
+    await testCredentialIssuance('hedera', 'EdDSA')
+  })
+
+  test.skipIf(!didMethods.includes('indybesu'))('create offer with `indybesu` DID method', async () => {
     await testCredentialIssuance('indybesu', 'ES256K')
   })
 })

@@ -7,6 +7,7 @@ on:
     paths:
       - 'heka-identity-service/**'
       - 'heka-sso-service/keycloak/realm-heka-platform.json'
+      - 'docker/indy-besu/**'
       - '.github/workflows/heka-identity-service-verify.yml'
 
 # This allows a subsequently queued workflow run to interrupt previous runs
@@ -74,9 +75,25 @@ jobs:
       - name: Run ESLint
         run: yarn lint-check
 
+      - name: Start Indy Besu node
+        working-directory: .
+        run: |
+          docker compose --env-file .env.example --profile indybesu up -d indy-besu
+          for i in $(seq 1 60); do
+            if curl -sf -H 'Content-Type: application/json' \
+              -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' http://localhost:8545 \
+              | grep -q '"result":"0x[1-9a-f]'; then
+              echo "Indy Besu is producing blocks"; exit 0
+            fi
+            sleep 2
+          done
+          echo "Indy Besu did not come up"; docker compose --env-file .env.example logs indy-besu; exit 1
+        shell: bash
+
       - name: Run tests
         env:
           FORCE_COLOR: 1
+          DID_METHODS: indy,key,hedera,indybesu
           NODE_OPTIONS: --max-old-space-size=6144
           MIKRO_ORM_HOST: localhost
           MIKRO_ORM_PORT: 5432

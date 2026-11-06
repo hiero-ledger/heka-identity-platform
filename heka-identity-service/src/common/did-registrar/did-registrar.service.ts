@@ -22,12 +22,9 @@ import { DidIndyRegistrar, DidKeyRegistrar, DidIndyBesuRegistrar, DidHederaRegis
 const DID_REGISTRAR_WALLET_ID = 'DidRegistrarWallet'
 const DID_REGISTRAR_TENANT_LABEL = 'DidRegistrarTenant'
 
-// Why DIDs of a method cannot be updated or deactivated through the Identity Service. jwk, peer and web have no
-// registrar wrapper at all, so their DIDs are rejected without one
 const NOT_UPDATABLE_REASONS: Record<string, string> = {
   key: 'did:key DIDs are immutable and cannot be updated or deactivated',
   jwk: 'did:jwk DIDs are immutable and cannot be updated or deactivated',
-  indy: 'did:indy update and deactivation are not implemented yet',
   peer: 'did:peer update and deactivation are not implemented yet; DIDComm connection DIDs are not managed here',
   web: 'did:web DIDs are not hosted by the Identity Service and cannot be updated or deactivated by it',
 }
@@ -91,8 +88,7 @@ export class DidRegistrarService implements OnApplicationBootstrap {
   }
 
   /**
-   * The registrar of a method that can update (or deactivate) DIDs. Methods that cannot are rejected with 422 and the
-   * reason; methods that are not configured with 400, as on creation.
+   * The registrar of a method that can update (or deactivate) DIDs.
    */
   public getUpdatingDidRegistrar(method: string, operation: DidOperation): DidRegistrar {
     if (UNMANAGED_METHODS.includes(method)) {
@@ -109,7 +105,6 @@ export class DidRegistrarService implements OnApplicationBootstrap {
     return didRegistrar
   }
 
-  // Configured methods only: an unknown method is not supported at all (400)
   public supportsUpdate(method: string): boolean {
     return this.getDidRegistrar(method).supportsUpdate
   }
@@ -141,7 +136,6 @@ export class DidRegistrarService implements OnApplicationBootstrap {
     return didState.didDocument
   }
 
-  // Unlike creation, these run in the caller's tenant agent session: the DID record they change was read through it
   public async updateDid(tenantAgent: TenantAgent, method: string, options: UpdateDidOptions): Promise<DidDocument> {
     const didRegistrar = this.getUpdatingDidRegistrar(method, 'update')
 

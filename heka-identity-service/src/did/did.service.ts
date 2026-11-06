@@ -25,7 +25,7 @@ import {
   DidRegistrarService,
   fragmentOf,
   isDidRecordDeactivated,
-  isOwnDidDeactivated,
+  isStoredDidDeactivated,
   UpdateDidOptions,
   VERIFICATION_RELATIONSHIPS,
 } from 'common/did-registrar'
@@ -50,10 +50,6 @@ import {
 
 // How long an update or deactivation waits for another request on the same wallet (seconds)
 const DID_OPERATION_LOCK_TIMEOUT_SECONDS = 60
-
-// Roles that may change the DIDs of their wallet, as far as the role model is enforced. A Verifier only holds a
-// did:key, which cannot change
-const DID_OPERATION_ROLES = [Role.Admin, Role.OrgAdmin, Role.Issuer]
 
 @Injectable()
 export class DidService {
@@ -222,7 +218,6 @@ export class DidService {
     if (!wallet) {
       return undefined
     }
-    // A deactivated DID can no longer control anything: the oldest active one is the controller
     return await withTenantAgent({ agent: this.agent, tenantId: wallet.tenantId }, (tenantAgent) =>
       this.findOwnDid(tenantAgent, method),
     )
@@ -253,19 +248,14 @@ export class DidService {
       }
     }
 
-    // A DID of the wallet is often resolved from its record, which carries no resolution metadata
     const deactivated =
-      didResolutionResult.didDocumentMetadata.deactivated === true || (await isOwnDidDeactivated(tenantAgent, did))
+      didResolutionResult.didDocumentMetadata.deactivated === true || (await isStoredDidDeactivated(tenantAgent, did))
     const res = new DidDocumentDto(didDocument, { deactivated })
 
     logger.trace('<')
     return res
   }
 
-  /**
-   * Updates a DID of the caller's wallet: adds or removes services and Ed25519 verification methods (keys generated in
-   * the wallet's KMS). Only the wallet that created the DID holds its keys, so only that wallet can change it.
-   */
   public async update(
     authInfo: AuthInfo,
     tenantAgent: TenantAgent,
@@ -290,14 +280,12 @@ export class DidService {
       authInfo.walletId,
       DID_OPERATION_LOCK_TIMEOUT_SECONDS,
       async () => {
-        const { didRecord, method } = await this.findOwnDidRecord(authInfo, tenantAgent, did)
+        const { didRecord, method } = await this.findOwnDidRecord(tenantAgent, did)
         const didRegistrar = this.didRegistrarService.getUpdatingDidRegistrar(method, 'update')
 
         if (isDidRecordDeactivated(didRecord)) {
           throw new ConflictException('DID is deactivated')
         }
-        // The ledger is the reference: the operations are checked against its document, and it may know of a
-        // deactivation the wallet does not
         const resolution = await this.resolveFromLedger(tenantAgent, did)
         if (resolution.didDocumentMetadata.deactivated) {
           await this.markDeactivated(tenantAgent, didRecord)
@@ -312,6 +300,15 @@ export class DidService {
         }
 
         const options = this.toUpdateOptions(did, currentDidDocument, req, didRegistrar)
+        if (
+          !options.addServices.length &&
+          !options.removeServices.length &&
+          !options.addVerificationMethods.length &&
+          !options.removeVerificationMethods.length
+        ) {
+          logger.info('DID update already applied on the ledger, nothing to write')
+          return new DidDocumentDto(currentDidDocument)
+        }
         logger.info(
           `Updating DID: +${options.addServices.length}/-${options.removeServices.length} services, +${options.addVerificationMethods.length}/-${options.removeVerificationMethods.length} verification methods`,
         )
@@ -333,15 +330,6 @@ export class DidService {
     return res
   }
 
-  /**
-   * Deactivates a DID of the caller's wallet, irreversibly. A DID that is already deactivated is returned as is, without
-   * a ledger write. A deactivation that reports a failure although the ledger, read again, shows the DID deactivated (a
-   * lost response) succeeds as well. The keys stay in the wallet: AnonCreds credentials issued with the DID remain
-   * revocable.
-   *
-   * `Wallet.publicDid` is a did:key (`MAIN_DID_METHOD`), which cannot be deactivated. Should the main method ever be one
-   * that can, deactivating the main DID must also clear `Wallet.publicDid`.
-   */
   public async deactivate(authInfo: AuthInfo, tenantAgent: TenantAgent, did: string): Promise<DidDocumentDto> {
     const logger = this.logger.child('deactivate', { did })
     logger.trace('>')
@@ -350,7 +338,7 @@ export class DidService {
       authInfo.walletId,
       DID_OPERATION_LOCK_TIMEOUT_SECONDS,
       async () => {
-        const { didRecord, method } = await this.findOwnDidRecord(authInfo, tenantAgent, did)
+        const { didRecord, method } = await this.findOwnDidRecord(tenantAgent, did)
         this.didRegistrarService.getUpdatingDidRegistrar(method, 'deactivate')
 
         if (isDidRecordDeactivated(didRecord)) {
@@ -411,17 +399,12 @@ export class DidService {
 
   /**
    * The record of a DID created by the caller's wallet, after the checks every update and deactivation share: the
-   * caller's role, the shared Indy endorser DID, and that the DID is the wallet's own (404 otherwise: another tenant's
-   * DID or an external one).
+   * shared Indy endorser DID, and that the DID is the wallet's own.
    */
   private async findOwnDidRecord(
-    authInfo: AuthInfo,
     tenantAgent: TenantAgent,
     did: string,
   ): Promise<{ didRecord: DidRecord; method: string }> {
-    if (this.authorizationService.isEnforced && !DID_OPERATION_ROLES.includes(authInfo.role)) {
-      throw new ForbiddenException(`Role '${authInfo.role}' cannot update or deactivate DIDs`)
-    }
     if (did === this.agent.agencyConfig.indyEndorserDid) {
       throw new ForbiddenException('The Indy endorser DID is shared by the platform and cannot be changed')
     }
@@ -440,7 +423,7 @@ export class DidService {
   /**
    * After a deactivation that reported a failure: when the ledger, read again, shows the DID deactivated, the wallet tags
    * it and the deactivated document is returned. Otherwise, or when the ledger or the wallet cannot be read or written,
-   * `undefined`: the caller rethrows the original error, which a failure here must not mask.
+   * `undefined`: the caller rethrows the original error.
    */
   private async reconcileFailedDeactivation(
     tenantAgent: TenantAgent,
@@ -603,8 +586,12 @@ export class DidService {
   }
 
   /**
-   * Checks the requested operations against the current document and resolves them to the registrar's options. Each
-   * failure is a 422: an added id that exists, an id to remove that does not, or the key that controls the DID.
+   * Checks the requested operations against the current document and resolves them to the registrar's options.
+   * Operations the document already reflects are dropped, so a retry after a partly applied update writes only the
+   * rest: an added service with the same type and endpoint, an added verification method (with an explicit id) with the
+   * same purposes, and a removed id the document does not use at all. Each failure is a 422: an added id that exists
+   * with other content, an id to remove that the document uses for another kind of entry, or the key that controls the
+   * DID.
    */
   private toUpdateOptions(
     did: string,
@@ -637,18 +624,45 @@ export class DidService {
       ].map((id) => id.toLowerCase()),
     )
 
-    const assertRemovable = (ids: string[], existing: Set<string>, kind: string) => {
+    // Returns the ids still to remove; an id the document does not use at all was removed already
+    const toRemove = (ids: string[], existing: Set<string>, kind: string) => {
       ids.forEach((id, index) => {
-        if (!existing.has(id)) {
+        if (!existing.has(id) && usedIds.has(id.toLowerCase())) {
           throw new UnprocessableEntityException(`${kind} ${id} does not exist in the DID document`)
         }
         if (ids.indexOf(id) !== index) {
           throw new UnprocessableEntityException(`${kind} ${id} is named more than once`)
         }
       })
+      return ids.filter((id) => existing.has(id))
     }
-    assertRemovable(req.removeServices ?? [], serviceIds, 'Service')
-    assertRemovable(req.removeVerificationMethods ?? [], verificationMethodIds, 'Verification method')
+    const removeServices = toRemove(req.removeServices ?? [], serviceIds, 'Service')
+    const removeVerificationMethods = toRemove(
+      req.removeVerificationMethods ?? [],
+      verificationMethodIds,
+      'Verification method',
+    )
+
+    const isApplied = {
+      service: ({ id, type, serviceEndpoint }: { id: string; type: string; serviceEndpoint: string }) =>
+        (didDocument.service ?? []).some(
+          (service) =>
+            fragmentOf(service.id) === id && service.type === type && service.serviceEndpoint === serviceEndpoint,
+        ),
+      verificationMethod: (id: string, purposes: string[]) =>
+        verificationMethodIds.has(id) &&
+        VERIFICATION_RELATIONSHIPS.every(
+          (relationship) =>
+            purposes.includes(relationship) ===
+            (didDocument[relationship] ?? []).some(
+              (entry) => fragmentOf(typeof entry === 'string' ? entry : entry.id) === id,
+            ),
+        ),
+    }
+    const addServices = (req.addServices ?? []).filter((service) => !isApplied.service(service))
+    const addVerificationMethods = (req.addVerificationMethods ?? [])
+      .map(({ id, purposes }) => ({ id, purposes: [...new Set(purposes ?? DEFAULT_VERIFICATION_PURPOSES)] }))
+      .filter(({ id, purposes }) => !id || !isApplied.verificationMethod(id, purposes))
 
     // Removed ids stay in use: some ledgers apply all operations to the document before the update
     const claim = (id: string) => {
@@ -657,8 +671,8 @@ export class DidService {
       }
       usedIds.add(id.toLowerCase())
     }
-    ;(req.addServices ?? []).forEach(({ id }) => claim(id))
-    ;(req.addVerificationMethods ?? []).forEach(({ id }) => id && claim(id))
+    addServices.forEach(({ id }) => claim(id))
+    addVerificationMethods.forEach(({ id }) => id && claim(id))
     const nextKeyId = () => {
       let n = 1
       while (usedIds.has(`#key-${n}`)) n++
@@ -669,13 +683,10 @@ export class DidService {
     return {
       did,
       currentDidDocument: didDocument,
-      addServices: (req.addServices ?? []).map(({ id, type, serviceEndpoint }) => ({ id, type, serviceEndpoint })),
-      removeServices: req.removeServices ?? [],
-      addVerificationMethods: (req.addVerificationMethods ?? []).map(({ id, purposes }) => ({
-        id: id ?? nextKeyId(),
-        purposes: [...new Set(purposes ?? DEFAULT_VERIFICATION_PURPOSES)],
-      })),
-      removeVerificationMethods: req.removeVerificationMethods ?? [],
+      addServices: addServices.map(({ id, type, serviceEndpoint }) => ({ id, type, serviceEndpoint })),
+      removeServices,
+      addVerificationMethods: addVerificationMethods.map(({ id, purposes }) => ({ id: id ?? nextKeyId(), purposes })),
+      removeVerificationMethods,
     }
   }
 }

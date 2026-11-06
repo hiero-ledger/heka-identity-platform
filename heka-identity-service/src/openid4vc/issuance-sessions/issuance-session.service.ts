@@ -11,9 +11,9 @@ import { TenantAgent } from 'common/agent'
 import AgentConfig from 'config/agent'
 
 import { AuthInfo } from '../../common/auth'
-import { assertDidNotDeactivated } from '../../common/did-registrar'
+import { assertDidActive } from '../../common/did-registrar'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
-import { CredentialIssuanceMetadata } from '../../utils/oid4vc'
+import { CredentialIssuanceMetadata, signingKeyId } from '../../utils/oid4vc'
 
 import {
   GetIssuanceSessionByQueryDto,
@@ -69,14 +69,19 @@ export class OpenId4VcIssuanceSessionService {
       if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
         const issuerCredential = credential as { issuer: { did: string } }
         const { didDocument, didDocumentMetadata } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
-        // A deactivated did:indybesu keeps its keys, so this is checked first
-        await assertDidNotDeactivated(tenantAgent, issuerCredential.issuer.did, didDocumentMetadata)
-        if (!didDocument || !didDocument.verificationMethod?.length) {
+        await assertDidActive(tenantAgent, issuerCredential.issuer.did, didDocumentMetadata)
+        // SD-JWT VC verifiers require an `assertionMethod` key; Credo signs W3C credentials only with a key that is
+        // `authentication` as well
+        const purposes: Array<'assertionMethod' | 'authentication'> =
+          credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc
+            ? ['assertionMethod']
+            : ['assertionMethod', 'authentication']
+        issuerDidUrl = didDocument ? signingKeyId(didDocument, purposes) : undefined
+        if (!issuerDidUrl) {
           throw new UnprocessableEntityException(
-            `Unable to resolve signing key for DID: ${issuerCredential.issuer.did}`,
+            `DID ${issuerCredential.issuer.did} has no key for signing credentials (a verification method referenced from ${purposes.join(' and ')})`,
           )
         }
-        issuerDidUrl = didDocument.verificationMethod[0].id
       }
 
       let credentialStatus

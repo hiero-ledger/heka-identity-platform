@@ -1,11 +1,15 @@
 import { createMock } from '@golevelup/ts-vitest'
-import { BadRequestException } from '@nestjs/common'
+import { BadRequestException, UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
 import { AnoncredsRegistryService } from 'common/anoncreds-registry'
 import { Logger } from 'common/logger'
 
-import { anonCredsSchemaStub, anonCredsSchemaRecordStub } from '../../../test/helpers/mock-records'
+import {
+  anonCredsSchemaStub,
+  anonCredsSchemaRecordStub,
+  didResolutionResultStub,
+} from '../../../test/helpers/mock-records'
 import { SchemaService } from '../schema.service'
 
 describe('SchemaService', () => {
@@ -19,6 +23,10 @@ describe('SchemaService', () => {
     anoncredsRegistryService = createMock<AnoncredsRegistryService>()
     schemaService = new SchemaService(logger, anoncredsRegistryService)
     tenantAgent = createMock<TenantAgent>({
+      dids: {
+        getCreatedDids: vi.fn().mockResolvedValue([]),
+        resolve: vi.fn().mockResolvedValue(didResolutionResultStub()),
+      },
       modules: { anoncreds: { getCreatedSchemas: vi.fn() } },
     })
   })
@@ -103,6 +111,18 @@ describe('SchemaService', () => {
       )
       expect(result.id).toBe('new-schema-1')
       expect(result.name).toBe('New Schema')
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('issuer-1', expect.anything())
+    })
+
+    test('rejects an issuer DID deactivated on its ledger with 422 and registers nothing', async () => {
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({ didDocumentMetadata: { deactivated: true } }),
+      )
+
+      await expect(
+        schemaService.create(tenantAgent, { issuerId: 'issuer-1', name: 'S', version: '1.0', attrNames: ['name'] }),
+      ).rejects.toThrow(UnprocessableEntityException)
+      expect(anoncredsRegistryService.registerSchema).not.toHaveBeenCalled()
     })
 
     test('throws BadRequestException when attrNames is missing', async () => {

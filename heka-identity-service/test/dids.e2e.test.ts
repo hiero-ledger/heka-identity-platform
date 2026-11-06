@@ -11,13 +11,15 @@ import { DID_PATTERN } from 'src/__tests__/constants'
 import { Agent, AGENT_TOKEN } from 'src/common/agent'
 import { Role } from 'src/common/auth'
 import { Wallet } from 'src/common/entities'
+import { IndyDidRegistrar } from 'src/common/indy-vdr/indy-did'
+import { parseDidMethods } from 'src/config/insecure-defaults'
 import { uuid } from 'src/utils/misc'
 
 import { initializeMikroOrm, SchemaUtilities, startTestApp } from './helpers'
 import { DidUtilities } from './helpers/did'
 import { createAuthToken } from './helpers/jwt'
 
-const indyBesuE2E = process.env.INDY_BESU_E2E === 'true'
+const indyBesuE2E = parseDidMethods(process.env).includes('indybesu')
 // IndyDidRegistry contract of the Indy-Besu network
 const INDY_DID_REGISTRY = '0x0000000000000000000000000000000000003333'
 const INDY_BESU_DID_PATTERN = '^did:indybesu:testnet:0x[0-9a-fA-F]{40}$'
@@ -170,7 +172,7 @@ describe('E2E public DIDs creation', () => {
     })
   })
 
-  // Needs a local Indy-Besu network: INDY_BESU_E2E=true (see docs/setup.md, "Local Indy-Besu network")
+  // Needs a local Indy-Besu network and `indybesu` in DID_METHODS (see docs/setup.md, "Local Indy-Besu network")
   test.skipIf(!indyBesuE2E)('did:indybesu create', async () => {
     const did = await testDidCreation({
       method: 'indybesu',
@@ -278,6 +280,33 @@ describe('E2E public DIDs creation', () => {
       expect(verificationRequest.body.message).toContain('DID is deactivated')
     }
 
+    /**
+     * AC14: no new AnonCreds schema or credential definition for a deactivated issuer (the keys are still there, so the
+     * ledger would accept it). Rejected before anything is written or looked up, so the schema id is a placeholder.
+     */
+    const expectAnonCredsRegistrationsRejected = async (token: string, did: string, network: string) => {
+      const schema = await SchemaUtilities.create(app, token)
+      const registration = await request(app)
+        .post(`/v2/schemas/${schema!.id}/registration`)
+        .auth(token, { type: 'bearer' })
+        .send({ protocol: 'Aries', credentialFormat: 'anoncreds', network, did })
+      expect(registration.status).toBe(422)
+      expect(registration.body.message).toContain('DID is deactivated')
+      // Neither through the v1 routes, which take the issuer from the body
+      const legacySchema = await request(app)
+        .post('/schemas')
+        .auth(token, { type: 'bearer' })
+        .send({ issuerId: did, name: 'Diploma', version: '1.0', attrNames: ['name'] })
+      expect(legacySchema.status).toBe(422)
+      expect(legacySchema.body.message).toContain('DID is deactivated')
+      const credentialDefinition = await request(app)
+        .post('/credential-definitions')
+        .auth(token, { type: 'bearer' })
+        .send({ issuerId: did, schemaId: `${did}/placeholder-schema`, tag: 'default' })
+      expect(credentialDefinition.status).toBe(422)
+      expect(credentialDefinition.body.message).toContain('DID is deactivated')
+    }
+
     /** AC9, AC23: a deactivated DID is only listed on request, marked, and resolves marked. */
     const expectListedOnlyOnRequest = async (token: string, did: string, method: string) => {
       const listed = await request(app).get('/dids').query({ own: true, method }).auth(token, { type: 'bearer' })
@@ -297,24 +326,18 @@ describe('E2E public DIDs creation', () => {
       addServices: [{ id: '#svc-1', type: 'LinkedDomains', serviceEndpoint: 'https://example.com' }],
     }
 
-    test('did:key and did:indy DIDs are not changed (422), the Indy endorser DID never (403)', async () => {
+    test('did:key DIDs are not changed (422), the Indy endorser DID never (403)', async () => {
       const adminToken = await createAuthToken(uuid(), Role.Admin)
       const keyDid = (await postDid(adminToken)).body.id as string
-      const indyResponse = await postDid(adminToken, 'indy')
-      expect(indyResponse.status).toBe(201)
-      const indyDid = indyResponse.body.id as string
+      // Creating a did:indy imports the endorser DID into the wallet
+      expect((await postDid(adminToken, 'indy')).status).toBe(201)
 
-      for (const [did, reason] of [
-        [keyDid, 'did:key DIDs are immutable'],
-        [indyDid, 'did:indy update and deactivation are not implemented yet'],
-      ]) {
-        const updated = await DidUtilities.update(app, adminToken, did, addService)
-        expect(updated.status).toBe(422)
-        expect(updated.body.message).toContain(reason)
-        const deactivated = await DidUtilities.deactivate(app, adminToken, did)
-        expect(deactivated.status).toBe(422)
-        expect(deactivated.body.message).toContain(reason)
-      }
+      const updated = await DidUtilities.update(app, adminToken, keyDid, addService)
+      expect(updated.status).toBe(422)
+      expect(updated.body.message).toContain('did:key DIDs are immutable')
+      const deactivated = await DidUtilities.deactivate(app, adminToken, keyDid)
+      expect(deactivated.status).toBe(422)
+      expect(deactivated.body.message).toContain('did:key DIDs are immutable')
 
       // The endorser DID is imported into every wallet that creates a did:indy
       const endorserDid = nestApp.get<string, Agent>(AGENT_TOKEN).agencyConfig.indyEndorserDid
@@ -349,6 +372,75 @@ describe('E2E public DIDs creation', () => {
       // The role check comes first; an Issuer gets to the wallet lookup
       const issuerToken = await createAuthToken(uuid(), Role.Issuer, orgId)
       expect((await DidUtilities.update(app, issuerToken, did, addService)).status).toBe(404)
+    })
+
+    test('did:indy: services and keys are added and removed, then the DID is deactivated, once', async () => {
+      const adminToken = await createAuthToken(uuid(), Role.Admin)
+      const created = await postDid(adminToken, 'indy')
+      expect(created.status).toBe(201)
+      const did = created.body.id as string
+      const fromLedger = async () =>
+        await nestApp
+          .get<string, Agent>(AGENT_TOKEN)
+          .dids.resolve(did, { useCache: false, useLocalCreatedDidRecord: false })
+
+      const added = await DidUtilities.update(app, adminToken, did, {
+        addServices: [{ id: '#svc-1', type: 'LinkedDomains', serviceEndpoint: 'https://example.com' }],
+        addVerificationMethods: [
+          { id: '#key-1', purposes: ['assertionMethod'] },
+          { id: '#key-2', purposes: [] },
+        ],
+      })
+      expect(added.status).toBe(200)
+      // Written as the NYM's diddocContent, on top of the document of the verkey
+      const ledgerDocument = (await fromLedger()).didDocument!.toJSON() as typeof added.body
+      for (const document of [added.body, ledgerDocument]) {
+        expect(document.service).toEqual([
+          expect.objectContaining({
+            id: `${did}#svc-1`,
+            type: 'LinkedDomains',
+            serviceEndpoint: 'https://example.com',
+          }),
+        ])
+        expect(document.verificationMethod[0].id).toBe(`${did}#verkey`)
+        expect(document.verificationMethod).toContainEqual(
+          expect.objectContaining({ id: `${did}#key-1`, type: 'Ed25519VerificationKey2020' }),
+        )
+        expect(document.assertionMethod).toContain(`${did}#key-1`)
+      }
+
+      // The DID's own key is never changed
+      expect((await DidUtilities.update(app, adminToken, did, { removeVerificationMethods: ['#verkey'] })).status).toBe(
+        422,
+      )
+
+      const removedKmsKeyId = await kmsKeyIdOf(did, '#key-2')
+      const removed = await DidUtilities.update(app, adminToken, did, {
+        removeServices: ['#svc-1'],
+        removeVerificationMethods: ['#key-2'],
+      })
+      expect(removed.status).toBe(200)
+      const afterRemoval = (await fromLedger()).didDocument!
+      expect(afterRemoval.service ?? []).toEqual([])
+      expect((afterRemoval.verificationMethod ?? []).map(({ id }) => id)).toEqual([`${did}#verkey`, `${did}#key-1`])
+      expect(await kmsHasKey(removedKmsKeyId)).toBe(false)
+      expect(await kmsHasKey(await kmsKeyIdOf(did, '#verkey'))).toBe(true)
+
+      await createOid4VcRecords(adminToken, did)
+
+      // The verkey is set to null once; a repeated call writes nothing
+      const ledgerDeactivation = vi.spyOn(IndyDidRegistrar.prototype, 'deactivate')
+      const deactivated = await DidUtilities.deactivate(app, adminToken, did)
+      expect(deactivated.status).toBe(200)
+      expect(deactivated.body).toEqual(expect.objectContaining({ id: did, deactivated: true }))
+      expect((await fromLedger()).didDocumentMetadata.deactivated).toBe(true)
+      const again = await DidUtilities.deactivate(app, adminToken, did)
+      expect(again.status).toBe(200)
+      expect(ledgerDeactivation).toHaveBeenCalledTimes(1)
+      expect((await DidUtilities.update(app, adminToken, did, addService)).status).toBe(409)
+      // Its document no longer resolves, so these rely on the wallet's deactivation tag
+      await expectOid4VcSessionsRejected(adminToken, did)
+      await expectAnonCredsRegistrationsRejected(adminToken, did, 'indy')
     })
 
     test('did:hedera: services and keys are added and removed, then the DID is deactivated, once', async () => {
@@ -447,21 +539,7 @@ describe('E2E public DIDs creation', () => {
       await expectListedOnlyOnRequest(adminToken, did, 'hedera')
       await expectOid4VcSessionsRejected(adminToken, did)
 
-      // AC14: no new AnonCreds schema for a deactivated issuer (the keys are still there, so the ledger would accept it)
-      const schema = await SchemaUtilities.create(app, adminToken)
-      const registration = await request(app)
-        .post(`/v2/schemas/${schema!.id}/registration`)
-        .auth(adminToken, { type: 'bearer' })
-        .send({ protocol: 'Aries', credentialFormat: 'anoncreds', network: 'hedera', did })
-      expect(registration.status).toBe(422)
-      expect(registration.body.message).toContain('DID is deactivated')
-      // Neither through the v1 route, which takes the issuer from the body
-      const legacySchema = await request(app)
-        .post('/schemas')
-        .auth(adminToken, { type: 'bearer' })
-        .send({ issuerId: did, name: 'Diploma', version: '1.0', attrNames: ['name'] })
-      expect(legacySchema.status).toBe(422)
-      expect(legacySchema.body.message).toContain('DID is deactivated')
+      await expectAnonCredsRegistrationsRejected(adminToken, did, 'hedera')
 
       // AC11
       expect(
@@ -495,7 +573,7 @@ describe('E2E public DIDs creation', () => {
       expect(hedera?.did).not.toBe(retired)
     })
 
-    // Needs a local Indy-Besu network: INDY_BESU_E2E=true (see docs/setup.md, "Local Indy-Besu network")
+    // Needs a local Indy-Besu network and `indybesu` in DID_METHODS (see docs/setup.md, "Local Indy-Besu network")
     test.skipIf(!indyBesuE2E)(
       'did:indybesu: the DID account replaces the document and deactivates it, without the endorser',
       async () => {

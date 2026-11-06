@@ -26,7 +26,6 @@ export class DidHederaRegistrar implements DidRegistrar {
 
   public readonly supportsController = true
 
-  // Every change is an HCS message signed by the root key, which itself can never change
   public readonly supportsUpdate = true
   public readonly supportsDeactivate = true
   public readonly protectedKeyFragment = '#did-root-key'
@@ -40,12 +39,6 @@ export class DidHederaRegistrar implements DidRegistrar {
     })
   }
 
-  /**
-   * Adds, then removes entries. Each entry becomes its own HCS message, so only `addToDidDocument` and
-   * `removeFromDidDocument` are used: `setDidDocument` of a document without verification methods or services is
-   * skipped by `HekaHederaLedgerService`, which would let "remove everything" succeed without writing anything.
-   * Entry ids are sent as relative fragments, which the Hiero SDK prefixes with the DID.
-   */
   public async updateDid(tenantAgent: TenantAgent, options: UpdateDidOptions): Promise<DidUpdateResult> {
     const { did, currentDidDocument } = options
     assertRemovableVerificationMethods(currentDidDocument, options.removeVerificationMethods)
@@ -153,14 +146,8 @@ export class DidHederaRegistrar implements DidRegistrar {
   }
 
   /**
-   * Clean-up after a failed update. The new keys are deleted only when nothing was sent to the ledger (the failure came
-   * from the KMS, before any update was handed to Credo).
-   *
-   * Otherwise the outcome is unknown: the SDK sends one HCS message per entry and waits for the mirror node only after
-   * the last one, so messages sent before a failure land on the ledger although the mirror node does not show them yet.
-   * Deleting their keys would leave verification methods without a private key. So every new key is kept in the KMS
-   * (an unused key is harmless). The DID record takes the document the ledger shows now, with the keys it already shows
-   * mapped; keys not visible yet stay in the KMS without a mapping, and a warning (without key ids) is logged.
+   * Cleanup after a failed update. The new keys are deleted only when nothing was sent to the ledger
+   * (the failure came from the KMS, before any update was handed to Credo).
    */
   private async afterFailedUpdate(
     tenantAgent: TenantAgent,
@@ -223,10 +210,8 @@ export class DidHederaRegistrar implements DidRegistrar {
 }
 
 /**
- * hiero-did-sdk 0.1.8 cannot remove a verification relationship that references a verification method by id: it finds
- * the entry to remove by fragment, skips string references, and so sends a second removal of the verification method
- * instead. The relationship would keep a dangling reference (verified on Hedera testnet). Until that is fixed upstream,
- * only keys that no relationship references can be removed, and nothing is written otherwise.
+ * hiero-did-sdk 0.1.8 cannot remove a verification relationship that references a verification method by id
+ * and leaves a dangling reference.
  */
 function assertRemovableVerificationMethods(didDocument: DidDocument, fragments: string[]): void {
   for (const fragment of fragments) {

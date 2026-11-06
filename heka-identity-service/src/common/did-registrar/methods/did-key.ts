@@ -11,7 +11,6 @@ export class DidKeyRegistrar implements DidRegistrar {
   // A did:key document is derived from the key itself, so the DID is always its own controller
   public readonly supportsController = false
 
-  // Nor can it change: a new document is a new DID
   public readonly supportsUpdate = false
   public readonly supportsDeactivate = false
 

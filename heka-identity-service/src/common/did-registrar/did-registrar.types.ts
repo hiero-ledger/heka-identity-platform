@@ -32,7 +32,6 @@ export function fragmentOf(id: string): string {
  */
 export interface UpdateDidOptions {
   did: string
-  // The current document of the DID, freshly resolved from the ledger. The operations were validated against it
   currentDidDocument: DidDocument
   addServices: Array<{ id: string; type: string; serviceEndpoint: string }>
   removeServices: string[]
@@ -43,10 +42,7 @@ export interface UpdateDidOptions {
 export abstract class DidRegistrar {
   public static readonly method: string
 
-  // Whether the method can set a controller other than the DID itself
   public abstract readonly supportsController: boolean
-
-  // Whether the wallet that created a DID can change (`updateDid`) or retire (`deactivateDid`) it
   public abstract readonly supportsUpdate: boolean
   public abstract readonly supportsDeactivate: boolean
 

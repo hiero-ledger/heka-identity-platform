@@ -9,9 +9,9 @@ export {
   VERIFICATION_RELATIONSHIPS,
 } from './did-registrar.types'
 export {
-  assertDidNotDeactivated,
-  assertDidNotDeactivatedOnLedger,
+  assertDidActive,
+  assertDidActiveOnLedger,
   DID_DEACTIVATED_TAG,
   isDidRecordDeactivated,
-  isOwnDidDeactivated,
+  isStoredDidDeactivated,
 } from './did-deactivation'

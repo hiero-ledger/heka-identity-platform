@@ -349,15 +349,14 @@ describe('SchemaV2Service', () => {
       expect(anoncredsRegistryService.registerSchema).toHaveBeenCalledWith(
         tenantAgent,
         expect.objectContaining({ attrNames: ['zeroth', 'first', 'second'] }),
-        { issuerDidChecked: true },
       )
-      // The issuer DID is resolved once for the request, not again by each AnonCreds write
+      // The issuer DID is resolved once for the request, not again for each AnonCreds write
       expect(tenantAgent.dids.resolve).toHaveBeenCalledOnce()
-      expect(anoncredsRegistryService.registerCredentialDefinition).toHaveBeenCalledWith(
-        tenantAgent,
-        { issuerId: 'did:key:z1', schemaId: 'schema-id', tag: 'default' },
-        { issuerDidChecked: true },
-      )
+      expect(anoncredsRegistryService.registerCredentialDefinition).toHaveBeenCalledWith(tenantAgent, {
+        issuerId: 'did:key:z1',
+        schemaId: 'schema-id',
+        tag: 'default',
+      })
     })
   })
 
