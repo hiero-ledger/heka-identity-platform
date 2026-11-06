@@ -7,6 +7,7 @@ import { DateOnly, MdocNameSpaces, MdocRecord, SdJwtVcRecord } from '@credo-ts/c
 import { Platform } from 'react-native'
 
 import { HekaWalletAgent } from '../../utils/agent'
+import { formatError } from '../../utils/error'
 import { mapCredentialRecord } from '../mappers/credential'
 import { humanizeAttributeName } from '../mappers/humanize'
 import { CredentialRecord } from '../types'
@@ -72,8 +73,9 @@ export async function dcApiRegisterCredentials(
 
     await registerCredentials({ credentials, matcher: DC_API_MATCHER })
   } catch (error) {
-    const errorMessage = error instanceof Error ? (error.stack ?? error.message) : String(error)
-    agent.config.logger.error('Error registering credentials for the Digital Credentials API', { error: errorMessage })
+    agent.config.logger.error('Error registering credentials for the Digital Credentials API', {
+      error: formatError(error),
+    })
   }
 }
 
@@ -132,7 +134,8 @@ async function resolveDisplay(
       title: display.name || labels.titleFallback,
       subtitle: display.issuer?.name ? labels.subtitle(display.issuer.name) : labels.subtitleFallback,
     }
-  } catch {
+  } catch (error) {
+    agent.config.logger.warn('DC API display mapping failed', { recordId: record.id, error: formatError(error) })
     return { title: labels.titleFallback, subtitle: labels.subtitleFallback }
   }
 }

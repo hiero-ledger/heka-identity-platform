@@ -1,12 +1,17 @@
 import { testIdWithKey } from '@bifold/core'
 import { minPINLength } from '@bifold/core/src/constants'
-import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import React, { useCallback, useEffect, useState } from 'react'
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { GlobalLogger, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native'
 
 import DeleteIcon from '../../assets/delete.svg'
 
-const useStyles = ({ ColorPalette, TextTheme, Spacing, BorderRadius }: HekaTheme) => {
+const logger = GlobalLogger.createContextLogger('PinKeyPad')
+
+// Window height (dp) below which the full-size key pad leaves no room for the screen title above it.
+export const COMPACT_KEYPAD_WINDOW_HEIGHT = 720
+
+const useStyles = ({ ColorPalette, TextTheme, Spacing, BorderRadius }: HekaTheme, compact: boolean) => {
   return StyleSheet.create({
     container: {
       alignItems: 'center',
@@ -28,7 +33,8 @@ const useStyles = ({ ColorPalette, TextTheme, Spacing, BorderRadius }: HekaTheme
     itemContainer: {
       justifyContent: 'center',
       alignItems: 'center',
-      margin: Spacing.xxl,
+      marginHorizontal: Spacing.xxl,
+      marginVertical: compact ? Spacing.sm : Spacing.xxl,
       width: Spacing.xxxl,
       height: Spacing.xxxl,
     },
@@ -45,9 +51,12 @@ interface KeyPadProps {
 
 const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
   const theme = useHekaTheme()
-  const styles = useStyles(theme)
+  const { height } = useWindowDimensions()
+  const styles = useStyles(theme, height < COMPACT_KEYPAD_WINDOW_HEIGHT)
 
   const [PIN, setPIN] = useState('')
+  // Keys stay disabled until the handler settles, so a newer entry cannot be cleared by an older result
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const onPinChanged = useCallback((value: string) => {
     setPIN((prev) => {
@@ -59,13 +68,27 @@ const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
     })
   }, [])
 
+  // A failed attempt updates the store and so the handler; a new handler must not resubmit the same PIN.
+  const onPinEnteredRef = useRef(onPinEntered)
+  useEffect(() => {
+    onPinEnteredRef.current = onPinEntered
+  }, [onPinEntered])
+
   useEffect(() => {
     if (PIN.length === minPINLength) {
-      onPinEntered(PIN).then((valid) => {
-        if (!valid) setPIN('')
-      })
+      setIsSubmitting(true)
+      onPinEnteredRef
+        .current(PIN)
+        .then((valid) => {
+          if (!valid) setPIN('')
+        })
+        .catch((error: unknown) => {
+          logger.error('PIN entry handler failed', error)
+          setPIN('')
+        })
+        .finally(() => setIsSubmitting(false))
     }
-  }, [PIN, onPinEntered])
+  }, [PIN])
 
   return (
     <View style={styles.container}>
@@ -88,7 +111,7 @@ const PinKeyPad: React.FC<KeyPadProps> = ({ onPinEntered }: KeyPadProps) => {
         renderItem={({ item }) => {
           return (
             <TouchableOpacity
-              disabled={item === ''} // empty space
+              disabled={item === '' || isSubmitting} // '' is the empty space
               onPress={() => onPinChanged(item)}
               testID={testIdWithKey(item === deleteSymbol ? 'PinKeyDelete' : `PinKey${item}`)}
             >

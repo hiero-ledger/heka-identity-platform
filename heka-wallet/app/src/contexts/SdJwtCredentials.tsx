@@ -6,17 +6,19 @@ import { SdJwtVcRecord } from '@credo-ts/core'
 import { createContext, useContext, useEffect, useState } from 'react'
 
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
 
 type SdJwtVcRecordState = {
   sdJwtVcRecords: Array<SdJwtVcRecord>
   isLoading: boolean
+  error?: unknown
 }
 
 const addRecord = (record: SdJwtVcRecord, state: SdJwtVcRecordState): SdJwtVcRecordState => {
   const newRecordsState = [...state.sdJwtVcRecords]
   newRecordsState.unshift(record)
   return {
-    isLoading: state.isLoading,
+    ...state,
     sdJwtVcRecords: newRecordsState,
   }
 }
@@ -28,7 +30,7 @@ const updateRecord = (record: SdJwtVcRecord, state: SdJwtVcRecordState): SdJwtVc
     newRecordsState[index] = record
   }
   return {
-    isLoading: state.isLoading,
+    ...state,
     sdJwtVcRecords: newRecordsState,
   }
 }
@@ -36,7 +38,7 @@ const updateRecord = (record: SdJwtVcRecord, state: SdJwtVcRecordState): SdJwtVc
 const removeRecord = (record: SdJwtVcRecord, state: SdJwtVcRecordState): SdJwtVcRecordState => {
   const newRecordsState = state.sdJwtVcRecords.filter((r) => r.id !== record.id)
   return {
-    isLoading: state.isLoading,
+    ...state,
     sdJwtVcRecords: newRecordsState,
   }
 }
@@ -66,8 +68,22 @@ export const SdJwtVcRecordProvider: React.FC<PropsWithChildren> = ({ children })
   })
 
   useEffect(() => {
+    // Records of a previous agent must not outlive an agent change
+    setState({ sdJwtVcRecords: [], isLoading: true })
     if (!agent) return
-    agent.sdJwtVc.getAll().then((sdJwtVcRecords) => setState({ sdJwtVcRecords, isLoading: false }))
+    let isCurrent = true
+    agent.sdJwtVc
+      .getAll()
+      .then((sdJwtVcRecords) => {
+        if (isCurrent) setState({ sdJwtVcRecords, isLoading: false })
+      })
+      .catch((error: unknown) => {
+        agent.config.logger.error('Failed to load SD-JWT VC records', { error: formatError(error) })
+        if (isCurrent) setState({ sdJwtVcRecords: [], isLoading: false, error })
+      })
+    return () => {
+      isCurrent = false
+    }
   }, [agent])
 
   useEffect(() => {

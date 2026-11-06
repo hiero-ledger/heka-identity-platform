@@ -1,0 +1,57 @@
+appId: com.heka.wallet
+name: Changed PIN unlocks the restarted wallet, the old PIN does not
+tags:
+  - pin
+  - no-backend
+env:
+  PIN: '482916'
+  NEW_PIN: '527390'
+---
+- runFlow: subflows/onboard.yaml
+- tapOn:
+    id: 'com.ariesbifold:id/TabSettings'
+- scrollUntilVisible:
+    element: 'Change PIN'
+- tapOn: 'Change PIN'
+- extendedWaitUntil:
+    visible: 'Enter your old PIN'
+    timeout: 15000
+- runFlow: subflows/enter-pin.yaml
+- extendedWaitUntil:
+    visible: 'Enter a new PIN'
+    timeout: 30000
+- runFlow:
+    file: subflows/enter-pin.yaml
+    env:
+      PIN: ${NEW_PIN}
+- extendedWaitUntil:
+    visible: 'Re-enter the new PIN'
+    timeout: 15000
+- runFlow:
+    file: subflows/enter-pin.yaml
+    env:
+      PIN: ${NEW_PIN}
+# Rekeying the wallet store takes a while.
+- extendedWaitUntil:
+    visible: 'Successfully changed your PIN'
+    timeout: 60000
+- tapOn: 'Okay'
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/PinKey0'
+    timeout: 120000
+- runFlow: subflows/enter-pin.yaml
+- extendedWaitUntil:
+    visible: 'Incorrect PIN'
+    timeout: 30000
+- tapOn: 'Okay'
+- runFlow:
+    file: subflows/enter-pin.yaml
+    env:
+      PIN: ${NEW_PIN}
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/TabCredentials'
+    timeout: 120000

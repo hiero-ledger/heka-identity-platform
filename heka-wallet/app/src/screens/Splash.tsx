@@ -1,7 +1,7 @@
 import { DispatchAction, useAuth, useStore, TOKENS, EventTypes, BifoldError, useServices } from '@bifold/core'
 import { DidCommHttpOutboundTransport, DidCommWsOutboundTransport } from '@credo-ts/didcomm'
 import { GlobalLogger } from '@heka-wallet/shared'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
 import { Config } from 'react-native-config'
@@ -56,12 +56,16 @@ export const Splash: React.FC = () => {
     dispatch({ type: DispatchAction.SET_ATTESTATION_COMPLETED, payload: [true] })
   }, [store.authentication.didAuthenticate, store.attestation.isAttestationComplete, dispatch])
 
+  // The init changes its own dependencies (store dispatches, the loaded wallet secret); a re-run must not start a second agent.
+  const isInitInProgressRef = useRef(false)
+
   useEffect(() => {
     if (
       !mounted ||
       !store.authentication.didAuthenticate ||
       !store.onboarding.didConsiderBiometry ||
-      agent?.isInitialized
+      agent?.isInitialized ||
+      isInitInProgressRef.current
     ) {
       return
     }
@@ -81,6 +85,7 @@ export const Splash: React.FC = () => {
     }
 
     const initAgent = async (): Promise<void> => {
+      isInitInProgressRef.current = true
       try {
         const walletSecret = await getWalletSecret()
         if (!walletSecret?.key) {
@@ -176,16 +181,20 @@ export const Splash: React.FC = () => {
           1045
         )
         DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
+      } finally {
+        isInitInProgressRef.current = false
       }
     }
 
     initAgent()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     t,
     logger,
     agent,
     dispatch,
+    getWalletSecret,
+    setAgent,
+    setPublicDid,
     indyLedgers,
     mounted,
     store.authentication.didAuthenticate,
@@ -193,8 +202,6 @@ export const Splash: React.FC = () => {
     store.preferences.walletName,
     store.migration.didMigrateToAskar,
   ])
-  // Here 'getWalletCredentials', 'setAgent' and 'setPublicDid' are not placed in useEffect dependencies intentionally
-  // The reason is that their implementation is not wrapped in useCallback and may cause updates on every re-render
 
   return <LoadingView />
 }
