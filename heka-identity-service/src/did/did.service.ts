@@ -423,11 +423,6 @@ export class DidService {
     return await tenantAgent.dids.resolve(did, { useCache: false, useLocalCreatedDidRecord: false })
   }
 
-  /**
-   * After a deactivation that reported a failure: when the ledger, read again, shows the DID deactivated, the wallet tags
-   * it and the deactivated document is returned. Otherwise, or when the ledger or the wallet cannot be read or written,
-   * `undefined`: the caller rethrows the original error.
-   */
   private async reconcileFailedDeactivation(
     tenantAgent: TenantAgent,
     didRecord: DidRecord,
@@ -456,13 +451,6 @@ export class DidService {
     return didRecord.didDocument ?? (await tenantAgent.dids.resolveDidDocument(didRecord.did))
   }
 
-  /**
-   * Deletes the private keys of the verification methods an update removed (after a success, or after a failure once
-   * the ledger shows them gone: see `deleteKeysRemovedOnLedger`): a removed key is often one that is rotated or
-   * suspected compromised, and nothing can reach it any more. Only keys the wallet mapped to a removed fragment before
-   * the update are candidates, and a key is kept when it controls the DID, when the updated document still has its
-   * fragment, or when the DID record still maps it. A failure is logged (without key ids) and does not fail the request.
-   */
   private async deleteRemovedKeys(
     tenantAgent: TenantAgent,
     recordBefore: DidRecord,
@@ -518,15 +506,6 @@ export class DidService {
     }
   }
 
-  /**
-   * After an update that reported a failure: a removal can still have reached the ledger (a partial did:hedera batch, a
-   * did:indybesu transaction mined after its receipt timed out), and a retry would be rejected because the verification
-   * method no longer exists, so its private key could never be deleted. The ledger is read once more: the removed
-   * verification methods it no longer shows are dropped from the DID record (which takes the ledger document, as after
-   * a successful update), and their private keys are deleted with the rules of `deleteRemovedKeys`. When the ledger
-   * cannot be read, shows no document, shows the DID deactivated, or the record cannot be updated, nothing is deleted.
-   * Nothing here throws: the caller rethrows the update's own error.
-   */
   private async deleteKeysRemovedOnLedger(
     tenantAgent: TenantAgent,
     recordBefore: DidRecord,
