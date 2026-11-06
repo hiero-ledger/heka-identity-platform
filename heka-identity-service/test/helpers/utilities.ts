@@ -29,6 +29,8 @@ export const generateRandomString = (
   return result
 }
 
+export const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 export const credentialRegistrationFormatToCredentialFormat = (
   format?: CredentialRegistrationFormat,
 ): CredentialFormat => {
