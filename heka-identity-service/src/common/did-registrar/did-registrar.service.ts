@@ -22,16 +22,6 @@ import { DidIndyRegistrar, DidKeyRegistrar, DidIndyBesuRegistrar, DidHederaRegis
 const DID_REGISTRAR_WALLET_ID = 'DidRegistrarWallet'
 const DID_REGISTRAR_TENANT_LABEL = 'DidRegistrarTenant'
 
-const NOT_UPDATABLE_REASONS: Record<string, string> = {
-  key: 'did:key DIDs are immutable and cannot be updated or deactivated',
-  jwk: 'did:jwk DIDs are immutable and cannot be updated or deactivated',
-  peer: 'did:peer update and deactivation are not implemented yet; DIDComm connection DIDs are not managed here',
-  web: 'did:web DIDs are not hosted by the Identity Service and cannot be updated or deactivated by it',
-}
-const UNMANAGED_METHODS = ['jwk', 'peer', 'web']
-
-type DidOperation = 'update' | 'deactivate'
-
 @Injectable()
 export class DidRegistrarService implements OnApplicationBootstrap {
   private readonly registrars!: Record<string, DidRegistrar>
@@ -90,27 +80,14 @@ export class DidRegistrarService implements OnApplicationBootstrap {
   /**
    * The registrar of a method that can update (or deactivate) DIDs.
    */
-  public getUpdatingDidRegistrar(method: string, operation: DidOperation): DidRegistrar {
-    if (UNMANAGED_METHODS.includes(method)) {
-      throw new UnprocessableEntityException(NOT_UPDATABLE_REASONS[method])
-    }
+  public getUpdatingDidRegistrar(method: string, operation: 'update' | 'deactivate'): DidRegistrar {
     const didRegistrar = this.getDidRegistrar(method)
-    const supported = operation === 'update' ? didRegistrar.updateDid : didRegistrar.deactivateDid
-    if (!supported) {
+    if (!(operation === 'update' ? !!didRegistrar.updateDid : !!didRegistrar.deactivateDid)) {
       throw new UnprocessableEntityException(
-        NOT_UPDATABLE_REASONS[method] ??
-          `did:${method} DIDs cannot be ${operation === 'update' ? 'updated' : 'deactivated'}`,
+        `did:${method} DIDs cannot be ${operation === 'update' ? 'updated' : 'deactivated'}`,
       )
     }
     return didRegistrar
-  }
-
-  public supportsUpdate(method: string): boolean {
-    return !!this.getDidRegistrar(method).updateDid
-  }
-
-  public supportsDeactivate(method: string): boolean {
-    return !!this.getDidRegistrar(method).deactivateDid
   }
 
   public async createDid(tenantId: string, method: string = DidKeyRegistrar.method, options: CreateDidOptions) {

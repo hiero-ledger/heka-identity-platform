@@ -28,16 +28,13 @@ describe('DidRegistrarService: update and deactivate', () => {
     vi.restoreAllMocks()
   })
 
-  test.each([
-    ['key', 'did:key DIDs are immutable'],
-    ['jwk', 'did:jwk DIDs are immutable'],
-    ['peer', 'did:peer update and deactivation are not implemented yet'],
-    ['web', 'did:web DIDs are not hosted by the Identity Service'],
-  ])('a %s DID cannot be updated or deactivated (422 naming the reason)', (method, message) => {
-    for (const operation of ['update', 'deactivate'] as const) {
-      expect(() => service.getUpdatingDidRegistrar(method, operation)).toThrow(UnprocessableEntityException)
-      expect(() => service.getUpdatingDidRegistrar(method, operation)).toThrow(message)
-    }
+  test('a did:key DID cannot be updated or deactivated (422)', () => {
+    expect(() => service.getUpdatingDidRegistrar('key', 'update')).toThrow(UnprocessableEntityException)
+    expect(() => service.getUpdatingDidRegistrar('key', 'deactivate')).toThrow('did:key DIDs cannot be deactivated')
+  })
+
+  test.each(['jwk', 'peer', 'web'])('a did:%s DID has no registrar (400)', (method) => {
+    expect(() => service.getUpdatingDidRegistrar(method, 'update')).toThrow(BadRequestException)
   })
 
   test('indy DIDs can be updated and deactivated, the key #verkey never changed', () => {
@@ -62,15 +59,11 @@ describe('DidRegistrarService: update and deactivate', () => {
     )
 
     expect(withIndyBesu.getUpdatingDidRegistrar('indybesu', 'deactivate')).toBeInstanceOf(DidIndyBesuRegistrar)
-    expect(withIndyBesu.supportsUpdate('indybesu')).toBe(true)
-    expect(withIndyBesu.supportsDeactivate('indybesu')).toBe(true)
   })
 
   test('hedera DIDs can be updated and deactivated', () => {
     expect(service.getUpdatingDidRegistrar('hedera', 'update')).toBeInstanceOf(DidHederaRegistrar)
-    expect(service.supportsUpdate('hedera')).toBe(true)
-    expect(service.supportsDeactivate('hedera')).toBe(true)
-    expect(service.supportsUpdate('key')).toBe(false)
+    expect(service.getUpdatingDidRegistrar('hedera', 'deactivate')).toBeInstanceOf(DidHederaRegistrar)
   })
 
   test('returns the updated document, and turns a failed update into a 500 with the reason', async () => {

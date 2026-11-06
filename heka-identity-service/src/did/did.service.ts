@@ -382,14 +382,17 @@ export class DidService {
     logger.trace('>')
 
     const capabilities = Object.fromEntries(
-      this.agentConfig.didMethods.map((method) => [
-        method,
-        {
-          update: this.didRegistrarService.supportsUpdate(method),
-          deactivate: this.didRegistrarService.supportsDeactivate(method),
-          controller: this.didRegistrarService.supportsController(method),
-        },
-      ]),
+      this.agentConfig.didMethods.map((method) => {
+        const registrar = this.didRegistrarService.getDidRegistrar(method)
+        return [
+          method,
+          {
+            update: !!registrar.updateDid,
+            deactivate: !!registrar.deactivateDid,
+            controller: registrar.supportsController,
+          },
+        ]
+      }),
     )
     const res = new GetDidMethodsResponseDto(this.agentConfig.didMethods, capabilities)
 

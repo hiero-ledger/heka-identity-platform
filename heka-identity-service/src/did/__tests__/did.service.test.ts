@@ -220,10 +220,14 @@ describe('DidService', () => {
     })
 
     test('returns the capabilities of every configured method, and of those only', () => {
-      const capable = ['hedera', 'indybesu']
-      vi.mocked(didRegistrarService.supportsUpdate).mockImplementation((method) => capable.includes(method))
-      vi.mocked(didRegistrarService.supportsDeactivate).mockImplementation((method) => capable.includes(method))
-      vi.mocked(didRegistrarService.supportsController).mockImplementation((method) => method === 'hedera')
+      vi.mocked(didRegistrarService.getDidRegistrar).mockImplementation((method) => {
+        const capable = method === 'hedera' || method === 'indybesu'
+        return {
+          supportsController: method === 'hedera',
+          updateDid: capable ? vi.fn() : undefined,
+          deactivateDid: capable ? vi.fn() : undefined,
+        } as unknown as DidRegistrar
+      })
       const makeService = (didMethods: string[]) =>
         new DidService(
           agent,
