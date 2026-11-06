@@ -42,6 +42,11 @@ import PINEnter from './src/screens/PINEnter'
 import ProofDetails from './src/screens/ProofDetails'
 import UseBiometry from './src/screens/UseBiometry'
 import WhatAreContacts from './src/screens/WhatAreContacts'
+import {
+  isPushNotificationsSupported,
+  pushNotificationsConfig,
+  withoutPushNotificationsStep,
+} from './src/utils/push-notifications'
 import { useDeeplinks } from './src/utils/useDeeplinks'
 
 const configuration: Config = {
@@ -141,7 +146,15 @@ export class AppContainer implements Container {
 
     this._container.registerInstance(TOKENS.HOOK_USE_DEEPLINKS, useDeeplinks)
 
-    this._container.registerInstance(TOKENS.CONFIG, configuration)
+    // Push notifications: Settings toggle only (Android with a Firebase config), no onboarding step
+    this._container.registerInstance(
+      TOKENS.ONBOARDING,
+      withoutPushNotificationsStep(this._container.resolve(TOKENS.ONBOARDING))
+    )
+    this._container.registerInstance(TOKENS.CONFIG, {
+      ...configuration,
+      enablePushNotifications: isPushNotificationsSupported() ? pushNotificationsConfig : undefined,
+    })
     this._container.registerInstance(TOKENS.OBJECT_SCREEN_CONFIG, screenOptionsDictionary)
 
     return this

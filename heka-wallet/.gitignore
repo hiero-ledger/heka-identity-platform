@@ -87,6 +87,10 @@ aries-framework-javascript/
 .env.e2e
 .env
 
+# Firebase config files hold API keys; each developer and CI supplies their own
+app/android/app/google-services.json
+app/ios/HekaWallet/GoogleService-Info.plist
+
 # Maestro e2e output (scripts/e2e-ci.sh)
 e2e-output/
 metro.log

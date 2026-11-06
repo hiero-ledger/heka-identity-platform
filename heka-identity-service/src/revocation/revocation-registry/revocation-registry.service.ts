@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
+import {
+  AnonCredsRevocationRegistryDefinitionRecordMetadataKeys,
+  AnonCredsRevocationRegistryDefinitionRepository,
+  isDidIndyRevocationRegistryId,
+  isUnqualifiedRevocationRegistryId,
+} from '@credo-ts/anoncreds'
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common'
 
 import { TenantAgent } from '../../common/agent'
 import { AnoncredsRegistryService } from '../../common/anoncreds-registry'
@@ -34,15 +40,24 @@ export class RevocationRegistryService {
       maximumCredentialNumber,
     )
 
-    await tenantAgent.modules.anoncreds.registerRevocationStatusList({
+    const { revocationStatusListState } = await tenantAgent.modules.anoncreds.registerRevocationStatusList({
       revocationStatusList: {
         revocationRegistryDefinitionId: registrationResult.revocationRegistryDefinitionId,
         issuerId: req.issuerId,
       },
       options: {},
     })
+    // Without its initial status list the registry cannot issue; do not save it as usable
+    if (revocationStatusListState.state !== 'finished') {
+      throw new InternalServerErrorException(
+        `Revocation status list registration failed: ${
+          revocationStatusListState.state === 'failed' ? revocationStatusListState.reason : 'Not finished'
+        }`,
+      )
+    }
 
     const revocationRegistryDefinitionId = registrationResult.revocationRegistryDefinitionId
+    await this.ensureIndyIssuanceTypeMetadata(tenantAgent, revocationRegistryDefinitionId)
 
     await tenantAgent.genericRecords.save({
       id: uuid(),
@@ -71,6 +86,8 @@ export class RevocationRegistryService {
       throw new BadRequestException(`Timestamp must be a valid number. Received: ${timestamp_}`)
     }
 
+    // getOrCreate repairs only the registry it picks; any other legacy registry is repaired on its first read
+    await this.ensureIndyIssuanceTypeMetadata(tenantAgent, id)
     const { revocationStatusList } = await tenantAgent.modules.anoncreds.getRevocationStatusList(id, timestamp)
 
     if (!revocationStatusList) {
@@ -122,6 +139,37 @@ export class RevocationRegistryService {
     const revocationRegistry = revocationRegistries.find(
       (registry) => registry.index < registry.maximumCredentialNumber,
     )
-    return revocationRegistry ?? (await this.create(tenantAgent, { credentialDefinitionId, issuerId }))
+    if (!revocationRegistry) return await this.create(tenantAgent, { credentialDefinitionId, issuerId })
+
+    // Registries created before the metadata workaround below are repaired before they are used
+    await this.ensureIndyIssuanceTypeMetadata(tenantAgent, revocationRegistry.revocationRegistryDefinitionId)
+    return revocationRegistry
+  }
+
+  /**
+   * Workaround for Credo 0.7 (`@credo-ts/indy-vdr`): its registrar stores the revocation registry definition
+   * record with empty metadata, but `getRevocationStatusList` serves the issuer from that record and requires
+   * `issuanceType`. Without it every issue from the registry fails with "Could not retrieve revocation status
+   * list". The registrar always writes ISSUANCE_BY_DEFAULT to the ledger, so the record gets the same value.
+   * TODO: Remove this after upgrade to Credo 0.7.4
+   */
+  private async ensureIndyIssuanceTypeMetadata(tenantAgent: TenantAgent, revocationRegistryDefinitionId: string) {
+    if (
+      !isDidIndyRevocationRegistryId(revocationRegistryDefinitionId) &&
+      !isUnqualifiedRevocationRegistryId(revocationRegistryDefinitionId)
+    ) {
+      return
+    }
+
+    const repository = tenantAgent.dependencyManager.resolve(AnonCredsRevocationRegistryDefinitionRepository)
+    const record = await repository.findSingleByQuery(tenantAgent.context, { revocationRegistryDefinitionId })
+    if (!record) return
+
+    const metadataKey = AnonCredsRevocationRegistryDefinitionRecordMetadataKeys.RevocationRegistryDefinitionMetadata
+    const metadata = record.metadata.get(metadataKey) ?? {}
+    if (metadata.issuanceType) return
+
+    record.metadata.set(metadataKey, { ...metadata, issuanceType: 'ISSUANCE_BY_DEFAULT' })
+    await repository.update(tenantAgent.context, record)
   }
 }
