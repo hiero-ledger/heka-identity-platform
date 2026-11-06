@@ -7,6 +7,7 @@ import { InjectLogger, Logger } from 'common/logger'
 import { TenantAgent } from '../common/agent'
 import { AnoncredsRegistryService } from '../common/anoncreds-registry'
 import { AuthInfo } from '../common/auth'
+import { assertDidNotDeactivatedOnLedger } from '../common/did-registrar'
 import { Schema, SchemaField, Wallet } from '../common/entities'
 import { StatusListPurpose } from '../common/entities/credential-status-list.entity'
 import { SchemaRegistration } from '../common/entities/schema-registration.entity'
@@ -145,22 +146,27 @@ export class SchemaV2Service {
 
     if (credentialFormat === AriesCredentialRegistrationFormat.Anoncreds) {
       // register
-      const result = await this.anoncredsRegistryService.registerSchema(tenantAgent, {
-        issuerId: did,
-        name: schema.name,
-        version: '1.0.0',
-        attrNames: schema.fields
-          .toArray()
-          .sort(compareByOrderIndex)
-          .map((x) => x.name),
-      })
+      // The issuer DID was checked in `registration`
+      const result = await this.anoncredsRegistryService.registerSchema(
+        tenantAgent,
+        {
+          issuerId: did,
+          name: schema.name,
+          version: '1.0.0',
+          attrNames: schema.fields
+            .toArray()
+            .sort(compareByOrderIndex)
+            .map((x) => x.name),
+        },
+        { issuerDidChecked: true },
+      )
 
       // register credentials
-      const resultCredentials = await this.anoncredsRegistryService.registerCredentialDefinition(tenantAgent, {
-        issuerId: did,
-        schemaId: result.schemaId,
-        tag: 'default',
-      })
+      const resultCredentials = await this.anoncredsRegistryService.registerCredentialDefinition(
+        tenantAgent,
+        { issuerId: did, schemaId: result.schemaId, tag: 'default' },
+        { issuerDidChecked: true },
+      )
 
       // create revocation registry
       const revocationRegistry = await this.revocationRegistryService.create(prop.tenantAgent, {
@@ -656,6 +662,10 @@ export class SchemaV2Service {
     if (await this.getSchemaRegistration(schema, { ...request })) {
       throw new BadRequestException(`Schema is already registered here`)
     }
+
+    // A deactivated DID (on its ledger or by the wallet) registers nothing new; on Indy-Besu the ledger would reject it
+    // with a less clear error. Checked once here for every protocol, so the AnonCreds writes below skip their own check.
+    await assertDidNotDeactivatedOnLedger(tenantAgent, request.did)
 
     let schemaRegistration: SchemaRegistration
     switch (request.protocol) {

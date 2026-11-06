@@ -29,3 +29,12 @@ export type VerificationMethod = {
 }
 
 export type VerificationRelationship = string | VerificationMethod
+
+/** Ledger metadata of a DID, as `IndyDidRegistry.resolveDid` returns it. Timestamps are block times in seconds. */
+export type DidMetadata = {
+  owner: string
+  created: number
+  updated: number
+  versionId: number
+  deactivated: boolean
+}

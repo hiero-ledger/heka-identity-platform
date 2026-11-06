@@ -49,21 +49,21 @@ The role model is optional and controlled by [`ROLE_MODEL_ENABLED`](setup.md#rol
 
 With the role model enabled, a public DID created by an `OrgAdmin` names a DID of `Administration` as its controller, and a DID created by an `Issuer` names a DID of its organization. The controller DID has the same method and is set as the `controller` of the new DID's document ([W3C DID](https://www.w3.org/TR/did-1.1/#did-controller)). `Admin` DIDs are their own controllers. The DID is always created in the caller's own wallet, which holds its keys.
 
-| Method     | Controller                                                                                                         |
-| ---------- | ------------------------------------------------------------------------------------------------------------------ |
-| `hedera`   | Set on the ledger when the DID is created. Until the controller wallet has a `hedera` DID, creation fails (`422`). |
-| `key`      | Not possible: a `did:key` document is derived from the key, so it is always its own controller.                    |
-| `indy`     | Not supported: Credo's Indy registrar always makes the DID its own controller.                                     |
-| `indybesu` | Not supported yet: whether the ledger accepts another controller hasn't been verified.                             |
+| Method     | Controller                                                                                                                 | Update / deactivate                                                                      |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `hedera`   | Set on the ledger when the DID is created. Until the controller wallet has an active `hedera` DID, creation fails (`422`). | Services and Ed25519 keys; root key fixed                                                |
+| `key`      | Not possible: a `did:key` document is derived from the key, so it is always its own controller.                            | Immutable                                                                                |
+| `indy`     | Not supported: Credo's Indy registrar always makes the DID its own controller.                                             | Not implemented yet                                                                      |
+| `indybesu` | Not supported yet: whether the ledger accepts another controller hasn't been verified.                                     | Services (5 types) and Ed25519 keys; owner key fixed; submitted by the DID's own account |
 
 DIDs of the methods without a controller are created without one. `POST /prepare-wallet` creates the DIDs of all configured methods and skips a DID whose controller doesn't exist yet.
 
 **At the current stage, the controller is informational.** It publishes the organization hierarchy, but proves and enforces nothing:
 
 - **It is a self-declaration.** The new DID's own key writes the `controller` to the ledger; the controller DID neither signs nor approves it. A relying party can't conclude from it that the platform approved an organization, or that an organization approved an issuer.
-- **It gives the controller no power.** On Hedera, only the DID's own root key can update or deactivate it; a message signed by the controller DID is ignored by resolvers. The Identity Service also has no API to update or deactivate a DID.
+- **It gives the controller no power.** On Hedera, only the DID's own root key can update or deactivate it; a message signed by the controller DID is ignored by resolvers. Accordingly, only the wallet that created a DID, and holds its keys, can update or deactivate it through the Identity Service (`PATCH /dids/:did`, `POST /dids/:did/deactivate`, see [API — DID update and deactivation](api.md#did-update-and-deactivation)); the controller's wallet cannot.
 
-So the platform can't revoke an organization's DID through it, and an organization can't revoke an issuer's DID. Control over who acts for an organization comes from role assignment in the OIDC provider. Making the hierarchy verifiable, for example with accreditation credentials signed by the parent, is planned.
+So the platform can't revoke an organization's DID through it, and an organization can't revoke an issuer's DID. A deactivated DID is never chosen as the controller of a new DID. Every `Admin` acts in the shared `Administration` wallet, so any `Admin` can deactivate the platform's DIDs. Control over who acts for an organization comes from role assignment in the OIDC provider. Making the hierarchy verifiable, for example with accreditation credentials signed by the parent, is planned.
 
 #### Ownership
 

@@ -1,4 +1,4 @@
-import { DidDocument, DidDocumentService, VerificationMethod } from '@credo-ts/core'
+import { DidDocument, DidDocumentService, JsonTransformer, VerificationMethod } from '@credo-ts/core'
 
 import {
   DidDocument as IndyBesuDidDocument,
@@ -7,19 +7,36 @@ import {
   VerificationRelationship as IndyBesuVerificationRelationship,
 } from '../ledger'
 
+type DidDocumentJson = {
+  '@context'?: string | string[]
+  id: string
+  controller?: string | string[]
+  verificationMethod?: IndyBesuVerificationMethod[]
+  authentication?: IndyBesuVerificationRelationship[]
+  assertionMethod?: IndyBesuVerificationRelationship[]
+  capabilityInvocation?: IndyBesuVerificationRelationship[]
+  capabilityDelegation?: IndyBesuVerificationRelationship[]
+  keyAgreement?: IndyBesuVerificationRelationship[]
+  service?: IndyBesuService[]
+  alsoKnownAs?: string[]
+}
+
 export function toIndyBesuDidDocument(didDocument: DidDocument): IndyBesuDidDocument {
+  // The VDR takes plain JSON: Credo class instances and `undefined` properties (e.g. a second key-material property of
+  // a verification method) are rejected by its document validation
+  const json = withoutUndefined(JsonTransformer.toJSON(didDocument)) as DidDocumentJson
   return {
-    '@context': ensureArray(didDocument.context),
-    id: didDocument.id,
-    controller: ensureArray(didDocument.controller ?? []),
-    verificationMethod: didDocument.verificationMethod ?? [],
-    authentication: didDocument.authentication ?? [],
-    assertionMethod: didDocument.assertionMethod ?? [],
-    capabilityInvocation: didDocument.capabilityInvocation ?? [],
-    capabilityDelegation: didDocument.capabilityDelegation ?? [],
-    keyAgreement: didDocument.keyAgreement ?? [],
-    service: didDocument.service ?? [],
-    alsoKnownAs: didDocument.alsoKnownAs ?? [],
+    '@context': ensureArray(json['@context'] ?? []),
+    id: json.id,
+    controller: ensureArray(json.controller ?? []),
+    verificationMethod: json.verificationMethod ?? [],
+    authentication: json.authentication ?? [],
+    assertionMethod: json.assertionMethod ?? [],
+    capabilityInvocation: json.capabilityInvocation ?? [],
+    capabilityDelegation: json.capabilityDelegation ?? [],
+    keyAgreement: json.keyAgreement ?? [],
+    service: json.service ?? [],
+    alsoKnownAs: json.alsoKnownAs ?? [],
   }
 }
 
@@ -40,6 +57,10 @@ export function fromIndyBesuDidDocument(didDocument: IndyBesuDidDocument): DidDo
   })
 }
 
+function withoutUndefined(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value))
+}
+
 function ensureArray<T>(value: T | T[]): T[] {
   return Array.isArray(value) ? value : [value]
 }
@@ -57,6 +78,7 @@ function fromIndyBesuVerificationMethod(verificationMethod: IndyBesuVerification
     type: verificationMethod.type,
     controller: verificationMethod.controller,
     publicKeyBase58: verificationMethod.publicKeyBase58,
+    publicKeyMultibase: verificationMethod.publicKeyMultibase,
   })
 }
 

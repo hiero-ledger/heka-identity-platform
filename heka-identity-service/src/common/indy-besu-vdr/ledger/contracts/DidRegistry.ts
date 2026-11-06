@@ -3,7 +3,7 @@ import { injectable } from '@credo-ts/core'
 import { IndyDidRegistry, LedgerClient } from 'indybesu-vdr'
 
 import { IndyBesuSigner } from '../IndyBesuSigner'
-import { DidDocument } from '../types'
+import { DidDocument, DidMetadata } from '../types'
 
 import { Contract } from './Contract'
 
@@ -49,7 +49,7 @@ export class DidRegistry extends Contract {
     return await this.signAndSubmit(transaction, signer)
   }
 
-  public async resolveDid(id: string): Promise<{ document: DidDocument }> {
+  public async resolveDid(id: string): Promise<{ document: DidDocument; metadata: DidMetadata }> {
     const transaction = await IndyDidRegistry.buildResolveDidTransaction(this.client, id)
     const response = await this.client.submitTransaction(transaction)
     return IndyDidRegistry.parseResolveDidResult(this.client, response)

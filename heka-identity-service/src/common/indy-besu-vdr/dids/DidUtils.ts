@@ -1,7 +1,7 @@
-import { TypedArrayEncoder } from '@credo-ts/core'
-import { computeAddress } from 'ethers'
+import { Kms } from '@credo-ts/core'
 
-export function buildDid(method: string, network: string, key: Uint8Array): string {
-  const identifier = computeAddress(`0x${TypedArrayEncoder.toHex(key)}`)
-  return `did:${method}:${network}:${identifier}`
+import { addressFromPublicJwk } from '../utils/address'
+
+export function buildDid(method: string, network: string, publicJwk: Kms.PublicJwk<Kms.Secp256k1PublicJwk>): string {
+  return `did:${method}:${network}:${addressFromPublicJwk(publicJwk)}`
 }

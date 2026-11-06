@@ -96,7 +96,14 @@ export class DidDocumentDto {
   })
   public capabilityDelegation?: Array<string | VerificationMethodDto>
 
-  public constructor(options: DidDocumentDtoOptions) {
+  @ApiPropertyOptional({
+    type: Boolean,
+    description:
+      'Heka metadata, not part of the DID document: set (true) only when the DID is deactivated, on its ledger or by its wallet',
+  })
+  public deactivated?: boolean
+
+  public constructor(options: DidDocumentDtoOptions, metadata?: { deactivated?: boolean }) {
     this.context = options.context
     this.id = options.id
     this.alsoKnownAs = options.alsoKnownAs
@@ -108,6 +115,9 @@ export class DidDocumentDto {
     this.keyAgreement = options.keyAgreement?.map(convertUnionVerificationMethod)
     this.capabilityInvocation = options.capabilityInvocation?.map(convertUnionVerificationMethod)
     this.capabilityDelegation = options.capabilityDelegation?.map(convertUnionVerificationMethod)
+    if (metadata?.deactivated) {
+      this.deactivated = true
+    }
   }
 }
 

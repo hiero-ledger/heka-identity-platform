@@ -7,6 +7,18 @@ import { LedgerClient, Transaction, TransactionEndorsingData, Endorsement } from
 
 import { IndyBesuSigner } from '../IndyBesuSigner'
 
+/**
+ * A failure once a signed transaction was handed to the ledger client: the node may have received it, so it may still
+ * be mined. Whoever holds resources tied to the write (new keys) must not treat it as "nothing written". The message is
+ * the one of the underlying error.
+ */
+export class TransactionOutcomeUnknownError extends Error {
+  public constructor(public readonly underlyingError: unknown) {
+    super(underlyingError instanceof Error ? underlyingError.message : String(underlyingError))
+    this.name = 'TransactionOutcomeUnknownError'
+  }
+}
+
 @injectable()
 export class Contract {
   protected client: LedgerClient
@@ -17,8 +29,12 @@ export class Contract {
 
   public async signAndSubmit(transaction: Transaction, signer: IndyBesuSigner) {
     await signer.signTransaction(transaction)
-    const transactionHash = await this.client.submitTransaction(transaction)
-    return await this.client.getReceipt(transactionHash)
+    try {
+      const transactionHash = await this.client.submitTransaction(transaction)
+      return await this.client.getReceipt(transactionHash)
+    } catch (error) {
+      throw new TransactionOutcomeUnknownError(error)
+    }
   }
 
   public async endorseTransaction(endorsingData: TransactionEndorsingData, signer: IndyBesuSigner) {
