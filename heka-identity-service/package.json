@@ -69,6 +69,7 @@
     "@nestjs/websockets": "11.1.24",
     "@openwallet-foundation/askar-nodejs": "0.6.0",
     "@openwallet-foundation/askar-shared": "0.6.0",
+    "@sd-jwt/jwt-status-list": "0.19.0",
     "@types/multer": "1.4.13",
     "async-mutex": "0.5.0",
     "axios": "1.18.1",

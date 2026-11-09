@@ -1,4 +1,4 @@
-import { RecordNotFoundError, SdJwtVcPayload } from '@credo-ts/core'
+import { parseDid, RecordNotFoundError, SdJwtVcPayload } from '@credo-ts/core'
 import {
   OpenId4VciCredentialFormatProfile,
   OpenId4VcIssuanceSessionRepository,
@@ -18,10 +18,16 @@ import AgentConfig from 'config/agent'
 
 import { AuthInfo } from '../../common/auth'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
+import {
+  TokenStatus,
+  TokenStatusListService,
+  TokenStatusListSignerIdentity,
+} from '../../revocation/token-status-list/token-status-list.service'
 import { CredentialIssuanceMetadata } from '../../utils/oid4vc'
 
 import {
   GetIssuanceSessionByQueryDto,
+  OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions,
   OpenId4VcIssuanceSessionRecordDto,
   OpenId4VcIssuanceSessionsCreateOfferDto,
   OpenId4VcIssuanceSessionsCreateOfferResponse,
@@ -32,6 +38,7 @@ export class OpenId4VcIssuanceSessionService {
   public constructor(
     @Inject(AgentConfig.KEY) private readonly agencyConfig: ConfigType<typeof AgentConfig>,
     private readonly statusListService: StatusListService,
+    private readonly tokenStatusListService: TokenStatusListService,
   ) {}
 
   public async offer(
@@ -43,8 +50,11 @@ export class OpenId4VcIssuanceSessionService {
 
     // TODO: It is better to we move setting credential status to `credentialRequestToCredentialMapper`
     //  to change status list when credential really requested but how??
-    const statusList = await this.statusListService.getOrCreate(authInfo, req.publicIssuerId)
-    let credentialIndex = statusList.lastIndex
+    // Only W3C VCs use the W3C bitstring list; SD-JWT VCs use IETF token status lists (below)
+    const statusList = req.credentials.some((credential) => isW3cFormat(credential.format))
+      ? await this.statusListService.getOrCreate(authInfo, req.publicIssuerId)
+      : undefined
+    let credentialIndex = statusList?.lastIndex ?? 0
     const credentialIndexes = []
 
     // Maps credentials, adds properties, and throws errors if needed
@@ -69,6 +79,9 @@ export class OpenId4VcIssuanceSessionService {
         )
       }
 
+      // The DTO rejects these too; repeated here for internal callers (issuance templates) that skip DTO validation
+      if (credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc) assertNoStatusClaim(credential)
+
       // MsoMdoc uses X.509 certificates, not DIDs — skip DID resolution
       let issuerDidUrl: string | undefined
       if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
@@ -82,14 +95,10 @@ export class OpenId4VcIssuanceSessionService {
         issuerDidUrl = didDocument.verificationMethod[0].id
       }
 
-      let credentialStatus
+      let credentialStatus: CredentialIssuanceMetadata['credentialStatus']
 
-      // sd+jwt and mso_mdoc do not support revocation
-      if (
-        credential.format === OpenId4VciCredentialFormatProfile.JwtVcJson ||
-        credential.format === OpenId4VciCredentialFormatProfile.JwtVcJsonLd ||
-        credential.format === OpenId4VciCredentialFormatProfile.LdpVc
-      ) {
+      // mso_mdoc does not support revocation
+      if (statusList && isW3cFormat(credential.format)) {
         // Assign the current free index (0-based), then advance
         // This keeps issued indexes within [0, size), consistent with capacity guard and per-index bound in StatusListService
         credentialIndexes.push(credentialIndex)
@@ -98,6 +107,22 @@ export class OpenId4VcIssuanceSessionService {
           index: credentialIndex,
         }
         credentialIndex += 1
+      } else if (credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc && issuerDidUrl) {
+        const signer = await this.resolveSdJwtSigningIdentity(tenantAgent, issuerDidUrl)
+        // One entry per credential the wallet may request in a batch. The entries are reserved before the offer
+        // exists: if creating the offer fails, they stay allocated and unused, which only costs list capacity.
+        const reference = await this.tokenStatusListService.reserveIndexes(
+          tenantAgent.context,
+          authInfo,
+          signer,
+          issuer.batchCredentialIssuance?.batchSize ?? 1,
+        )
+        credentialStatus = {
+          type: 'token-status-list',
+          location: reference.uri,
+          index: reference.indexes[0],
+          indexes: reference.indexes,
+        }
       }
 
       let type: string | string[]
@@ -136,7 +161,7 @@ export class OpenId4VcIssuanceSessionService {
     }
 
     // Preflight status list capacity check before the offer is created
-    if (credentialIndexes.length) {
+    if (statusList && credentialIndexes.length) {
       this.statusListService.assertHasFreeIndexes(statusList, credentialIndexes.length)
     }
 
@@ -150,7 +175,7 @@ export class OpenId4VcIssuanceSessionService {
       },
     })
 
-    if (credentialIndexes.length) {
+    if (statusList && credentialIndexes.length) {
       await this.statusListService.addItems(authInfo, statusList.id, credentialIndexes)
     }
 
@@ -219,6 +244,16 @@ export class OpenId4VcIssuanceSessionService {
     }
 
     const credentials = issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[] | undefined
+
+    // SD-JWT VCs: every entry of the session (a batch holds one entry per holder key) is revoked together
+    const tokenStatusEntries = tokenStatusListEntriesOf(credentials)
+    if (tokenStatusEntries.length) {
+      for (const { id, indexes } of tokenStatusEntries) {
+        await this.tokenStatusListService.setStatuses(tenantAgent.context, id, indexes, TokenStatus.Invalid)
+      }
+      return
+    }
+
     const credential = credentials?.[0]
     if (!credential?.credentialStatus) throw new BadRequestException('Credential format does not support revocation')
 
@@ -230,4 +265,59 @@ export class OpenId4VcIssuanceSessionService {
       revoked: true,
     })
   }
+
+  /**
+   * The key Credo will sign this SD-JWT VC with, as the status-list signer: Credo verifies a status list with
+   * the credential's issuer key only. Resolved exactly as Credo resolves it for signing
+   * (`resolveSigningPublicJwkFromDidUrl`), legacy key id fallback included.
+   */
+  private async resolveSdJwtSigningIdentity(
+    tenantAgent: TenantAgent,
+    issuerDidUrl: string,
+  ): Promise<TokenStatusListSignerIdentity> {
+    let keyId: string
+    try {
+      const { publicJwk } = await tenantAgent.dids.resolveVerificationMethodFromCreatedDidRecord(issuerDidUrl)
+      keyId = publicJwk.keyId
+    } catch (error) {
+      if (error instanceof RecordNotFoundError) {
+        throw new UnprocessableEntityException('Issuer DID is not controlled by this wallet')
+      }
+      throw error
+    }
+    return { issuer: parseDid(issuerDidUrl).did, keyId, signer: { method: 'did', kid: issuerDidUrl } }
+  }
+}
+
+/** `status` is the issuer's token status list reference: never user-supplied, never selectively disclosable. */
+function assertNoStatusClaim(credential: OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions): void {
+  if (credential.payload && Object.prototype.hasOwnProperty.call(credential.payload, 'status')) {
+    throw new BadRequestException('`status` is set by the issuer')
+  }
+  if (credential.disclosureFrame?._sd?.includes('status')) {
+    throw new BadRequestException('`status` is set by the issuer and cannot be selectively disclosed')
+  }
+}
+
+function isW3cFormat(format: OpenId4VciCredentialFormatProfile): boolean {
+  return (
+    format === OpenId4VciCredentialFormatProfile.JwtVcJson ||
+    format === OpenId4VciCredentialFormatProfile.JwtVcJsonLd ||
+    format === OpenId4VciCredentialFormatProfile.LdpVc
+  )
+}
+
+/** The token status list entries of a session's credentials, grouped by list id (the last segment of `location`). */
+function tokenStatusListEntriesOf(
+  credentials: CredentialIssuanceMetadata[] | undefined,
+): Array<{ id: string; indexes: number[] }> {
+  const byList = new Map<string, number[]>()
+  for (const { credentialStatus } of credentials ?? []) {
+    if (credentialStatus?.type !== 'token-status-list') continue
+    const id = credentialStatus.location.split('/').pop()
+    if (!id) continue
+    const indexes = credentialStatus.indexes ?? [credentialStatus.index]
+    byList.set(id, [...new Set([...(byList.get(id) ?? []), ...indexes])])
+  }
+  return [...byList].map(([id, indexes]) => ({ id, indexes }))
 }

@@ -1,9 +1,19 @@
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Length, ValidateNested } from 'class-validator'
+import {
+  ArrayNotContains,
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  ValidateNested,
+} from 'class-validator'
 
-import { IsValidDynamicObject } from '../../../utils/validation'
+import { HasNoOwnProperty, IsValidDynamicObject } from '../../../utils/validation'
 
 import { OpenId4VcIssuanceSessionRecordDto } from './issuance-session.dto'
 
@@ -13,10 +23,14 @@ export enum CredentialVersion {
 }
 
 export class DisclosureFrame {
+  /**
+   * Claims to make selectively disclosable. `status` is not allowed: the issuer sets it, always disclosed.
+   */
   @ApiProperty()
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  @ArrayNotContains(['status'], { message: '`status` is set by the issuer and cannot be selectively disclosed' })
   public _sd?: string[]
 }
 
@@ -99,6 +113,7 @@ export class OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions extends O
    *
    * If `vct` claim is included, it MUST match the `vct` claim from the issuer metadata.
    * If `vct` claim is not included, it will be added automatically.
+   * The `status` claim is set by the issuer (IETF Token Status List) and must not be included.
    *
    * @example
    * {
@@ -113,6 +128,7 @@ export class OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions extends O
    */
   @ApiProperty()
   @IsValidDynamicObject()
+  @HasNoOwnProperty('status', { message: '`status` is set by the issuer' })
   public payload!: CredentialPayload
 
   /**
