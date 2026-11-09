@@ -186,6 +186,33 @@ describe('CredentialService', () => {
       expect(JSON.stringify(vi.mocked(logger.warn).mock.calls)).not.toContain('attribute-value')
     })
 
+    test('logs a warn and leaves the credential definition id unset when its lookup fails, without failing the list', async () => {
+      vi.mocked(tenantAgent.didcomm.credentials.findAllByQuery).mockResolvedValue([
+        credentialRecord({ id: 'no-creddef', registryId: 'rev-reg-broken', revocationIndex: '1' }),
+        credentialRecord({ id: 'with-creddef', registryId: 'rev-reg-ok', revocationIndex: '0' }),
+      ])
+      vi.mocked(revocationService.get).mockResolvedValue({ timestamp: 1, revocationStatusList: [0, 1] })
+      vi.mocked(revocationService.findCredentialDefinitionId).mockImplementation((_agent, registryId) =>
+        registryId === 'rev-reg-broken'
+          ? Promise.reject(new Error('wallet storage error for attribute-value'))
+          : Promise.resolve('creddef-ok'),
+      )
+
+      const [noCreddef, withCreddef] = await credentialService.find(tenantAgent)
+
+      expect(noCreddef).toMatchObject({ id: 'no-creddef', revocable: true, revoked: true })
+      expect(noCreddef.credentialDefinitionId).toBeUndefined()
+      expect(withCreddef).toMatchObject({ id: 'with-creddef', revoked: false, credentialDefinitionId: 'creddef-ok' })
+
+      expect(logger.warn).toHaveBeenCalledTimes(1)
+      expect(logger.warn).toHaveBeenCalledWith(
+        { revocationRegistryDefinitionId: 'rev-reg-broken' },
+        'Could not find the credential definition of revocation registry',
+      )
+      // Only the registry id is logged: no attributes, no error details
+      expect(JSON.stringify(vi.mocked(logger.warn).mock.calls)).not.toContain('attribute-value')
+    })
+
     test('does not look up holder records, records without revocation tags or unfinished issuance', async () => {
       vi.mocked(tenantAgent.didcomm.credentials.findAllByQuery).mockResolvedValue([
         credentialRecord({

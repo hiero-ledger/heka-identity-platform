@@ -97,6 +97,12 @@ export class CredentialService {
         if (statusList.status === 'rejected') {
           this.logger.warn({ revocationRegistryDefinitionId }, 'Could not read revocation status list')
         }
+        if (credentialDefinitionId.status === 'rejected') {
+          this.logger.warn(
+            { revocationRegistryDefinitionId },
+            'Could not find the credential definition of revocation registry',
+          )
+        }
 
         const lookup: RevocationRegistryLookup = {
           revocationStatusList: statusList.status === 'fulfilled' ? statusList.value.revocationStatusList : undefined,
