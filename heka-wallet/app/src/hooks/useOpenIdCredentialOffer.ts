@@ -1,5 +1,5 @@
 import { BifoldError, EventTypes } from '@bifold/core'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
 
@@ -32,6 +32,28 @@ export const useOpenIdCredentialOffer = (offer: OpenId4VciOffer, { onFailed }: {
     useState<Awaited<ReturnType<OpenIdHandlers['resolveOpenId4VciOffer']>>>()
   const [credential, setCredential] = useState<Credential>()
 
+  // A new t (language change) or onFailed must not resolve the offer or request the credential again:
+  // the pre-authorized code is single use. The failure path reads them from this ref instead.
+  const failureHandlersRef = useRef({ t, onFailed })
+  useEffect(() => {
+    failureHandlersRef.current = { t, onFailed }
+  }, [t, onFailed])
+
+  const reportFailure = useCallback((message: string, error: unknown) => {
+    const { t, onFailed } = failureHandlersRef.current
+    console.error(message, { error })
+    DeviceEventEmitter.emit(
+      EventTypes.ERROR_ADDED,
+      new BifoldError(
+        t('Error.Title1035'),
+        t('Error.Message1035'),
+        (error as Error)?.message || t('Error.Unknown'),
+        1035
+      )
+    )
+    onFailed()
+  }, [])
+
   const requestCredential = useCallback(
     async (userPin?: string) => {
       if (!agent || !offerResolutionResult) return
@@ -52,26 +74,16 @@ export const useOpenIdCredentialOffer = (offer: OpenId4VciOffer, { onFailed }: {
 
         setCredential(credential)
       } catch (error: unknown) {
-        console.error(`Couldn't receive credential from OpenID4VCI offer`, {
-          error,
-        })
-        DeviceEventEmitter.emit(
-          EventTypes.ERROR_ADDED,
-          new BifoldError(
-            t('Error.Title1035'),
-            t('Error.Message1035'),
-            (error as Error)?.message || t('Error.Unknown'),
-            1035
-          )
-        )
-        onFailed()
+        reportFailure(`Couldn't receive credential from OpenID4VCI offer`, error)
       }
     },
-    [agent, offerResolutionResult, acquireAccessToken, receiveCredentialFromOpenId4VciOffer, t, onFailed]
+    [agent, offerResolutionResult, acquireAccessToken, receiveCredentialFromOpenId4VciOffer, reportFailure]
   )
 
   useEffect(() => {
     if (!agent) return
+    // A newer run replaces one still resolving; the older run writes nothing and reports nothing
+    let cancelled = false
     const resolveCredentialOffer = async () => {
       setIsLoading(true)
       try {
@@ -79,25 +91,16 @@ export const useOpenIdCredentialOffer = (offer: OpenId4VciOffer, { onFailed }: {
           offer,
         })
 
-        setOfferResolutionResult(offerResolutionResult)
+        if (!cancelled) setOfferResolutionResult(offerResolutionResult)
       } catch (error: unknown) {
-        console.error(`Couldn't resolve OpenID4VCI offer`, {
-          error,
-        })
-        DeviceEventEmitter.emit(
-          EventTypes.ERROR_ADDED,
-          new BifoldError(
-            t('Error.Title1035'),
-            t('Error.Message1035'),
-            (error as Error)?.message || t('Error.Unknown'),
-            1035
-          )
-        )
-        onFailed()
+        if (!cancelled) reportFailure(`Couldn't resolve OpenID4VCI offer`, error)
       }
     }
     resolveCredentialOffer()
-  }, [agent, offer, resolveOpenId4VciOffer, t, onFailed])
+    return () => {
+      cancelled = true
+    }
+  }, [agent, offer, resolveOpenId4VciOffer, reportFailure])
 
   useEffect(() => {
     if (!offerResolutionResult) return

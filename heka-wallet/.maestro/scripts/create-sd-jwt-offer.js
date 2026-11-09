@@ -11,6 +11,15 @@ function requireEnv(name, value) {
   return value
 }
 
+// 0 when unset; a set value must be a positive integer, or the offer would silently get no code
+function parseTxCodeLength(value) {
+  if (!value) return 0
+  if (!/^[1-9]\d*$/.test(String(value).trim())) {
+    throw new Error(`Invalid env TX_CODE_LENGTH: "${value}", expected a positive integer`)
+  }
+  return Number(value)
+}
+
 function getToken() {
   if (typeof ISSUER_TOKEN !== 'undefined' && ISSUER_TOKEN) return ISSUER_TOKEN
   const response = http.post(requireEnv('TOKEN_URL', TOKEN_URL), {
@@ -50,6 +59,9 @@ function putJson(path, token, body) {
   return json(response.body)
 }
 
+// Checked before any request, so a bad value creates nothing
+const txCodeLength = parseTxCodeLength(typeof TX_CODE_LENGTH !== 'undefined' ? TX_CODE_LENGTH : undefined)
+
 const token = getToken()
 const credentialId = 'MaestroE2ESdJwt'
 
@@ -72,8 +84,6 @@ if (!issuers.length) {
     credentialsSupported: [credentialSupported],
   })
 }
-
-const txCodeLength = typeof TX_CODE_LENGTH !== 'undefined' && TX_CODE_LENGTH ? Number(TX_CODE_LENGTH) : 0
 
 const offer = postJson('/openid4vc/issuance-session/offer', token, {
   publicIssuerId: did,
