@@ -255,10 +255,10 @@ describe('TokenStatusListService', () => {
     await expect(setOneStatus(otherContext, reference.id, reference.idx, TokenStatus.Invalid)).rejects.toThrow(
       new NotFoundException('Status list not found'),
     )
-    expect(em.findOne).toHaveBeenLastCalledWith(
+    expect(em.find).toHaveBeenLastCalledWith(
       TokenStatusList,
-      { id: reference.id, tenantContextId: 'tenant-2' },
-      { lockMode: LockMode.PESSIMISTIC_WRITE },
+      { id: { $in: [reference.id] }, tenantContextId: 'tenant-2' },
+      { lockMode: LockMode.PESSIMISTIC_WRITE, orderBy: { id: 'asc' } },
     )
     expect(stored[0].token).toBe(before)
   })
@@ -277,6 +277,74 @@ describe('TokenStatusListService', () => {
       'token-status-list:tenant-2:kms-key-1',
       'token-status-list:tenant-1:kms-key-2',
     ])
+  })
+
+  describe('setEntryStatuses', () => {
+    test('changes and re-signs only the lists whose entries differ, and reports a change', async () => {
+      const first = await allocateOne(agentContext, authInfo, identity)
+      const second = await allocateOne(agentContext, authInfo, { ...identity, keyId: 'kms-key-2' })
+      await setOneStatus(agentContext, first.id, first.idx, TokenStatus.Invalid)
+      const firstToken = stored[0].token
+      sign.mockClear()
+
+      const changed = await service.setEntryStatuses(
+        agentContext,
+        [
+          { id: first.id, indexes: [first.idx] },
+          { id: second.id, indexes: [second.idx] },
+        ],
+        TokenStatus.Invalid,
+      )
+
+      expect(changed).toBe(true)
+      expect(sign).toHaveBeenCalledTimes(1)
+      expect(stored[0].token).toBe(firstToken)
+      expect(getListFromStatusListJWT(stored[1].token!).getStatus(second.idx)).toBe(TokenStatus.Invalid)
+      // Both lists are locked in one query, in id order, for the read and the write
+      expect(em.find).toHaveBeenLastCalledWith(
+        TokenStatusList,
+        { id: { $in: [first.id, second.id] }, tenantContextId: 'tenant-1' },
+        { lockMode: LockMode.PESSIMISTIC_WRITE, orderBy: { id: 'asc' } },
+      )
+    })
+
+    test('reports no change, and re-signs nothing, when every entry already has the status', async () => {
+      const batch = await service.reserveIndexes(agentContext, authInfo, identity, 2)
+      await service.setStatuses(agentContext, batch.id, batch.indexes, TokenStatus.Invalid)
+      const before = stored[0].token
+      sign.mockClear()
+
+      const changed = await service.setEntryStatuses(agentContext, [batch], TokenStatus.Invalid)
+
+      expect(changed).toBe(false)
+      expect(sign).not.toHaveBeenCalled()
+      expect(stored[0].token).toBe(before)
+    })
+
+    test('changes nothing when one of the lists is missing (404)', async () => {
+      const reference = await allocateOne(agentContext, authInfo, identity)
+      const before = stored[0].token
+
+      await expect(
+        service.setEntryStatuses(
+          agentContext,
+          [
+            { id: reference.id, indexes: [reference.idx] },
+            { id: 'gone', indexes: [1] },
+          ],
+          TokenStatus.Invalid,
+        ),
+      ).rejects.toThrow(new NotFoundException('Status list not found'))
+      expect(stored[0].token).toBe(before)
+      expect(getListFromStatusListJWT(stored[0].token!).getStatus(reference.idx)).toBe(TokenStatus.Valid)
+    })
+
+    test('rejects an empty entry list', async () => {
+      await expect(service.setEntryStatuses(agentContext, [], TokenStatus.Invalid)).rejects.toBeInstanceOf(
+        BadRequestException,
+      )
+      expect(em.transactional).not.toHaveBeenCalled()
+    })
   })
 
   test('setStatuses of an unknown list is a 404', async () => {

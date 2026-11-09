@@ -366,11 +366,11 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     expect(new Set([...burst, ...again].map((response) => referenceOf(response).index)).size).toBe(40)
   })
 
-  test('concurrent revocations of different sessions on one list both stick', async () => {
+  test('concurrent revocations: different sessions both stick, the same session answers 200 once', async () => {
     const issuerAuthToken = await createAuthToken(uuid(), Role.OrgAdmin, uuid())
     const issuerDid = await createSdJwtIssuer(issuerAuthToken)
-    const [kept, revokeA, revokeB] = await Promise.all(
-      Array.from({ length: 3 }, () => offer(issuerAuthToken, issuerDid).expect(200)),
+    const [kept, revokeA, revokeB, revokeTwice] = await Promise.all(
+      Array.from({ length: 4 }, () => offer(issuerAuthToken, issuerDid).expect(200)),
     )
     const listId = listIdOf(kept)
 
@@ -385,6 +385,13 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     expect(statusList.getStatus(referenceOf(revokeA).index)).toBe(TokenStatus.Invalid)
     expect(statusList.getStatus(referenceOf(revokeB).index)).toBe(TokenStatus.Invalid)
     expect(statusList.getStatus(referenceOf(kept).index)).toBe(TokenStatus.Valid)
+
+    // Five parallel revokes of one session: the check runs under the list's row lock, so exactly one wins
+    const sessionId = revokeTwice.body.issuanceSession.id as string
+    const responses = await Promise.all(Array.from({ length: 5 }, () => revoke(issuerAuthToken, sessionId)))
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([200, 409, 409, 409, 409])
+    const after = await request(app).get(`/token-status-lists/${listId}`).expect(200)
+    expect(getListFromStatusListJWT(after.text).getStatus(referenceOf(revokeTwice).index)).toBe(TokenStatus.Invalid)
   })
 
   test('another member of the same organization wallet can revoke the credential (shared lists)', async () => {

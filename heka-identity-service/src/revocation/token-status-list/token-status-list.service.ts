@@ -69,10 +69,10 @@ export enum TokenStatus {
  * - Allocation is serialised per (tenant, signing key) by a transaction-scoped Postgres advisory lock, taken
  *   before the key's lists are read: concurrent offers never get the same index, and a key with no list (or
  *   only full ones) gets exactly one new list, even though there is no row to lock yet.
- * - Status changes run in one transaction holding the list's row lock: concurrent revocations never drop each
- *   other's bit.
- * - Allocation never holds more than one list row, and status changes never take the advisory lock, so the two
- *   paths cannot deadlock.
+ * - Status changes lock the affected list rows, in id order, for the whole read-check-write: concurrent
+ *   revocations never drop each other's bit, and only one of them sees an entry change.
+ * - Allocation holds the advisory lock and at most one list row; status changes take list row locks only, in
+ *   id order. No lock cycle is possible, so the two paths cannot deadlock.
  */
 @Injectable()
 export class TokenStatusListService {
@@ -138,8 +138,8 @@ export class TokenStatusListService {
   }
 
   /**
-   * Set the status of several entries of one list (all credentials of a batch) and re-sign the token once.
-   * Only lists of the calling tenant are found; any other id is a 404.
+   * Set the status of several entries of one list (all credentials of a batch) and re-sign the token once, if
+   * anything changed. Only lists of the calling tenant are found; any other id is a 404.
    */
   public async setStatuses(
     agentContext: AgentContext,
@@ -147,29 +147,58 @@ export class TokenStatusListService {
     indexes: readonly number[],
     status: TokenStatus,
   ): Promise<void> {
-    if (indexes.length === 0) throw new BadRequestException('At least one status list index is required')
-    await this.em.transactional(async (em) => {
-      const list = await em.findOne(
+    await this.setEntryStatuses(agentContext, [{ id, indexes: [...indexes] }], status)
+  }
+
+  /**
+   * Set `status` on every given entry, across lists, in one transaction that holds the lists' row locks (taken in
+   * id order) from the read to the write. Lists whose entries already have that status are left as they are (not
+   * re-signed). Returns whether any entry changed, so callers can tell "already done" apart, race-free.
+   * Only lists of the calling tenant are found; any other id is a 404 and nothing changes.
+   */
+  public async setEntryStatuses(
+    agentContext: AgentContext,
+    entries: readonly TokenStatusListEntries[],
+    status: TokenStatus,
+  ): Promise<boolean> {
+    const requested = new Map<string, number[]>()
+    for (const { id, indexes } of entries) requested.set(id, [...(requested.get(id) ?? []), ...indexes])
+    if (requested.size === 0 || [...requested.values()].some((indexes) => indexes.length === 0)) {
+      throw new BadRequestException('At least one status list index is required')
+    }
+
+    return this.em.transactional(async (em) => {
+      const lists = await em.find(
         TokenStatusList,
-        { id, tenantContextId: agentContext.contextCorrelationId },
-        { lockMode: LockMode.PESSIMISTIC_WRITE },
+        { id: { $in: [...requested.keys()] }, tenantContextId: agentContext.contextCorrelationId },
+        { lockMode: LockMode.PESSIMISTIC_WRITE, orderBy: { id: 'asc' } },
       )
-      if (!list) throw new NotFoundException('Status list not found')
-      for (const idx of indexes) {
-        if (!Number.isInteger(idx) || idx < 0 || idx >= list.size) {
-          throw new BadRequestException('Status list index is out of bounds')
+      if (lists.length !== requested.size) throw new NotFoundException('Status list not found')
+
+      const changes: Array<{ list: TokenStatusList; statusList: StatusList; indexes: number[] }> = []
+      for (const list of lists) {
+        const indexes = requested.get(list.id)!
+        for (const idx of indexes) {
+          if (!Number.isInteger(idx) || idx < 0 || idx >= list.size) {
+            throw new BadRequestException('Status list index is out of bounds')
+          }
         }
+        // The library does not range-check values on `setStatus`; an oversized one would corrupt the bit packing.
+        if (!Number.isInteger(status) || status < 0 || status >= 2 ** list.bitsPerStatus) {
+          throw new BadRequestException(`Status ${status} does not fit a ${list.bitsPerStatus}-bit status list`)
+        }
+        const statusList = this.decode(list)
+        if (indexes.some((idx) => statusList.getStatus(idx) !== status)) changes.push({ list, statusList, indexes })
       }
-      // The library does not range-check values on `setStatus`; an oversized one would corrupt the bit packing.
-      if (!Number.isInteger(status) || status < 0 || status >= 2 ** list.bitsPerStatus) {
-        throw new BadRequestException(`Status ${status} does not fit a ${list.bitsPerStatus}-bit status list`)
+
+      for (const { list, statusList, indexes } of changes) {
+        for (const idx of indexes) statusList.setStatus(idx, status)
+        list.encodedStatuses = encodeStatuses(statusList)
+        await this.sign(agentContext, list, statusList)
+        this.logger.child('setEntryStatuses').debug({ id: list.id, indexes, status }, 'statuses set')
       }
-      const statusList = this.decode(list)
-      for (const idx of indexes) statusList.setStatus(idx, status)
-      list.encodedStatuses = encodeStatuses(statusList)
-      await this.sign(agentContext, list, statusList)
       await em.flush()
-      this.logger.child('setStatuses').debug({ id, indexes, status }, 'statuses set')
+      return changes.length > 0
     })
   }
 

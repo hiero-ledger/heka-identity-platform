@@ -264,14 +264,14 @@ export class OpenId4VcIssuanceSessionService {
     // SD-JWT VCs: every entry of the session (a batch holds one entry per holder key) is revoked together
     const tokenStatusEntries = tokenStatusListEntriesOf(credentials)
     if (tokenStatusEntries.length) {
-      const statuses = await this.tokenStatusListService.getStatuses(tenantAgent.context, tokenStatusEntries)
-      if (tokenStatusEntries.some(({ id }) => !statuses.has(id))) throw new NotFoundException('Status list not found')
-      if (tokenStatusEntries.every(({ id }) => statuses.get(id)!.every((status) => status === TokenStatus.Invalid))) {
-        throw new ConflictException('Credential is already revoked')
-      }
-      for (const { id, indexes } of tokenStatusEntries) {
-        await this.tokenStatusListService.setStatuses(tenantAgent.context, id, indexes, TokenStatus.Invalid)
-      }
+      // One transaction over all of the session's lists: the "already revoked" check and the update share the
+      // lists' row locks, so of concurrent revokes exactly one changes anything; a missing list is a 404.
+      const changed = await this.tokenStatusListService.setEntryStatuses(
+        tenantAgent.context,
+        tokenStatusEntries,
+        TokenStatus.Invalid,
+      )
+      if (!changed) throw new ConflictException('Credential is already revoked')
       return
     }
 

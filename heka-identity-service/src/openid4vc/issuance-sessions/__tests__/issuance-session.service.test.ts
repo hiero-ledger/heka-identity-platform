@@ -1081,32 +1081,21 @@ describe('OpenId4VcIssuanceSessionService', () => {
           },
         }),
       )
-      vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(
-        new Map([
-          ['tsl-1', [1, 0]],
-          ['tsl-2', [1]],
-        ]),
-      )
+      vi.mocked(tokenStatusListService.setEntryStatuses).mockResolvedValue(true)
 
       await service.revokeIssuanceSession(authInfo, tenantAgent, 'session-sd')
 
-      expect(tokenStatusListService.getStatuses).toHaveBeenCalledWith(tenantAgent.context, [
-        { id: 'tsl-1', indexes: [4, 8] },
-        { id: 'tsl-2', indexes: [15] },
-      ])
-      expect(tokenStatusListService.setStatuses).toHaveBeenCalledTimes(2)
-      expect(tokenStatusListService.setStatuses).toHaveBeenCalledWith(
+      // All lists of the session in one call: one transaction, check and update under the same row locks
+      expect(tokenStatusListService.setEntryStatuses).toHaveBeenCalledTimes(1)
+      expect(tokenStatusListService.setEntryStatuses).toHaveBeenCalledWith(
         tenantAgent.context,
-        'tsl-1',
-        [4, 8],
+        [
+          { id: 'tsl-1', indexes: [4, 8] },
+          { id: 'tsl-2', indexes: [15] },
+        ],
         TokenStatus.Invalid,
       )
-      expect(tokenStatusListService.setStatuses).toHaveBeenCalledWith(
-        tenantAgent.context,
-        'tsl-2',
-        [15],
-        TokenStatus.Invalid,
-      )
+      expect(tokenStatusListService.getStatuses).not.toHaveBeenCalled()
       expect(statusListService.updateItems).not.toHaveBeenCalled()
     })
 
@@ -1130,22 +1119,23 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
     test('should throw ConflictException when every entry of the session is already invalid', async () => {
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(sdJwtRevokeSession())
-      vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(new Map([['tsl-1', [1, 1]]]))
+      // The token status list service changed nothing: every entry was already invalid
+      vi.mocked(tokenStatusListService.setEntryStatuses).mockResolvedValue(false)
 
       await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-sd')).rejects.toThrow(
         new ConflictException('Credential is already revoked'),
       )
-      expect(tokenStatusListService.setStatuses).not.toHaveBeenCalled()
     })
 
     test('should throw NotFoundException when the token status list is missing', async () => {
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(sdJwtRevokeSession())
-      vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(new Map())
+      vi.mocked(tokenStatusListService.setEntryStatuses).mockRejectedValue(
+        new NotFoundException('Status list not found'),
+      )
 
       await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-sd')).rejects.toThrow(
         new NotFoundException('Status list not found'),
       )
-      expect(tokenStatusListService.setStatuses).not.toHaveBeenCalled()
     })
 
     test('should never answer 409 for W3C VCs, whose bit is set again', async () => {
