@@ -342,6 +342,36 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(tenantAgent.openid4vc.issuer.createCredentialOffer).not.toHaveBeenCalled()
     })
 
+    test('rejects an issuer DID deactivated outside the service, served locally with empty metadata', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+        issuerRecordStub({
+          issuerId: 'issuer-1',
+          credentialConfigurationsSupported: { 'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' } },
+        }),
+      )
+      const did = 'did:indy:bcovrin:test:Th7MpTaRZVRYnPiabds81Y'
+      // Credo serves a created did:indy from the wallet record with empty metadata; only the ledger shows deactivation
+      vi.mocked(tenantAgent.dids.resolve).mockImplementation((_did, options) =>
+        Promise.resolve(
+          didResolutionResultStub({
+            didDocument: { id: did, verificationMethod: [{ id: `${did}#verkey` }] },
+            didDocumentMetadata: options?.useLocalCreatedDidRecord === false ? { deactivated: true } : {},
+          }),
+        ),
+      )
+
+      const offer = service.offer(authInfo, tenantAgent, {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          { credentialSupportedId: 'cred-1', format: OpenId4VciCredentialFormatProfile.SdJwtVc, issuer: { did } },
+        ],
+        baseUri: 'https://example.com',
+      } as any)
+
+      await expect(offer).rejects.toThrow(`DID is deactivated: ${did}`)
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).not.toHaveBeenCalled()
+    })
+
     test('should create issuance session for SdJwtVc format without credentialStatus', async () => {
       const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',

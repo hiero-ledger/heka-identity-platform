@@ -11,7 +11,7 @@ import { TenantAgent } from 'common/agent'
 import AgentConfig from 'config/agent'
 
 import { AuthInfo } from '../../common/auth'
-import { assertDidActive } from '../../common/did-registrar'
+import { assertDidActiveOnLedger } from '../../common/did-registrar'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
 import { CredentialIssuanceMetadata, signingKeyId } from '../../utils/oid4vc'
 
@@ -68,8 +68,8 @@ export class OpenId4VcIssuanceSessionService {
       let issuerDidUrl: string | undefined
       if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
         const issuerCredential = credential as { issuer: { did: string; keyId?: string } }
-        const { didDocument, didDocumentMetadata } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
-        await assertDidActive(tenantAgent, issuerCredential.issuer.did, didDocumentMetadata)
+        await assertDidActiveOnLedger(tenantAgent, issuerCredential.issuer.did)
+        const { didDocument } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
         const purposes: Array<'assertionMethod' | 'authentication'> =
           credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc
             ? ['assertionMethod']

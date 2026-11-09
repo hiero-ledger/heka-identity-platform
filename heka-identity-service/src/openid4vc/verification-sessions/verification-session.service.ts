@@ -6,7 +6,7 @@ import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionSta
 import { Injectable, InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
-import { assertDidActive } from 'common/did-registrar'
+import { assertDidActiveOnLedger } from 'common/did-registrar'
 import { signingKeyId } from 'utils/oid4vc'
 
 import {
@@ -38,8 +38,8 @@ export class OpenId4VcVerificationSessionService {
       if (!req.requestSigner?.did) {
         throw new UnprocessableEntityException('requestSigner.did is required')
       }
-      const { didDocument, didDocumentMetadata } = await tenantAgent.dids.resolve(req.requestSigner.did)
-      await assertDidActive(tenantAgent, req.requestSigner.did, didDocumentMetadata)
+      await assertDidActiveOnLedger(tenantAgent, req.requestSigner.did)
+      const { didDocument } = await tenantAgent.dids.resolve(req.requestSigner.did)
       // Wallets accept a signed request only from an `authentication` key
       const { keyId } = req.requestSigner
       const didUrl = didDocument ? signingKeyId(didDocument, ['authentication'], keyId) : undefined

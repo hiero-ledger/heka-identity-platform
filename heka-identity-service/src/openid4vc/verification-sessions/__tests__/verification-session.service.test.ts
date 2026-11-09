@@ -345,6 +345,28 @@ describe('OpenId4VcVerificationSessionService', () => {
       expect(mockCreateAuthorizationRequest).not.toHaveBeenCalled()
     })
 
+    test('rejects a request signer DID deactivated outside the service, served locally with empty metadata', async () => {
+      const did = 'did:indy:bcovrin:test:Th7MpTaRZVRYnPiabds81Y'
+      // Credo serves a created did:indy from the wallet record with empty metadata; only the ledger shows deactivation
+      vi.mocked(tenantAgent.dids.resolve).mockImplementation((_did, options) =>
+        Promise.resolve(
+          didResolutionResultStub({
+            didDocument: { id: did, verificationMethod: [{ id: `${did}#verkey` }] },
+            didDocumentMetadata: options?.useLocalCreatedDidRecord === false ? { deactivated: true } : {},
+          }),
+        ),
+      )
+
+      const request = service.createRequest(tenantAgent, {
+        publicVerifierId: 'verifier-1',
+        requestSigner: { did },
+        presentationExchange: { definition: { id: 'def-1', input_descriptors: [] } },
+      } as any)
+
+      await expect(request).rejects.toThrow(`DID is deactivated: ${did}`)
+      expect(mockCreateAuthorizationRequest).not.toHaveBeenCalled()
+    })
+
     test('should throw UnprocessableEntityException when DID document has no verification methods', async () => {
       const req = {
         publicVerifierId: 'verifier-1',
