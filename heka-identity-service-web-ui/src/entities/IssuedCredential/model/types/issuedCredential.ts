@@ -1,4 +1,5 @@
 import { ProtocolType } from '@/entities/Schema';
+import { AriesCredentialFormat } from '@/entities/Schema/model/types/schema';
 
 /**
  * A finished issuance, DIDComm (AnonCreds) or OpenID4VC, reduced to metadata. Claims, the
@@ -47,6 +48,8 @@ export interface AnoncredsCredentialRecordResponse {
   revocable: boolean;
   revoked?: boolean;
   credentialDefinitionId?: string;
+  /** Absent when the identity service cannot determine it (or is older than this field) */
+  format?: AriesCredentialFormat;
 }
 
 /** `GET /openid4vc/issuance-session` item: only the fields the list uses */

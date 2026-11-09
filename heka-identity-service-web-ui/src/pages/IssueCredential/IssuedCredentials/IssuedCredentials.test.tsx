@@ -30,6 +30,7 @@ const anoncredsActive = {
   revocable: true,
   revoked: false,
   credentialDefinitionId: 'creddef-passport',
+  format: 'anoncreds-w3c',
   credentialAttributes: [{ name: 'firstName', value: 'Alice' }],
 };
 
@@ -40,6 +41,7 @@ const anoncredsRevoked = {
   updatedAt: '2025-12-01T10:00:00.000Z',
   revoked: true,
   credentialDefinitionId: 'creddef-revoked',
+  format: 'anoncreds-indy',
   credentialAttributes: undefined,
 };
 
@@ -50,6 +52,8 @@ const anoncredsUnknown = {
   updatedAt: undefined,
   revoked: undefined,
   credentialDefinitionId: 'creddef-unknown',
+  // An identity service that could not determine the format
+  format: undefined,
   credentialAttributes: undefined,
 };
 
@@ -187,6 +191,20 @@ describe('IssuedCredentials page', () => {
     expect(within(rows[3]).getByText('Status unknown')).toBeInTheDocument();
   });
 
+  test('shows the DIDComm format from the identity service, and the generic anoncreds without it', async () => {
+    const api = createMockApi();
+    routeGets(api);
+    renderPage(api);
+
+    await screen.findByText('Passport');
+    const rows = screen.getAllByRole('button', { name: /DIDComm/ });
+    expect(rows.map((row) => row.children[2].textContent)).toEqual([
+      'anoncreds-w3c',
+      'anoncreds-indy',
+      'anoncreds',
+    ]);
+  });
+
   test('gives every cell its full value as a title, since cells are truncated with an ellipsis', async () => {
     const api = createMockApi();
     routeGets(api);
@@ -217,6 +235,8 @@ describe('IssuedCredentials page', () => {
     expect(within(dialog).getByText('creddef-passport')).toBeInTheDocument();
     expect(within(dialog).getByText('Record ID')).toBeInTheDocument();
     expect(within(dialog).getByText('cred-active')).toBeInTheDocument();
+    expect(within(dialog).getByText('Format')).toBeInTheDocument();
+    expect(within(dialog).getByText('anoncreds-w3c')).toBeInTheDocument();
     expect(within(dialog).getByText('Active')).toBeInTheDocument();
     expect(within(dialog).queryByText(/firstName|Alice/)).not.toBeInTheDocument();
   });

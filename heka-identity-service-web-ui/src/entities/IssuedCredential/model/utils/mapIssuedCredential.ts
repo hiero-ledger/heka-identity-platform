@@ -1,5 +1,6 @@
 import { ProtocolType } from '@/entities/Schema';
 import {
+  AriesCredentialFormat,
   AriesCredentialRegistrationFormat,
   AriesSchemaRegistration,
   OpenIdVciSchemaRegistration,
@@ -17,7 +18,9 @@ export const issuedCredentialKey = (protocol: ProtocolType, id: string) =>
 
 const findSchemaName = (
   schemas: SchemaResponse[],
-  matches: (credentials: Partial<AriesSchemaRegistration & OpenIdVciSchemaRegistration>) => boolean,
+  matches: (
+    credentials: Partial<AriesSchemaRegistration & OpenIdVciSchemaRegistration>,
+  ) => boolean,
 ) =>
   schemas.find((schema) =>
     (schema.registrations ?? []).some(
@@ -26,6 +29,19 @@ const findSchemaName = (
         matches(registration.credentials),
     ),
   )?.name;
+
+const ariesCredentialFormats: ReadonlySet<string> = new Set(
+  Object.values(AriesCredentialFormat),
+);
+
+/**
+ * `anoncreds-indy` / `anoncreds-w3c` from the identity service; the generic `anoncreds`
+ * when it is absent or not a known value
+ */
+const anoncredsFormat = (format: unknown): string =>
+  typeof format === 'string' && ariesCredentialFormats.has(format)
+    ? format
+    : AriesCredentialRegistrationFormat.Anoncreds;
 
 /** Only the metadata fields are copied: never attributes or claims */
 export const mapAnoncredsCredential = (
@@ -46,7 +62,7 @@ export const mapAnoncredsCredential = (
     id: record.id,
     protocol: ProtocolType.Aries,
     name: schemaName ?? credentialDefinitionId ?? record.id,
-    formats: [AriesCredentialRegistrationFormat.Anoncreds],
+    formats: [anoncredsFormat(record.format)],
     issuedAt: record.updatedAt ?? record.createdAt,
     credentialDefinitionId,
     revocable: record.revocable === true,

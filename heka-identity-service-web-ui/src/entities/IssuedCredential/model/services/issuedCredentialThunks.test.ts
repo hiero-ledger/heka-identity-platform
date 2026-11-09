@@ -1,7 +1,10 @@
 import toast from 'react-hot-toast';
 
 import { ProtocolType } from '@/entities/Schema';
-import { SchemaResponse } from '@/entities/Schema/model/types/schema';
+import {
+  AriesCredentialFormat,
+  SchemaResponse,
+} from '@/entities/Schema/model/types/schema';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import {
   createMockApi,
@@ -83,6 +86,7 @@ const anoncredsRecords = [
     revocable: true,
     revoked: false,
     credentialDefinitionId: 'creddef-passport',
+    format: AriesCredentialFormat.AnoncredsW3c,
     credentialAttributes: [{ name: 'firstName', value: 'Alice' }],
   },
   {
@@ -132,10 +136,15 @@ const openIdSessions = [
   },
 ] as OpenIdIssuanceSessionResponse[];
 
-const routeGets = (api: MockApi) =>
+const routeGets = (
+  api: MockApi,
+  {
+    anoncreds = anoncredsRecords,
+  }: { anoncreds?: AnoncredsCredentialRecordResponse[] } = {},
+) =>
   api.get.mockImplementation((url: string) => {
     if (url === agencyEndpoints.getAnoncredsCredentials)
-      return Promise.resolve({ data: anoncredsRecords });
+      return Promise.resolve({ data: anoncreds });
     if (url === agencyEndpoints.getOpenIdIssuanceSessions)
       return Promise.resolve({ data: openIdSessions });
     if (url === agencyEndpoints.getSchemaList)
@@ -203,12 +212,43 @@ describe('getIssuedCredentials', () => {
       id: 'cred-known',
       protocol: ProtocolType.Aries,
       name: 'Passport',
-      formats: ['anoncreds'],
+      formats: ['anoncreds-w3c'],
       issuedAt: '2026-01-02T10:00:00.000Z',
       credentialDefinitionId: 'creddef-passport',
       revocable: true,
       revoked: false,
     });
+  });
+
+  test('takes the DIDComm format from the response, falling back to anoncreds when it is absent or unknown', async () => {
+    const api = createMockApi();
+    routeGets(api, {
+      anoncreds: [
+        ...anoncredsRecords,
+        {
+          ...anoncredsRecords[1],
+          id: 'cred-indy',
+          format: AriesCredentialFormat.AnoncredsIndy,
+        },
+        {
+          ...anoncredsRecords[1],
+          id: 'cred-future-format',
+          format: 'some-future-format',
+        } as unknown as AnoncredsCredentialRecordResponse,
+      ],
+    });
+    const store = createTestStore({}, api);
+
+    await store.dispatch(getIssuedCredentials());
+
+    const items = store.getState().issuedCredentials.items!;
+    const formatsByKey = Object.fromEntries(
+      items.map((item) => [item.key, item.formats]),
+    );
+    expect(formatsByKey['Aries:cred-known']).toEqual(['anoncreds-w3c']);
+    expect(formatsByKey['Aries:cred-indy']).toEqual(['anoncreds-indy']);
+    expect(formatsByKey['Aries:cred-unknown-schema']).toEqual(['anoncreds']);
+    expect(formatsByKey['Aries:cred-future-format']).toEqual(['anoncreds']);
   });
 
   test('takes revocable from the response, so OpenID4VC credentials are never revocable', async () => {
