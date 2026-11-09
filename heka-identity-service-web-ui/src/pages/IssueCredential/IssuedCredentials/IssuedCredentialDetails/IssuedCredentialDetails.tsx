@@ -30,7 +30,10 @@ interface IssuedCredentialDetailsProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/** Metadata of an issued credential, never its claims, with Revoke for revocable AnonCreds credentials */
+/**
+ * Metadata of an issued credential, never its claims, with Revoke for revocable credentials
+ * (AnonCreds over DIDComm, SD-JWT VC over OpenID4VC)
+ */
 export const IssuedCredentialDetails = ({
   itemKey,
   onOpenChange,
@@ -51,7 +54,11 @@ export const IssuedCredentialDetails = ({
     if (!item) return;
     try {
       const { alreadyRevoked } = await dispatch(
-        revokeIssuedCredential({ id: item.id, key: item.key }),
+        revokeIssuedCredential({
+          id: item.id,
+          key: item.key,
+          protocol: item.protocol,
+        }),
       ).unwrap();
       toast.success(
         alreadyRevoked

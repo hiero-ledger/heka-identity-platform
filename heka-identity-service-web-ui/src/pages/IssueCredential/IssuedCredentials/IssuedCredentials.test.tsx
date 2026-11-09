@@ -76,6 +76,26 @@ const jwtSession = {
   credentialOfferPayload: { credential_configuration_ids: ['DiplomaJwt'] },
 };
 
+const sdJwtSession = {
+  id: 'session-sd-jwt',
+  createdAt: '2025-10-01T10:00:00.000Z',
+  publicIssuerId: 'issuer-2',
+  state: 'Completed',
+  revocable: true,
+  revoked: false,
+  issuanceMetadata: {
+    credentials: [
+      {
+        format: 'vc+sd-jwt',
+        credentialSupportedId: 'IdentitySdJwt',
+        issuer: { did: 'did:key:sdjwt-issuer' },
+        payload: { given_name: 'Secret Name' },
+      },
+    ],
+  },
+  credentialOfferPayload: { credential_configuration_ids: ['IdentitySdJwt'] },
+};
+
 const schemas = [
   {
     id: 'schema-passport',
@@ -253,7 +273,7 @@ describe('IssuedCredentials page', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 
-  test('OpenID4VC credentials are not revocable and have no Revoke button', async () => {
+  test('jwt_vc_json credentials are not revocable and have no Revoke button', async () => {
     const api = createMockApi();
     routeGets(api);
     const { user } = renderPage(api);
@@ -308,8 +328,9 @@ describe('IssuedCredentials page', () => {
 
   const acceptRevocation = async (
     user: ReturnType<typeof userEvent.setup>,
+    name = 'Passport',
   ) => {
-    const details = await openDetails(user, 'Passport');
+    const details = await openDetails(user, name);
     await user.click(within(details).getByRole('button', { name: 'Revoke' }));
     const confirmation = await screen.findByRole('dialog', {
       name: 'Revoke this credential?',
@@ -317,8 +338,66 @@ describe('IssuedCredentials page', () => {
     await user.click(within(confirmation).getByRole('button', { name: 'Revoke' }));
   };
 
-  const detailsDialog = () =>
-    screen.findByRole('dialog', { name: 'Passport' });
+  const detailsDialog = (name = 'Passport') =>
+    screen.findByRole('dialog', { name });
+
+  test('an SD-JWT VC session is Active and revokes through the OpenID4VC endpoint', async () => {
+    const api = createMockApi();
+    routeGets(api, { sessions: [jwtSession, sdJwtSession] });
+    api.post.mockResolvedValue({ data: undefined });
+    const { user } = renderPage(api);
+
+    await screen.findByText('IdentitySdJwt');
+    const row = rowOf('IdentitySdJwt');
+    expect(within(row).getByText('vc+sd-jwt')).toBeInTheDocument();
+    expect(within(row).getByText('Active')).toBeInTheDocument();
+
+    await acceptRevocation(user, 'IdentitySdJwt');
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Credential revoked'),
+    );
+    expect(api.post).toHaveBeenCalledTimes(1);
+    expect(api.post).toHaveBeenCalledWith(
+      '/openid4vc/issuance-session/session-sd-jwt/revoke',
+    );
+    const details = await detailsDialog('IdentitySdJwt');
+    expect(within(details).getByText('Revoked')).toBeInTheDocument();
+    expect(within(details).queryByText('Secret Name')).not.toBeInTheDocument();
+    expect(
+      within(details).queryByRole('button', { name: 'Revoke' }),
+    ).not.toBeInTheDocument();
+  });
+
+  test('an already revoked SD-JWT VC session is marked Revoked without an error', async () => {
+    const api = createMockApi();
+    routeGets(api, { sessions: [sdJwtSession] });
+    api.post.mockRejectedValue(apiError(409, 'Credential is already revoked'));
+    const { user } = renderPage(api);
+
+    await acceptRevocation(user, 'IdentitySdJwt');
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        'The credential was already revoked',
+      ),
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(
+      within(await detailsDialog('IdentitySdJwt')).getByText('Revoked'),
+    ).toBeInTheDocument();
+  });
+
+  test('a revoked SD-JWT VC session loads as Revoked, without a Revoke button', async () => {
+    const api = createMockApi();
+    routeGets(api, { sessions: [{ ...sdJwtSession, revoked: true }] });
+    const { user } = renderPage(api);
+
+    const dialog = await openDetails(user, 'IdentitySdJwt');
+
+    expect(within(dialog).getByText('Revoked')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument();
+  });
 
   test('accepting revokes the credential and shows Revoked without a reload', async () => {
     const api = createMockApi();

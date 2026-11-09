@@ -134,19 +134,46 @@ const openIdSessions = [
       ],
     },
   },
+  {
+    id: 'session-sd-jwt-status',
+    createdAt: '2025-12-30T10:00:00.000Z',
+    publicIssuerId: 'issuer-2',
+    state: 'Completed',
+    revocable: true,
+    revoked: false,
+    issuanceMetadata: {
+      credentials: [
+        {
+          format: 'vc+sd-jwt',
+          credentialSupportedId: 'StatusSdJwt',
+          payload: { given_name: 'secret-claim' },
+          credentialStatus: {
+            type: 'token-status-list',
+            location: 'https://x/token-status-lists/1',
+            index: 7,
+            indexes: [7],
+          },
+        },
+      ],
+    },
+  },
 ] as OpenIdIssuanceSessionResponse[];
 
 const routeGets = (
   api: MockApi,
   {
     anoncreds = anoncredsRecords,
-  }: { anoncreds?: AnoncredsCredentialRecordResponse[] } = {},
+    openId = openIdSessions,
+  }: {
+    anoncreds?: AnoncredsCredentialRecordResponse[];
+    openId?: OpenIdIssuanceSessionResponse[];
+  } = {},
 ) =>
   api.get.mockImplementation((url: string) => {
     if (url === agencyEndpoints.getAnoncredsCredentials)
       return Promise.resolve({ data: anoncreds });
     if (url === agencyEndpoints.getOpenIdIssuanceSessions)
-      return Promise.resolve({ data: openIdSessions });
+      return Promise.resolve({ data: openId });
     if (url === agencyEndpoints.getSchemaList)
       return Promise.resolve({ data: { items: schemas } });
     return Promise.reject(new Error(`unexpected GET ${url}`));
@@ -189,12 +216,14 @@ describe('getIssuedCredentials', () => {
       'OpenId4VC:session-jwt',
       'Aries:cred-known',
       'OpenId4VC:session-sd-jwt',
+      'OpenId4VC:session-sd-jwt-status',
     ]);
     expect(items.map((item) => item.name)).toEqual([
       'creddef-other',
       'Diploma',
       'Passport',
       'UnknownSdJwt',
+      'StatusSdJwt',
     ]);
     expect(items[1]).toEqual<IssuedCredential>({
       key: 'OpenId4VC:session-jwt',
@@ -251,7 +280,7 @@ describe('getIssuedCredentials', () => {
     expect(formatsByKey['Aries:cred-future-format']).toEqual(['anoncreds']);
   });
 
-  test('takes revocable from the response, so OpenID4VC credentials are never revocable', async () => {
+  test('takes revocable and revoked from the response, for both protocols', async () => {
     const api = createMockApi();
     routeGets(api);
     const store = createTestStore({}, api);
@@ -262,9 +291,30 @@ describe('getIssuedCredentials', () => {
     const byKey = Object.fromEntries(items.map((item) => [item.key, item]));
     // jwt_vc_json has a status list entry in its metadata, but the server says it is not revocable
     expect(byKey['OpenId4VC:session-jwt'].revocable).toBe(false);
+    expect(byKey['OpenId4VC:session-jwt'].revoked).toBeUndefined();
+    // An SD-JWT VC session issued before token status lists
     expect(byKey['OpenId4VC:session-sd-jwt'].revocable).toBe(false);
+    expect(byKey['OpenId4VC:session-sd-jwt-status'].revocable).toBe(true);
+    expect(byKey['OpenId4VC:session-sd-jwt-status'].revoked).toBe(false);
     expect(byKey['Aries:cred-known'].revocable).toBe(true);
     expect(byKey['Aries:cred-unknown-schema'].revocable).toBe(false);
+  });
+
+  test('shows a revoked SD-JWT VC session as revoked after a reload', async () => {
+    const api = createMockApi();
+    routeGets(api, {
+      openId: [{ ...openIdSessions[2], revoked: true }],
+    });
+    const store = createTestStore({}, api);
+
+    await store.dispatch(getIssuedCredentials());
+
+    const [item] = store
+      .getState()
+      .issuedCredentials.items!.filter(
+        (x) => x.protocol === ProtocolType.Oid4vc,
+      );
+    expect(item).toMatchObject({ revocable: true, revoked: true });
   });
 
   test('keeps claims, attributes and offer secrets out of the store', async () => {
@@ -282,6 +332,8 @@ describe('getIssuedCredentials', () => {
       'credentialOfferUri',
       'credentialSubject',
       'credentialStatus',
+      'token-status-lists',
+      'payload',
       'secret',
       'Alice',
     ]) {
@@ -328,7 +380,11 @@ describe('revokeIssuedCredential', () => {
     api.post.mockResolvedValue({ data: undefined });
 
     const result = await store
-      .dispatch(revokeIssuedCredential({ id: 'cred-known', key: 'Aries:cred-known' }))
+      .dispatch(revokeIssuedCredential({
+        id: 'cred-known',
+        key: 'Aries:cred-known',
+        protocol: ProtocolType.Aries,
+      }))
       .unwrap();
 
     expect(api.post).toHaveBeenCalledWith('/credentials/cred-known/revoke');
@@ -344,12 +400,75 @@ describe('revokeIssuedCredential', () => {
     api.post.mockRejectedValue(apiError(409, 'Credential is already revoked.'));
 
     const result = await store
-      .dispatch(revokeIssuedCredential({ id: 'cred-known', key: 'Aries:cred-known' }))
+      .dispatch(revokeIssuedCredential({
+        id: 'cred-known',
+        key: 'Aries:cred-known',
+        protocol: ProtocolType.Aries,
+      }))
       .unwrap();
 
     expect(result).toEqual({ key: 'Aries:cred-known', alreadyRevoked: true });
     expect(item(store).revoked).toBe(true);
     expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  test('revokes an OpenID4VC issuance session through the OpenID4VC endpoint', async () => {
+    const api = createMockApi();
+    const store = await loadedStore(api);
+    api.post.mockResolvedValue({ data: undefined });
+
+    const result = await store
+      .dispatch(
+        revokeIssuedCredential({
+          id: 'session-sd-jwt-status',
+          key: 'OpenId4VC:session-sd-jwt-status',
+          protocol: ProtocolType.Oid4vc,
+        }),
+      )
+      .unwrap();
+
+    expect(api.post).toHaveBeenCalledTimes(1);
+    expect(api.post).toHaveBeenCalledWith(
+      '/openid4vc/issuance-session/session-sd-jwt-status/revoke',
+    );
+    expect(result).toEqual({
+      key: 'OpenId4VC:session-sd-jwt-status',
+      alreadyRevoked: false,
+    });
+    const revoked = store
+      .getState()
+      .issuedCredentials.items!.find(
+        (x) => x.key === 'OpenId4VC:session-sd-jwt-status',
+      )!;
+    expect(revoked.revoked).toBe(true);
+  });
+
+  test('treats 409 from the OpenID4VC endpoint as already revoked', async () => {
+    const api = createMockApi();
+    const store = await loadedStore(api);
+    api.post.mockRejectedValue(apiError(409, 'Credential is already revoked'));
+
+    const result = await store
+      .dispatch(
+        revokeIssuedCredential({
+          id: 'session-sd-jwt-status',
+          key: 'OpenId4VC:session-sd-jwt-status',
+          protocol: ProtocolType.Oid4vc,
+        }),
+      )
+      .unwrap();
+
+    expect(result).toEqual({
+      key: 'OpenId4VC:session-sd-jwt-status',
+      alreadyRevoked: true,
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  test('encodes the session id in the OpenID4VC revoke URL', () => {
+    expect(agencyEndpoints.revokeOpenIdIssuanceSession('a/b?c')).toBe(
+      '/openid4vc/issuance-session/a%2Fb%3Fc/revoke',
+    );
   });
 
   test('shows the server message on other errors and keeps the status', async () => {
@@ -359,7 +478,11 @@ describe('revokeIssuedCredential', () => {
 
     await expect(
       store
-        .dispatch(revokeIssuedCredential({ id: 'cred-known', key: 'Aries:cred-known' }))
+        .dispatch(revokeIssuedCredential({
+        id: 'cred-known',
+        key: 'Aries:cred-known',
+        protocol: ProtocolType.Aries,
+      }))
         .unwrap(),
     ).rejects.toBe('Ledger update failed');
 
@@ -379,7 +502,11 @@ describe('revokeIssuedCredential', () => {
     );
 
     const pending = store.dispatch(
-      revokeIssuedCredential({ id: 'cred-known', key: 'Aries:cred-known' }),
+      revokeIssuedCredential({
+        id: 'cred-known',
+        key: 'Aries:cred-known',
+        protocol: ProtocolType.Aries,
+      }),
     );
     expect(
       Object.values(store.getState().issuedCredentials.revokingRequests),
@@ -404,12 +531,17 @@ describe('revokeIssuedCredential', () => {
       getIsIssuedCredentialRevoking(key)(store.getState());
 
     const first = store.dispatch(
-      revokeIssuedCredential({ id: 'cred-known', key: 'Aries:cred-known' }),
+      revokeIssuedCredential({
+        id: 'cred-known',
+        key: 'Aries:cred-known',
+        protocol: ProtocolType.Aries,
+      }),
     );
     const second = store.dispatch(
       revokeIssuedCredential({
         id: 'cred-unknown-schema',
         key: 'Aries:cred-unknown-schema',
+        protocol: ProtocolType.Aries,
       }),
     );
     expect(isRevoking('Aries:cred-known')).toBe(true);

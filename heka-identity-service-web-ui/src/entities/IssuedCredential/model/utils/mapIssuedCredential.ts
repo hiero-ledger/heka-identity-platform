@@ -107,6 +107,7 @@ export const mapOpenIdIssuanceSession = (
     issuerDid: credentials[0]?.issuer?.did ?? session.publicIssuerId,
     credentialConfigurationIds,
     revocable: session.revocable === true,
+    revoked: session.revoked,
   };
 };
 

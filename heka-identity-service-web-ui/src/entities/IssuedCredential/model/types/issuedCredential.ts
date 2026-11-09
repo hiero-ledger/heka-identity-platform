@@ -19,9 +19,12 @@ export interface IssuedCredential {
   issuerDid?: string;
   credentialDefinitionId?: string;
   credentialConfigurationIds?: string[];
-  /** From the identity service, for both protocols: OID4VC sessions are never revocable yet */
+  /**
+   * From the identity service, for both protocols: AnonCreds credentials with a revocation registry,
+   * and OID4VC sessions whose SD-JWT VCs reference a token status list
+   */
   revocable: boolean;
-  /** Ledger status; undefined when unknown */
+  /** Ledger (AnonCreds) or token status list (SD-JWT VC) status; undefined when unknown */
   revoked?: boolean;
 }
 
@@ -59,7 +62,10 @@ export interface OpenIdIssuanceSessionResponse {
   updatedAt?: string;
   publicIssuerId?: string;
   state: string;
+  /** true for SD-JWT VC sessions with token status list entries; false for other formats */
   revocable: boolean;
+  /** Present only when revocable and the status could be read */
+  revoked?: boolean;
   issuanceMetadata?: {
     credentials?: Array<{
       format?: string;

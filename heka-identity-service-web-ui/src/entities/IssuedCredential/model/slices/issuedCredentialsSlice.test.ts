@@ -73,7 +73,7 @@ describe('issuedCredentialsSlice', () => {
   });
 
   test('marks the item revoked optimistically after a successful revoke', () => {
-    const args = { id: 'cred-1', key: 'Aries:cred-1' };
+    const args = { id: 'cred-1', key: 'Aries:cred-1', protocol: ProtocolType.Aries };
     let state: IssuedCredentialsSchema = {
       ...initial(),
       items: [credential(), credential({ key: 'Aries:cred-2', id: 'cred-2' })],
@@ -99,7 +99,7 @@ describe('issuedCredentialsSlice', () => {
   });
 
   test('leaves the item unchanged when revoking fails', () => {
-    const args = { id: 'cred-1', key: 'Aries:cred-1' };
+    const args = { id: 'cred-1', key: 'Aries:cred-1', protocol: ProtocolType.Aries };
     let state: IssuedCredentialsSchema = { ...initial(), items: [credential()] };
 
     state = issuedCredentialsReducer(
@@ -116,8 +116,8 @@ describe('issuedCredentialsSlice', () => {
   });
 
   test('keeps each overlapping revocation in flight until its own request settles', () => {
-    const first = { id: 'cred-1', key: 'Aries:cred-1' };
-    const second = { id: 'cred-2', key: 'Aries:cred-2' };
+    const first = { id: 'cred-1', key: 'Aries:cred-1', protocol: ProtocolType.Aries };
+    const second = { id: 'cred-2', key: 'Aries:cred-2', protocol: ProtocolType.Aries };
     let state: IssuedCredentialsSchema = {
       ...initial(),
       items: [credential(), credential({ key: 'Aries:cred-2', id: 'cred-2' })],

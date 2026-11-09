@@ -17,13 +17,12 @@ export const getIssuedCredentialStatus = (
   return item.revoked === false ? 'active' : 'unknown';
 };
 
-/** Revoke is offered by status only; the identity service decides whether the user may revoke */
-export const canRevoke = (
-  item: Pick<IssuedCredential, 'protocol' | 'revocable' | 'revoked'>,
-) =>
-  item.protocol === ProtocolType.Aries &&
-  item.revocable &&
-  item.revoked !== true;
+/**
+ * Revoke is offered by status only, for both protocols; the identity service decides which
+ * credentials are revocable and whether the user may revoke them
+ */
+export const canRevoke = (item: Pick<IssuedCredential, 'revocable' | 'revoked'>) =>
+  item.revocable && item.revoked !== true;
 
 export const formatIssuedAt = (issuedAt: string): string => {
   const date = new Date(issuedAt);
