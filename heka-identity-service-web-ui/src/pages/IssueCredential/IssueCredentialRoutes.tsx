@@ -1,8 +1,10 @@
 import { Route, Routes } from 'react-router-dom';
 
 import { IssueFromTemplate } from '@/pages/IssueCredential/IssueFromTemplate/IssueFromTemplate';
+import { features } from '@/shared/config/features';
 
 import { AdvancedIssue } from './AdvancedIssue/AdvancedIssue';
+import { IssuedCredentials } from './IssuedCredentials/IssuedCredentials';
 import { IssueTemplates } from './IssueTemplates/IssueTemplates';
 import { Schemas } from './Schemas/Schemas';
 
@@ -25,10 +27,12 @@ export const IssueCredentialRoutes = () => {
         path="dids"
         element={<div>DIDs</div>}
       />
-      <Route
-        path="issued-credentials"
-        element={<div>Issued credentials</div>}
-      />
+      {features.revocation && (
+        <Route
+          path="issued-credentials"
+          element={<IssuedCredentials />}
+        />
+      )}
       <Route
         path="advanced-issue"
         element={<AdvancedIssue type={'issue'} />}

@@ -165,6 +165,8 @@ services:
         # part of this build): copy it into the root .env and rebuild this image. Left empty, the
         # demo pages render but every issuance and verification they start fails.
         REACT_APP_DEMO_USER_DID: ${IDENTITY_WEBUI_DEMO_USER_DID:-}
+        # "Issued credentials" list with revocation; empty keeps the default (on), `false` hides it.
+        REACT_APP_FEATURE_REVOCATION: ${IDENTITY_WEBUI_FEATURE_REVOCATION:-}
     ports:
       - '8000:80'
     healthcheck:
