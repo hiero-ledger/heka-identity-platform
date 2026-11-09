@@ -1,6 +1,7 @@
 import { getMessageEventRole } from '@bifold/core/src/utils/helpers'
 import { DidCommConnectionRecord, DidCommCredentialExchangeRecord, DidCommCredentialState } from '@credo-ts/didcomm'
 import { GlobalLogger } from '@heka-wallet/shared'
+import { useNavigation } from '@react-navigation/native'
 import { act, renderHook, waitFor } from '@testing-library/react-native'
 
 import { mockFunction } from '../../../jest-helpers/helpers'
@@ -12,8 +13,8 @@ jest.mock('@bifold/core', () => {
   const store = [{ preferences: { alternateContactNames: {} } }]
   return {
     getConnectionName: (connection: { theirLabel?: string }) => connection?.theirLabel,
-    Screens: {},
-    Stacks: {},
+    Screens: { CredentialDetails: 'CredentialDetails' },
+    Stacks: { ContactStack: 'ContactStack' },
     useStore: () => store,
   }
 })
@@ -140,6 +141,23 @@ describe('useChatMessagesByConnection', () => {
 
     expect(resolveOverlay).toBeCalledTimes(2)
     expect(result.current[1].createdAt).toEqual(updated.createdAt)
+  })
+
+  it('opens the details of an issued credential by its id', async () => {
+    mockCredentials = [createCredential()]
+    mockFunction(resolveOverlay).mockResolvedValue({} as never)
+    const navigation = useNavigation()
+
+    const { result } = renderHook(() => useChatMessagesByConnection(createConnection(new Date())))
+    await waitFor(() => expect(result.current).toHaveLength(2))
+
+    const event = result.current[0].renderEvent?.() as { props: { onPress: () => void } }
+    event.props.onPress()
+
+    expect(navigation.navigate).toBeCalledWith('ContactStack', {
+      screen: 'CredentialDetails',
+      params: { credentialId: 'credential-id' },
+    })
   })
 
   it('uses the current connection for the connected message', async () => {

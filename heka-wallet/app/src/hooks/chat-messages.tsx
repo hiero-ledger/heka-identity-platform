@@ -215,7 +215,7 @@ export const useChatMessagesByConnection = (connection: DidCommConnectionRecord)
         if (record.state === DidCommCredentialState.Done) {
           navigation.navigate(Stacks.ContactStack as any, {
             screen: Screens.CredentialDetails,
-            params: { credential: record },
+            params: { credentialId: record.id },
           })
         }
         if (record.state === DidCommCredentialState.OfferReceived) {
