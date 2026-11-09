@@ -305,6 +305,8 @@ const translation = {
     "EnterNewPinText": "Choose a new PIN for your wallet. Make sure it's something you'll remember. If you forget it, you may need to set up your wallet again and re-add your credentials.",
     "ReEnterNewPinTitle": "Re-enter the new PIN",
     "ReEnterNewPinText": "Please confirm the new PIN to secure your wallet. If you forget it, you may need to set up your wallet again and re-add your credentials.",
+    "PinChangeFailedTitle": "Unable to change the PIN",
+    "PinChangeFailedMessage": "Your PIN was not changed. Please try again.",
   },
   "PINEnter": {
     "EnterPIN": "Enter your wallet PIN"

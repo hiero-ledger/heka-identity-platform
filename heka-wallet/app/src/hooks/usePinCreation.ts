@@ -82,20 +82,25 @@ export const usePinCreation = (
   )
 
   const changePin = useCallback(
-    async (oldPIN: string, newPIN: string) => {
-      if (!agent) return
-
-      const success = await rekeyWallet(agent, oldPIN, newPIN, store.preferences.useBiometry)
-      if (success) {
-        setModalState({
-          visible: true,
-          title: t('PINChange.PinChangeSuccessTitle'),
-          message: t('PINChange.PinChangeSuccessMessage'),
-          onModalDismiss: () => {
-            navigation.navigate(Screens.Settings as never)
-          },
-        })
-      }
+    async (oldPIN: string, newPIN: string): Promise<boolean> => {
+      const success = !!agent && (await rekeyWallet(agent, oldPIN, newPIN, store.preferences.useBiometry))
+      setModalState(
+        success
+          ? {
+              visible: true,
+              title: t('PINChange.PinChangeSuccessTitle'),
+              message: t('PINChange.PinChangeSuccessMessage'),
+              onModalDismiss: () => {
+                navigation.navigate(Screens.Settings as never)
+              },
+            }
+          : {
+              visible: true,
+              title: t('PINCreate.PinChangeFailedTitle'),
+              message: t('PINCreate.PinChangeFailedMessage'),
+            }
+      )
+      return success
     },
     [agent, rekeyWallet, store.preferences.useBiometry, t, navigation]
   )
@@ -162,12 +167,15 @@ export const usePinCreation = (
 
       setIsPinChecking(true)
       try {
-        updatePin ? await changePin(PINOld, PIN) : await createPin(PIN)
+        if (!updatePin) {
+          await createPin(PIN)
+          return true
+        }
+        // A failed change clears the key pad so the user can confirm the new PIN again
+        return await changePin(PINOld, PIN)
       } finally {
         setIsPinChecking(false)
       }
-
-      return true
     },
     [PIN, PINOld, changePin, createPin, t, updatePin]
   )

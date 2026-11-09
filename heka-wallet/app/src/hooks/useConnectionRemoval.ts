@@ -1,11 +1,15 @@
 import { BifoldError, EventTypes } from '@bifold/core'
 import { useCredentialByState } from '@bifold/react-hooks'
 import { DidCommConnectionRecord, DidCommCredentialState } from '@credo-ts/didcomm'
+import { GlobalLogger } from '@heka-wallet/shared'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
 
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
+
+const logger = GlobalLogger.createContextLogger('ConnectionRemoval')
 
 interface ConnectionRemoval {
   hasCredentials: boolean
@@ -14,8 +18,8 @@ interface ConnectionRemoval {
 }
 
 /**
- * Deletes a DIDComm connection. `onRemoved` runs after a successful delete; a failure is reported
- * through the Bifold error event (1037).
+ * Deletes a DIDComm connection. `onRemoved` runs after a successful delete and is only logged if it
+ * throws; a failed delete is reported through the Bifold error event (1037).
  */
 export function useConnectionRemoval(connection: DidCommConnectionRecord, onRemoved: () => void): ConnectionRemoval {
   const { agent } = useHekaAgent()
@@ -34,17 +38,28 @@ export function useConnectionRemoval(connection: DidCommConnectionRecord, onRemo
       return
     }
 
+    let removed = false
     try {
       setIsRemoving(true)
 
       await agent.didcomm.connections.deleteById(connection.id)
-
-      onRemoved()
+      removed = true
     } catch (err: unknown) {
       const error = new BifoldError(t('Error.Title1037'), t('Error.Message1037'), (err as Error)?.message ?? err, 1037)
       DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
     } finally {
       setIsRemoving(false)
+    }
+    if (!removed) return
+
+    // The delete succeeded; a failure after it is not a failed delete (1037)
+    try {
+      onRemoved()
+    } catch (error: unknown) {
+      logger.error('Failed to finish the connection removal', {
+        connectionId: connection.id,
+        error: formatError(error),
+      })
     }
   }, [agent, connection, onRemoved, t])
 

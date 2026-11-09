@@ -1,4 +1,6 @@
+import { BifoldError } from '@bifold/core'
 import { renderHook, waitFor } from '@testing-library/react-native'
+import { DeviceEventEmitter } from 'react-native'
 
 import { useContacts } from '../../src/utils/useContacts'
 
@@ -79,5 +81,26 @@ describe('useContacts', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.contacts).toEqual([contact])
+  })
+
+  it('reports error 1046 and stops loading when the messages cannot be loaded', async () => {
+    const emit = jest.spyOn(DeviceEventEmitter, 'emit')
+    const failure = new Error('Storage unavailable')
+    mockAgent.didcomm.basicMessages.findAllByQuery.mockRejectedValueOnce(failure)
+    mockConnections = {
+      records: [
+        { id: 'contact', connectionTypes: [], state: 'completed', theirLabel: 'Issuer', createdAt: new Date() },
+      ],
+    }
+
+    const { result } = renderHook(() => useContacts())
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(BifoldError).toBeCalledTimes(1)
+    expect(BifoldError).toBeCalledWith('Error.Title1046', 'Error.Message1046', 'Storage unavailable', 1046)
+    expect(emit).toBeCalledWith('ERROR_ADDED', jest.mocked(BifoldError).mock.instances[0])
+    expect(mockAgent.config.logger.error).toBeCalledWith('Error fetching contacts:', failure)
+    expect(result.current.contacts).toEqual([])
+    emit.mockRestore()
   })
 })

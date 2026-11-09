@@ -57,7 +57,14 @@ jest.mock('../../src/components/misc/PinKeyPad', () => ({
     return null
   },
 }))
-jest.mock('../../src/components/modals/AlertModal', () => ({ AlertModal: () => null }))
+jest.mock('../../src/components/modals/AlertModal', () => {
+  const { createElement } = jest.requireActual<typeof import('react')>('react')
+  const { Text } = jest.requireActual<typeof import('react-native')>('react-native')
+  return {
+    AlertModal: ({ title, visible }: { title: string; visible: boolean }) =>
+      visible ? createElement(Text, { testID: 'AlertModal' }, title) : null,
+  }
+})
 jest.mock('../../src/components/views/LoadingView', () => {
   const { createElement } = jest.requireActual<typeof import('react')>('react')
   const { View } = jest.requireActual<typeof import('react-native')>('react-native')
@@ -65,10 +72,13 @@ jest.mock('../../src/components/views/LoadingView', () => {
 })
 jest.mock('../../src/utils/agent', () => ({ useHekaAgent: () => ({ agent: mockAgent }) }))
 
+// Resolves to what the handler returns; false makes PinKeyPad clear the entered PIN.
 const enterPIN = async (PIN: string) => {
+  let accepted: boolean | undefined
   await act(async () => {
-    await mockOnPinEntered?.(PIN)
+    accepted = await mockOnPinEntered?.(PIN)
   })
+  return accepted
 }
 
 // Caught inside act as PinKeyPad does; a rejected act callback drops the queued state updates.
@@ -133,6 +143,39 @@ describe('PINCreate', () => {
     await enterPIN('222222')
 
     expect(await enterPINExpectingError('222222')).toEqual(new Error('Rekey failed'))
+    expect(queryByTestId('Loader')).toBeNull()
+  })
+
+  it('shows the success modal and accepts the PIN when the rekey succeeds', async () => {
+    mockRekeyWallet.mockResolvedValueOnce(true)
+    const props = {
+      setAuthenticated: jest.fn(),
+      route: { key: 'CreatePIN', name: 'CreatePIN', params: { updatePin: true } },
+      navigation: {},
+    } as unknown as React.ComponentProps<typeof PINCreate>
+
+    const { getByTestId } = render(<PINCreate {...props} />)
+    await enterPIN('111111')
+    await enterPIN('222222')
+
+    expect(await enterPIN('222222')).toBe(true)
+    expect(getByTestId('AlertModal')).toHaveTextContent('PINChange.PinChangeSuccessTitle')
+  })
+
+  it('shows an error and clears the key pad when the rekey returns false', async () => {
+    mockRekeyWallet.mockResolvedValueOnce(false)
+    const props = {
+      setAuthenticated: jest.fn(),
+      route: { key: 'CreatePIN', name: 'CreatePIN', params: { updatePin: true } },
+      navigation: {},
+    } as unknown as React.ComponentProps<typeof PINCreate>
+
+    const { getByTestId, queryByTestId } = render(<PINCreate {...props} />)
+    await enterPIN('111111')
+    await enterPIN('222222')
+
+    expect(await enterPIN('222222')).toBe(false)
+    expect(getByTestId('AlertModal')).toHaveTextContent('PINCreate.PinChangeFailedTitle')
     expect(queryByTestId('Loader')).toBeNull()
   })
 })

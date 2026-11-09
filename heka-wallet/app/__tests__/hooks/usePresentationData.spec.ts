@@ -1,5 +1,5 @@
 import { DidCommProofExchangeRecord } from '@credo-ts/didcomm'
-import { renderHook, waitFor } from '@testing-library/react-native'
+import { act, renderHook, waitFor } from '@testing-library/react-native'
 
 import { mockFunction } from '../../../jest-helpers/helpers'
 import { preparePresentationData, useCredentials } from '../../src/credentials'
@@ -13,6 +13,20 @@ jest.mock('../../src/utils/agent', () => ({ useHekaAgent: jest.fn() }))
 
 const record = { id: 'proof-id' } as DidCommProofExchangeRecord
 const noCredentials: never[] = []
+
+type PresentationData = Awaited<ReturnType<typeof preparePresentationData>>
+
+// A preparation the test finishes by hand, to control which run ends first.
+const deferPreparation = () => {
+  let resolve: (data: PresentationData) => void = () => undefined
+  mockFunction(preparePresentationData).mockReturnValueOnce(new Promise((r) => (resolve = r)))
+  return (data: PresentationData) => resolve(data)
+}
+
+const renderForProof = (proof: DidCommProofExchangeRecord) =>
+  renderHook(({ proof }: { proof: DidCommProofExchangeRecord }) => usePresentationData(proof), {
+    initialProps: { proof },
+  })
 
 describe('usePresentationData', () => {
   beforeEach(() => {
@@ -97,5 +111,34 @@ describe('usePresentationData', () => {
       proofExchangeRecordId: record.id,
       error: error.stack,
     })
+  })
+
+  it('shows loading instead of the previous record data while a new record is prepared', async () => {
+    const firstData = [{ shared: [] }] as unknown as PresentationData
+    mockFunction(preparePresentationData).mockResolvedValueOnce(firstData)
+    const { result, rerender } = renderForProof(record)
+    await waitFor(() => expect(result.current.presentationData).toBe(firstData))
+    const finishSecond = deferPreparation()
+
+    rerender({ proof: { id: 'other-proof-id' } as DidCommProofExchangeRecord })
+
+    expect(result.current).toEqual({ isLoading: true })
+    const secondData = [{ shared: [] }] as unknown as PresentationData
+    await act(async () => finishSecond(secondData))
+    expect(result.current).toEqual({ presentationData: secondData, isLoading: false })
+  })
+
+  it('keeps the newer result when an older run finishes last', async () => {
+    const finishFirst = deferPreparation()
+    const finishSecond = deferPreparation()
+    const { result, rerender } = renderForProof(record)
+    rerender({ proof: { id: 'other-proof-id' } as DidCommProofExchangeRecord })
+
+    const newerData = [{ shared: ['newer'] }] as unknown as PresentationData
+    await act(async () => finishSecond(newerData))
+    await act(async () => finishFirst([{ shared: ['older'] }] as unknown as PresentationData))
+
+    expect(preparePresentationData).toBeCalledTimes(2)
+    expect(result.current.presentationData).toBe(newerData)
   })
 })

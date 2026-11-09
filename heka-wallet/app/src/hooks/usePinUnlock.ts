@@ -86,19 +86,8 @@ export const usePinUnlock = (usage: PINEntryUsage, setAuthenticated: (status: bo
   )
 
   const clearAlertModal = useCallback(() => {
-    switch (usage) {
-      case PINEntryUsage.PINCheck:
-        setAlertModalVisible(false)
-        setAuthenticated(false)
-        break
-
-      default:
-        setAlertModalVisible(false)
-
-        break
-    }
-
     setAlertModalVisible(false)
+    if (usage === PINEntryUsage.PINCheck) setAuthenticated(false)
   }, [setAuthenticated, usage])
 
   const verifyPIN = useCallback(
@@ -138,11 +127,9 @@ export const usePinUnlock = (usage: PINEntryUsage, setAuthenticated: (status: bo
       if (PIN.length !== minPINLength) return false
 
       if (usage === PINEntryUsage.PINCheck) {
+        // verifyPIN shows the alert for a wrong PIN; a failed check is reported as error 1042 instead
         const valid = await verifyPIN(PIN)
-        if (!valid) {
-          setAlertModalVisible(true)
-          return false
-        }
+        if (!valid) return false
       }
 
       if (usage === PINEntryUsage.WalletUnlock) {

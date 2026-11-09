@@ -11,6 +11,12 @@ import { unlockDcApiAgent } from '../utils/unlockDcApiAgent'
 
 const logger = GlobalLogger.createContextLogger('DcApiSharing')
 
+// Best-effort cleanup, the activity is finishing regardless
+const shutdownAgent = (agent: HekaWalletAgent) =>
+  agent
+    .shutdown()
+    .catch((error: unknown) => agent.config.logger.warn('DC API agent shutdown failed', { error: formatError(error) }))
+
 interface DcApiSharing {
   // Resolves to false when the PIN is wrong and the key pad should be cleared for another try.
   onPinEntered: (pin: string) => Promise<boolean>
@@ -43,8 +49,15 @@ export const useDcApiSharing = (request: DigitalCredentialsRequest): DcApiSharin
         logger.error('Failed to open the wallet for a Digital Credentials API request', {
           error: formatError(error),
         })
+        if (completedRef.current) return true
         completedRef.current = true
         dcApiSendErrorResponse('Unable to open the wallet')
+        return true
+      }
+
+      // Cancelled while the wallet was unlocking; the response is already sent
+      if (completedRef.current) {
+        if (agent) await shutdownAgent(agent)
         return true
       }
 
@@ -66,12 +79,7 @@ export const useDcApiSharing = (request: DigitalCredentialsRequest): DcApiSharin
         dcApiSendErrorResponse(error instanceof Error ? error.message : 'Unable to share the credential')
         return true
       } finally {
-        // Best-effort cleanup, the activity is finishing regardless
-        await agent
-          .shutdown()
-          .catch((error: unknown) =>
-            agent.config.logger.warn('DC API agent shutdown failed', { error: formatError(error) })
-          )
+        await shutdownAgent(agent)
       }
     },
     [request, hashPIN]

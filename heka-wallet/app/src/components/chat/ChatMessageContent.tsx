@@ -19,7 +19,17 @@ const useStyles = ({ ColorPalette }: HekaTheme) =>
     },
   })
 
+// A chat link comes from a message the other party sent; only web and mail links may open
+const allowedLinkSchemes = ['http', 'https', 'mailto']
+const linkSchemeRegex = /^([a-z][a-z\d+.-]*):/i
+
 const openLink = (link: string) => {
+  const scheme = linkSchemeRegex.exec(link.trim())?.[1]?.toLowerCase()
+  if (!scheme || !allowedLinkSchemes.includes(scheme)) {
+    logger.warn('Refused to open a chat link with a disallowed scheme', { scheme })
+    return
+  }
+
   Linking.openURL(link).catch((error: unknown) =>
     logger.warn('Failed to open a chat link', { link, error: formatError(error) })
   )

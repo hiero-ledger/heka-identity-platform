@@ -29,8 +29,9 @@ import { formatError } from '../utils/error'
 
 const logger = GlobalLogger.createContextLogger('ChatMessages')
 
-const linkRegex = /(?:https?:\/\/\w+(?:\.\w+)+\S*)|(?:[\w.-]+@\w+(?:\.\w+)+)/gim
-const mailRegex = /^[\w.-]+@\w+(?:\.\w+)+$/im
+// Host labels may contain hyphens (my-issuer.example)
+const linkRegex = /(?:https?:\/\/[\w-]+(?:\.[\w-]+)+\S*)|(?:[\w.-]+@[\w-]+(?:\.[\w-]+)+)/gim
+const mailRegex = /^[\w.-]+@[\w-]+(?:\.[\w-]+)+$/im
 
 // Splits a basic message into plain text and links; an email address opens as mailto:
 const toTextSegments = (content: string): MessageTextSegment[] => {

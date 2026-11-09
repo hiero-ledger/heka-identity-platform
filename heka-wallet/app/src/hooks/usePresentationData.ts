@@ -31,15 +31,23 @@ export function usePresentationData(record: DidCommProofExchangeRecord): Present
   useEffect(() => {
     if (!agent || isCredentialsLoading || fatalCredentialsError) return
 
+    // A newer run replaces the result of one still in progress; until it finishes, nothing stale is shown
+    let cancelled = false
+    setState({ isLoading: true })
     preparePresentationData(record, agent, credentials)
-      .then((presentationData) => setState({ presentationData, isLoading: false }))
+      .then((presentationData) => {
+        if (!cancelled) setState({ presentationData, isLoading: false })
+      })
       .catch((error: unknown) => {
         agent.config.logger.error('Failed to prepare shared proof data', {
           proofExchangeRecordId: record.id,
           error: formatError(error),
         })
-        setState({ isLoading: false, error })
+        if (!cancelled) setState({ isLoading: false, error })
       })
+    return () => {
+      cancelled = true
+    }
   }, [record, credentials, isCredentialsLoading, fatalCredentialsError, agent])
 
   if (!agent) return { isLoading: false, error: agentUnavailableError }

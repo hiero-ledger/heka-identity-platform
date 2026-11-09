@@ -304,7 +304,9 @@ const translation = {
     "EnterNewPinTitle": "Entrez un nouveau code PIN",
     "EnterNewPinText": "Choisissez un nouveau code PIN pour votre portefeuille. Assurez-vous qu'il s'agisse de quelque chose dont vous vous souviendrez. Si vous l'oubliez, vous devrez peut-être reconfigurer votre portefeuille et réajouter vos certificats.",
     "ReEnterNewPinTitle": "Confirmez le nouveau code PIN",
-    "ReEnterNewPinText": "Veuillez confirmer le nouveau code PIN pour sécuriser votre portefeuille. Si vous l'oubliez, vous devrez peut-être reconfigurer votre portefeuille et réajouter vos certificats."
+    "ReEnterNewPinText": "Veuillez confirmer le nouveau code PIN pour sécuriser votre portefeuille. Si vous l'oubliez, vous devrez peut-être reconfigurer votre portefeuille et réajouter vos certificats.",
+    "PinChangeFailedTitle": "Impossible de changer le code PIN",
+    "PinChangeFailedMessage": "Votre code PIN n'a pas été modifié. Veuillez réessayer."
   },
   "PINEnter": {
     "EnterPIN": "Entrez le code PIN de votre portefeuille"
