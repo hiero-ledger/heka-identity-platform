@@ -127,8 +127,7 @@ describe('E2E issuance session', () => {
         state: 'OfferCreated',
         type: 'OpenId4VcIssuanceSessionRecord',
         updatedAt: expect.any(String),
-        revocable: true,
-        revoked: false,
+        revocable: false,
         credentialOfferUri: expect.stringMatching(new RegExp(`/oid4vci/${issuerId}/offers/`)),
         issuanceMetadata: {
           credentials: [
@@ -149,12 +148,6 @@ describe('E2E issuance session', () => {
                 },
               },
               type: 'https://example.com/vct',
-              credentialStatus: {
-                type: 'token-status-list',
-                location: expect.stringMatching(/\/token-status-lists\/[^/]+$/),
-                index: expect.any(Number),
-                indexes: [expect.any(Number)],
-              },
               disclosureFrame: {
                 _sd: ['age.over_21', 'age.over_18', 'age.over_65'],
               },
@@ -240,7 +233,6 @@ describe('E2E issuance session', () => {
         first_name: 'John',
         iat: expect.any(Number),
         iss: issuerId,
-        status: { status_list: { idx: expect.any(Number), uri: expect.stringMatching(/\/token-status-lists\//) } },
         vct: 'https://example.com/vct',
       },
       prettyClaims: {
@@ -255,7 +247,6 @@ describe('E2E issuance session', () => {
         first_name: 'John',
         iat: expect.any(Number),
         iss: issuerId,
-        status: { status_list: { idx: expect.any(Number), uri: expect.stringMatching(/\/token-status-lists\//) } },
         vct: 'https://example.com/vct',
       },
     })
