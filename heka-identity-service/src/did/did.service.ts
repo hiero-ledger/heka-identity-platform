@@ -1,6 +1,6 @@
 import type { DidDocument, DidRecord, DidResolutionResult } from '@credo-ts/core'
 
-import { DidRepository, parseDid } from '@credo-ts/core'
+import { DidRepository, DidResolverService, parseDid } from '@credo-ts/core'
 import { EntityManager } from '@mikro-orm/core'
 import {
   BadRequestException,
@@ -320,6 +320,8 @@ export class DidService {
           // client gets to see either way
           await this.deleteKeysRemovedOnLedger(tenantAgent, didRecord, options, didRegistrar)
           throw error
+        } finally {
+          await this.invalidateCachedDid(tenantAgent, did)
         }
         await this.deleteRemovedKeys(tenantAgent, didRecord, didDocument, options, didRegistrar)
         return new DidDocumentDto(didDocument)
@@ -364,6 +366,8 @@ export class DidService {
           }
           logger.warn('Deactivation reported a failure, but the ledger shows the DID deactivated')
           return new DidDocumentDto(reconciled, { deactivated: true })
+        } finally {
+          await this.invalidateCachedDid(tenantAgent, did)
         }
         // The registrar updated the record (its document) in the meantime
         const [deactivatedRecord] = await tenantAgent.dids.getCreatedDids({ did })
@@ -421,6 +425,10 @@ export class DidService {
   /** The DID as its ledger has it now, not from a cache or the wallet's own record. */
   private async resolveFromLedger(tenantAgent: TenantAgent, did: string): Promise<DidResolutionResult> {
     return await tenantAgent.dids.resolve(did, { useCache: false, useLocalCreatedDidRecord: false })
+  }
+
+  private async invalidateCachedDid(tenantAgent: TenantAgent, did: string): Promise<void> {
+    await tenantAgent.dependencyManager.resolve(DidResolverService).invalidateCacheForDid(tenantAgent.context, did)
   }
 
   private async reconcileFailedDeactivation(

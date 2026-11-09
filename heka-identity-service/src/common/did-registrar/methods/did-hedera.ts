@@ -31,8 +31,6 @@ export class DidHederaRegistrar implements DidRegistrar {
   public createDid(tenantAgent: TenantAgent, options: CreateDidOptions): Promise<DidCreateResult> {
     return tenantAgent.dids.create<HederaDidCreateOptions>({
       method: DidHederaRegistrar.method,
-      // Credo takes the controller from the DID document; the DID's own id is assigned on creation
-      // (see `HekaHederaLedgerService`)
       didDocument: options.controller ? new DidDocument({ id: '', controller: [options.controller] }) : undefined,
     })
   }
@@ -41,7 +39,6 @@ export class DidHederaRegistrar implements DidRegistrar {
     const { did, currentDidDocument } = options
     assertRemovableVerificationMethods(currentDidDocument, options.removeVerificationMethods)
     const createdKeys: DidDocumentKey[] = []
-    // Set once an update is handed to Credo: from then on HCS messages may have been sent
     let submitted = false
 
     try {
@@ -62,8 +59,6 @@ export class DidHederaRegistrar implements DidRegistrar {
           })
         }
 
-        // Relationships carry the full verification method: the SDK prepares every message against the document
-        // before the update, where the new key does not exist yet
         const relationships = Object.fromEntries(
           VERIFICATION_PURPOSES.map((purpose) => [
             purpose,
@@ -129,7 +124,6 @@ export class DidHederaRegistrar implements DidRegistrar {
       return {
         didDocumentMetadata: {},
         didRegistrationMetadata: {},
-        // A KMS error names the KMS key id, which is not passed on
         didState: {
           state: 'failed',
           reason: `Unable to update DID: ${error instanceof Kms.KeyManagementError ? 'key management error' : (error as Error).message}`,
@@ -138,15 +132,10 @@ export class DidHederaRegistrar implements DidRegistrar {
     }
   }
 
-  /** Deactivation keeps the keys: AnonCreds revocation topics of the DID are bound to its root key. */
   public deactivateDid(tenantAgent: TenantAgent, did: string): Promise<DidDeactivateResult> {
     return tenantAgent.dids.deactivate({ did })
   }
 
-  /**
-   * Cleanup after a failed update. The new keys are deleted only when nothing was sent to the ledger
-   * (the failure came from the KMS, before any update was handed to Credo).
-   */
   private async afterFailedUpdate(
     tenantAgent: TenantAgent,
     did: string,
@@ -159,17 +148,14 @@ export class DidHederaRegistrar implements DidRegistrar {
       }
       return
     }
-    // The failure of the update is what the caller gets to see, not a failure of this clean-up
     const notVisible = await this.syncDidRecordFromLedger(tenantAgent, did, createdKeys).catch(() => createdKeys.length)
     if (notVisible > 0) {
-      // Key ids are not logged
       tenantAgent.config.logger.warn(
         `did:hedera update failed after messages were sent; ${notVisible} new key(s) not visible on the ledger yet are kept in the wallet`,
       )
     }
   }
 
-  /** Returns how many of the new keys the ledger does not show. */
   private async syncDidRecordFromLedger(
     tenantAgent: TenantAgent,
     did: string,

@@ -123,12 +123,8 @@ export class IndyBesuDidRegistrar implements DidRegistrar {
       const { document: currentDocument } = await didRegistry.resolveDid(did)
       const [currentOwner] = currentDocument.verificationMethod
       const [newOwner] = ledgerDocument.verificationMethod
-      if (
-        !currentOwner ||
-        !newOwner ||
-        currentOwner.id !== newOwner.id ||
-        currentOwner.publicKeyBase58 !== newOwner.publicKeyBase58
-      ) {
+
+      if (!currentOwner || !newOwner || canonicalJson(currentOwner) !== canonicalJson(newOwner)) {
         return failedResult(
           `The owner key ${OWNER_KEY_FRAGMENT} must stay the first verification method, unchanged`,
           NOT_SUBMITTED,

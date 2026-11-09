@@ -1,4 +1,11 @@
-import { DidDocument, DidDocumentRole, DidDocumentService, DidRecord, VerificationMethod } from '@credo-ts/core'
+import {
+  DidDocument,
+  DidDocumentRole,
+  DidDocumentService,
+  DidRecord,
+  DidResolverService,
+  VerificationMethod,
+} from '@credo-ts/core'
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
 import {
@@ -32,6 +39,7 @@ describe('DidService', () => {
   let didRegistrarService: DidRegistrarService
   let tenantAgent: TenantAgent
   let walletLockService: WalletLockService
+  const invalidateCacheForDid = vi.fn()
   const agentConfig = createMock<ConfigType<typeof AgentConfig>>({ didMethods: ['key', 'indy'] })
 
   beforeEach(() => {
@@ -746,7 +754,9 @@ describe('DidService', () => {
       didRepository = { update: vi.fn() }
       Object.assign(tenantAgent, {
         context: {},
-        dependencyManager: { resolve: vi.fn().mockReturnValue(didRepository) },
+        dependencyManager: {
+          resolve: vi.fn((token) => (token === DidResolverService ? { invalidateCacheForDid } : didRepository)),
+        },
       })
       vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecord])
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(ledgerResolution())
@@ -775,6 +785,7 @@ describe('DidService', () => {
           addVerificationMethods: [],
           removeVerificationMethods: ['#key-1'],
         })
+        expect(invalidateCacheForDid).toHaveBeenCalledWith(tenantAgent.context, did)
       })
 
       test('gives new keys the lowest unused #key-<n> (case-insensitive) and the default purposes', async () => {
@@ -1148,6 +1159,7 @@ describe('DidService', () => {
         expect(didRegistrarService.deactivateDid).toHaveBeenCalledWith(tenantAgent, 'hedera', did)
         expect(didRecord.getTag('hekaDeactivated')).toBe(true)
         expect(didRepository.update).toHaveBeenCalledWith(tenantAgent.context, didRecord)
+        expect(invalidateCacheForDid).toHaveBeenCalledWith(tenantAgent.context, did)
       })
 
       test('a DID the wallet deactivated is returned without a ledger write (idempotent)', async () => {

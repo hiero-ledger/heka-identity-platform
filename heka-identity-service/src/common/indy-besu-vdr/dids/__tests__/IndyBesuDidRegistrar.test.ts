@@ -300,6 +300,28 @@ describe('IndyBesuDidRegistrar', () => {
       expect(context.kms.deleteKey).not.toHaveBeenCalled()
     })
 
+    const multibaseOnly = { publicKeyBase58: undefined, publicKeyMultibase: 'zOwner' }
+    test.each([
+      // Without base58 on both sides, the check must still compare the key
+      ['another multibase key, both without base58', multibaseOnly, { ...multibaseOnly, publicKeyMultibase: 'zOther' }],
+      ['an added multibase key', {}, { publicKeyMultibase: 'zOther' }],
+      ['another type', {}, { type: 'Ed25519VerificationKey2020' }],
+    ])('update: an owner key with %s is rejected', async (_case, current, change) => {
+      const owner = (props: Partial<VerificationMethod>) => new VerificationMethod({ ...ownerKey, ...props })
+      context.didRegistry.resolveDid.mockResolvedValue({
+        document: toIndyBesuDidDocument(document({ verificationMethod: [owner(current)] })),
+        metadata: { deactivated: false },
+      })
+
+      const result = await registrar.update(context.agentContext, {
+        did: DID,
+        didDocument: document({ verificationMethod: [owner(change)] }),
+      })
+
+      expect(result.didState).toMatchObject({ state: 'failed', reason: expect.stringContaining('#KEY-1') })
+      expect(context.didRegistry.updateDid).not.toHaveBeenCalled()
+    })
+
     test('update: a DID that is not in the wallet fails without a write', async () => {
       context.didRepository.findCreatedDid.mockResolvedValue(null)
 
