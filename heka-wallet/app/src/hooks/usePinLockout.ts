@@ -17,7 +17,6 @@ export const getLockoutPenalty = (attempts: number): number | undefined => {
 interface PinLockout {
   // True when the next wrong PIN locks the wallet out.
   displayLockoutWarning: boolean
-  unMarkServedPenalty: () => void
 }
 
 // Applies Bifold's attempt lockout penalty on the login attempt counter in the store.
@@ -25,23 +24,6 @@ export const usePinLockout = (): PinLockout => {
   const [store, dispatch] = useStore()
   const navigation = useNavigation()
   const [displayLockoutWarning, setDisplayLockoutWarning] = useState(false)
-
-  // This method is used to notify the app that the user is able to receive another lockout penalty.
-  // `servedPenalty: undefined` (not `false`) is intentional: `false` flips the AttemptLockout
-  // onboarding task to incomplete, briefly making it the activeScreen and unmounting PINEnter.
-  // See node_modules/@bifold/core/src/hooks/lockout.ts (useUnMarkServedPenalty).
-  const unMarkServedPenalty = useCallback(() => {
-    dispatch({
-      type: DispatchAction.ATTEMPT_UPDATED,
-      payload: [
-        {
-          loginAttempts: store.loginAttempt.loginAttempts,
-          lockoutDate: undefined,
-          servedPenalty: undefined,
-        },
-      ],
-    })
-  }, [dispatch, store.loginAttempt.loginAttempts])
 
   const attemptLockout = useCallback(
     (penalty: number) => {
@@ -80,5 +62,5 @@ export const usePinLockout = (): PinLockout => {
     setDisplayLockoutWarning(displayWarning)
   }, [store.loginAttempt.loginAttempts, store.loginAttempt.servedPenalty, attemptLockout])
 
-  return { displayLockoutWarning, unMarkServedPenalty }
+  return { displayLockoutWarning }
 }

@@ -12,6 +12,10 @@ import { Record } from './Record'
 
 const useStyles = ({ ColorPalette, Spacing, TextTheme }: HekaTheme) => {
   return StyleSheet.create({
+    loadError: {
+      ...TextTheme.normal,
+      color: ColorPalette.semantic.error,
+    },
     container: {
       flexGrow: 1,
     },
@@ -53,7 +57,7 @@ const SharedProofData: React.FC<SharedProofDataProps> = ({ record }) => {
   return (
     <View style={styles.container}>
       <SectionCard title={t('Proof.SharedInformation')}>
-        {!!error && (
+        {!!(error || credentialsError) && (
           <Text style={styles.error}>{t(credentialsError ? 'Credentials.LoadFailed' : 'Error.Problem')}</Text>
         )}
         <FlatList

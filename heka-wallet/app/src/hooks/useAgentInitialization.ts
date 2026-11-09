@@ -1,5 +1,6 @@
 import { DispatchAction, useAuth, useStore, TOKENS, EventTypes, BifoldError, useServices } from '@bifold/core'
 import { DidCommHttpOutboundTransport, DidCommWsOutboundTransport } from '@credo-ts/didcomm'
+import { GlobalLogger } from '@heka-wallet/shared'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DeviceEventEmitter } from 'react-native'
@@ -9,13 +10,18 @@ import { indyBesuConfig, isExampleCredentialEnabled, isPublicInvitationEnabled }
 import {
   createAgent,
   createPublicDidOrGetExisting,
-  createPublicInvitationOrGetExisting,
+  createPublicInvitationWhenMediatorReady,
   ensureExampleCredentialCreated,
-  setupMediatorWithPublicDidIfNeeded,
+  getMediatorSource,
+  HekaWalletAgent,
+  OnMediatorReady,
+  trySetupMediator,
   tryRestartExistingAgent,
   createAnoncredsLinkSecretIfRequired,
   useHekaAgent,
 } from '../utils/agent'
+
+const fileLogger = GlobalLogger.createContextLogger('AgentInitialization')
 
 /**
  * Creates (or restarts) the wallet agent once the user has authenticated and considered biometry.
@@ -55,6 +61,20 @@ export const useAgentInitialization = (enabled: boolean): void => {
       return
     }
 
+    // The public invitation is created only once the default mediator is set up,
+    // otherwise it would not be able to receive DIDComm messages
+    const getOnMediatorReady = (targetAgent: HekaWalletAgent): OnMediatorReady | undefined => {
+      if (!isPublicInvitationEnabled) return undefined
+
+      return async () => {
+        const invitationUrl = await createPublicInvitationWhenMediatorReady(
+          targetAgent,
+          store.preferences.walletName ?? 'Heka Wallet'
+        )
+        logger.info(`Public invitation URL: ${invitationUrl}`)
+      }
+    }
+
     const initAgent = async (): Promise<void> => {
       isInitInProgressRef.current = true
       try {
@@ -64,12 +84,23 @@ export const useAgentInitialization = (enabled: boolean): void => {
           return
         }
 
+        const mediatorSource = getMediatorSource(
+          { mediatorUrl: Config.MEDIATOR_URL, mediatorPublicDid: Config.MEDIATOR_PUBLIC_DID },
+          logger
+        )
+
         if (agent) {
           logger.info('Agent already initialized, restarting...')
 
           const isAgentRestarted = await tryRestartExistingAgent(agent, walletSecret)
 
           if (isAgentRestarted) {
+            // Public DID already exists here, so there is no need to wait for the mediator.
+            // The public invitation, if it does not exist yet, is created once the mediator is set up.
+            if (mediatorSource) {
+              void trySetupMediator(agent, mediatorSource, getOnMediatorReady(agent))
+            }
+
             // The onboarding workflow transitions to the main stack automatically once
             // the agent is set — no navigation needed here.
             return
@@ -102,21 +133,25 @@ export const useAgentInitialization = (enabled: boolean): void => {
           })
         }
 
-        if (Config.MEDIATOR_PUBLIC_DID) {
-          await setupMediatorWithPublicDidIfNeeded(newAgent, Config.MEDIATOR_PUBLIC_DID)
+        // If the mediator is set up right away, the public invitation is created here, before the agent is set.
+        // Otherwise it is created later, when the background mediator setup succeeds.
+        if (mediatorSource) {
+          await trySetupMediator(newAgent, mediatorSource, getOnMediatorReady(newAgent))
+        } else {
+          logger.warn(
+            'Neither MEDIATOR_URL nor MEDIATOR_PUBLIC_DID is set, inbound DIDComm messages will not be received'
+          )
+          if (isPublicInvitationEnabled) {
+            logger.warn(
+              'Neither MEDIATOR_URL nor MEDIATOR_PUBLIC_DID is set, the public invitation is not created because it requires a mediator'
+            )
+          }
         }
 
+        // The public DID is created even if the mediator is not set up yet. OpenID4VC flows don't use it; if it lacks
+        // mediator routing, the public invitation uses inline services instead (see 'createPublicInvitationOrGetExisting')
         const publicDid = await createPublicDidOrGetExisting(newAgent)
         logger.info(`Public DID: ${publicDid}`)
-
-        if (isPublicInvitationEnabled) {
-          const invitationUrl = await createPublicInvitationOrGetExisting(
-            newAgent,
-            publicDid,
-            store.preferences.walletName ?? 'Heka Wallet'
-          )
-          logger.info(`Public invitation URL: ${invitationUrl}`)
-        }
 
         if (isExampleCredentialEnabled) {
           await ensureExampleCredentialCreated(newAgent)
@@ -128,6 +163,8 @@ export const useAgentInitialization = (enabled: boolean): void => {
         // The onboarding workflow transitions to the main stack automatically once
         // the agent is set — no navigation needed here.
       } catch (err: unknown) {
+        // The Bifold logger does not reach log.txt; keep the stack for diagnosis.
+        fileLogger.error('Agent initialization failed:', (err as Error)?.stack ?? err)
         const error = new BifoldError(
           t('Error.Title1045'),
           t('Error.Message1045'),

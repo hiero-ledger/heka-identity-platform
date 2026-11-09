@@ -146,7 +146,7 @@ export class OAuthStore {
       const keychainCredentials = await Keychain.getGenericPassword(OAuthStore.keychainOptions)
       if (keychainCredentials) {
         const authState = JSON.parse(keychainCredentials.password)
-      logger.debug('Loaded auth state, access token expires at:', authState.accessTokenExpirationDate)
+        logger.debug('Loaded auth state, access token expires at:', authState.accessTokenExpirationDate)
 
         runInAction(() => (this._authState = authState))
       }

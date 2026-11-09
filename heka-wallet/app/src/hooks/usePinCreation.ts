@@ -103,8 +103,12 @@ export const usePinCreation = (
   const onPinOldSet = useCallback(
     async (value: string) => {
       setIsPinChecking(true)
-      const valid = await checkWalletPIN(value)
-      setIsPinChecking(false)
+      let valid: boolean
+      try {
+        valid = await checkWalletPIN(value)
+      } finally {
+        setIsPinChecking(false)
+      }
 
       if (!valid) {
         setModalState({
@@ -157,10 +161,11 @@ export const usePinCreation = (
       }
 
       setIsPinChecking(true)
-
-      updatePin ? await changePin(PINOld, PIN) : await createPin(PIN)
-
-      setIsPinChecking(false)
+      try {
+        updatePin ? await changePin(PINOld, PIN) : await createPin(PIN)
+      } finally {
+        setIsPinChecking(false)
+      }
 
       return true
     },

@@ -56,7 +56,7 @@ const credential = {
 
 describe('CredentialList', () => {
   it('shows the empty wallet message when nothing failed', () => {
-    mockFunction(useCredentials).mockReturnValue({ credentials: [], isLoading: false })
+    mockFunction(useCredentials).mockReturnValue({ credentials: [], isLoading: false, isPartial: false })
 
     render(<CredentialList />)
 
@@ -65,7 +65,12 @@ describe('CredentialList', () => {
   })
 
   it('shows the load error instead of the empty wallet message', () => {
-    mockFunction(useCredentials).mockReturnValue({ credentials: [], isLoading: false, error: new Error('Failed') })
+    mockFunction(useCredentials).mockReturnValue({
+      credentials: [],
+      isLoading: false,
+      error: new Error('Failed'),
+      isPartial: false,
+    })
 
     render(<CredentialList />)
 
@@ -78,6 +83,7 @@ describe('CredentialList', () => {
       credentials: [credential] as never,
       isLoading: false,
       error: new Error('Failed'),
+      isPartial: true,
     })
 
     render(<CredentialList />)

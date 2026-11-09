@@ -27,7 +27,7 @@ export const usePinUnlock = (usage: PINEntryUsage, setAuthenticated: (status: bo
   const [store, dispatch] = useStore()
   const [alertModalVisible, setAlertModalVisible] = useState<boolean>(false)
   const [isPinChecking, setIsPinChecking] = useState(false)
-  const { displayLockoutWarning, unMarkServedPenalty } = usePinLockout()
+  const { displayLockoutWarning } = usePinLockout()
 
   const unlockWalletWithPIN = useCallback(
     async (PIN: string) => {
@@ -35,11 +35,10 @@ export const usePinUnlock = (usage: PINEntryUsage, setAuthenticated: (status: bo
         setIsPinChecking(true)
         const result = await checkWalletPIN(PIN)
 
-        if (store.loginAttempt.servedPenalty) {
-          // once the user starts entering their PIN, unMark them as having served their lockout penalty
-          unMarkServedPenalty()
-        }
-
+        // ATTEMPT_UPDATED replaces loginAttempt, so the update below also clears a served penalty
+        // (servedPenalty and lockoutDate become undefined). It must stay one dispatch: on Android's
+        // legacy root a separate unmark renders "attempts at a lockout, penalty not served" on its own
+        // and the lockout effect locks the wallet again.
         if (!result) {
           const newAttempt = store.loginAttempt.loginAttempts + 1
           if (!getLockoutPenalty(newAttempt)) {
@@ -83,15 +82,7 @@ export const usePinUnlock = (usage: PINEntryUsage, setAuthenticated: (status: bo
         setIsPinChecking(false)
       }
     },
-    [
-      checkWalletPIN,
-      store.loginAttempt.loginAttempts,
-      store.loginAttempt.servedPenalty,
-      unMarkServedPenalty,
-      dispatch,
-      setAuthenticated,
-      t,
-    ]
+    [checkWalletPIN, store.loginAttempt.loginAttempts, dispatch, setAuthenticated, t]
   )
 
   const clearAlertModal = useCallback(() => {

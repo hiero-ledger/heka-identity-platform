@@ -11,6 +11,7 @@ jest.mock('@bifold/core', () => {
     Button: () => null,
     ButtonType: { Primary: 'Primary', Secondary: 'Secondary' },
     DispatchAction: { DID_COMPLETE_TUTORIAL: 'onboarding/didCompleteTutorial' },
+    testIdWithKey: (key: string) => key,
     useStore: () => [store, dispatch],
   }
 })

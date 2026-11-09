@@ -62,6 +62,7 @@ describe('useCredentials', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.error).toBe(error)
+    expect(result.current.isPartial).toBe(false)
     expect(result.current.credentials).toEqual([])
     expect(mockAgent.config.logger.error).toBeCalledWith('Failed to load credentials', { error: error.stack })
   })
@@ -76,6 +77,7 @@ describe('useCredentials', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.error).toBe(error)
+    expect(result.current.isPartial).toBe(true)
     expect(result.current.credentials).toEqual([credential])
   })
 })

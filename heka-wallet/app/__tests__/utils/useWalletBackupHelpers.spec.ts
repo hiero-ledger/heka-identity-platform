@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native'
-import { downloadFile } from 'react-native-fs'
+import { downloadFile, exists } from 'react-native-fs'
 
 import { mockFunction } from '../../../jest-helpers/helpers'
 import { useWalletBackupHelpers } from '../../src/utils/useWalletBackupHelpers'
@@ -43,7 +43,7 @@ describe('useWalletBackupHelpers.tryDownloadRemoteBackup', () => {
     mockDownload(Promise.resolve({ statusCode: 200 }))
     const { result } = renderHook(() => useWalletBackupHelpers())
 
-    // Success stores the backup path in state, so the call runs inside act.
+    // Every call updates the backup path state, so it runs inside act.
     await act(() => expect(result.current.tryDownloadRemoteBackup('user')).resolves.toBe(true))
   })
 
@@ -51,15 +51,17 @@ describe('useWalletBackupHelpers.tryDownloadRemoteBackup', () => {
     mockDownload(Promise.resolve({ statusCode: 404 }))
     const { result } = renderHook(() => useWalletBackupHelpers())
 
-    await expect(result.current.tryDownloadRemoteBackup('user')).resolves.toBe(false)
+    await act(() => expect(result.current.tryDownloadRemoteBackup('user')).resolves.toBe(false))
   })
 
   it('rejects on any other status code', async () => {
     mockDownload(Promise.resolve({ statusCode: 500 }))
     const { result } = renderHook(() => useWalletBackupHelpers())
 
-    await expect(result.current.tryDownloadRemoteBackup('user')).rejects.toThrow(
-      'Wallet backup download failed with status code: 500'
+    await act(() =>
+      expect(result.current.tryDownloadRemoteBackup('user')).rejects.toThrow(
+        'Wallet backup download failed with status code: 500'
+      )
     )
   })
 
@@ -68,6 +70,19 @@ describe('useWalletBackupHelpers.tryDownloadRemoteBackup', () => {
     mockDownload(Promise.reject(error))
     const { result } = renderHook(() => useWalletBackupHelpers())
 
-    await expect(result.current.tryDownloadRemoteBackup('user')).rejects.toBe(error)
+    await act(() => expect(result.current.tryDownloadRemoteBackup('user')).rejects.toBe(error))
+  })
+
+  it('forgets an earlier backup when a later download fails', async () => {
+    mockFunction(exists).mockResolvedValue(true)
+    const { result } = renderHook(() => useWalletBackupHelpers())
+
+    mockDownload(Promise.resolve({ statusCode: 200 }))
+    await act(() => expect(result.current.tryDownloadRemoteBackup('user')).resolves.toBe(true))
+
+    mockDownload(Promise.resolve({ statusCode: 500 }))
+    await act(() => expect(result.current.tryDownloadRemoteBackup('user')).rejects.toThrow())
+
+    await expect(result.current.restoreWallet()).rejects.toThrow('Backup file does not exist')
   })
 })

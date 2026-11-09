@@ -19,7 +19,7 @@ type OpenId4VciOffer = Parameters<OpenIdHandlers['resolveOpenId4VciOffer']>[0]['
 // token, receives and maps the credential; accept stores it. `onFailed` runs after a failure toast.
 export const useOpenIdCredentialOffer = (offer: OpenId4VciOffer, { onFailed }: { onFailed: () => void }) => {
   const { t } = useTranslation()
-  const { agent, publicDid } = useHekaAgent()
+  const { agent } = useHekaAgent()
 
   const { resolveOpenId4VciOffer, acquireAccessToken, receiveCredentialFromOpenId4VciOffer } = useOpenIdHandlers()
   const { storeCredentialRecord } = useCredentialRecordHelpers()
@@ -34,7 +34,7 @@ export const useOpenIdCredentialOffer = (offer: OpenId4VciOffer, { onFailed }: {
 
   const requestCredential = useCallback(
     async (userPin?: string) => {
-      if (!agent || !publicDid || !offerResolutionResult) return
+      if (!agent || !offerResolutionResult) return
       const { resolvedCredentialOffer } = offerResolutionResult
 
       try {
@@ -67,11 +67,11 @@ export const useOpenIdCredentialOffer = (offer: OpenId4VciOffer, { onFailed }: {
         onFailed()
       }
     },
-    [agent, publicDid, offerResolutionResult, acquireAccessToken, receiveCredentialFromOpenId4VciOffer, t, onFailed]
+    [agent, offerResolutionResult, acquireAccessToken, receiveCredentialFromOpenId4VciOffer, t, onFailed]
   )
 
   useEffect(() => {
-    if (!publicDid) return
+    if (!agent) return
     const resolveCredentialOffer = async () => {
       setIsLoading(true)
       try {
@@ -97,7 +97,7 @@ export const useOpenIdCredentialOffer = (offer: OpenId4VciOffer, { onFailed }: {
       }
     }
     resolveCredentialOffer()
-  }, [publicDid, offer, resolveOpenId4VciOffer, t, onFailed])
+  }, [agent, offer, resolveOpenId4VciOffer, t, onFailed])
 
   useEffect(() => {
     if (!offerResolutionResult) return

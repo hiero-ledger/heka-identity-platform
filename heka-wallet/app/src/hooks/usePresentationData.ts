@@ -9,7 +9,7 @@ interface PresentationDataState {
   presentationData?: PresentationDetails[]
   isLoading: boolean
   error?: unknown
-  // Set when the wallet's credentials could not be loaded; `error` holds the same value
+  // Set when the wallet's credentials did not all load; `error` holds it too unless the load was partial
   credentialsError?: unknown
 }
 
@@ -22,12 +22,14 @@ const agentUnavailableError = new Error('Unable to fetch agent from Credo')
  */
 export function usePresentationData(record: DidCommProofExchangeRecord): PresentationDataState {
   const { agent } = useHekaAgent()
-  const { credentials, isLoading: isCredentialsLoading, error: credentialsError } = useCredentials()
+  const { credentials, isLoading: isCredentialsLoading, error: credentialsError, isPartial } = useCredentials()
+  // A partial load is usable: the credentials of the providers that loaded are still matched
+  const fatalCredentialsError = isPartial ? undefined : credentialsError
 
   const [state, setState] = useState<PresentationDataState>({ isLoading: true })
 
   useEffect(() => {
-    if (!agent || isCredentialsLoading || credentialsError) return
+    if (!agent || isCredentialsLoading || fatalCredentialsError) return
 
     preparePresentationData(record, agent, credentials)
       .then((presentationData) => setState({ presentationData, isLoading: false }))
@@ -38,9 +40,9 @@ export function usePresentationData(record: DidCommProofExchangeRecord): Present
         })
         setState({ isLoading: false, error })
       })
-  }, [record, credentials, isCredentialsLoading, credentialsError, agent])
+  }, [record, credentials, isCredentialsLoading, fatalCredentialsError, agent])
 
   if (!agent) return { isLoading: false, error: agentUnavailableError }
-  if (credentialsError) return { isLoading: false, error: credentialsError, credentialsError }
-  return state
+  if (fatalCredentialsError) return { isLoading: false, error: fatalCredentialsError, credentialsError }
+  return credentialsError ? { ...state, credentialsError } : state
 }

@@ -17,7 +17,7 @@ const noCredentials: never[] = []
 describe('usePresentationData', () => {
   beforeEach(() => {
     mockFunction(useHekaAgent).mockReturnValue({ agent: mockAgent } as unknown as ReturnType<typeof useHekaAgent>)
-    mockFunction(useCredentials).mockReturnValue({ credentials: noCredentials, isLoading: false })
+    mockFunction(useCredentials).mockReturnValue({ credentials: noCredentials, isLoading: false, isPartial: false })
   })
 
   it('stops loading when the wallet holds no credentials', async () => {
@@ -32,7 +32,7 @@ describe('usePresentationData', () => {
   })
 
   it('waits while the credentials are loading', () => {
-    mockFunction(useCredentials).mockReturnValue({ credentials: noCredentials, isLoading: true })
+    mockFunction(useCredentials).mockReturnValue({ credentials: noCredentials, isLoading: true, isPartial: false })
 
     const { result } = renderHook(() => usePresentationData(record))
 
@@ -52,12 +52,37 @@ describe('usePresentationData', () => {
 
   it('returns a credentials load failure without preparing the data', () => {
     const error = new Error('Storage unavailable')
-    mockFunction(useCredentials).mockReturnValue({ credentials: noCredentials, isLoading: false, error })
+    mockFunction(useCredentials).mockReturnValue({
+      credentials: noCredentials,
+      isLoading: false,
+      error,
+      isPartial: false,
+    })
 
     const { result } = renderHook(() => usePresentationData(record))
 
     expect(result.current).toEqual({ isLoading: false, error, credentialsError: error })
     expect(preparePresentationData).not.toBeCalled()
+  })
+
+  it('prepares the data from the credentials that loaded when only a provider failed', async () => {
+    const data = [{ shared: [] }]
+    mockFunction(preparePresentationData).mockResolvedValue(data)
+    const error = new Error('mdoc storage unavailable')
+    mockFunction(useCredentials).mockReturnValue({
+      credentials: noCredentials,
+      isLoading: false,
+      error,
+      isPartial: true,
+    })
+
+    const { result } = renderHook(() => usePresentationData(record))
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.presentationData).toBe(data)
+    expect(result.current.error).toBeUndefined()
+    expect(result.current.credentialsError).toBe(error)
+    expect(preparePresentationData).toBeCalledWith(record, mockAgent, noCredentials)
   })
 
   it('returns and logs a failure to prepare the data', async () => {

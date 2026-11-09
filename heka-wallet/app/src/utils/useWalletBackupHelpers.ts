@@ -54,7 +54,10 @@ export const useWalletBackupHelpers = () => {
   )
 
   // Resolves to false when the user has no backup; any other download failure rejects.
+  // Each attempt overwrites the same file, so an earlier backup is forgotten until this one succeeds.
   const tryDownloadRemoteBackup = useCallback(async (user: string) => {
+    setRemoteBackupPath(null)
+
     const remoteBackupPath = `${DocumentDirectoryPath}/${BACKUP_NAME}-remote.zip`
 
     const { promise: backupDownloadPromise } = downloadFile({

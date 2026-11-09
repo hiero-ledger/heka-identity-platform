@@ -1,5 +1,7 @@
 import { registerAs } from '@nestjs/config'
 
+import { maskSecretsInRequest } from 'common/logger/mask-request'
+
 const transport =
   process.env.NODE_ENV === 'production'
     ? {
@@ -37,4 +39,6 @@ export default registerAs('pino', () => ({
     ],
     censor: '******',
   },
+  // pino-http logs the request URL and query on every line of a request; this masks the OID4VC session secrets in them
+  serializers: { req: maskSecretsInRequest },
 }))

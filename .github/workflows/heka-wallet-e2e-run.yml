@@ -1,0 +1,185 @@
+name: Heka Wallet device e2e run (Maestro, reusable)
+
+# Builds the wallet, boots an Android emulator and runs one suite of Maestro flows.
+# Called by heka-wallet-e2e.yml (no-backend suite) and heka-e2e.yml (backend suite).
+on:
+  workflow_call:
+    inputs:
+      suite:
+        description: Suite name, used in the job name and the results artifact
+        required: true
+        type: string
+      external-auth:
+        description: ENABLE_EXTERNAL_AUTH value for the app build
+        required: true
+        type: boolean
+      backend:
+        description: Start the root Compose stack (Postgres, Keycloak, identity-service)
+        required: true
+        type: boolean
+      maestro-args:
+        description: Arguments passed to Maestro by scripts/e2e-ci.sh
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  # Android emulator settings, shared by the AVD cache key and both emulator steps
+  EMULATOR_API_LEVEL: 34
+  EMULATOR_TARGET: google_apis
+  EMULATOR_ARCH: x86_64
+  # Bump both together: the SHA-256 of maestro.zip is in the release's checksums_sha256.txt
+  MAESTRO_VERSION: 2.11.0
+  MAESTRO_SHA256: 5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a
+
+jobs:
+  e2e-android:
+    defaults:
+      run:
+        working-directory: ./heka-wallet
+    name: Maestro ${{ inputs.suite }} flows (Android emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+
+      - name: Prepare Github Runner
+        uses: pandaswhocode/initialize-github-job@74303607c68fe88ff9b7bfc05c40ca948fa04b13 # v1.5.0
+        with:
+          checkout: 'true'
+          checkout-token: '${{ secrets.GITHUB_TOKEN }}'
+          setup-java: 'true'
+          java-version: '17'
+          java-distribution: 'zulu'
+          java-cache: 'gradle'
+          setup-node: 'true'
+          node-version: '22'
+
+      # Docker images, Gradle, node_modules and the emulator together outgrow the runner's free disk.
+      - name: Free disk space
+        if: inputs.backend
+        working-directory: .
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost "$AGENT_TOOLSDIRECTORY/CodeQL"
+          df -h /
+
+      # Builds and starts in the background while the APK builds; "Wait for the backend" checks it is up.
+      # compose-up.exit records the exit status so a failed build fails the wait at once instead of at its timeout.
+      - name: Start the backend (Postgres, Keycloak, identity-service)
+        if: inputs.backend
+        working-directory: .
+        run: |
+          cp .env.example .env
+          mkdir -p heka-wallet/e2e-output
+          nohup bash -c '
+            docker compose --profile keycloak up -d --build postgres keycloak heka-identity-service
+            echo $? > heka-wallet/e2e-output/compose-up.exit
+          ' > heka-wallet/e2e-output/compose-up.log 2>&1 &
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      # .env.example has ENABLE_EXTERNAL_AUTH=false; the backend suite turns it on to log in through Keycloak.
+      - name: Prepare app env file
+        working-directory: ./heka-wallet/app
+        run: |
+          sed 's/^ENABLE_EXTERNAL_AUTH=.*/ENABLE_EXTERNAL_AUTH=${{ inputs.external-auth }}/' .env.example > .env.ci
+          grep '^ENABLE_EXTERNAL_AUTH=' .env.ci
+
+      # Debug build without the JS bundle: the app loads JS from Metro.
+      - name: Build debug APK
+        working-directory: ./heka-wallet/app/android
+        env:
+          ENVFILE: .env.ci
+        run: ./gradlew assembleDebug --no-daemon -PreactNativeArchitectures=${{ env.EMULATOR_ARCH }}
+
+      - name: Start Metro and warm the bundle
+        run: bash scripts/e2e-start-metro.sh
+
+      - name: Wait for the backend
+        if: inputs.backend
+        run: |
+          bash scripts/e2e-wait-backend.sh
+          docker compose -f ../docker-compose.yml --profile keycloak ps
+
+      # Pinned release archive verified by checksum instead of piping the unpinned get.maestro.mobile.dev installer to bash.
+      - name: Install Maestro
+        working-directory: ${{ runner.temp }}
+        env:
+          MAESTRO_CLI_NO_ANALYTICS: 1
+        run: |
+          curl -fsSL -o maestro.zip "https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
+          echo "${MAESTRO_SHA256}  maestro.zip" | sha256sum --check --strict
+          unzip -q maestro.zip -d "$HOME/.maestro-dist"
+          echo "$HOME/.maestro-dist/maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/.maestro-dist/maestro/bin/maestro" --version
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Cache AVD
+        id: avd-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.EMULATOR_API_LEVEL }}-${{ env.EMULATOR_TARGET }}-${{ env.EMULATOR_ARCH }}
+
+      - name: Create AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ env.EMULATOR_API_LEVEL }}
+          target: ${{ env.EMULATOR_TARGET }}
+          arch: ${{ env.EMULATOR_ARCH }}
+          disk-size: 6000M
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Run Maestro flows
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          MAESTRO_CLI_NO_ANALYTICS: 1
+        with:
+          api-level: ${{ env.EMULATOR_API_LEVEL }}
+          target: ${{ env.EMULATOR_TARGET }}
+          arch: ${{ env.EMULATOR_ARCH }}
+          disk-size: 6000M
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          working-directory: ./heka-wallet
+          script: bash scripts/e2e-ci.sh ${{ inputs.maestro-args }}
+
+      - name: Collect backend logs
+        if: always() && inputs.backend
+        working-directory: .
+        run: |
+          mkdir -p heka-wallet/e2e-output
+          docker compose --profile keycloak ps -a > heka-wallet/e2e-output/compose-ps.txt 2>&1 || true
+          docker compose --profile keycloak logs --no-color > heka-wallet/e2e-output/backend.log 2>&1 || true
+
+      - name: Upload e2e results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: maestro-results-${{ inputs.suite }}
+          path: |
+            heka-wallet/e2e-output/
+            heka-wallet/metro.log
+          if-no-files-found: ignore

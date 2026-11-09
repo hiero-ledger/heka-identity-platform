@@ -6,6 +6,13 @@ import PINEnter from '../../src/screens/PINEnter'
 const mockCheckWalletPIN = jest.fn()
 const mockNavigationDispatch = jest.fn()
 let mockOnPinEntered: ((PIN: string) => Promise<boolean>) | undefined
+let mockInitialLoginAttempt: { loginAttempts: number; lockoutDate?: number; servedPenalty?: boolean } = {
+  loginAttempts: 0,
+}
+const mockAttemptUpdates: unknown[] = []
+// One store for every useStore() call, like Bifold's context: the PIN hooks read each other's updates
+let mockStoreState: MockStoreState | undefined
+const mockStoreListeners = new Set<() => void>()
 
 interface MockStoreState {
   loginAttempt: { loginAttempts: number; lockoutDate?: number; servedPenalty?: boolean }
@@ -37,21 +44,9 @@ jest.mock('@bifold/core', () => {
         return state
     }
   }
-  const initialState: MockStoreState = {
-    loginAttempt: { loginAttempts: 0 },
+  const initialState: Omit<MockStoreState, 'loginAttempt'> = {
     lockout: { displayNotification: false },
     preferences: { useBiometry: false },
-  }
-  // One store shared by every useStore() caller, as Bifold's StoreProvider context is.
-  let state = initialState
-  const listeners = new Set<() => void>()
-  const subscribe = (listener: () => void) => {
-    listeners.add(listener)
-    return () => listeners.delete(listener)
-  }
-  const dispatch = (action: MockStoreAction) => {
-    state = reducer(state, action)
-    listeners.forEach((listener) => listener())
   }
   const auth = {
     checkWalletPIN: (PIN: string) => mockCheckWalletPIN(PIN),
@@ -60,6 +55,19 @@ jest.mock('@bifold/core', () => {
     disableBiometrics: jest.fn(),
   }
   const services = [{ error: jest.fn() }, {}]
+  const getState = (): MockStoreState => {
+    if (!mockStoreState) mockStoreState = { ...initialState, loginAttempt: mockInitialLoginAttempt }
+    return mockStoreState
+  }
+  const subscribe = (listener: () => void) => {
+    mockStoreListeners.add(listener)
+    return () => mockStoreListeners.delete(listener)
+  }
+  const dispatch = (action: MockStoreAction) => {
+    if (action.type === DispatchAction.ATTEMPT_UPDATED) mockAttemptUpdates.push(action.payload[0])
+    mockStoreState = reducer(getState(), action)
+    mockStoreListeners.forEach((listener) => listener())
+  }
 
   return {
     attemptLockoutConfig: {
@@ -75,14 +83,9 @@ jest.mock('@bifold/core', () => {
     TOKENS: { UTIL_LOGGER: 'logger', CONFIG: 'config' },
     useAuth: () => auth,
     useServices: () => services,
-    useStore: () => [useSyncExternalStore(subscribe, () => state), dispatch],
-    mockResetStore: () => {
-      state = initialState
-    },
+    useStore: () => [useSyncExternalStore(subscribe, getState), dispatch],
   }
 })
-
-const { mockResetStore } = jest.requireMock('@bifold/core')
 
 jest.mock('@heka-wallet/shared', () => ({
   useHekaTheme: () => ({ TextTheme: {}, ColorPalette: { brand: {} }, Spacing: {} }),
@@ -128,8 +131,11 @@ const enterWrongPIN = async (times: number) => {
 
 describe('PINEnter', () => {
   beforeEach(() => {
-    mockResetStore()
     mockOnPinEntered = undefined
+    mockInitialLoginAttempt = { loginAttempts: 0 }
+    mockAttemptUpdates.length = 0
+    mockStoreState = undefined
+    mockStoreListeners.clear()
     mockCheckWalletPIN.mockResolvedValue(false)
   })
 
@@ -150,6 +156,32 @@ describe('PINEnter', () => {
 
     await enterWrongPIN(4)
 
+    expect(mockNavigationDispatch).not.toHaveBeenCalled()
+  })
+
+  // Android runs the legacy root, which renders each dispatch made after an await on its own. An extra
+  // update that only clears servedPenalty renders "5 attempts, penalty not served" and locks the wallet again.
+  // Jest batches these updates, so the tests check that one update moves past the served lockout.
+  it('updates the attempts once on a wrong PIN after the lockout was served', async () => {
+    mockInitialLoginAttempt = { loginAttempts: 5, servedPenalty: true }
+    render(<PINEnter setAuthenticated={jest.fn()} />)
+
+    await enterWrongPIN(1)
+
+    expect(mockAttemptUpdates).toEqual([{ loginAttempts: 6 }])
+    expect(mockNavigationDispatch).not.toHaveBeenCalled()
+  })
+
+  it('resets the attempts once on the right PIN after the lockout was served', async () => {
+    mockInitialLoginAttempt = { loginAttempts: 5, servedPenalty: true }
+    mockCheckWalletPIN.mockResolvedValue(true)
+    render(<PINEnter setAuthenticated={jest.fn()} />)
+
+    await act(async () => {
+      await mockOnPinEntered?.('123456')
+    })
+
+    expect(mockAttemptUpdates).toEqual([{ loginAttempts: 0 }])
     expect(mockNavigationDispatch).not.toHaveBeenCalled()
   })
 })
