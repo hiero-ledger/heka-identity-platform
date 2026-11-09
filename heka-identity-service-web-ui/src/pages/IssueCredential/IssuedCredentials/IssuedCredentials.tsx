@@ -101,14 +101,28 @@ export const IssuedCredentials = () => {
             className={classNames(cls.row, {}, [cls.headerRow])}
             aria-hidden
           >
-            <span>{t('IssueCredential.issuedCredentials.columns.credential')}</span>
-            <span>{t('IssueCredential.issuedCredentials.columns.protocol')}</span>
-            <span>{t('IssueCredential.issuedCredentials.columns.format')}</span>
-            <span>{t('IssueCredential.issuedCredentials.columns.issued')}</span>
-            <span>{t('IssueCredential.issuedCredentials.columns.status')}</span>
+            <span className={cls.cell}>
+              {t('IssueCredential.issuedCredentials.columns.credential')}
+            </span>
+            <span className={cls.cell}>
+              {t('IssueCredential.issuedCredentials.columns.protocol')}
+            </span>
+            <span className={cls.cell}>
+              {t('IssueCredential.issuedCredentials.columns.format')}
+            </span>
+            <span className={cls.cell}>
+              {t('IssueCredential.issuedCredentials.columns.issued')}
+            </span>
+            <span className={cls.cell}>
+              {t('IssueCredential.issuedCredentials.columns.status')}
+            </span>
           </div>
           {items.map((item) => {
             const status = getIssuedCredentialStatus(item);
+            const protocol = protocolLabel(item.protocol, t);
+            const formats = item.formats.join(', ');
+            const issuedAt = formatIssuedAt(item.issuedAt);
+            const statusText = statusLabel(status, t);
             return (
               <div
                 key={item.key}
@@ -120,19 +134,38 @@ export const IssuedCredentials = () => {
                 onKeyDown={(event) => onRowKeyDown(event, item)}
               >
                 <span
-                  className={cls.name}
+                  className={classNames(cls.cell, {}, [cls.name])}
                   title={item.name}
                 >
                   {item.name}
                 </span>
-                <span>{protocolLabel(item.protocol, t)}</span>
-                <span>{item.formats.join(', ')}</span>
-                <span>{formatIssuedAt(item.issuedAt)}</span>
                 <span
-                  className={classNames(cls.status, {}, [cls[status]])}
-                  data-status={status}
+                  className={cls.cell}
+                  title={protocol}
                 >
-                  {statusLabel(status, t)}
+                  {protocol}
+                </span>
+                <span
+                  className={cls.cell}
+                  title={formats}
+                >
+                  {formats}
+                </span>
+                <span
+                  className={cls.cell}
+                  title={issuedAt}
+                >
+                  {issuedAt}
+                </span>
+                <span
+                  className={classNames(cls.cell, {}, [
+                    cls.status,
+                    cls[status],
+                  ])}
+                  data-status={status}
+                  title={statusText}
+                >
+                  {statusText}
                 </span>
               </div>
             );

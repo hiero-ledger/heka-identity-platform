@@ -187,6 +187,24 @@ describe('IssuedCredentials page', () => {
     expect(within(rows[3]).getByText('Status unknown')).toBeInTheDocument();
   });
 
+  test('gives every cell its full value as a title, since cells are truncated with an ellipsis', async () => {
+    const api = createMockApi();
+    routeGets(api);
+    renderPage(api);
+
+    await screen.findByText('Passport');
+    const rows = screen.getAllByRole('button', { name: /DIDComm|OpenID4VC/ });
+    for (const row of rows) {
+      const cells = Array.from(row.children);
+      expect(cells).toHaveLength(5);
+      cells.forEach((cell) => {
+        expect(cell.textContent).not.toBe('');
+        expect(cell).toHaveAttribute('title', cell.textContent);
+      });
+    }
+    expect(within(rows[0]).getByTitle('OpenID4VC')).toBeInTheDocument();
+  });
+
   test('opens the details by click, without claims', async () => {
     const api = createMockApi();
     routeGets(api);
