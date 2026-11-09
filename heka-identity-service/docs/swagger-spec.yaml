@@ -1391,10 +1391,12 @@ paths:
       tags: *a34
   /openid4vc/issuance-session/{id}/revoke:
     post:
-      description: Sets the status list bit of the first credential of the session.
-        Issued OID4VC credentials do not reference the status list yet
-        (`revocable` is always false), so wallets and verifiers do not see this
-        change.
+      description: "SD-JWT VC: sets every status entry of the session to invalid in
+        its IETF Token Status List; verifiers reject the credential. jwt_vc_json
+        / jwt_vc_json-ld / ldp_vc: sets the W3C status list bit of the first
+        credential of the session; the issued credentials do not reference the
+        status list (`revocable` is false), so wallets and verifiers do not see
+        this change."
       operationId: OpenId4VcIssuanceSessionController_revoke
       parameters:
         - name: id
@@ -1404,13 +1406,15 @@ paths:
             type: string
       responses:
         "200":
-          description: Status list entry updated
+          description: Status list entries updated
         "400":
           description: Credential format does not support revocation
         "401":
           description: Unauthorized
         "404":
-          description: Issuance session not found
+          description: Issuance session or status list not found
+        "409":
+          description: Credential is already revoked
       security: *a33
       summary: Revoke a credential
       tags: *a34
@@ -1923,6 +1927,33 @@ paths:
       summary: Download status list
       tags:
         - Status List (public)
+  /token-status-lists/{id}:
+    get:
+      operationId: TokenStatusListPublicController_get
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: accept
+          required: false
+          in: header
+          description: Absent, `*/*` or `application/statuslist+jwt`; a CWT-only Accept
+            gets 406
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "The signed Status List Token (compact JWS, `typ: statuslist+jwt`)"
+        "404":
+          description: Unknown status list
+        "406":
+          description: Only the JWT format is available
+      summary: Download a Status List Token (IETF token status list,
+        `application/statuslist+jwt`)
+      tags:
+        - Token Status List (public)
   /prepare-wallet:
     post:
       description: Creates a DID of every enabled method with its OID4VC issuer and
@@ -3734,8 +3765,13 @@ components:
           type: string
         revocable:
           type: boolean
-          description: "Always false: issued OID4VC credentials do not reference a status
-            list yet"
+          description: true when the session's SD-JWT VCs reference an IETF Token Status
+            List; always false for jwt_vc_json, jwt_vc_json-ld, ldp_vc and
+            mso_mdoc
+        revoked:
+          type: boolean
+          description: "Present only when revocable: true when every status list entry of
+            the session is invalid. Absent when the status could not be read."
       required:
         - id
         - createdAt
