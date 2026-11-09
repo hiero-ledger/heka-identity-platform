@@ -104,7 +104,8 @@ export const useOpenIdCredentialOffer = (offer: OpenId4VciOffer, { onFailed }: {
     const { resolvedCredentialOffer } = offerResolutionResult
 
     const resolvedGrants = resolvedCredentialOffer.credentialOfferPayload.grants
-    const isUserPinRequired = resolvedGrants && resolvedGrants[PRE_AUTH_GRANT_LITERAL]?.user_pin_required
+    // The library turns a draft 11 `user_pin_required` into `tx_code`, so `tx_code` is the only marker
+    const isUserPinRequired = !!resolvedGrants?.[PRE_AUTH_GRANT_LITERAL]?.tx_code
 
     if (isUserPinRequired) {
       setIsCredentialPinInputVisible(true)

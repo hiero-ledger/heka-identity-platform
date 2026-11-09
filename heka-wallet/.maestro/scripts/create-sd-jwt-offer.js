@@ -2,8 +2,9 @@
 // public DID, so the did:key and its issuer are created on the first run and reused after; the offer is new per run.
 // Env: IDENTITY_SERVICE_URL, and either ISSUER_TOKEN or TOKEN_URL + E2E_CLIENT_ID + E2E_CLIENT_SECRET
 // (a client-credentials client whose token has an issuer-capable role: Admin, OrgAdmin, OrgManager or Issuer).
+// Optional TX_CODE_LENGTH: the offer then needs a numeric transaction code of that length, set as output.txCode.
 // Maestro's GraalJS runtime provides http, json, output and the flow's env variables as globals.
-/* global http, json, output, IDENTITY_SERVICE_URL, ISSUER_TOKEN, TOKEN_URL, E2E_CLIENT_ID, E2E_CLIENT_SECRET */
+/* global http, json, output, IDENTITY_SERVICE_URL, ISSUER_TOKEN, TOKEN_URL, E2E_CLIENT_ID, E2E_CLIENT_SECRET, TX_CODE_LENGTH */
 
 function requireEnv(name, value) {
   if (!value) throw new Error(`Missing env ${name}`)
@@ -72,8 +73,12 @@ if (!issuers.length) {
   })
 }
 
+const txCodeLength = typeof TX_CODE_LENGTH !== 'undefined' && TX_CODE_LENGTH ? Number(TX_CODE_LENGTH) : 0
+
 const offer = postJson('/openid4vc/issuance-session/offer', token, {
   publicIssuerId: did,
+  // identity-service generates the code and returns it as issuanceSession.userPin
+  preAuthorizedCodeFlowConfig: txCodeLength ? { txCode: { input_mode: 'numeric', length: txCodeLength } } : undefined,
   credentials: [
     {
       credentialSupportedId: credentialId,
@@ -87,3 +92,8 @@ const offer = postJson('/openid4vc/issuance-session/offer', token, {
 output.offerDeepLink = `openid-credential-offer://?credential_offer_uri=${encodeURIComponent(
   offer.issuanceSession.credentialOfferUri
 )}`
+
+if (txCodeLength) {
+  if (!offer.issuanceSession.userPin) throw new Error('The offer was created without a transaction code')
+  output.txCode = offer.issuanceSession.userPin
+}
