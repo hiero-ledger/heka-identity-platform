@@ -1,3 +1,5 @@
+import type { EntityManager as PostgreSqlEntityManager } from '@mikro-orm/postgresql'
+
 import { randomInt } from 'node:crypto'
 
 import { AgentContext, Kms } from '@credo-ts/core'
@@ -64,9 +66,13 @@ export enum TokenStatus {
  * - Indexes are drawn at random from the list (herd privacy); a list is full when every index is taken.
  * - The signed token is stored on the entity and served verbatim by the tenant-less public route, so
  *   signing happens only inside tenant-context operations (offer / revoke) where the key is reachable.
- * - Every read-modify-write of a list (`allocated` bitmap, `statuses`) runs in one transaction holding a
- *   row lock: concurrent offers must never be handed the same index and concurrent revocations must never
- *   drop each other's bit.
+ * - Allocation is serialised per (tenant, signing key) by a transaction-scoped Postgres advisory lock, taken
+ *   before the key's lists are read: concurrent offers never get the same index, and a key with no list (or
+ *   only full ones) gets exactly one new list, even though there is no row to lock yet.
+ * - Status changes run in one transaction holding the list's row lock: concurrent revocations never drop each
+ *   other's bit.
+ * - Allocation never holds more than one list row, and status changes never take the advisory lock, so the two
+ *   paths cannot deadlock.
  */
 @Injectable()
 export class TokenStatusListService {
@@ -97,11 +103,18 @@ export class TokenStatusListService {
     if (!Number.isInteger(count) || count < 1) {
       throw new BadRequestException('At least one status list entry must be reserved')
     }
+    const tenantContextId = agentContext.contextCorrelationId
     return this.em.transactional(async (em) => {
+      // Held until commit; only allocations for the same (tenant, key) wait on it
+      await (em as PostgreSqlEntityManager).execute('select pg_advisory_xact_lock(hashtextextended(?, 0))', [
+        allocationLockKey(tenantContextId, identity.keyId),
+      ])
+      // No row locks needed: every writer of `allocatedBitmap` / `allocatedCount` holds the advisory lock, and the
+      // update below changes only those columns, so it cannot lose a concurrent status change.
       const lists = await em.find(
         TokenStatusList,
-        { tenantContextId: agentContext.contextCorrelationId, signerKeyId: identity.keyId },
-        { lockMode: LockMode.PESSIMISTIC_WRITE },
+        { tenantContextId, signerKeyId: identity.keyId },
+        { orderBy: { id: 'asc' } },
       )
       let list = lists.find((candidate) => candidate.allocatedCount + count <= candidate.size)
       if (!list) {
@@ -272,6 +285,11 @@ export class TokenStatusListService {
     list.token = `${signingInput}.${base64Url(signature)}`
     list.tokenIssuedAt = issuedAt
   }
+}
+
+/** Advisory lock key of the allocations for one signing key of one tenant. */
+function allocationLockKey(tenantContextId: string, signerKeyId: string): string {
+  return `token-status-list:${tenantContextId}:${signerKeyId}`
 }
 
 /** The token's `lst` value. */

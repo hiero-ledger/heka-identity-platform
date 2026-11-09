@@ -309,31 +309,72 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     expect(rejected.serverStatus).not.toBe(200)
   })
 
-  test('concurrent offers never share a status list index and concurrent revocations both stick', async () => {
+  const listIdOf = (response: request.Response) => referenceOf(response).location.split('/').pop() as string
+  const bitsSetIn = (base64: string) =>
+    Buffer.from(base64, 'base64').reduce((count, byte) => count + byte.toString(2).replace(/0/g, '').length, 0)
+  const listsOf = (issuerDid: string) =>
+    orm.em.fork().find(TokenStatusList, { issuer: issuerDid }, { orderBy: { id: 'asc' } })
+
+  test('parallel first offers for a key share one list, and later bursts never fail', async () => {
     const issuerAuthToken = await createAuthToken(uuid(), Role.OrgAdmin, uuid())
     const issuerDid = await createSdJwtIssuer(issuerAuthToken)
 
-    // The first offer creates the key's list; the 20 concurrent ones then all allocate from that one row
-    const first = await offer(issuerAuthToken, issuerDid).expect(200)
-    const concurrent = await Promise.all(Array.from({ length: 20 }, () => offer(issuerAuthToken, issuerDid)))
-    for (const response of concurrent) expect(response.statusCode).toBe(200)
-    const references = [first, ...concurrent].map(referenceOf)
+    // Burst 1 with no list yet: list creation is serialised per signing key, so exactly one list is created
+    const coldBurst = await Promise.all(Array.from({ length: 24 }, () => offer(issuerAuthToken, issuerDid)))
+    expect(coldBurst.map((response) => response.statusCode)).toEqual(Array(24).fill(200))
+    // Burst 2 on the existing list
+    const warmBurst = await Promise.all(Array.from({ length: 24 }, () => offer(issuerAuthToken, issuerDid)))
+    expect(warmBurst.map((response) => response.statusCode)).toEqual(Array(24).fill(200))
 
+    const references = [...coldBurst, ...warmBurst].map(referenceOf)
     expect(new Set(references.map((reference) => reference.location)).size).toBe(1)
-    expect(new Set(references.map((reference) => reference.index)).size).toBe(21)
+    expect(new Set(references.map((reference) => reference.index)).size).toBe(48)
 
-    // The persisted bitmap agrees: 21 allocations, 21 bits — no lost read-modify-write
-    const listId = references[0].location.split('/').pop() as string
-    const list = await orm.em.fork().findOneOrFail(TokenStatusList, { id: listId })
-    expect(list.allocatedCount).toBe(21)
-    const bitsSet = Buffer.from(list.allocatedBitmap, 'base64').reduce(
-      (count, byte) => count + byte.toString(2).replace(/0/g, '').length,
-      0,
+    // The persisted bitmap agrees: 48 allocations, 48 bits — no lost read-modify-write
+    const lists = await listsOf(issuerDid)
+    expect(lists).toHaveLength(1)
+    expect(lists[0].allocatedCount).toBe(48)
+    expect(bitsSetIn(lists[0].allocatedBitmap)).toBe(48)
+  })
+
+  test('a full list is followed by exactly one new list, also under parallel offers', async () => {
+    const issuerAuthToken = await createAuthToken(uuid(), Role.OrgAdmin, uuid())
+    const issuerDid = await createSdJwtIssuer(issuerAuthToken)
+    const first = await offer(issuerAuthToken, issuerDid).expect(200)
+
+    // Mark the list full (allocation only looks at allocatedCount against size)
+    const em = orm.em.fork()
+    const full = await em.findOneOrFail(TokenStatusList, { id: listIdOf(first) })
+    full.allocatedCount = full.size
+    await em.flush()
+
+    const burst = await Promise.all(Array.from({ length: 20 }, () => offer(issuerAuthToken, issuerDid)))
+    expect(burst.map((response) => response.statusCode)).toEqual(Array(20).fill(200))
+    const nextListIds = new Set(burst.map(listIdOf))
+    expect(nextListIds.size).toBe(1)
+    expect(nextListIds.has(full.id)).toBe(false)
+
+    // With two lists for the key, further parallel offers neither deadlock nor touch the full list
+    const again = await Promise.all(Array.from({ length: 20 }, () => offer(issuerAuthToken, issuerDid)))
+    expect(again.map((response) => response.statusCode)).toEqual(Array(20).fill(200))
+    expect(new Set(again.map(listIdOf))).toEqual(nextListIds)
+
+    const lists = await listsOf(issuerDid)
+    expect(lists).toHaveLength(2)
+    const next = lists.find((list) => list.id !== full.id)!
+    expect(next.allocatedCount).toBe(40)
+    expect(new Set([...burst, ...again].map((response) => referenceOf(response).index)).size).toBe(40)
+  })
+
+  test('concurrent revocations of different sessions on one list both stick', async () => {
+    const issuerAuthToken = await createAuthToken(uuid(), Role.OrgAdmin, uuid())
+    const issuerDid = await createSdJwtIssuer(issuerAuthToken)
+    const [kept, revokeA, revokeB] = await Promise.all(
+      Array.from({ length: 3 }, () => offer(issuerAuthToken, issuerDid).expect(200)),
     )
-    expect(bitsSet).toBe(21)
+    const listId = listIdOf(kept)
 
     // Two revocations racing on the same list both land in the re-signed token
-    const [revokeA, revokeB] = concurrent
     await Promise.all(
       [revokeA, revokeB].map((response) =>
         revoke(issuerAuthToken, response.body.issuanceSession.id as string).expect(200),
@@ -343,7 +384,7 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     const statusList = getListFromStatusListJWT(token.text)
     expect(statusList.getStatus(referenceOf(revokeA).index)).toBe(TokenStatus.Invalid)
     expect(statusList.getStatus(referenceOf(revokeB).index)).toBe(TokenStatus.Invalid)
-    expect(statusList.getStatus(referenceOf(first).index)).toBe(TokenStatus.Valid)
+    expect(statusList.getStatus(referenceOf(kept).index)).toBe(TokenStatus.Valid)
   })
 
   test('another member of the same organization wallet can revoke the credential (shared lists)', async () => {

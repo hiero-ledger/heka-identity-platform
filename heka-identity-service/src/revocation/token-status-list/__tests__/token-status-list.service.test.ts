@@ -51,6 +51,7 @@ describe('TokenStatusListService', () => {
   let agentContext: AgentContext
   let stored: TokenStatusList[]
   const sign = vi.fn()
+  const execute = vi.fn()
 
   beforeEach(() => {
     stored = []
@@ -64,12 +65,15 @@ describe('TokenStatusListService', () => {
         return em
       }),
       flush: vi.fn().mockResolvedValue(undefined),
+      // Raw SQL: the per-key advisory lock of `reserveIndexes`
+      execute,
       // The service runs every read-modify-write inside `em.transactional`; the callback gets the forked em.
       transactional: vi.fn((callback: (em: EntityManager) => Promise<unknown>) => callback(em)),
     } as never)
 
     // The KMS: a real P-256 public key (so the JWA algorithm resolves to ES256) and a fake signature.
     sign.mockReset()
+    execute.mockReset().mockResolvedValue([])
     sign.mockResolvedValue({ signature: Uint8Array.from(Buffer.from('sig')) })
     const kms = { getPublicKey: vi.fn().mockResolvedValue({ ...p256, kid: 'kms-key-1' }), sign }
     agentContext = {
@@ -87,12 +91,16 @@ describe('TokenStatusListService', () => {
   test('allocate creates a signed list on first use and reserves a random index in it', async () => {
     const reference = await allocateOne(agentContext, authInfo, identity)
 
-    // the allocation is one transaction holding a row lock on the key's lists (SELECT … FOR UPDATE)
+    // the allocation is one transaction that first takes the advisory lock of (tenant, key), then reads the lists
     expect(em.transactional).toHaveBeenCalledTimes(1)
+    expect(execute).toHaveBeenCalledWith('select pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      'token-status-list:tenant-1:kms-key-1',
+    ])
+    expect(execute.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(em.find).mock.invocationCallOrder[0])
     expect(em.find).toHaveBeenCalledWith(
       TokenStatusList,
       { tenantContextId: 'tenant-1', signerKeyId: 'kms-key-1' },
-      { lockMode: LockMode.PESSIMISTIC_WRITE },
+      { orderBy: { id: 'asc' } },
     )
 
     expect(stored).toHaveLength(1)
@@ -253,6 +261,22 @@ describe('TokenStatusListService', () => {
       { lockMode: LockMode.PESSIMISTIC_WRITE },
     )
     expect(stored[0].token).toBe(before)
+  })
+
+  test('the advisory lock key is per tenant and per signing key', async () => {
+    await allocateOne(agentContext, authInfo, identity)
+    await allocateOne(
+      { ...agentContext, contextCorrelationId: 'tenant-2' } as unknown as AgentContext,
+      authInfo,
+      identity,
+    )
+    await allocateOne(agentContext, authInfo, { ...identity, keyId: 'kms-key-2' })
+
+    expect(execute.mock.calls.map(([, params]) => (params as string[])[0])).toEqual([
+      'token-status-list:tenant-1:kms-key-1',
+      'token-status-list:tenant-2:kms-key-1',
+      'token-status-list:tenant-1:kms-key-2',
+    ])
   })
 
   test('setStatuses of an unknown list is a 404', async () => {
