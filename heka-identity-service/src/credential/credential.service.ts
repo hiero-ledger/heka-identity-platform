@@ -23,6 +23,9 @@ import { CredentialOfferDto, CredentialRecordDto, GetCredentialsQueryDto } from 
 import { CredentialConfigDto } from './dto/credential-config.dto'
 import { isRevocableIssuerRecord } from './dto/credential-record.dto'
 
+/** Credo's `v2AnonCredsRevocationFormat` (not exported from `@credo-ts/didcomm`) */
+const ANONCREDS_REVOCATION_NOTIFICATION_FORMAT = 'anoncreds'
+
 interface RevocationRegistryLookup {
   /** Ledger status list by credential revocation index, undefined when it could not be read */
   revocationStatusList?: number[]
@@ -234,6 +237,44 @@ export class CredentialService {
 
     if (revocationStatusListState.state !== 'finished') {
       throw new InternalServerErrorException('Failed to update the revocation status list.')
+    }
+
+    await this.notifyHolderOfRevocation(tenantAgent, credential, revocationRegistryId, revocationIndexStr)
+  }
+
+  /**
+   * Sends a DIDComm revocation notification v2 to the holder, best effort: the status list is already
+   * updated on the ledger, so a failure here is logged and never fails the revoke request.
+   * The holder (Credo `DidCommRevocationNotificationService`) parses `credential_id` as
+   * `<revocation_registry_id>::<credential_revocation_id>` and matches it against the
+   * `anonCredsRevocationRegistryId` / `anonCredsCredentialRevocationId` tags of its record on the same connection.
+   */
+  private async notifyHolderOfRevocation(
+    tenantAgent: TenantAgent,
+    credential: DidCommCredentialExchangeRecord,
+    revocationRegistryDefinitionId: string,
+    credentialRevocationId: string,
+  ): Promise<void> {
+    // Connectionless exchanges have no channel to the holder
+    if (!credential.connectionId) return
+
+    try {
+      await tenantAgent.didcomm.credentials.sendRevocationNotification({
+        connectionId: credential.connectionId,
+        credentialExchangeRecordId: credential.id,
+        revocationFormat: ANONCREDS_REVOCATION_NOTIFICATION_FORMAT,
+        revocationId: `${revocationRegistryDefinitionId}::${credentialRevocationId}`,
+      })
+    } catch (error) {
+      // Only identifiers and the error class: the message of a Credo error may echo record contents
+      this.logger.warn(
+        {
+          credentialExchangeRecordId: credential.id,
+          revocationRegistryDefinitionId,
+          errorName: error instanceof Error ? error.name : undefined,
+        },
+        'Could not send the revocation notification to the holder',
+      )
     }
   }
 }

@@ -24,6 +24,7 @@ interface RecordOptions {
   registryId?: string
   revocationIndex?: string
   credentialDefinitionId?: string
+  connectionId?: string
 }
 
 /** Credential exchange record stub with the tag and metadata accessors the DTO reads */
@@ -34,9 +35,11 @@ const credentialRecord = ({
   registryId,
   revocationIndex,
   credentialDefinitionId,
+  connectionId,
 }: RecordOptions) =>
   credentialExchangeRecordStub({
     id,
+    connectionId,
     role,
     state,
     threadId: `thread-${id}`,
@@ -74,6 +77,7 @@ describe('CredentialService', () => {
           findById: vi.fn(),
           offerCredential: vi.fn(),
           acceptOffer: vi.fn(),
+          sendRevocationNotification: vi.fn(),
         },
         connections: { findById: vi.fn() },
       },
@@ -415,8 +419,16 @@ describe('CredentialService', () => {
   })
 
   describe('revoke', () => {
+    const registryId = 'did:hedera:testnet:issuer/anoncreds/v0/REV_REG_DEF/rev-reg-1'
     const revocableRecord = (revocationIndex = '3') =>
-      credentialRecord({ id: 'cred-1', registryId: 'rev-reg-1', revocationIndex })
+      credentialRecord({ id: 'cred-1', registryId, revocationIndex, connectionId: 'conn-1' })
+
+    const ledgerUpdate = (state: 'finished' | 'failed') => {
+      vi.mocked(revocationService.get).mockResolvedValue({ revocationStatusList: { 3: 0 } } as any)
+      vi.mocked(tenantAgent.modules.anoncreds.updateRevocationStatusList).mockResolvedValue({
+        revocationStatusListState: { state },
+      } as any)
+    }
 
     test('throws NotFoundException when the credential record does not exist', async () => {
       vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(null)
@@ -433,6 +445,7 @@ describe('CredentialService', () => {
           role: DidCommCredentialRole.Holder,
           registryId: 'rev-reg-1',
           revocationIndex: '3',
+          connectionId: 'conn-1',
         }),
       )
 
@@ -441,13 +454,17 @@ describe('CredentialService', () => {
       )
       expect(revocationService.get).not.toHaveBeenCalled()
       expect(tenantAgent.modules.anoncreds.updateRevocationStatusList).not.toHaveBeenCalled()
+      expect(tenantAgent.didcomm.credentials.sendRevocationNotification).not.toHaveBeenCalled()
     })
 
     test('throws BadRequestException when credential does not support revocation', async () => {
-      vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(credentialRecord({ id: 'cred-1' }))
+      vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(
+        credentialRecord({ id: 'cred-1', connectionId: 'conn-1' }),
+      )
 
       await expect(credentialService.revoke(tenantAgent, 'cred-1')).rejects.toThrow(BadRequestException)
       expect(tenantAgent.didcomm.credentials.findById).toHaveBeenCalledWith('cred-1')
+      expect(tenantAgent.didcomm.credentials.sendRevocationNotification).not.toHaveBeenCalled()
     })
 
     test('throws ConflictException when credential already revoked', async () => {
@@ -456,7 +473,9 @@ describe('CredentialService', () => {
 
       await expect(credentialService.revoke(tenantAgent, 'cred-1')).rejects.toThrow(ConflictException)
       expect(tenantAgent.didcomm.credentials.findById).toHaveBeenCalledWith('cred-1')
-      expect(revocationService.get).toHaveBeenCalledWith(tenantAgent, 'rev-reg-1')
+      expect(revocationService.get).toHaveBeenCalledWith(tenantAgent, registryId)
+      expect(tenantAgent.modules.anoncreds.updateRevocationStatusList).not.toHaveBeenCalled()
+      expect(tenantAgent.didcomm.credentials.sendRevocationNotification).not.toHaveBeenCalled()
     })
 
     test('throws InternalServerErrorException when revocation index is not a number', async () => {
@@ -464,23 +483,21 @@ describe('CredentialService', () => {
 
       await expect(credentialService.revoke(tenantAgent, 'cred-1')).rejects.toThrow(InternalServerErrorException)
       expect(tenantAgent.didcomm.credentials.findById).toHaveBeenCalledWith('cred-1')
+      expect(tenantAgent.didcomm.credentials.sendRevocationNotification).not.toHaveBeenCalled()
     })
 
     test('revokes credential successfully', async () => {
       vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(revocableRecord('3'))
-      vi.mocked(revocationService.get).mockResolvedValue({ revocationStatusList: { 3: 0 } } as any)
-      vi.mocked(tenantAgent.modules.anoncreds.updateRevocationStatusList).mockResolvedValue({
-        revocationStatusListState: { state: 'finished' },
-      } as any)
+      ledgerUpdate('finished')
 
       await expect(credentialService.revoke(tenantAgent, 'cred-1')).resolves.toBeUndefined()
 
       expect(tenantAgent.didcomm.credentials.findById).toHaveBeenCalledWith('cred-1')
-      expect(revocationService.get).toHaveBeenCalledWith(tenantAgent, 'rev-reg-1')
+      expect(revocationService.get).toHaveBeenCalledWith(tenantAgent, registryId)
       expect(tenantAgent.modules.anoncreds.updateRevocationStatusList).toHaveBeenCalledWith(
         expect.objectContaining({
           revocationStatusList: {
-            revocationRegistryDefinitionId: 'rev-reg-1',
+            revocationRegistryDefinitionId: registryId,
             revokedCredentialIndexes: [3],
           },
         }),
@@ -489,15 +506,86 @@ describe('CredentialService', () => {
 
     test('throws InternalServerErrorException when revocation update fails', async () => {
       vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(revocableRecord('3'))
-      vi.mocked(revocationService.get).mockResolvedValue({ revocationStatusList: { 3: 0 } } as any)
-      vi.mocked(tenantAgent.modules.anoncreds.updateRevocationStatusList).mockResolvedValue({
-        revocationStatusListState: { state: 'failed' },
-      } as any)
+      ledgerUpdate('failed')
 
       await expect(credentialService.revoke(tenantAgent, 'cred-1')).rejects.toThrow(InternalServerErrorException)
       expect(tenantAgent.didcomm.credentials.findById).toHaveBeenCalledWith('cred-1')
-      expect(revocationService.get).toHaveBeenCalledWith(tenantAgent, 'rev-reg-1')
+      expect(revocationService.get).toHaveBeenCalledWith(tenantAgent, registryId)
       expect(tenantAgent.modules.anoncreds.updateRevocationStatusList).toHaveBeenCalled()
+      expect(tenantAgent.didcomm.credentials.sendRevocationNotification).not.toHaveBeenCalled()
+    })
+
+    test('does not notify the holder when the ledger update throws', async () => {
+      vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(revocableRecord('3'))
+      vi.mocked(revocationService.get).mockResolvedValue({ revocationStatusList: { 3: 0 } } as any)
+      vi.mocked(tenantAgent.modules.anoncreds.updateRevocationStatusList).mockRejectedValue(new Error('ledger down'))
+
+      await expect(credentialService.revoke(tenantAgent, 'cred-1')).rejects.toThrow('ledger down')
+      expect(tenantAgent.didcomm.credentials.sendRevocationNotification).not.toHaveBeenCalled()
+    })
+
+    describe('revocation notification', () => {
+      // Copy of Credo's `v2AnonCredsRevocationIdentifierRegex`, which the holder uses to parse `credential_id`
+      const holderRevocationIdRegex = /([a-zA-Z0-9+\-.]+:.+)::(\d+)$/
+
+      test('notifies the holder over the connection after the ledger update succeeds', async () => {
+        vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(revocableRecord('3'))
+        ledgerUpdate('finished')
+
+        await expect(credentialService.revoke(tenantAgent, 'cred-1')).resolves.toBeUndefined()
+
+        expect(tenantAgent.didcomm.credentials.sendRevocationNotification).toHaveBeenCalledTimes(1)
+        expect(tenantAgent.didcomm.credentials.sendRevocationNotification).toHaveBeenCalledWith({
+          connectionId: 'conn-1',
+          credentialExchangeRecordId: 'cred-1',
+          revocationFormat: 'anoncreds',
+          revocationId: `${registryId}::3`,
+        })
+        expect(
+          vi.mocked(tenantAgent.modules.anoncreds.updateRevocationStatusList).mock.invocationCallOrder[0],
+        ).toBeLessThan(
+          vi.mocked(tenantAgent.didcomm.credentials.sendRevocationNotification).mock.invocationCallOrder[0],
+        )
+
+        // The holder recovers the registry id and the index it stored as record tags
+        const [{ revocationId }] = vi.mocked(tenantAgent.didcomm.credentials.sendRevocationNotification).mock.calls[0]
+        const [, holderRegistryId, holderIndex] = revocationId.match(holderRevocationIdRegex) ?? []
+        expect(holderRegistryId).toBe(registryId)
+        expect(holderIndex).toBe('3')
+        expect(logger.warn).not.toHaveBeenCalled()
+      })
+
+      test('skips the notification without an error when the record has no connection', async () => {
+        vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(
+          credentialRecord({ id: 'cred-1', registryId, revocationIndex: '3' }),
+        )
+        ledgerUpdate('finished')
+
+        await expect(credentialService.revoke(tenantAgent, 'cred-1')).resolves.toBeUndefined()
+
+        expect(tenantAgent.modules.anoncreds.updateRevocationStatusList).toHaveBeenCalled()
+        expect(tenantAgent.didcomm.credentials.sendRevocationNotification).not.toHaveBeenCalled()
+        expect(logger.warn).not.toHaveBeenCalled()
+      })
+
+      test('still succeeds and logs one warn with identifiers only when sending fails', async () => {
+        vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(revocableRecord('3'))
+        ledgerUpdate('finished')
+        vi.mocked(tenantAgent.didcomm.credentials.sendRevocationNotification).mockRejectedValue(
+          new Error('Holder unreachable, credential attribute-value'),
+        )
+
+        await expect(credentialService.revoke(tenantAgent, 'cred-1')).resolves.toBeUndefined()
+
+        expect(logger.warn).toHaveBeenCalledTimes(1)
+        expect(logger.warn).toHaveBeenCalledWith(
+          { credentialExchangeRecordId: 'cred-1', revocationRegistryDefinitionId: registryId, errorName: 'Error' },
+          'Could not send the revocation notification to the holder',
+        )
+        const logged = JSON.stringify(vi.mocked(logger.warn).mock.calls)
+        expect(logged).not.toContain('attribute-value')
+        expect(logged).not.toContain('Holder unreachable')
+      })
     })
   })
 })

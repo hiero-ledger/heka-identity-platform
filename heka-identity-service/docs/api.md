@@ -40,8 +40,10 @@ Revoking:
 
 | Endpoint | Success | Errors |
 |---|---|---|
-| `POST /credentials/:id/revoke` | `200`, the credential's bit is set in the AnonCreds revocation status list on the ledger | `404` unknown record; `400` the record was not issued by this wallet (holder record), or the credential has no revocation registry entry; `409` already revoked; `500` the ledger update failed |
+| `POST /credentials/:id/revoke` | `200`, the credential's bit is set in the AnonCreds revocation status list on the ledger, and the holder is sent a DIDComm revocation notification (best effort, see below) | `404` unknown record; `400` the record was not issued by this wallet (holder record), or the credential has no revocation registry entry; `409` already revoked; `500` the ledger update failed |
 | `POST /openid4vc/issuance-session/:id/revoke` | `200`, the bit of the session's first credential is set in the issuer-side status list | `404` unknown session; `400` the session has no credentials metadata or its first credential has no status list entry (SD-JWT VC, mDoc) |
+
+After a successful `POST /credentials/:id/revoke`, the service sends a [revocation notification v2](https://github.com/hyperledger/aries-rfcs/tree/main/features/0721-revocation-notification-v2) (`revocation_format: anoncreds`, `credential_id: <revocationRegistryDefinitionId>::<credentialRevocationId>`) over the credential's DIDComm connection, so a Credo-based wallet such as Heka Wallet marks its copy as revoked. This is best effort: the ledger update is already done, so if the record has no connection (connectionless issuance) nothing is sent, and if sending fails (connection removed, holder unreachable) the service logs a warning with the record and registry ids and still returns `200`. Verifiers rely on the ledger, not on the notification.
 
 `POST /openid4vc/issuance-session/:id/revoke` still returns `200` for `jwt_vc_json`, `jwt_vc_json-ld` and `ldp_vc` sessions, although their `revocable` is `false`: the issued credentials do not contain `credentialStatus`, so wallets and verifiers never read the bit it sets. Repeating it returns `200` again (no `409`).
 
