@@ -1,11 +1,13 @@
 import { parseDid, RecordNotFoundError, SdJwtVcPayload } from '@credo-ts/core'
 import {
   OpenId4VciCredentialFormatProfile,
+  OpenId4VcIssuanceSessionRecord,
   OpenId4VcIssuanceSessionRepository,
   OpenId4VcIssuerService,
 } from '@credo-ts/openid4vc'
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -14,6 +16,7 @@ import {
 import { ConfigType } from '@nestjs/config'
 
 import { TenantAgent } from 'common/agent'
+import { InjectLogger, Logger } from 'common/logger'
 import AgentConfig from 'config/agent'
 
 import { AuthInfo } from '../../common/auth'
@@ -32,6 +35,7 @@ import {
   OpenId4VcIssuanceSessionsCreateOfferDto,
   OpenId4VcIssuanceSessionsCreateOfferResponse,
 } from './dto'
+import { IssuanceSessionRevocation } from './dto/issuance-session.dto'
 
 @Injectable()
 export class OpenId4VcIssuanceSessionService {
@@ -39,6 +43,8 @@ export class OpenId4VcIssuanceSessionService {
     @Inject(AgentConfig.KEY) private readonly agencyConfig: ConfigType<typeof AgentConfig>,
     private readonly statusListService: StatusListService,
     private readonly tokenStatusListService: TokenStatusListService,
+    @InjectLogger(OpenId4VcIssuanceSessionService)
+    private readonly logger: Logger,
   ) {}
 
   public async offer(
@@ -179,8 +185,13 @@ export class OpenId4VcIssuanceSessionService {
       await this.statusListService.addItems(authInfo, statusList.id, credentialIndexes)
     }
 
+    // Entries were just reserved, so they are all valid: no need to read the lists back
+    const revocable = tokenStatusListEntriesOf(mappedCredentials).length > 0
     return {
-      issuanceSession: OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(issuanceSession),
+      issuanceSession: OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(
+        issuanceSession,
+        revocable ? { revocable, revoked: false } : { revocable },
+      ),
       credentialOffer,
     }
   }
@@ -201,8 +212,9 @@ export class OpenId4VcIssuanceSessionService {
       credentialOfferUri: query.credentialOfferUri,
     })
 
+    const revocation = await this.revocationOf(tenantAgent, issuanceSessions)
     return issuanceSessions.map((session) =>
-      OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(session),
+      OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(session, revocation.get(session.id)),
     )
   }
 
@@ -215,7 +227,11 @@ export class OpenId4VcIssuanceSessionService {
   ): Promise<OpenId4VcIssuanceSessionRecordDto> {
     const issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
 
-    return OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(issuanceSession)
+    const revocation = await this.revocationOf(tenantAgent, [issuanceSession])
+    return OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(
+      issuanceSession,
+      revocation.get(issuanceSession.id),
+    )
   }
 
   /**
@@ -248,6 +264,11 @@ export class OpenId4VcIssuanceSessionService {
     // SD-JWT VCs: every entry of the session (a batch holds one entry per holder key) is revoked together
     const tokenStatusEntries = tokenStatusListEntriesOf(credentials)
     if (tokenStatusEntries.length) {
+      const statuses = await this.tokenStatusListService.getStatuses(tenantAgent.context, tokenStatusEntries)
+      if (tokenStatusEntries.some(({ id }) => !statuses.has(id))) throw new NotFoundException('Status list not found')
+      if (tokenStatusEntries.every(({ id }) => statuses.get(id)!.every((status) => status === TokenStatus.Invalid))) {
+        throw new ConflictException('Credential is already revoked')
+      }
       for (const { id, indexes } of tokenStatusEntries) {
         await this.tokenStatusListService.setStatuses(tenantAgent.context, id, indexes, TokenStatus.Invalid)
       }
@@ -264,6 +285,64 @@ export class OpenId4VcIssuanceSessionService {
       indexes: [credential.credentialStatus.index],
       revoked: true,
     })
+  }
+
+  /**
+   * `revocable` / `revoked` of each session, read from the token status lists with one query. Sessions without
+   * token status list entries (W3C VCs, mDoc, SD-JWT VCs issued before status lists) are not revocable. A failed
+   * read does not fail the request: the sessions stay revocable with an unknown `revoked`.
+   */
+  private async revocationOf(
+    tenantAgent: TenantAgent,
+    sessions: OpenId4VcIssuanceSessionRecord[],
+  ): Promise<Map<string, IssuanceSessionRevocation>> {
+    const entriesBySession = new Map(
+      sessions.map((session) => [
+        session.id,
+        tokenStatusListEntriesOf(session.issuanceMetadata?.credentials as CredentialIssuanceMetadata[] | undefined),
+      ]),
+    )
+    const allEntries = [...entriesBySession.values()].flat()
+    const result = new Map<string, IssuanceSessionRevocation>()
+
+    let statuses: Map<string, number[]> | undefined
+    if (allEntries.length) {
+      try {
+        statuses = await this.tokenStatusListService.getStatuses(tenantAgent.context, allEntries)
+      } catch {
+        const statusListIds = [...new Set(allEntries.map(({ id }) => id))]
+        this.logger.warn({ statusListIds }, 'Could not read token status lists')
+      }
+    }
+
+    // Statuses come back concatenated per list id, in the order of `allEntries`: index them by (list, entry)
+    const statusOf = new Map<string, number>()
+    if (statuses) {
+      const offsets = new Map<string, number>()
+      for (const { id, indexes } of allEntries) {
+        const listStatuses = statuses.get(id)
+        if (!listStatuses) continue
+        const offset = offsets.get(id) ?? 0
+        indexes.forEach((idx, position) => statusOf.set(`${id}#${idx}`, listStatuses[offset + position]))
+        offsets.set(id, offset + indexes.length)
+      }
+    }
+
+    for (const [sessionId, entries] of entriesBySession) {
+      if (!entries.length) {
+        result.set(sessionId, { revocable: false })
+      } else if (!statuses) {
+        result.set(sessionId, { revocable: true })
+      } else if (entries.some(({ id }) => !statuses.has(id))) {
+        result.set(sessionId, { revocable: false })
+      } else {
+        const revoked = entries.every(({ id, indexes }) =>
+          indexes.every((idx) => statusOf.get(`${id}#${idx}`) === TokenStatus.Invalid),
+        )
+        result.set(sessionId, { revocable: true, revoked })
+      }
+    }
+    return result
   }
 
   /**

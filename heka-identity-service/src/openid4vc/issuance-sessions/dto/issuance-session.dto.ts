@@ -17,6 +17,13 @@ export type RecordId = string
  */
 export type Did = string
 
+/** Whether a session's credentials can be revoked, and whether they are. */
+export interface IssuanceSessionRevocation {
+  revocable: boolean
+  /** Only meaningful when `revocable`; undefined when the status could not be read. */
+  revoked?: boolean
+}
+
 export class OpenId4VcIssuanceSessionRecordDto {
   @ApiProperty()
   public id!: RecordId
@@ -92,14 +99,32 @@ export class OpenId4VcIssuanceSessionRecordDto {
   public errorMessage?: string
 
   /**
-   * Always false: issued OID4VC credentials do not embed `credentialStatus` yet, so no wallet or
-   * verifier reads the issuer-side status list. Compute it from the session once the status-embedding
-   * follow-up lands; do not derive it from `issuanceMetadata`.
+   * Whether the issued credentials reference a status list that wallets and verifiers check: only SD-JWT VCs,
+   * through an IETF Token Status List. W3C VCs get a bitstring list entry, but the issued credentials do not
+   * embed `credentialStatus`, so they stay non-revocable.
    */
-  @ApiProperty({ description: 'Always false: issued OID4VC credentials do not reference a status list yet' })
+  @ApiProperty({
+    description:
+      "true when the session's SD-JWT VCs reference an IETF Token Status List; always false for jwt_vc_json, " +
+      'jwt_vc_json-ld, ldp_vc and mso_mdoc',
+  })
   public revocable!: boolean
 
-  public constructor(params: Omit<OpenId4VcIssuanceSessionRecordDto, 'revocable'>) {
+  /**
+   * Present only when `revocable`: true when every status list entry of the session is invalid. Absent when the
+   * token status list could not be read.
+   */
+  @ApiPropertyOptional({
+    description:
+      'Present only when revocable: true when every status list entry of the session is invalid. ' +
+      'Absent when the status could not be read.',
+  })
+  public revoked?: boolean
+
+  public constructor(
+    params: Omit<OpenId4VcIssuanceSessionRecordDto, 'revocable' | 'revoked'>,
+    revocation: IssuanceSessionRevocation = { revocable: false },
+  ) {
     this.credentialOfferPayload = params.credentialOfferPayload
     this.preAuthorizedCode = params.preAuthorizedCode
     this.publicIssuerId = params.publicIssuerId
@@ -110,15 +135,20 @@ export class OpenId4VcIssuanceSessionRecordDto {
     this.issuanceMetadata = params.issuanceMetadata
     this.createdAt = params.createdAt
     this.updatedAt = params.updatedAt
-    this.revocable = false
+    this.revocable = revocation.revocable
+    if (revocation.revocable && revocation.revoked !== undefined) this.revoked = revocation.revoked
   }
 
   public static fromOpenId4VcIssuanceSessionRecord(
     record: CredoOpenId4VcIssuanceSessionRecord,
+    revocation?: IssuanceSessionRevocation,
   ): OpenId4VcIssuanceSessionRecordDto {
-    return new OpenId4VcIssuanceSessionRecordDto({
-      ...record,
-      publicIssuerId: record.issuerId,
-    })
+    return new OpenId4VcIssuanceSessionRecordDto(
+      {
+        ...record,
+        publicIssuerId: record.issuerId,
+      },
+      revocation,
+    )
   }
 }

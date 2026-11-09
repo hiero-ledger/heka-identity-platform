@@ -1,11 +1,12 @@
 import { RecordNotFoundError } from '@credo-ts/core'
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
-import { BadRequestException, NotFoundException, UnprocessableEntityException } from '@nestjs/common'
+import { BadRequestException, ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
 import { TenantAgent } from 'common/agent'
 import { AuthInfo, Role } from 'common/auth'
+import { Logger } from 'common/logger'
 import AgentConfig from 'config/agent'
 
 import {
@@ -22,6 +23,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
   let tenantAgent: TenantAgent
   let statusListService: StatusListService
   let tokenStatusListService: TokenStatusListService
+  let logger: Logger
   let agencyConfig: ConfigType<typeof AgentConfig>
   let authInfo: AuthInfo
 
@@ -31,6 +33,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
   beforeEach(() => {
     statusListService = createMock<StatusListService>()
     tokenStatusListService = createMock<TokenStatusListService>()
+    logger = createMock<Logger>()
     agencyConfig = {
       credentialsConfiguration: {
         OpenId4VC: {
@@ -45,7 +48,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       },
     } as any
 
-    service = new OpenId4VcIssuanceSessionService(agencyConfig, statusListService, tokenStatusListService)
+    service = new OpenId4VcIssuanceSessionService(agencyConfig, statusListService, tokenStatusListService, logger)
 
     mockFindIssuanceSessionsByQuery.mockReset()
     mockDeleteById.mockReset()
@@ -327,6 +330,10 @@ describe('OpenId4VcIssuanceSessionService', () => {
       )
       expect(result.credentialOffer).toBe('openid-credential-offer://...')
       expect(result.issuanceSession.id).toBe('session-new')
+      // The entry was just reserved: revocable and not revoked, without reading the list back
+      expect(result.issuanceSession.revocable).toBe(true)
+      expect(result.issuanceSession.revoked).toBe(false)
+      expect(tokenStatusListService.getStatuses).not.toHaveBeenCalled()
       // SD-JWT VCs never use the W3C bitstring list
       expect(statusListService.getOrCreate).not.toHaveBeenCalled()
       expect(statusListService.addItems).not.toHaveBeenCalled()
@@ -788,6 +795,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
         restrictedConfig,
         statusListService,
         tokenStatusListService,
+        logger,
       )
 
       const mockIssuer = issuerRecordStub({
@@ -825,8 +833,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
       OpenId4VciCredentialFormatProfile.MsoMdoc,
     ]
 
-    // Sessions of formats that get a status list entry still report false: the issued credentials
-    // do not embed credentialStatus, so the entry is not visible to wallets or verifiers.
+    // Sessions without a token status list entry report false: W3C VCs get a bitstring list entry that the
+    // issued credentials do not embed, and SD-JWT VCs issued before token status lists have none.
     const sessionWithFormat = (format: OpenId4VciCredentialFormatProfile) =>
       issuanceSessionRecordStub({
         id: `session-${format}`,
@@ -894,6 +902,102 @@ describe('OpenId4VcIssuanceSessionService', () => {
       } as any)
 
       expect(result.issuanceSession.revocable).toBe(false)
+      expect(result.issuanceSession).not.toHaveProperty('revoked')
+    })
+
+    const sdJwtSession = (id: string, entries: Array<{ list: string; indexes: number[] }>) =>
+      issuanceSessionRecordStub({
+        id,
+        issuerId: 'issuer-1',
+        state: 'Completed',
+        type: 'OpenId4VcIssuanceSessionRecord',
+        createdAt: new Date(),
+        credentialOfferPayload: {},
+        issuanceMetadata: {
+          credentials: entries.map(({ list, indexes }) => ({
+            format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+            credentialStatus: {
+              type: 'token-status-list',
+              location: `https://example.com/token-status-lists/${list}`,
+              index: indexes[0],
+              indexes,
+            },
+          })),
+        },
+      })
+
+    test('reads every listed SD-JWT session from the token status lists in one call', async () => {
+      mockFindIssuanceSessionsByQuery.mockResolvedValue([
+        sdJwtSession('active', [{ list: 'tsl-1', indexes: [1, 2] }]),
+        sdJwtSession('revoked', [{ list: 'tsl-1', indexes: [3] }]),
+        sdJwtSession('partly', [
+          { list: 'tsl-1', indexes: [4] },
+          { list: 'tsl-2', indexes: [5] },
+        ]),
+        sessionWithFormat(OpenId4VciCredentialFormatProfile.JwtVcJson),
+      ])
+      vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(
+        new Map([
+          ['tsl-1', [0, 0, 1, 1]],
+          ['tsl-2', [0]],
+        ]),
+      )
+
+      const sessions = await service.getIssuanceSessionsByQuery(tenantAgent, { state: 'Completed' as any })
+
+      expect(tokenStatusListService.getStatuses).toHaveBeenCalledTimes(1)
+      expect(tokenStatusListService.getStatuses).toHaveBeenCalledWith(tenantAgent.context, [
+        { id: 'tsl-1', indexes: [1, 2] },
+        { id: 'tsl-1', indexes: [3] },
+        { id: 'tsl-1', indexes: [4] },
+        { id: 'tsl-2', indexes: [5] },
+      ])
+      expect(sessions.map(({ id, revocable, revoked }) => ({ id, revocable, revoked }))).toEqual([
+        { id: 'active', revocable: true, revoked: false },
+        { id: 'revoked', revocable: true, revoked: true },
+        { id: 'partly', revocable: true, revoked: false },
+        { id: `session-${OpenId4VciCredentialFormatProfile.JwtVcJson}`, revocable: false, revoked: undefined },
+      ])
+    })
+
+    test('an SD-JWT session fetched by id reports revoked once every entry is invalid', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(
+        sdJwtSession('session-sd', [{ list: 'tsl-1', indexes: [7, 9] }]),
+      )
+      vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(new Map([['tsl-1', [1, 1]]]))
+
+      const session = await service.getIssuanceSession(tenantAgent, 'session-sd')
+
+      expect(session.revocable).toBe(true)
+      expect(session.revoked).toBe(true)
+    })
+
+    test('an SD-JWT session whose list is gone is not revocable', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(
+        sdJwtSession('session-sd', [{ list: 'gone', indexes: [7] }]),
+      )
+      vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(new Map())
+
+      const session = await service.getIssuanceSession(tenantAgent, 'session-sd')
+
+      expect(session.revocable).toBe(false)
+      expect(session).not.toHaveProperty('revoked')
+    })
+
+    test('a failed status read keeps the list working: revocable, revoked unknown, one warning with list ids', async () => {
+      mockFindIssuanceSessionsByQuery.mockResolvedValue([
+        sdJwtSession('session-a', [{ list: 'tsl-1', indexes: [1] }]),
+        sdJwtSession('session-b', [{ list: 'tsl-1', indexes: [2] }]),
+        sessionWithFormat(OpenId4VciCredentialFormatProfile.MsoMdoc),
+      ])
+      vi.mocked(tokenStatusListService.getStatuses).mockRejectedValue(new Error('connection refused'))
+
+      const sessions = await service.getIssuanceSessionsByQuery(tenantAgent, {})
+
+      expect(sessions.map(({ revocable }) => revocable)).toEqual([true, true, false])
+      for (const session of sessions) expect(session).not.toHaveProperty('revoked')
+      expect(logger.warn).toHaveBeenCalledTimes(1)
+      expect(logger.warn).toHaveBeenCalledWith({ statusListIds: ['tsl-1'] }, 'Could not read token status lists')
     })
   })
 
@@ -977,9 +1081,19 @@ describe('OpenId4VcIssuanceSessionService', () => {
           },
         }),
       )
+      vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(
+        new Map([
+          ['tsl-1', [1, 0]],
+          ['tsl-2', [1]],
+        ]),
+      )
 
       await service.revokeIssuanceSession(authInfo, tenantAgent, 'session-sd')
 
+      expect(tokenStatusListService.getStatuses).toHaveBeenCalledWith(tenantAgent.context, [
+        { id: 'tsl-1', indexes: [4, 8] },
+        { id: 'tsl-2', indexes: [15] },
+      ])
       expect(tokenStatusListService.setStatuses).toHaveBeenCalledTimes(2)
       expect(tokenStatusListService.setStatuses).toHaveBeenCalledWith(
         tenantAgent.context,
@@ -996,30 +1110,64 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(statusListService.updateItems).not.toHaveBeenCalled()
     })
 
-    test('should surface a missing token status list as 404', async () => {
+    const sdJwtRevokeSession = () =>
+      issuanceSessionRecordStub({
+        id: 'session-sd',
+        issuanceMetadata: {
+          credentials: [
+            {
+              format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+              credentialStatus: {
+                type: 'token-status-list',
+                location: 'https://example.com/token-status-lists/tsl-1',
+                index: 4,
+                indexes: [4, 8],
+              },
+            },
+          ],
+        },
+      })
+
+    test('should throw ConflictException when every entry of the session is already invalid', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(sdJwtRevokeSession())
+      vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(new Map([['tsl-1', [1, 1]]]))
+
+      await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-sd')).rejects.toThrow(
+        new ConflictException('Credential is already revoked'),
+      )
+      expect(tokenStatusListService.setStatuses).not.toHaveBeenCalled()
+    })
+
+    test('should throw NotFoundException when the token status list is missing', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(sdJwtRevokeSession())
+      vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(new Map())
+
+      await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-sd')).rejects.toThrow(
+        new NotFoundException('Status list not found'),
+      )
+      expect(tokenStatusListService.setStatuses).not.toHaveBeenCalled()
+    })
+
+    test('should never answer 409 for W3C VCs, whose bit is set again', async () => {
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(
         issuanceSessionRecordStub({
-          id: 'session-sd',
+          id: 'session-1',
           issuanceMetadata: {
             credentials: [
               {
-                format: OpenId4VciCredentialFormatProfile.SdJwtVc,
-                credentialStatus: {
-                  type: 'token-status-list',
-                  location: 'https://example.com/token-status-lists/gone',
-                  index: 4,
-                  indexes: [4],
-                },
+                format: 'jwt_vc_json',
+                credentialStatus: { location: 'https://example.com/status-lists/sl-1', index: 5 },
               },
             ],
           },
         }),
       )
-      vi.mocked(tokenStatusListService.setStatuses).mockRejectedValue(new NotFoundException('Status list not found'))
 
-      await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-sd')).rejects.toThrow(
-        new NotFoundException('Status list not found'),
-      )
+      await service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')
+      await service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')
+
+      expect(statusListService.updateItems).toHaveBeenCalledTimes(2)
+      expect(tokenStatusListService.getStatuses).not.toHaveBeenCalled()
     })
 
     test('should call statusListService.updateItems on successful revocation', async () => {

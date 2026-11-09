@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query, UseGuards,
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiBody,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -141,13 +142,16 @@ export class OpenId4VcIssuanceSessionController {
   @ApiOperation({
     summary: 'Revoke a credential',
     description:
-      'Sets the status list bit of the first credential of the session. Issued OID4VC credentials do not reference ' +
-      'the status list yet (`revocable` is always false), so wallets and verifiers do not see this change.',
+      'SD-JWT VC: sets every status entry of the session to invalid in its IETF Token Status List; verifiers ' +
+      'reject the credential. jwt_vc_json / jwt_vc_json-ld / ldp_vc: sets the W3C status list bit of the first ' +
+      'credential of the session; the issued credentials do not reference the status list (`revocable` is ' +
+      'false), so wallets and verifiers do not see this change.',
   })
   @ApiParam({ name: 'id', type: String })
-  @ApiOkResponse({ description: 'Status list entry updated' })
-  @ApiNotFoundResponse({ description: 'Issuance session not found' })
+  @ApiOkResponse({ description: 'Status list entries updated' })
+  @ApiNotFoundResponse({ description: 'Issuance session or status list not found' })
   @ApiBadRequestResponse({ description: 'Credential format does not support revocation' })
+  @ApiConflictResponse({ description: 'Credential is already revoked' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @Post(':id/revoke')
   @HttpCode(200)

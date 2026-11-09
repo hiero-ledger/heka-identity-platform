@@ -106,6 +106,14 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     return issuerDid
   }
 
+  function getSession(authToken: string, sessionId: string) {
+    return request(app).get(`/openid4vc/issuance-session/${sessionId}`).auth(authToken, { type: 'bearer' }).expect(200)
+  }
+
+  function revoke(authToken: string, sessionId: string) {
+    return request(app).post(`/openid4vc/issuance-session/${sessionId}/revoke`).auth(authToken, { type: 'bearer' })
+  }
+
   function offer(authToken: string, issuerDid: string, credential: Record<string, unknown> = {}) {
     return request(app)
       .post('/openid4vc/issuance-session/offer')
@@ -216,6 +224,7 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     // AC1: the offer reserves an entry in a list of the issuer key
     const offerResponse = await offer(issuerAuthToken, issuerDid).expect(200)
     const sessionId = offerResponse.body.issuanceSession.id as string
+    expect(offerResponse.body.issuanceSession).toMatchObject({ revocable: true, revoked: false })
     const reference = referenceOf(offerResponse)
     expect(reference).toEqual({
       type: 'token-status-list',
@@ -266,16 +275,30 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     expect((await agent.sdJwtVc.verify({ compactSdJwtVc: credential.compact })).isValid).toBe(true)
     expect(await presentToVerifier()).toEqual({ serverStatus: 200, state: 'ResponseVerified' })
 
-    // AC6: revoke → the entry flips, the token is re-signed
-    await request(app)
-      .post(`/openid4vc/issuance-session/${sessionId}/revoke`)
-      .auth(issuerAuthToken, { type: 'bearer' })
-      .expect(200)
+    expect((await getSession(issuerAuthToken, sessionId)).body).toMatchObject({ revocable: true, revoked: false })
+
+    // AC6: revoke → the entry flips, the token is re-signed, the session reports revoked
+    await revoke(issuerAuthToken, sessionId).expect(200)
 
     const after = await request(app).get(`/token-status-lists/${listId}`).expect(200)
     expect(after.text).not.toBe(before.text)
     expect(getListFromStatusListJWT(after.text).getStatus(reference.index)).toBe(TokenStatus.Invalid)
     expect(getListFromStatusListJWT(after.text).getStatus((reference.index + 1) % 100_000)).toBe(TokenStatus.Valid)
+
+    expect((await getSession(issuerAuthToken, sessionId)).body).toMatchObject({ revocable: true, revoked: true })
+    // The list call reads the status too. (Filtered by issuer, not by state: in this test app the issuance
+    // session ends in `Error` after a successful credential request, which happens without status lists too.)
+    const listed = await request(app)
+      .get('/openid4vc/issuance-session')
+      .query({ publicIssuerId: issuerDid })
+      .auth(issuerAuthToken, { type: 'bearer' })
+      .expect(200)
+    expect(listed.body).toEqual([expect.objectContaining({ id: sessionId, revocable: true, revoked: true })])
+
+    // AC7: a second revoke is a 409 and leaves the list as it was
+    const again = await revoke(issuerAuthToken, sessionId).expect(409)
+    expect(again.body.message).toBe('Credential is already revoked')
+    expect((await request(app).get(`/token-status-lists/${listId}`).expect(200)).text).toBe(after.text)
 
     // AC8: verification now fails on status, and a presentation of the revoked credential is rejected
     const reverified = await agent.sdJwtVc.verify({ compactSdJwtVc: credential.compact })
@@ -313,10 +336,7 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     const [revokeA, revokeB] = concurrent
     await Promise.all(
       [revokeA, revokeB].map((response) =>
-        request(app)
-          .post(`/openid4vc/issuance-session/${response.body.issuanceSession.id as string}/revoke`)
-          .auth(issuerAuthToken, { type: 'bearer' })
-          .expect(200),
+        revoke(issuerAuthToken, response.body.issuanceSession.id as string).expect(200),
       ),
     )
     const token = await request(app).get(`/token-status-lists/${listId}`).expect(200)
@@ -324,6 +344,30 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     expect(statusList.getStatus(referenceOf(revokeA).index)).toBe(TokenStatus.Invalid)
     expect(statusList.getStatus(referenceOf(revokeB).index)).toBe(TokenStatus.Invalid)
     expect(statusList.getStatus(referenceOf(first).index)).toBe(TokenStatus.Valid)
+  })
+
+  test('another member of the same organization wallet can revoke the credential (shared lists)', async () => {
+    const orgId = uuid()
+    const orgAdminAuthToken = await createAuthToken(uuid(), Role.OrgAdmin, orgId)
+    const orgManagerAuthToken = await createAuthToken(uuid(), Role.OrgManager, orgId)
+    const issuerDid = await createSdJwtIssuer(orgAdminAuthToken)
+
+    const offered = await offer(orgAdminAuthToken, issuerDid).expect(200)
+    const sessionId = offered.body.issuanceSession.id as string
+    // The second member's offers share the first member's list: it belongs to the wallet, not to the user
+    const offeredByManager = await offer(orgManagerAuthToken, issuerDid).expect(200)
+    expect(referenceOf(offeredByManager).location).toBe(referenceOf(offered).location)
+
+    await revoke(orgManagerAuthToken, sessionId).expect(200)
+
+    const listId = referenceOf(offered).location.split('/').pop() as string
+    const token = await request(app).get(`/token-status-lists/${listId}`).expect(200)
+    expect(getListFromStatusListJWT(token.text).getStatus(referenceOf(offered).index)).toBe(TokenStatus.Invalid)
+    expect((await getSession(orgAdminAuthToken, sessionId)).body).toMatchObject({ revocable: true, revoked: true })
+
+    // A user of another wallet sees neither the session nor the list
+    const outsiderAuthToken = await createAuthToken(uuid(), Role.OrgAdmin, uuid())
+    await revoke(outsiderAuthToken, sessionId).expect(404)
   })
 
   test('an offer cannot set or hide the status claim (400)', async () => {
