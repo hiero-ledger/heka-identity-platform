@@ -334,10 +334,10 @@ describe('E2E public DIDs creation', () => {
 
       const updated = await DidUtilities.update(app, adminToken, keyDid, addService)
       expect(updated.status).toBe(422)
-      expect(updated.body.message).toContain('did:key DIDs are immutable')
+      expect(updated.body.message).toContain('did:key DIDs cannot be updated')
       const deactivated = await DidUtilities.deactivate(app, adminToken, keyDid)
       expect(deactivated.status).toBe(422)
-      expect(deactivated.body.message).toContain('did:key DIDs are immutable')
+      expect(deactivated.body.message).toContain('did:key DIDs cannot be deactivated')
 
       // The endorser DID is imported into every wallet that creates a did:indy
       const endorserDid = nestApp.get<string, Agent>(AGENT_TOKEN).agencyConfig.indyEndorserDid

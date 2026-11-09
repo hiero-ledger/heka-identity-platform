@@ -887,14 +887,14 @@ describe('DidService', () => {
 
       test('a method that cannot update DIDs is rejected by the registrar service (422)', async () => {
         vi.mocked(didRegistrarService.getUpdatingDidRegistrar).mockImplementation(() => {
-          throw new UnprocessableEntityException('did:key DIDs are immutable and cannot be updated or deactivated')
+          throw new UnprocessableEntityException('did:key DIDs cannot be updated')
         })
         didRecord = new DidRecord({ did: 'did:key:z6Mk1', role: DidDocumentRole.Created })
         vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecord])
 
         await expect(
           didService.update(orgAdmin, tenantAgent, 'did:key:z6Mk1', { removeServices: ['#svc-1'] }),
-        ).rejects.toThrow('immutable')
+        ).rejects.toThrow('did:key DIDs cannot be updated')
         expect(didRegistrarService.getUpdatingDidRegistrar).toHaveBeenCalledWith('key', 'update')
         expect(tenantAgent.dids.resolve).not.toHaveBeenCalled()
       })
