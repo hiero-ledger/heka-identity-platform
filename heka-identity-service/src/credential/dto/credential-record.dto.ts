@@ -2,6 +2,8 @@ import { AnonCredsCredentialMetadata, AnonCredsCredentialMetadataKey } from '@cr
 import { DidCommCredentialExchangeRecord, DidCommCredentialRole, DidCommCredentialState } from '@credo-ts/didcomm'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
+import { AriesCredentialFormat } from 'common/types'
+
 import { CredentialPreviewAttributeDto } from './credential-preview-attribute.dto'
 
 export interface CredentialRecordDtoExtra {
@@ -9,6 +11,8 @@ export interface CredentialRecordDtoExtra {
   revoked?: boolean
   /** Fallback when the record has no AnonCreds credential metadata (e.g. the anoncreds-w3c format). */
   credentialDefinitionId?: string
+  /** DIDComm credential format, derived from the offer message by the caller */
+  format?: AriesCredentialFormat
 }
 
 /**
@@ -38,6 +42,7 @@ export class CredentialRecordDto {
     this.credentialDefinitionId =
       extra?.credentialDefinitionId ??
       record.metadata.get<AnonCredsCredentialMetadata>(AnonCredsCredentialMetadataKey)?.credentialDefinitionId
+    this.format = extra?.format
   }
 
   @ApiProperty()
@@ -81,4 +86,11 @@ export class CredentialRecordDto {
 
   @ApiPropertyOptional({ description: 'AnonCreds credential definition id, when known' })
   public credentialDefinitionId?: string
+
+  @ApiPropertyOptional({
+    enum: AriesCredentialFormat,
+    description:
+      'DIDComm credential format, taken from the stored credential offer. Absent when it cannot be determined',
+  })
+  public format?: AriesCredentialFormat
 }

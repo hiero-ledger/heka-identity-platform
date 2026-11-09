@@ -1,4 +1,9 @@
-import { DidCommCredentialExchangeRecord, DidCommCredentialRole, DidCommCredentialState } from '@credo-ts/didcomm'
+import {
+  DidCommCredentialExchangeRecord,
+  DidCommCredentialRole,
+  DidCommCredentialState,
+  DidCommMessageRepository,
+} from '@credo-ts/didcomm'
 import {
   BadRequestException,
   ConflictException,
@@ -19,12 +24,16 @@ import { AnoncredsRegistryService } from '../common/anoncreds-registry'
 import { InjectLogger, Logger } from '../common/logger'
 import { RevocationRegistryService } from '../revocation/revocation-registry/revocation-registry.service'
 
+import { credentialFormatFromOfferMessage, OFFER_CREDENTIAL_V2_MESSAGE_TAGS } from './credential-format'
 import { CredentialOfferDto, CredentialRecordDto, GetCredentialsQueryDto } from './dto'
 import { CredentialConfigDto } from './dto/credential-config.dto'
 import { isRevocableIssuerRecord } from './dto/credential-record.dto'
 
 /** Credo's `v2AnonCredsRevocationFormat` (not exported from `@credo-ts/didcomm`) */
 const ANONCREDS_REVOCATION_NOTIFICATION_FORMAT = 'anoncreds'
+
+/** Exchange ids per offer-message query, to keep the `$or` of the storage query bounded */
+const FORMAT_LOOKUP_CHUNK_SIZE = 100
 
 interface RevocationRegistryLookup {
   /** Ledger status list by credential revocation index, undefined when it could not be read */
@@ -51,18 +60,73 @@ export class CredentialService {
     )
     const credentialRecords = await tenantAgent.didcomm.credentials.findAllByQuery(filter)
 
-    const lookups = await this.lookupRevocationRegistries(tenantAgent, credentialRecords)
+    const [lookups, formats] = await Promise.all([
+      this.lookupRevocationRegistries(tenantAgent, credentialRecords),
+      this.findCredentialFormats(tenantAgent, credentialRecords),
+    ])
 
     return credentialRecords.map((record) => {
-      if (!this.hasLedgerStatus(record)) return new CredentialRecordDto(record)
+      const format = formats.get(record.id)
+      if (!this.hasLedgerStatus(record)) return new CredentialRecordDto(record, { format })
 
       const lookup = lookups.get(record.getTag('anonCredsRevocationRegistryId') as string)
       const index = Number(record.getTag('anonCredsCredentialRevocationId'))
       const revoked =
         lookup?.revocationStatusList && !isNaN(index) ? lookup.revocationStatusList[index] === 1 : undefined
 
-      return new CredentialRecordDto(record, { revoked, credentialDefinitionId: lookup?.credentialDefinitionId })
+      return new CredentialRecordDto(record, {
+        revoked,
+        credentialDefinitionId: lookup?.credentialDefinitionId,
+        format,
+      })
     })
+  }
+
+  /**
+   * Credential format of each exchange, read from its stored issue-credential v2 offer message.
+   * The exchange record itself does not tell `anoncreds-indy` from `anoncreds-w3c` (both format services
+   * write the same tags and AnonCreds metadata), so the offers are loaded in one query per
+   * {@link FORMAT_LOOKUP_CHUNK_SIZE} records, not one per record. A failed query leaves the format unknown
+   * and never fails the caller.
+   */
+  private async findCredentialFormats(
+    tenantAgent: TenantAgent,
+    records: DidCommCredentialExchangeRecord[],
+  ): Promise<Map<string, AriesCredentialFormat>> {
+    const formats = new Map<string, AriesCredentialFormat>()
+    if (records.length === 0) return formats
+
+    const recordIds = records.map((record) => record.id)
+    const chunks = Array.from({ length: Math.ceil(recordIds.length / FORMAT_LOOKUP_CHUNK_SIZE) }, (_, i) =>
+      recordIds.slice(i * FORMAT_LOOKUP_CHUNK_SIZE, (i + 1) * FORMAT_LOOKUP_CHUNK_SIZE),
+    )
+
+    try {
+      const messageRepository = tenantAgent.dependencyManager.resolve(DidCommMessageRepository)
+      const offerMessages = (
+        await Promise.all(
+          chunks.map((ids) =>
+            messageRepository.findByQuery(tenantAgent.context, {
+              ...OFFER_CREDENTIAL_V2_MESSAGE_TAGS,
+              $or: ids.map((associatedRecordId) => ({ associatedRecordId })),
+            }),
+          ),
+        )
+      ).flat()
+
+      for (const messageRecord of offerMessages) {
+        const format = credentialFormatFromOfferMessage(messageRecord)
+        if (messageRecord.associatedRecordId && format) formats.set(messageRecord.associatedRecordId, format)
+      }
+    } catch (error) {
+      // Only the error class: the message of a storage error may echo the query or record contents
+      this.logger.warn(
+        { errorName: error instanceof Error ? error.name : undefined },
+        'Could not read the credential offers to determine credential formats',
+      )
+    }
+
+    return formats
   }
 
   /** Records whose revocation status is looked up on the ledger in list responses */
@@ -152,10 +216,11 @@ export class CredentialService {
 
     validateAriesCredAttributes(credOfferAttrNames, schema)
 
+    const format = req.format ?? AriesCredentialFormat.AnoncredsIndy
     const credential = buildAriesCredential({
       attributes: req.attributes,
       credentialDefinitionId: req.credentialDefinitionId,
-      format: req.format ?? AriesCredentialFormat.AnoncredsIndy,
+      format,
       issuerId: credentialDefinition.issuerId,
       revocationRegistryDefinitionId,
       revocationRegistryIndex,
@@ -173,7 +238,7 @@ export class CredentialService {
       })
     }
 
-    return new CredentialRecordDto(credentialRecord)
+    return new CredentialRecordDto(credentialRecord, { format })
   }
 
   public async get(tenantAgent: TenantAgent, id: string): Promise<CredentialRecordDto> {
@@ -181,7 +246,8 @@ export class CredentialService {
     if (!credentialRecord) {
       throw new NotFoundException('Credential record not found')
     }
-    return new CredentialRecordDto(credentialRecord)
+    const formats = await this.findCredentialFormats(tenantAgent, [credentialRecord])
+    return new CredentialRecordDto(credentialRecord, { format: formats.get(credentialRecord.id) })
   }
 
   public async accept(tenantAgent: TenantAgent, id: string): Promise<CredentialRecordDto> {

@@ -3433,6 +3433,13 @@ components:
         credentialDefinitionId:
           type: string
           description: AnonCreds credential definition id, when known
+        format:
+          type: string
+          enum:
+            - anoncreds-indy
+            - anoncreds-w3c
+          description: DIDComm credential format, taken from the stored credential offer.
+            Absent when it cannot be determined
       required:
         - id
         - threadId

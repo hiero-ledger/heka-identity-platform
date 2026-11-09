@@ -1,5 +1,5 @@
 import { AnonCredsCredentialMetadataKey } from '@credo-ts/anoncreds'
-import { DidCommCredentialRole, DidCommCredentialState } from '@credo-ts/didcomm'
+import { DidCommCredentialRole, DidCommCredentialState, DidCommMessageRepository } from '@credo-ts/didcomm'
 import { createMock } from '@golevelup/ts-vitest'
 import {
   BadRequestException,
@@ -12,10 +12,21 @@ import {
 import { TenantAgent } from 'common/agent'
 import { AnoncredsRegistryService } from 'common/anoncreds-registry'
 import { Logger } from 'common/logger'
+import { AriesCredentialFormat } from 'common/types'
 import { RevocationRegistryService } from 'revocation/revocation-registry/revocation-registry.service'
 
+import {
+  anonCredsOffer,
+  dataIntegrityAnonCredsOffer,
+  offerMessageRecord,
+} from '../../../test/helpers/credential-offer-messages'
 import { connectionRecordStub, credentialExchangeRecordStub } from '../../../test/helpers/mock-records'
 import { CredentialService } from '../credential.service'
+
+/** The offer-message query of `CredentialService`, as far as the tests read it */
+interface OfferQuery {
+  $or: Array<{ associatedRecordId: string }>
+}
 
 interface RecordOptions {
   id: string
@@ -63,6 +74,7 @@ describe('CredentialService', () => {
   let anoncredsRegistryService: AnoncredsRegistryService
   let revocationService: RevocationRegistryService
   let tenantAgent: TenantAgent
+  let messageRepository: { findByQuery: ReturnType<typeof vi.fn> }
   const agentConfig = { credentialsConfiguration: { formats: ['anoncreds'] } }
 
   beforeEach(() => {
@@ -70,7 +82,12 @@ describe('CredentialService', () => {
     anoncredsRegistryService = createMock<AnoncredsRegistryService>()
     revocationService = createMock<RevocationRegistryService>()
     credentialService = new CredentialService(agentConfig as any, logger, anoncredsRegistryService, revocationService)
+    messageRepository = { findByQuery: vi.fn().mockResolvedValue([]) }
     tenantAgent = createMock<TenantAgent>({
+      context: { contextCorrelationId: 'tenant-1' },
+      dependencyManager: {
+        resolve: vi.fn((token: unknown) => (token === DidCommMessageRepository ? messageRepository : undefined)),
+      },
       didcomm: {
         credentials: {
           findAllByQuery: vi.fn(),
@@ -263,6 +280,80 @@ describe('CredentialService', () => {
       expect(w3c.credentialDefinitionId).toBe('creddef-from-registry')
       expect(revocationService.findCredentialDefinitionId).toHaveBeenCalledWith(tenantAgent, 'rev-reg-1')
     })
+
+    describe('format', () => {
+      test('returns the format of each exchange from its offer message, read in one query', async () => {
+        vi.mocked(tenantAgent.didcomm.credentials.findAllByQuery).mockResolvedValue([
+          credentialRecord({ id: 'indy', registryId: 'rev-reg-1', revocationIndex: '0' }),
+          credentialRecord({ id: 'w3c', registryId: 'rev-reg-1', revocationIndex: '1' }),
+          credentialRecord({ id: 'no-offer' }),
+        ])
+        vi.mocked(revocationService.get).mockResolvedValue({ timestamp: 1, revocationStatusList: [0, 0] })
+        messageRepository.findByQuery.mockResolvedValue([
+          offerMessageRecord('indy', [anonCredsOffer]),
+          offerMessageRecord('w3c', [dataIntegrityAnonCredsOffer]),
+        ])
+
+        const [indy, w3c, noOffer] = await credentialService.find(tenantAgent)
+
+        expect(indy.format).toBe(AriesCredentialFormat.AnoncredsIndy)
+        expect(w3c.format).toBe(AriesCredentialFormat.AnoncredsW3c)
+        expect(noOffer.format).toBeUndefined()
+        expect(messageRepository.findByQuery).toHaveBeenCalledTimes(1)
+        expect(messageRepository.findByQuery).toHaveBeenCalledWith(tenantAgent.context, {
+          protocolName: 'issue-credential',
+          protocolMajorVersion: '2',
+          messageName: 'offer-credential',
+          $or: [{ associatedRecordId: 'indy' }, { associatedRecordId: 'w3c' }, { associatedRecordId: 'no-offer' }],
+        })
+      })
+
+      test('splits the offer lookup into queries of at most 100 exchanges', async () => {
+        const records = Array.from({ length: 201 }, (_, i) => credentialRecord({ id: `cred-${i}` }))
+        vi.mocked(tenantAgent.didcomm.credentials.findAllByQuery).mockResolvedValue(records)
+        messageRepository.findByQuery.mockImplementation((_context: unknown, query: OfferQuery) =>
+          Promise.resolve(
+            query.$or.some(({ associatedRecordId }) => associatedRecordId === 'cred-200')
+              ? [offerMessageRecord('cred-200', [dataIntegrityAnonCredsOffer])]
+              : [],
+          ),
+        )
+
+        const result = await credentialService.find(tenantAgent)
+
+        expect(messageRepository.findByQuery).toHaveBeenCalledTimes(3)
+        const queries = messageRepository.findByQuery.mock.calls.map(([, query]) => query as OfferQuery)
+        expect(queries.map((query) => query.$or.length)).toEqual([100, 100, 1])
+        expect(result[200].format).toBe(AriesCredentialFormat.AnoncredsW3c)
+        expect(result[0].format).toBeUndefined()
+      })
+
+      test('does not query the offers for an empty list', async () => {
+        vi.mocked(tenantAgent.didcomm.credentials.findAllByQuery).mockResolvedValue([])
+
+        await credentialService.find(tenantAgent)
+
+        expect(messageRepository.findByQuery).not.toHaveBeenCalled()
+      })
+
+      test('leaves the format unknown and logs a warn without the error message when the offers cannot be read', async () => {
+        vi.mocked(tenantAgent.didcomm.credentials.findAllByQuery).mockResolvedValue([
+          credentialRecord({ id: 'cred-1', registryId: 'rev-reg-1', revocationIndex: '1' }),
+        ])
+        vi.mocked(revocationService.get).mockResolvedValue({ timestamp: 1, revocationStatusList: [0, 1] })
+        messageRepository.findByQuery.mockRejectedValue(new Error('storage failed near attribute-value'))
+
+        const [record] = await credentialService.find(tenantAgent)
+
+        expect(record).toMatchObject({ id: 'cred-1', revocable: true, revoked: true })
+        expect(record.format).toBeUndefined()
+        expect(logger.warn).toHaveBeenCalledWith(
+          { errorName: 'Error' },
+          'Could not read the credential offers to determine credential formats',
+        )
+        expect(JSON.stringify(vi.mocked(logger.warn).mock.calls)).not.toContain('attribute-value')
+      })
+    })
   })
 
   describe('types', () => {
@@ -285,6 +376,19 @@ describe('CredentialService', () => {
       expect(result.revoked).toBeUndefined()
       expect(revocationService.get).not.toHaveBeenCalled()
       expect(revocationService.findCredentialDefinitionId).not.toHaveBeenCalled()
+    })
+
+    test('returns the format from the offer message of the record', async () => {
+      vi.mocked(tenantAgent.didcomm.credentials.findById).mockResolvedValue(credentialRecord({ id: 'cred-1' }))
+      messageRepository.findByQuery.mockResolvedValue([offerMessageRecord('cred-1', [dataIntegrityAnonCredsOffer])])
+
+      const result = await credentialService.get(tenantAgent, 'cred-1')
+
+      expect(result.format).toBe(AriesCredentialFormat.AnoncredsW3c)
+      expect(messageRepository.findByQuery).toHaveBeenCalledWith(
+        tenantAgent.context,
+        expect.objectContaining({ $or: [{ associatedRecordId: 'cred-1' }] }),
+      )
     })
 
     test('throws NotFoundException when not found', async () => {
@@ -375,7 +479,9 @@ describe('CredentialService', () => {
         expect.objectContaining({ connectionId: 'conn-1', protocolVersion: 'v2' }),
       )
       expect(result.id).toBe('cred-new')
+      expect(result.format).toBe(AriesCredentialFormat.AnoncredsIndy)
       expect(revocationService.getOrCreate).not.toHaveBeenCalled()
+      expect(messageRepository.findByQuery).not.toHaveBeenCalled()
     })
 
     test('offers credential with revocation and updates registry', async () => {
@@ -406,6 +512,7 @@ describe('CredentialService', () => {
         connectionId: 'conn-1',
         credentialDefinitionId: 'creddef-1',
         attributes: [{ name: 'name', value: 'Alice' }],
+        format: AriesCredentialFormat.AnoncredsW3c,
       })
 
       expect(tenantAgent.didcomm.connections.findById).toHaveBeenCalledWith('conn-1')
@@ -414,6 +521,7 @@ describe('CredentialService', () => {
       expect(anoncredsRegistryService.getSchema).toHaveBeenCalledWith(tenantAgent, 'schema-1')
       expect(tenantAgent.didcomm.credentials.offerCredential).toHaveBeenCalled()
       expect(result.id).toBe('cred-rev')
+      expect(result.format).toBe(AriesCredentialFormat.AnoncredsW3c)
       expect(revocationService.update).toHaveBeenCalledWith(tenantAgent, 'rev-reg-1', { lastIndex: 5 })
     })
   })
