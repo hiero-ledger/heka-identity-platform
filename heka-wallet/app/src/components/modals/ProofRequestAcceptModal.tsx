@@ -80,48 +80,41 @@ export const ProofRequestAcceptModal: React.FC<Props> = ({ visible, proofId }) =
     }
   }, [proofRecord])
 
+  const view = isCompleted
+    ? {
+        background: styles.completedBackground,
+        message: t('ProofRequest.PresentationAccepted'),
+        buttonTitle: t('Global.Done'),
+        buttonLabel: t('Global.Done'),
+        buttonType: ButtonType.ModalPrimary,
+      }
+    : {
+        background: styles.pendingBackground,
+        message: t('ProofRequest.PresentationOnTheWay'),
+        buttonTitle: t('Loading.GoBack'),
+        buttonLabel: t('Loading.BackToHome'),
+        buttonType: ButtonType.ModalSecondary,
+      }
+
   return (
     <SafeAreaModal visible={visible} transparent={true} animationType={'slide'}>
-      {isCompleted ? (
-        <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.completedBackground}>
-          <StatusBar backgroundColor={theme.ColorPalette.brand.brandedSecondary} />
-          <ScrollView style={styles.container}>
-            <View style={styles.image}>
-              <TrainImage />
-            </View>
-            <View style={styles.messageContainer}>
-              <Text style={styles.messageText}>{t('ProofRequest.PresentationAccepted')}</Text>
-            </View>
-          </ScrollView>
-          <View style={styles.controlsContainer}>
-            <Button
-              title={t('Global.Done')}
-              accessibilityLabel={t('Global.Done')}
-              onPress={navigateToHome}
-              buttonType={ButtonType.ModalPrimary}
-            />
+      <SafeAreaView edges={['bottom', 'left', 'right']} style={view.background}>
+        {isCompleted && <StatusBar backgroundColor={theme.ColorPalette.brand.brandedSecondary} />}
+        <ScrollView style={styles.container}>
+          <View style={styles.image}>{isCompleted ? <TrainImage /> : <Loader />}</View>
+          <View style={styles.messageContainer}>
+            <Text style={styles.messageText}>{view.message}</Text>
           </View>
-        </SafeAreaView>
-      ) : (
-        <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.pendingBackground}>
-          <ScrollView style={styles.container}>
-            <View style={styles.image}>
-              <Loader />
-            </View>
-            <View style={styles.messageContainer}>
-              <Text style={styles.messageText}>{t('ProofRequest.PresentationOnTheWay')}</Text>
-            </View>
-          </ScrollView>
-          <View style={styles.controlsContainer}>
-            <Button
-              title={t('Loading.GoBack')}
-              accessibilityLabel={t('Loading.BackToHome')}
-              onPress={navigateToHome}
-              buttonType={ButtonType.ModalSecondary}
-            />
-          </View>
-        </SafeAreaView>
-      )}
+        </ScrollView>
+        <View style={styles.controlsContainer}>
+          <Button
+            title={view.buttonTitle}
+            accessibilityLabel={view.buttonLabel}
+            onPress={navigateToHome}
+            buttonType={view.buttonType}
+          />
+        </View>
+      </SafeAreaView>
     </SafeAreaModal>
   )
 }

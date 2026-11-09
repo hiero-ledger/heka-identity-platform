@@ -15,20 +15,34 @@ import {
   DidCommProofExchangeRecord,
   DidCommProofState,
 } from '@credo-ts/didcomm'
-import { useHekaTheme, ColorPalette, GlobalLogger } from '@heka-wallet/shared'
+import { ColorPalette, GlobalLogger } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
-import React, { Fragment, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Linking, Text } from 'react-native'
 
-import { ChatEvent, EventDetails, EventStates, EventTypes } from '../components/chat/ChatEvent'
-import { ExtendedChatMessage } from '../components/chat/ChatMessage'
+import { EventDetails, EventStates, EventTypes } from '../components/chat/ChatEvent'
+import { ExtendedChatMessage, MessageTextSegment } from '../components/chat/messages'
 import { Role } from '../components/chat/types'
 import { resolveOverlay } from '../credentials'
 import { formatError } from '../utils/error'
 
 const logger = GlobalLogger.createContextLogger('ChatMessages')
+
+const linkRegex = /(?:https?:\/\/\w+(?:\.\w+)+\S*)|(?:[\w.-]+@\w+(?:\.\w+)+)/gim
+const mailRegex = /^[\w.-]+@\w+(?:\.\w+)+$/im
+
+// Splits a basic message into plain text and links; an email address opens as mailto:
+const toTextSegments = (content: string): MessageTextSegment[] => {
+  const links = content.match(linkRegex) ?? []
+  return content.split(linkRegex).flatMap((text, i) => {
+    if (i >= links.length) return [{ text }]
+    const link = links[i]
+    return [{ text }, { text: link, link: mailRegex.test(link) ? `mailto:${link}` : link }]
+  })
+}
+
+const byNewestFirst = (a: ExtendedChatMessage, b: ExtendedChatMessage) => b.createdAt.getTime() - a.createdAt.getTime()
 
 const pendingEventStyles = {
   backgroundColor: ColorPalette.brand.primaryBackground,
@@ -140,18 +154,11 @@ const getRecordEventDetails = async (
   }
 }
 
-/**
- * Custom hook for retrieving chat messages for a given connection. This hook includes some of
- * the JSX for rendering the chat messages, including the logic for handling links in messages.
- *
- * @param {DidCommConnectionRecord} connection - The connection to retrieve chat messages for.
- * @returns {ExtendedChatMessage[]} The chat messages for the given connection.
- */
+/** Chat messages of a connection, newest first, as data for `ChatMessageContent` to render. */
 export const useChatMessagesByConnection = (connection: DidCommConnectionRecord): ExtendedChatMessage[] => {
   const [messages, setMessages] = useState<Array<ExtendedChatMessage>>([])
   const [store] = useStore()
   const { t } = useTranslation()
-  const { ChatTheme: theme, ColorPalette } = useHekaTheme()
   const navigation = useNavigation<StackNavigationProp<RootStackParams | ContactStackParams>>()
   const basicMessages = useBasicMessagesByConnectionId(connection?.id)
   const credentials = useCredentialsByConnectionId(connection?.id)
@@ -166,43 +173,10 @@ export const useChatMessagesByConnection = (connection: DidCommConnectionRecord)
   const prepareChatMessages = useCallback(async (): Promise<ExtendedChatMessage[]> => {
     const transformedMessages: Array<ExtendedChatMessage> = basicMessages.map((record: DidCommBasicMessageRecord) => {
       const role = getMessageEventRole(record)
-      // eslint-disable-next-line
-      const linkRegex = /(?:https?\:\/\/\w+(?:\.\w+)+\S*)|(?:[\w\d\.\_\-]+@\w+(?:\.\w+)+)/gim
-      // eslint-disable-next-line
-      const mailRegex = /^[\w\d\.\_\-]+@\w+(?:\.\w+)+$/gim
-      const links = record.content.match(linkRegex) ?? []
-      const handleLinkPress = (link: string) => {
-        if (link.match(mailRegex)) {
-          link = 'mailto:' + link
-        }
-        Linking.openURL(link)
-      }
-      const msgText = (
-        <Text style={role === Role.me ? theme.rightText : theme.leftText}>
-          {record.content.split(linkRegex).map((split, i) => {
-            if (i < links.length) {
-              const link = links[i]
-              return (
-                <Fragment key={`${record.id}-${i}`}>
-                  <Text>{split}</Text>
-                  <Text
-                    onPress={() => handleLinkPress(link)}
-                    style={{ color: ColorPalette.brand.link, textDecorationLine: 'underline' }}
-                    accessibilityRole={'link'}
-                  >
-                    {link}
-                  </Text>
-                </Fragment>
-              )
-            }
-            return <Text key={`${record.id}-${i}`}>{split}</Text>
-          })}
-        </Text>
-      )
       return {
         _id: record.id,
         text: record.content,
-        renderEvent: () => msgText,
+        content: { kind: 'text', segments: toTextSegments(record.content) },
         createdAt: record.updatedAt || record.createdAt,
         type: record.type,
         user: { _id: role },
@@ -229,7 +203,7 @@ export const useChatMessagesByConnection = (connection: DidCommConnectionRecord)
       transformedMessages.push({
         _id: record.id,
         text: record.type,
-        renderEvent: () => <ChatEvent event={event} onPress={onPressEvent} />,
+        content: { kind: 'event', event, onPress: onPressEvent },
         eventStyles: event.styles,
         createdAt: record.updatedAt || record.createdAt,
         user: { _id: event.role },
@@ -266,32 +240,27 @@ export const useChatMessagesByConnection = (connection: DidCommConnectionRecord)
       transformedMessages.push({
         _id: record.id,
         text: record.type,
-        renderEvent: () => <ChatEvent event={event} onPress={onPressEvent} />,
+        content: { kind: 'event', event, onPress: onPressEvent },
         eventStyles: event.styles,
         createdAt: record.updatedAt || record.createdAt,
         user: { _id: event.role },
       })
     }
 
-    const connectedMessage = connection
+    const connectedMessage: ExtendedChatMessage | undefined = connection
       ? {
           _id: 'connected',
           text: `${t('Chat.YouConnected')} ${theirLabel}`,
-          renderEvent: () => (
-            <Text style={theme.rightText}>
-              {t('Chat.YouConnected')}
-              <Text style={[theme.rightText, theme.rightTextHighlighted]}> {theirLabel}</Text>
-            </Text>
-          ),
+          content: { kind: 'connected', label: theirLabel },
           createdAt: connection.createdAt,
           user: { _id: Role.me },
         }
       : undefined
 
     return connectedMessage
-      ? [...transformedMessages.sort((a: any, b: any) => b.createdAt - a.createdAt), connectedMessage]
-      : transformedMessages.sort((a: any, b: any) => b.createdAt - a.createdAt)
-  }, [basicMessages, credentials, proofs, theirLabel, connection, navigation, t, theme, ColorPalette])
+      ? [...transformedMessages.sort(byNewestFirst), connectedMessage]
+      : transformedMessages.sort(byNewestFirst)
+  }, [basicMessages, credentials, proofs, theirLabel, connection, navigation, t])
 
   useEffect(() => {
     // A newer run replaces the result of one still in progress

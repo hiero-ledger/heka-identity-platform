@@ -1,9 +1,8 @@
 import { Button, ButtonType, NotificationStackParams as BifoldNotificationStackParams } from '@bifold/core'
-import { Attribute } from '@bifold/oca/build/legacy'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FlatList, ScrollView, StyleSheet, View } from 'react-native'
 
@@ -13,6 +12,7 @@ import {
   PresentationSubmissionEntry,
   PresentationSubmissionType,
 } from '../../credentials'
+import { usePresentationSubmissionEntries } from '../../hooks/usePresentationSubmissionEntries'
 import { OpenIdStackParams, Screens, Stacks } from '../../navigators/types'
 import { CredentialCard, SectionCard } from '../cards'
 import { Record } from '../misc'
@@ -59,25 +59,9 @@ export const PresentationRequestView: React.FC<Props> = ({
 
   const [isDeclineModalVisible, setIsDeclineModalVisible] = useState(false)
 
-  const changeSelectedCredential = useCallback(
-    (inputDescriptorId: string, credentialId: string) => {
-      const updatedEntries = presentationSubmission?.entries.length ? [...presentationSubmission.entries] : []
-
-      const entryToUpdate = updatedEntries.find((entry) => entry.inputDescriptorId === inputDescriptorId)
-      if (!entryToUpdate) {
-        throw new Error('Presentation submission entry is not found')
-      }
-
-      const selectedOption = entryToUpdate.submissionOptions.find((option) => option.credential.id === credentialId)
-      if (!selectedOption) {
-        throw new Error('Selected credential option is not found')
-      }
-
-      entryToUpdate.selectedOption = selectedOption
-
-      setSubmissionEntries(updatedEntries)
-    },
-    [presentationSubmission.entries, setSubmissionEntries]
+  const { entriesToDisplay, changeSelectedCredential } = usePresentationSubmissionEntries(
+    presentationSubmission,
+    setSubmissionEntries
   )
 
   const onCredentialChangePress = useCallback(
@@ -95,14 +79,6 @@ export const PresentationRequestView: React.FC<Props> = ({
     [navigation, changeSelectedCredential]
   )
 
-  const submissionEntriesToDisplay = useMemo(
-    () =>
-      presentationSubmission?.areAllSatisfied
-        ? presentationSubmission.entries.filter((it) => !!it.selectedOption)
-        : presentationSubmission.entries.filter((it) => !it.selectedOption),
-    [presentationSubmission]
-  )
-
   const isProofExchange = presentationSubmission.type === PresentationSubmissionType.ProofExchange
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -115,42 +91,24 @@ export const PresentationRequestView: React.FC<Props> = ({
       </SectionCard>
       <SectionCard title={t('ProofRequest.RequestedInformation')}>
         <FlatList
-          data={submissionEntriesToDisplay}
+          data={entriesToDisplay}
           contentContainerStyle={styles.credentialsContainer}
           scrollEnabled={false}
-          renderItem={({ item: entry }) => {
-            const hasAltCredentials = entry.submissionOptions.length > 1
-
-            let attributesToDisplay = entry.selectedOption?.requestedAttributes
-
-            if (!attributesToDisplay && isProofExchange) {
-              const requestedAttributesNames = presentationSubmission.entriesWithAnoncredsMatches.get(
-                entry.inputDescriptorId
-              )?.requestedAttributes
-
-              if (requestedAttributesNames) {
-                attributesToDisplay = Array.from(requestedAttributesNames).map(
-                  (attribute) => new Attribute({ name: attribute, value: '' })
-                )
-              }
-            }
-
-            return (
-              <Record
-                fields={attributesToDisplay ?? []}
-                error={!entry.isSatisfied}
-                header={() => (
-                  <CredentialCard
-                    credentialDisplay={entry.selectedOption?.credential.display}
-                    requestedCredentialName={entry.name}
-                    showActionButton={hasAltCredentials}
-                    actionButtonTitle={t('ProofRequest.ChangeCredential')}
-                    onActionButtonPress={hasAltCredentials ? () => onCredentialChangePress(entry) : undefined}
-                  />
-                )}
-              />
-            )
-          }}
+          renderItem={({ item: { entry, attributes, hasAltCredentials } }) => (
+            <Record
+              fields={attributes}
+              error={!entry.isSatisfied}
+              header={() => (
+                <CredentialCard
+                  credentialDisplay={entry.selectedOption?.credential.display}
+                  requestedCredentialName={entry.name}
+                  showActionButton={hasAltCredentials}
+                  actionButtonTitle={t('ProofRequest.ChangeCredential')}
+                  onActionButtonPress={hasAltCredentials ? () => onCredentialChangePress(entry) : undefined}
+                />
+              )}
+            />
+          )}
         />
       </SectionCard>
       <View style={styles.buttonsContainer}>

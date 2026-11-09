@@ -2,19 +2,14 @@ import { Text, formatTime } from '@bifold/core'
 import { useHekaTheme } from '@heka-wallet/shared'
 import React, { useMemo } from 'react'
 import { View } from 'react-native'
-import { Bubble, IMessage, Message } from 'react-native-gifted-chat'
+import { Bubble, Message } from 'react-native-gifted-chat'
 
-import { EventStyles } from './ChatEvent'
+import { ChatMessageContent } from './ChatMessageContent'
+import { ExtendedChatMessage } from './messages'
 import { Role } from './types'
 
 export interface ChatMessageProps {
   messageProps: React.ComponentProps<typeof Message>
-}
-
-export interface ExtendedChatMessage extends IMessage {
-  renderEvent: () => React.JSX.Element
-  createdAt: Date
-  eventStyles?: EventStyles
 }
 
 const MessageTime: React.FC<{ message: ExtendedChatMessage }> = ({ message }) => {
@@ -49,7 +44,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ messageProps }: ChatMe
         <Bubble
           {...messageProps}
           renderUsernameOnMessage={false}
-          renderMessageText={() => message.renderEvent()}
+          renderMessageText={() => <ChatMessageContent message={message} />}
           wrapperStyle={{
             left: {
               ...theme.leftBubble,

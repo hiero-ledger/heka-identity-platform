@@ -1,25 +1,12 @@
-import {
-  BifoldError,
-  EventTypes,
-  NotificationStackParams,
-  Screens,
-  Screens as BifoldScreens,
-  TabStacks,
-  useNetwork,
-} from '@bifold/core'
-import { useCredentialById } from '@bifold/react-hooks'
+import { NotificationStackParams, Screens, Screens as BifoldScreens, TabStacks } from '@bifold/core'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
-import React, { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { DeviceEventEmitter } from 'react-native'
+import React, { useCallback } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { CredentialOfferView } from '../components/views'
 import LoadingView from '../components/views/LoadingView'
-import { Credential, mapCredentialRecord } from '../credentials'
-import { useHekaAgent } from '../utils/agent'
-import { formatError } from '../utils/error'
+import { useAriesCredentialOffer } from '../hooks/useAriesCredentialOffer'
 
 type Props = StackScreenProps<NotificationStackParams, BifoldScreens.CredentialOffer>
 
@@ -28,96 +15,25 @@ export const AriesCredentialOffer: React.FC<Props> = ({ route }) => {
     throw new Error('AriesCredentialOffer route params were not set properly')
   }
 
-  const { t } = useTranslation()
-
   const { credentialId } = route.params
-  const credentialExchangeRecord = useCredentialById(credentialId)
-
-  const { agent } = useHekaAgent()
 
   const navigation = useNavigation<StackNavigationProp<NotificationStackParams>>()
-  const { assertNetworkConnected } = useNetwork()
 
-  const [isCredentialLoading, setIsCredentialLoading] = useState(false)
-  const [credential, setCredential] = useState<Credential | undefined>()
+  const navigateToHome = useCallback(() => {
+    navigation.getParent()?.navigate(TabStacks.HomeStack, { screen: Screens.Home })
+  }, [navigation])
 
-  const [isAccepted, setIsAccepted] = useState(false)
-  const [isDeclining, setIsDeclining] = useState(false)
+  const { credential, isLoading, isAccepted, isDeclining, accept, decline } = useAriesCredentialOffer(credentialId, {
+    onDeclined: navigateToHome,
+  })
 
-  useEffect(() => {
-    if (credential || !credentialExchangeRecord || !agent) return
-
-    setIsCredentialLoading(true)
-    mapCredentialRecord(credentialExchangeRecord, agent)
-      .then((credential) => setCredential(credential))
-      .catch((err: unknown) => {
-        agent.config.logger.error('Failed to map the credential offer', {
-          credentialExchangeRecordId: credentialExchangeRecord.id,
-          error: formatError(err),
-        })
-        DeviceEventEmitter.emit(
-          EventTypes.ERROR_ADDED,
-          new BifoldError(t('Error.Title1033'), t('Error.Message1033'), (err as Error)?.message ?? err, 1033)
-        )
-      })
-      .finally(() => setIsCredentialLoading(false))
-  }, [agent, credentialExchangeRecord, credential, t])
-
-  useEffect(() => {
-    if (!agent) {
-      DeviceEventEmitter.emit(
-        EventTypes.ERROR_ADDED,
-        new BifoldError(t('Error.Title1025'), t('Error.Message1025'), t('CredentialOffer.CredentialNotFound'), 1025)
-      )
-    }
-  }, [t, agent])
-
-  useEffect(() => {
-    if (!credentialExchangeRecord) {
-      DeviceEventEmitter.emit(
-        EventTypes.ERROR_ADDED,
-        new BifoldError(t('Error.Title1025'), t('Error.Message1025'), t('CredentialOffer.CredentialNotFound'), 1025)
-      )
-    }
-  }, [t, credentialExchangeRecord])
-
-  const onAccept = async () => {
-    if (!agent || !credential || !assertNetworkConnected()) return
-
-    try {
-      setIsAccepted(true)
-      await agent.didcomm.credentials.acceptOffer({ credentialExchangeRecordId: credential.id })
-    } catch (err: unknown) {
-      setIsAccepted(false)
-      const error = new BifoldError(t('Error.Title1024'), t('Error.Message1024'), (err as Error)?.message ?? err, 1024)
-      DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
-    }
-  }
-
-  const onDecline = async () => {
-    if (!agent || !credential) return
-
-    try {
-      setIsDeclining(true)
-      await agent.didcomm.credentials.declineOffer({
-        credentialExchangeRecordId: credential.id,
-        sendProblemReport: true,
-      })
-    } catch (err: unknown) {
-      await agent.didcomm.credentials.deleteById(credential.id)
-    } finally {
-      setIsDeclining(false)
-      navigation.getParent()?.navigate(TabStacks.HomeStack, { screen: Screens.Home })
-    }
-  }
-
-  if (isCredentialLoading || !credential || isDeclining) {
+  if (isLoading || !credential || isDeclining) {
     return <LoadingView />
   }
 
   return (
     <SafeAreaView style={{ flexGrow: 1 }} edges={['bottom', 'left', 'right']}>
-      <CredentialOfferView credential={credential} onAccept={onAccept} onDecline={onDecline} isAccepted={isAccepted} />
+      <CredentialOfferView credential={credential} onAccept={accept} onDecline={decline} isAccepted={isAccepted} />
     </SafeAreaView>
   )
 }

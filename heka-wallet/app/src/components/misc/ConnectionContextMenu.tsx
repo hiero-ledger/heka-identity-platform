@@ -1,28 +1,17 @@
-import {
-  BifoldError,
-  ButtonLocation,
-  ContactStackParams,
-  EventTypes,
-  IconButton,
-  Screens,
-  Stacks,
-  TabStacks,
-  ToastType,
-} from '@bifold/core'
+import { ButtonLocation, ContactStackParams, IconButton, Screens, Stacks, TabStacks, ToastType } from '@bifold/core'
 import { RootStackParams } from '@bifold/core/src/types/navigators'
-import { useCredentialByState } from '@bifold/react-hooks'
-import { DidCommConnectionRecord, DidCommCredentialState } from '@credo-ts/didcomm'
+import { DidCommConnectionRecord } from '@credo-ts/didcomm'
 import { useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
 import React, { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { DeviceEventEmitter, View } from 'react-native'
+import { View } from 'react-native'
 import Toast from 'react-native-toast-message'
 
 import DeleteIcon from '../../assets/bin.svg'
 import EditIcon from '../../assets/edit.svg'
-import { useHekaAgent } from '../../utils/agent'
+import { useConnectionRemoval } from '../../hooks/useConnectionRemoval'
 import ActionWarningModal, { ModalUsage } from '../modals/ActionWarningModal'
 import { ContextMenuModal } from '../modals/ContextMenuModal'
 import { LoaderModal } from '../views/LoadingView'
@@ -32,23 +21,25 @@ interface ConnectionContextMenuProps {
 }
 
 const ConnectionContextMenu: React.FC<ConnectionContextMenuProps> = ({ connection }) => {
-  const { agent } = useHekaAgent()
-
   const { t } = useTranslation()
   const navigation = useNavigation<StackNavigationProp<ContactStackParams & RootStackParams>>()
 
   const theme = useHekaTheme()
 
   const [showContextMenu, setShowContextMenu] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const [isRemoveModalDisplayed, setIsRemoveModalDisplayed] = useState<boolean>(false)
   const [isCredentialsRemoveModalDisplayed, setIsCredentialsRemoveModalDisplayed] = useState<boolean>(false)
 
-  // FIXME: This should be exposed via a react hook that allows to filter credentials by connection id
-  const connectionCredentials = [
-    ...useCredentialByState(DidCommCredentialState.CredentialReceived),
-    ...useCredentialByState(DidCommCredentialState.Done),
-  ].filter((credential) => credential.connectionId === connection?.id)
+  const onRemoved = useCallback(() => {
+    navigation.navigate(Stacks.TabStack, { screen: TabStacks.HomeStack, params: { screen: Screens.Home } })
+
+    Toast.show({
+      type: ToastType.Success,
+      text1: t('ContactDetails.ContactRemoved'),
+    })
+  }, [navigation, t])
+
+  const { hasCredentials, isRemoving, removeConnection } = useConnectionRemoval(connection, onRemoved)
 
   const openContextMenu = useCallback(() => setShowContextMenu(true), [])
   const closeContextMenu = useCallback(() => setShowContextMenu(false), [])
@@ -59,39 +50,19 @@ const ConnectionContextMenu: React.FC<ConnectionContextMenuProps> = ({ connectio
   }, [closeContextMenu, navigation, connection?.id])
 
   const onRemove = useCallback(() => {
-    if (connectionCredentials?.length) {
+    if (hasCredentials) {
       setIsCredentialsRemoveModalDisplayed(true)
     } else {
       setIsRemoveModalDisplayed(true)
     }
     closeContextMenu()
-  }, [closeContextMenu, connectionCredentials?.length])
+  }, [closeContextMenu, hasCredentials])
 
   const onSubmitRemove = useCallback(async () => {
-    if (!(agent && connection)) {
-      return
-    }
-
-    try {
-      setIsLoading(true)
-      setIsRemoveModalDisplayed(false)
-      setShowContextMenu(false)
-
-      await agent.didcomm.connections.deleteById(connection.id)
-
-      navigation.navigate(Stacks.TabStack, { screen: TabStacks.HomeStack, params: { screen: Screens.Home } })
-
-      Toast.show({
-        type: ToastType.Success,
-        text1: t('ContactDetails.ContactRemoved'),
-      })
-    } catch (err: unknown) {
-      const error = new BifoldError(t('Error.Title1037'), t('Error.Message1037'), (err as Error)?.message ?? err, 1037)
-      DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [agent, connection, navigation, t])
+    setIsRemoveModalDisplayed(false)
+    setShowContextMenu(false)
+    await removeConnection()
+  }, [removeConnection])
 
   const onCancelRemove = useCallback(() => {
     setIsRemoveModalDisplayed(false)
@@ -109,7 +80,7 @@ const ConnectionContextMenu: React.FC<ConnectionContextMenuProps> = ({ connectio
     setShowContextMenu(false)
   }, [])
 
-  if (isLoading) {
+  if (isRemoving) {
     return <LoaderModal />
   }
 

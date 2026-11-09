@@ -82,7 +82,14 @@ export const useContacts = (): ContactsState => {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (!agent?.isInitialized || !records.length) return
+    if (!agent?.isInitialized) return
+
+    // No connections is an empty list, not a pending load
+    if (!records.length) {
+      setContacts([])
+      setIsLoading(false)
+      return
+    }
 
     setIsLoading(true)
     sortContactsByLastMessage(records, agent)

@@ -1,23 +1,14 @@
-import {
-  BasicMessageMetadata,
-  basicMessageCustomMetadata,
-  ContactStackParams,
-  getConnectionName,
-  Screens,
-  Stacks,
-  useNetwork,
-  useStore,
-} from '@bifold/core'
+import { ContactStackParams, getConnectionName, Screens, Stacks, useNetwork, useStore } from '@bifold/core'
 import { RootStackParams } from '@bifold/core/src/types/navigators'
-import { useBasicMessagesByConnectionId, useConnectionById } from '@bifold/react-hooks'
-import { DidCommBasicMessageRepository, DidCommConnectionRecord } from '@credo-ts/didcomm'
+import { useConnectionById } from '@bifold/react-hooks'
+import { DidCommConnectionRecord } from '@credo-ts/didcomm'
 import { useHekaTheme } from '@heka-wallet/shared'
 import { useIsFocused, useNavigation } from '@react-navigation/native'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { View } from 'react-native'
-import { GiftedChat, IMessage } from 'react-native-gifted-chat'
+import { GiftedChat } from 'react-native-gifted-chat'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { renderComposer, renderInputToolbar, renderSend } from '../components/chat'
@@ -27,8 +18,7 @@ import { ChatMessage } from '../components/chat/ChatMessage'
 import { Role } from '../components/chat/types'
 import ConnectionContextMenu from '../components/misc/ConnectionContextMenu'
 import { useChatMessagesByConnection } from '../hooks/chat-messages'
-import { useHekaAgent } from '../utils/agent'
-import { formatError } from '../utils/error'
+import { useChatActions } from '../hooks/useChatActions'
 
 type ChatProps = StackScreenProps<ContactStackParams, Screens.Chat> | StackScreenProps<RootStackParams, Screens.Chat>
 
@@ -40,10 +30,8 @@ const Chat: React.FC<ChatProps> = ({ route }) => {
   const { connectionId } = route.params
   const [store] = useStore()
   const { t } = useTranslation()
-  const { agent } = useHekaAgent()
   const navigation = useNavigation<StackNavigationProp<RootStackParams | ContactStackParams>>()
   const connection = useConnectionById(connectionId) as DidCommConnectionRecord
-  const basicMessages = useBasicMessagesByConnectionId(connectionId)
   const chatMessages = useChatMessagesByConnection(connection)
   const isFocused = useIsFocused()
   const { assertNetworkConnected, silentAssertConnectedNetwork } = useNetwork()
@@ -74,34 +62,7 @@ const Chat: React.FC<ChatProps> = ({ route }) => {
     })
   }, [connection, theirLabel, navigation])
 
-  // when chat is open, mark messages as seen
-  useEffect(() => {
-    basicMessages.forEach((msg) => {
-      const meta = msg.metadata.get(BasicMessageMetadata.customMetadata) as basicMessageCustomMetadata
-      if (agent && !meta?.seen) {
-        msg.metadata.set(BasicMessageMetadata.customMetadata, { ...meta, seen: true })
-        const basicMessageRepository = agent.context.dependencyManager.resolve(DidCommBasicMessageRepository)
-        basicMessageRepository.update(agent.context, msg).catch((error: unknown) =>
-          agent.config.logger.error('Failed to mark a basic message as seen', {
-            basicMessageId: msg.id,
-            error: formatError(error),
-          })
-        )
-      }
-    })
-  }, [basicMessages, agent])
-
-  const onSend = useCallback(
-    async (messages: IMessage[]) => {
-      const message = messages
-        ?.map((s) => s.text?.trim())
-        ?.join('\n')
-        .replace(/(\n)+/g, '\n')
-        .trim()
-      await agent?.didcomm.basicMessages.sendMessage(connectionId, message)
-    },
-    [agent, connectionId]
-  )
+  const { sendMessage } = useChatActions(connectionId)
 
   const onSendRequest = useCallback(async () => {
     navigation.navigate(Stacks.ProofRequestsStack as any, {
@@ -145,7 +106,7 @@ const Chat: React.FC<ChatProps> = ({ route }) => {
         renderSend={(props) => renderSend(props, ChatTheme)}
         renderComposer={(props) => renderComposer(props, ChatTheme, t('Contacts.TypeHere'))}
         disableComposer={!silentAssertConnectedNetwork()}
-        onSend={onSend}
+        onSend={sendMessage}
         user={{
           _id: Role.me,
         }}

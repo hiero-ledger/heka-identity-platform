@@ -1,21 +1,22 @@
-import { useStore, EventTypes, BifoldError, Screens, Stacks } from '@bifold/core'
+import { Screens, Stacks } from '@bifold/core'
 import { hitSlop } from '@bifold/core/src/constants'
 import { HomeStackParams } from '@bifold/core/src/types/navigators'
 import { CustomNotification } from '@bifold/core/src/types/notification'
-import { useOptionalAgent } from '@bifold/react-hooks'
-import { markProofAsViewed } from '@bifold/verifier'
-import { DidCommCredentialExchangeRecord, DidCommProofExchangeRecord, DidCommProofState } from '@credo-ts/didcomm'
+import { DidCommProofExchangeRecord, DidCommProofState } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp } from '@react-navigation/stack'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { DeviceEventEmitter, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Icon from 'react-native-vector-icons/MaterialIcons'
 
+import { useNotificationDecline } from '../../hooks/useNotificationDecline'
 import { NotificationRecord } from '../../utils/useNotifications'
 import { ExchangeRecordDisplay } from '../misc/ExchangeRecordDisplay'
-import ActionWarningModal, { ModalUsage } from '../modals/ActionWarningModal'
+import ActionWarningModal from '../modals/ActionWarningModal'
+
+import { NotificationType } from './NotificationType'
 
 const CARD_WIDTH = 300
 const CARD_HEIGHT = 120
@@ -40,13 +41,7 @@ const useStyles = ({ BorderWidth, BorderRadius, ColorPalette, Spacing, TextTheme
     },
   })
 
-export enum NotificationType {
-  CredentialOffer = 'Offer',
-  ProofRequest = 'ProofRecord',
-  Revocation = 'Revocation',
-  Proof = 'Proof',
-  Custom = 'Custom',
-}
+export { NotificationType }
 
 const DISMISSIBLE_NOTIFICATION_TYPES = [
   NotificationType.CredentialOffer,
@@ -188,11 +183,6 @@ interface NotificationDeclineModalProps {
   customNotification?: CustomNotification
 }
 
-interface NotificationDeclineModalState {
-  modalUsage: ModalUsage
-  onSubmit: (record: any) => void
-}
-
 const NotificationDeclineModal: React.FC<NotificationDeclineModalProps> = ({
   visible,
   onClose,
@@ -200,89 +190,14 @@ const NotificationDeclineModal: React.FC<NotificationDeclineModalProps> = ({
   notificationRecord,
   customNotification,
 }) => {
-  const { t } = useTranslation()
-  const { agent } = useOptionalAgent()
+  const notificationDecline = useNotificationDecline(notificationType, notificationRecord, onClose, customNotification)
 
-  const [, dispatch] = useStore()
-
-  const [state, setState] = useState<NotificationDeclineModalState | null>(null)
-
-  const onProofRequestDecline = useCallback(
-    async (proofRecord: DidCommProofExchangeRecord) => {
-      if (!agent) return
-      try {
-        await agent.didcomm.proofs.declineRequest({ proofExchangeRecordId: proofRecord.id })
-      } catch (error: unknown) {
-        const errorMessage = new BifoldError(
-          t('Error.Title1028'),
-          t('Error.Message1028'),
-          (error as Error)?.message ?? error,
-          1028
-        )
-        DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, errorMessage)
-      }
-
-      onClose()
-    },
-    [t, agent, onClose]
-  )
-
-  const onProofRequestDismiss = useCallback(async () => {
-    if (!agent) return
-    await markProofAsViewed(agent, notificationRecord as DidCommProofExchangeRecord)
-  }, [agent, notificationRecord])
-
-  const onCredentialOfferDecline = useCallback(
-    async (credentialRecord: DidCommCredentialExchangeRecord) => {
-      if (!agent) return
-      try {
-        await agent.didcomm.credentials.declineOffer({ credentialExchangeRecordId: credentialRecord.id })
-      } catch (error: unknown) {
-        const errorMessage = new BifoldError(
-          t('Error.Title1028'),
-          t('Error.Message1028'),
-          (error as Error)?.message ?? error,
-          1028
-        )
-        DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, errorMessage)
-      }
-
-      onClose()
-    },
-    [t, agent, onClose]
-  )
-
-  const onCustomNotificationDecline = useCallback(async () => {
-    customNotification?.onCloseAction(dispatch as any)
-    onClose()
-  }, [dispatch, customNotification, onClose])
-
-  useEffect(() => {
-    if (notificationType === NotificationType.ProofRequest) {
-      const isProofRequestCompleted =
-        (notificationRecord as DidCommProofExchangeRecord).state === DidCommProofState.Done
-      const onSubmit = isProofRequestCompleted ? onProofRequestDismiss : onProofRequestDecline
-      setState({ modalUsage: ModalUsage.ProofRequestDecline, onSubmit })
-    } else if (notificationType === NotificationType.CredentialOffer) {
-      setState({ modalUsage: ModalUsage.CredentialOfferDecline, onSubmit: onCredentialOfferDecline })
-    } else if (notificationType === NotificationType.Custom) {
-      setState({ modalUsage: ModalUsage.CustomNotificationDecline, onSubmit: onCustomNotificationDecline })
-    }
-  }, [
-    notificationType,
-    notificationRecord,
-    onProofRequestDismiss,
-    onProofRequestDecline,
-    onCredentialOfferDecline,
-    onCustomNotificationDecline,
-  ])
-
-  if (!state) return null
+  if (!notificationDecline) return null
   return (
     <ActionWarningModal
-      usage={state.modalUsage}
+      usage={notificationDecline.modalUsage}
       visible={visible}
-      onSubmit={() => state.onSubmit(notificationRecord)}
+      onSubmit={notificationDecline.decline}
       onCancel={onClose}
     />
   )
