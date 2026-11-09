@@ -77,7 +77,7 @@ function renderScreen() {
 describe('OpenIdCredentialOffer', () => {
   it('should ask for the credential PIN before requesting a PIN-protected credential', async () => {
     const resolvedCredentialOffer = {
-      credentialOfferPayload: { grants: { [PRE_AUTH_GRANT]: { user_pin_required: true } } },
+      credentialOfferPayload: { grants: { [PRE_AUTH_GRANT]: { tx_code: { input_mode: 'numeric', length: 6 } } } },
     }
     mockResolveOpenId4VciOffer.mockResolvedValueOnce({ resolvedCredentialOffer })
     mockAcquireAccessToken.mockResolvedValueOnce({ accessToken: 'mock-token' })
