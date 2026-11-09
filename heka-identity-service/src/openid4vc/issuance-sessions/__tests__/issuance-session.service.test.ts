@@ -1,6 +1,7 @@
+import { RecordNotFoundError } from '@credo-ts/core'
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
-import { BadRequestException, UnprocessableEntityException } from '@nestjs/common'
+import { BadRequestException, NotFoundException, UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
 import { TenantAgent } from 'common/agent'
@@ -619,8 +620,107 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
   })
 
+  describe('revocable', () => {
+    const formats = [
+      OpenId4VciCredentialFormatProfile.JwtVcJson,
+      OpenId4VciCredentialFormatProfile.JwtVcJsonLd,
+      OpenId4VciCredentialFormatProfile.LdpVc,
+      OpenId4VciCredentialFormatProfile.SdJwtVc,
+      OpenId4VciCredentialFormatProfile.MsoMdoc,
+    ]
+
+    // Sessions of formats that get a status list entry still report false: the issued credentials
+    // do not embed credentialStatus, so the entry is not visible to wallets or verifiers.
+    const sessionWithFormat = (format: OpenId4VciCredentialFormatProfile) =>
+      issuanceSessionRecordStub({
+        id: `session-${format}`,
+        issuerId: 'issuer-1',
+        state: 'Completed',
+        type: 'OpenId4VcIssuanceSessionRecord',
+        createdAt: new Date(),
+        credentialOfferPayload: {},
+        issuanceMetadata: {
+          credentials: [
+            {
+              format,
+              credentialStatus: { location: 'https://example.com/status-lists/sl-1', index: 1 },
+            },
+          ],
+        },
+      })
+
+    test.each(formats)('is false for listed sessions of format %s', async (format) => {
+      mockFindIssuanceSessionsByQuery.mockResolvedValue([sessionWithFormat(format)])
+
+      const [session] = await service.getIssuanceSessionsByQuery(tenantAgent, { state: 'Completed' as any })
+
+      expect(session.revocable).toBe(false)
+      expect(session).not.toHaveProperty('revoked')
+    })
+
+    test.each(formats)('is false for a session of format %s fetched by id', async (format) => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(sessionWithFormat(format))
+
+      const session = await service.getIssuanceSession(tenantAgent, `session-${format}`)
+
+      expect(session.revocable).toBe(false)
+      expect(session).not.toHaveProperty('revoked')
+    })
+
+    test('is false in the offer response of a format that gets a status list entry', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+        issuerRecordStub({
+          issuerId: 'issuer-1',
+          credentialConfigurationsSupported: {
+            'cred-jwt-1': { format: 'jwt_vc_json', credential_definition: { type: ['VerifiableCredential'] } },
+          },
+        }),
+      )
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-1')
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({ didDocument: { verificationMethod: [{ id: 'did:key:z6MkJwt#key-1' }] } }),
+      )
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://jwt',
+        issuanceSession: sessionWithFormat(OpenId4VciCredentialFormatProfile.JwtVcJson),
+      })
+
+      const result = await service.offer(authInfo, tenantAgent, {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          {
+            credentialSupportedId: 'cred-jwt-1',
+            format: OpenId4VciCredentialFormatProfile.JwtVcJson,
+            issuer: { did: 'did:key:z6MkJwt' },
+          },
+        ],
+      } as any)
+
+      expect(result.issuanceSession.revocable).toBe(false)
+    })
+  })
+
   describe('revokeIssuanceSession', () => {
-    test('should throw error when credential not found', async () => {
+    test('should throw NotFoundException when the issuance session does not exist', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockRejectedValue(
+        new RecordNotFoundError('not found', { recordType: 'OpenId4VcIssuanceSessionRecord' }),
+      )
+
+      await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'missing')).rejects.toThrow(
+        new NotFoundException('Issuance session not found'),
+      )
+      expect(statusListService.updateItems).not.toHaveBeenCalled()
+    })
+
+    test('should rethrow other errors from loading the session', async () => {
+      const error = new Error('storage failure')
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockRejectedValue(error)
+
+      await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')).rejects.toBe(error)
+    })
+
+    test('should throw BadRequestException when the session has no credentials metadata', async () => {
       const mockSession = issuanceSessionRecordStub({
         id: 'session-1',
         issuanceMetadata: undefined,
@@ -629,25 +729,30 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(mockSession)
 
       await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')).rejects.toThrow(
-        'Credential not found',
+        new BadRequestException('Credential format does not support revocation'),
       )
       expect(tenantAgent.openid4vc.issuer.getIssuanceSessionById).toHaveBeenCalledWith('session-1')
+      expect(statusListService.updateItems).not.toHaveBeenCalled()
     })
 
-    test('should throw error when credential does not support revocation', async () => {
-      const mockSession = issuanceSessionRecordStub({
-        id: 'session-1',
-        issuanceMetadata: {
-          credentials: [{ format: 'vc+sd-jwt', credentialStatus: undefined }],
-        },
-      })
+    test.each([OpenId4VciCredentialFormatProfile.SdJwtVc, OpenId4VciCredentialFormatProfile.MsoMdoc])(
+      'should throw BadRequestException for %s, which has no credentialStatus',
+      async (format) => {
+        const mockSession = issuanceSessionRecordStub({
+          id: 'session-1',
+          issuanceMetadata: {
+            credentials: [{ format, credentialStatus: undefined }],
+          },
+        })
 
-      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(mockSession)
+        vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(mockSession)
 
-      await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')).rejects.toThrow(
-        'Credential does not support revocation',
-      )
-    })
+        await expect(service.revokeIssuanceSession(authInfo, tenantAgent, 'session-1')).rejects.toThrow(
+          new BadRequestException('Credential format does not support revocation'),
+        )
+        expect(statusListService.updateItems).not.toHaveBeenCalled()
+      },
+    )
 
     test('should call statusListService.updateItems on successful revocation', async () => {
       const mockSession = issuanceSessionRecordStub({

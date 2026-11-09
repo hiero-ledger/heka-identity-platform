@@ -1,10 +1,16 @@
-import { SdJwtVcPayload } from '@credo-ts/core'
+import { RecordNotFoundError, SdJwtVcPayload } from '@credo-ts/core'
 import {
   OpenId4VciCredentialFormatProfile,
   OpenId4VcIssuanceSessionRepository,
   OpenId4VcIssuerService,
 } from '@credo-ts/openid4vc'
-import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common'
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
 import { TenantAgent } from 'common/agent'
@@ -203,17 +209,21 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     issuanceSessionId: string,
   ): Promise<void> {
-    const issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
+    let issuanceSession
+    try {
+      issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
+    } catch (error) {
+      // Credo's RecordNotFoundError would otherwise surface as a 500
+      if (error instanceof RecordNotFoundError) throw new NotFoundException('Issuance session not found')
+      throw error
+    }
 
-    const credentials = issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[]
-    if (!credentials) throw new Error('Credential not found')
-
-    const credential = credentials[0]
-
-    if (!credential.credentialStatus) throw new Error('Credential does not support revocation')
+    const credentials = issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[] | undefined
+    const credential = credentials?.[0]
+    if (!credential?.credentialStatus) throw new BadRequestException('Credential format does not support revocation')
 
     const statusListId = credential.credentialStatus.location.split('/')?.pop()
-    if (!statusListId) throw new Error('Credential does not support revocation')
+    if (!statusListId) throw new BadRequestException('Credential format does not support revocation')
 
     await this.statusListService.updateItems(authInfo, statusListId, {
       indexes: [credential.credentialStatus.index],

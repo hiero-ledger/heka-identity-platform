@@ -91,7 +91,15 @@ export class OpenId4VcIssuanceSessionRecordDto {
   @ApiPropertyOptional()
   public errorMessage?: string
 
-  public constructor(params: OpenId4VcIssuanceSessionRecordDto) {
+  /**
+   * Always false: issued OID4VC credentials do not embed `credentialStatus` yet, so no wallet or
+   * verifier reads the issuer-side status list. Compute it from the session once the status-embedding
+   * follow-up lands; do not derive it from `issuanceMetadata`.
+   */
+  @ApiProperty({ description: 'Always false: issued OID4VC credentials do not reference a status list yet' })
+  public revocable!: boolean
+
+  public constructor(params: Omit<OpenId4VcIssuanceSessionRecordDto, 'revocable'>) {
     this.credentialOfferPayload = params.credentialOfferPayload
     this.preAuthorizedCode = params.preAuthorizedCode
     this.publicIssuerId = params.publicIssuerId
@@ -102,6 +110,7 @@ export class OpenId4VcIssuanceSessionRecordDto {
     this.issuanceMetadata = params.issuanceMetadata
     this.createdAt = params.createdAt
     this.updatedAt = params.updatedAt
+    this.revocable = false
   }
 
   public static fromOpenId4VcIssuanceSessionRecord(

@@ -138,7 +138,16 @@ export class OpenId4VcIssuanceSessionController {
     logger.trace({ res }, '<')
   }
 
-  @ApiOperation({ summary: 'Revoke a credential' })
+  @ApiOperation({
+    summary: 'Revoke a credential',
+    description:
+      'Sets the status list bit of the first credential of the session. Issued OID4VC credentials do not reference ' +
+      'the status list yet (`revocable` is always false), so wallets and verifiers do not see this change.',
+  })
+  @ApiParam({ name: 'id', type: String })
+  @ApiOkResponse({ description: 'Status list entry updated' })
+  @ApiNotFoundResponse({ description: 'Issuance session not found' })
+  @ApiBadRequestResponse({ description: 'Credential format does not support revocation' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @Post(':id/revoke')
   @HttpCode(200)

@@ -1,4 +1,4 @@
-import { DidCommCredentialState } from '@credo-ts/didcomm'
+import { DidCommCredentialExchangeRecord, DidCommCredentialRole, DidCommCredentialState } from '@credo-ts/didcomm'
 import {
   BadRequestException,
   ConflictException,
@@ -19,8 +19,15 @@ import { AnoncredsRegistryService } from '../common/anoncreds-registry'
 import { InjectLogger, Logger } from '../common/logger'
 import { RevocationRegistryService } from '../revocation/revocation-registry/revocation-registry.service'
 
-import { CredentialOfferDto, CredentialRecordDto } from './dto'
+import { CredentialOfferDto, CredentialRecordDto, GetCredentialsQueryDto } from './dto'
 import { CredentialConfigDto } from './dto/credential-config.dto'
+import { isRevocableIssuerRecord } from './dto/credential-record.dto'
+
+interface RevocationRegistryLookup {
+  /** Ledger status list by credential revocation index, undefined when it could not be read */
+  revocationStatusList?: number[]
+  credentialDefinitionId?: string
+}
 
 @Injectable()
 export class CredentialService {
@@ -34,9 +41,73 @@ export class CredentialService {
     this.logger.child('constructor').trace('<>')
   }
 
-  public async find(tenantAgent: TenantAgent, threadId?: string): Promise<CredentialRecordDto[]> {
-    const credentialRecords = await tenantAgent.didcomm.credentials.findAllByQuery({ threadId })
-    return credentialRecords.map((record) => new CredentialRecordDto(record))
+  public async find(tenantAgent: TenantAgent, query: GetCredentialsQueryDto = {}): Promise<CredentialRecordDto[]> {
+    const { threadId, role, state } = query
+    const filter = Object.fromEntries(
+      Object.entries({ threadId, role, state }).filter(([, value]) => value !== undefined),
+    )
+    const credentialRecords = await tenantAgent.didcomm.credentials.findAllByQuery(filter)
+
+    const lookups = await this.lookupRevocationRegistries(tenantAgent, credentialRecords)
+
+    return credentialRecords.map((record) => {
+      if (!this.hasLedgerStatus(record)) return new CredentialRecordDto(record)
+
+      const lookup = lookups.get(record.getTag('anonCredsRevocationRegistryId') as string)
+      const index = Number(record.getTag('anonCredsCredentialRevocationId'))
+      const revoked =
+        lookup?.revocationStatusList && !isNaN(index) ? lookup.revocationStatusList[index] === 1 : undefined
+
+      return new CredentialRecordDto(record, { revoked, credentialDefinitionId: lookup?.credentialDefinitionId })
+    })
+  }
+
+  /** Records whose revocation status is looked up on the ledger in list responses */
+  private hasLedgerStatus(record: DidCommCredentialExchangeRecord): boolean {
+    return (
+      record.role === DidCommCredentialRole.Issuer &&
+      record.state === DidCommCredentialState.Done &&
+      isRevocableIssuerRecord(record)
+    )
+  }
+
+  /**
+   * Reads the ledger status list and the credential definition id once per revocation registry.
+   * A registry that cannot be read leaves its records with an unknown status; it never fails the list.
+   */
+  private async lookupRevocationRegistries(
+    tenantAgent: TenantAgent,
+    records: DidCommCredentialExchangeRecord[],
+  ): Promise<Map<string, RevocationRegistryLookup>> {
+    const registryIds = [
+      ...new Set(
+        records
+          .filter((record) => this.hasLedgerStatus(record))
+          .map((record) => record.getTag('anonCredsRevocationRegistryId') as string),
+      ),
+    ]
+
+    const lookups = await Promise.all(
+      registryIds.map(async (revocationRegistryDefinitionId) => {
+        const [statusList, credentialDefinitionId] = await Promise.allSettled([
+          this.revocationService.get(tenantAgent, revocationRegistryDefinitionId),
+          this.revocationService.findCredentialDefinitionId(tenantAgent, revocationRegistryDefinitionId),
+        ])
+
+        if (statusList.status === 'rejected') {
+          this.logger.warn({ revocationRegistryDefinitionId }, 'Could not read revocation status list')
+        }
+
+        const lookup: RevocationRegistryLookup = {
+          revocationStatusList: statusList.status === 'fulfilled' ? statusList.value.revocationStatusList : undefined,
+          credentialDefinitionId:
+            credentialDefinitionId.status === 'fulfilled' ? credentialDefinitionId.value : undefined,
+        }
+        return [revocationRegistryDefinitionId, lookup] as const
+      }),
+    )
+
+    return new Map(lookups)
   }
 
   public async types(): Promise<CredentialConfigDto> {
@@ -118,7 +189,16 @@ export class CredentialService {
   }
 
   public async revoke(tenantAgent: TenantAgent, id: string): Promise<void> {
-    const credential = await tenantAgent.didcomm.credentials.getById(id)
+    // findById, not getById: Credo's RecordNotFoundError would surface as a 500
+    const credential = await tenantAgent.didcomm.credentials.findById(id)
+    if (!credential) {
+      throw new NotFoundException('Credential record not found')
+    }
+
+    // Holder records carry the same revocation tags, but only the issuer can update the status list
+    if (credential.role !== DidCommCredentialRole.Issuer) {
+      throw new BadRequestException('Only credentials issued by this wallet can be revoked')
+    }
 
     const revocationRegistryId = credential.getTag('anonCredsRevocationRegistryId') as string
     const revocationIndexStr = credential.getTag('anonCredsCredentialRevocationId') as string

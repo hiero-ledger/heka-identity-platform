@@ -888,13 +888,44 @@ paths:
       tags: *a25
   /credentials:
     get:
+      description: Revocable issuer records in state `done` also carry `revoked`, read
+        from the ledger status list (one read per revocation registry)
       operationId: CredentialController_find
       parameters:
         - name: threadId
           required: false
           in: query
+          description: DIDComm thread id of the credential exchange
           schema:
             type: string
+        - name: role
+          required: false
+          in: query
+          description: "Role of this wallet in the exchange: `issuer` lists credentials
+            issued by this wallet"
+          schema:
+            type: string
+            enum:
+              - issuer
+              - holder
+        - name: state
+          required: false
+          in: query
+          description: State of the credential exchange
+          schema:
+            type: string
+            enum:
+              - proposal-sent
+              - proposal-received
+              - offer-sent
+              - offer-received
+              - declined
+              - request-sent
+              - request-received
+              - credential-issued
+              - credential-received
+              - done
+              - abandoned
       responses:
         "200":
           description: Credential Records
@@ -904,6 +935,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CredentialRecordDto"
+        "400":
+          description: Invalid query parameter
         "401": &a26
           description: Unauthorized
       security: &a27
@@ -1007,10 +1040,19 @@ paths:
           schema:
             type: string
       responses:
+        "200":
+          description: Credential revoked
+        "400":
+          description: The record was not issued by this wallet, or the credential does
+            not support revocation
         "401":
           description: Unauthorized
+        "404":
+          description: Credential record not found
+        "409":
+          description: Credential is already revoked
       security: *a27
-      summary: Revoke a credential
+      summary: Revoke a credential issued by this wallet (AnonCreds revocation registry)
       tags: *a28
   /proofs:
     get:
@@ -1349,6 +1391,10 @@ paths:
       tags: *a34
   /openid4vc/issuance-session/{id}/revoke:
     post:
+      description: Sets the status list bit of the first credential of the session.
+        Issued OID4VC credentials do not reference the status list yet
+        (`revocable` is always false), so wallets and verifiers do not see this
+        change.
       operationId: OpenId4VcIssuanceSessionController_revoke
       parameters:
         - name: id
@@ -1357,8 +1403,14 @@ paths:
           schema:
             type: string
       responses:
+        "200":
+          description: Status list entry updated
+        "400":
+          description: Credential format does not support revocation
         "401":
           description: Unauthorized
+        "404":
+          description: Issuance session not found
       security: *a33
       summary: Revoke a credential
       tags: *a34
@@ -3358,17 +3410,36 @@ components:
             - credential-received
             - done
             - abandoned
+        role:
+          type: string
+          enum:
+            - issuer
+            - holder
+          description: Role of this wallet in the credential exchange
         errorMessage:
           type: string
         credentialAttributes:
           type: array
           items:
             $ref: "#/components/schemas/CredentialPreviewAttributeDto"
+        revocable:
+          type: boolean
+          description: True when this wallet issued the credential with an AnonCreds
+            revocation registry entry, so it can be revoked
+        revoked:
+          type: boolean
+          description: Present only in list responses, for revocable issuer records in
+            state `done`, when the ledger status list could be read
+        credentialDefinitionId:
+          type: string
+          description: AnonCreds credential definition id, when known
       required:
         - id
         - threadId
         - createdAt
         - state
+        - role
+        - revocable
     CredentialOfferDto:
       type: object
       properties:
@@ -3654,6 +3725,10 @@ components:
           type: string
         errorMessage:
           type: string
+        revocable:
+          type: boolean
+          description: "Always false: issued OID4VC credentials do not reference a status
+            list yet"
       required:
         - id
         - createdAt
@@ -3661,6 +3736,7 @@ components:
         - publicIssuerId
         - state
         - credentialOfferPayload
+        - revocable
     OpenId4VcIssuanceSessionsCreateOfferResponse:
       type: object
       properties:
