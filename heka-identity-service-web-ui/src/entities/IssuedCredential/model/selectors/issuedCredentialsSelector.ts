@@ -9,8 +9,11 @@ export const getIssuedCredentialsIsLoading = (state: StateSchema) =>
 export const getIssuedCredentialsError = (state: StateSchema) =>
   state.issuedCredentials?.error;
 
-export const getIssuedCredentialsRevokingKey = (state: StateSchema) =>
-  state.issuedCredentials?.revokingKey;
+/** Whether a revocation of the credential with this key is in flight */
+export const getIsIssuedCredentialRevoking =
+  (key: string | undefined) => (state: StateSchema) =>
+    key !== undefined &&
+    Object.values(state.issuedCredentials?.revokingRequests ?? {}).includes(key);
 
 export const getIssuedCredentialByKey =
   (key: string | undefined) => (state: StateSchema) =>

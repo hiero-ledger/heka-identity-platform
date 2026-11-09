@@ -8,7 +8,7 @@ const initialState: IssuedCredentialsSchema = {
   isLoading: false,
   error: undefined,
   items: undefined,
-  revokingKey: undefined,
+  revokingRequests: {},
   listRequestId: undefined,
 };
 
@@ -36,16 +36,16 @@ export const issuedCredentialsSlice = buildSlice({
         state.error = action.payload ?? action.error.message;
       })
       .addCase(revokeIssuedCredential.pending, (state, action) => {
-        state.revokingKey = action.meta.arg.key;
+        state.revokingRequests[action.meta.requestId] = action.meta.arg.key;
       })
       .addCase(revokeIssuedCredential.fulfilled, (state, action) => {
-        state.revokingKey = undefined;
+        delete state.revokingRequests[action.meta.requestId];
         // Optimistic: the ledger may still report the old status for a few seconds
         const item = state.items?.find((x) => x.key === action.payload.key);
         if (item) item.revoked = true;
       })
-      .addCase(revokeIssuedCredential.rejected, (state) => {
-        state.revokingKey = undefined;
+      .addCase(revokeIssuedCredential.rejected, (state, action) => {
+        delete state.revokingRequests[action.meta.requestId];
       }),
 });
 

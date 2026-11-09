@@ -5,8 +5,8 @@ import { useSelector } from 'react-redux';
 
 import { revokeIssuedCredential } from '@/entities/IssuedCredential';
 import {
+  getIsIssuedCredentialRevoking,
   getIssuedCredentialByKey,
-  getIssuedCredentialsRevokingKey,
 } from '@/entities/IssuedCredential/model/selectors/issuedCredentialsSelector';
 import { ProtocolType } from '@/entities/Schema';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
@@ -41,7 +41,11 @@ export const IssuedCredentialDetails = ({
   // Read from the store, so the status follows a revocation while the modal is open
   const selectItem = useMemo(() => getIssuedCredentialByKey(itemKey), [itemKey]);
   const item = useSelector(selectItem);
-  const revokingKey = useSelector(getIssuedCredentialsRevokingKey);
+  const selectIsRevoking = useMemo(
+    () => getIsIssuedCredentialRevoking(itemKey),
+    [itemKey],
+  );
+  const isRevoking = useSelector(selectIsRevoking);
 
   const revoke = useCallback(async () => {
     if (!item) return;
@@ -130,7 +134,7 @@ export const IssuedCredentialDetails = ({
           <Button
             className={cls.revokeButton}
             fullWidth
-            isDisabled={revokingKey === item.key}
+            isDisabled={isRevoking}
             onPress={confirm}
           >
             {t('IssueCredential.issuedCredentials.buttons.revoke')}

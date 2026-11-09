@@ -11,6 +11,7 @@ import {
 
 import { getIssuedCredentials } from './getIssuedCredentials';
 import { revokeIssuedCredential } from './revokeIssuedCredential';
+import { getIsIssuedCredentialRevoking } from '../selectors/issuedCredentialsSelector';
 import {
   AnoncredsCredentialRecordResponse,
   IssuedCredential,
@@ -293,7 +294,7 @@ describe('revokeIssuedCredential', () => {
     expect(api.post).toHaveBeenCalledWith('/credentials/cred-known/revoke');
     expect(result).toEqual({ key: 'Aries:cred-known', alreadyRevoked: false });
     expect(item(store).revoked).toBe(true);
-    expect(store.getState().issuedCredentials.revokingKey).toBeUndefined();
+    expect(store.getState().issuedCredentials.revokingRequests).toEqual({});
     expect(toast.error).not.toHaveBeenCalled();
   });
 
@@ -324,7 +325,7 @@ describe('revokeIssuedCredential', () => {
 
     expect(toast.error).toHaveBeenCalledWith('Ledger update failed');
     expect(item(store).revoked).toBe(false);
-    expect(store.getState().issuedCredentials.revokingKey).toBeUndefined();
+    expect(store.getState().issuedCredentials.revokingRequests).toEqual({});
   });
 
   test('tracks the credential being revoked while the request is in flight', async () => {
@@ -340,12 +341,48 @@ describe('revokeIssuedCredential', () => {
     const pending = store.dispatch(
       revokeIssuedCredential({ id: 'cred-known', key: 'Aries:cred-known' }),
     );
-    expect(store.getState().issuedCredentials.revokingKey).toBe(
-      'Aries:cred-known',
-    );
+    expect(
+      Object.values(store.getState().issuedCredentials.revokingRequests),
+    ).toEqual(['Aries:cred-known']);
 
     resolvePost({ data: undefined });
     await pending;
-    expect(store.getState().issuedCredentials.revokingKey).toBeUndefined();
+    expect(store.getState().issuedCredentials.revokingRequests).toEqual({});
+  });
+
+  test('keeps the second credential revoking when an overlapping first revocation finishes', async () => {
+    const api = createMockApi();
+    const store = await loadedStore(api);
+    const posts: Record<string, (value: unknown) => void> = {};
+    api.post.mockImplementation(
+      (url: string) =>
+        new Promise((resolve) => {
+          posts[url] = resolve;
+        }),
+    );
+    const isRevoking = (key: string) =>
+      getIsIssuedCredentialRevoking(key)(store.getState());
+
+    const first = store.dispatch(
+      revokeIssuedCredential({ id: 'cred-known', key: 'Aries:cred-known' }),
+    );
+    const second = store.dispatch(
+      revokeIssuedCredential({
+        id: 'cred-unknown-schema',
+        key: 'Aries:cred-unknown-schema',
+      }),
+    );
+    expect(isRevoking('Aries:cred-known')).toBe(true);
+    expect(isRevoking('Aries:cred-unknown-schema')).toBe(true);
+
+    posts['/credentials/cred-known/revoke']({ data: undefined });
+    await first;
+    expect(isRevoking('Aries:cred-known')).toBe(false);
+    expect(isRevoking('Aries:cred-unknown-schema')).toBe(true);
+
+    posts['/credentials/cred-unknown-schema/revoke']({ data: undefined });
+    await second;
+    expect(isRevoking('Aries:cred-unknown-schema')).toBe(false);
+    expect(store.getState().issuedCredentials.revokingRequests).toEqual({});
   });
 });

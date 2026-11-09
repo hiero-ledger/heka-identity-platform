@@ -28,8 +28,11 @@ export interface IssuedCredentialsSchema {
   isLoading: boolean;
   error?: string;
   items?: IssuedCredential[];
-  /** Key of the credential whose revocation is in flight */
-  revokingKey?: string;
+  /**
+   * Revocations in flight: thunk requestId to the credential key. Keyed by request, so each
+   * request clears only its own entry when it settles.
+   */
+  revokingRequests: Record<string, string>;
   /** requestId of the latest list request: answers to older ones are ignored */
   listRequestId?: string;
 }
