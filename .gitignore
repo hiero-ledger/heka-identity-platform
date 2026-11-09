@@ -74,3 +74,6 @@ ai-project-kit
 # DepAssist preset outputs (BoM, reports) - written by depassist run
 **/bom.cdx.json
 **/reports/
+
+# Dev mediator configuration (copy docker/mediator/.env.example); holds a Firebase service account key
+/docker/mediator/.env

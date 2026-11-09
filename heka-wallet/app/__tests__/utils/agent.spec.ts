@@ -15,6 +15,7 @@ jest.mock('@bifold/react-hooks', () => ({ useOptionalAgent: jest.fn() }))
 jest.mock('@credo-ts/anoncreds', () => ({}))
 // Only the out-of-band role enum is used at runtime by the mediator setup
 jest.mock('@credo-ts/didcomm', () => ({ DidCommOutOfBandRole: { Receiver: 'receiver' } }))
+jest.mock('@credo-ts/didcomm-push-notifications', () => ({}))
 jest.mock('@credo-ts/hedera', () => ({}))
 jest.mock('@credo-ts/indy-vdr', () => ({}))
 jest.mock('@hyperledger/anoncreds-react-native', () => ({ NativeAnoncreds: {} }))
