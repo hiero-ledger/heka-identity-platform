@@ -7,8 +7,10 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
+import { CredentialRevokedBadge } from '../components/misc/CredentialRevokedBadge'
 import LoadingView from '../components/views/LoadingView'
 import { CredentialDisplay, useCredentials } from '../credentials'
+import { useFloatingTabBarInset } from '../hooks/useFloatingTabBarInset'
 
 const useStyles = ({
   IconSizes,
@@ -93,6 +95,7 @@ export const CredentialRow: React.FC<CredentialRowProps> = ({ onPress, credentia
         <Text style={styles.issuerName}>
           {t('CredentialOffer.IssuedBy')} {credentialDisplay.issuer.name}
         </Text>
+        {credentialDisplay.isRevoked && <CredentialRevokedBadge />}
       </View>
     </TouchableOpacity>
   )
@@ -114,12 +117,17 @@ export const CredentialList: React.FC = () => {
 
   const { credentials, isLoading, error } = useCredentials()
 
+  const tabBarInset = useFloatingTabBarInset()
+
   return (
-    <View>
+    <View style={{ flex: 1 }}>
       <FlatList
+        testID="CredentialList"
         style={{ backgroundColor: ColorPalette.brand.primaryBackground }}
         contentContainerStyle={{
           marginHorizontal: Spacing.lg,
+          // The tab bar floats over the list: let the last credential scroll above it
+          paddingBottom: tabBarInset,
         }}
         data={credentials}
         keyExtractor={(credential) => credential.id}
