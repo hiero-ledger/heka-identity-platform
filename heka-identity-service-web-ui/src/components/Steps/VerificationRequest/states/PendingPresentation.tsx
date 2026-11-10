@@ -9,7 +9,7 @@ import {
 import { CopyLink } from '@/components/Link/CopyLink';
 import { QRCode } from '@/components/QRCode';
 import {
-  getIsPresentationCompleted,
+  getIsPresentationFinished,
   getPresentationRequestId,
 } from '@/entities/Presentation/model/selectors/presentationSelector';
 import { updatePresentationState } from '@/entities/Presentation/model/services/updatePresentationState';
@@ -39,7 +39,8 @@ export const PendingPresentation = ({
   const dispatch = useAppDispatch();
 
   const presentationRequestId = useSelector(getPresentationRequestId);
-  const isPresentationCompleted = useSelector(getIsPresentationCompleted);
+  // A failed verification is final too: stop waiting for it
+  const isPresentationFinished = useSelector(getIsPresentationFinished);
 
   const refreshPresentationState = useCallback(() => {
     if (!presentationRequestId || !protocolType) return;
@@ -54,7 +55,7 @@ export const PendingPresentation = ({
 
   useRecordUpdates({
     recordId: protocolType ? presentationRequestId : undefined,
-    isDone: isPresentationCompleted,
+    isDone: isPresentationFinished,
     refresh: refreshPresentationState,
     useDemo,
   });

@@ -2,6 +2,9 @@ import toast from 'react-hot-toast';
 
 import {
   getIsPresentationCompleted,
+  getIsPresentationFailed,
+  getIsPresentationFinished,
+  getPresentationFailureReason,
   getPresentationRequest,
   getPresentationRequestId,
   getPresentationRequestIsLoading,
@@ -12,6 +15,7 @@ import { presentationActions } from '@/entities/Presentation/model/slices/presen
 import {
   AnoncredsPresentationState,
   OpenIdPresentationState,
+  PresentationFailureReason,
 } from '@/entities/Presentation/model/types/presentation';
 import {
   AriesCredentialFormat,
@@ -472,6 +476,134 @@ describe('updatePresentationState', () => {
 
     expect(api.get).not.toHaveBeenCalled();
     expect(getIsPresentationCompleted(store.getState())).toBe(true);
+  });
+
+  test('OpenID4VP: a session in Error has failed, with the reason derived from its error message', async () => {
+    const api = createMockApi();
+    api.get.mockResolvedValue({
+      data: {
+        id: 'p-1',
+        state: OpenIdPresentationState.Error,
+        errorMessage:
+          '\t- [0]: Error occured during verification of presentation. Status is not valid - SDJWTException: Status is not valid',
+      },
+    });
+    const store = createTestStore(
+      withSession(OpenIdPresentationState.RequestUriRetrieved),
+      api,
+    );
+
+    await store.dispatch(
+      updatePresentationState({ protocolType: ProtocolType.Oid4vc, id: 'p-1' }),
+    );
+
+    const state = store.getState();
+    expect(getIsPresentationFailed(state)).toBe(true);
+    expect(getIsPresentationCompleted(state)).toBe(false);
+    expect(getIsPresentationFinished(state)).toBe(true);
+    expect(getPresentationFailureReason(state)).toBe(
+      PresentationFailureReason.Revoked,
+    );
+    // Only the mapped reason is kept, never Credo's message
+    expect(JSON.stringify(state.presentations)).not.toContain('SDJWT');
+  });
+
+  test('OpenID4VP: a session in Error without a known cause has an unknown reason', async () => {
+    const api = createMockApi();
+    api.get.mockResolvedValue({
+      data: { id: 'p-1', state: OpenIdPresentationState.Error },
+    });
+    const store = createTestStore(
+      withSession(OpenIdPresentationState.RequestUriRetrieved),
+      api,
+    );
+
+    await store.dispatch(
+      updatePresentationState({ protocolType: ProtocolType.Oid4vc, id: 'p-1' }),
+    );
+
+    expect(getIsPresentationFailed(store.getState())).toBe(true);
+    expect(getPresentationFailureReason(store.getState())).toBe(
+      PresentationFailureReason.Unknown,
+    );
+  });
+
+  test.each([
+    [
+      'abandoned after failing verification',
+      AnoncredsPresentationState.Abandoned,
+      false,
+    ],
+    [
+      'abandoned by a problem report',
+      AnoncredsPresentationState.Abandoned,
+      undefined,
+    ],
+    ['declined', AnoncredsPresentationState.Declined, undefined],
+    ['done but not verified', AnoncredsPresentationState.Done, false],
+    [
+      'presentation-received but not verified',
+      AnoncredsPresentationState.PresentationReceived,
+      false,
+    ],
+  ])('Aries: a proof %s has failed', async (_, proofState, isVerified) => {
+    const api = createMockApi();
+    api.get.mockResolvedValue({ data: { state: proofState, isVerified } });
+    const store = createTestStore(
+      withSession(AnoncredsPresentationState.RequestSent),
+      api,
+    );
+
+    await store.dispatch(
+      updatePresentationState({ protocolType: ProtocolType.Aries, id: 'p-1' }),
+    );
+
+    const state = store.getState();
+    expect(getIsPresentationFailed(state)).toBe(true);
+    expect(getIsPresentationCompleted(state)).toBe(false);
+    expect(getIsPresentationFinished(state)).toBe(true);
+    expect(getPresentationFailureReason(state)).toBe(
+      PresentationFailureReason.Unknown,
+    );
+  });
+
+  test.each([
+    [OpenIdPresentationState.RequestCreated, ProtocolType.Oid4vc],
+    [OpenIdPresentationState.RequestUriRetrieved, ProtocolType.Oid4vc],
+    [AnoncredsPresentationState.RequestSent, ProtocolType.Aries],
+  ])(
+    'a pending %s session is neither failed nor finished',
+    async (pending, protocolType) => {
+      const api = createMockApi();
+      api.get.mockResolvedValue({ data: { id: 'p-1', state: pending } });
+      const store = createTestStore(withSession(pending), api);
+
+      await store.dispatch(
+        updatePresentationState({ protocolType, id: 'p-1' }),
+      );
+
+      expect(getIsPresentationFailed(store.getState())).toBe(false);
+      expect(getIsPresentationFinished(store.getState())).toBe(false);
+    },
+  );
+
+  test('Aries: a verified proof is completed, not failed', async () => {
+    const api = createMockApi();
+    api.get.mockResolvedValue({
+      data: { state: AnoncredsPresentationState.Done, isVerified: true },
+    });
+    const store = createTestStore(
+      withSession(AnoncredsPresentationState.RequestSent),
+      api,
+    );
+
+    await store.dispatch(
+      updatePresentationState({ protocolType: ProtocolType.Aries, id: 'p-1' }),
+    );
+
+    expect(getIsPresentationCompleted(store.getState())).toBe(true);
+    expect(getIsPresentationFailed(store.getState())).toBe(false);
+    expect(getIsPresentationFinished(store.getState())).toBe(true);
   });
 
   test('ignores a result when no session is open', async () => {

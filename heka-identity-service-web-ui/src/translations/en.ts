@@ -70,7 +70,15 @@ export default {
       presentationRequest: 'Presentation Request',
       verificationRequest: 'Credential verification request',
       presentationReceived: 'Credential verified',
+      presentationFailed: 'Verification failed',
       verify: 'Verify Credential',
+    },
+    messages: {
+      presentationRevoked: 'The credential has been revoked.',
+      presentationExpired:
+        'The verification request expired before the wallet responded.',
+      presentationFailed:
+        'The credential could not be verified, or the holder declined the request.',
     },
     buttons: {
       issue: 'Issue',

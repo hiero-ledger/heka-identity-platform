@@ -5,8 +5,12 @@ import { useSelector } from 'react-redux';
 
 import { VerificationRequestProps } from '@/components/Steps';
 import { PendingPresentation } from '@/components/Steps/VerificationRequest/states/PendingPresentation';
+import { PresentationFailed } from '@/components/Steps/VerificationRequest/states/PresentationFailed';
 import { PresentationReceived } from '@/components/Steps/VerificationRequest/states/PresentationReceived';
-import { getIsPresentationCompleted } from '@/entities/Presentation/model/selectors/presentationSelector';
+import {
+  getIsPresentationCompleted,
+  getIsPresentationFailed,
+} from '@/entities/Presentation/model/selectors/presentationSelector';
 import { requestPresentation } from '@/entities/Presentation/model/services/requestPresentation';
 import { usePresentationActions } from '@/entities/Presentation/model/slices/presentationSlice';
 import { useConnection } from '@/shared/hooks/connection';
@@ -101,11 +105,14 @@ export const AnoncredsVerificationRequest = <T extends object>(
   props: VerificationRequestProps<T>,
 ) => {
   const isPresentationCompleted = useSelector(getIsPresentationCompleted);
+  const isPresentationFailed = useSelector(getIsPresentationFailed);
 
   return (
     <Row className={cls.VerificationRequest}>
       {isPresentationCompleted ? (
         <PresentationReceived {...props} />
+      ) : isPresentationFailed ? (
+        <PresentationFailed {...props} />
       ) : (
         <PresentationRequested {...props} />
       )}
