@@ -155,6 +155,7 @@
     "@react-native/eslint-plugin": "^0.81.5",
     "@react-native/metro-config": "^0.81.5",
     "@react-native/typescript-config": "^0.81.5",
+    "@sd-jwt/sd-jwt-vc": "^0.19.0",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^13.3.0",
     "@types/eslint__js": "^8.42.3",

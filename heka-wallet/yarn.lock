@@ -14016,6 +14016,7 @@ __metadata:
     "@react-navigation/stack": "npm:6.3.21"
     "@sd-jwt/decode": "npm:^0.7.2"
     "@sd-jwt/jwt-status-list": "npm:^0.17.0"
+    "@sd-jwt/sd-jwt-vc": "npm:^0.19.0"
     "@testing-library/jest-native": "npm:^5.4.3"
     "@testing-library/react-native": "npm:^13.3.0"
     "@types/eslint__js": "npm:^8.42.3"
