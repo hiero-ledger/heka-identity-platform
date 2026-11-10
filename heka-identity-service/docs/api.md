@@ -29,7 +29,7 @@ Endpoints are grouped by domain:
 
 There is no single "issued credentials" endpoint. A client lists finished issuances per protocol and merges them:
 
-- **DIDComm (AnonCreds):** `GET /credentials?role=issuer&state=done`. `role` (`issuer` | `holder`) and `state` (a DIDComm credential state) are optional filters next to `threadId`; an unknown value returns `400`. Every record has:
+- **DIDComm (AnonCreds):** `GET /credentials?role=issuer&state=done`. `role` (`issuer` | `holder`) and `state` (a DIDComm credential state) are optional filters next to `threadId`; an unknown value returns `400`, and so does an unknown query parameter. Every record has:
   - `role` — this wallet's role in the exchange;
   - `revocable` — `true` when this wallet issued the credential with an AnonCreds revocation registry entry. Holder records are never revocable here, even though they carry the same registry tags;
   - `credentialDefinitionId` — when known (from the record metadata, or from the revocation registry for anoncreds-w3c);
