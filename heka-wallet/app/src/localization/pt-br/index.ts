@@ -199,7 +199,11 @@ const translation = {
   "ProofRequest": {
     "RequestedInformation": "Informações solicitadas",
     "PresentationOnTheWay": "Sua apresentação está a caminho.",
-    "PresentationAccepted": "Você está dentro! \nSua prova de apresentação foi aceita."
+    "PresentationAccepted": "Você está dentro! \nSua prova de apresentação foi aceita.",
+    "VerificationFailedTitle": "O verificador não conseguiu verificar sua credencial",
+    "VerificationFailedMessage": "A credencial pode ter sido revogada ou pode ter expirado. Entre em contato com o emissor se achar que isso é um erro.",
+    "PresentationRejectedTitle": "O verificador não aceitou sua apresentação",
+    "PresentationRejectedMessage": "Tente novamente mais tarde ou entre em contato com o verificador."
   },
   "Notifications": {
     "CredentialOffer": "Oferta de credencial",

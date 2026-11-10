@@ -11,6 +11,8 @@ import { Linking } from 'react-native'
 import { HekaWalletAgent } from '../../utils/agent'
 import { CredentialRecord, OpenIdPresentationSubmissionParams } from '../types'
 
+import { PresentationRejectedError } from './presentationErrors'
+
 export type AcceptPresentationRequestOptions = {
   submissionParams: OpenIdPresentationSubmissionParams
   selectedCredentials: { [inputDescriptorId: string]: string }
@@ -93,7 +95,7 @@ export async function acceptPresentationRequest(
   }
 
   if (result.serverResponse && (result.serverResponse.status < 200 || result.serverResponse.status > 299)) {
-    throw new Error(`Error while accepting authorization request. ${JSON.stringify(result.serverResponse?.body)}`)
+    throw new PresentationRejectedError({ status: result.serverResponse.status, body: result.serverResponse.body })
   }
 
   return result

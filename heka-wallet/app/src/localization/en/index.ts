@@ -200,6 +200,10 @@ const translation = {
     "RequestedInformation": "Requested information",
     "PresentationOnTheWay": "Your presentation is on the way.",
     "PresentationAccepted": "You're in! \nYour credential proof has been accepted.",
+    "VerificationFailedTitle": "The verifier could not verify your credential",
+    "VerificationFailedMessage": "The credential may have been revoked or may have expired. Contact the issuer if you think this is a mistake.",
+    "PresentationRejectedTitle": "The verifier did not accept your presentation",
+    "PresentationRejectedMessage": "Try again later or contact the verifier.",
   },
   "Notifications": {
     "CredentialOffer": "Credential offer",
