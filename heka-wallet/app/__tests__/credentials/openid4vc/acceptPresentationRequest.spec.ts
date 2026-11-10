@@ -1,3 +1,4 @@
+import { SDJwtVcInstance } from '@sd-jwt/sd-jwt-vc'
 import { Linking } from 'react-native'
 
 import { acceptPresentationRequest } from '../../../src/credentials/openid4vc/acceptPresentationRequest'
@@ -6,6 +7,16 @@ import { OpenIdPresentationSubmissionParams } from '../../../src/credentials/typ
 import { HekaWalletAgent } from '../../../src/utils/agent'
 
 jest.mock('../../../src/utils/agent', () => ({}))
+
+// The error @sd-jwt/sd-jwt-vc's default status validator throws for a non-zero (revoked) status list entry,
+// which Credo's sdJwtVc.verify returns as `error`.
+async function revokedStatusError(): Promise<unknown> {
+  const instance = new SDJwtVcInstance({}) as unknown as { statusValidator: (status: number) => Promise<void> }
+  return instance.statusValidator(1).then(
+    () => undefined,
+    (error: unknown) => error
+  )
+}
 
 const verificationFailureResponse = {
   status: 400,
@@ -142,9 +153,7 @@ describe('acceptPresentationRequest', () => {
       serverResponse: verificationFailureResponse,
     })
     agent.sdJwtVc.verify.mockImplementation(async ({ compactSdJwtVc }: { compactSdJwtVc: string }) =>
-      compactSdJwtVc.startsWith('revoked')
-        ? { isValid: false, error: new Error('Status is not valid') }
-        : { isValid: true }
+      compactSdJwtVc.startsWith('revoked') ? { isValid: false, error: await revokedStatusError() } : { isValid: true }
     )
 
     const error = await captureRejection(
@@ -163,7 +172,7 @@ describe('acceptPresentationRequest', () => {
       ok: false,
       serverResponse: verificationFailureResponse,
     })
-    agent.sdJwtVc.verify.mockResolvedValue({ isValid: false, error: new Error('Status is not valid') })
+    agent.sdJwtVc.verify.mockResolvedValue({ isValid: false, error: await revokedStatusError() })
 
     const error = await captureRejection(
       acceptPresentationRequest(agent as unknown as HekaWalletAgent, {

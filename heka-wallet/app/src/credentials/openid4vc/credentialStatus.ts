@@ -9,8 +9,18 @@ export enum CredentialStatus {
   Unknown = 'unknown',
 }
 
-// Message of the error @sd-jwt/sd-jwt-vc throws when the status list entry is not 0 (VALID).
-const INVALID_STATUS_MESSAGE = /status is not valid/i
+/** Upper bound for the whole post-rejection status check, including issuer DID resolution. */
+export const STATUS_CHECK_TIMEOUT_MS = 10_000
+
+/**
+ * True only for the error @sd-jwt/sd-jwt-vc's default `statusValidator` throws when the status list entry is
+ * not 0 (VALID): `new SDJWTException('Status is not valid')`. Credo's `sdJwtVc.verify` returns it unwrapped.
+ * Other failures, such as Credo's status list fetch error (which embeds the server's response body), must not
+ * match, so both the error name and the whole message are compared.
+ */
+export function isInvalidStatusError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'SDJWTException' && error.message === 'Status is not valid'
+}
 
 function isSdJwtVcRecord(record: CredentialRecord): record is SdJwtVcRecord {
   return record.type === 'SdJwtVcRecord'
@@ -40,7 +50,7 @@ export async function getSdJwtVcStatus(agent: HekaWalletAgent, record: SdJwtVcRe
       return CredentialStatus.Valid
     }
 
-    if (INVALID_STATUS_MESSAGE.test(result.error?.message ?? '')) {
+    if (isInvalidStatusError(result.error)) {
       return CredentialStatus.Revoked
     }
 
@@ -54,16 +64,43 @@ export async function getSdJwtVcStatus(agent: HekaWalletAgent, record: SdJwtVcRe
 
 /**
  * Returns the ids of the given records that are SD-JWT VCs revoked by their issuer. Other credential formats
- * are skipped.
+ * are skipped. If the check takes longer than `timeoutMs`, no credential is reported as revoked.
  */
-export async function findRevokedCredentialIds(agent: HekaWalletAgent, records: CredentialRecord[]): Promise<string[]> {
+export async function findRevokedCredentialIds(
+  agent: HekaWalletAgent,
+  records: CredentialRecord[],
+  { timeoutMs = STATUS_CHECK_TIMEOUT_MS }: { timeoutMs?: number } = {}
+): Promise<string[]> {
   const uniqueSdJwtVcRecords = [
     ...new Map(records.filter(isSdJwtVcRecord).map((record) => [record.id, record])).values(),
   ]
+  if (uniqueSdJwtVcRecords.length === 0) {
+    return []
+  }
 
-  const statuses = await Promise.all(
-    uniqueSdJwtVcRecords.map(async (record) => ({ id: record.id, status: await getSdJwtVcStatus(agent, record) }))
-  )
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timedOut = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), timeoutMs)
+  })
 
-  return statuses.filter(({ status }) => status === CredentialStatus.Revoked).map(({ id }) => id)
+  try {
+    const statuses = await Promise.race([
+      Promise.all(
+        uniqueSdJwtVcRecords.map(async (record) => ({ id: record.id, status: await getSdJwtVcStatus(agent, record) }))
+      ),
+      timedOut,
+    ])
+
+    if (!statuses) {
+      agent.config.logger.warn('Timed out checking the status of SD-JWT VCs', {
+        timeoutMs,
+        credentialCount: uniqueSdJwtVcRecords.length,
+      })
+      return []
+    }
+
+    return statuses.filter(({ status }) => status === CredentialStatus.Revoked).map(({ id }) => id)
+  } finally {
+    clearTimeout(timer)
+  }
 }
