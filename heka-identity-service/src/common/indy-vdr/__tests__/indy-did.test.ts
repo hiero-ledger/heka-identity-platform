@@ -31,8 +31,9 @@ function context(ledger: { verkey: string | null; diddocContent?: string }) {
   })
   const written: Array<{ operation: Record<string, unknown> }> = []
   const pool = {
-    prepareWriteRequest: vi.fn((_agentContext: unknown, request: IndyVdrRequest, _signingKey: unknown) =>
-      Promise.resolve(request),
+    prepareWriteRequest: vi.fn(
+      (_agentContext: unknown, request: IndyVdrRequest, _signingKey: unknown, _endorserDid?: string) =>
+        Promise.resolve(request),
     ),
     submitRequest: vi.fn((request: IndyVdrRequest) => {
       if (request instanceof GetNymRequest) {
