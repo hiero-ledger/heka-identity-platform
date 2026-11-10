@@ -150,12 +150,124 @@ describe('OpenId4VcIssuanceSessionService', () => {
   })
 
   describe('deleteIssuanceSession', () => {
-    test('should delete an issuance session by id', async () => {
-      mockDeleteById.mockResolvedValue(undefined)
+    const session = (state: string, credentials?: unknown[]) =>
+      issuanceSessionRecordStub({
+        id: 'session-1',
+        issuerId: 'issuer-1',
+        state,
+        type: 'OpenId4VcIssuanceSessionRecord',
+        createdAt: new Date(),
+        credentialOfferPayload: {},
+        ...(credentials ? { issuanceMetadata: { credentials } } : {}),
+      })
+    const sdJwt = (list: string, indexes: number[]) => ({
+      format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+      credentialStatus: {
+        type: 'token-status-list',
+        location: `https://example.com/token-status-lists/${list}`,
+        index: indexes[0],
+        indexes,
+      },
+    })
+    const issuedSdJwtSession = () => session('Completed', [sdJwt('tsl-1', [4, 8]), sdJwt('tsl-2', [15])])
+    const conflict = new ConflictException(
+      'Revoke the issued SD-JWT VC before deleting its issuance session: without the session it cannot be revoked',
+    )
+
+    beforeEach(() => mockDeleteById.mockResolvedValue(undefined))
+
+    test('should delete an issuance session without status list entries in any state', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(
+        session('Completed', [
+          { format: OpenId4VciCredentialFormatProfile.JwtVcJson, credentialStatus: { location: 'x/sl-1', index: 1 } },
+        ]),
+      )
 
       await service.deleteIssuanceSession(tenantAgent, 'session-1')
 
-      expect(mockDeleteById).toHaveBeenCalledWith(expect.anything(), 'session-1')
+      expect(tokenStatusListService.getStatuses).not.toHaveBeenCalled()
+      expect(mockDeleteById).toHaveBeenCalledWith(tenantAgent.context, 'session-1')
+    })
+
+    test.each(['OfferCreated', 'OfferUriRetrieved'])(
+      'should delete a pending SD-JWT offer (%s) without reading its status lists',
+      async (state) => {
+        vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(
+          session(state, [sdJwt('tsl-1', [4])]),
+        )
+
+        await service.deleteIssuanceSession(tenantAgent, 'session-1')
+
+        expect(tokenStatusListService.getStatuses).not.toHaveBeenCalled()
+        expect(mockDeleteById).toHaveBeenCalledWith(tenantAgent.context, 'session-1')
+      },
+    )
+
+    test.each(['AccessTokenCreated', 'CredentialRequestReceived', 'CredentialsPartiallyIssued', 'Completed', 'Error'])(
+      'should refuse (409) to delete an SD-JWT session in state %s with an entry still valid',
+      async (state) => {
+        vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(
+          session(state, [sdJwt('tsl-1', [4, 8]), sdJwt('tsl-2', [15])]),
+        )
+        // One entry of a batch is still valid
+        vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(
+          new Map([
+            ['tsl-1', [1, 0]],
+            ['tsl-2', [1]],
+          ]),
+        )
+
+        await expect(service.deleteIssuanceSession(tenantAgent, 'session-1')).rejects.toThrow(conflict)
+
+        expect(tokenStatusListService.getStatuses).toHaveBeenCalledWith(tenantAgent.context, [
+          { id: 'tsl-1', indexes: [4, 8] },
+          { id: 'tsl-2', indexes: [15] },
+        ])
+        expect(mockDeleteById).not.toHaveBeenCalled()
+      },
+    )
+
+    test('should delete an issued SD-JWT session once every entry is revoked', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(issuedSdJwtSession())
+      vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(
+        new Map([
+          ['tsl-1', [1, 1]],
+          ['tsl-2', [1]],
+        ]),
+      )
+
+      await service.deleteIssuanceSession(tenantAgent, 'session-1')
+
+      expect(mockDeleteById).toHaveBeenCalledWith(tenantAgent.context, 'session-1')
+    })
+
+    test('should ignore entries whose status list is gone, as they cannot be revoked anyway', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(issuedSdJwtSession())
+      vi.mocked(tokenStatusListService.getStatuses).mockResolvedValue(new Map([['tsl-1', [1, 1]]]))
+
+      await service.deleteIssuanceSession(tenantAgent, 'session-1')
+
+      expect(mockDeleteById).toHaveBeenCalledWith(tenantAgent.context, 'session-1')
+    })
+
+    test('should not delete when the status lists cannot be read', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(issuedSdJwtSession())
+      vi.mocked(tokenStatusListService.getStatuses).mockRejectedValue(new Error('connection refused'))
+
+      await expect(service.deleteIssuanceSession(tenantAgent, 'session-1')).rejects.toThrow('connection refused')
+
+      expect(mockDeleteById).not.toHaveBeenCalled()
+    })
+
+    test('should throw NotFoundException when the issuance session does not exist', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockRejectedValue(
+        new RecordNotFoundError('not found', { recordType: 'OpenId4VcIssuanceSessionRecord' }),
+      )
+
+      await expect(service.deleteIssuanceSession(tenantAgent, 'session-1')).rejects.toThrow(
+        new NotFoundException('Issuance session not found'),
+      )
+      expect(mockDeleteById).not.toHaveBeenCalled()
     })
   })
 

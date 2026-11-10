@@ -191,7 +191,7 @@ See [API — SD-JWT VC status](api.md#sd-jwt-vc-status) for the list format.
 | `PUT /openid4vc/issuer/{issuerId}`             | Update an Issuer's metadata (overwrite — include all fields you want to keep). |
 | `POST /openid4vc/issuance-session/offer`       | Create an offer (Step 3).                                                      |
 | `GET /openid4vc/issuance-session/{id}`         | Inspect a session's state (Step 5).                                            |
-| `DELETE /openid4vc/issuance-session/{id}`      | Cancel a pending session.                                                      |
+| `DELETE /openid4vc/issuance-session/{id}`      | Cancel a pending session. Revoke an issued SD-JWT VC first (`409` otherwise).  |
 | `POST /openid4vc/issuance-session/{id}/revoke` | Revoke the session's SD-JWT VCs ([Revocation](#revocation)).                   |
 | `GET /token-status-lists/{id}`                 | Public token status list referenced by issued SD-JWT VCs.                      |
 

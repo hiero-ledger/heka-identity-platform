@@ -1370,6 +1370,10 @@ paths:
       summary: "Get a Issuance Sessions By Id "
       tags: *a34
     delete:
+      description: "A pending offer (OfferCreated, OfferUriRetrieved) is always
+        deleted. A later session with SD-JWT VCs is deleted only once its
+        credentials are revoked: the session holds their only status list
+        reference."
       operationId: OpenId4VcIssuanceSessionController_deleteIssuanceSession
       parameters:
         - name: issuanceSessionId
@@ -1378,14 +1382,14 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: ""
-        "400":
-          description: Bad Request
+        "204":
+          description: Issuance session deleted
         "401":
           description: Unauthorized
-        "422":
-          description: Unprocessable Entity
+        "404":
+          description: Issuance session not found
+        "409":
+          description: The session has issued SD-JWT VCs that are not revoked
       security: *a33
       summary: Delete Issuance Session
       tags: *a34

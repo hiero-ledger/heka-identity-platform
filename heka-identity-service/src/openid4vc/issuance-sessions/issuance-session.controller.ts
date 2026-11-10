@@ -4,6 +4,7 @@ import {
   ApiBearerAuth,
   ApiConflictResponse,
   ApiBody,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -118,12 +119,17 @@ export class OpenId4VcIssuanceSessionController {
   /**
    * Delete an OpenID4VC issuance session by id
    */
-  @ApiOperation({ summary: 'Delete Issuance Session' })
+  @ApiOperation({
+    summary: 'Delete Issuance Session',
+    description:
+      'A pending offer (OfferCreated, OfferUriRetrieved) is always deleted. A later session with SD-JWT VCs is ' +
+      'deleted only once its credentials are revoked: the session holds their only status list reference.',
+  })
   @ApiParam({ name: 'issuanceSessionId', type: String })
-  @ApiOkResponse()
-  @ApiBadRequestResponse({ description: 'Bad Request' })
+  @ApiNoContentResponse({ description: 'Issuance session deleted' })
+  @ApiNotFoundResponse({ description: 'Issuance session not found' })
+  @ApiConflictResponse({ description: 'The session has issued SD-JWT VCs that are not revoked' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiUnprocessableEntityResponse({ description: 'Unprocessable Entity' })
   @HttpCode(204)
   @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
   @Delete(':issuanceSessionId')

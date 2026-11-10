@@ -3,6 +3,7 @@ import {
   OpenId4VciCredentialFormatProfile,
   OpenId4VcIssuanceSessionRecord,
   OpenId4VcIssuanceSessionRepository,
+  OpenId4VcIssuanceSessionState,
   OpenId4VcIssuerService,
 } from '@credo-ts/openid4vc'
 import {
@@ -36,6 +37,12 @@ import {
   OpenId4VcIssuanceSessionsCreateOfferResponse,
 } from './dto'
 import { IssuanceSessionRevocation } from './dto/issuance-session.dto'
+
+/** States before the holder starts redeeming the offer: no credential of the session can exist yet. */
+const PENDING_OFFER_STATES: readonly OpenId4VcIssuanceSessionState[] = [
+  OpenId4VcIssuanceSessionState.OfferCreated,
+  OpenId4VcIssuanceSessionState.OfferUriRetrieved,
+]
 
 @Injectable()
 export class OpenId4VcIssuanceSessionService {
@@ -235,9 +242,38 @@ export class OpenId4VcIssuanceSessionService {
   }
 
   /**
-   * Delete an OpenID4VC issuance session by id
+   * Delete an OpenID4VC issuance session by id.
+   *
+   * The session holds the only reference to the token status list entries of its SD-JWT VCs, so a session whose
+   * credentials may have been issued (the holder got past the offer) is deleted only once every entry is invalid
+   * (or its list is gone): otherwise the credentials could never be revoked again. Pending offers are deleted freely.
    */
   public async deleteIssuanceSession(tenantAgent: TenantAgent, issuanceSessionId: string): Promise<void> {
+    let issuanceSession
+    try {
+      issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
+    } catch (error) {
+      // Credo's RecordNotFoundError would otherwise surface as a 500
+      if (error instanceof RecordNotFoundError) throw new NotFoundException('Issuance session not found')
+      throw error
+    }
+
+    const tokenStatusEntries = tokenStatusListEntriesOf(
+      issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[] | undefined,
+    )
+    if (tokenStatusEntries.length && !PENDING_OFFER_STATES.includes(issuanceSession.state)) {
+      // A failed read propagates: never delete a session whose credentials might still be valid
+      const statuses = await this.tokenStatusListService.getStatuses(tenantAgent.context, tokenStatusEntries)
+      const unrevoked = tokenStatusEntries.some(
+        ({ id }) => statuses.get(id)?.some((status) => status !== TokenStatus.Invalid) ?? false,
+      )
+      if (unrevoked) {
+        throw new ConflictException(
+          'Revoke the issued SD-JWT VC before deleting its issuance session: without the session it cannot be revoked',
+        )
+      }
+    }
+
     const issuanceSessionRepository = tenantAgent.dependencyManager.resolve(OpenId4VcIssuanceSessionRepository)
     await issuanceSessionRepository.deleteById(tenantAgent.context, issuanceSessionId)
   }

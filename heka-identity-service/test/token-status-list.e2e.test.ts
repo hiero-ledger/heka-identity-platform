@@ -418,6 +418,33 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     await revoke(outsiderAuthToken, sessionId).expect(404)
   })
 
+  test('a session with an issued SD-JWT VC is deleted only after revocation; a pending offer any time', async () => {
+    const issuerAuthToken = await createAuthToken(uuid(), Role.OrgAdmin, uuid())
+    const issuerDid = await createSdJwtIssuer(issuerAuthToken)
+    const deleteSession = (sessionId: string) =>
+      request(app).delete(`/openid4vc/issuance-session/${sessionId}`).auth(issuerAuthToken, { type: 'bearer' })
+
+    // A pending offer: no credential exists yet, so cancelling it needs no revocation
+    const pending = await offer(issuerAuthToken, issuerDid).expect(200)
+    await deleteSession(pending.body.issuanceSession.id as string).expect(204)
+    await deleteSession(pending.body.issuanceSession.id as string).expect(404)
+
+    // An issued credential: the session is its only status list reference, so it must be revoked first
+    const issued = await offer(issuerAuthToken, issuerDid).expect(200)
+    const sessionId = issued.body.issuanceSession.id as string
+    await acceptOffer(issued.body.credentialOffer as string)
+
+    const refused = await deleteSession(sessionId).expect(409)
+    expect(refused.body.message).toBe(
+      'Revoke the issued SD-JWT VC before deleting its issuance session: without the session it cannot be revoked',
+    )
+    expect((await getSession(issuerAuthToken, sessionId)).body).toMatchObject({ revocable: true, revoked: false })
+
+    await revoke(issuerAuthToken, sessionId).expect(200)
+    await deleteSession(sessionId).expect(204)
+    await revoke(issuerAuthToken, sessionId).expect(404)
+  })
+
   test('an offer cannot set or hide the status claim (400)', async () => {
     const issuerAuthToken = await createAuthToken(uuid(), Role.OrgAdmin, uuid())
     const issuerDid = await createSdJwtIssuer(issuerAuthToken)
