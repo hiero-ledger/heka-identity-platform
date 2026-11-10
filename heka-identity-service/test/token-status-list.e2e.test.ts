@@ -266,10 +266,22 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     })
     expect(signatureValid.verified).toBe(true)
 
-    // AC4: content negotiation and unknown lists
+    // AC4: content negotiation and unknown lists; errors are plain JSON, never cached, and do not echo the id
+    // CORS adds `Origin`
+    expect(before.headers.vary).toMatch(/\bAccept\b/)
     await request(app).get(`/token-status-lists/${listId}`).set('Accept', '*/*').expect(200)
-    await request(app).get(`/token-status-lists/${listId}`).set('Accept', 'application/statuslist+cwt').expect(406)
-    await request(app).get(`/token-status-lists/${uuid()}`).expect(404)
+    const notAcceptable = await request(app)
+      .get(`/token-status-lists/${listId}`)
+      .set('Accept', 'application/statuslist+cwt')
+      .expect(406)
+    const unknownId = uuid()
+    const notFound = await request(app).get(`/token-status-lists/${unknownId}`).expect(404)
+    for (const error of [notAcceptable, notFound]) {
+      expect(error.headers['content-type']).toMatch(/^application\/json/)
+      expect(error.headers).not.toHaveProperty('cache-control')
+    }
+    expect(notFound.body.message).toBe('Token status list not found')
+    expect(notFound.text).not.toContain(unknownId)
 
     // AC5: a Credo verifier fetches the list and accepts the credential, and a Heka verifier accepts a presentation
     expect((await agent.sdJwtVc.verify({ compactSdJwtVc: credential.compact })).isValid).toBe(true)

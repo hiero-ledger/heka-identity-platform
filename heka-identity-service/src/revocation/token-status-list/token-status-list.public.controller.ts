@@ -1,4 +1,6 @@
-import { Controller, Get, Header, Headers, NotAcceptableException, Param } from '@nestjs/common'
+import type { Response } from 'express'
+
+import { Controller, Get, Headers, NotAcceptableException, Param, Res } from '@nestjs/common'
 import {
   ApiHeader,
   ApiNotAcceptableResponse,
@@ -47,7 +49,14 @@ export class TokenStatusListPublicController {
   }
 
   @ApiOperation({ summary: 'Download a Status List Token (IETF token status list, `application/statuslist+jwt`)' })
-  @ApiOkResponse({ description: 'The signed Status List Token (compact JWS, `typ: statuslist+jwt`)' })
+  @ApiOkResponse({
+    description: 'The signed Status List Token (compact JWS, `typ: statuslist+jwt`)',
+    headers: {
+      'Content-Type': { description: TOKEN_STATUS_LIST_JWT_MEDIA_TYPE, schema: { type: 'string' } },
+      'Cache-Control': { description: `max-age=${TOKEN_STATUS_LIST_TTL_SECONDS}`, schema: { type: 'string' } },
+      Vary: { description: 'Accept', schema: { type: 'string' } },
+    },
+  })
   @ApiNotFoundResponse({ description: 'Unknown status list' })
   @ApiNotAcceptableResponse({ description: 'Only the JWT format is available' })
   @ApiHeader({
@@ -56,16 +65,24 @@ export class TokenStatusListPublicController {
     description: `Absent, \`*/*\` or \`${TOKEN_STATUS_LIST_JWT_MEDIA_TYPE}\`; a CWT-only Accept gets 406`,
   })
   @Get(':id')
-  @Header('Content-Type', TOKEN_STATUS_LIST_JWT_MEDIA_TYPE)
-  @Header('Cache-Control', `max-age=${TOKEN_STATUS_LIST_TTL_SECONDS}`)
-  public async get(@Param('id') id: string, @Headers('accept') accept?: string): Promise<string> {
+  public async get(
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+    @Headers('accept') accept?: string,
+  ): Promise<string> {
     const logger = this.logger.child('get', { id })
     logger.trace('>')
 
+    // Both the token and the 406 depend on `Accept`
+    res.vary('Accept')
     if (!acceptsStatusListJwt(accept)) {
       throw new NotAcceptableException(`Only ${TOKEN_STATUS_LIST_JWT_MEDIA_TYPE} is available for this status list`)
     }
     const token = await this.tokenStatusListService.getToken(id)
+
+    // Only the token gets its media type and cache lifetime: errors stay JSON and are not cached
+    res.set('Content-Type', TOKEN_STATUS_LIST_JWT_MEDIA_TYPE)
+    res.set('Cache-Control', `max-age=${TOKEN_STATUS_LIST_TTL_SECONDS}`)
 
     logger.trace('<')
     return token

@@ -1950,6 +1950,19 @@ paths:
       responses:
         "200":
           description: "The signed Status List Token (compact JWS, `typ: statuslist+jwt`)"
+          headers:
+            Content-Type:
+              description: application/statuslist+jwt
+              schema:
+                type: string
+            Cache-Control:
+              description: max-age=300
+              schema:
+                type: string
+            Vary:
+              description: Accept
+              schema:
+                type: string
         "404":
           description: Unknown status list
         "406":

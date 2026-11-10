@@ -240,7 +240,8 @@ export class TokenStatusListService {
   /** The current signed Status List Token of a list (public, tenant-less). */
   public async getToken(id: string): Promise<string> {
     const list = await this.em.findOne(TokenStatusList, { id })
-    if (!list?.token) throw new NotFoundException(`Token status list ${id} not found`)
+    // Static message: this is a public route, so the error never echoes the caller's input
+    if (!list?.token) throw new NotFoundException('Token status list not found')
     return list.token
   }
 
