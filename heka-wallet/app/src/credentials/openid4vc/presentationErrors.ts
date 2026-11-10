@@ -15,14 +15,25 @@ export class PresentationRejectedError extends Error {
   public readonly status: number
   public readonly oauthError?: string
   public readonly oauthErrorDescription?: string
+  /** Ids of presented SD-JWT VC records whose issuer has revoked them (checked after the rejection). */
+  public readonly revokedCredentialIds: string[]
 
-  public constructor({ status, body }: { status: number; body: unknown }) {
+  public constructor({
+    status,
+    body,
+    revokedCredentialIds = [],
+  }: {
+    status: number
+    body: unknown
+    revokedCredentialIds?: string[]
+  }) {
     const { error, errorDescription } = parseOauth2ErrorBody(body)
     super(`Verifier rejected the presentation (HTTP ${status}${error ? `, ${error}` : ''})`)
     this.name = 'PresentationRejectedError'
     this.status = status
     this.oauthError = error
     this.oauthErrorDescription = errorDescription
+    this.revokedCredentialIds = revokedCredentialIds
 
     Object.setPrototypeOf(this, PresentationRejectedError.prototype)
   }
@@ -88,6 +99,13 @@ export type PresentationErrorContent = {
  */
 export function getPresentationErrorContent(error: unknown, t: TFunction): PresentationErrorContent {
   if (error instanceof PresentationRejectedError) {
+    if (error.revokedCredentialIds.length > 0) {
+      return {
+        title: t('ProofRequest.CredentialRevokedTitle'),
+        message: t('ProofRequest.CredentialRevokedMessage'),
+      }
+    }
+
     if (error.isVerificationFailure) {
       return {
         title: t('ProofRequest.VerificationFailedTitle'),
@@ -117,6 +135,7 @@ export function describePresentationError(error: unknown): Record<string, unknow
       status: error.status,
       oauthError: error.oauthError,
       oauthErrorDescription: error.oauthErrorDescription,
+      revokedCredentialCount: error.revokedCredentialIds.length,
     }
   }
 

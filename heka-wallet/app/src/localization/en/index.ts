@@ -202,6 +202,8 @@ const translation = {
     "PresentationAccepted": "You're in! \nYour credential proof has been accepted.",
     "VerificationFailedTitle": "The verifier could not verify your credential",
     "VerificationFailedMessage": "The credential may have been revoked or may have expired. Contact the issuer if you think this is a mistake.",
+    "CredentialRevokedTitle": "This credential has been revoked by its issuer",
+    "CredentialRevokedMessage": "The verifier did not accept it. Contact the issuer to get a new credential.",
     "PresentationRejectedTitle": "The verifier did not accept your presentation",
     "PresentationRejectedMessage": "Try again later or contact the verifier.",
   },

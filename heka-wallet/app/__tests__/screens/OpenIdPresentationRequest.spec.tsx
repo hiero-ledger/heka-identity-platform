@@ -117,6 +117,22 @@ describe('OpenIdPresentationRequest', () => {
     )
   })
 
+  it('tells the user the credential is revoked when the status check found it', async () => {
+    const { reported } = await shareAndGetReportedError(
+      new PresentationRejectedError({
+        status: 400,
+        body: rejectedResponseBody,
+        revokedCredentialIds: ['sd-jwt-vc-record'],
+      })
+    )
+
+    expect(reported).toMatchObject({
+      title: 'ProofRequest.CredentialRevokedTitle',
+      message: 'ProofRequest.CredentialRevokedMessage',
+      code: 1027,
+    })
+  })
+
   it('does not show a JSON blob from any other error', async () => {
     const { reported } = await shareAndGetReportedError(
       new Error(`Error while accepting authorization request. ${JSON.stringify(rejectedResponseBody)}`)

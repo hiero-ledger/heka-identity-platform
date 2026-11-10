@@ -48,6 +48,7 @@ describe('PresentationRejectedError', () => {
     expect(error.message).not.toMatch(/[{}]/)
     expect(error.oauthError).toBe('invalid_request')
     expect(error.isVerificationFailure).toBe(true)
+    expect(error.revokedCredentialIds).toEqual([])
   })
 
   it('treats a "failed verification" description as a verification failure whatever the error code', () => {
@@ -73,6 +74,19 @@ describe('getPresentationErrorContent', () => {
     expect(getPresentationErrorContent(error, t)).toEqual({
       title: 'ProofRequest.VerificationFailedTitle',
       message: 'ProofRequest.VerificationFailedMessage',
+    })
+  })
+
+  it('says the credential is revoked when the status check found a revoked credential', () => {
+    const error = new PresentationRejectedError({
+      status: 400,
+      body: credoVerificationFailureBody,
+      revokedCredentialIds: ['sd-jwt-vc-record-id'],
+    })
+
+    expect(getPresentationErrorContent(error, t)).toEqual({
+      title: 'ProofRequest.CredentialRevokedTitle',
+      message: 'ProofRequest.CredentialRevokedMessage',
     })
   })
 
@@ -116,10 +130,11 @@ describe('toDisplayableErrorMessage', () => {
 })
 
 describe('describePresentationError', () => {
-  it('logs the OAuth2 fields only', () => {
+  it('logs the OAuth2 fields and the number of revoked credentials only', () => {
     const error = new PresentationRejectedError({
       status: 400,
       body: { ...credoVerificationFailureBody, vp_token: 'eyJhbGciOi.secret~disclosure~' },
+      revokedCredentialIds: ['sd-jwt-vc-record-id'],
     })
 
     const details = describePresentationError(error)
@@ -129,6 +144,7 @@ describe('describePresentationError', () => {
       status: 400,
       oauthError: 'invalid_request',
       oauthErrorDescription: 'One or more presentations failed verification.',
+      revokedCredentialCount: 1,
     })
     expect(JSON.stringify(details)).not.toContain('eyJhbGciOi')
   })
