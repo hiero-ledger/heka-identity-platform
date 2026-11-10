@@ -26,6 +26,7 @@ import {
   ProofExchangeFormatKeys,
 } from '../credentials'
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
 
 type Props = StackScreenProps<NotificationStackParams, BifoldScreens.ProofRequest>
 
@@ -55,8 +56,18 @@ export const AriesPresentationRequest: React.FC<Props> = ({ route }) => {
     setIsPresentationSubmissionLoading(true)
     mapAnoncredsProofExchangeRecord(proofRequestRecord!, agent)
       .then((presentationSubmission) => setPresentationSubmission(presentationSubmission))
+      .catch((err: unknown) => {
+        agent.config.logger.error('Failed to map the proof request', {
+          proofExchangeRecordId: proofRequestRecord?.id,
+          error: formatError(err),
+        })
+        DeviceEventEmitter.emit(
+          EventTypes.ERROR_ADDED,
+          new BifoldError(t('Error.Title1027'), t('Error.Message1027'), (err as Error)?.message ?? err, 1027)
+        )
+      })
       .finally(() => setIsPresentationSubmissionLoading(false))
-  }, [agent, proofRequestRecord, presentationSubmission])
+  }, [agent, proofRequestRecord, presentationSubmission, t])
 
   useEffect(() => {
     if (!agent) {
@@ -82,7 +93,13 @@ export const AriesPresentationRequest: React.FC<Props> = ({ route }) => {
     const { connectionId } = presentationSubmission.proofExchangeRecord
 
     if (connectionId && presentationSubmission.outOfBandGoalCode?.endsWith('verify.once')) {
-      await agent.didcomm.connections.deleteById(connectionId)
+      // Cleanup after the response is sent: a failure is logged, not shown.
+      await agent.didcomm.connections.deleteById(connectionId).catch((err: unknown) =>
+        agent.config.logger.error('Failed to remove the one-time connection', {
+          connectionId,
+          error: formatError(err),
+        })
+      )
     }
   }
 

@@ -185,6 +185,7 @@ const translation = {
     "Issuer": "Issuer",
     "AddCredential": "Add Credential",
     "EmptyList": "Your wallet is empty.",
+    "LoadFailed": "Some credentials could not be loaded.",
     "AddFirstCredential": "Add your first credential",
     "UnknownIssuer": "Unknown issuer",
     "UnknownVerifier": "Unknown verifier"

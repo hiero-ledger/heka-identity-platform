@@ -1,4 +1,4 @@
-import { Button, ButtonType } from '@bifold/core'
+import { Button, ButtonType, testIdWithKey } from '@bifold/core'
 import { DidCommCredentialExchangeRecord } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/native'
@@ -80,6 +80,7 @@ export const CredentialOfferView: React.FC<Props> = ({
         <Button
           title={t('Global.Decline')}
           accessibilityLabel={t('Global.Decline')}
+          testID={testIdWithKey('DeclineCredentialOffer')}
           buttonType={ButtonType.SecondaryCritical}
           onPress={() => setIsDeclineModalVisible(true)}
           disabled={isAccepted}
@@ -87,6 +88,7 @@ export const CredentialOfferView: React.FC<Props> = ({
         <Button
           title={t('Global.Accept')}
           accessibilityLabel={t('Global.Accept')}
+          testID={testIdWithKey('AcceptCredentialOffer')}
           buttonType={ButtonType.Primary}
           onPress={onAccept}
           disabled={isAccepted}

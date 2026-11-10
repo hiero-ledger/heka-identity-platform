@@ -1,5 +1,5 @@
-import { Button, ButtonType, DispatchAction, useAuth, useStore } from '@bifold/core'
-import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
+import { Button, ButtonType, DispatchAction, testIdWithKey, useAuth, useStore } from '@bifold/core'
+import { GlobalLogger, HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleSheet, Text, View, Modal, Switch, ScrollView, Pressable, Linking, Platform } from 'react-native'
@@ -10,6 +10,8 @@ import { AlertModal } from '../components/modals'
 import { Loader } from '../components/views/LoadingView'
 
 import PINEnter, { PINEntryUsage } from './PINEnter'
+
+const logger = GlobalLogger.createContextLogger('UseBiometry')
 
 const ANDROID_SETTINGS_INTENT = 'android.settings.SETTINGS'
 const IOS_SETTINGS_URL = 'App-prefs:root'
@@ -70,9 +72,14 @@ const UseBiometry: React.FC = () => {
   const [showSettingsPopup, setShowSettingsPopup] = useState(false)
 
   useEffect(() => {
-    isBiometricsActive().then((result) => {
-      setBiometryAvailable(result)
-    })
+    isBiometricsActive()
+      .then((result) => {
+        setBiometryAvailable(result)
+      })
+      .catch((error: unknown) => {
+        logger.error('Failed to check whether biometrics are available', error)
+        setBiometryAvailable(false)
+      })
   }, [isBiometricsActive])
 
   const continueTouched = async () => {
@@ -170,7 +177,12 @@ const UseBiometry: React.FC = () => {
           )}
         </View>
         <View style={styles.switchContainer}>
-          <Pressable accessible accessibilityLabel={t('Biometry.Toggle')} accessibilityRole={'switch'}>
+          <Pressable
+            accessible
+            accessibilityLabel={t('Biometry.Toggle')}
+            accessibilityRole={'switch'}
+            testID={testIdWithKey('ToggleBiometrics')}
+          >
             <Switch
               trackColor={{ false: ColorPalette.grayscale.lightGrey, true: ColorPalette.brand.primaryDisabled }}
               thumbColor={biometryEnabled ? ColorPalette.brand.primary : ColorPalette.grayscale.mediumGrey}
@@ -191,6 +203,7 @@ const UseBiometry: React.FC = () => {
               <Button
                 title={t('Global.Continue')}
                 accessibilityLabel={t('Global.Continue')}
+                testID={testIdWithKey('Continue')}
                 onPress={continueTouched}
                 buttonType={ButtonType.Primary}
               />
@@ -198,6 +211,7 @@ const UseBiometry: React.FC = () => {
               <Button
                 title={t('Biometry.Skip')}
                 accessibilityLabel={t('Biometry.Skip')}
+                testID={testIdWithKey('SkipBiometrics')}
                 onPress={continueTouched}
                 buttonType={ButtonType.Secondary}
               />
