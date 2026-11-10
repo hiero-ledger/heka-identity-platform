@@ -62,6 +62,7 @@ export const mapAnoncredsCredential = (
     id: record.id,
     protocol: ProtocolType.Aries,
     name: schemaName ?? credentialDefinitionId ?? record.id,
+    schemaName,
     formats: [anoncredsFormat(record.format)],
     issuedAt: record.updatedAt ?? record.createdAt,
     credentialDefinitionId,
@@ -96,6 +97,7 @@ export const mapOpenIdIssuanceSession = (
     id: session.id,
     protocol: ProtocolType.Oid4vc,
     name: schemaName ?? credentialConfigurationIds?.join(', ') ?? session.id,
+    schemaName,
     formats: Array.from(
       new Set(
         credentials

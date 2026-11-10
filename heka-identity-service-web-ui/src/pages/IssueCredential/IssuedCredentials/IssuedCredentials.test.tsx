@@ -152,6 +152,14 @@ const openDetails = async (
   return screen.findByRole('dialog');
 };
 
+const fieldLabels = (dialog: HTMLElement) =>
+  Array.from(dialog.querySelectorAll('dt')).map((term) => term.textContent);
+
+const fieldValue = (dialog: HTMLElement, label: string) =>
+  Array.from(dialog.querySelectorAll('dt')).find(
+    (term) => term.textContent === label,
+  )?.nextElementSibling?.textContent;
+
 beforeEach(() => {
   jest.clearAllMocks();
 });
@@ -195,6 +203,9 @@ describe('IssuedCredentials page', () => {
     renderPage(api);
 
     await screen.findByText('Passport');
+    // The first column is the Heka schema name (with the raw ids as fallback)
+    expect(screen.getByText('Schema')).toBeInTheDocument();
+    expect(screen.queryByText('Credential')).not.toBeInTheDocument();
     const rows = screen.getAllByRole('button', { name: /DIDComm|OpenID4VC/ });
     expect(rows.map((row) => within(row).getAllByText(/./)[0].textContent)).toEqual([
       'DiplomaJwt',
@@ -251,6 +262,9 @@ describe('IssuedCredentials page', () => {
     const dialog = await openDetails(user, 'Passport');
 
     expect(within(dialog).getByRole('heading', { name: 'Passport' })).toBeInTheDocument();
+    // The resolved schema is labelled, so users see that the title is the schema name
+    expect(fieldValue(dialog, 'Schema')).toBe('Passport');
+    expect(fieldLabels(dialog).slice(0, 3)).toEqual(['Schema', 'Protocol', 'Format']);
     expect(within(dialog).getByText('Credential definition ID')).toBeInTheDocument();
     expect(within(dialog).getByText('creddef-passport')).toBeInTheDocument();
     expect(within(dialog).getByText('Record ID')).toBeInTheDocument();
@@ -281,6 +295,9 @@ describe('IssuedCredentials page', () => {
     const dialog = await openDetails(user, 'DiplomaJwt');
 
     expect(within(dialog).getByText('Not revocable')).toBeInTheDocument();
+    // No schema resolved: no Schema row repeating the configuration id of the title
+    expect(fieldLabels(dialog)).not.toContain('Schema');
+    expect(fieldLabels(dialog)[0]).toBe('Protocol');
     expect(within(dialog).getByText('did:key:issuer')).toBeInTheDocument();
     expect(within(dialog).getByText('Credential configuration(s)')).toBeInTheDocument();
     expect(within(dialog).queryByText('Master of Secrets')).not.toBeInTheDocument();

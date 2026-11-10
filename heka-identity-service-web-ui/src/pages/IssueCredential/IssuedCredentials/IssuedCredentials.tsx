@@ -102,7 +102,7 @@ export const IssuedCredentials = () => {
             aria-hidden
           >
             <span className={cls.cell}>
-              {t('IssueCredential.issuedCredentials.columns.credential')}
+              {t('IssueCredential.issuedCredentials.columns.schema')}
             </span>
             <span className={cls.cell}>
               {t('IssueCredential.issuedCredentials.columns.protocol')}

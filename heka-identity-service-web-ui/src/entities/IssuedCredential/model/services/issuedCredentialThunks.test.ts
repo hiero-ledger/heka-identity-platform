@@ -225,11 +225,20 @@ describe('getIssuedCredentials', () => {
       'UnknownSdJwt',
       'StatusSdJwt',
     ]);
+    // Only a resolved Heka schema sets schemaName; fallbacks to raw ids leave it unset
+    expect(items.map((item) => item.schemaName)).toEqual([
+      undefined,
+      'Diploma',
+      'Passport',
+      undefined,
+      undefined,
+    ]);
     expect(items[1]).toEqual<IssuedCredential>({
       key: 'OpenId4VC:session-jwt',
       id: 'session-jwt',
       protocol: ProtocolType.Oid4vc,
       name: 'Diploma',
+      schemaName: 'Diploma',
       formats: ['jwt_vc_json'],
       issuedAt: '2026-01-03T11:00:00.000Z',
       issuerDid: 'did:key:issuer',
@@ -241,6 +250,7 @@ describe('getIssuedCredentials', () => {
       id: 'cred-known',
       protocol: ProtocolType.Aries,
       name: 'Passport',
+      schemaName: 'Passport',
       formats: ['anoncreds-w3c'],
       issuedAt: '2026-01-02T10:00:00.000Z',
       credentialDefinitionId: 'creddef-passport',

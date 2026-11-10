@@ -212,7 +212,7 @@ export default {
       loadError: 'Could not load the issued credentials.',
       retry: 'Retry',
       columns: {
-        credential: 'Credential',
+        schema: 'Schema',
         protocol: 'Protocol',
         format: 'Format',
         issued: 'Issued',
@@ -229,6 +229,7 @@ export default {
         unknown: 'Status unknown',
       },
       details: {
+        schema: 'Schema',
         protocol: 'Protocol',
         format: 'Format',
         issued: 'Issued',

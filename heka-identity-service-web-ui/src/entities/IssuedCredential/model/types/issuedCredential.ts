@@ -13,6 +13,8 @@ export interface IssuedCredential {
   protocol: ProtocolType;
   /** Schema name; falls back to the credential configuration ids or credential definition id */
   name: string;
+  /** Name of the Heka (v2) schema the credential was issued from; undefined when it could not be resolved */
+  schemaName?: string;
   formats: string[];
   /** ISO date-time of the last update (issuance finished) */
   issuedAt: string;

@@ -81,7 +81,15 @@ export const IssuedCredentialDetails = ({
   if (!item) return <ConfirmForm {...dialogProps} />;
 
   const status = getIssuedCredentialStatus(item);
-  const fields: Array<[string, ReactNode]> = [
+  const fields: Array<[string, ReactNode]> = [];
+  // Without a resolved schema the title already shows the raw ids: no row repeats them
+  if (item.schemaName) {
+    fields.push([
+      t('IssueCredential.issuedCredentials.details.schema'),
+      item.schemaName,
+    ]);
+  }
+  fields.push(
     [
       t('IssueCredential.issuedCredentials.details.protocol'),
       protocolLabel(item.protocol, t),
@@ -98,7 +106,7 @@ export const IssuedCredentialDetails = ({
       t('IssueCredential.issuedCredentials.details.status'),
       statusLabel(status, t),
     ],
-  ];
+  );
   if (item.protocol === ProtocolType.Oid4vc && item.issuerDid) {
     fields.push([
       t('IssueCredential.issuedCredentials.details.issuerDid'),
