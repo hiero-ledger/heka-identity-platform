@@ -6,7 +6,7 @@ import { AgentContext, Kms } from '@credo-ts/core'
 import { EntityManager, LockMode } from '@mikro-orm/core'
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
-import { BitsPerStatus, createHeaderAndPayload, StatusList } from '@sd-jwt/jwt-status-list'
+import { BitsPerStatus, createHeaderAndPayload, StatusList } from '@owf/token-status-list'
 
 import { AuthInfo } from 'common/auth'
 import {
@@ -56,7 +56,7 @@ export enum TokenStatus {
 
 /**
  * IETF Token Status Lists (draft-ietf-oauth-status-list) for SD-JWT VCs, replacing the W3C bitstring list for
- * that format (`StatusListService` stays for W3C VCs). Built on `@sd-jwt/jwt-status-list`, the library Credo
+ * that format (`StatusListService` stays for W3C VCs). Built on `@owf/token-status-list`, the library Credo
  * itself verifies status lists with.
  *
  * - One list per (tenant, signing key). Credo verifies a Status List Token with the **referenced credential's
@@ -183,12 +183,16 @@ export class TokenStatusListService {
             throw new BadRequestException('Status list index is out of bounds')
           }
         }
-        // The library does not range-check values on `setStatus`; an oversized one would corrupt the bit packing.
+        // Checked before `setStatus` (which throws a plain Error) so an oversized value is a 400, not a 500.
         if (!Number.isInteger(status) || status < 0 || status >= 2 ** list.bitsPerStatus) {
           throw new BadRequestException(`Status ${status} does not fit a ${list.bitsPerStatus}-bit status list`)
         }
         const statusList = this.decode(list)
-        if (indexes.some((idx) => statusList.getStatus(idx) !== status)) changes.push({ list, statusList, indexes })
+        // The library types entries as its own `StatusType` enum; compare the plain numbers.
+        const value: number = status
+        if (indexes.some((idx) => statusList.getStatus(idx).valueOf() !== value)) {
+          changes.push({ list, statusList, indexes })
+        }
       }
 
       for (const { list, statusList, indexes } of changes) {
@@ -273,7 +277,10 @@ export class TokenStatusListService {
   }
 
   private decode(list: TokenStatusList): StatusList {
-    return StatusList.decompressStatusList(list.encodedStatuses, list.bitsPerStatus as BitsPerStatus)
+    return StatusList.decompressStatusListFromBytes(
+      Uint8Array.from(Buffer.from(list.encodedStatuses, 'base64url')),
+      list.bitsPerStatus as BitsPerStatus,
+    )
   }
 
   /** Sign `statuslist+jwt` with the list's key, in the tenant context that holds it. */
@@ -322,9 +329,9 @@ function allocationLockKey(tenantContextId: string, signerKeyId: string): string
   return `token-status-list:${tenantContextId}:${signerKeyId}`
 }
 
-/** The token's `lst` value. */
+/** The token's `lst` value: the compressed list, base64url-encoded. */
 function encodeStatuses(statusList: StatusList): string {
-  return statusList.compressStatusList()
+  return base64Url(statusList.compressStatusListToBytes())
 }
 
 function base64Url(value: string | Uint8Array): string {

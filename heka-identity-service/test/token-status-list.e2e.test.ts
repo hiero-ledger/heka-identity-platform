@@ -4,7 +4,7 @@ import { Agent, DidKey, KeyDidCreateOptions, Kms, SdJwtVcRecord } from '@credo-t
 import { MikroORM } from '@mikro-orm/core'
 import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
-import { getListFromStatusListJWT } from '@sd-jwt/jwt-status-list'
+import { getListFromStatusListJWT } from '@owf/token-status-list'
 import request from 'supertest'
 
 import { DidKeyRegistrar } from 'common/did-registrar/methods'

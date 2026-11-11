@@ -2242,7 +2242,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@owf/token-status-list@npm:^0.4.1":
+"@owf/token-status-list@npm:0.4.2, @owf/token-status-list@npm:^0.4.1":
   version: 0.4.2
   resolution: "@owf/token-status-list@npm:0.4.2"
   dependencies:
@@ -2825,17 +2825,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sd-jwt/jwt-status-list@npm:0.19.0":
-  version: 0.19.0
-  resolution: "@sd-jwt/jwt-status-list@npm:0.19.0"
-  dependencies:
-    "@sd-jwt/types": "npm:0.19.0"
-    "@sd-jwt/utils": "npm:0.19.0"
-    pako: "npm:^2.1.0"
-  checksum: 10c0/c65d64098d8a62479e54e009253a3dab2ffbab516be50b3989aa8d9264be68ab2ca2fa1a9ba69fe414ba8255354f9fa46506d4674124bd01f4c361f1766db38d
-  languageName: node
-  linkType: hard
-
 "@sd-jwt/present@npm:^0.7.2":
   version: 0.7.2
   resolution: "@sd-jwt/present@npm:0.7.2"
@@ -2859,13 +2848,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sd-jwt/types@npm:0.19.0":
-  version: 0.19.0
-  resolution: "@sd-jwt/types@npm:0.19.0"
-  checksum: 10c0/7450465c0f415b929a710a7c2bca1d998a418113c66f9ee7aff0eae3e14194fd1a1e5e538288f83170ff5729ae05f09f1bfd0bc0ce6398477fabba2cccc8d974
-  languageName: node
-  linkType: hard
-
 "@sd-jwt/types@npm:0.7.2, @sd-jwt/types@npm:^0.7.2":
   version: 0.7.2
   resolution: "@sd-jwt/types@npm:0.7.2"
@@ -2877,16 +2859,6 @@ __metadata:
   version: 0.9.2
   resolution: "@sd-jwt/types@npm:0.9.2"
   checksum: 10c0/fed919d475c4036e4d022850eb8e65b943d16d88b2e6fbe9cb329056479f116e85bd0132796ffac4c299569fd79f53d1604232a9f5757feb83ffcef189cb2262
-  languageName: node
-  linkType: hard
-
-"@sd-jwt/utils@npm:0.19.0":
-  version: 0.19.0
-  resolution: "@sd-jwt/utils@npm:0.19.0"
-  dependencies:
-    "@sd-jwt/types": "npm:0.19.0"
-    js-base64: "npm:^3.7.8"
-  checksum: 10c0/0ed26d7a50c15e923d4599e47df07ac7208b8dc738f20bc2cd0fc6537479dd3076ac1496aa47ff9d76f8dd5c0d36337dbf7737650abf247428d8e90579d312cf
   languageName: node
   linkType: hard
 
@@ -6106,7 +6078,7 @@ __metadata:
     "@nestjs/websockets": "npm:11.1.24"
     "@openwallet-foundation/askar-nodejs": "npm:0.6.0"
     "@openwallet-foundation/askar-shared": "npm:0.6.0"
-    "@sd-jwt/jwt-status-list": "npm:0.19.0"
+    "@owf/token-status-list": "npm:0.4.2"
     "@types/express": "npm:^5.0.0"
     "@types/fs-extra": "npm:^11.0.2"
     "@types/multer": "npm:^1.4.11"
@@ -6507,13 +6479,6 @@ __metadata:
   version: 3.9.4
   resolution: "js-base64@npm:3.9.4"
   checksum: 10c0/c1a76236bb2531fa321863b87eceabb90f070ef196f3a97028d6f710c941bdfc453eb8c75bc2412453db163fe4ac5c748a40a63547a264420ce0e67b871b228d
-  languageName: node
-  linkType: hard
-
-"js-base64@npm:^3.7.8":
-  version: 3.9.6
-  resolution: "js-base64@npm:3.9.6"
-  checksum: 10c0/2e8966ab4cbe58c7cf4f7d0e89905bf6f6d8b2184db670960da4a3263c7f42e0021729008e943c0f2fdd3185ca92eec95359b28701795ace56a9313799c0f9bd
   languageName: node
   linkType: hard
 
@@ -7310,7 +7275,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pako@npm:^2.0.4, pako@npm:^2.1.0":
+"pako@npm:^2.0.4":
   version: 2.2.0
   resolution: "pako@npm:2.2.0"
   checksum: 10c0/e5d31de1940fdd13cc4014296b0026112483d0834bce4856ca29c8af8438d030c6416986a0f6df7d5372cae18d6dd6c57f48b24a49d6c207c0a4cc66af15c07d

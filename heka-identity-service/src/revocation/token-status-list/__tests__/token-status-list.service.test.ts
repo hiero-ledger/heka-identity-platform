@@ -1,12 +1,12 @@
 import { generateKeyPairSync } from 'node:crypto'
-import { inflateSync } from 'node:zlib'
+import { deflateSync, inflateSync } from 'node:zlib'
 
 import { AgentContext, Kms } from '@credo-ts/core'
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager, LockMode } from '@mikro-orm/core'
 import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
-import { getListFromStatusListJWT } from '@sd-jwt/jwt-status-list'
+import { getListFromStatusListJWT } from '@owf/token-status-list'
 
 import { AuthInfo } from 'common/auth'
 import { defaultTokenStatusListSize, TokenStatusList } from 'common/entities'
@@ -392,6 +392,23 @@ describe('TokenStatusListService', () => {
     const bytes = inflateSync(Buffer.from(lst, 'base64url'))
     expect(bytes[0]).toBe(0b1000_0001)
     expect(bytes[1]).toBe(0b0000_0010)
+  })
+
+  test('keeps the statuses of a stored list encoded by another zlib implementation', async () => {
+    const reference = await allocateOne(agentContext, authInfo, identity)
+    // As stored before the switch to @owf/token-status-list: base64url of the zlib-deflated list, here with
+    // entry 3 already revoked and deflated by node:zlib instead of the library's own compressor.
+    const legacy = new Uint8Array(Math.ceil(defaultTokenStatusListSize / 8))
+    legacy[0] = 0b0000_1000
+    stored[0].encodedStatuses = deflateSync(legacy).toString('base64url')
+
+    await service.setStatuses(agentContext, reference.id, [5], TokenStatus.Invalid)
+
+    const list = getListFromStatusListJWT(stored[0].token!)
+    expect(list.getStatus(3)).toBe(TokenStatus.Invalid)
+    expect(list.getStatus(4)).toBe(TokenStatus.Valid)
+    expect(list.getStatus(5)).toBe(TokenStatus.Invalid)
+    expect(inflateSync(Buffer.from(stored[0].encodedStatuses, 'base64url'))[0]).toBe(0b0010_1000)
   })
 
   describe('getStatuses', () => {
