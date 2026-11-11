@@ -174,7 +174,7 @@ curl -X POST "http://localhost:3000/openid4vc/issuance-session/<issuanceSessionI
 
 - `200` — the session's entries are set to invalid. From then on, verifiers that check the status (the Heka verifier and any Credo-based verifier) reject a presentation of the credential, and `GET /openid4vc/issuance-session/<id>` shows `revoked: true`.
 - `409` — the credential was already revoked. `404` — unknown session.
-- Revocation cannot be undone. The Heka Wallet does not show SD-JWT VC revocation yet; the credential still looks valid in the wallet.
+- Revocation cannot be undone. The Heka Wallet doesn't mark a revoked SD-JWT VC on its card; it tells the user the credential was revoked by its issuer when a verifier rejects a presentation of it.
 
 **`APP_ENDPOINT` must be reachable by the wallet.** The wallet fetches the status list when it receives the credential, not only when it presents it, and refuses the credential if the fetch fails. For a phone, `APP_ENDPOINT=http://localhost:3000` does not work: use your host IP or a tunnel, and forward `/token-status-lists/` as in [Local Configuration for Heka Wallet Integration](local-config-for-heka-wallet-integration.md). Credentials keep the URL they were issued with, so issue them again after changing `APP_ENDPOINT`.
 
