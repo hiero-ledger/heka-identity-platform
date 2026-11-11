@@ -105,3 +105,27 @@ export function IsCorrectForProtocol(
     })
   }
 }
+
+/**
+ * The value, when it is an object, must not have the own property `property` (e.g. a claim the issuer sets).
+ * Non-objects pass: combine with a type validator.
+ */
+export function HasNoOwnProperty(property: string, validationOptions?: ValidationOptions) {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: 'HasNoOwnProperty',
+      target: object.constructor,
+      propertyName,
+      constraints: [property],
+      options: validationOptions,
+      validator: {
+        validate(value: unknown) {
+          return typeof value !== 'object' || value === null || !Object.prototype.hasOwnProperty.call(value, property)
+        },
+        defaultMessage(args: ValidationArguments) {
+          return `${args.property} must not contain '${property}'`
+        },
+      },
+    })
+  }
+}

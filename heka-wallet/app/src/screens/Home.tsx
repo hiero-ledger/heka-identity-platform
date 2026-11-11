@@ -13,6 +13,7 @@ import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIc
 import QRCodeIcon from '../assets/qr_code.svg'
 import { CredentialCardPressable, ItemsListCard, NotificationCard, NotificationType } from '../components/cards'
 import { Credential, useCredentials } from '../credentials'
+import { useFloatingTabBarInset } from '../hooks/useFloatingTabBarInset'
 import { useContacts } from '../utils/useContacts'
 import { useNotifications } from '../utils/useNotifications'
 
@@ -38,7 +39,6 @@ const useStyles = ({
   StyleSheet.create({
     container: {
       gap: Spacing.xs,
-      paddingBottom: 90,
     },
     horizontalListContainer: {
       paddingHorizontal: Spacing.xl,
@@ -106,6 +106,8 @@ export const Home: React.FC<HomeProps> = () => {
 
   const { contacts, isLoading: contactsLoading } = useContacts()
 
+  const tabBarInset = useFloatingTabBarInset()
+
   const renderCredentialCard = ({ item: credential, index }: ListRenderItemInfo<Credential>) => {
     return (
       <CredentialCardPressable
@@ -148,7 +150,7 @@ export const Home: React.FC<HomeProps> = () => {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: tabBarInset }]}>
       <ItemsListCard
         title={t('Home.Credentials')}
         items={credentials}

@@ -60,6 +60,7 @@ exports[`route coverage of the role model > the role matrix only changes on purp
 | \`POST /status-lists\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
 | \`GET /status-lists/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`PUT /status-lists/:id\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
+| \`GET /token-status-lists/:id\` | public | public | public | public | public | public | public |
 | \`GET /user\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`PATCH /user\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`POST /v2/credentials/offer-by-template\` | ✓ | ✓ | ✓ |  | ✓ |  |  |

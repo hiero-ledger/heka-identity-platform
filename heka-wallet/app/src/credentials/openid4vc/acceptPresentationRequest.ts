@@ -5,11 +5,15 @@ import {
   DcqlQueryResult,
   JsonObject,
   MdocNameSpaces,
+  SubmissionEntryCredential,
 } from '@credo-ts/core'
 import { Linking } from 'react-native'
 
 import { HekaWalletAgent } from '../../utils/agent'
 import { CredentialRecord, OpenIdPresentationSubmissionParams } from '../types'
+
+import { findRevokedCredentialIds } from './credentialStatus'
+import { PresentationRejectedError } from './presentationErrors'
 
 export type AcceptPresentationRequestOptions = {
   submissionParams: OpenIdPresentationSubmissionParams
@@ -41,15 +45,17 @@ export async function acceptPresentationRequest(
     ? Object.fromEntries(
         await Promise.all(
           submissionParams.credentialsForRequest.requirements.flatMap((requirement) =>
-            requirement.submissionEntry.slice(0, requirement.needsCount).map(async (entry) => {
-              const credentialId = selectedCredentials[entry.inputDescriptorId]
-              const credential =
-                entry.verifiableCredentials.find((vc) => vc.credentialRecord.id === credentialId) ??
-                entry.verifiableCredentials[0]
+            requirement.submissionEntry
+              .slice(0, requirement.needsCount)
+              .map(async (entry): Promise<[string, SubmissionEntryCredential[]]> => {
+                const credentialId = selectedCredentials[entry.inputDescriptorId]
+                const credential =
+                  entry.verifiableCredentials.find((vc) => vc.credentialRecord.id === credentialId) ??
+                  entry.verifiableCredentials[0]
 
-              // NOTE: we don't support single-use credentials for PEX
-              return [entry.inputDescriptorId, [credential]]
-            })
+                // NOTE: we don't support single-use credentials for PEX
+                return [entry.inputDescriptorId, [credential]]
+              })
           )
         )
       )
@@ -93,7 +99,18 @@ export async function acceptPresentationRequest(
   }
 
   if (result.serverResponse && (result.serverResponse.status < 200 || result.serverResponse.status > 299)) {
-    throw new Error(`Error while accepting authorization request. ${JSON.stringify(result.serverResponse?.body)}`)
+    // The verifier only returns a generic OAuth2 error, so check whether the issuer revoked any of the
+    // presented credentials to tell the user the actual reason.
+    const presentedRecords = [
+      ...Object.values(presentationExchangeCredentials ?? {}),
+      ...Object.values(dcqlCredentials ?? {}),
+    ].flatMap((credentials) => credentials.map((credential) => credential.credentialRecord))
+
+    throw new PresentationRejectedError({
+      status: result.serverResponse.status,
+      body: result.serverResponse.body,
+      revokedCredentialIds: await findRevokedCredentialIds(agent, presentedRecords),
+    })
   }
 
   return result

@@ -298,6 +298,10 @@ export const buildAnoncredsW3cPresentationRequest = ({
             ],
             constraints: {
               limit_disclosure: 'required',
+              // Credo builds (holder) and checks (verifier) a non-revocation proof for Data Integrity
+              // AnonCreds credentials only when `statuses.active.directive` is `required` or `allowed`.
+              // The counterpart of `requestNonRevokedProof` in the anoncreds-indy request.
+              statuses: { active: { directive: 'required' } },
               fields: attributes?.map((attribute) => ({
                 path: [`$.credentialSubject.${attribute}`],
               })),

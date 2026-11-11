@@ -888,13 +888,44 @@ paths:
       tags: *a25
   /credentials:
     get:
+      description: Revocable issuer records in state `done` also carry `revoked`, read
+        from the ledger status list (one read per revocation registry)
       operationId: CredentialController_find
       parameters:
         - name: threadId
           required: false
           in: query
+          description: DIDComm thread id of the credential exchange
           schema:
             type: string
+        - name: role
+          required: false
+          in: query
+          description: "Role of this wallet in the exchange: `issuer` lists credentials
+            issued by this wallet"
+          schema:
+            type: string
+            enum:
+              - issuer
+              - holder
+        - name: state
+          required: false
+          in: query
+          description: State of the credential exchange
+          schema:
+            type: string
+            enum:
+              - proposal-sent
+              - proposal-received
+              - offer-sent
+              - offer-received
+              - declined
+              - request-sent
+              - request-received
+              - credential-issued
+              - credential-received
+              - done
+              - abandoned
       responses:
         "200":
           description: Credential Records
@@ -904,6 +935,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CredentialRecordDto"
+        "400":
+          description: Invalid query parameter
         "401": &a26
           description: Unauthorized
       security: &a27
@@ -1007,10 +1040,19 @@ paths:
           schema:
             type: string
       responses:
+        "200":
+          description: Credential revoked
+        "400":
+          description: The record was not issued by this wallet, or the credential does
+            not support revocation
         "401":
           description: Unauthorized
+        "404":
+          description: Credential record not found
+        "409":
+          description: Credential is already revoked
       security: *a27
-      summary: Revoke a credential
+      summary: Revoke a credential issued by this wallet (AnonCreds revocation registry)
       tags: *a28
   /proofs:
     get:
@@ -1328,6 +1370,10 @@ paths:
       summary: "Get a Issuance Sessions By Id "
       tags: *a34
     delete:
+      description: "A pending offer (OfferCreated, OfferUriRetrieved) is always
+        deleted. A later session with SD-JWT VCs is deleted only once its
+        credentials are revoked: the session holds their only status list
+        reference."
       operationId: OpenId4VcIssuanceSessionController_deleteIssuanceSession
       parameters:
         - name: issuanceSessionId
@@ -1336,19 +1382,25 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: ""
-        "400":
-          description: Bad Request
+        "204":
+          description: Issuance session deleted
         "401":
           description: Unauthorized
-        "422":
-          description: Unprocessable Entity
+        "404":
+          description: Issuance session not found
+        "409":
+          description: The session has issued SD-JWT VCs that are not revoked
       security: *a33
       summary: Delete Issuance Session
       tags: *a34
   /openid4vc/issuance-session/{id}/revoke:
     post:
+      description: "SD-JWT VC: sets every status entry of the session to invalid in
+        its IETF Token Status List; verifiers reject the credential. jwt_vc_json
+        / jwt_vc_json-ld / ldp_vc: sets the W3C status list bit of the first
+        credential of the session; the issued credentials do not reference the
+        status list (`revocable` is false), so wallets and verifiers do not see
+        this change."
       operationId: OpenId4VcIssuanceSessionController_revoke
       parameters:
         - name: id
@@ -1357,8 +1409,16 @@ paths:
           schema:
             type: string
       responses:
+        "200":
+          description: Status list entries updated
+        "400":
+          description: Credential format does not support revocation
         "401":
           description: Unauthorized
+        "404":
+          description: Issuance session or status list not found
+        "409":
+          description: Credential is already revoked
       security: *a33
       summary: Revoke a credential
       tags: *a34
@@ -1871,6 +1931,46 @@ paths:
       summary: Download status list
       tags:
         - Status List (public)
+  /token-status-lists/{id}:
+    get:
+      operationId: TokenStatusListPublicController_get
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: accept
+          required: false
+          in: header
+          description: Absent, `*/*` or `application/statuslist+jwt`; a CWT-only Accept
+            gets 406
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "The signed Status List Token (compact JWS, `typ: statuslist+jwt`)"
+          headers:
+            Content-Type:
+              description: application/statuslist+jwt
+              schema:
+                type: string
+            Cache-Control:
+              description: max-age=300
+              schema:
+                type: string
+            Vary:
+              description: Accept
+              schema:
+                type: string
+        "404":
+          description: Unknown status list
+        "406":
+          description: Only the JWT format is available
+      summary: Download a Status List Token (IETF token status list,
+        `application/statuslist+jwt`)
+      tags:
+        - Token Status List (public)
   /prepare-wallet:
     post:
       description: Creates a DID of every enabled method with its OID4VC issuer and
@@ -3358,17 +3458,43 @@ components:
             - credential-received
             - done
             - abandoned
+        role:
+          type: string
+          enum:
+            - issuer
+            - holder
+          description: Role of this wallet in the credential exchange
         errorMessage:
           type: string
         credentialAttributes:
           type: array
           items:
             $ref: "#/components/schemas/CredentialPreviewAttributeDto"
+        revocable:
+          type: boolean
+          description: True when this wallet issued the credential with an AnonCreds
+            revocation registry entry, so it can be revoked
+        revoked:
+          type: boolean
+          description: Present only in list responses, for revocable issuer records in
+            state `done`, when the ledger status list could be read
+        credentialDefinitionId:
+          type: string
+          description: AnonCreds credential definition id, when known
+        format:
+          type: string
+          enum:
+            - anoncreds-indy
+            - anoncreds-w3c
+          description: DIDComm credential format, taken from the stored credential offer.
+            Absent when it cannot be determined
       required:
         - id
         - threadId
         - createdAt
         - state
+        - role
+        - revocable
     CredentialOfferDto:
       type: object
       properties:
@@ -3654,6 +3780,15 @@ components:
           type: string
         errorMessage:
           type: string
+        revocable:
+          type: boolean
+          description: true when the session's SD-JWT VCs reference an IETF Token Status
+            List; always false for jwt_vc_json, jwt_vc_json-ld, ldp_vc and
+            mso_mdoc
+        revoked:
+          type: boolean
+          description: "Present only when revocable: true when every status list entry of
+            the session is invalid. Absent when the status could not be read."
       required:
         - id
         - createdAt
@@ -3661,6 +3796,7 @@ components:
         - publicIssuerId
         - state
         - credentialOfferPayload
+        - revocable
     OpenId4VcIssuanceSessionsCreateOfferResponse:
       type: object
       properties:

@@ -1,31 +1,57 @@
-import { SdJwtVcPayload } from '@credo-ts/core'
+import { parseDid, RecordNotFoundError, SdJwtVcPayload } from '@credo-ts/core'
 import {
   OpenId4VciCredentialFormatProfile,
+  OpenId4VcIssuanceSessionRecord,
   OpenId4VcIssuanceSessionRepository,
+  OpenId4VcIssuanceSessionState,
   OpenId4VcIssuerService,
 } from '@credo-ts/openid4vc'
-import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
 import { TenantAgent } from 'common/agent'
+import { InjectLogger, Logger } from 'common/logger'
 import AgentConfig from 'config/agent'
 
 import { AuthInfo } from '../../common/auth'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
+import {
+  TokenStatus,
+  TokenStatusListService,
+  TokenStatusListSignerIdentity,
+} from '../../revocation/token-status-list/token-status-list.service'
 import { CredentialIssuanceMetadata } from '../../utils/oid4vc'
 
 import {
   GetIssuanceSessionByQueryDto,
+  OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions,
   OpenId4VcIssuanceSessionRecordDto,
   OpenId4VcIssuanceSessionsCreateOfferDto,
   OpenId4VcIssuanceSessionsCreateOfferResponse,
 } from './dto'
+import { IssuanceSessionRevocation } from './dto/issuance-session.dto'
+
+/** States before the holder starts redeeming the offer: no credential of the session can exist yet. */
+const PENDING_OFFER_STATES: readonly OpenId4VcIssuanceSessionState[] = [
+  OpenId4VcIssuanceSessionState.OfferCreated,
+  OpenId4VcIssuanceSessionState.OfferUriRetrieved,
+]
 
 @Injectable()
 export class OpenId4VcIssuanceSessionService {
   public constructor(
     @Inject(AgentConfig.KEY) private readonly agencyConfig: ConfigType<typeof AgentConfig>,
     private readonly statusListService: StatusListService,
+    private readonly tokenStatusListService: TokenStatusListService,
+    @InjectLogger(OpenId4VcIssuanceSessionService)
+    private readonly logger: Logger,
   ) {}
 
   public async offer(
@@ -37,8 +63,11 @@ export class OpenId4VcIssuanceSessionService {
 
     // TODO: It is better to we move setting credential status to `credentialRequestToCredentialMapper`
     //  to change status list when credential really requested but how??
-    const statusList = await this.statusListService.getOrCreate(authInfo, req.publicIssuerId)
-    let credentialIndex = statusList.lastIndex
+    // Only W3C VCs use the W3C bitstring list; SD-JWT VCs use IETF token status lists (below)
+    const statusList = req.credentials.some((credential) => isW3cFormat(credential.format))
+      ? await this.statusListService.getOrCreate(authInfo, req.publicIssuerId)
+      : undefined
+    let credentialIndex = statusList?.lastIndex ?? 0
     const credentialIndexes = []
 
     // Maps credentials, adds properties, and throws errors if needed
@@ -63,6 +92,9 @@ export class OpenId4VcIssuanceSessionService {
         )
       }
 
+      // The DTO rejects these too; repeated here for internal callers (issuance templates) that skip DTO validation
+      if (credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc) assertNoStatusClaim(credential)
+
       // MsoMdoc uses X.509 certificates, not DIDs — skip DID resolution
       let issuerDidUrl: string | undefined
       if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
@@ -76,14 +108,10 @@ export class OpenId4VcIssuanceSessionService {
         issuerDidUrl = didDocument.verificationMethod[0].id
       }
 
-      let credentialStatus
+      let credentialStatus: CredentialIssuanceMetadata['credentialStatus']
 
-      // sd+jwt and mso_mdoc do not support revocation
-      if (
-        credential.format === OpenId4VciCredentialFormatProfile.JwtVcJson ||
-        credential.format === OpenId4VciCredentialFormatProfile.JwtVcJsonLd ||
-        credential.format === OpenId4VciCredentialFormatProfile.LdpVc
-      ) {
+      // mso_mdoc does not support revocation
+      if (statusList && isW3cFormat(credential.format)) {
         // Assign the current free index (0-based), then advance
         // This keeps issued indexes within [0, size), consistent with capacity guard and per-index bound in StatusListService
         credentialIndexes.push(credentialIndex)
@@ -92,6 +120,22 @@ export class OpenId4VcIssuanceSessionService {
           index: credentialIndex,
         }
         credentialIndex += 1
+      } else if (credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc && issuerDidUrl) {
+        const signer = await this.resolveSdJwtSigningIdentity(tenantAgent, issuerDidUrl)
+        // One entry per credential the wallet may request in a batch. The entries are reserved before the offer
+        // exists: if creating the offer fails, they stay allocated and unused, which only costs list capacity.
+        const reference = await this.tokenStatusListService.reserveIndexes(
+          tenantAgent.context,
+          authInfo,
+          signer,
+          issuer.batchCredentialIssuance?.batchSize ?? 1,
+        )
+        credentialStatus = {
+          type: 'token-status-list',
+          location: reference.uri,
+          index: reference.indexes[0],
+          indexes: reference.indexes,
+        }
       }
 
       let type: string | string[]
@@ -130,7 +174,7 @@ export class OpenId4VcIssuanceSessionService {
     }
 
     // Preflight status list capacity check before the offer is created
-    if (credentialIndexes.length) {
+    if (statusList && credentialIndexes.length) {
       this.statusListService.assertHasFreeIndexes(statusList, credentialIndexes.length)
     }
 
@@ -144,12 +188,17 @@ export class OpenId4VcIssuanceSessionService {
       },
     })
 
-    if (credentialIndexes.length) {
+    if (statusList && credentialIndexes.length) {
       await this.statusListService.addItems(authInfo, statusList.id, credentialIndexes)
     }
 
+    // Entries were just reserved, so they are all valid: no need to read the lists back
+    const revocable = tokenStatusListEntriesOf(mappedCredentials).length > 0
     return {
-      issuanceSession: OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(issuanceSession),
+      issuanceSession: OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(
+        issuanceSession,
+        revocable ? { revocable, revoked: false } : { revocable },
+      ),
       credentialOffer,
     }
   }
@@ -170,8 +219,9 @@ export class OpenId4VcIssuanceSessionService {
       credentialOfferUri: query.credentialOfferUri,
     })
 
+    const revocation = await this.revocationOf(tenantAgent, issuanceSessions)
     return issuanceSessions.map((session) =>
-      OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(session),
+      OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(session, revocation.get(session.id)),
     )
   }
 
@@ -184,13 +234,46 @@ export class OpenId4VcIssuanceSessionService {
   ): Promise<OpenId4VcIssuanceSessionRecordDto> {
     const issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
 
-    return OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(issuanceSession)
+    const revocation = await this.revocationOf(tenantAgent, [issuanceSession])
+    return OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(
+      issuanceSession,
+      revocation.get(issuanceSession.id),
+    )
   }
 
   /**
-   * Delete an OpenID4VC issuance session by id
+   * Delete an OpenID4VC issuance session by id.
+   *
+   * The session holds the only reference to the token status list entries of its SD-JWT VCs, so a session whose
+   * credentials may have been issued (the holder got past the offer) is deleted only once every entry is invalid
+   * (or its list is gone): otherwise the credentials could never be revoked again. Pending offers are deleted freely.
    */
   public async deleteIssuanceSession(tenantAgent: TenantAgent, issuanceSessionId: string): Promise<void> {
+    let issuanceSession
+    try {
+      issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
+    } catch (error) {
+      // Credo's RecordNotFoundError would otherwise surface as a 500
+      if (error instanceof RecordNotFoundError) throw new NotFoundException('Issuance session not found')
+      throw error
+    }
+
+    const tokenStatusEntries = tokenStatusListEntriesOf(
+      issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[] | undefined,
+    )
+    if (tokenStatusEntries.length && !PENDING_OFFER_STATES.includes(issuanceSession.state)) {
+      // A failed read propagates: never delete a session whose credentials might still be valid
+      const statuses = await this.tokenStatusListService.getStatuses(tenantAgent.context, tokenStatusEntries)
+      const unrevoked = tokenStatusEntries.some(
+        ({ id }) => statuses.get(id)?.some((status) => status !== TokenStatus.Invalid) ?? false,
+      )
+      if (unrevoked) {
+        throw new ConflictException(
+          'Revoke the issued SD-JWT VC before deleting its issuance session: without the session it cannot be revoked',
+        )
+      }
+    }
+
     const issuanceSessionRepository = tenantAgent.dependencyManager.resolve(OpenId4VcIssuanceSessionRepository)
     await issuanceSessionRepository.deleteById(tenantAgent.context, issuanceSessionId)
   }
@@ -203,21 +286,153 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     issuanceSessionId: string,
   ): Promise<void> {
-    const issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
+    let issuanceSession
+    try {
+      issuanceSession = await tenantAgent.openid4vc.issuer.getIssuanceSessionById(issuanceSessionId)
+    } catch (error) {
+      // Credo's RecordNotFoundError would otherwise surface as a 500
+      if (error instanceof RecordNotFoundError) throw new NotFoundException('Issuance session not found')
+      throw error
+    }
 
-    const credentials = issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[]
-    if (!credentials) throw new Error('Credential not found')
+    const credentials = issuanceSession.issuanceMetadata?.credentials as CredentialIssuanceMetadata[] | undefined
 
-    const credential = credentials[0]
+    // SD-JWT VCs: every entry of the session (a batch holds one entry per holder key) is revoked together
+    const tokenStatusEntries = tokenStatusListEntriesOf(credentials)
+    if (tokenStatusEntries.length) {
+      // One transaction over all of the session's lists: the "already revoked" check and the update share the
+      // lists' row locks, so of concurrent revokes exactly one changes anything; a missing list is a 404.
+      const changed = await this.tokenStatusListService.setEntryStatuses(
+        tenantAgent.context,
+        tokenStatusEntries,
+        TokenStatus.Invalid,
+      )
+      if (!changed) throw new ConflictException('Credential is already revoked')
+      return
+    }
 
-    if (!credential.credentialStatus) throw new Error('Credential does not support revocation')
+    const credential = credentials?.[0]
+    if (!credential?.credentialStatus) throw new BadRequestException('Credential format does not support revocation')
 
     const statusListId = credential.credentialStatus.location.split('/')?.pop()
-    if (!statusListId) throw new Error('Credential does not support revocation')
+    if (!statusListId) throw new BadRequestException('Credential format does not support revocation')
 
     await this.statusListService.updateItems(authInfo, statusListId, {
       indexes: [credential.credentialStatus.index],
       revoked: true,
     })
   }
+
+  /**
+   * `revocable` / `revoked` of each session, read from the token status lists with one query. Sessions without
+   * token status list entries (W3C VCs, mDoc, SD-JWT VCs issued before status lists) are not revocable. A failed
+   * read does not fail the request: the sessions stay revocable with an unknown `revoked`.
+   */
+  private async revocationOf(
+    tenantAgent: TenantAgent,
+    sessions: OpenId4VcIssuanceSessionRecord[],
+  ): Promise<Map<string, IssuanceSessionRevocation>> {
+    const entriesBySession = new Map(
+      sessions.map((session) => [
+        session.id,
+        tokenStatusListEntriesOf(session.issuanceMetadata?.credentials as CredentialIssuanceMetadata[] | undefined),
+      ]),
+    )
+    const allEntries = [...entriesBySession.values()].flat()
+    const result = new Map<string, IssuanceSessionRevocation>()
+
+    let statuses: Map<string, number[]> | undefined
+    if (allEntries.length) {
+      try {
+        statuses = await this.tokenStatusListService.getStatuses(tenantAgent.context, allEntries)
+      } catch {
+        const statusListIds = [...new Set(allEntries.map(({ id }) => id))]
+        this.logger.warn({ statusListIds }, 'Could not read token status lists')
+      }
+    }
+
+    // Statuses come back concatenated per list id, in the order of `allEntries`: index them by (list, entry)
+    const statusOf = new Map<string, number>()
+    if (statuses) {
+      const offsets = new Map<string, number>()
+      for (const { id, indexes } of allEntries) {
+        const listStatuses = statuses.get(id)
+        if (!listStatuses) continue
+        const offset = offsets.get(id) ?? 0
+        indexes.forEach((idx, position) => statusOf.set(`${id}#${idx}`, listStatuses[offset + position]))
+        offsets.set(id, offset + indexes.length)
+      }
+    }
+
+    for (const [sessionId, entries] of entriesBySession) {
+      if (!entries.length) {
+        result.set(sessionId, { revocable: false })
+      } else if (!statuses) {
+        result.set(sessionId, { revocable: true })
+      } else if (entries.some(({ id }) => !statuses.has(id))) {
+        result.set(sessionId, { revocable: false })
+      } else {
+        const revoked = entries.every(({ id, indexes }) =>
+          indexes.every((idx) => statusOf.get(`${id}#${idx}`) === TokenStatus.Invalid),
+        )
+        result.set(sessionId, { revocable: true, revoked })
+      }
+    }
+    return result
+  }
+
+  /**
+   * The key Credo will sign this SD-JWT VC with, as the status-list signer: Credo verifies a status list with
+   * the credential's issuer key only. Resolved exactly as Credo resolves it for signing
+   * (`resolveSigningPublicJwkFromDidUrl`), legacy key id fallback included.
+   */
+  private async resolveSdJwtSigningIdentity(
+    tenantAgent: TenantAgent,
+    issuerDidUrl: string,
+  ): Promise<TokenStatusListSignerIdentity> {
+    let keyId: string
+    try {
+      const { publicJwk } = await tenantAgent.dids.resolveVerificationMethodFromCreatedDidRecord(issuerDidUrl)
+      keyId = publicJwk.keyId
+    } catch (error) {
+      if (error instanceof RecordNotFoundError) {
+        throw new UnprocessableEntityException('Issuer DID is not controlled by this wallet')
+      }
+      throw error
+    }
+    return { issuer: parseDid(issuerDidUrl).did, keyId, signer: { method: 'did', kid: issuerDidUrl } }
+  }
+}
+
+/** `status` is the issuer's token status list reference: never user-supplied, never selectively disclosable. */
+function assertNoStatusClaim(credential: OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions): void {
+  if (credential.payload && Object.prototype.hasOwnProperty.call(credential.payload, 'status')) {
+    throw new BadRequestException('`status` is set by the issuer')
+  }
+  if (credential.disclosureFrame?._sd?.includes('status')) {
+    throw new BadRequestException('`status` is set by the issuer and cannot be selectively disclosed')
+  }
+}
+
+function isW3cFormat(format: OpenId4VciCredentialFormatProfile): boolean {
+  return (
+    format === OpenId4VciCredentialFormatProfile.JwtVcJson ||
+    format === OpenId4VciCredentialFormatProfile.JwtVcJsonLd ||
+    format === OpenId4VciCredentialFormatProfile.LdpVc
+  )
+}
+
+/** The token status list entries of a session's credentials, grouped by list id (the last segment of `location`). */
+function tokenStatusListEntriesOf(
+  credentials: CredentialIssuanceMetadata[] | undefined,
+): Array<{ id: string; indexes: number[] }> {
+  const byList = new Map<string, number[]>()
+  for (const { credentialStatus } of credentials ?? []) {
+    if (credentialStatus?.type !== 'token-status-list') continue
+    const id = credentialStatus.location.split('/').pop()
+    if (!id) continue
+    const indexes = credentialStatus.indexes ?? [credentialStatus.index]
+    byList.set(id, [...new Set([...(byList.get(id) ?? []), ...indexes])])
+  }
+  return [...byList].map(([id, indexes]) => ({ id, indexes }))
 }

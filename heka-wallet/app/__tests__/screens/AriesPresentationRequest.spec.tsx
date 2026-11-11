@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react-native'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native'
 import React from 'react'
 import { DeviceEventEmitter } from 'react-native'
 
@@ -44,10 +44,21 @@ jest.mock('react-native-safe-area-context', () => ({
 }))
 
 jest.mock('../../src/components/views', () => {
-  const { Text } = jest.requireActual('react-native')
+  const { Pressable, Text } = jest.requireActual('react-native')
   return {
-    PresentationRequestView: ({ presentationSubmission }: { presentationSubmission: { verifierName: string } }) => (
-      <Text>{`request from ${presentationSubmission.verifierName}`}</Text>
+    PresentationRequestView: ({
+      presentationSubmission,
+      onDecline,
+    }: {
+      presentationSubmission: { verifierName: string }
+      onDecline: () => void
+    }) => (
+      <>
+        <Text>{`request from ${presentationSubmission.verifierName}`}</Text>
+        <Pressable onPress={onDecline}>
+          <Text>decline</Text>
+        </Pressable>
+      </>
     ),
   }
 })
@@ -61,8 +72,13 @@ jest.mock('../../src/credentials', () => ({
   ProofExchangeFormatKeys: {},
 }))
 
+const mockDeclineRequest = jest.fn()
+
 jest.mock('../../src/utils/agent', () => {
-  const agent = { config: { logger: { error: jest.fn() } } }
+  const agent = {
+    config: { logger: { error: jest.fn() } },
+    didcomm: { proofs: { declineRequest: (...args: unknown[]) => mockDeclineRequest(...args) } },
+  }
   return { useHekaAgent: () => ({ agent }) }
 })
 
@@ -88,6 +104,32 @@ describe('AriesPresentationRequest', () => {
 
     await waitFor(() =>
       expect(emitSpy).toBeCalledWith('ErrorAdded', expect.objectContaining({ code: 1027, message: 'Mapping failed' }))
+    )
+  })
+
+  it('declines a request for a revoked credential with a problem report', async () => {
+    mockDeclineRequest.mockResolvedValue(undefined)
+    mockFunction(mapAnoncredsProofExchangeRecord).mockResolvedValue({
+      verifierName: 'Verifier',
+      areAllSatisfied: false,
+      proofExchangeRecord: { id: 'proof-id' },
+      entries: [
+        {
+          inputDescriptorId: 'Credential',
+          name: 'Credential',
+          isSatisfied: false,
+          selectedOption: null,
+          submissionOptions: [],
+          revokedCredential: { credential: { id: 'revoked', display: { name: 'University Diploma' } } },
+        },
+      ],
+    } as never)
+
+    render(<AriesPresentationRequest route={route} navigation={{} as never} />)
+    fireEvent.press(await screen.findByText('decline'))
+
+    await waitFor(() =>
+      expect(mockDeclineRequest).toBeCalledWith({ proofExchangeRecordId: 'proof-id', sendProblemReport: true })
     )
   })
 })

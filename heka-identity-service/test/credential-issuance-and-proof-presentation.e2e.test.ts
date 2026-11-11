@@ -2,6 +2,7 @@ import { Server } from 'net'
 
 import {
   DidCommCredentialEventTypes,
+  DidCommCredentialRole,
   DidCommCredentialState,
   DidCommProofEventTypes,
   DidCommProofState,
@@ -343,6 +344,10 @@ describe('E2E credential issuance and proof presentation', () => {
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       state: DidCommCredentialState.OfferSent,
+      role: DidCommCredentialRole.Issuer,
+      // The credential definition is registered with revocation support; only the issuer can revoke
+      revocable: true,
+      credentialDefinitionId,
       credentialAttributes: [
         {
           name: 'name',
@@ -416,6 +421,10 @@ describe('E2E credential issuance and proof presentation', () => {
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       state: DidCommCredentialState.RequestSent,
+      role: DidCommCredentialRole.Holder,
+      // The credential definition is registered with revocation support; only the issuer can revoke
+      revocable: false,
+      credentialDefinitionId,
       credentialAttributes: [
         {
           name: 'name',
@@ -544,6 +553,10 @@ describe('E2E credential issuance and proof presentation', () => {
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       state: DidCommCredentialState.Done,
+      role: DidCommCredentialRole.Holder,
+      // The credential definition is registered with revocation support; only the issuer can revoke
+      revocable: false,
+      credentialDefinitionId,
       credentialAttributes: [
         {
           name: 'name',
@@ -572,6 +585,10 @@ describe('E2E credential issuance and proof presentation', () => {
       createdAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       updatedAt: expect.stringMatching(`^${ISO_DATE_PATTERN}$`),
       state: DidCommCredentialState.Done,
+      role: DidCommCredentialRole.Issuer,
+      // The credential definition is registered with revocation support; only the issuer can revoke
+      revocable: true,
+      credentialDefinitionId,
       credentialAttributes: [
         {
           name: 'name',

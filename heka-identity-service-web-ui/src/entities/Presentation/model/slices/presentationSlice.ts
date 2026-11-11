@@ -56,6 +56,8 @@ export const presentationSlice = buildSlice({
         const result: CheckPresentationStateResult = action.payload;
         session.state = result.state;
         session.sharedAttributes = result.sharedAttributes;
+        session.isVerified = result.isVerified;
+        session.failureReason = result.failureReason;
       }),
 });
 

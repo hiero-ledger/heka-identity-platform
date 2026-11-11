@@ -1,5 +1,6 @@
 export { CredentialOfferDto } from './credential-offer.dto'
 export { CredentialPreviewAttributeDto } from './credential-preview-attribute.dto'
 export { CredentialRecordDto } from './credential-record.dto'
+export { GetCredentialsQueryDto } from './get-credentials-query.dto'
 export { GetRevocationStatusResponseDto } from './get-revocation-status.dto'
 export { RevokeCredentialResponseDto } from './revoke-credential.dto'

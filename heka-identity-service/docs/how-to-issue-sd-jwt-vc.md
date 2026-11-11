@@ -129,8 +129,8 @@ This produces the credential offer URL the wallet consumes.
 - `credentialSupportedId` — must match the `id` you set in Step 2.
 - `format` — must match the format from Step 2 (`vc+sd-jwt`).
 - `issuer.didUrl` — a DID URL of an issuer key. Typically the verification method of the public DID created in Step 1. The DID method must be one of those listed in `cryptographic_binding_methods_supported`.
-- `payload` — the actual claims to include in the credential. The `vct` claim is added automatically; if you include it explicitly it must match Step 2.
-- `disclosureFrame._sd` — claim paths that should be **selectively disclosable**. Holders can prove these claims individually without revealing the rest.
+- `payload` — the actual claims to include in the credential. The `vct` claim is added automatically; if you include it explicitly it must match Step 2. Do not include `status`: the service adds it (see [Revocation](#revocation)), and an offer that sets it is rejected with `400`.
+- `disclosureFrame._sd` — claim paths that should be **selectively disclosable**. Holders can prove these claims individually without revealing the rest. `status` cannot be listed here.
 
 **Response:** the API returns an `issuanceSessionId` and a credential offer URI / URL. Render the URL as a QR code (any QR-code library works) for scanning, or open it directly on a device that has the wallet installed.
 
@@ -161,6 +161,25 @@ The `disclosureFrame` parameter controls which claims become individually disclo
 
 Example: with the body above, the holder can present a proof revealing only `age.over_18` without disclosing `first_name`, `last_name`, or `age.over_65`.
 
+## Revocation
+
+Every SD-JWT VC the service issues references an [IETF Token Status List](https://datatracker.ietf.org/doc/draft-ietf-oauth-status-list/) through its `status` claim. The list is public at `<APP_ENDPOINT>/token-status-lists/<id>` and signed with the issuer key; the issuance session reports `revocable: true` and `revoked: false`.
+
+To revoke the credential(s) of an issuance session:
+
+```bash
+curl -X POST "http://localhost:3000/openid4vc/issuance-session/<issuanceSessionId>/revoke" \
+  -H "Authorization: Bearer <issuer access token>"
+```
+
+- `200` — the session's entries are set to invalid. From then on, verifiers that check the status (the Heka verifier and any Credo-based verifier) reject a presentation of the credential, and `GET /openid4vc/issuance-session/<id>` shows `revoked: true`.
+- `409` — the credential was already revoked. `404` — unknown session.
+- Revocation cannot be undone. The Heka Wallet doesn't mark a revoked SD-JWT VC on its card; it tells the user the credential was revoked by its issuer when a verifier rejects a presentation of it.
+
+**`APP_ENDPOINT` must be reachable by the wallet.** The wallet fetches the status list when it receives the credential, not only when it presents it, and refuses the credential if the fetch fails. For a phone, `APP_ENDPOINT=http://localhost:3000` does not work: use your host IP or a tunnel, and forward `/token-status-lists/` as in [Local Configuration for Heka Wallet Integration](local-config-for-heka-wallet-integration.md). Credentials keep the URL they were issued with, so issue them again after changing `APP_ENDPOINT`.
+
+See [API — SD-JWT VC status](api.md#sd-jwt-vc-status) for the list format.
+
 ## Useful Endpoints
 
 | Endpoint                                       | Purpose                                                                        |
@@ -172,14 +191,16 @@ Example: with the body above, the holder can present a proof revealing only `age
 | `PUT /openid4vc/issuer/{issuerId}`             | Update an Issuer's metadata (overwrite — include all fields you want to keep). |
 | `POST /openid4vc/issuance-session/offer`       | Create an offer (Step 3).                                                      |
 | `GET /openid4vc/issuance-session/{id}`         | Inspect a session's state (Step 5).                                            |
-| `DELETE /openid4vc/issuance-session/{id}`      | Cancel a pending session.                                                      |
-| `POST /openid4vc/issuance-session/{id}/revoke` | Revoke an issued credential (where supported).                                 |
+| `DELETE /openid4vc/issuance-session/{id}`      | Cancel a pending session. Revoke an issued SD-JWT VC first (`409` otherwise).  |
+| `POST /openid4vc/issuance-session/{id}/revoke` | Revoke the session's SD-JWT VCs ([Revocation](#revocation)).                   |
+| `GET /token-status-lists/{id}`                 | Public token status list referenced by issued SD-JWT VCs.                      |
 
 ## Troubleshooting
 
 - **Wallet shows "credential offer not found".** The wallet can't reach the issuer endpoint. Confirm the wallet device can reach the OID4VCI endpoint configured in `AGENT_OID4VCI_ENDPOINT` — for local setups, route through ngrok / nginx as in [Local Configuration for Heka Wallet Integration](local-config-for-heka-wallet-integration.md).
 - **`format must be vc+sd-jwt` validation error.** The format string in the offer body must exactly equal `vc+sd-jwt`. Other casing or hyphen variants fail DTO validation.
 - **`credentialSupportedId not found`.** The id passed in the offer doesn't exist on the Issuer record. Use `GET /openid4vc/issuer/supported-credentials` to list valid ids for `publicIssuerId`.
+- **Wallet fails to accept the SD-JWT VC ("Failed to validate sd-jwt-vc credentials" or similar).** The wallet could not fetch the token status list in the credential's `status` claim. Make `APP_ENDPOINT` reachable from the device and forward `/token-status-lists/` (see [Revocation](#revocation)), then issue a new offer.
 - **Disclosable claim missing after disclosure.** Claim paths in `disclosureFrame._sd` must match the structure of `payload` exactly. Nested paths use dot notation.
 
 ## See Also

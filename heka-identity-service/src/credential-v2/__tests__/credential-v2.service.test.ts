@@ -6,17 +6,14 @@ import { Role } from 'common/auth'
 import { Logger } from 'common/logger'
 import { ProtocolType } from 'common/types'
 import { CredentialService } from 'credential/credential.service'
+import { CredentialRecordDto } from 'credential/dto'
 import { IssuanceTemplateService } from 'issuance-template'
 import { OpenId4VcIssuanceSessionService } from 'openid4vc/issuance-sessions/issuance-session.service'
 import { OpenId4VcVerificationSessionService } from 'openid4vc/verification-sessions/verification-session.service'
 import { ProofService } from 'proof/proof.service'
 import { VerificationTemplateService } from 'verification-template'
 
-import {
-  connectionRecordStub,
-  credentialExchangeRecordStub,
-  proofExchangeRecordStub,
-} from '../../../test/helpers/mock-records'
+import { connectionRecordStub, entityStub, proofExchangeRecordStub } from '../../../test/helpers/mock-records'
 import { CredentialV2Service } from '../credential-v2.service'
 
 describe('CredentialV2Service', () => {
@@ -88,7 +85,7 @@ describe('CredentialV2Service', () => {
       vi.mocked(tenantAgent.didcomm.connections.findById).mockResolvedValue(mockConn)
 
       vi.mocked(credentialService.offer).mockResolvedValue(
-        credentialExchangeRecordStub({ id: 'cred-1', state: 'offer-sent' }),
+        entityStub<CredentialRecordDto>({ id: 'cred-1', state: 'offer-sent', revocable: false }),
       )
 
       const result = await credentialV2Service.offerByTemplate(tenantAgent, authInfo, {

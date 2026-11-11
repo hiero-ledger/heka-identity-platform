@@ -1,7 +1,7 @@
 import { Field } from '@bifold/oca/build/legacy'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import React from 'react'
-import { FlatList, StyleSheet, View } from 'react-native'
+import { FlatList, StyleProp, StyleSheet, View, ViewStyle } from 'react-native'
 
 import { RecordField } from './RecordField'
 
@@ -24,6 +24,7 @@ interface Props {
   shown?: boolean[]
   toggleShownState?: (newShowStates: boolean[]) => void
   error?: boolean
+  contentContainerStyle?: StyleProp<ViewStyle>
 }
 
 export const Record: React.FC<Props> = ({
@@ -35,6 +36,7 @@ export const Record: React.FC<Props> = ({
   shown = [],
   toggleShownState,
   error,
+  contentContainerStyle,
 }) => {
   const theme = useHekaTheme()
   const styles = useStyles(theme)
@@ -51,7 +53,7 @@ export const Record: React.FC<Props> = ({
   return (
     <FlatList
       style={styles.container}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[styles.container, contentContainerStyle]}
       showsVerticalScrollIndicator={false}
       data={fields}
       keyExtractor={({ name }, index) => name || index.toString()}

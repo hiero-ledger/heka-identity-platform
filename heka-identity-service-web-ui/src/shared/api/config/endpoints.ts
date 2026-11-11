@@ -30,6 +30,12 @@ export const agencyEndpoints = {
   offerAnoncredsCredential: `/credentials/offer`,
   getCredentialConfig: '/credentials/config',
   getAnoncredsCredentialState: (id: string) => `credentials/${id}`,
+  getAnoncredsCredentials: '/credentials',
+  revokeAnoncredsCredential: (id: string) =>
+    `/credentials/${encodeURIComponent(id)}/revoke`,
+  getOpenIdIssuanceSessions: '/openid4vc/issuance-session',
+  revokeOpenIdIssuanceSession: (id: string) =>
+    `/openid4vc/issuance-session/${encodeURIComponent(id)}/revoke`,
   requestAnoncredsPresentation: `/proofs/request`,
   getAnoncredsPresentationState: (id: string) => `proofs/${id}`,
   getUserData: `/user`,

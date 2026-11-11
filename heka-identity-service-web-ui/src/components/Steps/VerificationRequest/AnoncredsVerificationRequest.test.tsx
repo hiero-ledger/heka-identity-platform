@@ -2,6 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 
+import { pollTimeout } from '@/const/behaviour';
 import { ConnectionState } from '@/entities/Connection/model/types/connection';
 import { AnoncredsPresentationState } from '@/entities/Presentation/model/types/presentation';
 import {
@@ -58,7 +59,16 @@ const existingConnection = {
   alias: 'Alice',
 };
 
-const stubAgency = (api: MockApi) => {
+const verifiedProof = {
+  state: AnoncredsPresentationState.Done,
+  isVerified: true,
+  revealedAttributes: [
+    { name: 'age', value: '42' },
+    { name: 'firstName', value: 'Alice' },
+  ],
+};
+
+const stubAgency = (api: MockApi, proof: object = verifiedProof) => {
   api.post.mockImplementation((url: string) => {
     if (url === 'connections/create-invitation') {
       return Promise.resolve({
@@ -77,15 +87,7 @@ const stubAgency = (api: MockApi) => {
       return Promise.resolve({ data: [existingConnection] });
     }
     if (url === 'proofs/proof-1') {
-      return Promise.resolve({
-        data: {
-          state: AnoncredsPresentationState.Done,
-          revealedAttributes: [
-            { name: 'age', value: '42' },
-            { name: 'firstName', value: 'Alice' },
-          ],
-        },
-      });
+      return Promise.resolve({ data: proof });
     }
     return Promise.resolve({ data: null });
   });
@@ -180,6 +182,59 @@ describe('AnoncredsVerificationRequest', () => {
     );
     expect(onChangeStep).toHaveBeenCalledWith('SelectProtocolType');
   });
+
+  test.each([
+    [
+      'abandoned after failing verification',
+      AnoncredsPresentationState.Abandoned,
+      false,
+    ],
+    [
+      'abandoned by the holder',
+      AnoncredsPresentationState.Abandoned,
+      undefined,
+    ],
+    ['done but not verified', AnoncredsPresentationState.Done, false],
+  ])(
+    'stops polling and shows the failure when the proof is %s',
+    async (_, proofState, isVerified) => {
+      const user = userEvent.setup();
+      const api = createMockApi();
+      stubAgency(api, { state: proofState, isVerified });
+      const { onChangeStep } = renderRequest(context, { api });
+
+      await user.selectOptions(
+        await screen.findByRole('combobox', { name: 'Select connection' }),
+        'conn-1',
+      );
+      await user.click(screen.getByRole('button', { name: 'Send' }));
+
+      expect(
+        await screen.findByText('Verification failed', {}, { timeout: 4000 }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The credential could not be verified, or the holder declined the request.',
+      );
+      expect(screen.queryByText('Credential verified')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(
+          'Verification request sent. Waiting for the holder to respond in their wallet.',
+        ),
+      ).not.toBeInTheDocument();
+
+      const proofPolls = () =>
+        api.get.mock.calls.filter(([url]) => url === 'proofs/proof-1').length;
+      const polls = proofPolls();
+      await new Promise((resolve) => setTimeout(resolve, pollTimeout + 500));
+      expect(proofPolls()).toBe(polls);
+
+      await user.click(
+        screen.getByRole('button', { name: 'Verify more credential' }),
+      );
+      expect(onChangeStep).toHaveBeenCalledWith('SelectProtocolType');
+    },
+    10000,
+  );
 
   test('goes back to a fresh QR invitation from an existing connection', async () => {
     const user = userEvent.setup();

@@ -34,6 +34,7 @@ ARG REACT_APP_OIDC_SCOPE=
 ARG REACT_APP_OIDC_ORGANIZATION=
 ARG REACT_APP_AUTH_ACCOUNT_URL=
 ARG REACT_APP_DEMO_USER_DID=
+ARG REACT_APP_FEATURE_REVOCATION=
 
 # dotenv-webpack only reads the .env file (systemvars is off), so materialise the non-empty
 # build args into it. .dockerignore keeps a developer's own .env out of the build context.

@@ -115,7 +115,7 @@ const useNotificationOptions = (
         onPress: () =>
           navigation.getParent()?.navigate(Stacks.NotificationStack, {
             screen: Screens.CredentialDetails,
-            params: { credential: record },
+            params: { credentialId: record.id },
           }),
       }
     case NotificationType.Custom:

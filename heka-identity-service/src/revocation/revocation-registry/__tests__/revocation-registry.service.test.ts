@@ -363,6 +363,27 @@ describe('RevocationRegistryService', () => {
     })
   })
 
+  describe('findCredentialDefinitionId', () => {
+    test('returns the credential definition id stored with the revocation registry', async () => {
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue([
+        { content: { revocationRegistryDefinitionId: 'rev-reg-1', credentialDefinitionId: 'creddef-1' } },
+      ] as any)
+
+      const result = await service.findCredentialDefinitionId(tenantAgent, 'rev-reg-1')
+
+      expect(tenantAgent.genericRecords.findAllByQuery).toHaveBeenCalledWith({
+        revocationRegistryDefinitionId: 'rev-reg-1',
+      })
+      expect(result).toBe('creddef-1')
+    })
+
+    test('returns undefined when the registry is not known to this wallet', async () => {
+      vi.mocked(tenantAgent.genericRecords.findAllByQuery).mockResolvedValue([])
+
+      await expect(service.findCredentialDefinitionId(tenantAgent, 'rev-reg-unknown')).resolves.toBeUndefined()
+    })
+  })
+
   describe('update', () => {
     const revocationRegistryDefinitionId = 'did:indy:test:revregdef123'
 

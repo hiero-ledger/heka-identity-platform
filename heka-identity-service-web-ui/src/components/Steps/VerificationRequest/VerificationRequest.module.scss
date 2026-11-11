@@ -115,10 +115,18 @@
   }
 }
 
-.successIcon {
+.successIcon,
+.statusIcon {
   position: absolute;
   bottom: calc(-1 * var(--space-sm));
   right: calc(-1 * var(--space-lg));
+}
+
+.failureReason {
+  max-width: 480px;
+  color: var(--color-light-high-emphasis);
+  font: var(--font-body-m);
+  text-align: center;
 }
 
 .buttonGroup {

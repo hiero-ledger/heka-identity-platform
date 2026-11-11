@@ -16,6 +16,7 @@ import {
 import { OpenIdStackParams, Screens, Stacks } from '../../navigators/types'
 import { CredentialCard, SectionCard } from '../cards'
 import { Record } from '../misc'
+import { CredentialRevokedBanner } from '../misc/CredentialRevokedBanner'
 import { ExternalPartyDisplay } from '../misc/ExternalPartyDisplay'
 import { ProofRequestAcceptModal } from '../modals'
 import ActionWarningModal, { ModalUsage } from '../modals/ActionWarningModal'
@@ -120,6 +121,11 @@ export const PresentationRequestView: React.FC<Props> = ({
           scrollEnabled={false}
           renderItem={({ item: entry }) => {
             const hasAltCredentials = entry.submissionOptions.length > 1
+            // A held credential that would match but is revoked: name it and say why it can't be shared
+            const revokedCredential = entry.selectedOption ? undefined : entry.revokedCredential
+            const credentialDisplay =
+              entry.selectedOption?.credential.display ??
+              (revokedCredential && { ...revokedCredential.credential.display, isRevoked: true })
 
             let attributesToDisplay = entry.selectedOption?.requestedAttributes
 
@@ -140,13 +146,22 @@ export const PresentationRequestView: React.FC<Props> = ({
                 fields={attributesToDisplay ?? []}
                 error={!entry.isSatisfied}
                 header={() => (
-                  <CredentialCard
-                    credentialDisplay={entry.selectedOption?.credential.display}
-                    requestedCredentialName={entry.name}
-                    showActionButton={hasAltCredentials}
-                    actionButtonTitle={t('ProofRequest.ChangeCredential')}
-                    onActionButtonPress={hasAltCredentials ? () => onCredentialChangePress(entry) : undefined}
-                  />
+                  <>
+                    <CredentialCard
+                      credentialDisplay={credentialDisplay}
+                      requestedCredentialName={entry.name}
+                      showActionButton={hasAltCredentials}
+                      actionButtonTitle={t('ProofRequest.ChangeCredential')}
+                      onActionButtonPress={hasAltCredentials ? () => onCredentialChangePress(entry) : undefined}
+                    />
+                    {revokedCredential && (
+                      <CredentialRevokedBanner
+                        title={t('ProofRequest.CredentialRevokedTitle')}
+                        revocationDate={revokedCredential.revocationDate}
+                        comment={t('ProofRequest.RevokedCredentialCannotBeShared')}
+                      />
+                    )}
+                  </>
                 )}
               />
             )

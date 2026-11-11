@@ -2,7 +2,9 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query, UseGuards,
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiBody,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -117,12 +119,17 @@ export class OpenId4VcIssuanceSessionController {
   /**
    * Delete an OpenID4VC issuance session by id
    */
-  @ApiOperation({ summary: 'Delete Issuance Session' })
+  @ApiOperation({
+    summary: 'Delete Issuance Session',
+    description:
+      'A pending offer (OfferCreated, OfferUriRetrieved) is always deleted. A later session with SD-JWT VCs is ' +
+      'deleted only once its credentials are revoked: the session holds their only status list reference.',
+  })
   @ApiParam({ name: 'issuanceSessionId', type: String })
-  @ApiOkResponse()
-  @ApiBadRequestResponse({ description: 'Bad Request' })
+  @ApiNoContentResponse({ description: 'Issuance session deleted' })
+  @ApiNotFoundResponse({ description: 'Issuance session not found' })
+  @ApiConflictResponse({ description: 'The session has issued SD-JWT VCs that are not revoked' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
-  @ApiUnprocessableEntityResponse({ description: 'Unprocessable Entity' })
   @HttpCode(204)
   @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
   @Delete(':issuanceSessionId')
@@ -138,7 +145,19 @@ export class OpenId4VcIssuanceSessionController {
     logger.trace({ res }, '<')
   }
 
-  @ApiOperation({ summary: 'Revoke a credential' })
+  @ApiOperation({
+    summary: 'Revoke a credential',
+    description:
+      'SD-JWT VC: sets every status entry of the session to invalid in its IETF Token Status List; verifiers ' +
+      'reject the credential. jwt_vc_json / jwt_vc_json-ld / ldp_vc: sets the W3C status list bit of the first ' +
+      'credential of the session; the issued credentials do not reference the status list (`revocable` is ' +
+      'false), so wallets and verifiers do not see this change.',
+  })
+  @ApiParam({ name: 'id', type: String })
+  @ApiOkResponse({ description: 'Status list entries updated' })
+  @ApiNotFoundResponse({ description: 'Issuance session or status list not found' })
+  @ApiBadRequestResponse({ description: 'Credential format does not support revocation' })
+  @ApiConflictResponse({ description: 'Credential is already revoked' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @Post(':id/revoke')
   @HttpCode(200)
