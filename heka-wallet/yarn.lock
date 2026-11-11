@@ -7296,34 +7296,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sd-jwt/core@npm:0.19.0":
-  version: 0.19.0
-  resolution: "@sd-jwt/core@npm:0.19.0"
-  dependencies:
-    "@sd-jwt/decode": "npm:0.19.0"
-    "@sd-jwt/present": "npm:0.19.0"
-    "@sd-jwt/types": "npm:0.19.0"
-    "@sd-jwt/utils": "npm:0.19.0"
-  checksum: 10/2c4c1dbf1ccf37e5dc46abde89d732316fc2ea3e1d7031805c0d71b431edd9685d708a6b932612c59c07460e912f76cefb3b5dec19a1137b757d60bda3e4fbb8
-  languageName: node
-  linkType: hard
-
 "@sd-jwt/core@npm:0.21.1, @sd-jwt/core@npm:^0.21.1":
   version: 0.21.1
   resolution: "@sd-jwt/core@npm:0.21.1"
   dependencies:
     "@owf/identity-common": "npm:^0.4.1"
   checksum: 10/e233d52ae716eb0e1940cd346cb140ccd793908a64b572713d1e8cd76ed215f58d910010e8192c5c70a7f3105077edde3b2bdf014839aaeb1a7b7cf15dc21710
-  languageName: node
-  linkType: hard
-
-"@sd-jwt/decode@npm:0.19.0":
-  version: 0.19.0
-  resolution: "@sd-jwt/decode@npm:0.19.0"
-  dependencies:
-    "@sd-jwt/types": "npm:0.19.0"
-    "@sd-jwt/utils": "npm:0.19.0"
-  checksum: 10/50947eedd838c9cfe85955131a79860cb43f50eb777f76415d0272af18a23657cff4535558928a41f438d99e56760a5429c5ac128141fa1c0f00d8f7a698f171
   languageName: node
   linkType: hard
 
@@ -7347,17 +7325,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sd-jwt/jwt-status-list@npm:0.19.0":
-  version: 0.19.0
-  resolution: "@sd-jwt/jwt-status-list@npm:0.19.0"
-  dependencies:
-    "@sd-jwt/types": "npm:0.19.0"
-    "@sd-jwt/utils": "npm:0.19.0"
-    pako: "npm:^2.1.0"
-  checksum: 10/87431cd92d31bc7ceb51034adf73e5e6c13b29965aefd40289d9161554cb5380a1550faa29fa12bc1e970f70b4f708d665f4d47f227dce1e988dbc3d85a71a99
-  languageName: node
-  linkType: hard
-
 "@sd-jwt/jwt-status-list@npm:^0.17.0":
   version: 0.17.1
   resolution: "@sd-jwt/jwt-status-list@npm:0.17.1"
@@ -7369,17 +7336,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sd-jwt/present@npm:0.19.0":
-  version: 0.19.0
-  resolution: "@sd-jwt/present@npm:0.19.0"
-  dependencies:
-    "@sd-jwt/decode": "npm:0.19.0"
-    "@sd-jwt/types": "npm:0.19.0"
-    "@sd-jwt/utils": "npm:0.19.0"
-  checksum: 10/098c281e370747bbcaf4c201c507ba43186077cec98272beed5017d5d0757515a9201b61e946a47e059994db712d8f60b2b7186dd144e3922f316813fc13e58c
-  languageName: node
-  linkType: hard
-
 "@sd-jwt/present@npm:^0.7.2":
   version: 0.7.2
   resolution: "@sd-jwt/present@npm:0.7.2"
@@ -7388,18 +7344,6 @@ __metadata:
     "@sd-jwt/types": "npm:0.7.2"
     "@sd-jwt/utils": "npm:0.7.2"
   checksum: 10/f1ef635774ac336e1763709d28142b06707477c20ddef3d1bad695a61b1881f2ba230686dce1635850ea66cf2ad530d27c399c27067ad96c6cda74e51793a94a
-  languageName: node
-  linkType: hard
-
-"@sd-jwt/sd-jwt-vc@npm:^0.19.0":
-  version: 0.19.0
-  resolution: "@sd-jwt/sd-jwt-vc@npm:0.19.0"
-  dependencies:
-    "@sd-jwt/core": "npm:0.19.0"
-    "@sd-jwt/jwt-status-list": "npm:0.19.0"
-    "@sd-jwt/utils": "npm:0.19.0"
-    zod: "npm:^4.3.5"
-  checksum: 10/673c4e0ade5aa6b2f97242664796b54ebf6fc4160079b37a06911813e7fca372a3b92d2e8b6495e28eba6ec5ee7408635e0bb7d2fcf88e358a0c14a202171b0e
   languageName: node
   linkType: hard
 
@@ -7419,13 +7363,6 @@ __metadata:
   version: 0.17.0
   resolution: "@sd-jwt/types@npm:0.17.0"
   checksum: 10/23c4031a9792cb93cd97055fcf8dd704528d82556c2f58780d17aceced58207444791fc1cb5bb5f601c5bea4481dda66b53e43f8f9ecfbef9cf93fe5ee71c3fc
-  languageName: node
-  linkType: hard
-
-"@sd-jwt/types@npm:0.19.0":
-  version: 0.19.0
-  resolution: "@sd-jwt/types@npm:0.19.0"
-  checksum: 10/43cc69702bf456a665920bbe3ef954a0028329858e6bed2c94304037e346a22ca4a629216b157a9cb697086071dce19ac72d19cedf2a972a60a634306d4e1552
   languageName: node
   linkType: hard
 
@@ -7450,16 +7387,6 @@ __metadata:
     "@sd-jwt/types": "npm:0.17.0"
     js-base64: "npm:^3.7.8"
   checksum: 10/e857065bbbe2eb8474900d7f4f7f250b0c136d23e4426e913655f0768d919197b53062876a6f01c214ccaf93b5e6d3ebd0da0616c1f96b44ebba45a27d112c1a
-  languageName: node
-  linkType: hard
-
-"@sd-jwt/utils@npm:0.19.0":
-  version: 0.19.0
-  resolution: "@sd-jwt/utils@npm:0.19.0"
-  dependencies:
-    "@sd-jwt/types": "npm:0.19.0"
-    js-base64: "npm:^3.7.8"
-  checksum: 10/1ed3bdfe24dc1a53372225f75785e7bc7ba4f13cbce8ebdf55da4f94d997f956d6b74e155d3f2fd6f78762a546b141c48a935364fd289c5aa0abeef63368b799
   languageName: node
   linkType: hard
 
@@ -13936,6 +13863,7 @@ __metadata:
     "@hyperledger/indy-vdr-react-native": "npm:0.3.0"
     "@openwallet-foundation/askar-react-native": "npm:0.6.0"
     "@openwallet-foundation/askar-shared": "npm:0.6.0"
+    "@owf/token-status-list": "npm:^0.4.1"
     "@react-native-async-storage/async-storage": "npm:^2.2.0"
     "@react-native-clipboard/clipboard": "npm:^1.16.3"
     "@react-native-community/cli": "npm:20.0.0"
@@ -13957,7 +13885,7 @@ __metadata:
     "@react-navigation/stack": "npm:6.3.21"
     "@sd-jwt/decode": "npm:^0.7.2"
     "@sd-jwt/jwt-status-list": "npm:^0.17.0"
-    "@sd-jwt/sd-jwt-vc": "npm:^0.19.0"
+    "@sd-jwt/sd-jwt-vc": "npm:^0.21.1"
     "@testing-library/jest-native": "npm:^5.4.3"
     "@testing-library/react-native": "npm:^13.3.0"
     "@types/eslint__js": "npm:^8.42.3"
@@ -22761,7 +22689,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^3.25.0 || ^4.0.0, zod@npm:^4.3.5, zod@npm:^4.6.5":
+"zod@npm:^3.25.0 || ^4.0.0, zod@npm:^4.6.5":
   version: 4.6.7
   resolution: "zod@npm:4.6.7"
   checksum: 10/3ca8b8d6bb401538e59504c543db629ea7beaa775e504c3f22269b406fdffbf1431c856d59a597bf66d8487e4d2be12b03a55d76fc2c63d9f046eae1ca173bca

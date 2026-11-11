@@ -1,4 +1,4 @@
-import { createHeaderAndPayload, StatusList } from '@sd-jwt/jwt-status-list'
+import { createHeaderAndPayload, StatusList } from '@owf/token-status-list'
 import { SDJwtVcInstance } from '@sd-jwt/sd-jwt-vc'
 
 import {
