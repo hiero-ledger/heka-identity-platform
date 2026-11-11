@@ -4,7 +4,11 @@ import { InternalServerErrorException, UnprocessableEntityException } from '@nes
 
 import { TenantAgent } from 'common/agent'
 
-import { didResolutionResultStub, verificationSessionRecordStub } from '../../../../test/helpers/mock-records'
+import {
+  didRecordStub,
+  didResolutionResultStub,
+  verificationSessionRecordStub,
+} from '../../../../test/helpers/mock-records'
 import { OpenId4VcVerificationSessionService } from '../verification-session.service'
 
 describe('OpenId4VcVerificationSessionService', () => {
@@ -56,6 +60,7 @@ describe('OpenId4VcVerificationSessionService', () => {
       context: {},
       dids: {
         resolve: vi.fn(),
+        getCreatedDids: vi.fn().mockResolvedValue([]),
       },
     })
   })
@@ -245,6 +250,8 @@ describe('OpenId4VcVerificationSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
           },
         }),
       )
@@ -260,6 +267,38 @@ describe('OpenId4VcVerificationSessionService', () => {
       expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(expect.objectContaining({ verifierId: 'verifier-1' }))
       expect(result.authorizationRequest).toBe('openid://?request_uri=https://example.com/auth')
       expect(result.verificationSession.publicVerifierId).toBe('verifier-1')
+    })
+
+    test('signs the request with the key named by requestSigner.keyId, if it is an authentication key', async () => {
+      const did = 'did:key:z6Mk1234'
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: {
+            id: did,
+            verificationMethod: [{ id: `${did}#a` }, { id: `${did}#b` }, { id: `${did}#c` }],
+            authentication: ['#a', '#b'],
+            assertionMethod: ['#c'],
+          },
+        }),
+      )
+      mockCreateAuthorizationRequest.mockResolvedValue({
+        authorizationRequest: 'openid://?request_uri=https://example.com/auth',
+        verificationSession: makeSessionRecord(),
+      })
+      const createRequest = (keyId: string) =>
+        service.createRequest(tenantAgent, {
+          publicVerifierId: 'verifier-1',
+          requestSigner: { did, keyId },
+          presentationExchange: { definition: { id: 'def-1', input_descriptors: [] } },
+        } as any)
+
+      await createRequest('#b')
+      expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ requestSigner: { method: 'did', didUrl: `${did}#b` } }),
+      )
+
+      // #c is not an authentication key
+      await expect(createRequest('#c')).rejects.toThrow(`DID ${did} has no key #c for signing requests`)
     })
 
     test('should throw UnprocessableEntityException when DID cannot be resolved', async () => {
@@ -278,6 +317,54 @@ describe('OpenId4VcVerificationSessionService', () => {
 
       await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
+    })
+
+    test.each([
+      ['deactivated on its ledger (did:indybesu keeps its keys)', { deactivated: true }, undefined],
+      ['deactivated by the wallet', {}, () => true],
+    ])('rejects a request signer DID %s with 422', async (_, didDocumentMetadata, getTag) => {
+      const did = 'did:indybesu:testnet:0x2c7536E3605D9C16a7a3D7b1898e529396a65c23'
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: { id: did, verificationMethod: [{ id: `${did}#KEY-1` }] },
+          didDocumentMetadata,
+        }),
+      )
+      if (getTag) {
+        vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did, getTag })])
+      }
+
+      const request = service.createRequest(tenantAgent, {
+        publicVerifierId: 'verifier-1',
+        requestSigner: { did },
+        presentationExchange: { definition: { id: 'def-1', input_descriptors: [] } },
+      } as any)
+
+      await expect(request).rejects.toThrow(UnprocessableEntityException)
+      await expect(request).rejects.toThrow(`DID is deactivated: ${did}`)
+      expect(mockCreateAuthorizationRequest).not.toHaveBeenCalled()
+    })
+
+    test('rejects a request signer DID deactivated outside the service, served locally with empty metadata', async () => {
+      const did = 'did:indy:bcovrin:test:Th7MpTaRZVRYnPiabds81Y'
+      // Credo serves a created did:indy from the wallet record with empty metadata; only the ledger shows deactivation
+      vi.mocked(tenantAgent.dids.resolve).mockImplementation((_did, options) =>
+        Promise.resolve(
+          didResolutionResultStub({
+            didDocument: { id: did, verificationMethod: [{ id: `${did}#verkey` }] },
+            didDocumentMetadata: options?.useLocalCreatedDidRecord === false ? { deactivated: true } : {},
+          }),
+        ),
+      )
+
+      const request = service.createRequest(tenantAgent, {
+        publicVerifierId: 'verifier-1',
+        requestSigner: { did },
+        presentationExchange: { definition: { id: 'def-1', input_descriptors: [] } },
+      } as any)
+
+      await expect(request).rejects.toThrow(`DID is deactivated: ${did}`)
+      expect(mockCreateAuthorizationRequest).not.toHaveBeenCalled()
     })
 
     test('should throw UnprocessableEntityException when DID document has no verification methods', async () => {
@@ -322,6 +409,8 @@ describe('OpenId4VcVerificationSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
           },
         }),
       )
@@ -357,6 +446,8 @@ describe('OpenId4VcVerificationSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
           },
         }),
       )
@@ -392,6 +483,8 @@ describe('OpenId4VcVerificationSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
           },
         }),
       )
@@ -457,6 +550,8 @@ describe('OpenId4VcVerificationSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
           },
         }),
       )
@@ -491,7 +586,11 @@ describe('OpenId4VcVerificationSessionService', () => {
 
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
         didResolutionResultStub({
-          didDocument: { verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }] },
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6Mk1234#z6Mk1234' }],
+            assertionMethod: ['did:key:z6Mk1234#z6Mk1234'],
+            authentication: ['did:key:z6Mk1234#z6Mk1234'],
+          },
         }),
       )
 

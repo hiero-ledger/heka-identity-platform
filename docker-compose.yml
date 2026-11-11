@@ -65,6 +65,8 @@ services:
       WEBHOOK_ALLOW_HTTP: ${IDENTITY_SERVICE_WEBHOOK_ALLOW_HTTP:-false}
       WEBHOOK_ALLOW_PRIVATE_ADDRESSES: ${IDENTITY_SERVICE_WEBHOOK_ALLOW_PRIVATE_ADDRESSES:-false}
       WEBHOOK_HTTP_TIMEOUT_MS: ${IDENTITY_SERVICE_WEBHOOK_HTTP_TIMEOUT_MS:-10000}
+      DID_METHODS: ${IDENTITY_SERVICE_DID_METHODS:-}
+      INDY_BESU_NODE_ADDRESS: ${IDENTITY_SERVICE_INDY_BESU_NODE_ADDRESS:-http://indy-besu:8545}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     ports:
@@ -264,6 +266,33 @@ services:
         condition: service_completed_successfully
       keycloak-realms:
         condition: service_completed_successfully
+
+  # Local Indy Besu network (profile `indybesu`): a single QBFT validator with RPC, the genesis of the
+  # hyperledger/indy-besu dev network reduced to one validator. It pre-deploys the DID, schema and
+  # credential definition registries at the addresses the identity service uses and makes the
+  # service's default endorser account (0x627306...) a Trustee. See docker/indy-besu/README.md.
+  indy-besu:
+    profiles: [indybesu]
+    image: hyperledger/besu:24.12.2
+    restart: on-failure
+    environment:
+      BESU_GENESIS_FILE: /config/genesis.json
+      BESU_NODE_PRIVATE_KEY_FILE: /config/nodekey
+      BESU_DATA_PATH: /opt/besu/data
+      BESU_DISCOVERY_ENABLED: 'false'
+      BESU_MIN_GAS_PRICE: '0'
+      BESU_REVERT_REASON_ENABLED: 'true'
+      BESU_PERMISSIONS_ACCOUNTS_CONTRACT_ENABLED: 'true'
+      BESU_PERMISSIONS_ACCOUNTS_CONTRACT_ADDRESS: '0x0000000000000000000000000000000000008888'
+      BESU_RPC_HTTP_ENABLED: 'true'
+      BESU_RPC_HTTP_HOST: 0.0.0.0
+      BESU_RPC_HTTP_API: ETH,NET,WEB3
+      BESU_HOST_ALLOWLIST: '*'
+    volumes:
+      - ./docker/indy-besu:/config:ro
+    # Published on all interfaces so a phone wallet on the LAN can reach it (INDY_BESU_RPC_URL).
+    ports:
+      - '8545:8545'
 
 volumes:
   postgres-data:

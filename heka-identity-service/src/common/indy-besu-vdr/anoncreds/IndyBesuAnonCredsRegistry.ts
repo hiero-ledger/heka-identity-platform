@@ -14,8 +14,9 @@ import type {
   RegisterSchemaReturn,
 } from '@credo-ts/anoncreds'
 
-import { type AgentContext, CredoError, DidRepository, DidsApi, Kms } from '@credo-ts/core'
+import { type AgentContext, CredoError, DidRepository, DidsApi } from '@credo-ts/core'
 
+import { IndyBesuModuleConfig } from '../IndyBesuModuleConfig'
 import { CredentialDefinitionRegistry, IndyBesuSigner, SchemaRegistry } from '../ledger'
 import { indyBesuAnonCredsRegistryIdentifierRegex } from '../utils/identifier'
 
@@ -57,7 +58,7 @@ export class IndyBesuAnonCredsRegistry implements AnonCredsRegistry {
       const schemaRegistry = agentContext.dependencyManager.resolve(SchemaRegistry)
 
       const issuer = await this.getSigner(agentContext, options.schema.issuerId)
-      const endorser = await this.getEndorserSigner(agentContext, options.options.endorserKey)
+      const endorser = this.getEndorserSigner(agentContext)
       const schemaId = await schemaRegistry.endorseSchema(options.schema, issuer, endorser)
 
       return {
@@ -121,7 +122,7 @@ export class IndyBesuAnonCredsRegistry implements AnonCredsRegistry {
       }
 
       const issuer = await this.getSigner(agentContext, options.credentialDefinition.issuerId)
-      const endorser = await this.getEndorserSigner(agentContext, options.options.endorserKey)
+      const endorser = this.getEndorserSigner(agentContext)
       const createCredentialDefinitionId = await credentialDefinitionRegistry.endorseCredentialDefinition(
         {
           ...options.credentialDefinition,
@@ -192,29 +193,28 @@ export class IndyBesuAnonCredsRegistry implements AnonCredsRegistry {
       throw new Error('Unable to resolve the signer key')
     }
 
-    const kms = agentContext.dependencyManager.resolve(Kms.KeyManagementApi)
     const didRepository = agentContext.dependencyManager.resolve(DidRepository)
     const didRecords = await didRepository.findAllByDid(agentContext, did)
-    const keys =
-      didRecords.find((r) => r.keys?.find((k) => k.didDocumentRelativeKeyId === didDocumentRelativeKeyId))?.keys ?? []
-    if (!keys.length) {
+    // The record keeps the relative id (`#KEY-1`); records written before kept the full DID URL
+    const key = didRecords
+      .flatMap((record) => record.keys ?? [])
+      .find((k) => didDocumentRelativeKeyId.endsWith(k.didDocumentRelativeKeyId))
+    if (!key) {
       throw new Error(`Key for didDocumentRelativeKeyId (${didDocumentRelativeKeyId}) not found`)
     }
 
-    const kmsKeyId = keys[0].kmsKeyId
-    return await IndyBesuSigner.create(kmsKeyId, kms)
+    return await IndyBesuSigner.create(agentContext, key.kmsKeyId)
   }
 
-  private async getEndorserSigner(agentContext: AgentContext, endorserKeyId: string) {
-    const kms = agentContext.dependencyManager.resolve(Kms.KeyManagementApi)
-    return await IndyBesuSigner.create(endorserKeyId, kms)
+  private getEndorserSigner(agentContext: AgentContext) {
+    const { endorserPrivateKey } = agentContext.dependencyManager.resolve(IndyBesuModuleConfig)
+    return IndyBesuSigner.fromPrivateKey(endorserPrivateKey)
   }
 }
 
 export interface IndyBesuRegisterSchemaOptions extends RegisterSchemaOptions {
   options: {
     issuerId: string
-    endorserKey: string
   }
 }
 
@@ -222,6 +222,5 @@ export interface IndyBesuRegisterCredentialDefinitionOptions extends RegisterCre
   options: {
     supportRevocation: boolean
     issuerId: string
-    endorserKey: string
   }
 }

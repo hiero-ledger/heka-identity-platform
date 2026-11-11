@@ -9,7 +9,7 @@ By default, the API is available at <http://localhost:3000> when the service is 
 Endpoints are grouped by domain:
 
 - **Connections** (`/connections/*`) — DIDComm connection invitations and lifecycle.
-- **DIDs** (`/dids/*`) — public DID creation and lookup.
+- **DIDs** (`/dids/*`) — public DID creation, lookup, update and deactivation (see [DID update and deactivation](#did-update-and-deactivation)).
 - **Schemas** (`/schemas/*`, `/schemas/v2/*`) — credential schema management. Use v2 for new integrations.
 - **Credential Definitions** (`/credential-definitions/*`) — AnonCreds credential definitions.
 - **Credentials** (`/credentials/*`, `/credentials/v2/*`) — DIDComm-flavored issuance (v1) and template-based / OID4VC-flavored issuance (v2).
@@ -24,6 +24,45 @@ Endpoints are grouped by domain:
 - **User** (`/user/*`) — webhook / WebSocket subscription for notification events (see below).
 - **Prepare Wallet** (`/prepare-wallet`) — bootstrap a tenant wallet with default state.
 - **Health** (`/health`) — memory + database health probe.
+
+## DID update and deactivation
+
+A wallet can change or retire the DIDs it created (`POST /dids`), because it holds their keys. The routes are open to the Admin, OrgAdmin and Issuer roles; a DID of another wallet, or any external DID, is `404`. A parent wallet has no authority over the DIDs of its children.
+
+- `PATCH /dids/:did` adds or removes services and verification methods. The body lists between 1 and 10 operations in total (an empty body is rejected with 400); ids are relative fragments:
+
+  ```json
+  {
+    "addServices": [{ "id": "#svc-1", "type": "LinkedDomains", "serviceEndpoint": "https://example.com" }],
+    "removeServices": ["#svc-0"],
+    "addVerificationMethods": [{ "id": "#key-1", "purposes": ["assertionMethod"] }],
+    "removeVerificationMethods": ["#key-0"]
+  }
+  ```
+
+  The Identity Service generates the key of each added verification method (Ed25519, `Ed25519VerificationKey2020`) in the wallet; no field takes key material. `id` defaults to the lowest unused `#key-<n>`, `purposes` to `["assertionMethod", "authentication"]` (allowed: `authentication`, `assertionMethod`, `capabilityInvocation`, `capabilityDelegation`). The response is the updated DID document.
+
+- `POST /dids/:did/deactivate` deactivates the DID and returns its document with `deactivated: true`. **Deactivation is irreversible.** Deactivating a deactivated DID returns `200` again, without a ledger write. When the ledger write reports a failure, the ledger is read again: if it shows the DID deactivated (the write went through, but its response was lost), the result is `200` as well; otherwise the original error is returned. The keys stay in the wallet, so AnonCreds credentials issued with the DID remain revocable.
+
+| Method               | Update | Deactivate | Notes                                                                                                                                                                                                                                                                           |
+| -------------------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hedera`             | yes    | yes        | One HCS message per added or removed entry. The root key `#did-root-key` cannot be changed. A key referenced from a verification relationship cannot be removed (Hiero DID SDK 0.1.8 would leave a dangling reference), so only keys added with `"purposes": []` are removable. |
+| `indybesu`           | yes    | yes        | The document is replaced in one transaction, sent by the DID's own account (no endorser). The owner key `#KEY-1` cannot be changed. Service types are limited to `LinkedDomains`, `DIDCommMessaging`, `CredentialRegistry`, `OID4VCI` and `OID4VP`.                             |
+| `key`                | no     | no         | Immutable: `422`.                                                                                                                                                                                                                                                               |
+| `indy`               | yes    | yes        | The document beyond the DID's verkey is written as the NYM's `diddocContent` (did:indy spec), one transaction signed by the DID's own key (no endorser). `#verkey` cannot be changed. Deactivation sets the verkey to `null`; the DID then resolves with `deactivated: true`.   |
+| `jwk`, `peer`, `web` | no     | no         | No registrar: `400` (method not supported).                                                                                                                                                                                                                                     |
+
+`GET /dids/methods` reports the same per configured method in `capabilities` (`update`, `deactivate`, `controller`).
+
+Errors: `400` for an invalid body or a method that is not configured, `403` for the shared Indy endorser DID or a role that may not change DIDs, `404` for a DID that is not the wallet's own, `409` for an update of a deactivated DID, `422` for an unsupported method or change (the key that controls the DID, an added id that exists with other content, a removed id used by another kind of entry), `503` while another request holds the wallet or when the DID's ledger cannot be read for an update. A failed ledger write is `500` with the ledger's reason; on Hedera, entries written before the failure stay on the ledger, and the wallet's DID record follows the ledger. Operations the ledger document already shows are skipped, so the same request can be retried: an added service with the same type and endpoint, an added verification method with the same id and purposes, and a removed id the document does not use. When nothing is left, the current document is returned without a ledger write. When a failed write may still have reached the ledger (a Hedera message, an Indy-Besu transaction or an Indy NYM was sent), the keys generated for it stay in the wallet.
+
+Removing a verification method also deletes its private key from the wallet, after the ledger write succeeded. When the update fails, the ledger is read once more: a verification method requested for removal that the ledger no longer shows is removed from the wallet's DID record and its private key is deleted, and the update still returns its error. When the ledger does not show the removal yet, or cannot be read, the key is kept; should the removal land later, the key stays in the wallet (a retry of the removal then succeeds without a ledger write). The key that controls the DID, and a key another verification method still uses, are never deleted.
+
+OpenID4VC issuance signs a credential with the first verification method of the issuer DID that is an `assertionMethod` (for JWT VC and JSON-LD VC formats, also an `authentication`), and an OpenID4VP request with the first `authentication` one; without such a key the offer or request is rejected with `422`. The own key of a `did:key`, `did:hedera` and `did:indybesu` qualifies. The `did:indy` `#verkey` is `authentication` only (did:indy spec), so a `did:indy` issuer first adds a key with `assertionMethod` (the default purposes of `addVerificationMethods`) and then signs with it. To sign with another key, an offer names it in `issuer.keyId` and a verification request in `requestSigner.keyId` (relative, e.g. `"#key-2"`); that key must be referenced from the same purposes, or the offer is rejected with `422`.
+
+After deactivation the DID is no longer used by the Identity Service: `GET /dids?own=true` leaves it out (unless `includeDeactivated=true`, which lists it with `deactivated: true`), `POST /prepare-wallet` creates a new DID of the method, it is not the controller of new DIDs, and AnonCreds schema and credential definition registrations (`POST /schemas`, `POST /credential-definitions`, `POST /v2/schemas/:id/registration`) and new OID4VC issuance offers or verification requests with it are rejected with `422`. Registrations check the DID's ledger as well as the wallet, so a DID deactivated on its ledger but not recorded as such in the wallet is rejected too (and recorded); when the ledger cannot be read, the wallet's record decides. Revocation registries and status lists of credentials issued before stay available. `GET /dids/:did` returns it with `deactivated: true`. Its existing OID4VC issuer and verifier records are kept.
+
+On Hedera every message waits until it is visible on the mirror node, so an update with several operations can take minutes; allow for it in client and proxy timeouts. With several Identity Service instances, the other instances may serve the previous did:hedera document from their resolver cache for up to 5 minutes.
 
 ## Notifications
 

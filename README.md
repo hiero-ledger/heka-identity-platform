@@ -81,7 +81,7 @@ To run the web-facing components together, use the Compose project at the reposi
    ```
 
    `dcqlQuery` is the DCQL query the SSO service sends to the Identity Service when it creates the verification session; `claimMapping` maps the disclosed claims (`<credential query id>.<claim path>`) to OIDC claims; `subStrategy` selects how the OIDC `sub` is derived; `issuerAllowlist` lists the trusted credential issuers. The entry's `id` is referenced by `loginConfigId` in `oidc-clients.json`. See the [SSO service README](./heka-sso-service/README.md#oidc-provider) for the full format.
-6. Run `docker compose --profile <profile> up -d --build`.
+6. Run `docker compose --profile <profile> up -d --build`. Add `--profile indybesu` to also run a local Indy Besu network for `did:indybesu`, see [docker/indy-besu](./docker/indy-besu/README.md).
 7. Prepare the SSO verifier wallet and record its DID in `.env`: `./docker/prepare-sso-verifier.ps1 -Provider <profile>` on Windows, `bash docker/prepare-sso-verifier.sh --provider <profile>` on Linux / macOS.
 8. Restart the SSO service with the new DID: `docker compose --profile <profile> up -d heka-sso-service`.
 9. Optional, for the public demo pages of the identity web UI: run `yarn install && yarn prepare-demo-user` in `heka-identity-service-web-ui` (it talks to the identity service on `localhost:3000` and uses the demo-token broker the stack enables), copy the printed DID into `IDENTITY_WEBUI_DEMO_USER_DID` in `.env`, then rebuild the UI image: `docker compose --profile <profile> up -d --build heka-identity-web-ui`. The script also writes the DID into that package's own `.env`, which only a host-run `yarn start` uses.

@@ -1,57 +1,57 @@
-import type { DidCreateResult } from '@credo-ts/core'
+import type { DidCreateResult, DidDeactivateResult, DidUpdateResult } from '@credo-ts/core'
 
+import { UnprocessableEntityException } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
 import AgentConfig from '../../../config/agent'
 import { TenantAgent } from '../../agent'
 import { IndyBesuDidCreateOptions } from '../../indy-besu-vdr'
-import { CreateDidOptions, DidRegistrar } from '../did-registrar.types'
+import { CreateDidOptions, DidRegistrar, UpdateDidOptions } from '../did-registrar.types'
+import { updateBySettingDidDocument } from '../set-did-document-update'
+
+// The service types the Indy-Besu VDR accepts in a DID document
+export const INDY_BESU_SERVICE_TYPES = ['LinkedDomains', 'DIDCommMessaging', 'CredentialRegistry', 'OID4VCI', 'OID4VP']
 
 export class DidIndyBesuRegistrar implements DidRegistrar {
   public static readonly method = 'indybesu'
 
-  // The Indy-Besu registrar writes the DID as its own controller. Whether the ledger contract accepts another
-  // controller is not verified yet (no Indy-Besu network is available). Tracked as a follow-up.
+  // The Indy Besu DID contract (IndyDidRegistry) makes the DID its own owner (`owner = identity`) and requires the
+  // endorsing signature to come from that identity, so a DID cannot have another controller.
   public readonly supportsController = false
 
+  // Sent by the DID's own account; the owner key `#KEY-1` (the DID's address) never changes
+  public readonly protectedKeyFragment = '#KEY-1'
+
   private readonly network!: string
-  // private readonly endorserPrivateKey!: string
-  // private readonly endorserPublicKey!: string
 
   public constructor(agencyConfig: ConfigType<typeof AgentConfig>) {
     this.network = agencyConfig.indyBesuNetwork
-    // this.endorserPrivateKey = agencyConfig.indyBesuEndorserPrivateKey
-    // this.endorserPublicKey = agencyConfig.indyBesuEndorserPublicKey
   }
 
+  // The endorser is the platform account of IndyBesuModuleConfig, not a key of the tenant wallet
   public async createDid(tenantAgent: TenantAgent, options: CreateDidOptions): Promise<DidCreateResult> {
-    const endorserKeyId = await this.importEndorserDid(tenantAgent)
-
     return await tenantAgent.dids.create<IndyBesuDidCreateOptions>({
       method: DidIndyBesuRegistrar.method,
       options: {
         network: this.network,
-        endorserKeyId,
       },
       secret: {},
     })
   }
 
-  private async importEndorserDid(tenantAgent: TenantAgent): Promise<string> {
-    // try {
-    const key = await tenantAgent.kms.createKey({
-      type: {
-        kty: 'OKP',
-        crv: 'Ed25519',
-      },
-    })
-    return key.keyId
-    // } catch (error) {
-    //   if (error instanceof WalletKeyExistsError) {
-    //     return new Key(TypedArrayEncoder.fromHex(this.endorserPublicKey), KeyType.K256)
-    //   } else {
-    //     throw error
-    //   }
-    // }
+  public async updateDid(tenantAgent: TenantAgent, options: UpdateDidOptions): Promise<DidUpdateResult> {
+    const unsupportedType = options.addServices.find(({ type }) => !INDY_BESU_SERVICE_TYPES.includes(type))
+    if (unsupportedType) {
+      throw new UnprocessableEntityException(
+        `did:indybesu supports service types: ${INDY_BESU_SERVICE_TYPES.join(', ')} (not '${unsupportedType.type}')`,
+      )
+    }
+
+    return await updateBySettingDidDocument(tenantAgent, options)
+  }
+
+  /** `DidService` does not send a second deactivation: the ledger would reject it. */
+  public deactivateDid(tenantAgent: TenantAgent, did: string): Promise<DidDeactivateResult> {
+    return tenantAgent.dids.deactivate({ did })
   }
 }

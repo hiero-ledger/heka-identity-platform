@@ -32,12 +32,7 @@ import {
   DidCommProofV2Protocol,
 } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver } from '@credo-ts/hedera'
-import {
-  IndyVdrAnonCredsRegistry,
-  IndyVdrIndyDidRegistrar,
-  IndyVdrIndyDidResolver,
-  IndyVdrModule,
-} from '@credo-ts/indy-vdr'
+import { IndyVdrAnonCredsRegistry, IndyVdrModule } from '@credo-ts/indy-vdr'
 import { OpenId4VcModule } from '@credo-ts/openid4vc'
 import { TenantsModule } from '@credo-ts/tenants'
 import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
@@ -51,6 +46,7 @@ import { createCredentialRequestToCredentialMapper } from 'utils/oid4vc'
 
 import { TailsService } from '../../revocation/revocation-registry/tails.service'
 import { IndyBesuAnonCredsRegistry, IndyBesuDidRegistrar, IndyBesuDidResolver, IndyBesuModule } from '../indy-besu-vdr'
+import { IndyDidRegistrar, IndyDidResolver } from '../indy-vdr/indy-did'
 
 import { HekaHederaModule } from './hedera'
 
@@ -72,8 +68,8 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
   const anoncredsRegistries: AnonCredsRegistry[] = []
 
   if (agencyConfig.didMethods.includes('indy')) {
-    didResolvers.push(new IndyVdrIndyDidResolver())
-    didRegistrars.push(new IndyVdrIndyDidRegistrar())
+    didResolvers.push(new IndyDidResolver())
+    didRegistrars.push(new IndyDidRegistrar())
     anoncredsRegistries.push(new IndyVdrAnonCredsRegistry())
   }
   if (agencyConfig.didMethods.includes('indybesu')) {
@@ -154,6 +150,8 @@ function getTenantModulesMap(appConfig: ConfigType<typeof AppConfig>, agencyConf
     indyBesu: new IndyBesuModule({
       chainId: agencyConfig.indyBesuChainId,
       nodeAddress: agencyConfig.indyBesuNodeAddress,
+      endorserPrivateKey: agencyConfig.indyBesuEndorserPrivateKey,
+      endorseDidChanges: agencyConfig.indyBesuEndorseDidChanges,
     }),
     hedera: new HekaHederaModule({
       networks: [

@@ -11,8 +11,9 @@ import { TenantAgent } from 'common/agent'
 import AgentConfig from 'config/agent'
 
 import { AuthInfo } from '../../common/auth'
+import { assertDidActiveOnLedger } from '../../common/did-registrar'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
-import { CredentialIssuanceMetadata } from '../../utils/oid4vc'
+import { CredentialIssuanceMetadata, signingKeyId } from '../../utils/oid4vc'
 
 import {
   GetIssuanceSessionByQueryDto,
@@ -66,14 +67,20 @@ export class OpenId4VcIssuanceSessionService {
       // MsoMdoc uses X.509 certificates, not DIDs — skip DID resolution
       let issuerDidUrl: string | undefined
       if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
-        const issuerCredential = credential as { issuer: { did: string } }
+        const issuerCredential = credential as { issuer: { did: string; keyId?: string } }
+        await assertDidActiveOnLedger(tenantAgent, issuerCredential.issuer.did)
         const { didDocument } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
-        if (!didDocument || !didDocument.verificationMethod?.length) {
+        const purposes: Array<'assertionMethod' | 'authentication'> =
+          credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc
+            ? ['assertionMethod']
+            : ['assertionMethod', 'authentication']
+        const { keyId } = issuerCredential.issuer
+        issuerDidUrl = didDocument ? signingKeyId(didDocument, purposes, keyId) : undefined
+        if (!issuerDidUrl) {
           throw new UnprocessableEntityException(
-            `Unable to resolve signing key for DID: ${issuerCredential.issuer.did}`,
+            `DID ${issuerCredential.issuer.did} has no ${keyId ? `key ${keyId}` : 'key'} for signing credentials (a verification method referenced from ${purposes.join(' and ')})`,
           )
         }
-        issuerDidUrl = didDocument.verificationMethod[0].id
       }
 
       let credentialStatus
@@ -114,11 +121,13 @@ export class OpenId4VcIssuanceSessionService {
           namespaces: credential.namespaces,
         }
       } else {
+        // `keyId` is resolved into `didUrl`
+        const { keyId: _keyId, ...issuer } = credential.issuer
         credentialIssuanceMeta = {
           ...credential,
           type,
           issuer: {
-            ...credential.issuer,
+            ...issuer,
             didUrl: issuerDidUrl,
           },
           credentialStatus,

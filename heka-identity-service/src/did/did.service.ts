@@ -1,4 +1,6 @@
-import { DidRepository } from '@credo-ts/core'
+import type { DidDocument, DidRecord, DidResolutionResult } from '@credo-ts/core'
+
+import { DidRepository, DidResolverService, parseDid } from '@credo-ts/core'
 import { EntityManager } from '@mikro-orm/core'
 import {
   BadRequestException,
@@ -8,6 +10,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
@@ -16,16 +19,37 @@ import { Mutex } from 'async-mutex'
 import { Agent, AGENT_TOKEN, TenantAgent } from 'common/agent'
 import { AuthInfo, Role } from 'common/auth'
 import { AuthorizationService } from 'common/authz'
-import { DidRegistrarService } from 'common/did-registrar'
+import {
+  DID_DEACTIVATED_TAG,
+  DidRegistrar,
+  DidRegistrarService,
+  fragmentOf,
+  isDidRecordDeactivated,
+  isStoredDidDeactivated,
+  UpdateDidOptions,
+  VERIFICATION_RELATIONSHIPS,
+} from 'common/did-registrar'
 import { Wallet } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
 import { DidMethod, MAIN_DID_METHOD } from 'common/types'
+import { WalletLockService } from 'common/wallet-lock'
 import { getDidControllerWalletId } from 'utils/auth'
 import { withTenantAgent } from 'utils/multi-tenancy'
 
 import AgentConfig from '../config/agent'
 
-import { CreateDidRequestDto, DidDocumentDto, FindDidRequestDto, GetDidMethodsResponseDto } from './dto'
+import {
+  CreateDidRequestDto,
+  DEFAULT_VERIFICATION_PURPOSES,
+  DidDocumentDto,
+  FindDidRequestDto,
+  GetDidMethodsResponseDto,
+  MAX_DID_UPDATE_OPERATIONS,
+  UpdateDidRequestDto,
+} from './dto'
+
+// How long an update or deactivation waits for another request on the same wallet (seconds)
+const DID_OPERATION_LOCK_TIMEOUT_SECONDS = 60
 
 @Injectable()
 export class DidService {
@@ -42,6 +66,7 @@ export class DidService {
     @Inject(AgentConfig.KEY)
     private readonly agentConfig: ConfigType<typeof AgentConfig>,
     private readonly authorizationService: AuthorizationService,
+    private readonly walletLockService: WalletLockService,
   ) {
     this.logger.child('constructor').trace('<>')
   }
@@ -61,11 +86,13 @@ export class DidService {
     const res = await Promise.all(
       didRecords
         .filter((record) => record.did !== this.agent.agencyConfig.indyEndorserDid) // exclude endorser DID
+        .filter((record) => req.includeDeactivated || !isDidRecordDeactivated(record))
         .map(async (record) => {
-          if (record.didDocument) {
-            return record.didDocument
-          }
-          return await tenantAgent.dids.resolveDidDocument(record.did)
+          const didDocument = record.didDocument ?? (await tenantAgent.dids.resolveDidDocument(record.did))
+          // Active DIDs are returned as before; a deactivated one (only on request) carries the flag
+          return isDidRecordDeactivated(record)
+            ? ({ ...didDocument.toJSON(), deactivated: true } as unknown as DidDocumentDto)
+            : didDocument
         }),
     )
 
@@ -149,12 +176,12 @@ export class DidService {
 
   /**
    * The wallet's own DID of a method, the oldest when there are several, without resolving it. The Indy endorser DID,
-   * which every tenant holds, is not the wallet's own.
+   * which every tenant holds, is not the wallet's own; a DID the wallet deactivated is no longer used.
    */
   public async findOwnDid(tenantAgent: TenantAgent, method: string): Promise<string | undefined> {
     const didRecords = await tenantAgent.dids.getCreatedDids({ method })
     const [oldest] = didRecords
-      .filter((record) => record.did !== this.agent.agencyConfig.indyEndorserDid)
+      .filter((record) => record.did !== this.agent.agencyConfig.indyEndorserDid && !isDidRecordDeactivated(record))
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
     return oldest?.did
   }
@@ -191,10 +218,9 @@ export class DidService {
     if (!wallet) {
       return undefined
     }
-    const didRecords = await withTenantAgent({ agent: this.agent, tenantId: wallet.tenantId }, (tenantAgent) =>
-      tenantAgent.dids.getCreatedDids({ method }),
+    return await withTenantAgent({ agent: this.agent, tenantId: wallet.tenantId }, (tenantAgent) =>
+      this.findOwnDid(tenantAgent, method),
     )
-    return didRecords[0]?.did
   }
 
   public async get(tenantAgent: TenantAgent, did: string): Promise<DidDocumentDto> {
@@ -222,7 +248,134 @@ export class DidService {
       }
     }
 
-    const res = new DidDocumentDto(didDocument)
+    const deactivated =
+      didResolutionResult.didDocumentMetadata.deactivated === true || (await isStoredDidDeactivated(tenantAgent, did))
+    const res = new DidDocumentDto(didDocument, { deactivated })
+
+    logger.trace('<')
+    return res
+  }
+
+  public async update(
+    authInfo: AuthInfo,
+    tenantAgent: TenantAgent,
+    did: string,
+    req: UpdateDidRequestDto,
+  ): Promise<DidDocumentDto> {
+    const logger = this.logger.child('update', { did })
+    logger.trace('>')
+
+    const operationCount =
+      (req.addServices?.length ?? 0) +
+      (req.removeServices?.length ?? 0) +
+      (req.addVerificationMethods?.length ?? 0) +
+      (req.removeVerificationMethods?.length ?? 0)
+    if (operationCount < 1 || operationCount > MAX_DID_UPDATE_OPERATIONS) {
+      throw new BadRequestException(
+        `A DID update must contain between 1 and ${MAX_DID_UPDATE_OPERATIONS} operations (addServices, removeServices, addVerificationMethods, removeVerificationMethods)`,
+      )
+    }
+
+    const res = await this.walletLockService.runExclusive(
+      authInfo.walletId,
+      DID_OPERATION_LOCK_TIMEOUT_SECONDS,
+      async () => {
+        const { didRecord, method } = await this.findOwnDidRecord(tenantAgent, did)
+        const didRegistrar = this.didRegistrarService.getUpdatingDidRegistrar(method, 'update')
+
+        if (isDidRecordDeactivated(didRecord)) {
+          throw new ConflictException('DID is deactivated')
+        }
+        const resolution = await this.resolveFromLedger(tenantAgent, did)
+        if (resolution.didDocumentMetadata.deactivated) {
+          await this.markDeactivated(tenantAgent, didRecord)
+          throw new ConflictException('DID is deactivated')
+        }
+        // Without the ledger document neither the operations nor a deactivation can be checked; the wallet's copy may
+        // be stale, so it is no substitute. Resolvers report transport errors as `notFound` too, so no detail is given
+        const currentDidDocument = resolution.didDocument
+        if (!currentDidDocument) {
+          logger.warn(`Ledger resolution failed: ${resolution.didResolutionMetadata.error ?? 'unknown error'}`)
+          throw new ServiceUnavailableException('Unable to read the current DID document from its ledger; retry later')
+        }
+
+        const options = this.toUpdateOptions(did, currentDidDocument, req, didRegistrar)
+        if (
+          !options.addServices.length &&
+          !options.removeServices.length &&
+          !options.addVerificationMethods.length &&
+          !options.removeVerificationMethods.length
+        ) {
+          logger.info('DID update already applied on the ledger, nothing to write')
+          return new DidDocumentDto(currentDidDocument)
+        }
+        logger.info(
+          `Updating DID: +${options.addServices.length}/-${options.removeServices.length} services, +${options.addVerificationMethods.length}/-${options.removeVerificationMethods.length} verification methods`,
+        )
+        let didDocument: DidDocument
+        try {
+          didDocument = await this.didRegistrarService.updateDid(tenantAgent, method, options)
+        } catch (error) {
+          // A removal may have reached the ledger although the update reported a failure; the error is what the
+          // client gets to see either way
+          await this.deleteKeysRemovedOnLedger(tenantAgent, didRecord, options, didRegistrar)
+          throw error
+        } finally {
+          await this.invalidateCachedDid(tenantAgent, did)
+        }
+        await this.deleteRemovedKeys(tenantAgent, didRecord, didDocument, options, didRegistrar)
+        return new DidDocumentDto(didDocument)
+      },
+    )
+
+    logger.trace('<')
+    return res
+  }
+
+  public async deactivate(authInfo: AuthInfo, tenantAgent: TenantAgent, did: string): Promise<DidDocumentDto> {
+    const logger = this.logger.child('deactivate', { did })
+    logger.trace('>')
+
+    const res = await this.walletLockService.runExclusive(
+      authInfo.walletId,
+      DID_OPERATION_LOCK_TIMEOUT_SECONDS,
+      async () => {
+        const { didRecord, method } = await this.findOwnDidRecord(tenantAgent, did)
+        this.didRegistrarService.getUpdatingDidRegistrar(method, 'deactivate')
+
+        if (isDidRecordDeactivated(didRecord)) {
+          return new DidDocumentDto(await this.documentOf(tenantAgent, didRecord), { deactivated: true })
+        }
+        // A second deactivation would be rejected by some ledgers (did:indybesu), so it is not sent
+        const resolution = await this.resolveFromLedger(tenantAgent, did)
+        if (resolution.didDocumentMetadata.deactivated) {
+          await this.markDeactivated(tenantAgent, didRecord)
+          return new DidDocumentDto(resolution.didDocument ?? (await this.documentOf(tenantAgent, didRecord)), {
+            deactivated: true,
+          })
+        }
+
+        let didDocument: DidDocument
+        try {
+          didDocument = await this.didRegistrarService.deactivateDid(tenantAgent, method, did)
+        } catch (error) {
+          // The deactivation may have reached the ledger although it reported a failure (a lost response)
+          const reconciled = await this.reconcileFailedDeactivation(tenantAgent, didRecord)
+          if (!reconciled) {
+            throw error
+          }
+          logger.warn('Deactivation reported a failure, but the ledger shows the DID deactivated')
+          return new DidDocumentDto(reconciled, { deactivated: true })
+        } finally {
+          await this.invalidateCachedDid(tenantAgent, did)
+        }
+        // The registrar updated the record (its document) in the meantime
+        const [deactivatedRecord] = await tenantAgent.dids.getCreatedDids({ did })
+        await this.markDeactivated(tenantAgent, deactivatedRecord ?? didRecord)
+        logger.info('Deactivated DID')
+        return new DidDocumentDto(didDocument, { deactivated: true })
+      },
+    )
 
     logger.trace('<')
     return res
@@ -232,9 +385,298 @@ export class DidService {
     const logger = this.logger.child('getMethods')
     logger.trace('>')
 
-    const res = new GetDidMethodsResponseDto(this.agentConfig.didMethods)
+    const capabilities = Object.fromEntries(
+      this.agentConfig.didMethods.map((method) => {
+        const registrar = this.didRegistrarService.getDidRegistrar(method)
+        return [
+          method,
+          {
+            update: !!registrar.updateDid,
+            deactivate: !!registrar.deactivateDid,
+            controller: registrar.supportsController,
+          },
+        ]
+      }),
+    )
+    const res = new GetDidMethodsResponseDto(this.agentConfig.didMethods, capabilities)
 
     logger.trace('<')
     return res
+  }
+
+  /**
+   * The record of a DID created by the caller's wallet, after the checks every update and deactivation share: the
+   * shared Indy endorser DID, and that the DID is the wallet's own.
+   */
+  private async findOwnDidRecord(
+    tenantAgent: TenantAgent,
+    did: string,
+  ): Promise<{ didRecord: DidRecord; method: string }> {
+    if (did === this.agent.agencyConfig.indyEndorserDid) {
+      throw new ForbiddenException('The Indy endorser DID is shared by the platform and cannot be changed')
+    }
+    const [didRecord] = await tenantAgent.dids.getCreatedDids({ did })
+    if (!didRecord) {
+      throw new NotFoundException('DID not found in this wallet')
+    }
+    return { didRecord, method: parseDid(didRecord.did).method }
+  }
+
+  /** The DID as its ledger has it now, not from a cache or the wallet's own record. */
+  private async resolveFromLedger(tenantAgent: TenantAgent, did: string): Promise<DidResolutionResult> {
+    return await tenantAgent.dids.resolve(did, { useCache: false, useLocalCreatedDidRecord: false })
+  }
+
+  private async invalidateCachedDid(tenantAgent: TenantAgent, did: string): Promise<void> {
+    await tenantAgent.dependencyManager.resolve(DidResolverService).invalidateCacheForDid(tenantAgent.context, did)
+  }
+
+  private async reconcileFailedDeactivation(
+    tenantAgent: TenantAgent,
+    didRecord: DidRecord,
+  ): Promise<DidDocument | undefined> {
+    try {
+      const resolution = await this.resolveFromLedger(tenantAgent, didRecord.did)
+      if (resolution.didDocumentMetadata?.deactivated !== true) {
+        return undefined
+      }
+      // The registrar may have updated the record before it failed
+      const [currentRecord] = await tenantAgent.dids.getCreatedDids({ did: didRecord.did })
+      await this.markDeactivated(tenantAgent, currentRecord ?? didRecord)
+      return resolution.didDocument ?? (await this.documentOf(tenantAgent, currentRecord ?? didRecord))
+    } catch (error) {
+      // Only a ledger read and the record's storage are involved here, so the message carries no key material
+      this.logger
+        .child('reconcileFailedDeactivation', { did: didRecord.did })
+        .warn(
+          `Could not reconcile the failed deactivation: ${error instanceof Error ? error.message : 'unknown error'}`,
+        )
+      return undefined
+    }
+  }
+
+  private async documentOf(tenantAgent: TenantAgent, didRecord: DidRecord): Promise<DidDocument> {
+    return didRecord.didDocument ?? (await tenantAgent.dids.resolveDidDocument(didRecord.did))
+  }
+
+  private async deleteRemovedKeys(
+    tenantAgent: TenantAgent,
+    recordBefore: DidRecord,
+    didDocument: DidDocument,
+    options: UpdateDidOptions,
+    didRegistrar: DidRegistrar,
+  ): Promise<void> {
+    const removed = new Set(options.removeVerificationMethods)
+    if (!removed.size) {
+      return
+    }
+    const logger = this.logger.child('deleteRemovedKeys', { did: options.did })
+    const protectedFragment = didRegistrar.protectedKeyFragment?.toLowerCase()
+    const keysBefore = recordBefore.keys ?? []
+
+    let failed = 0
+    try {
+      const [recordAfter] = await tenantAgent.dids.getCreatedDids({ did: options.did })
+      if (!recordAfter) {
+        return
+      }
+      const inDocument = new Set(
+        [...(didDocument.verificationMethod ?? []), ...(recordAfter.didDocument?.verificationMethod ?? [])].map(
+          ({ id }) => fragmentOf(id).toLowerCase(),
+        ),
+      )
+      const stillMapped = new Set([
+        ...(recordAfter.keys ?? []).map(({ kmsKeyId }) => kmsKeyId),
+        ...keysBefore
+          .filter(({ didDocumentRelativeKeyId }) => !removed.has(fragmentOf(didDocumentRelativeKeyId)))
+          .map(({ kmsKeyId }) => kmsKeyId),
+      ])
+      const deletable = keysBefore.filter(({ didDocumentRelativeKeyId, kmsKeyId }) => {
+        const fragment = fragmentOf(didDocumentRelativeKeyId)
+        return (
+          removed.has(fragment) &&
+          fragment.toLowerCase() !== protectedFragment &&
+          !inDocument.has(fragment.toLowerCase()) &&
+          !stillMapped.has(kmsKeyId)
+        )
+      })
+      for (const keyId of new Set(deletable.map(({ kmsKeyId }) => kmsKeyId))) {
+        await tenantAgent.kms.deleteKey({ keyId }).catch(() => {
+          failed++
+        })
+      }
+    } catch {
+      logger.warn('Could not delete the private keys of the removed verification methods')
+      return
+    }
+    if (failed) {
+      logger.warn(`Could not delete ${failed} private key(s) of the removed verification methods`)
+    }
+  }
+
+  private async deleteKeysRemovedOnLedger(
+    tenantAgent: TenantAgent,
+    recordBefore: DidRecord,
+    options: UpdateDidOptions,
+    didRegistrar: DidRegistrar,
+  ): Promise<void> {
+    if (!options.removeVerificationMethods.length) {
+      return
+    }
+    const logger = this.logger.child('deleteKeysRemovedOnLedger', { did: options.did })
+    const protectedFragment = didRegistrar.protectedKeyFragment?.toLowerCase()
+
+    let ledgerDocument: DidDocument
+    let removedOnLedger: string[]
+    try {
+      const resolution = await this.resolveFromLedger(tenantAgent, options.did)
+      if (!resolution.didDocument || resolution.didDocumentMetadata?.deactivated === true) {
+        return
+      }
+      ledgerDocument = resolution.didDocument
+      const onLedger = new Set((ledgerDocument.verificationMethod ?? []).map(({ id }) => fragmentOf(id).toLowerCase()))
+      removedOnLedger = options.removeVerificationMethods.filter(
+        (fragment) => !onLedger.has(fragment.toLowerCase()) && fragment.toLowerCase() !== protectedFragment,
+      )
+      if (!removedOnLedger.length) {
+        return
+      }
+
+      // The record must not keep mappings to keys that are deleted below
+      const [currentRecord] = await tenantAgent.dids.getCreatedDids({ did: options.did })
+      if (!currentRecord) {
+        return
+      }
+      const removed = new Set(removedOnLedger)
+      currentRecord.didDocument = ledgerDocument
+      currentRecord.keys = (currentRecord.keys ?? []).filter(
+        ({ didDocumentRelativeKeyId }) => !removed.has(fragmentOf(didDocumentRelativeKeyId)),
+      )
+      await tenantAgent.dependencyManager.resolve(DidRepository).update(tenantAgent.context, currentRecord)
+    } catch {
+      logger.warn('Could not check the ledger for verification methods removed by the failed update')
+      return
+    }
+
+    logger.warn(
+      `The update failed, but the ledger no longer shows ${removedOnLedger.length} removed verification method(s); deleting their private keys`,
+    )
+    await this.deleteRemovedKeys(
+      tenantAgent,
+      recordBefore,
+      ledgerDocument,
+      { ...options, removeVerificationMethods: removedOnLedger },
+      didRegistrar,
+    )
+  }
+
+  private async markDeactivated(tenantAgent: TenantAgent, didRecord: DidRecord): Promise<void> {
+    didRecord.setTag(DID_DEACTIVATED_TAG, true)
+    await tenantAgent.dependencyManager.resolve(DidRepository).update(tenantAgent.context, didRecord)
+  }
+
+  /**
+   * Checks the requested operations against the current document and resolves them to the registrar's options.
+   * Operations the document already reflects are dropped, so a retry after a partly applied update writes only the
+   * rest: an added service with the same type and endpoint, an added verification method (with an explicit id) with the
+   * same purposes, and a removed id the document does not use at all. Each failure is a 422: an added id that exists
+   * with other content, an id to remove that the document uses for another kind of entry, or the key that controls the
+   * DID.
+   */
+  private toUpdateOptions(
+    did: string,
+    didDocument: DidDocument,
+    req: UpdateDidRequestDto,
+    didRegistrar: DidRegistrar,
+  ): UpdateDidOptions {
+    const protectedFragment = didRegistrar.protectedKeyFragment?.toLowerCase()
+    const named = [
+      ...(req.addServices ?? []).map(({ id }) => id),
+      ...(req.removeServices ?? []),
+      ...(req.addVerificationMethods ?? []).flatMap(({ id }) => (id ? [id] : [])),
+      ...(req.removeVerificationMethods ?? []),
+    ]
+    const protectedName = named.find((fragment) => fragment.toLowerCase() === protectedFragment)
+    if (protectedName) {
+      throw new UnprocessableEntityException(`${protectedName} is the key that controls the DID and cannot be changed`)
+    }
+
+    const serviceIds = new Set((didDocument.service ?? []).map(({ id }) => fragmentOf(id)))
+    const verificationMethodIds = new Set((didDocument.verificationMethod ?? []).map(({ id }) => fragmentOf(id)))
+    // Fragments in use anywhere in the document, compared case-insensitively
+    const usedIds = new Set(
+      [
+        ...serviceIds,
+        ...verificationMethodIds,
+        ...VERIFICATION_RELATIONSHIPS.flatMap((relationship) =>
+          (didDocument[relationship] ?? []).map((entry) => fragmentOf(typeof entry === 'string' ? entry : entry.id)),
+        ),
+      ].map((id) => id.toLowerCase()),
+    )
+
+    // Returns the ids still to remove; an id the document does not use at all was removed already
+    const toRemove = (ids: string[], existing: Set<string>, kind: string) => {
+      ids.forEach((id, index) => {
+        if (!existing.has(id) && usedIds.has(id.toLowerCase())) {
+          throw new UnprocessableEntityException(`${kind} ${id} does not exist in the DID document`)
+        }
+        if (ids.indexOf(id) !== index) {
+          throw new UnprocessableEntityException(`${kind} ${id} is named more than once`)
+        }
+      })
+      return ids.filter((id) => existing.has(id))
+    }
+    const removeServices = toRemove(req.removeServices ?? [], serviceIds, 'Service')
+    const removeVerificationMethods = toRemove(
+      req.removeVerificationMethods ?? [],
+      verificationMethodIds,
+      'Verification method',
+    )
+
+    const isApplied = {
+      service: ({ id, type, serviceEndpoint }: { id: string; type: string; serviceEndpoint: string }) =>
+        (didDocument.service ?? []).some(
+          (service) =>
+            fragmentOf(service.id) === id && service.type === type && service.serviceEndpoint === serviceEndpoint,
+        ),
+      verificationMethod: (id: string, purposes: string[]) =>
+        verificationMethodIds.has(id) &&
+        VERIFICATION_RELATIONSHIPS.every(
+          (relationship) =>
+            purposes.includes(relationship) ===
+            (didDocument[relationship] ?? []).some(
+              (entry) => fragmentOf(typeof entry === 'string' ? entry : entry.id) === id,
+            ),
+        ),
+    }
+    const addServices = (req.addServices ?? []).filter((service) => !isApplied.service(service))
+    const addVerificationMethods = (req.addVerificationMethods ?? [])
+      .map(({ id, purposes }) => ({ id, purposes: [...new Set(purposes ?? DEFAULT_VERIFICATION_PURPOSES)] }))
+      .filter(({ id, purposes }) => !id || !isApplied.verificationMethod(id, purposes))
+
+    // Removed ids stay in use: some ledgers apply all operations to the document before the update
+    const claim = (id: string) => {
+      if (usedIds.has(id.toLowerCase())) {
+        throw new UnprocessableEntityException(`${id} already exists in the DID document`)
+      }
+      usedIds.add(id.toLowerCase())
+    }
+    addServices.forEach(({ id }) => claim(id))
+    addVerificationMethods.forEach(({ id }) => id && claim(id))
+    const nextKeyId = () => {
+      let n = 1
+      while (usedIds.has(`#key-${n}`)) n++
+      claim(`#key-${n}`)
+      return `#key-${n}`
+    }
+
+    return {
+      did,
+      currentDidDocument: didDocument,
+      addServices: addServices.map(({ id, type, serviceEndpoint }) => ({ id, type, serviceEndpoint })),
+      removeServices,
+      addVerificationMethods: addVerificationMethods.map(({ id, purposes }) => ({ id: id ?? nextKeyId(), purposes })),
+      removeVerificationMethods,
+    }
   }
 }

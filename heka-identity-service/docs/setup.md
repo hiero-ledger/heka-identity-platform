@@ -178,6 +178,23 @@ The service binds to the ports listed under [HTTP server (Express)](#http-server
 yarn test
 ```
 
+## Local Indy-Besu network
+
+`did:indybesu` needs an Indy-Besu network. There is no public one; for development and for the Indy-Besu e2e tests, the root Compose project runs a single node under the `indybesu` profile. Its genesis makes the account of the dev endorser key a Trustee. See [docker/indy-besu](../../docker/indy-besu/README.md) for the network contents, wallet access and reset.
+
+1. Add `indybesu` to the enabled DID methods:
+   - When running in docker, set `IDENTITY_SERVICE_DID_METHODS=indy,key,hedera,indybesu` in the repository root `.env`.
+   - When running service standalone, set `DID_METHODS=indy,key,hedera,indybesu` in `heka-identity-service/.env`.
+2. Start the network with the stack from the repository root:
+   ```sh
+   docker compose --profile keycloak --profile indybesu up -d --build
+   ```
+   Or the node alone: `docker compose --profile indybesu up -d indy-besu`.
+
+- `INDY_BESU_NODE_ADDRESS=http://localhost:8545`, `INDY_BESU_CHAIN_ID=1337` and `INDY_BESU_NETWORK=testnet` are the defaults for a host-run service; the Compose service uses `http://indy-besu:8545`.
+- Gas is free on this network and every account may send transactions, so the DIDs' own accounts send their updates and deactivations without funds.
+- Run the Indy-Besu e2e tests, which are skipped unless `DID_METHODS` contains `indybesu`: `DID_METHODS=indy,key,hedera,indybesu yarn vitest run test/dids.e2e.test.ts test/openid4vc-issuance-session.test.ts`.
+
 ## CORS Configuration
 
 Cross-Origin Resource Sharing (CORS) controls which browser origins are permitted to call the Heka Identity Service API.
@@ -434,20 +451,27 @@ The demo account is created by the provider recipe: the Keycloak realm ships the
 
 **Hyperledger Indy** — when `indy` is enabled:
 
-| Variable             | Default                                        | Description                                    |
-| -------------------- | ---------------------------------------------- | ---------------------------------------------- |
-| `INDY_ENDORSER_SEED` | _(dev seed)_                                   | Endorser seed for writing to the Indy network. |
-| `INDY_ENDORSER_DID`  | `did:indy:bcovrin:test:4bbYgjU6JbV4DShPbGoQcA` | Endorser DID.                                  |
+| Variable                   | Default                                        | Description                                                                                                                                                                                                                                    |
+| -------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INDY_ENDORSER_SEED`       | _(dev seed)_                                   | Endorser seed for writing to the Indy network.                                                                                                                                                                                                 |
+| `INDY_ENDORSER_DID`        | `did:indy:bcovrin:test:4bbYgjU6JbV4DShPbGoQcA` | Endorser DID.                                                                                                                                                                                                                                  |
+| `INDY_ENDORSE_DID_CHANGES` | `false`                                        | `true`: the endorser also signs DID updates and deactivations. Needed on ledgers whose auth rules require an endorser for DIDs without a role (the did:indy spec leaves it to the ledger); BCovrin test accepts the DID's own signature alone. |
+
+Credo signs endorsements with the wallet of the tenant whose DID, schema, credential definition or revocation registry is written, so the endorser DID and its key (from `INDY_ENDORSER_SEED`) are imported into each such wallet on its first Indy write.
 
 **Indy Besu** — when `indybesu` is enabled:
 
-| Variable                         | Default                 | Description                         |
-| -------------------------------- | ----------------------- | ----------------------------------- |
-| `INDY_BESU_CHAIN_ID`             | `1337`                  | EVM chain ID.                       |
-| `INDY_BESU_NODE_ADDRESS`         | `http://localhost:8545` | RPC endpoint.                       |
-| `INDY_BESU_NETWORK`              | `testnet`               | Indy Besu network identifier.       |
-| `INDY_BESU_ENDORSER_PRIVATE_KEY` | _(dev key)_             | Endorser private key (32-byte hex). |
-| `INDY_BESU_ENDORSER_PUBLIC_KEY`  | _(dev key)_             | Endorser public key.                |
+| Variable                         | Default                 | Description                                                                                                                                                                                   |
+| -------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INDY_BESU_CHAIN_ID`             | `1337`                  | EVM chain ID.                                                                                                                                                                                 |
+| `INDY_BESU_NODE_ADDRESS`         | `http://localhost:8545` | RPC endpoint.                                                                                                                                                                                 |
+| `INDY_BESU_NETWORK`              | `testnet`               | Indy Besu network identifier.                                                                                                                                                                 |
+| `INDY_BESU_ENDORSER_PRIVATE_KEY` | _(dev key)_             | Private key (32-byte hex) of the platform account that submits the endorsed DID, schema and credential definition transactions; it needs the Trustee, Endorser or Steward role on the ledger. |
+| `INDY_BESU_ENDORSE_DID_CHANGES`  | `false`                 | `true`: DID updates and deactivations are signed by the DID's account and submitted by the endorser, for networks where DID accounts may not send transactions.                               |
+
+The dev endorser key is **public** (it is in this repository) and a Trustee only on a local network ([Local Indy-Besu network](#local-indy-besu-network)). Production must set its own key. Updates and deactivations of DIDs use it only with `INDY_BESU_ENDORSE_DID_CHANGES=true`; otherwise each DID's own account sends them. The endorser key stays in the service configuration; it is never imported into tenant wallets.
+
+The DID key is a secp256k1 key in the tenant wallet; the DID's own key signs the endorsing data and the endorser account submits the transaction.
 
 **Hedera** — see [Hedera Integration](hedera.md) for the full guide. Variables:
 

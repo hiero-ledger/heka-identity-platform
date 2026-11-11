@@ -8,6 +8,7 @@ import { AuthInfo, Role } from 'common/auth'
 import AgentConfig from 'config/agent'
 
 import {
+  didRecordStub,
   didResolutionResultStub,
   issuanceSessionRecordStub,
   issuerRecordStub,
@@ -66,6 +67,7 @@ describe('OpenId4VcIssuanceSessionService', () => {
       context: {},
       dids: {
         resolve: vi.fn(),
+        getCreatedDids: vi.fn().mockResolvedValue([]),
       },
     })
 
@@ -232,6 +234,144 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
     })
 
+    test('rejects an issuer DID without an assertionMethod key (a did:indy #verkey is authentication only) with 422', async () => {
+      const did = 'did:indy:bcovrin:test:Uwy7n9G7pecHxPRxLgsuNU'
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+        issuerRecordStub({
+          issuerId: 'issuer-1',
+          credentialConfigurationsSupported: { 'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' } },
+        }),
+      )
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: { id: did, verificationMethod: [{ id: `${did}#verkey` }], authentication: [`${did}#verkey`] },
+        }),
+      )
+
+      const offer = service.offer(authInfo, tenantAgent, {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          { credentialSupportedId: 'cred-1', format: OpenId4VciCredentialFormatProfile.SdJwtVc, issuer: { did } },
+        ],
+        baseUri: 'https://example.com',
+      } as any)
+
+      await expect(offer).rejects.toThrow(UnprocessableEntityException)
+      await expect(offer).rejects.toThrow('has no key for signing credentials')
+    })
+
+    test('signs with the key named by issuer.keyId and keeps keyId out of the issuance metadata', async () => {
+      const did = 'did:indy:bcovrin:test:Uwy7n9G7pecHxPRxLgsuNU'
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+        issuerRecordStub({
+          issuerId: 'issuer-1',
+          credentialConfigurationsSupported: { 'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' } },
+        }),
+      )
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: {
+            id: did,
+            verificationMethod: [{ id: `${did}#verkey` }, { id: `${did}#key-1` }, { id: `${did}#key-2` }],
+            authentication: [`${did}#verkey`],
+            assertionMethod: ['#key-1', '#key-2'],
+          },
+        }),
+      )
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://...',
+        issuanceSession: issuanceSessionRecordStub({ id: 'session-new', issuerId: 'issuer-1' }),
+      })
+      const offer = (keyId: string) =>
+        service.offer(authInfo, tenantAgent, {
+          publicIssuerId: 'issuer-1',
+          credentials: [
+            {
+              credentialSupportedId: 'cred-1',
+              format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+              issuer: { did, keyId },
+            },
+          ],
+          baseUri: 'https://example.com',
+        } as any)
+
+      await offer('#key-2')
+
+      const [{ issuanceMetadata }] = vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0]
+      expect((issuanceMetadata as any).credentials[0].issuer).toEqual({ did, didUrl: `${did}#key-2` })
+
+      // #verkey exists but is not an assertionMethod; #key-3 does not exist
+      await expect(offer('#verkey')).rejects.toThrow(`DID ${did} has no key #verkey for signing credentials`)
+      await expect(offer('#key-3')).rejects.toThrow(UnprocessableEntityException)
+    })
+
+    test.each([
+      ['deactivated on its ledger (did:indybesu keeps its keys)', { deactivated: true }, undefined],
+      ['deactivated by the wallet', {}, () => true],
+    ])('rejects an issuer DID %s with 422 before signing', async (_, didDocumentMetadata, getTag) => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+        issuerRecordStub({
+          issuerId: 'issuer-1',
+          credentialConfigurationsSupported: { 'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' } },
+        }),
+      )
+      vi.mocked(statusListService.getOrCreate).mockResolvedValue({ id: 'sl-1', lastIndex: 0 } as any)
+      const did = 'did:indybesu:testnet:0x2c7536E3605D9C16a7a3D7b1898e529396a65c23'
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: { id: did, verificationMethod: [{ id: `${did}#KEY-1` }] },
+          didDocumentMetadata,
+        }),
+      )
+      if (getTag) {
+        vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did, getTag })])
+      }
+
+      const offer = service.offer(authInfo, tenantAgent, {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          { credentialSupportedId: 'cred-1', format: OpenId4VciCredentialFormatProfile.SdJwtVc, issuer: { did } },
+        ],
+        baseUri: 'https://example.com',
+      } as any)
+
+      await expect(offer).rejects.toThrow(UnprocessableEntityException)
+      await expect(offer).rejects.toThrow(`DID is deactivated: ${did}`)
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).not.toHaveBeenCalled()
+    })
+
+    test('rejects an issuer DID deactivated outside the service, served locally with empty metadata', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+        issuerRecordStub({
+          issuerId: 'issuer-1',
+          credentialConfigurationsSupported: { 'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' } },
+        }),
+      )
+      const did = 'did:indy:bcovrin:test:Th7MpTaRZVRYnPiabds81Y'
+      // Credo serves a created did:indy from the wallet record with empty metadata; only the ledger shows deactivation
+      vi.mocked(tenantAgent.dids.resolve).mockImplementation((_did, options) =>
+        Promise.resolve(
+          didResolutionResultStub({
+            didDocument: { id: did, verificationMethod: [{ id: `${did}#verkey` }] },
+            didDocumentMetadata: options?.useLocalCreatedDidRecord === false ? { deactivated: true } : {},
+          }),
+        ),
+      )
+
+      const offer = service.offer(authInfo, tenantAgent, {
+        publicIssuerId: 'issuer-1',
+        credentials: [
+          { credentialSupportedId: 'cred-1', format: OpenId4VciCredentialFormatProfile.SdJwtVc, issuer: { did } },
+        ],
+        baseUri: 'https://example.com',
+      } as any)
+
+      await expect(offer).rejects.toThrow(`DID is deactivated: ${did}`)
+      expect(tenantAgent.openid4vc.issuer.createCredentialOffer).not.toHaveBeenCalled()
+    })
+
     test('should create issuance session for SdJwtVc format without credentialStatus', async () => {
       const mockIssuer = issuerRecordStub({
         issuerId: 'issuer-1',
@@ -246,6 +386,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6MkGood#key-1' }],
+            assertionMethod: ['did:key:z6MkGood#key-1'],
+            authentication: ['did:key:z6MkGood#key-1'],
           },
         }),
       )
@@ -309,6 +451,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6MkJwt#key-1' }],
+            assertionMethod: ['did:key:z6MkJwt#key-1'],
+            authentication: ['did:key:z6MkJwt#key-1'],
           },
         }),
       )
@@ -377,6 +521,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6MkLd#key-1' }],
+            assertionMethod: ['did:key:z6MkLd#key-1'],
+            authentication: ['did:key:z6MkLd#key-1'],
           },
         }),
       )
@@ -438,6 +584,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
         didResolutionResultStub({
           didDocument: {
             verificationMethod: [{ id: 'did:key:z6MkLdp#key-1' }],
+            assertionMethod: ['did:key:z6MkLdp#key-1'],
+            authentication: ['did:key:z6MkLdp#key-1'],
           },
         }),
       )
@@ -498,7 +646,11 @@ describe('OpenId4VcIssuanceSessionService', () => {
       vi.mocked(statusListService.location).mockReturnValue('https://example.com/status-lists/sl-4')
       vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
         didResolutionResultStub({
-          didDocument: { verificationMethod: [{ id: 'did:key:z6MkJwt#key-1' }] },
+          didDocument: {
+            verificationMethod: [{ id: 'did:key:z6MkJwt#key-1' }],
+            assertionMethod: ['did:key:z6MkJwt#key-1'],
+            authentication: ['did:key:z6MkJwt#key-1'],
+          },
         }),
       )
       vi.mocked(statusListService.assertHasFreeIndexes).mockImplementation(() => {

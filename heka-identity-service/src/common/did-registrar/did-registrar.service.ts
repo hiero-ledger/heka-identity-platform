@@ -1,3 +1,5 @@
+import type { DidDocument } from '@credo-ts/core'
+
 import { EntityManager } from '@mikro-orm/core'
 import {
   BadRequestException,
@@ -5,15 +7,16 @@ import {
   Injectable,
   InternalServerErrorException,
   OnApplicationBootstrap,
+  UnprocessableEntityException,
 } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
 import AgentConfig from '../../config/agent'
 import { withTenantAgent } from '../../utils/multi-tenancy'
-import { Agent, AGENT_TOKEN } from '../agent'
+import { Agent, AGENT_TOKEN, TenantAgent } from '../agent'
 import { Wallet } from '../entities'
 
-import { CreateDidOptions, DidRegistrar } from './did-registrar.types'
+import { CreateDidOptions, DidRegistrar, UpdateDidOptions } from './did-registrar.types'
 import { DidIndyRegistrar, DidKeyRegistrar, DidIndyBesuRegistrar, DidHederaRegistrar } from './methods'
 
 const DID_REGISTRAR_WALLET_ID = 'DidRegistrarWallet'
@@ -74,6 +77,19 @@ export class DidRegistrarService implements OnApplicationBootstrap {
     return this.getDidRegistrar(method).supportsController
   }
 
+  /**
+   * The registrar of a method that can update (or deactivate) DIDs.
+   */
+  public getUpdatingDidRegistrar(method: string, operation: 'update' | 'deactivate'): DidRegistrar {
+    const didRegistrar = this.getDidRegistrar(method)
+    if (!(operation === 'update' ? !!didRegistrar.updateDid : !!didRegistrar.deactivateDid)) {
+      throw new UnprocessableEntityException(
+        `did:${method} DIDs cannot be ${operation === 'update' ? 'updated' : 'deactivated'}`,
+      )
+    }
+    return didRegistrar
+  }
+
   public async createDid(tenantId: string, method: string = DidKeyRegistrar.method, options: CreateDidOptions) {
     const didRegistrar = this.getDidRegistrar(method)
 
@@ -91,6 +107,32 @@ export class DidRegistrarService implements OnApplicationBootstrap {
     if (didState.state !== 'finished') {
       throw new InternalServerErrorException(
         `DID document was not created: ${didState.state === 'failed' ? didState.reason : 'Not finished'}`,
+      )
+    }
+
+    return didState.didDocument
+  }
+
+  public async updateDid(tenantAgent: TenantAgent, method: string, options: UpdateDidOptions): Promise<DidDocument> {
+    const didRegistrar = this.getUpdatingDidRegistrar(method, 'update')
+
+    const { didState } = await didRegistrar.updateDid!(tenantAgent, options)
+    if (didState.state !== 'finished') {
+      throw new InternalServerErrorException(
+        `DID document was not updated: ${didState.state === 'failed' ? didState.reason : 'Not finished'}`,
+      )
+    }
+
+    return didState.didDocument
+  }
+
+  public async deactivateDid(tenantAgent: TenantAgent, method: string, did: string): Promise<DidDocument> {
+    const didRegistrar = this.getUpdatingDidRegistrar(method, 'deactivate')
+
+    const { didState } = await didRegistrar.deactivateDid!(tenantAgent, did)
+    if (didState.state !== 'finished') {
+      throw new InternalServerErrorException(
+        `DID document was not deactivated: ${didState.state === 'failed' ? didState.reason : 'Not finished'}`,
       )
     }
 
