@@ -1,32 +1,12 @@
-import {
-  BifoldError,
-  EventTypes,
-  NotificationStackParams,
-  Screens as BifoldScreens,
-  TabStacks,
-  useNetwork,
-} from '@bifold/core'
-import { useProofById } from '@bifold/react-hooks'
-import { AnonCredsRequestedAttributeMatch, AnonCredsRequestedPredicateMatch } from '@credo-ts/anoncreds'
-import { ClaimFormat, DifPexInputDescriptorToCredentials, W3cCredentialRecord } from '@credo-ts/core'
-import { DidCommProofFormatPayload } from '@credo-ts/didcomm'
+import { NotificationStackParams, Screens as BifoldScreens, TabStacks } from '@bifold/core'
 import { useNavigation } from '@react-navigation/native'
 import { StackNavigationProp, StackScreenProps } from '@react-navigation/stack'
-import React, { useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { DeviceEventEmitter } from 'react-native'
+import React, { useCallback } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { PresentationRequestView } from '../components/views'
 import LoadingView from '../components/views/LoadingView'
-import {
-  AnoncredsPresentationSubmission,
-  mapAnoncredsProofExchangeRecord,
-  PresentationSubmissionEntry,
-  ProofExchangeFormatKeys,
-} from '../credentials'
-import { useHekaAgent } from '../utils/agent'
-import { formatError } from '../utils/error'
+import { useAriesProofRequest } from '../hooks/useAriesProofRequest'
 
 type Props = StackScreenProps<NotificationStackParams, BifoldScreens.ProofRequest>
 
@@ -35,177 +15,18 @@ export const AriesPresentationRequest: React.FC<Props> = ({ route }) => {
     throw new Error('AriesPresentationRequest route prams were not set properly')
   }
 
-  const { t } = useTranslation()
-
   const { proofId } = route.params
-  const proofRequestRecord = useProofById(proofId)
-
-  const { agent } = useHekaAgent()
 
   const navigation = useNavigation<StackNavigationProp<NotificationStackParams>>()
-  const { assertNetworkConnected } = useNetwork()
 
-  const [isPresentationSubmissionLoading, setIsPresentationSubmissionLoading] = useState(false)
-  const [isShared, setIsShared] = useState(false)
-  const [isDeclining, setIsDeclining] = useState(false)
-  const [presentationSubmission, setPresentationSubmission] = useState<AnoncredsPresentationSubmission | undefined>()
+  const navigateToHome = useCallback(() => {
+    navigation.getParent()?.navigate(TabStacks.HomeStack, { screen: BifoldScreens.Home })
+  }, [navigation])
 
-  useEffect(() => {
-    if (presentationSubmission || !agent) return
+  const { presentationSubmission, isLoading, isShared, isDeclining, accept, decline, setSubmissionEntries } =
+    useAriesProofRequest(proofId, { onDeclined: navigateToHome })
 
-    setIsPresentationSubmissionLoading(true)
-    mapAnoncredsProofExchangeRecord(proofRequestRecord!, agent)
-      .then((presentationSubmission) => setPresentationSubmission(presentationSubmission))
-      .catch((err: unknown) => {
-        agent.config.logger.error('Failed to map the proof request', {
-          proofExchangeRecordId: proofRequestRecord?.id,
-          error: formatError(err),
-        })
-        DeviceEventEmitter.emit(
-          EventTypes.ERROR_ADDED,
-          new BifoldError(t('Error.Title1027'), t('Error.Message1027'), (err as Error)?.message ?? err, 1027)
-        )
-      })
-      .finally(() => setIsPresentationSubmissionLoading(false))
-  }, [agent, proofRequestRecord, presentationSubmission, t])
-
-  useEffect(() => {
-    if (!agent) {
-      DeviceEventEmitter.emit(
-        EventTypes.ERROR_ADDED,
-        new BifoldError(t('Error.Title1027'), t('Error.Message1027'), t('ProofRequest.ProofRequestNotFound'), 1027)
-      )
-    }
-  }, [t, agent])
-
-  useEffect(() => {
-    if (!proofRequestRecord) {
-      DeviceEventEmitter.emit(
-        EventTypes.ERROR_ADDED,
-        new BifoldError(t('Error.Title1027'), t('Error.Message1027'), t('ProofRequest.ProofRequestNotFound'), 1027)
-      )
-    }
-  }, [t, proofRequestRecord])
-
-  const removeOneTimeConnectionIfNeeded = async () => {
-    if (!agent || !presentationSubmission) return
-
-    const { connectionId } = presentationSubmission.proofExchangeRecord
-
-    if (connectionId && presentationSubmission.outOfBandGoalCode?.endsWith('verify.once')) {
-      // Cleanup after the response is sent: a failure is logged, not shown.
-      await agent.didcomm.connections.deleteById(connectionId).catch((err: unknown) =>
-        agent.config.logger.error('Failed to remove the one-time connection', {
-          connectionId,
-          error: formatError(err),
-        })
-      )
-    }
-  }
-
-  const onAccept = async () => {
-    if (!agent || !presentationSubmission || !assertNetworkConnected()) {
-      return
-    }
-
-    try {
-      setIsShared(true)
-
-      let formatInput: DidCommProofFormatPayload<[], 'acceptRequest'>
-
-      if (presentationSubmission.formatKey === ProofExchangeFormatKeys.PresentationExchange) {
-        const selectedCredentials = presentationSubmission.entries.reduce<DifPexInputDescriptorToCredentials>(
-          (result, entry) => {
-            result[entry.inputDescriptorId] = [
-              {
-                claimFormat: ClaimFormat.LdpVc,
-                credentialRecord: entry.selectedOption!.credential.record as W3cCredentialRecord,
-              },
-            ]
-            return result
-          },
-          {}
-        )
-
-        formatInput = {
-          [presentationSubmission.formatKey]: {
-            credentials: selectedCredentials,
-          },
-        }
-      } else {
-        const selectedCredentials = presentationSubmission.entries.reduce<Record<string, string>>((result, entry) => {
-          result[entry.inputDescriptorId] = entry.selectedOption!.credential.id
-          return result
-        }, {})
-
-        const selectedAttributes: Record<string, AnonCredsRequestedAttributeMatch> = {}
-        const selectedPredicates: Record<string, AnonCredsRequestedPredicateMatch> = {}
-
-        for (const [inputDescriptorId, entry] of Array.from(
-          presentationSubmission.entriesWithAnoncredsMatches.entries()
-        )) {
-          const credentialId = selectedCredentials[inputDescriptorId]
-          const match = entry.matches.find((match) => match.credentialId === credentialId) ?? entry.matches[0]
-
-          for (const groupName of entry.groupNames.attributes) {
-            selectedAttributes[groupName] = {
-              ...match,
-              revealed: true,
-            }
-          }
-
-          for (const groupName of entry.groupNames.predicates) {
-            selectedPredicates[groupName] = match
-          }
-        }
-
-        formatInput = {
-          [presentationSubmission.formatKey]: {
-            attributes: selectedAttributes,
-            predicates: selectedPredicates,
-            selfAttestedAttributes: {},
-          },
-        }
-      }
-
-      await agent.didcomm.proofs.acceptRequest({
-        proofExchangeRecordId: presentationSubmission.proofExchangeRecord.id,
-        proofFormats: formatInput,
-      })
-
-      removeOneTimeConnectionIfNeeded()
-    } catch (err: unknown) {
-      setIsShared(false)
-      const error = new BifoldError(t('Error.Title1024'), t('Error.Message1024'), (err as Error)?.message ?? err, 1024)
-      DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
-    }
-  }
-
-  const onDecline = async () => {
-    if (!agent || !proofRequestRecord) return
-
-    try {
-      setIsDeclining(true)
-      await agent.didcomm.proofs.declineRequest({
-        proofExchangeRecordId: proofRequestRecord.id,
-        sendProblemReport: true,
-      })
-
-      removeOneTimeConnectionIfNeeded()
-
-      navigation.getParent()?.navigate(TabStacks.HomeStack, { screen: BifoldScreens.Home })
-    } catch (err: unknown) {
-      await agent.didcomm.proofs.deleteById(proofRequestRecord.id)
-    } finally {
-      setIsDeclining(false)
-    }
-  }
-
-  const setSubmissionEntries = useCallback((entries: PresentationSubmissionEntry[]) => {
-    setPresentationSubmission((submission) => ({ ...submission!, entries }))
-  }, [])
-
-  if (isPresentationSubmissionLoading || !presentationSubmission || isDeclining) {
+  if (isLoading || !presentationSubmission || isDeclining) {
     return <LoadingView />
   }
 
@@ -213,8 +34,8 @@ export const AriesPresentationRequest: React.FC<Props> = ({ route }) => {
     <SafeAreaView style={{ flexGrow: 1 }} edges={['bottom', 'left', 'right']}>
       <PresentationRequestView
         presentationSubmission={presentationSubmission}
-        onAccept={onAccept}
-        onDecline={onDecline}
+        onAccept={accept}
+        onDecline={decline}
         setSubmissionEntries={setSubmissionEntries}
         isShared={isShared}
       />

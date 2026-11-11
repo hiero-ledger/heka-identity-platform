@@ -26,6 +26,16 @@ const CREDENTIALS_ICON_SIZE = 120
 const CREDENTIAL_CARD_WIDTH = 144
 const CREDENTIAL_CARD_HEIGHT = 200
 
+const getNotificationType = (
+  item: { type: string; revocationNotification?: unknown },
+  isCustom: boolean
+): NotificationType => {
+  if (item.type === 'CredentialRecord') {
+    return item.revocationNotification ? NotificationType.Revocation : NotificationType.CredentialOffer
+  }
+  return isCustom ? NotificationType.Custom : NotificationType.ProofRequest
+}
+
 const useStyles = ({
   Spacing,
   TextTheme,
@@ -125,22 +135,14 @@ export const Home: React.FC<HomeProps> = () => {
   }
 
   const renderNotification = (item: any): ReactElement => {
-    if (item.type === 'CredentialRecord') {
-      const notificationType = item.revocationNotification
-        ? NotificationType.Revocation
-        : NotificationType.CredentialOffer
-      return <NotificationCard notificationType={notificationType} notificationRecord={item} />
-    } else if (item.type === 'CustomNotification' && customNotification) {
-      return (
-        <NotificationCard
-          notificationType={NotificationType.Custom}
-          notificationRecord={item}
-          customNotification={customNotification}
-        />
-      )
-    } else {
-      return <NotificationCard notificationType={NotificationType.ProofRequest} notificationRecord={item} />
-    }
+    const isCustom = item.type === 'CustomNotification' && !!customNotification
+    return (
+      <NotificationCard
+        notificationType={getNotificationType(item, isCustom)}
+        notificationRecord={item}
+        customNotification={isCustom ? customNotification : undefined}
+      />
+    )
   }
 
   const renderContactChat = ({ item: connection }: ListRenderItemInfo<DidCommConnectionRecord>) => {

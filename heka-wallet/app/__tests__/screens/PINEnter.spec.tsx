@@ -10,6 +10,9 @@ let mockInitialLoginAttempt: { loginAttempts: number; lockoutDate?: number; serv
   loginAttempts: 0,
 }
 const mockAttemptUpdates: unknown[] = []
+// One store for every useStore() call, like Bifold's context: the PIN hooks read each other's updates
+let mockStoreState: MockStoreState | undefined
+const mockStoreListeners = new Set<() => void>()
 
 interface MockStoreState {
   loginAttempt: { loginAttempts: number; lockoutDate?: number; servedPenalty?: boolean }
@@ -23,7 +26,7 @@ type MockStoreAction =
   | { type: 'preferences/useBiometry'; payload: boolean[] }
 
 jest.mock('@bifold/core', () => {
-  const { useCallback, useReducer } = jest.requireActual('react')
+  const { useSyncExternalStore } = jest.requireActual('react')
   const minute = 60000
   const DispatchAction = {
     ATTEMPT_UPDATED: 'loginAttempt/attemptUpdated',
@@ -52,6 +55,19 @@ jest.mock('@bifold/core', () => {
     disableBiometrics: jest.fn(),
   }
   const services = [{ error: jest.fn() }, {}]
+  const getState = (): MockStoreState => {
+    if (!mockStoreState) mockStoreState = { ...initialState, loginAttempt: mockInitialLoginAttempt }
+    return mockStoreState
+  }
+  const subscribe = (listener: () => void) => {
+    mockStoreListeners.add(listener)
+    return () => mockStoreListeners.delete(listener)
+  }
+  const dispatch = (action: MockStoreAction) => {
+    if (action.type === DispatchAction.ATTEMPT_UPDATED) mockAttemptUpdates.push(action.payload[0])
+    mockStoreState = reducer(getState(), action)
+    mockStoreListeners.forEach((listener) => listener())
+  }
 
   return {
     attemptLockoutConfig: {
@@ -67,17 +83,7 @@ jest.mock('@bifold/core', () => {
     TOKENS: { UTIL_LOGGER: 'logger', CONFIG: 'config' },
     useAuth: () => auth,
     useServices: () => services,
-    useStore: () => {
-      const [state, dispatch] = useReducer(reducer, { ...initialState, loginAttempt: mockInitialLoginAttempt })
-      const recordingDispatch = useCallback(
-        (action: MockStoreAction) => {
-          if (action.type === DispatchAction.ATTEMPT_UPDATED) mockAttemptUpdates.push(action.payload[0])
-          dispatch(action)
-        },
-        [dispatch]
-      )
-      return [state, recordingDispatch]
-    },
+    useStore: () => [useSyncExternalStore(subscribe, getState), dispatch],
   }
 })
 
@@ -128,6 +134,8 @@ describe('PINEnter', () => {
     mockOnPinEntered = undefined
     mockInitialLoginAttempt = { loginAttempts: 0 }
     mockAttemptUpdates.length = 0
+    mockStoreState = undefined
+    mockStoreListeners.clear()
     mockCheckWalletPIN.mockResolvedValue(false)
   })
 

@@ -60,6 +60,7 @@ export class OpenId4VcIssuanceSessionRecordDto {
 
   /**
    * Optional user pin that needs to be provided by the user in the access token request.
+   * Returned only in the offer response: the read routes are open to every role of the tenant.
    */
   @ApiPropertyOptional()
   public userPin?: string

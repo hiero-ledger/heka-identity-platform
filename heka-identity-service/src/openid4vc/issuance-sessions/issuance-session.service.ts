@@ -148,10 +148,11 @@ export class OpenId4VcIssuanceSessionService {
       await this.statusListService.addItems(authInfo, statusList.id, credentialIndexes)
     }
 
-    return {
-      issuanceSession: OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(issuanceSession),
-      credentialOffer,
-    }
+    const issuanceSessionDto = OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(issuanceSession)
+    // Only the offer's creator gets the transaction code, to hand it to the holder out of band
+    issuanceSessionDto.userPin = issuanceSession.userPin
+
+    return { issuanceSession: issuanceSessionDto, credentialOffer }
   }
 
   /**

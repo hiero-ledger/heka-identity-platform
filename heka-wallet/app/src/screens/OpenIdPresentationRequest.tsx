@@ -1,21 +1,13 @@
 import type { StackScreenProps } from '@react-navigation/stack'
 
-import { BifoldError, EventTypes, Screens as BifoldScreens, TabStacks as BifoldTabStacks } from '@bifold/core'
-import React, { useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { DeviceEventEmitter } from 'react-native'
+import { Screens as BifoldScreens, TabStacks as BifoldTabStacks } from '@bifold/core'
+import React, { useCallback } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { PresentationRequestView } from '../components/views'
 import LoadingView from '../components/views/LoadingView'
-import {
-  mapOpenId4VcPresentationRequest,
-  OpenIdPresentationSubmission,
-  PresentationSubmissionEntry,
-  useOpenIdHandlers,
-} from '../credentials'
+import { useOpenIdPresentationRequest } from '../hooks/useOpenIdPresentationRequest'
 import { OpenIdStackParams, Screens } from '../navigators/types'
-import { useHekaAgent } from '../utils/agent'
 
 type Props = StackScreenProps<OpenIdStackParams, Screens.OpenIdPresentationRequest>
 
@@ -27,81 +19,18 @@ export const OpenIdPresentationRequest: React.FC<Props> = ({ navigation, route }
 
   const { request } = route.params
 
-  const { t } = useTranslation()
-
-  const { agent } = useHekaAgent()
-
-  const { resolveOpenId4VpPresentationRequest, acceptOpenId4VpPresentationRequest } = useOpenIdHandlers()
-
-  const [isLoading, setIsLoading] = useState<boolean>(true)
-  const [isShared, setIsShared] = useState<boolean>(false)
-
-  const [presentationSubmission, setPresentationSubmission] = useState<OpenIdPresentationSubmission>()
-
   const navigateToHome = useCallback(() => {
     navigation.getParent()?.navigate(BifoldTabStacks.HomeStack, { screen: BifoldScreens.Home })
   }, [navigation])
 
-  const loadPresentationRequest = useCallback(async () => {
-    if (!agent) return
-    setIsLoading(true)
-    try {
-      const presentationRequest = await resolveOpenId4VpPresentationRequest(request)
-      const mappedSubmission = await mapOpenId4VcPresentationRequest(presentationRequest, agent)
-
-      setPresentationSubmission(mappedSubmission)
-    } catch (error: unknown) {
-      console.error(`Couldn't resolve OpenID4VP presentation request`, {
-        error,
-      })
-      DeviceEventEmitter.emit(
-        EventTypes.ERROR_ADDED,
-        new BifoldError(t('Error.Title1027'), t('Error.Message1027'), (error as Error)?.message ?? error, 1027)
-      )
-      navigateToHome()
-    } finally {
-      setIsLoading(false)
-    }
-  }, [t, agent, resolveOpenId4VpPresentationRequest, request, navigateToHome])
-
-  useEffect(() => {
-    loadPresentationRequest()
-  }, [loadPresentationRequest])
-
-  const onAccept = async () => {
-    try {
-      setIsShared(true)
-
-      if (!presentationSubmission) {
-        throw new Error(t('ProofRequest.RequestedCredentialsCouldNotBeFound'))
-      }
-
-      await acceptOpenId4VpPresentationRequest({
-        submissionParams: presentationSubmission.submissionParams,
-        selectedCredentials: presentationSubmission.entries.reduce<Record<string, string>>((result, entry) => {
-          result[entry.inputDescriptorId] = entry.selectedOption!.credential.id
-          return result
-        }, {}),
-      })
-    } catch (error: unknown) {
-      setIsShared(false)
-      console.error(`Couldn't accept OpenID4VP presentation request`, {
-        error,
-      })
-      DeviceEventEmitter.emit(
-        EventTypes.ERROR_ADDED,
-        new BifoldError(t('Error.Title1027'), t('Error.Message1027'), (error as Error)?.message ?? error, 1027)
-      )
-    }
-  }
+  const { presentationSubmission, isLoading, isShared, accept, setSubmissionEntries } = useOpenIdPresentationRequest(
+    request,
+    { onFailed: navigateToHome }
+  )
 
   const onDecline = async () => {
     navigateToHome()
   }
-
-  const setSubmissionEntries = useCallback((entries: PresentationSubmissionEntry[]) => {
-    setPresentationSubmission((submission) => ({ ...submission!, entries }))
-  }, [])
 
   if (isLoading || !presentationSubmission) {
     return <LoadingView />
@@ -112,7 +41,7 @@ export const OpenIdPresentationRequest: React.FC<Props> = ({ navigation, route }
       <PresentationRequestView
         presentationSubmission={presentationSubmission}
         setSubmissionEntries={setSubmissionEntries}
-        onAccept={onAccept}
+        onAccept={accept}
         onDecline={onDecline}
         isShared={isShared}
       />

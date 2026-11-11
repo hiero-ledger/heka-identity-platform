@@ -7,11 +7,9 @@ import {
   MainContainer,
   StoreProvider as BifoldStoreProvider,
   ThemeProvider,
-  TOKENS,
-  useServices,
 } from '@bifold/core'
-import { GlobalLogger, HekaTheme, theme, useHekaTheme } from '@heka-wallet/shared'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { HekaTheme, theme, useHekaTheme } from '@heka-wallet/shared'
+import React, { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { PaperProvider } from 'react-native-paper'
@@ -20,12 +18,7 @@ import { container as rootContainer } from 'tsyringe'
 
 import { AppContainer } from '../../container-impl'
 import PinKeyPad from '../components/misc/PinKeyPad'
-import { dcApiResolveRequest, dcApiSendErrorResponse, dcApiSendResponse } from '../credentials/dcApi'
-import { HekaWalletAgent } from '../utils/agent'
-import { formatError } from '../utils/error'
-import { unlockDcApiAgent } from '../utils/unlockDcApiAgent'
-
-const logger = GlobalLogger.createContextLogger('DcApiSharing')
+import { useDcApiSharing } from '../hooks/useDcApiSharing'
 
 const useStyles = ({ ColorPalette, TextTheme, Spacing, BorderRadius }: HekaTheme) =>
   StyleSheet.create({
@@ -101,67 +94,7 @@ function DcApiSharingSheet({ request }: DcApiSharingSheetProps) {
   const hekaTheme = useHekaTheme()
   const styles = useStyles(hekaTheme)
 
-  const [hashPIN] = useServices([TOKENS.FN_PIN_HASH_ALGORITHM])
-
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [pinError, setPinError] = useState(false)
-
-  // Guards against sending more than one response (PIN keypad can re-fire; backdrop can be tapped).
-  const completedRef = useRef(false)
-
-  const onPinEntered = useCallback(
-    async (pin: string): Promise<boolean> => {
-      if (completedRef.current) return true
-
-      setPinError(false)
-      setIsProcessing(true)
-
-      let agent: HekaWalletAgent | null
-      try {
-        agent = await unlockDcApiAgent(pin, hashPIN)
-      } catch (error) {
-        logger.error('Failed to open the wallet for a Digital Credentials API request', {
-          error: formatError(error),
-        })
-        completedRef.current = true
-        dcApiSendErrorResponse('Unable to open the wallet')
-        return true
-      }
-
-      if (!agent) {
-        setPinError(true)
-        setIsProcessing(false)
-        return false
-      }
-
-      completedRef.current = true
-      try {
-        const resolved = await dcApiResolveRequest(agent, request)
-        await dcApiSendResponse(agent, resolved)
-        return true
-      } catch (error) {
-        agent.config.logger.error('Failed to build the Digital Credentials API response', {
-          error: formatError(error),
-        })
-        dcApiSendErrorResponse(error instanceof Error ? error.message : 'Unable to share the credential')
-        return true
-      } finally {
-        // Best-effort cleanup, the activity is finishing regardless
-        await agent
-          .shutdown()
-          .catch((error: unknown) =>
-            agent.config.logger.warn('DC API agent shutdown failed', { error: formatError(error) })
-          )
-      }
-    },
-    [request, hashPIN]
-  )
-
-  const onCancel = useCallback(() => {
-    if (completedRef.current) return
-    completedRef.current = true
-    dcApiSendErrorResponse('The request was cancelled')
-  }, [])
+  const { onPinEntered, onCancel, isProcessing, pinError } = useDcApiSharing(request)
 
   return (
     <View style={styles.root}>

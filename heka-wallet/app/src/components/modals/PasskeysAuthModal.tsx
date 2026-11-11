@@ -1,15 +1,14 @@
 import { Button, ButtonLocation, ButtonType, IconButton } from '@bifold/core'
 import { HekaTheme, platformBackIconConfig, useHekaTheme } from '@heka-wallet/shared'
-import { useIsFocused } from '@react-navigation/native'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Modal, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native'
 
-import { useRootStore } from '../../contexts'
+import { usePasskeyAuth } from '../../hooks/usePasskeyAuth'
 import { HieroLogo } from '../misc'
 import { Loader } from '../views/LoadingView'
 
-const useStyles = ({ TextTheme, Spacing }: HekaTheme) => {
+const useStyles = ({ ColorPalette, TextTheme, Spacing }: HekaTheme) => {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -21,6 +20,11 @@ const useStyles = ({ TextTheme, Spacing }: HekaTheme) => {
     },
     details: {
       ...TextTheme.normal,
+      textAlign: 'center',
+    },
+    error: {
+      ...TextTheme.normal,
+      color: ColorPalette.semantic.error,
       textAlign: 'center',
     },
     loaderContainer: {
@@ -59,39 +63,7 @@ export const PasskeysAuthModal: React.FC<Props> = ({
   const theme = useHekaTheme()
   const styles = useStyles(theme)
 
-  const { passkeysStore } = useRootStore()
-
-  const [isLoading, setIsLoading] = useState(false)
-  const isScreenFocused = useIsFocused()
-
-  // Workaround for loading state on iOS if device was locked during auth process
-  useEffect(() => {
-    if (isScreenFocused) {
-      setIsLoading(false)
-    }
-  }, [isScreenFocused])
-
-  const onRegister = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const user = await passkeysStore.getUser()
-      await passkeysStore.register(user)
-      onComplete()
-    } finally {
-      setIsLoading(false)
-    }
-  }, [passkeysStore, onComplete])
-
-  const onAuthenticate = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const user = await passkeysStore.getUser()
-      await passkeysStore.authenticate(user)
-      onComplete()
-    } finally {
-      setIsLoading(false)
-    }
-  }, [passkeysStore, onComplete])
+  const { register, authenticate, isLoading, error } = usePasskeyAuth(onComplete)
 
   return (
     <Modal visible={isVisible} animationType="fade" onRequestClose={onCancel}>
@@ -110,13 +82,14 @@ export const PasskeysAuthModal: React.FC<Props> = ({
           <HieroLogo />
         </View>
         <Text style={styles.details}>{title}</Text>
+        {!!error && <Text style={styles.error}>{t('Error.Problem')}</Text>}
         <View style={styles.loaderContainer}>{isLoading && <Loader size={styles.loaderContainer.minHeight} />}</View>
         <SafeAreaView style={styles.controlsContainer}>
           {useExistingKeyOption && (
             <Button
               title={t('Passkeys.AuthenticateWithExisting')}
               buttonType={ButtonType.Primary}
-              onPress={onAuthenticate}
+              onPress={authenticate}
               disabled={isLoading}
             />
           )}
@@ -124,7 +97,7 @@ export const PasskeysAuthModal: React.FC<Props> = ({
             <Button
               title={t('Passkeys.CreateNew')}
               buttonType={ButtonType.Primary}
-              onPress={onRegister}
+              onPress={register}
               disabled={isLoading}
             />
           )}

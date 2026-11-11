@@ -1,33 +1,27 @@
 import {
-  BifoldAgent,
-  BifoldError,
   ButtonLocation,
   ContactStackParams,
-  EventTypes,
   formatTime,
   getConnectionName,
   IconButton,
   Screens,
   Stacks,
-  TOKENS,
-  useServices,
   useStore,
 } from '@bifold/core'
 import { useChatMessagesByConnection } from '@bifold/core/src/hooks/chat-messages'
 import { RootStackParams } from '@bifold/core/src/types/navigators'
-import { fetchContactsByLatestMessage } from '@bifold/core/src/utils/contacts'
 import { toImageSource } from '@bifold/core/src/utils/credential'
-import { useConnections, useOptionalAgent } from '@bifold/react-hooks'
-import { DidCommConnectionRecord, DidCommConnectionType, DidCommDidExchangeState } from '@credo-ts/didcomm'
+import { DidCommConnectionRecord } from '@credo-ts/didcomm'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
 import { useNavigation } from '@react-navigation/core'
 import { StackNavigationProp } from '@react-navigation/stack'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { DeviceEventEmitter, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 import EmptyListContacts from '../components/misc/EmptyListContacts'
 import LoadingView from '../components/views/LoadingView'
+import { useContacts } from '../utils/useContacts'
 
 const useStyles = ({
   IconSizes,
@@ -144,49 +138,11 @@ export const ContactListItem: React.FC<ConnectionRowProps> = ({ connection }) =>
 
 const ListContacts: React.FC<ListContactsProps> = ({ navigation }) => {
   const { t } = useTranslation()
-  const { agent } = useOptionalAgent()
   const [store] = useStore()
-  const [{ contactHideList }] = useServices([TOKENS.CONFIG])
 
   const { ColorPalette, Spacing } = useHekaTheme()
 
-  const { records: connectionRecords } = useConnections()
-
-  const [connections, setConnections] = useState<DidCommConnectionRecord[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchAndSetConnections = async () => {
-      if (!agent || !connectionRecords) return
-      let orderedContacts = await fetchContactsByLatestMessage(agent as BifoldAgent, connectionRecords)
-
-      // if developer mode is disabled, filter out mediator connections and connections in the hide list
-      if (!store.preferences.developerModeEnabled) {
-        orderedContacts = orderedContacts.filter((r) => {
-          return (
-            !r.connectionTypes.includes(DidCommConnectionType.Mediator) &&
-            !contactHideList?.includes((r.theirLabel || r.alias) ?? '') &&
-            r.state === DidCommDidExchangeState.Completed
-          )
-        })
-      }
-
-      setConnections(orderedContacts)
-    }
-
-    fetchAndSetConnections()
-      .catch((err) => {
-        agent?.config.logger.error('Error fetching contacts:', err)
-        const error = new BifoldError(
-          t('Error.Title1046'),
-          t('Error.Message1046'),
-          (err as Error)?.message ?? err,
-          1046
-        )
-        DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
-      })
-      .finally(() => setIsLoading(false))
-  }, [agent, connectionRecords, contactHideList, store.preferences.developerModeEnabled, t])
+  const { contacts: connections, isLoading } = useContacts()
 
   const onPressAddContact = useCallback(() => {
     navigation.getParent()?.navigate(Stacks.ConnectStack, { screen: Screens.Scan, params: { defaultToConnect: true } })

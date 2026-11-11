@@ -304,7 +304,9 @@ const translation = {
     "EnterNewPinTitle": "Digite um novo PIN",
     "EnterNewPinText": "Escolha um novo PIN para sua carteira. Certifique-se de que seja algo que você se lembre. Se você esquecê-lo, pode ser necessário configurar sua carteira novamente e readicionar suas credenciais.",
     "ReEnterNewPinTitle": "Confirme o novo PIN",
-    "ReEnterNewPinText": "Por favor, confirme o novo PIN para proteger sua carteira. Se você esquecê-lo, pode ser necessário configurar sua carteira novamente e readicionar suas credenciais."
+    "ReEnterNewPinText": "Por favor, confirme o novo PIN para proteger sua carteira. Se você esquecê-lo, pode ser necessário configurar sua carteira novamente e readicionar suas credenciais.",
+    "PinChangeFailedTitle": "Não foi possível alterar o PIN",
+    "PinChangeFailedMessage": "Seu PIN não foi alterado. Tente novamente."
   },
   "PINEnter": {
     "EnterPIN": "Digite o PIN da sua carteira"

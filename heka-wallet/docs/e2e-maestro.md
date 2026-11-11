@@ -107,6 +107,19 @@ Proves: the wallet receives, accepts and stores an OID4VCI SD-JWT credential fro
 
 With the `heka-e2e` client the test data lands in the `Organization_heka-e2e` tenant, never in `Administration` or `Organization_heka-sso`.
 
+### `credential-offer-tx-code.yaml` — SD-JWT credential offer with a transaction code asks for the code, then is accepted
+
+Tags: `backend`. Needs identity-service, Postgres and Keycloak.
+
+1. Runs `subflows/onboard.yaml`
+2. Runs `scripts/create-sd-jwt-offer.js` with `TX_CODE_LENGTH=6`: the same offer as `credential-offer.yaml`, but its pre-authorized grant needs a 6-digit transaction code. The script returns the code identity-service generated (`output.txCode`)
+3. Opens the deep link. Runs `subflows/choose-heka-wallet.yaml` if Android asks which app should open it
+4. Waits for the credential PIN prompt, types the code into the Code field and submits it with the keyboard's Enter key (while the keyboard is open, a tap on Confirm only closes it)
+5. Waits for the Credential Offer screen, accepts the offer and taps Done
+6. Checks that Home shows the new credential card
+
+Proves: the wallet asks for the transaction code before it requests the credential, and sends it with the token request. If the prompt is not shown while the offer screen is loading, the flow fails at step 4.
+
 ### Subflows
 
 | Subflow                                       | What it does                                                                                                                                                                                                             | Input                                                              |
@@ -142,10 +155,10 @@ The commands assume a POSIX shell: macOS, Linux, or Git Bash/WSL on Windows. Ste
 
 2. **Pick the build variant.** The `ENABLE_EXTERNAL_AUTH` flag in the app env file decides which flows can run:
 
-   | Build                        | What onboarding does                                    | Flows that can run                                                               |
-   | ---------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------- |
-   | `ENABLE_EXTERNAL_AUTH=false` | Starts at the tutorial; no login                        | `onboarding`, `unlock-with-pin`, `pin-lockout`, `change-pin`, `credential-offer` |
-   | `ENABLE_EXTERNAL_AUTH=true`  | Logs in through Keycloak first, then checks the account | all flows                                                                        |
+   | Build                        | What onboarding does                                    | Flows that can run                                                                                           |
+   | ---------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+   | `ENABLE_EXTERNAL_AUTH=false` | Starts at the tutorial; no login                        | `onboarding`, `unlock-with-pin`, `pin-lockout`, `change-pin`, `credential-offer`, `credential-offer-tx-code` |
+   | `ENABLE_EXTERNAL_AUTH=true`  | Logs in through Keycloak first, then checks the account | all flows                                                                                                    |
 
    For the `false` variant, copy `.env.example`, which has the flag off (`.env.e2e` is git-ignored):
 
@@ -223,20 +236,21 @@ Studio keeps variables in **environments**. Create one per build variant:
 3. Optionally set **Included** / **Excluded** tags, e.g. exclude `external-auth` for the `ENABLE_EXTERNAL_AUTH=false` build.
 4. Select the environment before you run a flow.
 
-| Environment                                          | Variables                                                                                                           |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `local-no-auth` (build `ENABLE_EXTERNAL_AUTH=false`) | `IDENTITY_SERVICE_URL`, `TOKEN_URL`, `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET` — only for `credential-offer`             |
-| `local-auth` (build `ENABLE_EXTERNAL_AUTH=true`)     | `KC_USERNAME`, `KC_PASSWORD`, `KC_EMAIL`, `IDENTITY_SERVICE_URL`, `TOKEN_URL`, `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET` |
+| Environment                                          | Variables                                                                                                                              |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `local-no-auth` (build `ENABLE_EXTERNAL_AUTH=false`) | `IDENTITY_SERVICE_URL`, `TOKEN_URL`, `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET` — only for `credential-offer` and `credential-offer-tx-code` |
+| `local-auth` (build `ENABLE_EXTERNAL_AUTH=true`)     | `KC_USERNAME`, `KC_PASSWORD`, `KC_EMAIL`, `IDENTITY_SERVICE_URL`, `TOKEN_URL`, `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET`                    |
 
-| Variable                             | Used by                          | Local value                                                                                              |
-| ------------------------------------ | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `PIN`                                | every flow except `login`        | Set in each flow (`482916`); add it to the environment only to override                                  |
-| `KC_USERNAME`, `KC_PASSWORD`         | `subflows/login.yaml`            | A user of the `heka-wallet` realm, e.g. `wallet-demo`                                                    |
-| `KC_EMAIL`                           | `subflows/assert-account.yaml`   | The email of `KC_USERNAME`, e.g. `wallet-demo@example.com`                                               |
-| `IDENTITY_SERVICE_URL`               | `scripts/create-sd-jwt-offer.js` | `http://localhost:3000`                                                                                  |
-| `TOKEN_URL`                          | `scripts/create-sd-jwt-offer.js` | `http://localhost:8080/realms/heka-platform/protocol/openid-connect/token`                               |
-| `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET` | `scripts/create-sd-jwt-offer.js` | Client `heka-e2e`. Its token needs an issuer-capable role: `Admin`, `OrgAdmin`, `OrgManager` or `Issuer` |
-| `ISSUER_TOKEN`                       | `scripts/create-sd-jwt-offer.js` | Optional: a ready access token; replaces `TOKEN_URL`, `E2E_CLIENT_ID` and `E2E_CLIENT_SECRET`            |
+| Variable                             | Used by                          | Local value                                                                                                                                                |
+| ------------------------------------ | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PIN`                                | every flow except `login`        | Set in each flow (`482916`); add it to the environment only to override                                                                                    |
+| `KC_USERNAME`, `KC_PASSWORD`         | `subflows/login.yaml`            | A user of the `heka-wallet` realm, e.g. `wallet-demo`                                                                                                      |
+| `KC_EMAIL`                           | `subflows/assert-account.yaml`   | The email of `KC_USERNAME`, e.g. `wallet-demo@example.com`                                                                                                 |
+| `IDENTITY_SERVICE_URL`               | `scripts/create-sd-jwt-offer.js` | `http://localhost:3000`                                                                                                                                    |
+| `TOKEN_URL`                          | `scripts/create-sd-jwt-offer.js` | `http://localhost:8080/realms/heka-platform/protocol/openid-connect/token`                                                                                 |
+| `E2E_CLIENT_ID`, `E2E_CLIENT_SECRET` | `scripts/create-sd-jwt-offer.js` | Client `heka-e2e`. Its token needs an issuer-capable role: `Admin`, `OrgAdmin`, `OrgManager` or `Issuer`                                                   |
+| `ISSUER_TOKEN`                       | `scripts/create-sd-jwt-offer.js` | Optional: a ready access token; replaces `TOKEN_URL`, `E2E_CLIENT_ID` and `E2E_CLIENT_SECRET`                                                              |
+| `TX_CODE_LENGTH`                     | `scripts/create-sd-jwt-offer.js` | Set by `credential-offer-tx-code.yaml` (`6`); not an environment variable. The offer then needs a numeric code of that length, returned as `output.txCode` |
 
 The local dev password and client secret are in [`heka-sso-service/keycloak/README.md`](../../heka-sso-service/keycloak/README.md). They are dev-only: use them only against a local Keycloak, and never put real credentials in a Studio environment.
 
@@ -288,10 +302,10 @@ The app log (debug builds): `adb shell run-as com.heka.wallet cat files/log.txt`
 
 Two workflows, one suite each. Both call the reusable [`.github/workflows/heka-wallet-e2e-run.yml`](../../.github/workflows/heka-wallet-e2e-run.yml), which holds the steps. They use a GitHub-hosted Android emulator; no Maestro Cloud, no account.
 
-| Workflow                                                                                                  | Suite        | Flows                                                                                             | Build                        | Backend                                                                                  | Runs on pull requests to `main` that change                                                                                                                                                                |
-| --------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`heka-wallet-e2e.yml`](../../.github/workflows/heka-wallet-e2e.yml) — "Heka Wallet device e2e (Maestro)" | `no-backend` | tag `no-backend`: `onboarding`, `unlock-with-pin`, `pin-lockout`, `change-pin`                    | `ENABLE_EXTERNAL_AUTH=false` | none                                                                                     | `heka-wallet/**`                                                                                                                                                                                           |
-| [`heka-e2e.yml`](../../.github/workflows/heka-e2e.yml) — "Heka platform e2e (wallet + backend, Maestro)"  | `backend`    | tags `backend`, `external-auth`: `credential-offer`, `login`; onboarding logs in as `wallet-demo` | `ENABLE_EXTERNAL_AUTH=true`  | root Compose stack: `postgres`, `keycloak` (profile `keycloak`), `heka-identity-service` | `heka-wallet/**` or what the stack builds or mounts: `heka-identity-service/**`, the Keycloak realms and theme, `docker/keycloak/**`, `docker/postgres/**`, root `docker-compose.yml`, root `.env.example` |
+| Workflow                                                                                                  | Suite        | Flows                                                                                                                         | Build                        | Backend                                                                                  | Runs on pull requests to `main` that change                                                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`heka-wallet-e2e.yml`](../../.github/workflows/heka-wallet-e2e.yml) — "Heka Wallet device e2e (Maestro)" | `no-backend` | tag `no-backend`: `onboarding`, `unlock-with-pin`, `pin-lockout`, `change-pin`                                                | `ENABLE_EXTERNAL_AUTH=false` | none                                                                                     | `heka-wallet/**`                                                                                                                                                                                           |
+| [`heka-e2e.yml`](../../.github/workflows/heka-e2e.yml) — "Heka platform e2e (wallet + backend, Maestro)"  | `backend`    | tags `backend`, `external-auth`: `credential-offer`, `credential-offer-tx-code`, `login`; onboarding logs in as `wallet-demo` | `ENABLE_EXTERNAL_AUTH=true`  | root Compose stack: `postgres`, `keycloak` (profile `keycloak`), `heka-identity-service` | `heka-wallet/**` or what the stack builds or mounts: `heka-identity-service/**`, the Keycloak realms and theme, `docker/keycloak/**`, `docker/postgres/**`, root `docker-compose.yml`, root `.env.example` |
 
 Both also run when their own workflow file or the reusable one changes, and by hand (`workflow_dispatch`). `heka-e2e.yml` passes the dev-only Keycloak user and the `heka-e2e` client as `-e` variables in `maestro-args`.
 

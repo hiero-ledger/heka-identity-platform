@@ -251,6 +251,113 @@ describe('E2E issuance session', () => {
     })
   }
 
+  const txCodeLength = 6
+  const preAuthorizedGrant = 'urn:ietf:params:oauth:grant-type:pre-authorized_code'
+
+  async function createTxCodeOffer() {
+    // A new organization per offer: a wallet holds one public DID, and every Admin shares the Administration wallet
+    const orgId = uuid()
+    const authToken = await createAuthToken(uuid(), Role.OrgAdmin, orgId)
+
+    const postDidResponse = await request(app).post('/dids').auth(authToken, { type: 'bearer' }).send({ method: 'key' })
+    expect(postDidResponse.statusCode).toBe(201)
+    const issuerId = (postDidResponse.body as { id: string }).id
+
+    const issuerResponse = await request(app)
+      .post(`/openid4vc/issuer`)
+      .auth(authToken, { type: 'bearer' })
+      .send({
+        publicIssuerId: issuerId,
+        credentialsSupported: [
+          {
+            id: 'SdJwtVcExample',
+            format: 'vc+sd-jwt',
+            vct: 'https://example.com/vct',
+            proof_types_supported: {
+              jwt: { proof_signing_alg_values_supported: [Kms.KnownJwaSignatureAlgorithms.EdDSA] },
+            },
+          },
+        ],
+      })
+    expect(issuerResponse.statusCode).toBe(200)
+
+    const response = await request(app)
+      .post(`/openid4vc/issuance-session/offer`)
+      .auth(authToken, { type: 'bearer' })
+      .send({
+        publicIssuerId: issuerId,
+        preAuthorizedCodeFlowConfig: { txCode: { input_mode: 'numeric', length: txCodeLength } },
+        credentials: [
+          {
+            credentialSupportedId: 'SdJwtVcExample',
+            format: 'vc+sd-jwt',
+            issuer: { method: 'did', did: issuerId },
+            payload: { first_name: 'John' },
+          },
+        ],
+      })
+    expect(response.statusCode).toBe(200)
+
+    const body = response.body as {
+      credentialOffer: string
+      issuanceSession: { id: string; userPin?: string; credentialOfferPayload: { grants: Record<string, unknown> } }
+    }
+    return { ...body, orgId, issuerId }
+  }
+
+  test('returns the transaction code of an offer that requires one', async () => {
+    const { issuanceSession } = await createTxCodeOffer()
+
+    expect(issuanceSession.credentialOfferPayload.grants[preAuthorizedGrant]).toMatchObject({
+      tx_code: { input_mode: 'numeric', length: txCodeLength },
+    })
+    expect(issuanceSession.userPin).toMatch(new RegExp(`^\\d{${txCodeLength}}$`))
+  })
+
+  // The read routes are open to every role of the tenant; the code plus the pre-authorized code redeem the offer
+  test('does not return the transaction code from the issuance session read routes', async () => {
+    const { issuanceSession, orgId, issuerId } = await createTxCodeOffer()
+    const orgMemberToken = await createAuthToken(uuid(), Role.OrgMember, orgId)
+
+    const byIdResponse = await request(app)
+      .get(`/openid4vc/issuance-session/${issuanceSession.id}`)
+      .auth(orgMemberToken, { type: 'bearer' })
+    expect(byIdResponse.statusCode).toBe(200)
+    expect((byIdResponse.body as { id: string }).id).toBe(issuanceSession.id)
+    expect(byIdResponse.body).not.toHaveProperty('userPin')
+
+    const listResponse = await request(app)
+      .get(`/openid4vc/issuance-session`)
+      .query({ publicIssuerId: issuerId })
+      .auth(orgMemberToken, { type: 'bearer' })
+    expect(listResponse.statusCode).toBe(200)
+    const sessions = listResponse.body as Array<{ id: string }>
+    expect(sessions.map((session) => session.id)).toContain(issuanceSession.id)
+    for (const session of sessions) expect(session).not.toHaveProperty('userPin')
+  })
+
+  test('issues an access token for the returned transaction code', async () => {
+    const { credentialOffer, issuanceSession } = await createTxCodeOffer()
+    const resolvedCredentialOffer = await agent.openid4vc.holder.resolveCredentialOffer(credentialOffer)
+
+    const tokenResponse = await agent.openid4vc.holder.requestToken({
+      resolvedCredentialOffer,
+      txCode: issuanceSession.userPin,
+    })
+
+    expect(tokenResponse.accessToken).toEqual(expect.any(String))
+  })
+
+  test('refuses an access token for a wrong transaction code', async () => {
+    const { credentialOffer, issuanceSession } = await createTxCodeOffer()
+    const resolvedCredentialOffer = await agent.openid4vc.holder.resolveCredentialOffer(credentialOffer)
+    const wrongTxCode = issuanceSession.userPin === '000000' ? '111111' : '000000'
+
+    await expect(
+      agent.openid4vc.holder.requestToken({ resolvedCredentialOffer, txCode: wrongTxCode }),
+    ).rejects.toThrow()
+  })
+
   // TODO: re-enable when we increase test coverage. The expected
   // `credentialOfferPayload` still references the legacy `credentials` field
   // which the server no longer emits (only `credential_configuration_ids`

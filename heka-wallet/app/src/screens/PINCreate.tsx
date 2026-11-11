@@ -1,17 +1,16 @@
-import { BifoldError, DispatchAction, EventTypes, Screens, TOKENS, useAuth, useServices, useStore } from '@bifold/core'
-import { createPINValidations } from '@bifold/core/src/utils/PINValidation'
+import { Screens } from '@bifold/core'
 import { HekaTheme, useHekaTheme } from '@heka-wallet/shared'
-import { ParamListBase, useNavigation } from '@react-navigation/native'
+import { ParamListBase } from '@react-navigation/native'
 import { StackScreenProps } from '@react-navigation/stack'
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { StyleSheet, View, DeviceEventEmitter, Text } from 'react-native'
+import { StyleSheet, View, Text } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import PinKeyPad from '../components/misc/PinKeyPad'
 import { AlertModal } from '../components/modals/AlertModal'
 import { Loader } from '../components/views/LoadingView'
-import { useHekaAgent } from '../utils/agent'
+import { PinEntry, usePinCreation } from '../hooks/usePinCreation'
 
 const useStyles = ({ TextTheme, Spacing }: HekaTheme) => {
   return StyleSheet.create({
@@ -36,161 +35,24 @@ interface PINCreateProps extends StackScreenProps<ParamListBase, Screens.CreateP
   setAuthenticated: (status: boolean) => void
 }
 
-interface ModalState {
-  visible: boolean
-  title: string
-  message: string
-  onModalDismiss?: () => void
-}
-
-enum PinEntry {
-  Old,
-  New,
-  NewRepeat,
-}
-
 const PINCreate: React.FC<PINCreateProps> = ({ setAuthenticated, route }) => {
   const updatePin = (route.params as any)?.updatePin
 
-  const [store, dispatch] = useStore()
   const { t } = useTranslation()
 
   const theme = useHekaTheme()
   const styles = useStyles(theme)
 
-  const { agent } = useHekaAgent()
-
-  const { setPIN: setWalletPIN, checkWalletPIN, rekeyWallet } = useAuth()
-
-  const [pinEntry, setPinEntry] = useState(updatePin ? PinEntry.Old : PinEntry.New)
-
-  const [PIN, setPIN] = useState('')
-  const [PINOld, setPINOld] = useState('')
-  const [isPinChecking, setIsPinChecking] = useState(false)
-
-  const [modalState, setModalState] = useState<ModalState>({
-    visible: false,
-    title: '',
-    message: '',
-  })
-  const navigation = useNavigation()
-
-  const [{ PINSecurity }] = useServices([TOKENS.CONFIG, TOKENS.COMPONENT_BUTTON])
-
-  const createPin = useCallback(
-    async (PIN: string) => {
-      try {
-        await setWalletPIN(PIN)
-        // This will trigger initAgent
-        setAuthenticated(true)
-
-        // This dispatch action triggers navigation under-the-hood (since Bifold 3.0.0)
-        dispatch({
-          type: DispatchAction.DID_CREATE_PIN,
-        })
-      } catch (err: unknown) {
-        const error = new BifoldError(
-          t('Error.Title1040'),
-          t('Error.Message1040'),
-          (err as Error)?.message ?? err,
-          1040
-        )
-        DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
-      }
-    },
-    [setWalletPIN, setAuthenticated, dispatch, t]
+  const { pinEntry, isPinChecking, modalState, setModalState, onPinOldSet, onPinSet, onPinRepeatSet } = usePinCreation(
+    updatePin,
+    setAuthenticated
   )
 
-  const changePin = useCallback(
-    async (oldPIN: string, newPIN: string) => {
-      if (!agent) return
-
-      const success = await rekeyWallet(agent, oldPIN, newPIN, store.preferences.useBiometry)
-      if (success) {
-        setModalState({
-          visible: true,
-          title: t('PINChange.PinChangeSuccessTitle'),
-          message: t('PINChange.PinChangeSuccessMessage'),
-          onModalDismiss: () => {
-            navigation.navigate(Screens.Settings as never)
-          },
-        })
-      }
-    },
-    [agent, rekeyWallet, store.preferences.useBiometry, t, navigation]
-  )
-
-  const onPinOldSet = useCallback(
-    async (value: string) => {
-      setIsPinChecking(true)
-      let valid: boolean
-      try {
-        valid = await checkWalletPIN(value)
-      } finally {
-        setIsPinChecking(false)
-      }
-
-      if (!valid) {
-        setModalState({
-          visible: true,
-          title: t('PINCreate.InvalidPIN'),
-          message: t(`PINCreate.Message.OldPINIncorrect`),
-        })
-        return false
-      }
-
-      setPINOld(value)
-      setPinEntry(PinEntry.New)
-      return true
-    },
-    [checkWalletPIN, t]
-  )
-
-  const onPinSet = useCallback(
-    async (value: string) => {
-      const validations = createPINValidations(value, PINSecurity.rules)
-      if (validations.length) {
-        for (const validation of validations) {
-          if (validation.isInvalid) {
-            setModalState({
-              visible: true,
-              title: t('PINCreate.InvalidPIN'),
-              message: t(`PINCreate.Message.${validation.errorName}`),
-            })
-            return false
-          }
-        }
-      }
-
-      setPIN(value)
-      setPinEntry(PinEntry.NewRepeat)
-      return true
-    },
-    [PINSecurity.rules, t]
-  )
-
-  const onPinRepeatSet = useCallback(
-    async (value: string) => {
-      if (value !== PIN) {
-        setModalState({
-          visible: true,
-          title: t('PINCreate.InvalidPIN'),
-          message: t('PINCreate.PINsDoNotMatch'),
-        })
-        return false
-      }
-
-      setIsPinChecking(true)
-      try {
-        updatePin ? await changePin(PINOld, PIN) : await createPin(PIN)
-      } finally {
-        setIsPinChecking(false)
-      }
-
-      return true
-    },
-    [PIN, PINOld, changePin, createPin, t, updatePin]
-  )
+  const pinEntryHandlers: Record<PinEntry, (PIN: string) => Promise<boolean>> = {
+    [PinEntry.Old]: onPinOldSet,
+    [PinEntry.New]: onPinSet,
+    [PinEntry.NewRepeat]: onPinRepeatSet,
+  }
 
   const { title, details } = useMemo(() => {
     switch (pinEntry) {
@@ -249,9 +111,8 @@ const PINCreate: React.FC<PINCreateProps> = ({ setAuthenticated, route }) => {
         <View style={styles.loaderContainer}>
           {isPinChecking && <Loader size={styles.loaderContainer.minHeight} />}
         </View>
-        {pinEntry === PinEntry.Old && <PinKeyPad onPinEntered={onPinOldSet} />}
-        {pinEntry === PinEntry.New && <PinKeyPad onPinEntered={onPinSet} />}
-        {pinEntry === PinEntry.NewRepeat && <PinKeyPad onPinEntered={onPinRepeatSet} />}
+        {/* A new key per step remounts the pad, so the next step starts empty */}
+        <PinKeyPad key={pinEntry} onPinEntered={pinEntryHandlers[pinEntry]} />
       </View>
     </SafeAreaView>
   )

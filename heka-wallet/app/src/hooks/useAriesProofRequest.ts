@@ -1,0 +1,195 @@
+import { BifoldError, EventTypes, useNetwork } from '@bifold/core'
+import { useProofById } from '@bifold/react-hooks'
+import { AnonCredsRequestedAttributeMatch, AnonCredsRequestedPredicateMatch } from '@credo-ts/anoncreds'
+import { ClaimFormat, DifPexInputDescriptorToCredentials, W3cCredentialRecord } from '@credo-ts/core'
+import { DidCommProofFormatPayload } from '@credo-ts/didcomm'
+import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { DeviceEventEmitter } from 'react-native'
+
+import {
+  AnoncredsPresentationSubmission,
+  mapAnoncredsProofExchangeRecord,
+  PresentationSubmissionEntry,
+  ProofExchangeFormatKeys,
+} from '../credentials'
+import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
+
+function buildProofFormatInput(
+  presentationSubmission: AnoncredsPresentationSubmission
+): DidCommProofFormatPayload<[], 'acceptRequest'> {
+  if (presentationSubmission.formatKey === ProofExchangeFormatKeys.PresentationExchange) {
+    const selectedCredentials = presentationSubmission.entries.reduce<DifPexInputDescriptorToCredentials>(
+      (result, entry) => {
+        result[entry.inputDescriptorId] = [
+          {
+            claimFormat: ClaimFormat.LdpVc,
+            credentialRecord: entry.selectedOption!.credential.record as W3cCredentialRecord,
+          },
+        ]
+        return result
+      },
+      {}
+    )
+
+    return {
+      [presentationSubmission.formatKey]: {
+        credentials: selectedCredentials,
+      },
+    }
+  }
+
+  const selectedCredentials = presentationSubmission.entries.reduce<Record<string, string>>((result, entry) => {
+    result[entry.inputDescriptorId] = entry.selectedOption!.credential.id
+    return result
+  }, {})
+
+  const selectedAttributes: Record<string, AnonCredsRequestedAttributeMatch> = {}
+  const selectedPredicates: Record<string, AnonCredsRequestedPredicateMatch> = {}
+
+  for (const [inputDescriptorId, entry] of Array.from(presentationSubmission.entriesWithAnoncredsMatches.entries())) {
+    const credentialId = selectedCredentials[inputDescriptorId]
+    const match = entry.matches.find((match) => match.credentialId === credentialId) ?? entry.matches[0]
+
+    for (const groupName of entry.groupNames.attributes) {
+      selectedAttributes[groupName] = {
+        ...match,
+        revealed: true,
+      }
+    }
+
+    for (const groupName of entry.groupNames.predicates) {
+      selectedPredicates[groupName] = match
+    }
+  }
+
+  return {
+    [presentationSubmission.formatKey]: {
+      attributes: selectedAttributes,
+      predicates: selectedPredicates,
+      selfAttestedAttributes: {},
+    },
+  }
+}
+
+// DIDComm proof request: maps the record, accepts with the selected credentials or declines.
+export const useAriesProofRequest = (proofId: string, { onDeclined }: { onDeclined: () => void }) => {
+  const { t } = useTranslation()
+  const proofRequestRecord = useProofById(proofId)
+  const { agent } = useHekaAgent()
+  const { assertNetworkConnected } = useNetwork()
+
+  const [isPresentationSubmissionLoading, setIsPresentationSubmissionLoading] = useState(false)
+  const [isShared, setIsShared] = useState(false)
+  const [isDeclining, setIsDeclining] = useState(false)
+  const [presentationSubmission, setPresentationSubmission] = useState<AnoncredsPresentationSubmission | undefined>()
+
+  useEffect(() => {
+    if (presentationSubmission || !agent) return
+
+    setIsPresentationSubmissionLoading(true)
+    mapAnoncredsProofExchangeRecord(proofRequestRecord!, agent)
+      .then((presentationSubmission) => setPresentationSubmission(presentationSubmission))
+      .catch((err: unknown) => {
+        agent.config.logger.error('Failed to map the proof request', {
+          proofExchangeRecordId: proofRequestRecord?.id,
+          error: formatError(err),
+        })
+        DeviceEventEmitter.emit(
+          EventTypes.ERROR_ADDED,
+          new BifoldError(t('Error.Title1027'), t('Error.Message1027'), (err as Error)?.message ?? err, 1027)
+        )
+      })
+      .finally(() => setIsPresentationSubmissionLoading(false))
+  }, [agent, proofRequestRecord, presentationSubmission, t])
+
+  useEffect(() => {
+    if (!agent) {
+      DeviceEventEmitter.emit(
+        EventTypes.ERROR_ADDED,
+        new BifoldError(t('Error.Title1027'), t('Error.Message1027'), t('ProofRequest.ProofRequestNotFound'), 1027)
+      )
+    }
+  }, [t, agent])
+
+  useEffect(() => {
+    if (!proofRequestRecord) {
+      DeviceEventEmitter.emit(
+        EventTypes.ERROR_ADDED,
+        new BifoldError(t('Error.Title1027'), t('Error.Message1027'), t('ProofRequest.ProofRequestNotFound'), 1027)
+      )
+    }
+  }, [t, proofRequestRecord])
+
+  const removeOneTimeConnectionIfNeeded = useCallback(async () => {
+    if (!agent || !presentationSubmission) return
+
+    const { connectionId } = presentationSubmission.proofExchangeRecord
+
+    if (connectionId && presentationSubmission.outOfBandGoalCode?.endsWith('verify.once')) {
+      // Cleanup after the response is sent: a failure is logged, not shown.
+      await agent.didcomm.connections.deleteById(connectionId).catch((err: unknown) =>
+        agent.config.logger.error('Failed to remove the one-time connection', {
+          connectionId,
+          error: formatError(err),
+        })
+      )
+    }
+  }, [agent, presentationSubmission])
+
+  const accept = useCallback(async () => {
+    if (!agent || !presentationSubmission || !assertNetworkConnected()) {
+      return
+    }
+
+    try {
+      setIsShared(true)
+
+      await agent.didcomm.proofs.acceptRequest({
+        proofExchangeRecordId: presentationSubmission.proofExchangeRecord.id,
+        proofFormats: buildProofFormatInput(presentationSubmission),
+      })
+
+      removeOneTimeConnectionIfNeeded()
+    } catch (err: unknown) {
+      setIsShared(false)
+      const error = new BifoldError(t('Error.Title1024'), t('Error.Message1024'), (err as Error)?.message ?? err, 1024)
+      DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, error)
+    }
+  }, [agent, presentationSubmission, assertNetworkConnected, removeOneTimeConnectionIfNeeded, t])
+
+  const decline = useCallback(async () => {
+    if (!agent || !proofRequestRecord) return
+
+    try {
+      setIsDeclining(true)
+      await agent.didcomm.proofs.declineRequest({
+        proofExchangeRecordId: proofRequestRecord.id,
+        sendProblemReport: true,
+      })
+
+      removeOneTimeConnectionIfNeeded()
+
+      onDeclined()
+    } catch (err: unknown) {
+      await agent.didcomm.proofs.deleteById(proofRequestRecord.id)
+    } finally {
+      setIsDeclining(false)
+    }
+  }, [agent, proofRequestRecord, removeOneTimeConnectionIfNeeded, onDeclined])
+
+  const setSubmissionEntries = useCallback((entries: PresentationSubmissionEntry[]) => {
+    setPresentationSubmission((submission) => ({ ...submission!, entries }))
+  }, [])
+
+  return {
+    presentationSubmission,
+    isLoading: isPresentationSubmissionLoading,
+    isShared,
+    isDeclining,
+    accept,
+    decline,
+    setSubmissionEntries,
+  }
+}

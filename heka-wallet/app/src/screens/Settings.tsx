@@ -49,6 +49,12 @@ const useStyles = ({ SettingsTheme, Spacing, BorderRadius, TextTheme }: HekaThem
       // TODO: Find a better solution
       marginBottom: -Spacing.xs,
     },
+    sectionHeaderWithIcon: {
+      justifyContent: 'space-between',
+    },
+    sectionHeaderTitle: {
+      flexShrink: 1,
+    },
     sectionSeparator: {
       marginBottom: Spacing.xs,
     },
@@ -175,44 +181,30 @@ const SettingSectionHeader: React.FC<SettingSectionHeaderProps> = ({ iconRight, 
   const { TextTheme } = theme
 
   const [store] = useStore()
+  // The edit icon is offered only with the connection inviter capability
+  const icon = store.preferences.useConnectionInviterCapability ? iconRight : undefined
 
-  return store.preferences.useConnectionInviterCapability ? (
-    <View
-      style={{
-        ...styles.sectionItem,
-        ...styles.sectionHeader,
-        justifyContent: iconRight ? 'space-between' : undefined,
-      }}
-    >
-      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-        {title && (
-          <Text
-            testID={titleTestID}
-            numberOfLines={1}
-            accessibilityRole={'header'}
-            style={[TextTheme.label, { flexShrink: 1 }]}
-          >
-            {title}
-          </Text>
-        )}
-      </View>
-      {iconRight && (
+  return (
+    <View style={[styles.sectionItem, styles.sectionHeader, icon && styles.sectionHeaderWithIcon]}>
+      {title && (
+        <Text
+          testID={titleTestID}
+          numberOfLines={1}
+          accessibilityRole={'header'}
+          style={[TextTheme.label, styles.sectionHeaderTitle]}
+        >
+          {title}
+        </Text>
+      )}
+      {icon && (
         <IconButton
           buttonLocation={ButtonLocation.Right}
-          accessibilityLabel={iconRight.accessibilityLabel!}
-          testID={iconRight.testID!}
-          onPress={iconRight.action!}
+          accessibilityLabel={icon.accessibilityLabel!}
+          testID={icon.testID!}
+          onPress={icon.action!}
           icon={'pencil'}
           iconTintColor={TextTheme.headingThree.color}
         />
-      )}
-    </View>
-  ) : (
-    <View style={[styles.sectionItem, styles.sectionHeader]}>
-      {title && (
-        <Text accessibilityRole={'header'} style={TextTheme.label}>
-          {title}
-        </Text>
       )}
     </View>
   )
