@@ -10,7 +10,7 @@ import { DidKeyRegistrar } from 'common/did-registrar/methods'
 import { Role } from 'src/common/auth'
 import { uuid } from 'src/utils/misc'
 
-import { initializeMikroOrm, startTestApp } from './helpers'
+import { escapeRegExp, initializeMikroOrm, startTestApp } from './helpers'
 import { createAuthToken } from './helpers/jwt'
 import { createAgent, TestAgentModulesMap } from './helpers/test-agent'
 
@@ -159,7 +159,7 @@ describe('E2E issuance session', () => {
         new RegExp(
           `^openid-credential-offer://\\?credential_offer_uri=` +
             `http[^/]+` +
-            encodeURIComponent(`/oid4vci/${issuerId}/offers/`).replace(/\./g, '\\.') +
+            escapeRegExp(encodeURIComponent(`/oid4vci/${issuerId}/offers/`)) +
             `[^/]+$`,
         ),
       ),

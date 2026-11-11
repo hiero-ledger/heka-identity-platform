@@ -1,22 +1,33 @@
 #!/usr/bin/env node
 
 import readline from 'node:readline'
-import crypto from 'node:crypto'
 
 import {
   AgentCard,
-  DataPart,
-  FilePart,
   Message,
-  MessageSendParams,
   Part,
+  Role,
+  SendMessageRequest,
   Task,
   TaskArtifactUpdateEvent,
+  TaskState,
   TaskStatusUpdateEvent,
+  taskStateToJSON,
 } from '@a2a-js/sdk'
-import { A2AClient } from '@a2a-js/sdk/client'
+import {
+  BeforeArgs,
+  CallInterceptor,
+  Client,
+  ClientFactory,
+  ClientFactoryOptions,
+  DefaultAgentCardResolver,
+  JsonRpcTransportFactory,
+  ServiceParameters,
+  withA2AExtensions,
+} from '@a2a-js/sdk/client'
 import { createCredoAgent, CredoAgentWithDidComm } from './credo-helpers'
 import { IN_TASK_OID4VP_EXTENSION_URI, InTaskOpenId4VpMessageMetadata } from './a2a-oid4vp-extension'
+import { requireEnv, TERMINAL_TASK_STATES, textPart, uuid } from './a2a-helpers'
 import * as dotenv from 'dotenv'
 import {
   DidCommConnectionRecord,
@@ -27,18 +38,12 @@ import {
 
 dotenv.config()
 
-if (!process.env.HOLDER_PUBLIC_DID) {
-  throw new Error('HOLDER_PUBLIC_DID environment variable is not set.')
-}
+const HOLDER_PUBLIC_DID = requireEnv('HOLDER_PUBLIC_DID')
 
 // TODO: Switch to 'HOLDER_INVITATION_URL' usage after updating Heka Wallet to Credo 0.6.0+
-// if (!process.env.HOLDER_INVITATION_URL) {
-//   throw new Error('HOLDER_INVITATION_URL environment variable is not set.')
-// }
+// const HOLDER_INVITATION_URL = requireEnv('HOLDER_INVITATION_URL')
 
-const CLI_CLIENT_PORT = !Number.isNaN(parseInt(process.env.CLI_CLIENT_PORT))
-  ? parseInt(process.env.CLI_CLIENT_PORT)
-  : 3010
+const CLI_CLIENT_PORT = Number(process.env.CLI_CLIENT_PORT) || 3010
 
 // ANSI Colors
 const colors = {
@@ -58,137 +63,176 @@ function colorize(color: keyof typeof colors, text: string): string {
   return `${colors[color]}${text}${colors.reset}`
 }
 
-function generateId(): string {
-  return crypto.randomUUID()
-}
-
 let currentTaskId: string | undefined = undefined
 let currentContextId: string | undefined = undefined
 
-const DEMO_AGENT_PORT = process.env.DEMO_AGENT_PORT ?? 10003
+const DEMO_AGENT_PORT = Number(process.env.DEMO_AGENT_PORT) || 10003
 
 const serverUrl = `http://localhost:${DEMO_AGENT_PORT}`
-const client = new A2AClient(serverUrl)
-
-let agentName = 'Agent' // Default, try to get from agent card later
+let client: Client
+let agentName = 'Agent' // Default, replaced by the agent card name
 
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
-  prompt: colorize('cyan', 'You: '),
 })
 
-function printAgentEvent(event: TaskStatusUpdateEvent | TaskArtifactUpdateEvent) {
-  const timestamp = new Date().toLocaleTimeString()
-  const prefix = colorize('magenta', `\n${agentName} [${timestamp}]:`)
+let inputClosed = false
+rl.on('close', () => {
+  inputClosed = true
+})
 
-  // Check if it's a TaskStatusUpdateEvent
-  if (event.kind === 'status-update') {
-    const state = event.status.state
-    let stateEmoji: string
-    let stateColor: keyof typeof colors
+/** Resolves to null once stdin is closed (Ctrl+D, or a piped script running out of input). */
+function question(prompt: string): Promise<string | null> {
+  if (inputClosed) return Promise.resolve(null)
 
-    switch (state) {
-      case 'working':
-        stateEmoji = '⏳'
-        stateColor = 'blue'
-        break
-      case 'input-required':
-        stateEmoji = '🤔'
-        stateColor = 'yellow'
-        break
-      case 'completed':
-        stateEmoji = '✅'
-        stateColor = 'green'
-        break
-      case 'canceled':
-        stateEmoji = '⏹️'
-        stateColor = 'gray'
-        break
-      case 'failed':
-        stateEmoji = '❌'
-        stateColor = 'red'
-        break
-      default:
-        stateEmoji = 'ℹ️' // For other states like submitted, rejected etc.
-        stateColor = 'dim'
-        break
-    }
-
-    console.log(
-      `${prefix} ${stateEmoji} Status: ${colorize(stateColor, state)} (Task: ${event.taskId}, Context: ${event.contextId}) ${event.final ? colorize('bright', '[FINAL]') : ''}`
-    )
-
-    if (event.status.message) {
-      printMessageContent(event.status.message)
-    }
-  } else if (event.kind === 'artifact-update') {
-    console.log(
-      `${prefix} 📄 Artifact Received: ${
-        event.artifact.name || '(unnamed)'
-      } (ID: ${event.artifact.artifactId}, Task: ${event.taskId}, Context: ${event.contextId})`
-    )
-    printMessageContent({
-      messageId: generateId(),
-      kind: 'message',
-      role: 'agent', // Assuming artifact parts are from agent
-      parts: event.artifact.parts,
-      taskId: event.taskId,
-      contextId: event.contextId,
+  return new Promise((resolve) => {
+    const onClose = () => resolve(null)
+    rl.once('close', onClose)
+    rl.question(prompt, (answer) => {
+      rl.removeListener('close', onClose)
+      resolve(answer)
     })
-  } else {
-    console.log(prefix, colorize('yellow', 'Received unknown event type in printAgentEvent:'), event)
+  })
+}
+
+class InTaskOpenId4VpInterceptor implements CallInterceptor {
+  public async before(args: BeforeArgs): Promise<void> {
+    const method = args.input?.method
+    if (method !== 'sendMessage' && method !== 'sendMessageStream') return
+
+    if (!args.options) args.options = {}
+    args.options.serviceParameters = ServiceParameters.createFrom(
+      args.options.serviceParameters,
+      withA2AExtensions(IN_TASK_OID4VP_EXTENSION_URI)
+    )
   }
+
+  public async after(): Promise<void> {
+    return
+  }
+}
+
+async function createClient(): Promise<AgentCard> {
+  console.log(colorize('dim', `Attempting to fetch agent card from agent at: ${serverUrl}`))
+
+  const agentCard = await new DefaultAgentCardResolver().resolve(serverUrl)
+  const factory = new ClientFactory(
+    ClientFactoryOptions.createFrom(ClientFactoryOptions.default, {
+      transports: [new JsonRpcTransportFactory()],
+      clientConfig: { interceptors: [new InTaskOpenId4VpInterceptor()] },
+    })
+  )
+  client = await factory.createFromAgentCard(agentCard)
+  return agentCard
+}
+
+function displayAgentCard(card: AgentCard) {
+  agentName = card.name || 'Agent'
+
+  console.log(colorize('green', `✓ Agent Card Found:`))
+  console.log(`  Name:        ${colorize('bright', agentName)}`)
+  if (card.description) {
+    console.log(`  Description: ${card.description}`)
+  }
+  console.log(`  Version:     ${card.version || 'N/A'}`)
+
+  if (card.capabilities?.streaming) {
+    console.log(`  Streaming:   ${colorize('green', 'Supported')}`)
+  } else {
+    console.log(`  Streaming:   ${colorize('yellow', 'Not Supported (or not specified)')}`)
+  }
+
+  const supportsExtension = card.capabilities?.extensions?.some((ext) => ext.uri === IN_TASK_OID4VP_EXTENSION_URI)
+  console.log(
+    `  OID4VP Auth: ${supportsExtension ? colorize('green', 'Advertised') : colorize('yellow', 'Not advertised')}`
+  )
 }
 
 function printMessageContent(message: Message) {
   message.parts.forEach((part: Part, index: number) => {
     const partPrefix = colorize('red', `  Part ${index + 1}:`)
 
-    if (part.kind === 'text') {
-      console.log(`${partPrefix} ${colorize('green', '📝 Text:')}`, part.text)
-    } else if (part.kind === 'file') {
-      const filePart = part as FilePart
-      console.log(
-        `${partPrefix} ${colorize('blue', '📄 File:')} Name: ${
-          filePart.file.name || 'N/A'
-        }, Type: ${filePart.file.mimeType || 'N/A'}, Source: ${
-          'bytes' in filePart.file ? 'Inline (bytes)' : filePart.file.uri
-        }`
-      )
-    } else if (part.kind === 'data') {
-      const dataPart = part as DataPart
-      console.log(`${partPrefix} ${colorize('yellow', '📊 Data:')}`, JSON.stringify(dataPart.data, null, 2))
-    } else {
-      console.log(`${partPrefix} ${colorize('yellow', 'Unsupported part kind:')}`, part)
+    switch (part.content?.$case) {
+      case 'text':
+        console.log(`${partPrefix} ${colorize('green', '📝 Text:')}`, part.content.value)
+        break
+      case 'data':
+        console.log(`${partPrefix} ${colorize('yellow', '📊 Data:')}`, JSON.stringify(part.content.value, null, 2))
+        break
+      case 'raw':
+        console.log(
+          `${partPrefix} ${colorize('blue', '📄 File:')} Name: ${part.filename || 'N/A'}, Type: ${
+            part.mediaType || 'N/A'
+          }, Source: Inline (bytes)`
+        )
+        break
+      case 'url':
+        console.log(
+          `${partPrefix} ${colorize('blue', '📄 File:')} Name: ${part.filename || 'N/A'}, Type: ${
+            part.mediaType || 'N/A'
+          }, Source: ${part.content.value}`
+        )
+        break
+      default:
+        console.log(`${partPrefix} ${colorize('yellow', 'Unsupported part kind:')}`, part)
     }
   })
 }
 
-async function fetchAndDisplayAgentCard() {
-  console.log(colorize('dim', `Attempting to fetch agent card from agent at: ${serverUrl}`))
+const STATE_EMOJI: Partial<Record<TaskState, string>> = {
+  [TaskState.TASK_STATE_WORKING]: '⏳',
+  [TaskState.TASK_STATE_INPUT_REQUIRED]: '🤔',
+  [TaskState.TASK_STATE_AUTH_REQUIRED]: '🔐',
+  [TaskState.TASK_STATE_COMPLETED]: '✅',
+  [TaskState.TASK_STATE_CANCELED]: '⏹️',
+  [TaskState.TASK_STATE_FAILED]: '❌',
+}
 
-  try {
-    const card: AgentCard = await client.getAgentCard()
-    agentName = card.name || 'Agent'
+function stateLabel(state: TaskState): string {
+  return taskStateToJSON(state)
+    .replace(/^TASK_STATE_/, '')
+    .toLowerCase()
+    .replace(/_/g, '-')
+}
 
-    console.log(colorize('green', `✓ Agent Card Found:`))
+function printStatusUpdate(event: TaskStatusUpdateEvent) {
+  const timestamp = new Date().toLocaleTimeString()
+  const prefix = colorize('magenta', `\n${agentName} [${timestamp}]:`)
+  const state = event.status?.state ?? TaskState.TASK_STATE_UNSPECIFIED
+  const emoji = STATE_EMOJI[state] ?? 'ℹ️'
+  const isFinal = TERMINAL_TASK_STATES.has(state)
 
-    console.log(`  Name:        ${colorize('bright', agentName)}`)
-    if (card.description) {
-      console.log(`  Description: ${card.description}`)
-    }
-    console.log(`  Version:     ${card.version || 'N/A'}`)
+  console.log(
+    `${prefix} ${emoji} Status: ${colorize('cyan', stateLabel(state))} (Task: ${event.taskId}, Context: ${
+      event.contextId
+    }) ${isFinal ? colorize('bright', '[FINAL]') : ''}`
+  )
 
-    if (card.capabilities?.streaming) {
-      console.log(`  Streaming:   ${colorize('green', 'Supported')}`)
-    } else {
-      console.log(`  Streaming:   ${colorize('yellow', 'Not Supported (or not specified)')}`)
-    }
-  } catch (error: any) {
-    console.log(colorize('yellow', `⚠️ Error fetching or parsing agent card`))
-    throw error
+  if (event.status?.message) {
+    printMessageContent(event.status.message)
   }
+}
+
+function printArtifactUpdate(event: TaskArtifactUpdateEvent) {
+  const timestamp = new Date().toLocaleTimeString()
+  const prefix = colorize('magenta', `\n${agentName} [${timestamp}]:`)
+
+  console.log(
+    `${prefix} 📄 Artifact Received: ${event.artifact?.name || '(unnamed)'} (ID: ${
+      event.artifact?.artifactId
+    }, Task: ${event.taskId}, Context: ${event.contextId})`
+  )
+  printMessageContent({
+    messageId: uuid(),
+    contextId: event.contextId,
+    taskId: event.taskId,
+    role: Role.ROLE_AGENT,
+    parts: event.artifact?.parts ?? [],
+    metadata: undefined,
+    extensions: [],
+    referenceTaskIds: [],
+  })
 }
 
 async function createAndProvisionCredoAgent(): Promise<{
@@ -201,7 +245,7 @@ async function createAndProvisionCredoAgent(): Promise<{
 
   // TODO: Use actual DID Exchange to create a connection after updating Credo to 0.6.0+ in Heka Wallet
   // const { connectionRecord: holderConnectionRecord } = await credoAgent.didcomm.oob.receiveInvitationFromUrl(
-  //   process.env.HOLDER_INVITATION_URL,
+  //   HOLDER_INVITATION_URL,
   //   {
   //     label: 'holder',
   //   }
@@ -217,7 +261,7 @@ async function createAndProvisionCredoAgent(): Promise<{
   const holderConnectionRecord = new DidCommConnectionRecord({
     role: DidCommDidExchangeRole.Requester,
     state: DidCommDidExchangeState.Completed,
-    theirDid: process.env.HOLDER_PUBLIC_DID,
+    theirDid: HOLDER_PUBLIC_DID,
     did: didState.didDocument.id,
   })
 
@@ -226,12 +270,150 @@ async function createAndProvisionCredoAgent(): Promise<{
   return { credoAgent, holderConnectionRecord }
 }
 
-function confirmAction(rl: readline.Interface, description: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    rl.question(`${description}\nPlease confirm the action (yes / no): `, (answer) => {
-      resolve(answer.toLowerCase() === 'yes')
-    })
-  })
+function confirmAction(description: string): Promise<boolean> {
+  // A closed stdin resolves to null, which counts as "not confirmed".
+  return question(`${description}\nPlease confirm the action (yes / no): `).then(
+    (answer) => answer?.trim().toLowerCase() === 'yes'
+  )
+}
+
+async function handleAuthRequest(
+  credoAgent: CredoAgentWithDidComm,
+  holderConnectionRecord: DidCommConnectionRecord,
+  event: TaskStatusUpdateEvent
+): Promise<boolean> {
+  const extensionMetadata = event.status?.message?.metadata?.[IN_TASK_OID4VP_EXTENSION_URI] as
+    | InTaskOpenId4VpMessageMetadata
+    | undefined
+
+  if (!extensionMetadata?.authorizationRequest) {
+    console.log(
+      colorize(
+        'yellow',
+        "Received 'auth-required' state, but no OID4VP In-Task Auth metadata is found in the event. Skipping..."
+      )
+    )
+    return false
+  }
+
+  const { authorizationRequest } = extensionMetadata
+
+  // The spec allows an inline `request` object instead of `request_uri`
+  // This demo only implements the `request_uri` variant
+  if (authorizationRequest.request) {
+    console.log(
+      colorize(
+        'yellow',
+        'The agent sent an inline `request` object, but this demo only supports the `request_uri` variant. Skipping...'
+      )
+    )
+    return false
+  }
+
+  if (!authorizationRequest.request_uri) {
+    console.log(colorize('yellow', 'The agent sent an authorization request with no `request_uri`. Skipping...'))
+    return false
+  }
+
+  console.log(colorize('green', `Agent requested additional authorization.`))
+
+  const isWalletInvocationConfirmed = await confirmAction(`Invoke mobile wallet to proceed with authentication?`)
+
+  if (!isWalletInvocationConfirmed) {
+    console.log(colorize('red', 'Authorization cancelled - unable to proceed with the task.'))
+    return false
+  }
+
+  await credoAgent.didcomm.basicMessages.sendMessage(holderConnectionRecord.id, authorizationRequest.request_uri)
+
+  console.log(colorize('dim', 'Authorization request sent to the wallet. Waiting for the agent to verify it...'))
+
+  return true
+}
+
+async function sendMessage(
+  credoAgent: CredoAgentWithDidComm,
+  holderConnectionRecord: DidCommConnectionRecord,
+  text: string
+): Promise<void> {
+  const message: Message = {
+    messageId: uuid(),
+    contextId: currentContextId ?? '',
+    taskId: currentTaskId ?? '',
+    role: Role.ROLE_USER,
+    parts: [textPart(text)],
+    metadata: undefined,
+    extensions: [IN_TASK_OID4VP_EXTENSION_URI],
+    referenceTaskIds: [],
+  }
+
+  const params: SendMessageRequest = {
+    tenant: '',
+    message,
+    configuration: undefined,
+    metadata: undefined,
+  }
+
+  console.log(colorize('red', 'Sending message...'))
+  const stream = client.sendMessageStream(params)
+
+  for await (const response of stream) {
+    const payload = response.payload
+    if (!payload) continue
+
+    if (payload.$case === 'statusUpdate') {
+      const statusEvent = payload.value
+      printStatusUpdate(statusEvent)
+
+      const state = statusEvent.status?.state ?? TaskState.TASK_STATE_UNSPECIFIED
+
+      if (state === TaskState.TASK_STATE_AUTH_REQUIRED) {
+        const requestSentToWallet = await handleAuthRequest(credoAgent, holderConnectionRecord, statusEvent)
+        if (!requestSentToWallet) {
+          // The agent cannot be told out of band that we declined, so it moves on only
+          // after its own auth timeout. Abandon this turn and start the next one fresh.
+          currentTaskId = undefined
+          currentContextId = undefined
+          console.log(colorize('dim', '--- Authorization not completed; returning to the prompt. ---'))
+          return
+        }
+      }
+
+      if (TERMINAL_TASK_STATES.has(state)) {
+        console.log(colorize('yellow', `   Task ${statusEvent.taskId} is final. Clearing current task ID.`))
+        currentTaskId = undefined
+      }
+    } else if (payload.$case === 'artifactUpdate') {
+      printArtifactUpdate(payload.value)
+    } else if (payload.$case === 'task') {
+      const task: Task = payload.value
+      const timestamp = new Date().toLocaleTimeString()
+      console.log(
+        `${colorize('magenta', `\n${agentName} [${timestamp}]:`)} ${colorize('blue', 'ℹ️ Task Stream Event:')} ID: ${
+          task.id
+        }, Context: ${task.contextId}, Status: ${stateLabel(task.status?.state ?? TaskState.TASK_STATE_UNSPECIFIED)}`
+      )
+      currentTaskId = task.id
+      currentContextId = task.contextId
+      if (task.status?.message) {
+        console.log(colorize('gray', '   Task includes message:'))
+        printMessageContent(task.status.message)
+      }
+      if (task.artifacts && task.artifacts.length > 0) {
+        console.log(colorize('gray', `   Task includes ${task.artifacts.length} artifact(s).`))
+      }
+    } else if (payload.$case === 'message') {
+      const msg: Message = payload.value
+      const timestamp = new Date().toLocaleTimeString()
+      console.log(
+        `${colorize('magenta', `\n${agentName} [${timestamp}]:`)} ${colorize('green', '✉️ Message Stream Event:')}`
+      )
+      printMessageContent(msg)
+      if (msg.taskId) currentTaskId = msg.taskId
+      if (msg.contextId) currentContextId = msg.contextId
+    }
+  }
+  console.log(colorize('dim', `--- End of response stream for this input ---`))
 }
 
 async function main() {
@@ -240,157 +422,42 @@ async function main() {
 
   const { credoAgent, holderConnectionRecord } = await createAndProvisionCredoAgent()
 
-  // Fetch the agent card before starting the loop
-  await fetchAndDisplayAgentCard()
+  try {
+    const agentCard = await createClient()
+    displayAgentCard(agentCard)
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : error
+    console.log(colorize('yellow', `⚠️ Could not connect to ${serverUrl} (is the agent running?): ${detail}`))
+    rl.close()
+    await credoAgent.shutdown()
+    process.exit(1)
+  }
 
   console.log(
     colorize('dim', `No active task or context initially. Use '/new' to start a fresh session or send a message.`)
   )
   console.log(colorize('green', `Enter messages, or use '/new' to start a new session. '/exit' to quit.`))
 
-  rl.setPrompt(colorize('cyan', `${agentName} > You: `))
-  rl.prompt()
+  for (;;) {
+    const answer = await question(colorize('cyan', `\n${agentName} > You: `))
 
-  rl.on('line', async (line) => {
-    const input = line.trim()
-    rl.setPrompt(colorize('cyan', `${agentName} > You: `))
+    if (answer === null) break // stdin closed
 
-    if (!input) {
-      rl.prompt()
-      return
-    }
+    const input = answer.trim()
+
+    if (!input) continue
+
+    if (input.toLowerCase() === '/exit') break
 
     if (input.toLowerCase() === '/new') {
       currentTaskId = undefined
       currentContextId = undefined
       console.log(colorize('bright', `✨ Starting new session. Task and Context IDs are cleared.`))
-      rl.prompt()
-      return
-    }
-
-    if (input.toLowerCase() === '/exit') {
-      rl.close()
-      return
-    }
-
-    const messageId = generateId()
-
-    const messagePayload: Message = {
-      messageId,
-      kind: 'message',
-      role: 'user',
-      parts: [
-        {
-          kind: 'text',
-          text: input,
-        },
-      ],
-    }
-
-    if (currentTaskId) {
-      messagePayload.taskId = currentTaskId
-    }
-
-    if (currentContextId) {
-      messagePayload.contextId = currentContextId
-    }
-
-    const params: MessageSendParams = {
-      message: messagePayload,
-      // Optional: configuration for streaming, blocking, etc.
-      // configuration: {
-      //   acceptedOutputModes: ['text/plain', 'application/json'], // Example
-      //   blocking: false // Default for streaming is usually non-blocking
-      // }
+      continue
     }
 
     try {
-      console.log(colorize('red', 'Sending message...'))
-      const stream = client.sendMessageStream(params)
-
-      for await (const event of stream) {
-        const timestamp = new Date().toLocaleTimeString()
-        const prefix = colorize('magenta', `\n${agentName} [${timestamp}]:`)
-
-        if (event.kind === 'status-update') {
-          const typedEvent = event as TaskStatusUpdateEvent
-          printAgentEvent(typedEvent)
-
-          if (typedEvent.status.state === 'auth-required') {
-            const extensionMetadata = typedEvent.status.message.metadata[
-              IN_TASK_OID4VP_EXTENSION_URI
-            ] as InTaskOpenId4VpMessageMetadata
-            if (!extensionMetadata) {
-              console.log(
-                colorize(
-                  'yellow',
-                  "Received 'auth-required' state, but no OID4VP In-Task Auth metadata is found in the event. Skipping..."
-                )
-              )
-            }
-
-            console.log(colorize('green', `Agent requested additional authorization.`))
-
-            const isWalletInvocationConfirmed = await confirmAction(
-              rl,
-              `Invoke mobile wallet to proceed with authentication?`
-            )
-
-            if (isWalletInvocationConfirmed) {
-              await credoAgent.didcomm.basicMessages.sendMessage(
-                holderConnectionRecord.id,
-                extensionMetadata.authorizationRequest.request_uri
-              )
-            } else {
-              console.log(colorize('red', 'Authorization cancelled - unable to proceed with the task.'))
-            }
-          }
-
-          // If the event is a TaskStatusUpdateEvent and it's final, reset currentTaskId
-          if (typedEvent.status.state !== 'input-required' && typedEvent.final) {
-            console.log(colorize('yellow', `   Task ${typedEvent.taskId} is final. Clearing current task ID.`))
-            currentTaskId = undefined
-            // Optionally, you might want to clear currentContextId as well if a task ending implies context ending.
-            // currentContextId = undefined;
-            // console.log(colorize("dim", `   Context ID also cleared as task is final.`));
-          }
-        } else if (event.kind === 'message') {
-          const msg = event as Message
-          console.log(`${prefix} ${colorize('green', '✉️ Message Stream Event:')}`)
-          printMessageContent(msg)
-          if (msg.taskId && msg.taskId !== currentTaskId) {
-            console.log(colorize('dim', `   Task ID context updated to ${msg.taskId} based on message event.`))
-            currentTaskId = msg.taskId
-          }
-          if (msg.contextId && msg.contextId !== currentContextId) {
-            console.log(colorize('dim', `   Context ID updated to ${msg.contextId} based on message event.`))
-            currentContextId = msg.contextId
-          }
-        } else if (event.kind === 'task') {
-          const task = event as Task
-          console.log(
-            `${prefix} ${colorize('blue', 'ℹ️ Task Stream Event:')} ID: ${task.id}, Context: ${task.contextId}, Status: ${task.status.state}`
-          )
-          if (task.id !== currentTaskId) {
-            console.log(colorize('dim', `   Task ID updated from ${currentTaskId || 'N/A'} to ${task.id}`))
-            currentTaskId = task.id
-          }
-          if (task.contextId && task.contextId !== currentContextId) {
-            console.log(colorize('dim', `   Context ID updated from ${currentContextId || 'N/A'} to ${task.contextId}`))
-            currentContextId = task.contextId
-          }
-          if (task.status.message) {
-            console.log(colorize('gray', '   Task includes message:'))
-            printMessageContent(task.status.message)
-          }
-          if (task.artifacts && task.artifacts.length > 0) {
-            console.log(colorize('gray', `   Task includes ${task.artifacts.length} artifact(s).`))
-          }
-        } else {
-          console.log(prefix, colorize('yellow', 'Received unknown event structure from stream:'), event)
-        }
-      }
-      console.log(colorize('dim', `--- End of response stream for this input ---`))
+      await sendMessage(credoAgent, holderConnectionRecord, input)
     } catch (error: any) {
       const timestamp = new Date().toLocaleTimeString()
       const prefix = colorize('red', `\n${agentName} [${timestamp}] ERROR:`)
@@ -404,13 +471,13 @@ async function main() {
       if (!(error.code || error.data) && error.stack) {
         console.error(colorize('gray', error.stack.split('\n').slice(1, 3).join('\n')))
       }
-    } finally {
-      rl.prompt()
     }
-  }).on('close', () => {
-    console.log(colorize('yellow', '\nExiting A2A Terminal Client. Goodbye!'))
-    process.exit(0)
-  })
+  }
+
+  rl.close()
+  await credoAgent.shutdown()
+  console.log(colorize('yellow', '\nExiting A2A Terminal Client. Goodbye!'))
+  process.exit(0)
 }
 
 main().catch((err) => {
