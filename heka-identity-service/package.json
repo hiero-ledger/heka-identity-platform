@@ -71,7 +71,7 @@
     "@openwallet-foundation/askar-shared": "0.6.0",
     "@types/multer": "1.4.13",
     "async-mutex": "0.5.0",
-    "axios": "1.18.1",
+    "axios": "1.20.0",
     "chalk": "4.1.2",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
@@ -97,7 +97,7 @@
     "uuid": "9.0.1",
     "ws": "8.21.0",
     "yaml": "2.9.0",
-    "zod": "4.3.6",
+    "zod": "4.6.7",
     "zstd-napi": "0.0.10"
   },
   "devDependencies": {
@@ -141,7 +141,7 @@
   "resolutions": {
     "reflect-metadata": "0.2.2",
     "protobufjs": "^7.6.4",
-    "@grpc/grpc-js": "1.12.7",
+    "@grpc/grpc-js": "1.13.6",
     "multer": "^2.2.0",
     "js-yaml": "^4.2.0",
     "bn.js": "^5.2.3",
