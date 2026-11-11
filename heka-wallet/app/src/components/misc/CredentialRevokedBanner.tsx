@@ -36,6 +36,7 @@ const useStyles = ({ BorderRadius, ColorPalette, Spacing, TextTheme }: HekaTheme
   })
 
 interface Props {
+  title?: string
   revocationDate?: Date | string
   comment?: string
   showMessage?: boolean
@@ -44,6 +45,7 @@ interface Props {
 
 // Heka-styled version of the revocation info shown by Bifold's CredentialDetails screen (same strings and behaviour)
 export const CredentialRevokedBanner: React.FC<Props> = ({
+  title,
   revocationDate,
   comment,
   showMessage = true,
@@ -63,7 +65,7 @@ export const CredentialRevokedBanner: React.FC<Props> = ({
     <View style={styles.container} accessibilityRole="alert" testID="CredentialRevokedBanner">
       <View style={styles.headerContainer}>
         <MaterialIcon name={'error-outline'} size={IconSizes.medium} color={ColorPalette.semantic.error} />
-        <Text style={styles.title}>{t('CredentialDetails.CredentialRevokedMessageTitle')}</Text>
+        <Text style={styles.title}>{title ?? t('CredentialDetails.CredentialRevokedMessageTitle')}</Text>
       </View>
       {formattedDate && (
         <Text style={styles.text} testID="RevokedDate">

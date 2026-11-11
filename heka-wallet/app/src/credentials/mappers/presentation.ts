@@ -20,7 +20,11 @@ import {
   DifPresentationExchangeService,
   MdocNameSpaces,
 } from '@credo-ts/core'
-import { DidCommCredentialExchangeRepository, DidCommProofExchangeRecord } from '@credo-ts/didcomm'
+import {
+  DidCommCredentialExchangeRecord,
+  DidCommCredentialExchangeRepository,
+  DidCommProofExchangeRecord,
+} from '@credo-ts/didcomm'
 
 import { HekaWalletAgent } from '../../utils/agent'
 import {
@@ -32,6 +36,7 @@ import {
   PresentationSubmissionEntry,
   PresentationSubmissionType,
   ProofExchangeFormatKeys,
+  RevokedCredentialMatch,
 } from '../types'
 
 import { mapCredentialRecord } from './credential'
@@ -283,6 +288,8 @@ export async function mapAnoncredsProofExchangeRecord(
       name: string
       groupNames: { attributes: string[]; predicates: string[] }
       matches: Array<AnonCredsRequestedPredicateMatch>
+      // Credentials that would satisfy the entry, but are revoked for the requested non-revocation interval
+      revokedMatches: Array<AnonCredsRequestedPredicateMatch>
       requestedAttributes: Set<string>
     }
   >()
@@ -311,13 +318,20 @@ export async function mapAnoncredsProofExchangeRecord(
   } else {
     const proofRequest = formatData.request?.anoncreds ?? formatData.request?.indy
 
-    const credentialsForRequest = await agent.didcomm.proofs.getCredentialsForRequest({
-      proofExchangeRecordId: proofExchangeRecord.id,
-    })
-
     formatKey =
       formatData.request?.anoncreds !== undefined ? ProofExchangeFormatKeys.Anoncreds : ProofExchangeFormatKeys.Indy
     submissionName = proofRequest?.name ?? 'Unknown'
+
+    // By default Credo drops credentials that are revoked for the request's `non_revoked` interval, and the entry looks
+    // like a missing credential. Fetch them all instead (like Bifold's `retrieveCredentialsForProof`) and split them
+    // here: `revoked: true` is exactly what Credo's `filterByNonRevocationRequirements` filter removes.
+    const credentialsForRequest = await agent.didcomm.proofs.getCredentialsForRequest({
+      proofExchangeRecordId: proofExchangeRecord.id,
+      proofFormats:
+        formatKey === ProofExchangeFormatKeys.Anoncreds
+          ? { anoncreds: { filterByNonRevocationRequirements: false } }
+          : { indy: { filterByNonRevocationRequirements: false } },
+    })
 
     const anonCredsCredentials = credentialsForRequest.proofFormats.anoncreds ?? credentialsForRequest.proofFormats.indy
     if (!anonCredsCredentials || !proofRequest) {
@@ -328,8 +342,11 @@ export async function mapAnoncredsProofExchangeRecord(
       type: 'attribute' | 'predicate',
       groupName: string,
       requestedValue: AnonCredsRequestedAttribute | AnonCredsRequestedPredicate,
-      matches: AnonCredsRequestedAttributeMatch[] | AnonCredsRequestedPredicateMatch[]
+      allMatches: AnonCredsRequestedAttributeMatch[] | AnonCredsRequestedPredicateMatch[]
     ) => {
+      const matches = allMatches.filter((match) => !match.revoked)
+      const revokedMatches = allMatches.filter((match) => match.revoked)
+
       const entryName = getAnoncredsCredentialNameFromRestrictions(requestedValue.restrictions)
 
       // We create an entry hash. This way we can group all items that have the same credentials
@@ -359,6 +376,7 @@ export async function mapAnoncredsProofExchangeRecord(
             predicates: type === 'predicate' ? [groupName] : [],
           },
           matches,
+          revokedMatches,
           requestedAttributes: new Set(requestedAttributeNames),
         })
         return
@@ -377,6 +395,9 @@ export async function mapAnoncredsProofExchangeRecord(
       // first already, so it should give the same result.
       entry.matches = entry.matches.filter((match) =>
         matches.some((innerMatch) => match.credentialId === innerMatch.credentialId)
+      )
+      entry.revokedMatches = entry.revokedMatches.filter((match) =>
+        revokedMatches.some((innerMatch) => match.credentialId === innerMatch.credentialId)
       )
     }
 
@@ -439,6 +460,9 @@ export async function mapAnoncredsProofExchangeRecord(
           isSatisfied: isSubmissionEntrySatisfied,
           selectedOption: isSubmissionEntrySatisfied ? submissionOptions[0] : null,
           submissionOptions,
+          revokedCredential: isSubmissionEntrySatisfied
+            ? undefined
+            : await findRevokedCredentialMatch(entry.revokedMatches, credentialExchanges, agent),
         }
       })
     )
@@ -464,6 +488,27 @@ export async function mapAnoncredsProofExchangeRecord(
     entriesWithAnoncredsMatches: entriesMap,
     formatKey,
   }
+}
+
+async function findRevokedCredentialMatch(
+  revokedMatches: AnonCredsRequestedPredicateMatch[],
+  credentialExchanges: DidCommCredentialExchangeRecord[],
+  agent: HekaWalletAgent
+): Promise<RevokedCredentialMatch | undefined> {
+  for (const match of revokedMatches) {
+    const credentialRecord = credentialExchanges.find((record) =>
+      record.credentials.some((recordBinding) => recordBinding.credentialRecordId === match.credentialId)
+    )
+    // Without the exchange record there is nothing to name; the entry stays a missing credential
+    if (!credentialRecord) continue
+
+    return {
+      credential: await mapCredentialRecord(credentialRecord, agent),
+      revocationDate: credentialRecord.revocationNotification?.revocationDate,
+    }
+  }
+
+  return undefined
 }
 
 interface SharedAttribute {

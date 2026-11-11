@@ -204,6 +204,7 @@ const translation = {
     "VerificationFailedMessage": "Le certificat a peut-être été révoqué ou a peut-être expiré. Contactez l'émetteur si vous pensez qu'il s'agit d'une erreur.",
     "CredentialRevokedTitle": "Ce certificat a été révoqué par son émetteur",
     "CredentialRevokedMessage": "Le vérificateur ne l'a pas accepté. Contactez l'émetteur.",
+    "RevokedCredentialCannotBeShared": "Il ne peut pas être partagé avec le vérificateur. Contactez l'émetteur pour obtenir un nouveau certificat.",
     "PresentationRejectedTitle": "Le vérificateur n'a pas accepté votre présentation",
     "PresentationRejectedMessage": "Réessayez plus tard ou contactez le vérificateur."
   },

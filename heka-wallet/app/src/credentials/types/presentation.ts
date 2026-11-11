@@ -66,6 +66,17 @@ export interface PresentationSubmissionEntry {
   isSatisfied: boolean
   selectedOption: CredentialSubmissionOption | null
   submissionOptions: CredentialSubmissionOption[]
+  /**
+   * DIDComm AnonCreds/Indy only: set when no usable credential satisfies the entry, but the wallet holds one that
+   * would, except that the ledger shows it as revoked for the requested non-revocation interval.
+   */
+  revokedCredential?: RevokedCredentialMatch
+}
+
+export interface RevokedCredentialMatch {
+  credential: Credential
+  /** From the issuer's revocation notification, when one was received */
+  revocationDate?: Date | string
 }
 
 export interface CredentialSubmissionOption {
