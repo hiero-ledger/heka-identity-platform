@@ -46,7 +46,7 @@ export class WalletLockService {
       } catch (error) {
         if ((error as { code?: string }).code === LOCK_NOT_AVAILABLE) {
           logger.info(`Gave up waiting ${timeoutSeconds}s for the lock of wallet ${walletId}`)
-          throw new ServiceUnavailableException(`Wallet ${walletId} is being prepared by another request; retry later`)
+          throw new ServiceUnavailableException(`Wallet ${walletId} is busy with another request; retry later`)
         }
         throw error
       }

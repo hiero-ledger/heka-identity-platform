@@ -11,6 +11,7 @@ import { TenantAgent } from 'common/agent'
 import AgentConfig from 'config/agent'
 
 import { AuthInfo } from '../../common/auth'
+import { assertDidNotDeactivated } from '../../common/did-registrar'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
 import { CredentialIssuanceMetadata } from '../../utils/oid4vc'
 
@@ -67,7 +68,9 @@ export class OpenId4VcIssuanceSessionService {
       let issuerDidUrl: string | undefined
       if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
         const issuerCredential = credential as { issuer: { did: string } }
-        const { didDocument } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
+        const { didDocument, didDocumentMetadata } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
+        // A deactivated did:indybesu keeps its keys, so this is checked first
+        await assertDidNotDeactivated(tenantAgent, issuerCredential.issuer.did, didDocumentMetadata)
         if (!didDocument || !didDocument.verificationMethod?.length) {
           throw new UnprocessableEntityException(
             `Unable to resolve signing key for DID: ${issuerCredential.issuer.did}`,

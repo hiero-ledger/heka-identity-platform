@@ -4,7 +4,11 @@ import { InternalServerErrorException, UnprocessableEntityException } from '@nes
 
 import { TenantAgent } from 'common/agent'
 
-import { didResolutionResultStub, verificationSessionRecordStub } from '../../../../test/helpers/mock-records'
+import {
+  didRecordStub,
+  didResolutionResultStub,
+  verificationSessionRecordStub,
+} from '../../../../test/helpers/mock-records'
 import { OpenId4VcVerificationSessionService } from '../verification-session.service'
 
 describe('OpenId4VcVerificationSessionService', () => {
@@ -56,6 +60,7 @@ describe('OpenId4VcVerificationSessionService', () => {
       context: {},
       dids: {
         resolve: vi.fn(),
+        getCreatedDids: vi.fn().mockResolvedValue([]),
       },
     })
   })
@@ -278,6 +283,32 @@ describe('OpenId4VcVerificationSessionService', () => {
 
       await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
       expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkBad')
+    })
+
+    test.each([
+      ['deactivated on its ledger (did:indybesu keeps its keys)', { deactivated: true }, undefined],
+      ['deactivated by the wallet', {}, () => true],
+    ])('rejects a request signer DID %s with 422', async (_, didDocumentMetadata, getTag) => {
+      const did = 'did:indybesu:testnet:0x2c7536E3605D9C16a7a3D7b1898e529396a65c23'
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({
+          didDocument: { id: did, verificationMethod: [{ id: `${did}#KEY-1` }] },
+          didDocumentMetadata,
+        }),
+      )
+      if (getTag) {
+        vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did, getTag })])
+      }
+
+      const request = service.createRequest(tenantAgent, {
+        publicVerifierId: 'verifier-1',
+        requestSigner: { did },
+        presentationExchange: { definition: { id: 'def-1', input_descriptors: [] } },
+      } as any)
+
+      await expect(request).rejects.toThrow(UnprocessableEntityException)
+      await expect(request).rejects.toThrow(`DID is deactivated: ${did}`)
+      expect(mockCreateAuthorizationRequest).not.toHaveBeenCalled()
     })
 
     test('should throw UnprocessableEntityException when DID document has no verification methods', async () => {

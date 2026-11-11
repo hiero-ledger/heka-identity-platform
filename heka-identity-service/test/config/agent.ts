@@ -33,5 +33,11 @@ export default () => {
     verificationEndpoint: `${oid4VcEndpoint}/oid4vp`,
   }
 
+  // The Indy-Besu e2e tests need a local Indy-Besu network (see docs/setup.md, "Local Indy-Besu network"), so the
+  // method is enabled for the test app only when they are requested
+  if (process.env.INDY_BESU_E2E === 'true' && !config.didMethods.includes('indybesu')) {
+    config.didMethods = [...config.didMethods, 'indybesu']
+  }
+
   return config
 }

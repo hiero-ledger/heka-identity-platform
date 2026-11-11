@@ -22,6 +22,7 @@ import {
   ApiResponse,
   //  ApiTags,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger'
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
@@ -145,6 +146,7 @@ export class SchemaV2Controller {
   @ApiOperation({ summary: 'Registration schema' })
   @ApiBody({ type: RegisterSchemaRequest })
   @ApiOkResponse({ description: 'Schema was registered', type: RegisterSchemaResponse })
+  @ApiUnprocessableEntityResponse({ description: 'The issuer DID is deactivated' })
   @UseGuards(JwtAuthGuard, RoleGuard)
   @ApiBearerAuth()
   @UseInterceptors(TenantAgentInterceptor)
