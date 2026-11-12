@@ -1,7 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { ThunkConfig } from '@/app/providers/StoreProvider';
-import { getDidMethods } from '@/entities/User/model/services/fetchDidMethods';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { getErrorMessage, handleError } from '@/shared/api/utils/error';
 import i18next from '@/translations';
@@ -25,8 +24,12 @@ export const getDids = createAsyncThunk<
   const { extra, rejectWithValue, dispatch } = thunkAPI;
 
   try {
-    const { methods } = await getDidMethods(extra.agencyApi);
-    // A malformed answer would otherwise surface as a raw TypeError from `methods.map`
+    // Read here rather than through the wizard's `getDidMethods`, which assumes a well-formed body:
+    // a malformed answer (no body, no `methods`, wrong types) must not surface as a raw TypeError
+    const { data } = await extra.agencyApi.get<{ methods?: unknown } | null>(
+      agencyEndpoints.getDidMethods,
+    );
+    const methods: unknown = data?.methods;
     if (
       !Array.isArray(methods) ||
       !methods.every((method) => typeof method === 'string')

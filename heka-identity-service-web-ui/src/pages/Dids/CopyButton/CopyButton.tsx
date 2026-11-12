@@ -6,20 +6,16 @@ import { Button } from '@/shared/ui/Button';
 
 interface CopyButtonProps {
   value: string;
-  /** Accessible name, e.g. "Copy DID" */
+  /** Accessible name, e.g. "Copy JSON" */
   label: string;
   className?: string;
-  /** `outlined` matches the page's Back button; the default is a small text button */
-  variant?: 'text' | 'outlined';
 }
 
-/** Copies `value` to the clipboard and confirms it with a toast. */
-export const CopyButton = ({
-  value,
-  label,
-  className,
-  variant = 'text',
-}: CopyButtonProps) => {
+/**
+ * Copies `value` to the clipboard and confirms it with a toast. Outlined, like the page's Back
+ * button.
+ */
+export const CopyButton = ({ value, label, className }: CopyButtonProps) => {
   const { t } = useTranslation();
 
   const onCopy = useCallback(async () => {
@@ -34,8 +30,7 @@ export const CopyButton = ({
 
   return (
     <Button
-      buttonType={variant}
-      isSmall={variant === 'text'}
+      buttonType="outlined"
       aria-label={label}
       className={className}
       onPress={onCopy}

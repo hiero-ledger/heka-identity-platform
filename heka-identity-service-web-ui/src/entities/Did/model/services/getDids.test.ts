@@ -155,6 +155,7 @@ describe('getDids', () => {
   });
 
   test.each([
+    ['without a body', null],
     ['without `methods`', {}],
     ['with a non-array `methods`', { methods: 'key' }],
     ['with non-string methods', { methods: ['key', 1] }],

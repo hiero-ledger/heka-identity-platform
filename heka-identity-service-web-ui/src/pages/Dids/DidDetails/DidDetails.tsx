@@ -319,7 +319,6 @@ const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
         <CopyButton
           value={rawJson}
           label={t('Dids.details.copyJson')}
-          variant="outlined"
           className={cls.rawJsonCopy}
         />
         <pre

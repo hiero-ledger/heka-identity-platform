@@ -38,6 +38,11 @@ $table-min-width: 30rem;
 
   @include mobile {
     min-width: 0;
+
+    // No header row on phones: the frame's own border is the first card's top edge
+    li:first-child {
+      border-top: none;
+    }
   }
 }
 
@@ -66,6 +71,9 @@ a.row {
 
   &:focus-visible {
     @include outline;
+
+    // Inside the row: the frame's `overflow-x: auto` clips anything drawn outside it
+    outline-offset: calc(-1 * var(--outline-width));
   }
 }
 
