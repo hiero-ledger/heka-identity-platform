@@ -5,6 +5,13 @@
   font-weight: 800;
 }
 
+.empty {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 12rem;
+}
+
 .errorDetails {
   color: var(--color-dark-medium-emphasis);
 }

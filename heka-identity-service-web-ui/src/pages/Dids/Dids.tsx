@@ -130,10 +130,14 @@ const Dids = () => {
       )}
 
       {isLoaded && items.length === 0 && (
-        <NoItemFound
-          title={t('Dids.list.empty')}
-          description={t('Dids.list.emptyDescription')}
-        />
+        // `NoItemFound` centres itself absolutely: this box below the title (and any warning)
+        // is its positioning context, so it never covers them
+        <div className={cls.empty}>
+          <NoItemFound
+            title={t('Dids.list.empty')}
+            description={t('Dids.list.emptyDescription')}
+          />
+        </div>
       )}
 
       {isLoaded && items.length > 0 && (
