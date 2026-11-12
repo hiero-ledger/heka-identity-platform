@@ -75,15 +75,6 @@ const valuesOf = (container: HTMLElement, label: string) => {
 
 const section = (name: string) => screen.getByRole('region', { name });
 
-const mockClipboard = () => {
-  const writeText = jest.fn().mockResolvedValue(undefined);
-  Object.defineProperty(navigator, 'clipboard', {
-    value: { writeText },
-    configurable: true,
-  });
-  return writeText;
-};
-
 describe('DidDetails', () => {
   test('a deep link loads the list and shows the DID (AC8)', async () => {
     const api = createMockApi();
@@ -268,7 +259,8 @@ describe('DidDetails', () => {
     expect(
       within(overview).queryByText('Also known as'),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByRole('region')).toHaveLength(1);
+    // Overview and the raw JSON: the other sections are left out for an empty document
+    expect(screen.getAllByRole('region')).toHaveLength(2);
   });
 
   test('shows the contexts of a document that carried `context` (AC9)', async () => {
@@ -291,52 +283,19 @@ describe('DidDetails', () => {
     expect(valuesOf(overview, 'Context')).toEqual(['https://w3id.org/did/v1']);
   });
 
-  test('has a collapsed raw JSON view of the stored document (AC10)', async () => {
-    const user = userEvent.setup();
-
+  test('shows the raw JSON of the stored document, always expanded (AC10, AC11)', () => {
     renderDetails(HEDERA_DID, { initialState: loadedState([hederaDoc]) });
 
-    const summary = screen.getByText('Raw JSON');
-    const details = summary.closest('details')!;
-    expect(details).not.toHaveAttribute('open');
-
-    await user.click(summary);
-
-    expect(details).toHaveAttribute('open');
-    const raw = screen.getByTestId('did-raw-json');
+    const raw = within(section('Raw JSON')).getByTestId('did-raw-json');
+    expect(raw).toBeVisible();
     expect(raw.textContent).toBe(JSON.stringify(hederaDoc, null, 2));
     expect(raw).toHaveTextContent('"foo": "bar"');
-  });
+    expect(raw.closest('details')).toBeNull();
 
-  test('copies the raw JSON with a success toast (AC11)', async () => {
-    const user = userEvent.setup();
-    const writeText = mockClipboard();
-
-    renderDetails(HEDERA_DID, { initialState: loadedState([hederaDoc]) });
-
-    await user.click(screen.getByText('Raw JSON'));
-    await user.click(screen.getByRole('button', { name: 'Copy JSON' }));
-    expect(writeText).toHaveBeenLastCalledWith(
-      JSON.stringify(hederaDoc, null, 2),
-    );
-    expect(toast.success).toHaveBeenCalledWith('Copied');
-
-    // The raw JSON is the one thing to copy: the DID and the keys have no button of their own
-    expect(screen.getAllByRole('button', { name: /^Copy/ })).toHaveLength(1);
-  });
-
-  test('reports a failed copy', async () => {
-    const user = userEvent.setup();
-    const writeText = mockClipboard();
-    writeText.mockRejectedValue(new Error('Denied'));
-
-    renderDetails(KEY_DID, { initialState: loadedState([keyDoc]) });
-
-    await user.click(screen.getByText('Raw JSON'));
-    await user.click(screen.getByRole('button', { name: 'Copy JSON' }));
-
-    expect(toast.error).toHaveBeenCalledWith('Could not copy to the clipboard');
-    expect(toast.success).not.toHaveBeenCalled();
+    // Nothing on the screen copies to the clipboard
+    expect(
+      screen.queryByRole('button', { name: /copy/i }),
+    ).not.toBeInTheDocument();
   });
 
   test('renders a javascript: service endpoint as plain text (AC12)', () => {

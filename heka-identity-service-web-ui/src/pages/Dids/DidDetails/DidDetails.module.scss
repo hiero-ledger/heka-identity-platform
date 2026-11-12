@@ -93,33 +93,9 @@
 }
 
 .rawJson {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-
-  summary {
-    // As tall as the copy button beside it, so opening the section does not move the title
-    padding-block: var(--space-sm);
-    cursor: pointer;
-
-    &:focus-visible {
-      @include outline;
-    }
-  }
-
-  pre {
-    padding: var(--space-md);
-    border-radius: var(--space-md);
-    background-color: var(--color-surface-2);
-  }
-}
-
-// On the summary's line, at the right edge of the JSON block
-.rawJsonCopy {
-  position: absolute;
-  top: 0;
-  right: 0;
+  padding: var(--space-md);
+  border-radius: var(--space-md);
+  background-color: var(--color-surface-2);
 }
 
 .notFound {

@@ -60,13 +60,13 @@ describe('DesktopNavigationMenu', () => {
     expect(location()).toHaveTextContent(/^\/$/);
   });
 
-  test('shows DIDs directly after Issue credential and opens the DID list (AC1)', async () => {
+  test('shows DIDs directly before Issue credential and opens the DID list (AC1)', async () => {
     const user = userEvent.setup();
 
     renderMenu(<DesktopNavigationMenu />, signedInState);
 
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual(
-      ['Demo', 'Issue credential', 'DIDs', 'Verify credential'],
+      ['Demo', 'DIDs', 'Issue credential', 'Verify credential'],
     );
 
     await user.click(screen.getByRole('link', { name: 'DIDs' }));
@@ -175,13 +175,13 @@ describe('MobileNavigationMenu', () => {
     expect(location()).toHaveTextContent('/verify-credential/templates');
   });
 
-  test('shows DIDs directly after Issue and opens the DID list (AC1)', async () => {
+  test('shows DIDs directly before Issue and opens the DID list (AC1)', async () => {
     const user = userEvent.setup();
 
     renderMenu(<MobileNavigationMenu />, signedInState, '/demo');
 
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual(
-      ['Demo', 'Issue', 'DIDs', 'Verify'],
+      ['Demo', 'DIDs', 'Issue', 'Verify'],
     );
 
     await user.click(screen.getByText('DIDs'));

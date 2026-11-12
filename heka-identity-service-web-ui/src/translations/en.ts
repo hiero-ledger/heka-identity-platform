@@ -286,10 +286,6 @@ export default {
       serviceEndpoint: 'Service endpoint',
       noEntries: 'None',
       rawJson: 'Raw JSON',
-      copyJson: 'Copy JSON',
-      copy: 'Copy',
-      copied: 'Copied',
-      copyFailed: 'Could not copy to the clipboard',
       notFound: 'This DID is not in your wallet',
       notFoundDescription:
         'It may belong to another wallet, or to a DID method that is not configured.',

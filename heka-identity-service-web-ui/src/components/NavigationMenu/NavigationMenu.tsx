@@ -49,6 +49,12 @@ const desktopMenuItems: Array<DesktopMenuItem> = [
     active: [ROUTES.MAIN, ROUTES.DEMO, ROUTES.AGE_DEMO],
   },
   {
+    icon: <DidIcon {...desktopIconProps} />,
+    title: i18next.t('Dids.titles.main'),
+    route: ROUTES.DIDS,
+    active: [ROUTES.DIDS, ROUTES.DID_DETAILS],
+  },
+  {
     icon: <IssueIcon {...desktopIconProps} />,
     title: i18next.t('IssueCredential.titles.main'),
     route: ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
@@ -61,12 +67,6 @@ const desktopMenuItems: Array<DesktopMenuItem> = [
       ROUTES.ISSUE_CREDENTIAL_CREDENTIAL_DEFINITIONS,
       ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
     ],
-  },
-  {
-    icon: <DidIcon {...desktopIconProps} />,
-    title: i18next.t('Dids.titles.main'),
-    route: ROUTES.DIDS,
-    active: [ROUTES.DIDS, ROUTES.DID_DETAILS],
   },
   {
     icon: <VerifyIcon {...desktopIconProps} />,
@@ -172,6 +172,12 @@ const mobileMenuItems: Array<DesktopMenuItem> = [
     active: [ROUTES.MAIN, ROUTES.DEMO, ROUTES.AGE_DEMO],
   },
   {
+    icon: <DidIcon {...mobileIconProps} />,
+    title: i18next.t('Dids.titles.mainMobile'),
+    route: ROUTES.DIDS,
+    active: [ROUTES.DIDS, ROUTES.DID_DETAILS],
+  },
+  {
     icon: <IssueIcon {...mobileIconProps} />,
     title: i18next.t('IssueCredential.titles.mainMobile'),
     route: ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
@@ -184,12 +190,6 @@ const mobileMenuItems: Array<DesktopMenuItem> = [
       ROUTES.ISSUE_CREDENTIAL_CREDENTIAL_DEFINITIONS,
       ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
     ],
-  },
-  {
-    icon: <DidIcon {...mobileIconProps} />,
-    title: i18next.t('Dids.titles.mainMobile'),
-    route: ROUTES.DIDS,
-    active: [ROUTES.DIDS, ROUTES.DID_DETAILS],
   },
   {
     icon: <VerifyIcon {...mobileIconProps} />,

@@ -22,11 +22,11 @@ import {
   toList,
   VERIFICATION_RELATIONSHIPS,
 } from '@/entities/Did';
+import { classNames } from '@/shared/lib/classNames';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
 import { LoaderView } from '@/shared/ui/Loader';
 
-import { CopyButton } from '../CopyButton/CopyButton';
 import { DidsLayout } from '../DidsLayout/DidsLayout';
 import { LoadErrorAlert } from '../LoadErrorAlert/LoadErrorAlert';
 
@@ -311,23 +311,23 @@ const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
         </section>
       )}
 
-      <details className={cls.rawJson}>
-        <summary className={cls.sectionTitle}>
+      <section
+        className={cls.section}
+        aria-labelledby="did-raw-json"
+      >
+        <h3
+          id="did-raw-json"
+          className={cls.sectionTitle}
+        >
           {t('Dids.details.rawJson')}
-        </summary>
-        {/* Content of <details>: shown only while it is open, on the summary's line */}
-        <CopyButton
-          value={rawJson}
-          label={t('Dids.details.copyJson')}
-          className={cls.rawJsonCopy}
-        />
+        </h3>
         <pre
-          className={cls.code}
+          className={classNames(cls.code, {}, [cls.rawJson])}
           data-testid="did-raw-json"
         >
           {rawJson}
         </pre>
-      </details>
+      </section>
     </>
   );
 };
