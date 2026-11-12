@@ -60,6 +60,42 @@ describe('DesktopNavigationMenu', () => {
     expect(location()).toHaveTextContent(/^\/$/);
   });
 
+  test('shows DIDs directly after Issue credential and opens the DID list (AC1)', async () => {
+    const user = userEvent.setup();
+
+    renderMenu(<DesktopNavigationMenu />, signedInState);
+
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual(
+      ['Demo', 'Issue credential', 'DIDs', 'Verify credential'],
+    );
+
+    await user.click(screen.getByRole('link', { name: 'DIDs' }));
+    expect(location()).toHaveTextContent(/^\/dids$/);
+
+    await user.click(screen.getByText('Demo'));
+    screen.getByRole('link', { name: 'DIDs' }).focus();
+    await user.keyboard('{Enter}');
+    expect(location()).toHaveTextContent(/^\/dids$/);
+  });
+
+  test.each([
+    ['/dids', 'DIDs'],
+    ['/dids/did%3Akey%3Az6Mk', 'DIDs'],
+    ['/issue-credential/templates', 'Issue credential'],
+    ['/issue-credential/template', 'Issue credential'],
+    ['/issue-credential/issued-credentials', 'Issue credential'],
+    ['/verify-credential/advanced-verification', 'Verify credential'],
+    ['/age-demo', 'Demo'],
+  ])('at %s only %s is the current page (AC2)', (route, current) => {
+    renderMenu(<DesktopNavigationMenu />, signedInState, route);
+
+    const currentItems = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page')
+      .map((link) => link.textContent);
+    expect(currentItems).toEqual([current]);
+  });
+
   test('menu items are links operable from the keyboard', async () => {
     const user = userEvent.setup();
 
@@ -118,6 +154,9 @@ describe('DesktopNavigationMenu', () => {
     await user.click(screen.getByText('Demo'));
     expect(location()).toHaveTextContent(/^\/$/);
 
+    await user.click(screen.getByText('DIDs'));
+    expect(location()).toHaveTextContent('/sign-in');
+
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(location()).toHaveTextContent('/sign-in');
   });
@@ -136,6 +175,39 @@ describe('MobileNavigationMenu', () => {
     expect(location()).toHaveTextContent('/verify-credential/templates');
   });
 
+  test('shows DIDs directly after Issue and opens the DID list (AC1)', async () => {
+    const user = userEvent.setup();
+
+    renderMenu(<MobileNavigationMenu />, signedInState, '/demo');
+
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual(
+      ['Demo', 'Issue', 'DIDs', 'Verify'],
+    );
+
+    await user.click(screen.getByText('DIDs'));
+    expect(location()).toHaveTextContent(/^\/dids$/);
+    expect(screen.getByRole('link', { name: 'DIDs' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  test('highlights DIDs on a details page, not Issue (AC2)', () => {
+    renderMenu(
+      <MobileNavigationMenu />,
+      signedInState,
+      '/dids/did%3Ahedera%3Atestnet%3Az6Mk_0.0.12345',
+    );
+
+    expect(screen.getByRole('link', { name: 'DIDs' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByRole('link', { name: 'Issue' })).not.toHaveAttribute(
+      'aria-current',
+    );
+  });
+
   test('sends signed-out users to sign in', async () => {
     const user = userEvent.setup();
 
@@ -146,5 +218,8 @@ describe('MobileNavigationMenu', () => {
 
     await user.click(screen.getByText('Demo'));
     expect(location()).toHaveTextContent(/^\/$/);
+
+    await user.click(screen.getByText('DIDs'));
+    expect(location()).toHaveTextContent('/sign-in');
   });
 });

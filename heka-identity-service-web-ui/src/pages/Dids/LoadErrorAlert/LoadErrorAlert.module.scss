@@ -1,0 +1,12 @@
+@import '@/shared/styles/mixins';
+
+.LoadErrorAlert {
+  gap: var(--space-md);
+  align-items: flex-start;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--space-md);
+  font: var(--font-body-m);
+  overflow-wrap: anywhere;
+
+  @include border('all', var(--color-notification));
+}

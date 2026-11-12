@@ -1,0 +1,92 @@
+@import '@/shared/styles/mixins';
+
+.title {
+  font-size: var(--font-size-headline-l);
+  font-weight: 800;
+}
+
+.errorDetails {
+  color: var(--color-dark-medium-emphasis);
+}
+
+.list {
+  width: 100%;
+  border-radius: var(--space-md);
+
+  @include border;
+}
+
+.items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    @include border('top');
+  }
+}
+
+.row {
+  display: grid;
+
+  // minmax(0, …): each row is its own grid, so the tracks must not depend on the content
+  grid-template-columns: minmax(0, 5fr) minmax(0, 1.2fr) minmax(0, 1.8fr) minmax(0, 1.2fr);
+  gap: var(--space-md);
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  font: var(--font-body-s);
+  color: inherit;
+  text-decoration: none;
+
+  @include mobile {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-xxs);
+  }
+}
+
+a.row {
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--color-primary-opacity-6);
+  }
+
+  &:focus-visible {
+    @include outline;
+  }
+}
+
+.cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.did {
+  font-family: monospace;
+
+  @include mobile {
+    white-space: normal;
+    word-break: break-all;
+  }
+}
+
+.headerRow {
+  font: var(--font-label-l);
+  color: var(--color-dark-medium-emphasis);
+
+  @include mobile {
+    display: none;
+  }
+}
+
+// The column names are in the header row on wider screens
+.mobileLabel {
+  display: none;
+
+  @include mobile {
+    display: inline;
+    color: var(--color-dark-medium-emphasis);
+  }
+}

@@ -3,6 +3,7 @@ import { Reducer } from 'redux';
 
 import { connectionReducer } from '@/entities/Connection';
 import { credentialReducer } from '@/entities/Credential';
+import { didsReducer } from '@/entities/Did';
 import { issuanceTemplatesReducer } from '@/entities/IssuanceTemplate';
 import { presentationReducer } from '@/entities/Presentation';
 import { schemasReducer } from '@/entities/Schema';
@@ -31,6 +32,7 @@ export function createReduxStore(
     user: userReducer,
     issuanceTemplates: issuanceTemplatesReducer,
     verificationTemplates: verificationTemplatesReducer,
+    dids: didsReducer,
   };
 
   const reducerManager = createReducerManager(rootReducers);

@@ -32,6 +32,7 @@ The application structure is inspired by [Feature-Sliced Design](https://feature
   - In addition to predefined credential schemas, this flow also provides an ability to create custom one tied to the user.
 - **Verification** — Verification of all supported credential types.
   - Currently, verification requests are tightly tied to credential schemes created under the user.
+- **DIDs** — list of the wallet's DIDs and their DID documents (read-only).
 
 > **Note:** Issuance and Verification flows work only for **authorized** users, but **Demo** can be run without authorization.
 

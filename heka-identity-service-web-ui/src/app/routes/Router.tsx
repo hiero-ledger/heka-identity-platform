@@ -5,6 +5,8 @@ import AuthenticatedLayout from '@/components/Layout/AuthenticatedLayout';
 import UnauthenticatedLayout from '@/components/Layout/UnauthenticatedLayout';
 import AgeVerificationDemo from '@/pages/AgeVerificationDemo/AgeVerificationDemo';
 import Demo from '@/pages/Demo/Demo';
+import DidDetails from '@/pages/Dids/DidDetails/DidDetails';
+import Dids from '@/pages/Dids/Dids';
 import Home from '@/pages/Home/Home';
 import CredentialOffer from '@/pages/IssueCredential/CredentialOffer/CredentialOffer';
 import IssueCredential from '@/pages/IssueCredential/IssueCredential';
@@ -44,6 +46,14 @@ const AuthenticatedRoutes = () => (
       <Route
         path={ROUTES.ISSUE_CREDENTIAL}
         element={<IssueCredential />}
+      />
+      <Route
+        path={ROUTES.DIDS}
+        element={<Dids />}
+      />
+      <Route
+        path={ROUTES.DID_DETAILS}
+        element={<DidDetails />}
       />
       <Route
         path={ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE}
