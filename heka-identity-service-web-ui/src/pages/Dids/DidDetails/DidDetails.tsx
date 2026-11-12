@@ -103,16 +103,10 @@ const VerificationMethodView = ({
         <Field
           label={publicKey.label}
           values={[
-            <span
+            <Text
               key="key"
-              className={cls.copyable}
-            >
-              <Text value={publicKey.value} />
-              <CopyButton
-                value={publicKey.value}
-                label={t('Dids.details.copyPublicKey')}
-              />
-            </span>,
+              value={publicKey.value}
+            />,
           ]}
         />
       )}

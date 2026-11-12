@@ -287,7 +287,6 @@ export default {
       noEntries: 'None',
       rawJson: 'Raw JSON',
       copyDid: 'Copy DID',
-      copyPublicKey: 'Copy public key',
       copyJson: 'Copy JSON',
       copy: 'Copy',
       copied: 'Copied',

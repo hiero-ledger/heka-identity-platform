@@ -325,12 +325,10 @@ describe('DidDetails', () => {
     );
     expect(toast.success).toHaveBeenCalledTimes(2);
 
-    await user.click(
-      screen.getAllByRole('button', { name: 'Copy public key' })[0],
-    );
-    expect(writeText).toHaveBeenLastCalledWith(
-      'z6MkgUv5CvjRP6AsvEYqSRN7djB6p4zK9bcMQ93g5yK6Td7N',
-    );
+    // Keys are copied from the raw JSON: they have no button of their own
+    expect(
+      screen.queryByRole('button', { name: 'Copy public key' }),
+    ).not.toBeInTheDocument();
   });
 
   test('reports a failed copy', async () => {
