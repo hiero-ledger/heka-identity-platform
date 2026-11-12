@@ -42,13 +42,23 @@ const DidRow = ({ doc }: { doc: DidDocument }) => {
         ...textInterpolation,
       })}
     >
-      <span
-        className={classNames(cls.cell, {}, [cls.did])}
-        title={doc.id}
-      >
-        {doc.id}
+      <span className={cls.cell}>
+        <span className={cls.mobileLabel}>
+          {t('Dids.list.columns.did')}:{' '}
+        </span>
+        <span
+          className={cls.did}
+          title={doc.id}
+        >
+          {doc.id}
+        </span>
       </span>
-      <span className={cls.cell}>{method}</span>
+      <span className={cls.cell}>
+        <span className={cls.mobileLabel}>
+          {t('Dids.list.columns.method')}:{' '}
+        </span>
+        {method}
+      </span>
       <span className={cls.cell}>
         <span className={cls.mobileLabel}>
           {t('Dids.list.columns.verificationMethods')}:{' '}
