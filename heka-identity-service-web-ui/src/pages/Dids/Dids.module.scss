@@ -9,18 +9,25 @@
   color: var(--color-dark-medium-emphasis);
 }
 
-// Below this list width the table columns cannot fit their names, so each DID becomes a card
-$table-min-width: 40rem;
+// Phones (the `mobile` breakpoint) get one card per DID; wider screens get a table.
+// Each row is its own grid, so its tracks must not depend on the content: the DID column takes
+// what is left, the others shrink from the width of their names down to a fixed minimum.
+$table-columns: minmax(10rem, 1fr) minmax(4.5rem, 6rem) minmax(5.5rem, 10rem) minmax(4.5rem, 5rem);
+
+// The minimum table width: the column minimums plus the gaps and the row padding. In a narrower
+// list (a small desktop window) the table scrolls sideways inside its frame instead of overlapping.
+$table-min-width: 30rem;
 
 .list {
-  container: dids-list / inline-size;
   width: 100%;
+  overflow-x: auto;
   border-radius: var(--space-md);
 
   @include border;
 }
 
 .items {
+  min-width: $table-min-width;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -28,14 +35,15 @@ $table-min-width: 40rem;
   li {
     @include border('top');
   }
+
+  @include mobile {
+    min-width: 0;
+  }
 }
 
 .row {
   display: grid;
-
-  // Each row is its own grid, so the tracks must not depend on the content: fixed widths that
-  // fit the column names, the DID takes the rest
-  grid-template-columns: minmax(0, 1fr) 6rem 10rem 5rem;
+  grid-template-columns: $table-columns;
   gap: var(--space-md);
   align-items: center;
   padding: var(--space-md) var(--space-lg);
@@ -43,7 +51,7 @@ $table-min-width: 40rem;
   color: inherit;
   text-decoration: none;
 
-  @container dids-list (width < #{$table-min-width}) {
+  @include mobile {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-xxs);
   }
@@ -71,13 +79,14 @@ a.row {
 .did {
   font-family: monospace;
 
-  @container dids-list (width < #{$table-min-width}) {
+  @include mobile {
     white-space: normal;
     word-break: break-all;
   }
 }
 
 .headerRow {
+  min-width: $table-min-width;
   font: var(--font-label-l);
   color: var(--color-dark-medium-emphasis);
 
@@ -85,16 +94,16 @@ a.row {
     white-space: normal;
   }
 
-  @container dids-list (width < #{$table-min-width}) {
+  @include mobile {
     display: none;
   }
 }
 
-// The column names are in the header row when the list is wide enough for a table
+// The column names are in the header row on wider screens
 .mobileLabel {
   display: none;
 
-  @container dids-list (width < #{$table-min-width}) {
+  @include mobile {
     display: inline;
     color: var(--color-dark-medium-emphasis);
   }
