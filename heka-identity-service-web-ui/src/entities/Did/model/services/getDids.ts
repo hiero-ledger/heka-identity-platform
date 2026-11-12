@@ -4,6 +4,7 @@ import { ThunkConfig } from '@/app/providers/StoreProvider';
 import { getDidMethods } from '@/entities/User/model/services/fetchDidMethods';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { getErrorMessage, handleError } from '@/shared/api/utils/error';
+import i18next from '@/translations';
 
 import { DidDocument, DidMethodError, GetDidsResult } from '../types/did';
 import { normalizeDidDocument, sortDids } from '../utils/didDocument';
@@ -25,6 +26,13 @@ export const getDids = createAsyncThunk<
 
   try {
     const { methods } = await getDidMethods(extra.agencyApi);
+    // A malformed answer would otherwise surface as a raw TypeError from `methods.map`
+    if (
+      !Array.isArray(methods) ||
+      !methods.every((method) => typeof method === 'string')
+    ) {
+      throw new Error(i18next.t('Dids.list.invalidMethods'));
+    }
 
     const results = await Promise.allSettled(
       methods.map((method) =>

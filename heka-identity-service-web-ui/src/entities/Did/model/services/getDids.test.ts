@@ -154,6 +154,26 @@ describe('getDids', () => {
     expect(api.get).not.toHaveBeenCalledWith('/dids', expect.anything());
   });
 
+  test.each([
+    ['without `methods`', {}],
+    ['with a non-array `methods`', { methods: 'key' }],
+    ['with non-string methods', { methods: ['key', 1] }],
+  ])(
+    'rejects with a readable message when the methods answer is %s',
+    async (_, data) => {
+      const api = createMockApi();
+      api.get.mockResolvedValue({ data });
+      const store = createTestStore({}, api);
+
+      await store.dispatch(getDids());
+
+      const message = 'The identity service returned no list of DID methods.';
+      expect(getDidsError(store.getState())).toBe(message);
+      expect(toast.error).toHaveBeenCalledWith(message);
+      expect(api.get).toHaveBeenCalledTimes(1);
+    },
+  );
+
   test('resolves with an empty list when no method is configured', async () => {
     const api = createMockApi();
     route(api, [], {});
