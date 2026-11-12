@@ -12,11 +12,12 @@
 // Phones (the `mobile` breakpoint) get one card per DID; wider screens get a table.
 // Each row is its own grid, so its tracks must not depend on the content: the DID column takes
 // what is left, the others shrink from the width of their names down to a fixed minimum.
-$table-columns: minmax(10rem, 1fr) minmax(4.5rem, 6rem) minmax(5.5rem, 10rem) minmax(4.5rem, 5rem);
+$table-columns: minmax(8rem, 1fr) minmax(4rem, 6rem) minmax(5.5rem, 10rem) minmax(4.5rem, 5rem);
 
-// The minimum table width: the column minimums plus the gaps and the row padding. In a narrower
-// list (a small desktop window) the table scrolls sideways inside its frame instead of overlapping.
-$table-min-width: 30rem;
+// The minimum table width: the column minimums plus the gaps and the row padding. It fits the
+// narrowest desktop list (~440px, a 1024px window with the side menu and panel); only a still
+// narrower list would scroll sideways inside its frame instead of overlapping.
+$table-min-width: 27rem;
 
 .list {
   width: 100%;
@@ -49,7 +50,7 @@ $table-min-width: 30rem;
 .row {
   display: grid;
   grid-template-columns: $table-columns;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   align-items: center;
   padding: var(--space-md) var(--space-lg);
   font: var(--font-body-s);

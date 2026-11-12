@@ -65,6 +65,12 @@
   }
 }
 
+// A method embedded in a verification relationship is a card inside a field's value column:
+// a second label track would leave its values a few characters wide, so its labels go above
+.card .card .field {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .label {
   grid-column: 1;
   min-width: 0;
@@ -80,6 +86,10 @@
   font: var(--font-body-s);
 
   @include mobile {
+    grid-column: 1;
+  }
+
+  .card .card & {
     grid-column: 1;
   }
 }
