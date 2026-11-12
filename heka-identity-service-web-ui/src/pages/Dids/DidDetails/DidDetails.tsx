@@ -321,9 +321,12 @@ const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
         <summary className={cls.sectionTitle}>
           {t('Dids.details.rawJson')}
         </summary>
+        {/* Content of <details>: shown only while it is open, on the summary's line */}
         <CopyButton
           value={rawJson}
           label={t('Dids.details.copyJson')}
+          variant="outlined"
+          className={cls.rawJsonCopy}
         />
         <pre
           className={cls.code}
