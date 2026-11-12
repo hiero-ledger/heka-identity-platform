@@ -35,6 +35,10 @@ const describeError = (error: unknown): string | string[] => {
     : UNKNOWN_SERVER_ERROR;
 };
 
+/** The message `handleError` would show for this error, without showing it. */
+export const getErrorMessage = (error: unknown): string =>
+  errorMessage(describeError(error));
+
 /**
  * Shows the server's message and rejects the thunk with it. Session state is not touched
  * here: an expired session is renewed or dropped by the API layer, and the OIDC provider
@@ -46,7 +50,7 @@ export const handleError = (
   rejectWithValue: (message: string) => any,
   _dispatch?: Dispatch<any>,
 ) => {
-  const message = errorMessage(describeError(error));
+  const message = getErrorMessage(error);
   if (message && !isUnauthorizedWithoutSession(error)) toast.error(message);
 
   return rejectWithValue(message);

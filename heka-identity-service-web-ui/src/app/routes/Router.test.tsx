@@ -22,6 +22,8 @@ jest.mock('@/pages/AgeVerificationDemo/AgeVerificationDemo', () =>
   mockPage('age demo'),
 );
 jest.mock('@/pages/IssueCredential/IssueCredential', () => mockPage('issue'));
+jest.mock('@/pages/Dids/Dids', () => mockPage('dids'));
+jest.mock('@/pages/Dids/DidDetails/DidDetails', () => mockPage('did details'));
 jest.mock('@/pages/IssueCredential/CredentialOffer/CredentialOffer', () =>
   mockPage('credential offer'),
 );
@@ -94,6 +96,8 @@ describe('Router', () => {
     ['/verify-credential/templates', 'verify'],
     ['/verify-credential/from-template', 'verification from template'],
     ['/verify-credential/verification-request', 'verification request'],
+    ['/dids', 'dids'],
+    ['/dids/did%3Akey%3Az6Mk', 'did details'],
   ])('signed in, %s renders the %s page', (path, page) => {
     renderRouter(path, true);
 
@@ -140,4 +144,16 @@ describe('Router', () => {
     expect(screen.getByText('home page')).toBeInTheDocument();
     expect(screen.queryByText('issue page')).not.toBeInTheDocument();
   });
+
+  test.each(['/dids', '/dids/did%3Akey%3Az6Mk'])(
+    'signed out, %s redirects home (AC14)',
+    (path) => {
+      renderRouter(path, false);
+
+      expect(screen.getByText('home page')).toBeInTheDocument();
+      expect(screen.queryByText('dids page')).not.toBeInTheDocument();
+      expect(screen.queryByText('did details page')).not.toBeInTheDocument();
+      expect(window.location.pathname).toBe('/');
+    },
+  );
 });

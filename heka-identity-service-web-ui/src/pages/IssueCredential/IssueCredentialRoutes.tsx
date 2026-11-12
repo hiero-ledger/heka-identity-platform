@@ -22,10 +22,6 @@ export const IssueCredentialRoutes = () => {
         element={<div>Credential definitions</div>}
       />
       <Route
-        path="dids"
-        element={<div>DIDs</div>}
-      />
-      <Route
         path="issued-credentials"
         element={<div>Issued credentials</div>}
       />

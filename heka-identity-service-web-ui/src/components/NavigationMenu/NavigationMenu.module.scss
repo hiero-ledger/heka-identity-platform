@@ -30,6 +30,12 @@
   bottom: 0;
   left: 0;
   z-index: 1000;
+
+  // Four items must fit in one row at 320px
+  .desktopMenuItem {
+    padding-left: var(--space-xs);
+    padding-right: var(--space-xs);
+  }
 }
 
 .mobileMenuWrapper {

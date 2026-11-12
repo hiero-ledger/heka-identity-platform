@@ -1,7 +1,7 @@
 import { ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { matchPath, useLocation, useNavigate } from 'react-router-dom';
 
 import ROUTES from '@/app/routes/RoutePaths';
 import { DesktopView } from '@/components/Screen/Screen';
@@ -11,6 +11,7 @@ import {
   getUserName,
 } from '@/entities/User/model/selectors/userSelector';
 import IssueIcon from '@/shared/assets/icons/dashboard-outline.svg';
+import DidIcon from '@/shared/assets/icons/key-outline.svg';
 import VerifyIcon from '@/shared/assets/icons/verified-outline-rounded.svg';
 import WalletIcon from '@/shared/assets/icons/wallet-outline.svg';
 import { clickableProps } from '@/shared/lib/a11y/clickable';
@@ -33,12 +34,25 @@ interface DesktopMenuItem {
   active: Array<string>;
 }
 
+/**
+ * Whether the current location belongs to a menu item. Patterns are route paths, so a section
+ * (`/issue-credential/*`) or a dynamic route (`/dids/:did`) highlights its item too.
+ */
+const isActive = (active: Array<string>, pathname: string) =>
+  active.some((pattern) => matchPath(pattern, pathname) !== null);
+
 const desktopMenuItems: Array<DesktopMenuItem> = [
   {
     icon: <WalletIcon {...desktopIconProps} />,
     title: i18next.t('Demo.titles.main'),
     route: ROUTES.MAIN,
     active: [ROUTES.MAIN, ROUTES.DEMO, ROUTES.AGE_DEMO],
+  },
+  {
+    icon: <DidIcon {...desktopIconProps} />,
+    title: i18next.t('Dids.titles.main'),
+    route: ROUTES.DIDS,
+    active: [ROUTES.DIDS, ROUTES.DID_DETAILS],
   },
   {
     icon: <IssueIcon {...desktopIconProps} />,
@@ -51,7 +65,6 @@ const desktopMenuItems: Array<DesktopMenuItem> = [
       ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
       ROUTES.ISSUE_CREDENTIAL_SCHEMAS,
       ROUTES.ISSUE_CREDENTIAL_CREDENTIAL_DEFINITIONS,
-      ROUTES.ISSUE_CREDENTIAL_DIDS,
       ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
     ],
   },
@@ -104,11 +117,11 @@ export const DesktopNavigationMenu = () => {
             key={menuItem.route}
             alignItems="center"
             className={classNames(cls.desktopMenuItem, {
-              [cls.activeItem]: menuItem.active.includes(pathname),
+              [cls.activeItem]: isActive(menuItem.active, pathname),
               [cls.disabled]: isPreparingUser,
             })}
             aria-current={
-              menuItem.active.includes(pathname) ? 'page' : undefined
+              isActive(menuItem.active, pathname) ? 'page' : undefined
             }
             {...clickableProps(() => onNavigate(menuItem.route), {
               role: 'link',
@@ -159,6 +172,12 @@ const mobileMenuItems: Array<DesktopMenuItem> = [
     active: [ROUTES.MAIN, ROUTES.DEMO, ROUTES.AGE_DEMO],
   },
   {
+    icon: <DidIcon {...mobileIconProps} />,
+    title: i18next.t('Dids.titles.mainMobile'),
+    route: ROUTES.DIDS,
+    active: [ROUTES.DIDS, ROUTES.DID_DETAILS],
+  },
+  {
     icon: <IssueIcon {...mobileIconProps} />,
     title: i18next.t('IssueCredential.titles.mainMobile'),
     route: ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
@@ -169,7 +188,6 @@ const mobileMenuItems: Array<DesktopMenuItem> = [
       ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
       ROUTES.ISSUE_CREDENTIAL_SCHEMAS,
       ROUTES.ISSUE_CREDENTIAL_CREDENTIAL_DEFINITIONS,
-      ROUTES.ISSUE_CREDENTIAL_DIDS,
       ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
     ],
   },
@@ -217,11 +235,11 @@ export const MobileNavigationMenu = () => {
             justifyContent="center"
             alignItems="center"
             className={classNames(cls.desktopMenuItem, {
-              [cls.activeItem]: menuItem.active.includes(pathname),
+              [cls.activeItem]: isActive(menuItem.active, pathname),
               [cls.disabled]: isPreparingUser,
             })}
             aria-current={
-              menuItem.active.includes(pathname) ? 'page' : undefined
+              isActive(menuItem.active, pathname) ? 'page' : undefined
             }
             {...clickableProps(() => onNavigate(menuItem.route), {
               role: 'link',

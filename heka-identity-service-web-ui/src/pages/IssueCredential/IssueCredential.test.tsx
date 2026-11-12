@@ -99,7 +99,6 @@ describe('IssueCredential page', () => {
 
   test.each([
     ['credential-definitions', 'Credential definitions'],
-    ['dids', 'DIDs'],
     ['issued-credentials', 'Issued credentials'],
   ])('renders the %s placeholder', (segment, text) => {
     renderAt(`/issue-credential/${segment}`);

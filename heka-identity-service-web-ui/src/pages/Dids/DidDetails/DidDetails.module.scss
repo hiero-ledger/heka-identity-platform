@@ -1,0 +1,119 @@
+@import '@/shared/styles/mixins';
+
+// The back button keeps its own width, like the wizard's Back button
+.back {
+  align-self: flex-start;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.title {
+  font-size: var(--font-size-headline-l);
+  font-weight: 800;
+}
+
+.did {
+  font-family: monospace;
+  font-size: var(--font-size-body-m);
+  word-break: break-all;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sectionTitle {
+  font: var(--font-subtitle-m);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--space-md);
+
+  @include border;
+}
+
+.field {
+  display: grid;
+
+  // Each field is its own grid: a fixed label track that fits the key names (publicKeyMultibase,
+  // blockchainAccountId), so values line up across fields
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: var(--space-xxs) var(--space-md);
+
+  @include mobile {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// A method embedded in a verification relationship is a card inside a field's value column:
+// a second label track would leave its values a few characters wide, so its labels go above
+.card .card .field {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.label {
+  grid-column: 1;
+  min-width: 0;
+  overflow-wrap: anywhere; // a longer, unknown property name wraps instead of covering the value
+  font: var(--font-label-l);
+  color: var(--color-dark-medium-emphasis);
+}
+
+.value {
+  grid-column: 2;
+  min-width: 0;
+  margin: 0;
+  font: var(--font-body-s);
+
+  @include mobile {
+    grid-column: 1;
+  }
+
+  .card .card & {
+    grid-column: 1;
+  }
+}
+
+.code {
+  margin: 0;
+  font-family: monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.rawJson {
+  padding: var(--space-md);
+  border-radius: var(--space-md);
+  background-color: var(--color-surface-2);
+}
+
+.notFound {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.muted {
+  color: var(--color-dark-medium-emphasis);
+}

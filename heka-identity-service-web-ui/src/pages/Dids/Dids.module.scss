@@ -1,0 +1,126 @@
+@import '@/shared/styles/mixins';
+
+.title {
+  font-size: var(--font-size-headline-l);
+  font-weight: 800;
+}
+
+.empty {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 12rem;
+}
+
+.errorDetails {
+  color: var(--color-dark-medium-emphasis);
+}
+
+// Phones (the `mobile` breakpoint) get one card per DID; wider screens get a table.
+// Each row is its own grid, so its tracks must not depend on the content: the DID column takes
+// what is left, the others shrink from the width of their names down to a fixed minimum.
+$table-columns: minmax(8rem, 1fr) minmax(4rem, 6rem) minmax(5.5rem, 10rem) minmax(4.5rem, 5rem);
+
+// The minimum table width: the column minimums plus the gaps and the row padding. It fits the
+// narrowest desktop list (~440px, a 1024px window with the side menu and panel); only a still
+// narrower list would scroll sideways inside its frame instead of overlapping.
+$table-min-width: 27rem;
+
+.list {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--space-md);
+
+  @include border;
+}
+
+.items {
+  min-width: $table-min-width;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    @include border('top');
+  }
+
+  @include mobile {
+    min-width: 0;
+
+    // No header row on phones: the frame's own border is the first card's top edge
+    li:first-child {
+      border-top: none;
+    }
+  }
+}
+
+.row {
+  display: grid;
+  grid-template-columns: $table-columns;
+  gap: var(--space-sm);
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  font: var(--font-body-s);
+  color: inherit;
+  text-decoration: none;
+
+  @include mobile {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-xxs);
+  }
+}
+
+a.row {
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--color-primary-opacity-6);
+  }
+
+  &:focus-visible {
+    @include outline;
+
+    // Inside the row: the frame's `overflow-x: auto` clips anything drawn outside it
+    outline-offset: calc(-1 * var(--outline-width));
+  }
+}
+
+.cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.did {
+  font-family: monospace;
+
+  @include mobile {
+    white-space: normal;
+    word-break: break-all;
+  }
+}
+
+.headerRow {
+  min-width: $table-min-width;
+  font: var(--font-label-l);
+  color: var(--color-dark-medium-emphasis);
+
+  .cell {
+    white-space: normal;
+  }
+
+  @include mobile {
+    display: none;
+  }
+}
+
+// The column names are in the header row on wider screens
+.mobileLabel {
+  display: none;
+
+  @include mobile {
+    display: inline;
+    color: var(--color-dark-medium-emphasis);
+  }
+}

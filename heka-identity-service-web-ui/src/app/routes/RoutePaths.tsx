@@ -14,11 +14,16 @@ export enum ROUTES {
   ISSUE_CREDENTIAL_TEMPLATES = '/issue-credential/templates',
   ISSUE_CREDENTIAL_SCHEMAS = '/issue-credential/schemas',
   ISSUE_CREDENTIAL_CREDENTIAL_DEFINITIONS = '/issue-credential/credential-definitions',
-  ISSUE_CREDENTIAL_DIDS = '/issue-credential/dids',
   ISSUE_ADVANCED_ISSUE = '/issue-credential/advanced-issue',
   ISSUE_CREDENTIAL_FROM_TEMPLATE = '/issue-credential/from-template',
   ISSUE_TEMPLATE = '/issue-credential/template',
   VERIFY_TEMPLATE = '/verify-credential/template',
+  DIDS = '/dids',
+  DID_DETAILS = '/dids/:did',
 }
+
+/** Link to the details screen of a DID: the DID is one encoded path segment. */
+export const didDetailsPath = (did: string) =>
+  `/dids/${encodeURIComponent(did)}`;
 
 export default ROUTES;

@@ -1,0 +1,441 @@
+import { ReactNode, useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
+import { useNavigate, useParams } from 'react-router-dom';
+
+import ROUTES from '@/app/routes/RoutePaths';
+import {
+  DidDocument,
+  DidService,
+  DidVerificationMethod,
+  DidVerificationRelationshipEntry,
+  formatValue,
+  getDidById,
+  getDidItems,
+  getDidMethod,
+  getDids,
+  getDidsError,
+  getDidsFailedMethods,
+  getDidsIsLoading,
+  getPublicKey,
+  objectsOf,
+  relationshipEntriesOf,
+  textInterpolation,
+  toList,
+  VERIFICATION_RELATIONSHIPS,
+} from '@/entities/Did';
+import { classNames } from '@/shared/lib/classNames';
+import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
+import { Button } from '@/shared/ui/Button';
+import { LoaderView } from '@/shared/ui/Loader';
+
+import { DidsLayout } from '../DidsLayout/DidsLayout';
+import { LoadErrorAlert } from '../LoadErrorAlert/LoadErrorAlert';
+
+import * as cls from './DidDetails.module.scss';
+
+// Every value from a DID document is rendered as text: documents come from ledgers, so a
+// `serviceEndpoint` may well be a `javascript:` URL and must never become a link.
+
+/** One key/value pair of a `<dl>`; hidden when there is no value. */
+const Field = ({ label, values }: { label: string; values: ReactNode[] }) => {
+  if (values.length === 0) return null;
+  return (
+    <div className={cls.field}>
+      <dt className={cls.label}>{label}</dt>
+      {values.map((value, index) => (
+        <dd
+          key={index}
+          className={cls.value}
+        >
+          {value}
+        </dd>
+      ))}
+    </div>
+  );
+};
+
+const Text = ({ value }: { value: unknown }) => {
+  const text = formatValue(value);
+  return typeof value === 'string' ? (
+    <code className={cls.code}>{text}</code>
+  ) : (
+    <pre className={cls.code}>{text}</pre>
+  );
+};
+
+const VerificationMethodView = ({
+  method,
+}: {
+  method: DidVerificationMethod;
+}) => {
+  const { t } = useTranslation();
+  const publicKey = getPublicKey(method);
+
+  return (
+    <dl className={cls.card}>
+      <Field
+        label={t('Dids.details.id')}
+        values={toList(method.id).map((id, index) => (
+          <Text
+            key={index}
+            value={id}
+          />
+        ))}
+      />
+      <Field
+        label={t('Dids.details.type')}
+        values={toList(method.type).map((type, index) => (
+          <Text
+            key={index}
+            value={type}
+          />
+        ))}
+      />
+      <Field
+        label={t('Dids.details.controller')}
+        values={toList(method.controller).map((controller, index) => (
+          <Text
+            key={index}
+            value={controller}
+          />
+        ))}
+      />
+      {publicKey && (
+        <Field
+          label={publicKey.label}
+          values={[
+            <Text
+              key="key"
+              value={publicKey.value}
+            />,
+          ]}
+        />
+      )}
+    </dl>
+  );
+};
+
+const RelationshipEntry = ({
+  entry,
+}: {
+  entry: DidVerificationRelationshipEntry;
+}) =>
+  typeof entry === 'string' ? (
+    <Text value={entry} />
+  ) : (
+    <VerificationMethodView method={entry} />
+  );
+
+const SERVICE_PROPERTIES = ['id', 'type', 'serviceEndpoint'];
+
+const ServiceView = ({ service }: { service: DidService }) => {
+  const { t } = useTranslation();
+  const extras = Object.entries(service).filter(
+    ([key]) => !SERVICE_PROPERTIES.includes(key),
+  );
+
+  return (
+    <dl className={cls.card}>
+      <Field
+        label={t('Dids.details.id')}
+        values={toList(service.id).map((id, index) => (
+          <Text
+            key={index}
+            value={id}
+          />
+        ))}
+      />
+      <Field
+        label={t('Dids.details.type')}
+        values={toList(service.type).map((type, index) => (
+          <Text
+            key={index}
+            value={type}
+          />
+        ))}
+      />
+      {service.serviceEndpoint !== undefined && (
+        <Field
+          label={t('Dids.details.serviceEndpoint')}
+          values={[
+            <Text
+              key="endpoint"
+              value={service.serviceEndpoint}
+            />,
+          ]}
+        />
+      )}
+      {extras.map(([key, value]) => (
+        <Field
+          key={key}
+          label={key}
+          values={[
+            <Text
+              key={key}
+              value={value}
+            />,
+          ]}
+        />
+      ))}
+    </dl>
+  );
+};
+
+const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
+  const { t } = useTranslation();
+  const rawJson = useMemo(() => JSON.stringify(doc, null, 2), [doc]);
+  // Only well-formed entries get the structured view; anything else is still in the raw JSON
+  const verificationMethods = objectsOf<DidVerificationMethod>(
+    doc.verificationMethod,
+  );
+  const services = objectsOf<DidService>(doc.service);
+  const relationships = VERIFICATION_RELATIONSHIPS.filter(
+    (name) => doc[name] !== undefined && doc[name] !== null,
+  );
+
+  return (
+    <>
+      <section
+        className={cls.section}
+        aria-labelledby="did-overview"
+      >
+        <h3
+          id="did-overview"
+          className={cls.sectionTitle}
+        >
+          {t('Dids.details.overview')}
+        </h3>
+        <dl className={cls.card}>
+          <Field
+            label={t('Dids.details.method')}
+            values={[getDidMethod(doc.id)]}
+          />
+          <Field
+            label={t('Dids.details.context')}
+            values={toList(doc['@context']).map((context, index) => (
+              <Text
+                key={index}
+                value={context}
+              />
+            ))}
+          />
+          <Field
+            label={t('Dids.details.controller')}
+            values={toList(doc.controller).map((controller, index) => (
+              <Text
+                key={index}
+                value={controller}
+              />
+            ))}
+          />
+          <Field
+            label={t('Dids.details.alsoKnownAs')}
+            values={toList(doc.alsoKnownAs).map((alias, index) => (
+              <Text
+                key={index}
+                value={alias}
+              />
+            ))}
+          />
+        </dl>
+      </section>
+
+      {verificationMethods.length > 0 && (
+        <section
+          className={cls.section}
+          aria-labelledby="did-verification-methods"
+        >
+          <h3
+            id="did-verification-methods"
+            className={cls.sectionTitle}
+          >
+            {t('Dids.details.verificationMethods')}
+          </h3>
+          <ul className={cls.items}>
+            {verificationMethods.map((method, index) => (
+              <li key={index}>
+                <VerificationMethodView method={method} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {relationships.length > 0 && (
+        <section
+          className={cls.section}
+          aria-labelledby="did-verification-relationships"
+        >
+          <h3
+            id="did-verification-relationships"
+            className={cls.sectionTitle}
+          >
+            {t('Dids.details.verificationRelationships')}
+          </h3>
+          <dl className={cls.card}>
+            {relationships.map((name) => {
+              const entries = relationshipEntriesOf(doc[name]);
+              return (
+                <Field
+                  key={name}
+                  label={t(`Dids.details.relationships.${name}`)}
+                  values={
+                    entries.length
+                      ? entries.map((entry, index) => (
+                          <RelationshipEntry
+                            key={index}
+                            entry={entry}
+                          />
+                        ))
+                      : [t('Dids.details.noEntries')]
+                  }
+                />
+              );
+            })}
+          </dl>
+        </section>
+      )}
+
+      {services.length > 0 && (
+        <section
+          className={cls.section}
+          aria-labelledby="did-services"
+        >
+          <h3
+            id="did-services"
+            className={cls.sectionTitle}
+          >
+            {t('Dids.details.services')}
+          </h3>
+          <ul className={cls.items}>
+            {services.map((service, index) => (
+              <li key={index}>
+                <ServiceView service={service} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section
+        className={cls.section}
+        aria-labelledby="did-raw-json"
+      >
+        <h3
+          id="did-raw-json"
+          className={cls.sectionTitle}
+        >
+          {t('Dids.details.rawJson')}
+        </h3>
+        <pre
+          className={classNames(cls.code, {}, [cls.rawJson])}
+          data-testid="did-raw-json"
+        >
+          {rawJson}
+        </pre>
+      </section>
+    </>
+  );
+};
+
+const DidDetails = () => {
+  const { t } = useTranslation();
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  // React Router has already decoded the path segment: compare it with the ids as it is
+  const { did } = useParams();
+
+  const selectDoc = useMemo(() => getDidById(did), [did]);
+  const doc = useSelector(selectDoc);
+  const items = useSelector(getDidItems);
+  const isLoading = useSelector(getDidsIsLoading);
+  const error = useSelector(getDidsError);
+  const failedMethods = useSelector(getDidsFailedMethods);
+
+  const loadList = useCallback(() => {
+    dispatch(getDids());
+  }, [dispatch]);
+
+  // A deep link or a reload: the list has not been loaded yet
+  const needsLoad = items === undefined && !isLoading && !error;
+  useEffect(() => {
+    if (needsLoad) loadList();
+  }, [needsLoad, loadList]);
+
+  const methodError =
+    did === undefined
+      ? undefined
+      : failedMethods?.find(({ method }) => method === getDidMethod(did));
+
+  let content: ReactNode;
+  if (doc) {
+    content = <DidDocumentView doc={doc} />;
+  } else if (isLoading || needsLoad) {
+    content = (
+      <div
+        role="status"
+        aria-label={t('Dids.list.loading')}
+      >
+        <LoaderView />
+      </div>
+    );
+  } else if (error) {
+    content = (
+      <LoadErrorAlert onRetry={loadList}>
+        <p>{t('Dids.list.loadError')}</p>
+        <p className={cls.muted}>{error}</p>
+      </LoadErrorAlert>
+    );
+  } else if (methodError) {
+    content = (
+      <LoadErrorAlert onRetry={loadList}>
+        <p>
+          {t('Dids.list.methodError', {
+            method: methodError.method,
+            message: methodError.message,
+            ...textInterpolation,
+          })}
+        </p>
+      </LoadErrorAlert>
+    );
+  } else {
+    content = (
+      <div className={cls.notFound}>
+        <h3 className={cls.sectionTitle}>{t('Dids.details.notFound')}</h3>
+        <p className={cls.muted}>{t('Dids.details.notFoundDescription')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <DidsLayout>
+      <div className={cls.back}>
+        <Button
+          buttonType="outlined"
+          leftIcon="arrow-back"
+          onPress={() => navigate(ROUTES.DIDS)}
+        >
+          {t('Common.buttons.back')}
+        </Button>
+      </div>
+      <header className={cls.header}>
+        <h2 className={cls.title}>{t('Dids.titles.details')}</h2>
+        {did !== undefined && (
+          // Framed like the document's sections below
+          <div className={cls.card}>
+            <code
+              className={cls.did}
+              data-testid="did-value"
+            >
+              {did}
+            </code>
+          </div>
+        )}
+      </header>
+      {content}
+    </DidsLayout>
+  );
+};
+
+export default DidDetails;
