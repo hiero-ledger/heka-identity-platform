@@ -308,27 +308,21 @@ describe('DidDetails', () => {
     expect(raw).toHaveTextContent('"foo": "bar"');
   });
 
-  test('copies the DID and the raw JSON with a success toast (AC11)', async () => {
+  test('copies the raw JSON with a success toast (AC11)', async () => {
     const user = userEvent.setup();
     const writeText = mockClipboard();
 
     renderDetails(HEDERA_DID, { initialState: loadedState([hederaDoc]) });
-
-    await user.click(screen.getByRole('button', { name: 'Copy DID' }));
-    expect(writeText).toHaveBeenLastCalledWith(HEDERA_DID);
-    expect(toast.success).toHaveBeenLastCalledWith('Copied');
 
     await user.click(screen.getByText('Raw JSON'));
     await user.click(screen.getByRole('button', { name: 'Copy JSON' }));
     expect(writeText).toHaveBeenLastCalledWith(
       JSON.stringify(hederaDoc, null, 2),
     );
-    expect(toast.success).toHaveBeenCalledTimes(2);
+    expect(toast.success).toHaveBeenCalledWith('Copied');
 
-    // Keys are copied from the raw JSON: they have no button of their own
-    expect(
-      screen.queryByRole('button', { name: 'Copy public key' }),
-    ).not.toBeInTheDocument();
+    // The raw JSON is the one thing to copy: the DID and the keys have no button of their own
+    expect(screen.getAllByRole('button', { name: /^Copy/ })).toHaveLength(1);
   });
 
   test('reports a failed copy', async () => {
@@ -338,7 +332,8 @@ describe('DidDetails', () => {
 
     renderDetails(KEY_DID, { initialState: loadedState([keyDoc]) });
 
-    await user.click(screen.getByRole('button', { name: 'Copy DID' }));
+    await user.click(screen.getByText('Raw JSON'));
+    await user.click(screen.getByRole('button', { name: 'Copy JSON' }));
 
     expect(toast.error).toHaveBeenCalledWith('Could not copy to the clipboard');
     expect(toast.success).not.toHaveBeenCalled();

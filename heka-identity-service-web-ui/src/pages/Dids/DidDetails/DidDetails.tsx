@@ -416,19 +416,14 @@ const DidDetails = () => {
       <header className={cls.header}>
         <h2 className={cls.title}>{t('Dids.titles.details')}</h2>
         {did !== undefined && (
-          <div className={cls.copyable}>
+          // Framed like the document's sections below
+          <div className={cls.card}>
             <code
               className={cls.did}
               data-testid="did-value"
             >
               {did}
             </code>
-            {doc && (
-              <CopyButton
-                value={doc.id}
-                label={t('Dids.details.copyDid')}
-              />
-            )}
           </div>
         )}
       </header>

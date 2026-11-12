@@ -286,7 +286,6 @@ export default {
       serviceEndpoint: 'Service endpoint',
       noEntries: 'None',
       rawJson: 'Raw JSON',
-      copyDid: 'Copy DID',
       copyJson: 'Copy JSON',
       copy: 'Copy',
       copied: 'Copied',

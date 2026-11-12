@@ -22,14 +22,6 @@
   word-break: break-all;
 }
 
-.copyable {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  min-width: 0;
-}
-
 .section {
   display: flex;
   flex-direction: column;
