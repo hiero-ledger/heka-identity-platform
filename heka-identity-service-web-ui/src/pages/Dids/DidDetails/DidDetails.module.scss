@@ -67,7 +67,10 @@
 
 .field {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+
+  // Each field is its own grid: a fixed label track that fits the key names (publicKeyMultibase,
+  // blockchainAccountId), so values line up across fields
+  grid-template-columns: 10rem minmax(0, 1fr);
   gap: var(--space-xxs) var(--space-md);
 
   @include mobile {
@@ -77,6 +80,8 @@
 
 .label {
   grid-column: 1;
+  min-width: 0;
+  overflow-wrap: anywhere; // a longer, unknown property name wraps instead of covering the value
   font: var(--font-label-l);
   color: var(--color-dark-medium-emphasis);
 }
