@@ -6,7 +6,7 @@ import {
   MockApi,
 } from '@/shared/lib/tests/renderWithProviders';
 
-import { getDids } from './getDids';
+import { DID_LIST_REQUEST_TIMEOUT_MS, getDids } from './getDids';
 import {
   getDidById,
   getDidItems,
@@ -67,9 +67,9 @@ describe('getDids', () => {
     expect(api.get).toHaveBeenNthCalledWith(1, '/dids/methods');
     const didCalls = api.get.mock.calls.filter(([url]) => url === '/dids');
     expect(didCalls.map(([, config]) => config)).toEqual([
-      { params: { own: true, method: 'indy' } },
-      { params: { own: true, method: 'key' } },
-      { params: { own: true, method: 'hedera' } },
+      expect.objectContaining({ params: { own: true, method: 'indy' } }),
+      expect.objectContaining({ params: { own: true, method: 'key' } }),
+      expect.objectContaining({ params: { own: true, method: 'hedera' } }),
     ]);
   });
 
@@ -124,6 +124,55 @@ describe('getDids', () => {
     ]);
     expect(getDidsError(store.getState())).toBeUndefined();
     expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  test('a method that answers with something other than a list is reported as failed', async () => {
+    const api = createMockApi();
+    route(api, ['key', 'hedera'], {
+      key: [doc('did:key:z1')],
+      hedera: () => Promise.resolve({ data: { unexpected: true } }),
+    });
+    const store = createTestStore({}, api);
+
+    await store.dispatch(getDids());
+
+    expect(getDidItems(store.getState())?.map((d) => d.id)).toEqual([
+      'did:key:z1',
+    ]);
+    expect(getDidsFailedMethods(store.getState())).toEqual([
+      {
+        method: 'hedera',
+        message: 'The identity service returned an unexpected response.',
+      },
+    ]);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  test('limits each method request in time and reports a timed-out method', async () => {
+    const api = createMockApi();
+    route(api, ['key', 'indybesu'], {
+      key: [doc('did:key:z1')],
+      indybesu: {
+        isAxiosError: true,
+        code: 'ECONNABORTED',
+        message: `timeout of ${DID_LIST_REQUEST_TIMEOUT_MS}ms exceeded`,
+      } as unknown as ReturnType<typeof apiError>,
+    });
+    const store = createTestStore({}, api);
+
+    await store.dispatch(getDids());
+
+    expect(api.get).toHaveBeenCalledWith('/dids', {
+      params: { own: true, method: 'key' },
+      timeout: DID_LIST_REQUEST_TIMEOUT_MS,
+    });
+    expect(getDidItems(store.getState())).toHaveLength(1);
+    expect(getDidsFailedMethods(store.getState())).toEqual([
+      {
+        method: 'indybesu',
+        message: 'The identity service did not answer in time.',
+      },
+    ]);
   });
 
   test('rejects with the server message when every method fails', async () => {
@@ -252,5 +301,7 @@ describe('getDids', () => {
 
     expect(getDidsError(store.getState())).toBeUndefined();
     expect(getDidItems(store.getState())).toHaveLength(1);
+    // Its error is not shown either
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

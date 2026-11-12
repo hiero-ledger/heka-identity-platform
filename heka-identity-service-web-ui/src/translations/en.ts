@@ -253,6 +253,8 @@ export default {
       loadError: 'Could not load the DIDs.',
       methodError: 'Could not load {{method}} DIDs: {{message}}',
       invalidMethods: 'The identity service returned no list of DID methods.',
+      invalidDids: 'The identity service returned an unexpected response.',
+      timeout: 'The identity service did not answer in time.',
       retry: 'Retry',
       empty: 'No DIDs yet',
       emptyDescription: 'DIDs are created when your wallet is prepared.',

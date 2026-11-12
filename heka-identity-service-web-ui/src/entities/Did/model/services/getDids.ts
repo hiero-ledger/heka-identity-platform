@@ -1,4 +1,5 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
 
 import { ThunkConfig } from '@/app/providers/StoreProvider';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
@@ -13,15 +14,33 @@ import { normalizeDidDocument, sortDids } from '../utils/didDocument';
  * one without `method`, which would also return the pairwise did:peer connection DIDs.
  *
  * A failed method does not fail the list: it is reported in `failedMethods`, without a toast,
- * for the page to show. The thunk is rejected only when the methods cannot be read or every
- * method failed.
+ * for the page to show. That includes a method whose request timed out or whose answer is not a
+ * list. The thunk is rejected only when the methods cannot be read or every method failed.
+ *
+ * A request that a newer one has superseded is rejected without a toast: its result is ignored.
  */
+/** One stalled method must not keep the whole list loading; the others are shown without it */
+export const DID_LIST_REQUEST_TIMEOUT_MS = 30_000;
+
+const isTimeout = (error: unknown) =>
+  axios.isAxiosError(error) &&
+  (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT');
+
+const describeMethodError = (error: unknown) =>
+  isTimeout(error) ? i18next.t('Dids.list.timeout') : getErrorMessage(error);
+
 export const getDids = createAsyncThunk<
   GetDidsResult,
   void,
   ThunkConfig<string>
 >('dids/getDids', async (_, thunkAPI) => {
-  const { extra, rejectWithValue, dispatch } = thunkAPI;
+  const { extra, rejectWithValue, dispatch, getState, requestId } = thunkAPI;
+
+  // Only the latest request shows its error: the slice ignores the result of an older one
+  const reject = (error: unknown) =>
+    getState().dids?.listRequestId === requestId
+      ? handleError(error as Error, rejectWithValue, dispatch)
+      : rejectWithValue(getErrorMessage(error));
 
   try {
     // Read here rather than through the wizard's `getDidMethods`, which assumes a well-formed body:
@@ -41,6 +60,7 @@ export const getDids = createAsyncThunk<
       methods.map((method) =>
         extra.agencyApi.get<DidDocument[]>(agencyEndpoints.getDids, {
           params: { own: true, method },
+          timeout: DID_LIST_REQUEST_TIMEOUT_MS,
         }),
       ),
     );
@@ -51,19 +71,27 @@ export const getDids = createAsyncThunk<
 
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
-        firstError ??= result.reason;
+        firstError ??= isTimeout(result.reason)
+          ? new Error(i18next.t('Dids.list.timeout'))
+          : result.reason;
         failedMethods.push({
           method: methods[index],
-          message: getErrorMessage(result.reason),
+          message: describeMethodError(result.reason),
         });
         return;
       }
-      const data = Array.isArray(result.value.data) ? result.value.data : [];
-      documents.push(...data);
+      // A 200 that is not a list is a failure of that method, not "no DIDs"
+      if (!Array.isArray(result.value.data)) {
+        const error = new Error(i18next.t('Dids.list.invalidDids'));
+        firstError ??= error;
+        failedMethods.push({ method: methods[index], message: error.message });
+        return;
+      }
+      documents.push(...result.value.data);
     });
 
     if (methods.length > 0 && failedMethods.length === methods.length) {
-      return handleError(firstError as Error, rejectWithValue, dispatch);
+      return reject(firstError);
     }
 
     const seen = new Set<string>();
@@ -78,6 +106,6 @@ export const getDids = createAsyncThunk<
 
     return { items: sortDids(items, methods), failedMethods };
   } catch (error) {
-    return handleError(error as Error, rejectWithValue, dispatch);
+    return reject(error);
   }
 });
