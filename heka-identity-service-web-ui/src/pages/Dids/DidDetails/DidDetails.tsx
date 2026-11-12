@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
-import { Link, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import ROUTES from '@/app/routes/RoutePaths';
 import {
@@ -23,6 +23,7 @@ import {
   VERIFICATION_RELATIONSHIPS,
 } from '@/entities/Did';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
+import { Button } from '@/shared/ui/Button';
 import { LoaderView } from '@/shared/ui/Loader';
 
 import { CopyButton } from '../CopyButton/CopyButton';
@@ -338,6 +339,7 @@ const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
 const DidDetails = () => {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   // React Router has already decoded the path segment: compare it with the ids as it is
   const { did } = useParams();
 
@@ -405,12 +407,15 @@ const DidDetails = () => {
 
   return (
     <DidsLayout>
-      <Link
-        to={ROUTES.DIDS}
-        className={cls.backLink}
-      >
-        {t('Dids.details.backToList')}
-      </Link>
+      <div className={cls.back}>
+        <Button
+          buttonType="outlined"
+          leftIcon="arrow-back"
+          onPress={() => navigate(ROUTES.DIDS)}
+        >
+          {t('Common.buttons.back')}
+        </Button>
+      </div>
       <header className={cls.header}>
         <h2 className={cls.title}>{t('Dids.titles.details')}</h2>
         {did !== undefined && (

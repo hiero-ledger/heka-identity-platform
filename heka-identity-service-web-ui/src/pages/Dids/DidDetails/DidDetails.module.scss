@@ -1,13 +1,8 @@
 @import '@/shared/styles/mixins';
 
-.backLink {
+// The back button keeps its own width, like the wizard's Back button
+.back {
   align-self: flex-start;
-  color: var(--color-primary);
-  font: var(--font-label-l);
-
-  &:focus-visible {
-    @include outline;
-  }
 }
 
 .header {

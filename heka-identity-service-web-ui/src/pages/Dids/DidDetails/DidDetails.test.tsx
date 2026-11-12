@@ -115,9 +115,7 @@ describe('DidDetails', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('region')).not.toBeInTheDocument();
 
-    const back = screen.getByRole('link', { name: 'Back to DIDs' });
-    expect(back).toHaveAttribute('href', '/dids');
-    await user.click(back);
+    await user.click(screen.getByRole('button', { name: 'Back' }));
     expect(screen.getByTestId('location')).toHaveTextContent(/^\/dids$/);
   });
 
@@ -355,12 +353,8 @@ describe('DidDetails', () => {
 
     const endpoint = screen.getByText('javascript:alert(1)');
     expect(endpoint.closest('a')).toBeNull();
-    // The only link on the screen is the way back to the list
-    expect(
-      Array.from(container.querySelectorAll('a')).map((a) =>
-        a.getAttribute('href'),
-      ),
-    ).toEqual(['/dids']);
+    // Nothing in the document becomes a link (the way back to the list is a button)
+    expect(container.querySelectorAll('a')).toHaveLength(0);
   });
 
   test.each([KEY_DID, INDY_DID, HEDERA_DID])(

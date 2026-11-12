@@ -266,7 +266,6 @@ export default {
         '{{did}}, method {{method}}, verification methods: {{verificationMethods}}, services: {{services}}',
     },
     details: {
-      backToList: 'Back to DIDs',
       overview: 'Overview',
       method: 'Method',
       context: 'Context',
