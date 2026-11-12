@@ -18,6 +18,8 @@ import {
   getDidsFailedMethods,
   getDidsIsLoading,
   getPublicKey,
+  objectsOf,
+  relationshipEntriesOf,
   textInterpolation,
   toList,
   VERIFICATION_RELATIONSHIPS,
@@ -74,27 +76,27 @@ const VerificationMethodView = ({
     <dl className={cls.card}>
       <Field
         label={t('Dids.details.id')}
-        values={toList(method.id).map((id) => (
+        values={toList(method.id).map((id, index) => (
           <Text
-            key={id}
+            key={index}
             value={id}
           />
         ))}
       />
       <Field
         label={t('Dids.details.type')}
-        values={toList(method.type).map((type) => (
+        values={toList(method.type).map((type, index) => (
           <Text
-            key={type}
+            key={index}
             value={type}
           />
         ))}
       />
       <Field
         label={t('Dids.details.controller')}
-        values={toList(method.controller).map((controller) => (
+        values={toList(method.controller).map((controller, index) => (
           <Text
-            key={controller}
+            key={index}
             value={controller}
           />
         ))}
@@ -137,18 +139,18 @@ const ServiceView = ({ service }: { service: DidService }) => {
     <dl className={cls.card}>
       <Field
         label={t('Dids.details.id')}
-        values={toList(service.id).map((id) => (
+        values={toList(service.id).map((id, index) => (
           <Text
-            key={id}
+            key={index}
             value={id}
           />
         ))}
       />
       <Field
         label={t('Dids.details.type')}
-        values={toList(service.type).map((type) => (
+        values={toList(service.type).map((type, index) => (
           <Text
-            key={type}
+            key={index}
             value={type}
           />
         ))}
@@ -183,8 +185,13 @@ const ServiceView = ({ service }: { service: DidService }) => {
 const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
   const { t } = useTranslation();
   const rawJson = useMemo(() => JSON.stringify(doc, null, 2), [doc]);
+  // Only well-formed entries get the structured view; anything else is still in the raw JSON
+  const verificationMethods = objectsOf<DidVerificationMethod>(
+    doc.verificationMethod,
+  );
+  const services = objectsOf<DidService>(doc.service);
   const relationships = VERIFICATION_RELATIONSHIPS.filter(
-    (name) => doc[name] !== undefined,
+    (name) => doc[name] !== undefined && doc[name] !== null,
   );
 
   return (
@@ -215,18 +222,18 @@ const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
           />
           <Field
             label={t('Dids.details.controller')}
-            values={toList(doc.controller).map((controller) => (
+            values={toList(doc.controller).map((controller, index) => (
               <Text
-                key={controller}
+                key={index}
                 value={controller}
               />
             ))}
           />
           <Field
             label={t('Dids.details.alsoKnownAs')}
-            values={toList(doc.alsoKnownAs).map((alias) => (
+            values={toList(doc.alsoKnownAs).map((alias, index) => (
               <Text
-                key={alias}
+                key={index}
                 value={alias}
               />
             ))}
@@ -234,7 +241,7 @@ const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
         </dl>
       </section>
 
-      {!!doc.verificationMethod?.length && (
+      {verificationMethods.length > 0 && (
         <section
           className={cls.section}
           aria-labelledby="did-verification-methods"
@@ -246,8 +253,8 @@ const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
             {t('Dids.details.verificationMethods')}
           </h3>
           <ul className={cls.items}>
-            {doc.verificationMethod.map((method, index) => (
-              <li key={`${method.id}-${index}`}>
+            {verificationMethods.map((method, index) => (
+              <li key={index}>
                 <VerificationMethodView method={method} />
               </li>
             ))}
@@ -268,7 +275,7 @@ const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
           </h3>
           <dl className={cls.card}>
             {relationships.map((name) => {
-              const entries = toList(doc[name]);
+              const entries = relationshipEntriesOf(doc[name]);
               return (
                 <Field
                   key={name}
@@ -290,7 +297,7 @@ const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
         </section>
       )}
 
-      {!!doc.service?.length && (
+      {services.length > 0 && (
         <section
           className={cls.section}
           aria-labelledby="did-services"
@@ -302,8 +309,8 @@ const DidDocumentView = ({ doc }: { doc: DidDocument }) => {
             {t('Dids.details.services')}
           </h3>
           <ul className={cls.items}>
-            {doc.service.map((service, index) => (
-              <li key={`${service.id}-${index}`}>
+            {services.map((service, index) => (
+              <li key={index}>
                 <ServiceView service={service} />
               </li>
             ))}

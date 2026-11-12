@@ -9,16 +9,6 @@ import i18next from '@/translations';
 import { DidDocument, DidMethodError, GetDidsResult } from '../types/did';
 import { normalizeDidDocument, sortDids } from '../utils/didDocument';
 
-/**
- * Loads the wallet's own DIDs of every configured method: one `GET /dids` per method, never
- * one without `method`, which would also return the pairwise did:peer connection DIDs.
- *
- * A failed method does not fail the list: it is reported in `failedMethods`, without a toast,
- * for the page to show. That includes a method whose request timed out or whose answer is not a
- * list. The thunk is rejected only when the methods cannot be read or every method failed.
- *
- * A request that a newer one has superseded is rejected without a toast: its result is ignored.
- */
 /** One stalled method must not keep the whole list loading; the others are shown without it */
 export const DID_LIST_REQUEST_TIMEOUT_MS = 30_000;
 
@@ -29,6 +19,16 @@ const isTimeout = (error: unknown) =>
 const describeMethodError = (error: unknown) =>
   isTimeout(error) ? i18next.t('Dids.list.timeout') : getErrorMessage(error);
 
+/**
+ * Loads the wallet's own DIDs of every configured method: one `GET /dids` per method, never
+ * one without `method`, which would also return the pairwise did:peer connection DIDs.
+ *
+ * A failed method does not fail the list: it is reported in `failedMethods`, without a toast,
+ * for the page to show. That includes a method whose request timed out or whose answer is not a
+ * list. The thunk is rejected only when the methods cannot be read or every method failed.
+ *
+ * A request that a newer one has superseded is rejected without a toast: its result is ignored.
+ */
 export const getDids = createAsyncThunk<
   GetDidsResult,
   void,

@@ -298,6 +298,34 @@ describe('DidDetails', () => {
     ).not.toBeInTheDocument();
   });
 
+  test('skips malformed entries of a document instead of breaking the page', () => {
+    const malformed = {
+      '@context': 'https://www.w3.org/ns/did/v1',
+      id: KEY_DID,
+      verificationMethod: [
+        null,
+        { id: `${KEY_DID}#k`, type: 'Ed25519VerificationKey2018', controller: KEY_DID },
+      ],
+      authentication: [null, `${KEY_DID}#k`, 7],
+      service: 'not a list',
+    } as unknown as DidDocument;
+
+    renderDetails(KEY_DID, { initialState: loadedState([malformed]) });
+
+    // The well-formed parts are shown; the rest is still in the raw JSON
+    const methods = section('Verification methods');
+    expect(within(methods).getAllByRole('listitem')).toHaveLength(1);
+    expect(
+      within(section('Verification relationships')).getAllByText(`${KEY_DID}#k`),
+    ).toHaveLength(1);
+    expect(
+      screen.queryByRole('region', { name: 'Services' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('did-raw-json')).toHaveTextContent(
+      '"service": "not a list"',
+    );
+  });
+
   test('renders a javascript: service endpoint as plain text (AC12)', () => {
     const { container } = renderDetails(HEDERA_DID, {
       initialState: loadedState([hederaDoc]),

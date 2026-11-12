@@ -3,6 +3,8 @@ import {
   getDidMethod,
   getPublicKey,
   normalizeDidDocument,
+  objectsOf,
+  relationshipEntriesOf,
   sortDids,
   toList,
 } from './didDocument';
@@ -155,5 +157,25 @@ describe('formatValue and toList', () => {
     expect(toList('a')).toEqual(['a']);
     expect(toList(['a', 'b'])).toEqual(['a', 'b']);
     expect(toList(undefined)).toEqual([]);
+  });
+});
+
+describe('objectsOf and relationshipEntriesOf', () => {
+  test('objectsOf keeps only objects and skips malformed values', () => {
+    expect(objectsOf([{ id: 'a' }, null, 'b', 1, ['c'], { id: 'd' }])).toEqual([
+      { id: 'a' },
+      { id: 'd' },
+    ]);
+    expect(objectsOf({ id: 'a' })).toEqual([{ id: 'a' }]);
+    expect(objectsOf('not a list')).toEqual([]);
+    expect(objectsOf(null)).toEqual([]);
+  });
+
+  test('relationshipEntriesOf keeps id references and embedded methods', () => {
+    const embedded = { id: 'did:key:z#k', type: 'X', controller: 'did:key:z' };
+    expect(
+      relationshipEntriesOf(['did:key:z#k', null, embedded, 42, ['x']]),
+    ).toEqual(['did:key:z#k', embedded]);
+    expect(relationshipEntriesOf('did:key:z#k')).toEqual(['did:key:z#k']);
   });
 });

@@ -13,6 +13,8 @@ export {
   getDidMethod,
   getPublicKey,
   normalizeDidDocument,
+  objectsOf,
+  relationshipEntriesOf,
   sortDids,
   textInterpolation,
   toList,

@@ -85,3 +85,23 @@ export const toList = <T>(value: T | T[] | undefined): T[] => {
   if (value === undefined || value === null) return [];
   return Array.isArray(value) ? value : [value];
 };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * The object entries of a document property that should hold a list of objects (verification
+ * methods, services). A document comes from a ledger, so anything else (`null`, a string, a
+ * number) is skipped here instead of breaking the page; the raw JSON still shows it.
+ */
+export const objectsOf = <T extends object>(value: unknown): T[] =>
+  toList(value).filter(isRecord) as unknown as T[];
+
+/** The entries of a verification relationship: id references (strings) and embedded methods. */
+export const relationshipEntriesOf = (
+  value: unknown,
+): Array<string | DidVerificationMethod> =>
+  toList(value).filter(
+    (entry): entry is string | DidVerificationMethod =>
+      typeof entry === 'string' || isRecord(entry),
+  );
