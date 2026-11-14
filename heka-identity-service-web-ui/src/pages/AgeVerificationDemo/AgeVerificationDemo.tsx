@@ -13,8 +13,7 @@ import {
   getPresentationSharedAttributes,
 } from '@/entities/Presentation/model/selectors/presentationSelector';
 import { Schema } from '@/entities/Schema';
-import { getSchemas } from '@/entities/Schema/model/selectors/schemasSelector';
-import { getDemoSchemaList } from '@/entities/Schema/model/services/getDemoSchemaList';
+import { useGetDemoSchemaListQuery } from '@/entities/Schema/api/schemaApi';
 import {
   Openid4CredentialFormat,
   ProtocolType,
@@ -26,7 +25,6 @@ import {
   totalPreparationSteps,
 } from '@/pages/AgeVerificationDemo/AgeVerificationDemo.config';
 import { useFlow } from '@/shared/hooks/flow';
-import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
 import { CheckboxGroup } from '@/shared/ui/CheckboxGroup/CheckboxGroup';
 import { Column, Row } from '@/shared/ui/Grid';
@@ -193,12 +191,15 @@ const AgeVerificationFields = ({
 
 const AgeVerificationDemo = () => {
   const { t } = useTranslation();
-  const dispatch = useAppDispatch();
-  const schemas = useSelector(getSchemas);
-  // From this page's own request: the store may still hold another page's schema list
-  const [schemaStatus, setSchemaStatus] = useState<
-    'loading' | 'ready' | 'missing' | 'failed'
-  >('loading');
+  // The demo tenant's list, a cache entry of its own (never another page's list)
+  const { data: schemas, isError } = useGetDemoSchemaListQuery();
+  const schemaStatus: 'loading' | 'ready' | 'missing' | 'failed' = isError
+    ? 'failed'
+    : !schemas
+      ? 'loading'
+      : schemas.some((s) => s.name === MDL_SCHEMA_NAME)
+        ? 'ready'
+        : 'missing';
   const isPresentationCompleted = useSelector(getIsPresentationCompleted);
 
   const initialContext = {
@@ -220,27 +221,10 @@ const AgeVerificationDemo = () => {
     resetFlowState,
   } = useFlow<DemoContext>({ steps, initialContext });
 
+  // Before the effect below: the cached list may already be there on mount
   useEffect(() => {
     resetFlowState();
-    let isCurrent = true;
-    setSchemaStatus('loading');
-    dispatch(getDemoSchemaList())
-      .unwrap()
-      .then(
-        (list) => {
-          if (!isCurrent) return;
-          const hasMdl = list.some((s) => s.name === MDL_SCHEMA_NAME);
-          setSchemaStatus(hasMdl ? 'ready' : 'missing');
-        },
-        () => {
-          // getDemoSchemaList has already shown the error
-          if (isCurrent) setSchemaStatus('failed');
-        },
-      );
-    return () => {
-      isCurrent = false;
-    };
-  }, [resetFlowState, dispatch]);
+  }, [resetFlowState]);
 
   useEffect(() => {
     if (!schemas) return;

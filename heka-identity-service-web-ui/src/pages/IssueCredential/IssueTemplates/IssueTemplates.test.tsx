@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 
 import ROUTES from '@/app/routes/RoutePaths';
 import { TemplatesProps, TemplateType } from '@/components/Templates/types';
+import { requestsTo } from '@/shared/lib/tests/apiCache';
 import {
   createMockApi,
   renderWithProviders,
@@ -70,6 +71,19 @@ describe('IssueTemplates', () => {
       '/issuance-templates/t2',
       expect.objectContaining({ previousTemplateId: 't1' }),
     );
+    // The saved order is read back once
+    await waitFor(() => expect(requestsTo(api, '/issuance-templates')).toBe(2));
+  });
+
+  test('reads the list from the cache when the page is opened again', async () => {
+    const { api, store, unmount } = renderIssueTemplates();
+    await screen.findByText(issuanceTemplate.name);
+    unmount();
+
+    renderWithProviders(<IssueTemplates />, { api, store });
+
+    expect(screen.getByText(issuanceTemplate.name)).toBeInTheDocument();
+    expect(requestsTo(api, '/issuance-templates')).toBe(1);
   });
 
   test('rejects the reorder when the update fails', async () => {
@@ -90,6 +104,8 @@ describe('IssueTemplates', () => {
     const { api } = renderIssueTemplates();
     await screen.findByText(issuanceTemplate.name);
 
+    // The server no longer lists it
+    routeAgencyGets(api, { templates: [] });
     await act(() => templatesProps!.deleteTemplate(issuanceTemplate.id));
 
     expect(api.delete).toHaveBeenCalledWith(
@@ -98,6 +114,10 @@ describe('IssueTemplates', () => {
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith('Template was deleted'),
     );
+    await waitFor(() =>
+      expect(screen.queryByText(issuanceTemplate.name)).toBeNull(),
+    );
+    expect(requestsTo(api, '/issuance-templates')).toBe(2);
   });
 
   test('does not confirm a delete that failed', async () => {

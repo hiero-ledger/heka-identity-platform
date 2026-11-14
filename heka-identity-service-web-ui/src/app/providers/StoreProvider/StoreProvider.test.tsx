@@ -1,8 +1,10 @@
 import { createSlice, ReducersMapObject } from '@reduxjs/toolkit';
 import { act, render, screen } from '@testing-library/react';
+import { AxiosInstance } from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { userActions } from '@/entities/User';
+import { userApi } from '@/entities/User/api/userApi';
 
 import { createReducerManager } from './config/reducerManager';
 import { StateSchema, StateSchemaKey } from './config/StateSchema';
@@ -85,11 +87,28 @@ describe('createReduxStore', () => {
         'user',
         'issuanceTemplates',
         'verificationTemplates',
+        'agencyApi',
       ]),
     );
     expect(
       (store as unknown as { reducerManager: object }).reducerManager,
     ).toBeDefined();
+  });
+
+  test('runs cached queries through the API client given to the thunks', async () => {
+    const api = {
+      get: jest.fn().mockResolvedValue({ data: { name: 'ACME' } }),
+    };
+    const store = createReduxStore(undefined, undefined, {
+      agencyApi: api as unknown as AxiosInstance,
+    });
+
+    const result = await store.dispatch(
+      userApi.endpoints.getProfile.initiate(),
+    );
+
+    expect(result.data).toEqual({ name: 'ACME' });
+    expect(api.get).toHaveBeenCalledWith('/user', { params: undefined });
   });
 });
 

@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSelector } from 'react-redux';
 
 import { useMobile } from '@/components/Screen/Screen';
 import { didMethodTypes } from '@/components/Steps/SelectNetwork/SelectNetwork.const';
 import { StepTitle } from '@/components/StepTitle';
-import { getCredentialsConfig } from '@/entities/Credential/model/selectors/credentialSelector';
+import { useGetCredentialConfigQuery } from '@/entities/Credential/api/credentialApi';
 import { ProtocolType } from '@/entities/Schema';
-import {
-  getUserDidDocuments,
-  getUserDidDocumentsMethod,
-} from '@/entities/User/model/selectors/userSelector';
-import { fetchDidDocuments } from '@/entities/User/model/services/fetchDidDocuments';
-import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
+import { useGetOwnDidsQuery } from '@/entities/User/api/userApi';
 import { Button } from '@/shared/ui/Button';
 import { ButtonCards } from '@/shared/ui/ButtonCards';
 import { Row } from '@/shared/ui/Grid';
@@ -44,22 +38,15 @@ export const SelectNetwork = ({
   didOptional,
 }: SelectNetworkStepProps) => {
   const { t } = useTranslation();
-  const dispatch = useAppDispatch();
   const isMobile = useMobile();
 
-  const didDocuments = useSelector(getUserDidDocuments);
-  const didDocumentsMethod = useSelector(getUserDidDocumentsMethod);
-  const credentialConfig = useSelector(getCredentialsConfig);
-
-  useEffect(() => {
-    if (network) {
-      dispatch(
-        fetchDidDocuments({
-          method: network,
-        }),
-      );
-    }
-  }, [dispatch, network]);
+  const { data: credentialConfig } = useGetCredentialConfigQuery();
+  // `currentData` belongs to the selected network only: a network switch never shows (or
+  // selects) the previous network's DIDs while the new ones load
+  const { currentData: didDocuments } = useGetOwnDidsQuery(
+    { method: network },
+    { skip: !network },
+  );
 
   const networkOptions = useMemo(() => {
     if (!credentialConfig || !protocolType) return [];
@@ -68,9 +55,7 @@ export const SelectNetwork = ({
     );
   }, [credentialConfig, protocolType]);
 
-  // The store holds the DIDs of the last fetched network: offer them only once they belong to
-  // the selected one, so a network switch never shows (or selects) the previous network's DIDs
-  const areDidsLoaded = !!network && didDocumentsMethod === network;
+  const areDidsLoaded = !!network && didDocuments !== undefined;
   const didOptions = useMemo(() => {
     if (!areDidsLoaded) return [];
     return (

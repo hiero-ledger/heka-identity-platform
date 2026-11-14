@@ -41,11 +41,7 @@ export interface IssuanceTemplateList {
 }
 
 export interface IssuanceTemplateSchema {
-  isLoading: boolean;
-  error?: string;
-  /** A create or delete is in flight; kept apart from the list's loading state. */
+  /** A create or delete is in flight */
   isMutating: boolean;
   mutationError?: string;
-  issuanceTemplates?: IssuanceTemplate[];
-  issuanceTemplate?: IssuanceTemplate;
 }

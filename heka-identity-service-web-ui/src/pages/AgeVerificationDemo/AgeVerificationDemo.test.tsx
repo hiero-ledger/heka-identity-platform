@@ -124,6 +124,45 @@ describe('AgeVerificationDemo', () => {
     );
   });
 
+  test('reads the demo schemas from the cache when opened again', async () => {
+    const demoApi = stubDemoAgency({});
+    const { store, unmount } = renderDemo(demoApi);
+    expect(await screen.findByText('fill: mDL')).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<AgeVerificationDemo />, {
+      demoApi,
+      route: '/age-demo',
+      store,
+    });
+
+    // Prefilled right away, without a loading state or a second request
+    expect(screen.getByText('fill: mDL')).toBeInTheDocument();
+    expect(
+      demoApi.get.mock.calls.filter(([url]) => url === '/v2/schemas'),
+    ).toHaveLength(1);
+  });
+
+  test('loads the demo schemas again after a failure', async () => {
+    const demoApi = stubDemoAgency({});
+    const routed = demoApi.get.getMockImplementation()!;
+    demoApi.get.mockRejectedValueOnce({
+      response: { status: 503, data: { message: 'Demo unavailable' } },
+    });
+    const { store, unmount } = renderDemo(demoApi);
+    expect(await screen.findByRole('status')).toBeInTheDocument();
+    unmount();
+    demoApi.get.mockImplementation(routed);
+
+    renderWithProviders(<AgeVerificationDemo />, {
+      demoApi,
+      route: '/age-demo',
+      store,
+    });
+
+    expect(await screen.findByText('fill: mDL')).toBeInTheDocument();
+  });
+
   test('prefills the mDL credential and offers it as an mso_mdoc', async () => {
     const user = userEvent.setup();
     const demoApi = stubDemoAgency({});
@@ -135,7 +174,9 @@ describe('AgeVerificationDemo', () => {
     expect(
       screen.getByText(/values: .*"age_over_18":"true"/),
     ).toBeInTheDocument();
-    expect(demoApi.get).toHaveBeenCalledWith('/v2/schemas');
+    expect(demoApi.get).toHaveBeenCalledWith('/v2/schemas', {
+      params: undefined,
+    });
 
     await user.click(screen.getByRole('button', { name: 'Issue' }));
 

@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 
 import { SchemaProps } from '@/components/Schema/types';
 import { Schema as SchemaType } from '@/entities/Schema';
+import { changeSchemaVisibility } from '@/entities/Schema/model/services/changeSchemaVisibility';
+import { createNewSchema } from '@/entities/Schema/model/services/createSchema';
 import { DidDocument } from '@/entities/User/model/types/user';
 import {
   createMockApi,
@@ -146,36 +148,100 @@ describe('Schemas', () => {
       params: { isHidden: true },
     });
 
+    // Back to Active: served from the cache
     await user.click(screen.getByRole('button', { name: 'Active' }));
-    await waitFor(() =>
-      expect(schemaListCalls(api).at(-1)![1]).toEqual({
-        params: { isHidden: false },
-      }),
-    );
+    expect(await screen.findByText('Passport')).toBeInTheDocument();
+    expect(schemaListCalls(api)).toHaveLength(2);
   });
 
-  test('offers to create the first schema and reloads the list afterwards', async () => {
-    const { api, user } = renderSchemas([]);
+  test('never shows the active list under the Hidden filter while the hidden one loads', async () => {
+    const { api, user } = renderSchemas([registeredSchema]);
+    await screen.findByText('Passport');
+    let answerHidden: (value: unknown) => void = () => {};
+    api.get.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          answerHidden = resolve;
+        }),
+    );
 
+    await user.click(screen.getByRole('button', { name: 'Hidden' }));
+
+    expect(screen.queryByText('Passport')).toBeNull();
+    expect(screen.queryByTestId('schema-card')).toBeNull();
+    await act(async () =>
+      answerHidden({ data: { items: [unregisteredSchema] } }),
+    );
+    expect(await screen.findByText('Diploma')).toBeInTheDocument();
+    expect(screen.queryByText('Passport')).toBeNull();
+  });
+
+  test('cancelling the create modal sends no list request', async () => {
+    const { api, user } = renderSchemas([]);
     expect(
       await screen.findByText('There are no active schemes'),
     ).toBeInTheDocument();
-    const callsBefore = schemaListCalls(api).length;
 
     // Both the header plus button and the empty-state button are labelled "Create schema"
     const [, emptyStateButton] = screen.getAllByRole('button', {
       name: 'Create schema',
     });
     await user.click(emptyStateButton);
-    await user.click(screen.getByRole('button', { name: 'finish creating' }));
-    await waitFor(() =>
-      expect(schemaListCalls(api).length).toBeGreaterThan(callsBefore),
-    );
-
     await user.click(screen.getByRole('button', { name: 'close creating' }));
+
     expect(
       screen.queryByRole('button', { name: 'finish creating' }),
     ).toBeNull();
+    expect(schemaListCalls(api)).toHaveLength(1);
+  });
+
+  test('a created schema shows up after exactly one list request', async () => {
+    const { api, store, user } = renderSchemas([]);
+    expect(
+      await screen.findByText('There are no active schemes'),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getAllByRole('button', { name: 'Create schema' })[0],
+    );
+
+    // What the modal does: create, then report it
+    routeAgencyGets(api, { schemas: [registeredSchema] });
+    api.post.mockResolvedValue({ data: registeredSchema });
+    await act(() => store.dispatch(createNewSchema(new FormData())));
+    await user.click(screen.getByRole('button', { name: 'finish creating' }));
+
+    expect(await screen.findByText('Passport')).toBeInTheDocument();
+    expect(schemaListCalls(api)).toHaveLength(2);
+  });
+
+  test('hiding a schema refetches the active list; the hidden list is fetched again when opened', async () => {
+    const { api, store, user } = renderSchemas([
+      registeredSchema,
+      unregisteredSchema,
+    ]);
+    await screen.findByText('Diploma');
+    await user.click(screen.getByRole('button', { name: 'Hidden' }));
+    await user.click(screen.getByRole('button', { name: 'Active' }));
+    await screen.findByText('Diploma');
+    expect(schemaListCalls(api)).toHaveLength(2);
+
+    routeAgencyGets(api, { schemas: [registeredSchema] });
+    await act(() =>
+      store.dispatch(
+        changeSchemaVisibility({
+          schemaId: unregisteredSchema.id,
+          params: { isHidden: true },
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(screen.queryByText('Diploma')).toBeNull());
+    expect(schemaListCalls(api)).toHaveLength(3);
+    expect(schemaListCalls(api)[2][1]).toEqual({ params: { isHidden: false } });
+
+    await user.click(screen.getByRole('button', { name: 'Hidden' }));
+    await waitFor(() => expect(schemaListCalls(api)).toHaveLength(4));
+    expect(schemaListCalls(api)[3][1]).toEqual({ params: { isHidden: true } });
   });
 
   test('the header button opens schema creation', async () => {
@@ -221,6 +287,8 @@ describe('Schemas', () => {
     // Moved to the top: the backend reads "null" as "first"
     const formData = api.patch.mock.calls[0][1] as FormData;
     expect(formData.get('previousSchemaId')).toBe('null');
+    // The saved order is read back once
+    await waitFor(() => expect(schemaListCalls(api)).toHaveLength(2));
   });
 
   test('sends the schema now placed before the moved one', async () => {
@@ -253,6 +321,8 @@ describe('Schemas', () => {
     const cards = screen.getAllByTestId('schema-card');
     expect(cards[0]).toHaveTextContent('Passport');
     expect(cards[1]).toHaveTextContent('Diploma');
+    expect(toast.error).toHaveBeenCalledWith('Reorder failed');
+    expect(schemaListCalls(api)).toHaveLength(1);
   });
 
   test('ignores a drag that ends where it started', async () => {

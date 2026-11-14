@@ -1,4 +1,4 @@
-import { CredentialConfig } from '@/entities/Credential/model/services/getCredentialConfig';
+import { CredentialConfig } from '@/entities/Credential/model/types/credential';
 import { IssuanceTemplate } from '@/entities/IssuanceTemplate';
 import { ProtocolType, Schema } from '@/entities/Schema';
 import {

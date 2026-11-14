@@ -17,9 +17,6 @@ export interface User {
   tokens?: Tokens;
   did?: string | null;
   didMethods?: Array<string>;
-  didDocuments?: Array<DidDocument>;
-  /** The DID method `didDocuments` were fetched for */
-  didDocumentsMethod?: string;
   messageDeliveryType?: string | null;
   webHook?: string | null;
   issuerName?: string | null;
@@ -33,6 +30,24 @@ export interface UserSchema {
   isPreparing: boolean;
   data?: User;
   error?: string;
-  /** requestId of the latest fetchDidDocuments: answers for a previously selected network are ignored */
-  didDocumentsRequestId?: string;
+  /**
+   * `prepare-wallet` has run with no DID left `failed`: Home stops calling it. Kept in the store
+   * only, so a reload, sign-out or session drop prepares again.
+   */
+  isWalletPrepared: boolean;
+}
+
+/** The agency profile, `GET /user` (and the `PATCH /user` response) */
+export interface GetAgencyUserResult {
+  messageDeliveryType?: string;
+  webHook?: string;
+  name?: string;
+  backgroundColor?: string;
+  logo?: string;
+  registeredAt?: string;
+}
+
+export interface GetDidDocumentsParams {
+  /** DID method; all own DIDs when omitted */
+  method?: string;
 }

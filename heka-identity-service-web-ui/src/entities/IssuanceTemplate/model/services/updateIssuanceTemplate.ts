@@ -4,6 +4,7 @@ import { ThunkConfig } from '@/app/providers/StoreProvider';
 import { ProtocolType, Schema } from '@/entities/Schema';
 import { CredentialFormat } from '@/entities/Schema/model/types/schema';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
+import { agencyApi, LIST } from '@/shared/api/rtk/agencyApi';
 import { handleError } from '@/shared/api/utils/error';
 
 export interface UpdateIssuanceTemplateParams {
@@ -61,6 +62,13 @@ export const updateIssuanceTemplate = createAsyncThunk<
           fields,
           previousTemplateId,
         },
+      );
+      // Content or order changed: the list and this template
+      dispatch(
+        agencyApi.util.invalidateTags([
+          { type: 'IssuanceTemplate', id: LIST },
+          { type: 'IssuanceTemplate', id: templateId },
+        ]),
       );
     } catch (error) {
       return handleError(error, rejectWithValue, dispatch);

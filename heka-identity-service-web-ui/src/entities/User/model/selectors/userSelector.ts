@@ -11,18 +11,15 @@ export const getUserDid = (state: StateSchema) => state.user?.data?.did;
 export const getUserDidMethods = (state: StateSchema) =>
   state.user?.data?.didMethods;
 
-export const getUserDidDocuments = (state: StateSchema) =>
-  state.user?.data?.didDocuments;
-
-export const getUserDidDocumentsMethod = (state: StateSchema) =>
-  state.user?.data?.didDocumentsMethod;
-
 export const getUserId = (state: StateSchema) => state.user?.data?.did;
 
 export const getUserError = (state: StateSchema) => state.user?.error;
 
 export const getIsPreparingUser = (state: StateSchema) =>
   state.user?.isPreparing;
+
+export const getIsWalletPrepared = (state: StateSchema) =>
+  !!state.user?.isWalletPrepared;
 
 export const getUserName = (state: StateSchema) => state.user?.data?.name;
 export const getUser = (state: StateSchema) => state.user?.data;

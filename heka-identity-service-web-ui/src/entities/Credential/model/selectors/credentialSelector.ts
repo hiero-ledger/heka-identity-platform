@@ -26,6 +26,3 @@ export const getIsCredentialSent = (state: StateSchema) => {
     credentialState === AnoncredsCredentialState.Done
   );
 };
-
-export const getCredentialsConfig = (state: StateSchema) =>
-  state.credentials.credentialsConfig;

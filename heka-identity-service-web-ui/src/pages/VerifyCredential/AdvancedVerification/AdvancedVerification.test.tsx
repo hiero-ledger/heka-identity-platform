@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
@@ -9,7 +9,10 @@ import {
   Openid4CredentialFormat,
   ProtocolType,
 } from '@/entities/Schema/model/types/schema';
+import { verificationTemplateApi } from '@/entities/VerificationTemplate/api/verificationTemplateApi';
 import { makeVerificationTemplate } from '@/pages/VerifyCredential/testUtils';
+import { agencyApi } from '@/shared/api/rtk/agencyApi';
+import { requestsTo } from '@/shared/lib/tests/apiCache';
 import {
   LocationDisplay,
   readLocationState,
@@ -264,7 +267,9 @@ describe('AdvancedVerification', () => {
         `protocol: ${ProtocolType.Oid4vc}/${Openid4CredentialFormat.SdJwt}`,
       ),
     ).toBeInTheDocument();
-    expect(api.get).toHaveBeenCalledWith('/verification-templates/tpl-1');
+    expect(api.get).toHaveBeenCalledWith('/verification-templates/tpl-1', {
+      params: undefined,
+    });
 
     await user.click(screen.getByRole('button', { name: 'Next' }));
     expect(
@@ -276,5 +281,95 @@ describe('AdvancedVerification', () => {
     expect(screen.getByText('Template: KYC check')).toBeInTheDocument();
     await waitFor(() => expect(checkbox('lastName')).toBeChecked());
     expect(checkbox('firstName')).not.toBeChecked();
+  });
+
+  test('seeds the wizard from a cached template right away', async () => {
+    const user = userEvent.setup();
+    const api = createMockApi();
+    api.get.mockResolvedValue({ data: makeVerificationTemplate() });
+    const store = createTestStore({}, api);
+    // Opened from the template list before
+    await store.dispatch(
+      verificationTemplateApi.endpoints.getVerificationTemplate.initiate(
+        'tpl-1',
+      ),
+    );
+
+    renderWizard(<AdvancedVerification type="template" />, {
+      api,
+      store,
+      route: {
+        pathname: ROUTES.VERIFY_TEMPLATE,
+        state: { context: { templateId: 'tpl-1' } },
+      },
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    // The template's schema, not the (empty) selected schema of the flow
+    expect(
+      screen.getByText('schema: Passport; network: indy; template: true'),
+    ).toBeInTheDocument();
+    expect(requestsTo(api, '/verification-templates/tpl-1')).toBe(1);
+  });
+
+  test('a refetch of the edited template keeps the choices made since', async () => {
+    const user = userEvent.setup();
+    const api = createMockApi();
+    api.get.mockResolvedValue({ data: makeVerificationTemplate() });
+    const { store } = renderWizard(<AdvancedVerification type="template" />, {
+      api,
+      route: {
+        pathname: ROUTES.VERIFY_TEMPLATE,
+        state: { context: { templateId: 'tpl-1' } },
+      },
+    });
+    // Seeded from the loaded template (Aries, like the wizard's default)
+    await waitFor(() =>
+      expect(
+        verificationTemplateApi.endpoints.getVerificationTemplate.select(
+          'tpl-1',
+        )(store.getState()).isSuccess,
+      ).toBe(true),
+    );
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    await user.click(screen.getByRole('button', { name: 'Use OpenID' }));
+    // e.g. a schema registration invalidates every template, which embed the registrations
+    api.get.mockResolvedValue({
+      data: makeVerificationTemplate({
+        schema: {
+          ...makeVerificationTemplate().schema,
+          registrations: [
+            {
+              schemaId: 'schema-1',
+              protocol: ProtocolType.Oid4vc,
+              credentialFormat: Openid4CredentialFormat.SdJwt,
+              network: 'key',
+              did: 'did:key:1',
+            },
+          ],
+        },
+      }),
+    });
+    act(() => {
+      store.dispatch(agencyApi.util.invalidateTags(['VerificationTemplate']));
+    });
+    await waitFor(() =>
+      expect(
+        verificationTemplateApi.endpoints.getVerificationTemplate.select(
+          'tpl-1',
+        )(store.getState()).data?.schema.registrations,
+      ).toHaveLength(1),
+    );
+    expect(requestsTo(api, '/verification-templates/tpl-1')).toBe(2);
+    // Subscribers are notified in a batch (animation frame): let the wizard render the new data
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+
+    expect(
+      screen.getByText(
+        `protocol: ${ProtocolType.Oid4vc}/${Openid4CredentialFormat.SdJwt}`,
+      ),
+    ).toBeInTheDocument();
   });
 });

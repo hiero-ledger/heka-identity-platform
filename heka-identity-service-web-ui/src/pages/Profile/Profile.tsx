@@ -16,11 +16,12 @@ import { BasicPanel } from '@/components/Panel';
 import { TextField, TextFieldFormData } from '@/components/TextField/TextField';
 import { defaultSchemaBackgroundColor } from '@/const/color';
 import { defaultLogoImagePath } from '@/const/image';
+import { useGetProfileQuery } from '@/entities/User/api/userApi';
 import {
   getIsPreparingUser,
   getUser,
+  getUserIsSignedIn,
 } from '@/entities/User/model/selectors/userSelector';
-import { getAgencyUser } from '@/entities/User/model/services/getAgencyUser';
 import {
   AgencyUserParams,
   AgencyUserProperty,
@@ -39,12 +40,19 @@ const ISSUER_NAME_MAX_LENGTH = 250;
 const Profile = () => {
   const user = useSelector(getUser);
   const isPreparingUser = useSelector(getIsPreparingUser);
+  const isSignedIn = useSelector(getUserIsSignedIn);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const session = useAuthSession();
 
-  const [isUserFetching, setIsUserFetching] = useState(true);
+  // Waits for a running wallet preparation, which may change the profile. The profile is
+  // cached (and updated from every save), and the user slice mirrors its fields. Skipped once
+  // signed out: sign-out empties the cache, which would otherwise fetch the profile again.
+  const { isUninitialized, isLoading } = useGetProfileQuery(undefined, {
+    skip: isPreparingUser || !isSignedIn,
+  });
+  const isUserFetching = isUninitialized || isLoading;
   const [firstLoginNotified, setFirstLoginNotified] = useState(false);
 
   const onSignOut = useCallback(() => {
@@ -83,14 +91,6 @@ const Profile = () => {
   const onLogoChange = (logo: File | string) => {
     patchAgencyUserProperty({ key: 'logo', value: logo });
   };
-
-  useEffect(() => {
-    if (!isPreparingUser) {
-      dispatch(getAgencyUser()).then(() => {
-        setIsUserFetching(false);
-      });
-    }
-  }, [dispatch, isPreparingUser]);
 
   useEffect(() => {
     if (!firstLoginNotified && !isUserFetching && user && !user.registeredAt) {

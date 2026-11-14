@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
 import ROUTES from '@/app/routes/RoutePaths';
+import { useGetProfileQuery } from '@/entities/User/api/userApi';
 import {
   getIsPreparingUser,
-  getUser,
+  getIsWalletPrepared,
   getUserIsSignedIn,
 } from '@/entities/User/model/selectors/userSelector';
-import { getAgencyUser } from '@/entities/User/model/services/getAgencyUser';
 import { prepareWallet } from '@/entities/User/model/services/prepareWallet';
 import WalletImage from '@/shared/assets/icons/wallet-new.svg';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
@@ -28,48 +28,33 @@ const Home = () => {
 
   const isSignedIn = useSelector(getUserIsSignedIn);
   const isPreparingUser = useSelector(getIsPreparingUser);
-  const user = useSelector(getUser);
-
-  // A visitor has no profile to load, so only a signed-in user starts out "fetching"
-  const [isUserFetching, setIsUserFetching] = useState(isSignedIn);
-
-  const registeredAt = useMemo(() => {
-    return user?.registeredAt;
-  }, [user]);
-
-  useEffect(() => {
-    if (isSignedIn) {
-      dispatch(prepareWallet());
-    }
-  }, [isSignedIn, dispatch]);
+  const isWalletPrepared = useSelector(getIsWalletPrepared);
 
   // Only a signed-in user has an agency profile to fetch: for a visitor the request would be
-  // rejected ("Authorization token is missing") and toast an error on every start. A user who
-  // has never registered is sent to their profile, decided from the fetched profile itself.
+  // rejected ("Authorization token is missing") and toast an error on every start. The profile
+  // is cached, so coming back to Home does not fetch it again.
+  const {
+    data: profile,
+    isLoading: isUserFetching,
+    isSuccess,
+  } = useGetProfileQuery(undefined, { skip: !isSignedIn });
+  const registeredAt = profile?.registeredAt;
+
+  // Prepare the wallet until a preparation leaves no DID `failed`: at most one attempt per
+  // visit, so a failure is retried on the next visit rather than in a loop
+  const preparationHandled = useRef(false);
   useEffect(() => {
-    if (!isSignedIn) {
-      setIsUserFetching(false);
-      return;
+    if (!isSignedIn || preparationHandled.current) return;
+    preparationHandled.current = true;
+    if (!isWalletPrepared && !isPreparingUser) {
+      dispatch(prepareWallet());
     }
-    let isCurrent = true;
-    setIsUserFetching(true);
-    dispatch(getAgencyUser())
-      .unwrap()
-      .then(
-        (agencyUser) => {
-          if (!isCurrent) return;
-          setIsUserFetching(false);
-          if (!agencyUser.registeredAt) navigate(ROUTES.PROFILE);
-        },
-        () => {
-          // getAgencyUser has already shown the error
-          if (isCurrent) setIsUserFetching(false);
-        },
-      );
-    return () => {
-      isCurrent = false;
-    };
-  }, [dispatch, isSignedIn, navigate]);
+  }, [isSignedIn, isWalletPrepared, isPreparingUser, dispatch]);
+
+  // A user who has never registered is sent to their profile, decided from the profile itself
+  useEffect(() => {
+    if (isSuccess && !profile?.registeredAt) navigate(ROUTES.PROFILE);
+  }, [isSuccess, profile, navigate]);
 
   return (
     <Column

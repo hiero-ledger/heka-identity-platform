@@ -3,12 +3,15 @@ import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 
 import ROUTES from '@/app/routes/RoutePaths';
+import { issuanceTemplateApi } from '@/entities/IssuanceTemplate/api/issuanceTemplateApi';
+import { cachedQueries, requestsTo } from '@/shared/lib/tests/apiCache';
 import {
   LocationDisplay,
   readLocationState,
 } from '@/shared/lib/tests/LocationDisplay';
 import {
   createMockApi,
+  createTestStore,
   renderWithProviders,
 } from '@/shared/lib/tests/renderWithProviders';
 
@@ -55,9 +58,21 @@ describe('IssueFromTemplate', () => {
 
   test('goes back to the templates when the template cannot be loaded', async () => {
     const api = createMockApi();
-    api.get.mockRejectedValue({
-      response: { status: 404, data: { message: 'Template not found' } },
-    });
+    api.get.mockImplementation((url: string) =>
+      url === '/issuance-templates'
+        ? Promise.resolve({ data: { items: [issuanceTemplate] } })
+        : Promise.reject({
+            response: { status: 404, data: { message: 'Template not found' } },
+          }),
+    );
+    // The list was shown before (cached, no longer subscribed)
+    const store = createTestStore({}, api);
+    const list = store.dispatch(
+      issuanceTemplateApi.endpoints.getIssuanceTemplateList.initiate(),
+    );
+    await list;
+    list.unsubscribe();
+
     renderWithProviders(
       <>
         <IssueFromTemplate />
@@ -69,6 +84,7 @@ describe('IssueFromTemplate', () => {
           pathname: ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
           state: { context: { templateId: 'gone' } },
         },
+        store,
       },
     );
 
@@ -77,7 +93,36 @@ describe('IssueFromTemplate', () => {
         ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
       ),
     );
+    expect(toast.error).toHaveBeenCalledTimes(1);
     expect(toast.error).toHaveBeenCalledWith('Template not found');
+    // Deleted elsewhere: the cached list is dropped, so the list page reads it again
+    await waitFor(() =>
+      expect(cachedQueries(store)).not.toContain(
+        'getIssuanceTemplateList(undefined)',
+      ),
+    );
+  });
+
+  test('reads the template from the cache when opened again', async () => {
+    const { api, store, unmount } = renderIssueFromTemplate();
+    await screen.findByText('Template: My passport template');
+    unmount();
+
+    renderWithProviders(<IssueFromTemplate />, {
+      api,
+      store,
+      route: {
+        pathname: ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
+        state: { context: { templateId: issuanceTemplate.id } },
+      },
+    });
+
+    expect(
+      screen.getByText('Template: My passport template'),
+    ).toBeInTheDocument();
+    expect(requestsTo(api, `/issuance-templates/${issuanceTemplate.id}`)).toBe(
+      1,
+    );
   });
 
   test('prefills the form from the template and issues with its target', async () => {
@@ -88,6 +133,7 @@ describe('IssueFromTemplate', () => {
     ).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith(
       `/issuance-templates/${issuanceTemplate.id}`,
+      { params: undefined },
     );
     expect(screen.getByText('Issue new credential')).toBeInTheDocument();
     expect(screen.getByText(`DID: ${INDY_DID}`)).toBeInTheDocument();
@@ -155,6 +201,12 @@ describe('IssueFromTemplate', () => {
       expect(toast.success).toHaveBeenCalledWith(
         'Template was updated successfully',
       ),
+    );
+    // The saved template is read back once
+    await waitFor(() =>
+      expect(
+        requestsTo(api, `/issuance-templates/${issuanceTemplate.id}`),
+      ).toBe(2),
     );
   });
 

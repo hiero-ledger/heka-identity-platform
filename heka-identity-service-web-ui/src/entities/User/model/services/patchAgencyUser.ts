@@ -1,9 +1,11 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { ThunkConfig } from '@/app/providers/StoreProvider';
-import { GetAgencyUserResult } from '@/entities/User/model/services/getAgencyUser';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { handleError } from '@/shared/api/utils/error';
+
+import { userApi } from '../../api/userApi';
+import { GetAgencyUserResult } from '../types/user';
 
 export type AgencyUserFieldType = string | null | undefined | File;
 
@@ -41,9 +43,13 @@ export const patchAgencyUser = createAsyncThunk<
       }
     });
 
-    const response = await extra.agencyApi.patch(
+    const response = await extra.agencyApi.patch<GetAgencyUserResult>(
       agencyEndpoints.patchUserData,
       formData,
+    );
+    // The response is the whole profile: put it in the cache instead of fetching it again
+    dispatch(
+      userApi.util.upsertQueryData('getProfile', undefined, response.data),
     );
     return response.data;
   } catch (error) {

@@ -2,6 +2,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { ThunkConfig } from '@/app/providers/StoreProvider';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
+import { agencyApi, LIST } from '@/shared/api/rtk/agencyApi';
 import { handleError } from '@/shared/api/utils/error';
 
 import { UpdateSchemaParams } from '../types/schema';
@@ -26,6 +27,8 @@ export const updateSchema = createAsyncThunk<
       agencyEndpoints.updateSchema(schemaId),
       formData,
     );
+    // Order or visibility changed
+    dispatch(agencyApi.util.invalidateTags([{ type: 'Schema', id: LIST }]));
   } catch (error) {
     return handleError(error, rejectWithValue, dispatch);
   }

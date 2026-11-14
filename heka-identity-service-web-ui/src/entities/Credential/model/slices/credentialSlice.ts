@@ -1,4 +1,3 @@
-import { getCredentialConfig } from '@/entities/Credential/model/services/getCredentialConfig';
 import { buildSlice } from '@/shared/lib/store';
 
 import {
@@ -15,7 +14,6 @@ const initialState: CredentialSchema = {
   isLoading: false,
   error: undefined,
   issuanceSession: undefined,
-  credentialsConfig: undefined,
 };
 
 export const credentialSlice = buildSlice({
@@ -27,7 +25,6 @@ export const credentialSlice = buildSlice({
       state.error = initialState.error;
       state.issuanceSession = initialState.issuanceSession;
       state.offerRequestId = undefined;
-      state.credentialsConfig = initialState.credentialsConfig;
     },
   },
   extraReducers: (builder) =>
@@ -58,9 +55,6 @@ export const credentialSlice = buildSlice({
         if (!session || session.id !== action.meta.arg.id) return;
         const result: UpdateCredentialStateResult = action.payload;
         session.state = result.state;
-      })
-      .addCase(getCredentialConfig.fulfilled, (state, action) => {
-        state.credentialsConfig = action.payload;
       }),
 });
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 
@@ -6,13 +6,11 @@ import { PlusButton } from '@/components/PlusButton';
 import { Schema } from '@/entities/Schema';
 import { selectSchemaLoading } from '@/entities/Schema/model/selectors/schemasSelector';
 import { SchemaRegistration } from '@/entities/Schema/model/types/schema';
-import { getUserDidDocuments } from '@/entities/User/model/selectors/userSelector';
-import { fetchDidDocuments } from '@/entities/User/model/services/fetchDidDocuments';
+import { useGetOwnDidsQuery } from '@/entities/User/api/userApi';
 import { RegistrationTargets } from '@/pages/IssueCredential/Schemas/RegistrationsList/RegistrationList.const';
 import { RegistrationsListItem } from '@/pages/IssueCredential/Schemas/RegistrationsList/RegistrationsListItem/RegistrationsListItem';
 import { RegistrationView } from '@/pages/IssueCredential/Schemas/RegistrationView/RegistrationView';
 import { classNames } from '@/shared/lib/classNames';
-import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Column, Row } from '@/shared/ui/Grid';
 import { Modal } from '@/shared/ui/Modal/Modal';
 
@@ -28,7 +26,6 @@ export const RegistrationsList = ({
   isOpen,
   onOpenChange,
 }: RegistrationsListProps) => {
-  const dispatch = useAppDispatch();
   const { t } = useTranslation();
 
   const { registrations } = schema;
@@ -36,7 +33,8 @@ export const RegistrationsList = ({
   const isLoading = useSelector(selectSchemaLoading);
   const [isRegisterSchemaModalOpen, setRegisterSchemaModalOpen] =
     useState<boolean>(false);
-  const didDocuments = useSelector(getUserDidDocuments);
+  // All own DIDs (no method): one cache entry shared by every schema's modal
+  const { data: didDocuments } = useGetOwnDidsQuery({});
 
   // Derived, not copied into state: always in step with `registrations`
   const registrationsList = useMemo<SchemaRegistration[]>(
@@ -51,10 +49,6 @@ export const RegistrationsList = ({
       }),
     [registrations],
   );
-
-  useEffect(() => {
-    dispatch(fetchDidDocuments({}));
-  }, [dispatch]);
 
   const possibleRegistrations = useMemo(() => {
     const regs = [];

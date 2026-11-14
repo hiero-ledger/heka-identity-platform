@@ -7,7 +7,6 @@ import { InfoRow } from '@/components/Steps/SchemaRegistration/InfoRow/InfoRow';
 import { StepTitle } from '@/components/StepTitle';
 import { ProtocolType, Schema } from '@/entities/Schema';
 import { selectSchemaLoading } from '@/entities/Schema/model/selectors/schemasSelector';
-import { getSingleSchema } from '@/entities/Schema/model/services/getSingleSchema';
 import { registerSchema } from '@/entities/Schema/model/services/registerSchema';
 import {
   CredentialFormat,
@@ -68,10 +67,10 @@ export const SchemaRegistration = ({
           did: props.did!,
         }),
       ).unwrap();
-      await dispatch(getSingleSchema(schema!.id)).unwrap();
+      // `registerSchema` has stored the re-read schema, which the flow continues with
       return onNext();
     } catch {
-      // The thunks have already shown the error
+      // The thunk has already shown the error
     }
   }, [props, dispatch, onNext, schema]);
 

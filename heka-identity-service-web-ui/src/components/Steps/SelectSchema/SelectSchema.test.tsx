@@ -85,6 +85,35 @@ describe('SelectSchema', () => {
     expect(screen.queryByRole('button', { name: /Back/ })).toBeNull();
   });
 
+  test('keeps the demo and the tenant schemas apart, each read once', async () => {
+    const api = createMockApi();
+    const demoApi = createMockApi();
+    routeAgencyGets(api, { schemas: [unregisteredSchema] });
+    routeAgencyGets(demoApi, { schemas: [registeredSchema] });
+
+    // Demo first, then the tenant's own wizard, then the demo again (same store)
+    const demo = renderWithProviders(<Harness useDemo />, { api, demoApi });
+    expect(await screen.findByText('firstName')).toBeInTheDocument();
+    demo.unmount();
+    const tenant = renderWithProviders(<Harness />, {
+      api,
+      demoApi,
+      store: demo.store,
+    });
+    expect(await screen.findByText('degree')).toBeInTheDocument();
+    expect(screen.queryByText('Passport')).toBeNull();
+    tenant.unmount();
+    renderWithProviders(<Harness useDemo />, {
+      api,
+      demoApi,
+      store: demo.store,
+    });
+    expect(await screen.findByText('firstName')).toBeInTheDocument();
+
+    expect(schemaListGets(demoApi)).toHaveLength(1);
+    expect(schemaListGets(api)).toHaveLength(1);
+  });
+
   test('shows the issuer of the selected schema', async () => {
     const api = createMockApi();
     routeAgencyGets(api, {

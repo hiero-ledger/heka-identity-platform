@@ -2,6 +2,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { ThunkConfig } from '@/app/providers/StoreProvider';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
+import { agencyApi, LIST } from '@/shared/api/rtk/agencyApi';
 import { handleError } from '@/shared/api/utils/error';
 
 export interface UpdateSchemaParams {
@@ -28,6 +29,8 @@ export const changeSchemaVisibility = createAsyncThunk<
       agencyEndpoints.updateSchema(schemaId),
       formData,
     );
+    // Both the active and the hidden list (they share the LIST tag)
+    dispatch(agencyApi.util.invalidateTags([{ type: 'Schema', id: LIST }]));
   } catch (error) {
     return handleError(error, rejectWithValue, dispatch);
   }

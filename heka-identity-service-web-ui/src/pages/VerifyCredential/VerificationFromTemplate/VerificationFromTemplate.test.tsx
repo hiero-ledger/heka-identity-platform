@@ -8,14 +8,17 @@ import {
   Openid4CredentialFormat,
   ProtocolType,
 } from '@/entities/Schema/model/types/schema';
+import { verificationTemplateApi } from '@/entities/VerificationTemplate/api/verificationTemplateApi';
 import { VerificationTemplate } from '@/entities/VerificationTemplate/model/types/verificationTemplate';
 import { makeVerificationTemplate } from '@/pages/VerifyCredential/testUtils';
+import { cachedQueries, requestsTo } from '@/shared/lib/tests/apiCache';
 import {
   LocationDisplay,
   readLocationState,
 } from '@/shared/lib/tests/LocationDisplay';
 import {
   createMockApi,
+  createTestStore,
   renderWithProviders,
 } from '@/shared/lib/tests/renderWithProviders';
 
@@ -59,9 +62,21 @@ describe('VerificationFromTemplate', () => {
   test('goes back to the templates when the template cannot be loaded', async () => {
     const toastError = jest.spyOn(toast, 'error');
     const api = createMockApi();
-    api.get.mockRejectedValue({
-      response: { status: 404, data: { message: 'Template not found' } },
-    });
+    api.get.mockImplementation((url: string) =>
+      url === '/verification-templates'
+        ? Promise.resolve({ data: { items: [makeVerificationTemplate()] } })
+        : Promise.reject({
+            response: { status: 404, data: { message: 'Template not found' } },
+          }),
+    );
+    // The list was shown before (cached, no longer subscribed)
+    const store = createTestStore({}, api);
+    const list = store.dispatch(
+      verificationTemplateApi.endpoints.getVerificationTemplateList.initiate(),
+    );
+    await list;
+    list.unsubscribe();
+
     renderWithProviders(
       <>
         <VerificationFromTemplate />
@@ -69,6 +84,7 @@ describe('VerificationFromTemplate', () => {
       </>,
       {
         api,
+        store,
         route: {
           pathname: ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
           state: { context: { templateId: 'gone' } },
@@ -81,8 +97,34 @@ describe('VerificationFromTemplate', () => {
         ROUTES.VERIFY_CREDENTIAL_TEMPLATES,
       ),
     );
+    expect(toastError).toHaveBeenCalledTimes(1);
     expect(toastError).toHaveBeenCalledWith('Template not found');
+    // Deleted elsewhere: the cached list is dropped, so the list page reads it again
+    await waitFor(() =>
+      expect(cachedQueries(store)).not.toContain(
+        'getVerificationTemplateList(undefined)',
+      ),
+    );
     toastError.mockRestore();
+  });
+
+  test('reads the template from the cache when opened again', async () => {
+    const template = makeVerificationTemplate();
+    const { api, store, unmount } = renderPage(template);
+    await screen.findByText('Template: KYC check');
+    unmount();
+
+    renderWithProviders(<VerificationFromTemplate />, {
+      api,
+      store,
+      route: {
+        pathname: ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
+        state: { context: { templateId: template.id } },
+      },
+    });
+
+    expect(screen.getByText('Template: KYC check')).toBeInTheDocument();
+    expect(requestsTo(api, '/verification-templates/tpl-1')).toBe(1);
   });
 
   test('shows the template and requests the selected fields', async () => {
@@ -90,7 +132,9 @@ describe('VerificationFromTemplate', () => {
     const { api } = renderPage(makeVerificationTemplate());
 
     expect(await screen.findByText('Template: KYC check')).toBeInTheDocument();
-    expect(api.get).toHaveBeenCalledWith('/verification-templates/tpl-1');
+    expect(api.get).toHaveBeenCalledWith('/verification-templates/tpl-1', {
+      params: undefined,
+    });
     expect(screen.getByText('Passport')).toBeInTheDocument();
     expect(screen.getByText('Request fields verification')).toBeInTheDocument();
     expect(
@@ -170,6 +214,10 @@ describe('VerificationFromTemplate', () => {
         schemaId: 'schema-1',
         fields: [{ schemaFieldId: 'f-1' }, { schemaFieldId: 'f-2' }],
       }),
+    );
+    // The saved template is read back once
+    await waitFor(() =>
+      expect(requestsTo(api, '/verification-templates/tpl-1')).toBe(2),
     );
   });
 

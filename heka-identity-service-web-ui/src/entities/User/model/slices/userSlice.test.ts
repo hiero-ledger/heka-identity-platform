@@ -1,51 +1,75 @@
-import { userReducer } from './userSlice';
-import { fetchDidDocuments } from '../services/fetchDidDocuments';
+import { agencyApi } from '@/shared/api/rtk/agencyApi';
+
+import { userActions, userReducer } from './userSlice';
+import { PreparedDid, prepareWallet } from '../services/prepareWallet';
+import { signOut } from '../services/signOut';
+import { UserSchema } from '../types/user';
 
 const initial = () => userReducer(undefined, { type: '@@INIT' });
 
-const fetched = (method: string, requestId: string) =>
-  fetchDidDocuments.fulfilled(
-    { didDocuments: [{ id: `did:${method}:1` } as never] },
-    requestId,
-    { method },
+const prepared = (statuses: PreparedDid['status'][]) =>
+  prepareWallet.fulfilled(
+    {
+      did: 'did:key:main',
+      dids: statuses.map((status, i) => ({ method: `m${i}`, status })),
+    },
+    'req-1',
   );
 
-describe('userSlice DID documents', () => {
-  test('keeps the DIDs of the latest network when an older answer arrives last', () => {
-    // The operator picks indy, then key; the slower indy answer lands last
-    let state = userReducer(
-      initial(),
-      fetchDidDocuments.pending('req-indy', { method: 'indy' }),
-    );
-    state = userReducer(
-      state,
-      fetchDidDocuments.pending('req-key', { method: 'key' }),
-    );
-    state = userReducer(state, fetched('key', 'req-key'));
-    state = userReducer(state, fetched('indy', 'req-indy'));
+const preparedState = (): UserSchema => ({
+  ...initial(),
+  isWalletPrepared: true,
+});
 
-    expect(state.data?.didDocumentsMethod).toBe('key');
-    expect(state.data?.didDocuments).toEqual([{ id: 'did:key:1' }]);
+describe('userSlice isWalletPrepared', () => {
+  test('is unset initially', () => {
+    expect(initial().isWalletPrepared).toBe(false);
   });
 
-  test('ignores a late rejection of an older request', () => {
-    let state = userReducer(
+  test.each([
+    [['created', 'existing'], true],
+    [['existing', 'existing'], true],
+    [['existing', 'skipped'], true],
+    [[], true],
+    [['created', 'failed'], false],
+    [['existing', 'failed', 'skipped'], false],
+  ] as const)(
+    'a preparation with DIDs %j sets it to %s',
+    (statuses, expected) => {
+      const state = userReducer(initial(), prepared([...statuses]));
+
+      expect(state.isWalletPrepared).toBe(expected);
+      expect(state.isPreparing).toBe(false);
+      expect(state.data?.did).toBe('did:key:main');
+    },
+  );
+
+  test('a rejected preparation leaves it unset', () => {
+    const state = userReducer(
       initial(),
-      fetchDidDocuments.pending('req-indy', { method: 'indy' }),
-    );
-    state = userReducer(
-      state,
-      fetchDidDocuments.pending('req-key', { method: 'key' }),
-    );
-    state = userReducer(state, fetched('key', 'req-key'));
-    state = userReducer(
-      state,
-      fetchDidDocuments.rejected(new Error('boom'), 'req-indy', {
-        method: 'indy',
-      }),
+      prepareWallet.rejected(null, 'req-1', undefined, 'down'),
     );
 
-    expect(state.error).toBeUndefined();
-    expect(state.data?.didDocumentsMethod).toBe('key');
+    expect(state.isWalletPrepared).toBe(false);
+    expect(state.error).toBe('down');
+  });
+
+  test.each([
+    ['reset', userActions.reset()],
+    ['clearSession (dropped session)', userActions.clearSession()],
+    ['signOut.pending', signOut.pending('req-1')],
+    ['signOut.fulfilled', signOut.fulfilled(undefined, 'req-1')],
+    ['a cache reset (user change)', agencyApi.util.resetApiState()],
+  ])('is cleared by %s', (_name, action) => {
+    expect(userReducer(preparedState(), action).isWalletPrepared).toBe(false);
+  });
+
+  test('a token renewal (setSession) keeps it', () => {
+    const state = userReducer(
+      preparedState(),
+      userActions.setSession({ accessToken: 'renewed', name: 'Ada' }),
+    );
+
+    expect(state.isWalletPrepared).toBe(true);
   });
 });

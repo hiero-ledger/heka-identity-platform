@@ -3,6 +3,7 @@ import { PropsWithChildren, useEffect, useMemo, useRef } from 'react';
 import { AuthProvider, useAuth } from 'react-oidc-context';
 
 import { userActions } from '@/entities/User';
+import { agencyApi } from '@/shared/api/rtk/agencyApi';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 
 import { pickDisplayName } from './claims';
@@ -64,6 +65,18 @@ export const SessionBridge = ({
       dispatch(userActions.clearSession());
     }
   }, [user, auth.isLoading, dispatch, profile]);
+
+  // Cached reads belong to the signed-in subject: drop them when the session ends (sign-out,
+  // dropped session) or another subject signs in. A token renewal keeps the same `sub`.
+  const subject = user?.profile.sub ?? null;
+  const previousSubject = useRef<string | null>(subject);
+  useEffect(() => {
+    const previous = previousSubject.current;
+    previousSubject.current = subject;
+    if (previous !== null && previous !== subject) {
+      dispatch(agencyApi.util.resetApiState());
+    }
+  }, [subject, dispatch]);
 
   useEffect(() => {
     registerSessionBridge({

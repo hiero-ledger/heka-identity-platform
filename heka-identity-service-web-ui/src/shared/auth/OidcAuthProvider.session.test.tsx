@@ -1,9 +1,17 @@
+import { UnknownAction } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
 import { UserManager } from 'oidc-client-ts';
 import React from 'react';
 import { Provider } from 'react-redux';
 
-import { createTestStore } from '@/shared/lib/tests/renderWithProviders';
+import { userApi } from '@/entities/User/api/userApi';
+import { prepareWallet } from '@/entities/User/model/services/prepareWallet';
+import { agencyApi } from '@/shared/api/rtk/agencyApi';
+import { cachedQueries } from '@/shared/lib/tests/apiCache';
+import {
+  createMockApi,
+  createTestStore,
+} from '@/shared/lib/tests/renderWithProviders';
 
 import { AuthConfig, authConfig } from './config';
 import { OidcAuthProvider, SessionBridge } from './OidcAuthProvider';
@@ -49,10 +57,10 @@ jest.mock('./config', () => ({
   authConfig: { provider: 'keycloak' },
 }));
 
-const activeUser = (accessToken: string, expired = false) => ({
+const activeUser = (accessToken: string, expired = false, sub = 'u1') => ({
   access_token: accessToken,
   expired,
-  profile: { sub: 'u1', preferred_username: 'ada' },
+  profile: { sub, preferred_username: 'ada' },
 });
 
 const userManager = (signinSilent: jest.Mock = jest.fn()) =>
@@ -97,6 +105,97 @@ beforeEach(() => {
 
 afterEach(() => registerSessionBridge(null));
 
+describe('SessionBridge cache reset', () => {
+  /** A signed-in bridge whose store has cached the profile and a prepared wallet */
+  const renderWithCache = async () => {
+    mockAuth.user = activeUser('tok-1');
+    const api = createMockApi();
+    api.get.mockResolvedValue({ data: { name: 'ACME' } });
+    const store = createTestStore({}, api);
+    await store.dispatch(userApi.endpoints.getProfile.initiate());
+    store.dispatch(
+      prepareWallet.fulfilled({ did: 'did:key:1', dids: [] }, 'req-1'),
+    );
+    const view = render(
+      <Provider store={store}>
+        <SessionBridge
+          profile={keycloakProfile({ provider: 'keycloak' })}
+          userManager={userManager()}
+        >
+          <Probe />
+        </SessionBridge>
+      </Provider>,
+    );
+    const rerender = () =>
+      view.rerender(
+        <Provider store={store}>
+          <SessionBridge
+            profile={keycloakProfile({ provider: 'keycloak' })}
+            userManager={userManager()}
+          >
+            <Probe />
+          </SessionBridge>
+        </Provider>,
+      );
+    expect(cachedQueries(store)).toEqual(['getProfile(undefined)']);
+    return { store, rerender };
+  };
+
+  test('keeps the cache when the token is renewed for the same user', async () => {
+    const { store, rerender } = await renderWithCache();
+
+    mockAuth.user = activeUser('tok-2');
+    rerender();
+
+    expect(store.getState().user.data?.tokens?.accessToken).toBe('tok-2');
+    expect(cachedQueries(store)).toEqual(['getProfile(undefined)']);
+    expect(store.getState().user.isWalletPrepared).toBe(true);
+  });
+
+  test('empties the cache when the session is dropped', async () => {
+    const { store, rerender } = await renderWithCache();
+
+    mockAuth.user = null;
+    rerender();
+
+    expect(store.getState().user.data?.tokens).toEqual({ accessToken: null });
+    expect(store.getState().agencyApi.queries).toEqual({});
+    expect(store.getState().user.isWalletPrepared).toBe(false);
+  });
+
+  test('empties the cache when another user signs in', async () => {
+    const { store, rerender } = await renderWithCache();
+
+    mockAuth.user = activeUser('tok-other', false, 'u2');
+    rerender();
+
+    expect(store.getState().agencyApi.queries).toEqual({});
+    expect(store.getState().user.isWalletPrepared).toBe(false);
+  });
+
+  test('has nothing to reset before anyone signed in', () => {
+    const store = createTestStore();
+    const dispatch = jest.spyOn(store, 'dispatch');
+
+    render(
+      <Provider store={store}>
+        <SessionBridge
+          profile={keycloakProfile({ provider: 'keycloak' })}
+          userManager={userManager()}
+        >
+          <Probe />
+        </SessionBridge>
+      </Provider>,
+    );
+
+    expect(
+      dispatch.mock.calls.filter(([action]) =>
+        agencyApi.util.resetApiState.match(action as UnknownAction),
+      ),
+    ).toHaveLength(0);
+  });
+});
+
 describe('SessionBridge', () => {
   test('mirrors a signed-in user into the store and the session', () => {
     mockAuth.user = activeUser('tok-1');
@@ -133,6 +232,7 @@ describe('SessionBridge', () => {
       user: {
         isLoading: false,
         isPreparing: false,
+        isWalletPrepared: false,
         data: { tokens: { accessToken: 'persisted' } },
       },
     });

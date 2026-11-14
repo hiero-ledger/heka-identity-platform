@@ -2,9 +2,13 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 
-import { ProtocolType } from '@/entities/Schema';
+import { ProtocolType, Schema } from '@/entities/Schema';
 import { Openid4CredentialFormat } from '@/entities/Schema/model/types/schema';
-import { KEY_DID, unregisteredSchema } from '@/pages/IssueCredential/testUtils';
+import {
+  KEY_DID,
+  routeAgencyGets,
+  unregisteredSchema,
+} from '@/pages/IssueCredential/testUtils';
 import {
   createMockApi,
   renderWithProviders,
@@ -70,5 +74,51 @@ describe('SchemaRegistration', () => {
     );
     expect(api.post).not.toHaveBeenCalled();
     expect(onNext).not.toHaveBeenCalled();
+  });
+
+  test('registers the schema, reads it back once and continues with it', async () => {
+    const registered: Schema = {
+      ...unregisteredSchema,
+      registrationsCount: 1,
+      registrations: [
+        {
+          schemaId: unregisteredSchema.id,
+          protocol: ProtocolType.Oid4vc,
+          credentialFormat: Openid4CredentialFormat.SdJwt,
+          network: 'key',
+          did: KEY_DID,
+        },
+      ],
+    };
+    const api = createMockApi();
+    routeAgencyGets(api, { singleSchema: () => registered });
+    const onNext = jest.fn();
+    const { store } = renderWithProviders(
+      <SchemaRegistration
+        title="Registration of the schema"
+        schema={unregisteredSchema}
+        onPrev={jest.fn()}
+        onNext={onNext}
+        {...target}
+      />,
+      { api },
+    );
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: /Register/ }));
+
+    await waitFor(() => expect(onNext).toHaveBeenCalled());
+    expect(api.post).toHaveBeenCalledWith(
+      `/v2/schemas/${unregisteredSchema.id}/registration`,
+      expect.objectContaining({ network: 'key', did: KEY_DID }),
+    );
+    // One read of the schema after the registration (it used to be read twice)
+    expect(
+      api.get.mock.calls.filter(
+        ([url]) => url === `/v2/schemas/${unregisteredSchema.id}`,
+      ),
+    ).toHaveLength(1);
+    expect(store.getState().schemas.schema).toEqual(registered);
   });
 });

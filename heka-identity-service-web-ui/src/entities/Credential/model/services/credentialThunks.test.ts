@@ -4,7 +4,6 @@ import {
   getCredentialOffer,
   getCredentialOfferId,
   getCredentialOfferIsLoading,
-  getCredentialsConfig,
   getCredentialState,
   getIsCredentialSent,
 } from '@/entities/Credential/model/selectors/credentialSelector';
@@ -25,7 +24,6 @@ import {
   createTestStore,
 } from '@/shared/lib/tests/renderWithProviders';
 
-import { getCredentialConfig } from './getCredentialConfig';
 import { offerCredential, OfferCredentialParams } from './offerCredential';
 import { updateCredentialState } from './updateCredentialState';
 
@@ -237,7 +235,6 @@ describe('offerCredential', () => {
       isLoading: false,
       error: 'bad did, bad network',
       issuanceSession: undefined,
-      credentialsConfig: undefined,
       offerRequestId: action.meta.requestId,
     });
   });
@@ -357,33 +354,6 @@ describe('updateCredentialState', () => {
   });
 });
 
-describe('getCredentialConfig', () => {
-  test('stores the credential config', async () => {
-    const config = {
-      Aries: { credentials: ['anoncreds-indy'], networks: ['indy:test'] },
-    };
-    const api = createMockApi();
-    api.get.mockResolvedValue({ data: config });
-    const store = createTestStore({}, api);
-
-    await store.dispatch(getCredentialConfig());
-
-    expect(api.get).toHaveBeenCalledWith(agencyEndpoints.getCredentialConfig);
-    expect(getCredentialsConfig(store.getState())).toEqual(config);
-  });
-
-  test('rejects with the server message', async () => {
-    const api = createMockApi();
-    api.get.mockRejectedValue(apiError('no config'));
-    const store = createTestStore({}, api);
-
-    const action = await store.dispatch(getCredentialConfig());
-
-    expect(action.type).toBe('credentials/config/rejected');
-    expect(action.payload).toBe('no config');
-  });
-});
-
 describe('credentialSlice reset', () => {
   test('returns to the initial state', () => {
     const store = createTestStore({
@@ -391,7 +361,6 @@ describe('credentialSlice reset', () => {
         isLoading: true,
         error: 'x',
         issuanceSession: { id: 's', state: OpenIdIssuanceState.Completed },
-        credentialsConfig: {},
       },
     });
 
@@ -401,7 +370,6 @@ describe('credentialSlice reset', () => {
       isLoading: false,
       error: undefined,
       issuanceSession: undefined,
-      credentialsConfig: undefined,
     });
   });
 });

@@ -1,11 +1,11 @@
+import { skipToken } from '@reduxjs/toolkit/query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { AppDispatch } from '@/app/providers/StoreProvider';
-import { RootState } from '@/app/providers/StoreProvider/config/store';
 import ROUTES from '@/app/routes/RoutePaths';
 import { ColorizedPanel } from '@/components/Panel';
 import { SaveVerificationTemplateModal } from '@/components/SaveVerificationTemplateModal';
@@ -15,9 +15,8 @@ import { defaultLogoImagePath } from '@/const/image';
 import { usePresentationActions } from '@/entities/Presentation/model/slices/presentationSlice';
 import { ProtocolType } from '@/entities/Schema';
 import { Openid4CredentialFormat } from '@/entities/Schema/model/types/schema';
-import { getVerificationTemplate } from '@/entities/VerificationTemplate/model/services/getVerificationTemplate';
+import { useGetVerificationTemplateQuery } from '@/entities/VerificationTemplate/api/verificationTemplateApi';
 import { updateVerificationTemplate } from '@/entities/VerificationTemplate/model/services/updateVerificationTemplate';
-import { useVerificationTemplatesActions } from '@/entities/VerificationTemplate/model/slices/verificationTemplatesSlice';
 import { Button } from '@/shared/ui/Button';
 import { CheckboxGroup } from '@/shared/ui/CheckboxGroup';
 import { Column, Row } from '@/shared/ui/Grid';
@@ -32,11 +31,6 @@ export const VerificationFromTemplate = () => {
   const dispatch: AppDispatch = useDispatch();
   const navigate = useNavigate();
   const { state } = useLocation();
-  const { verificationTemplate } = useSelector(
-    (state: RootState) => state.verificationTemplates,
-  );
-  const { reset: resetVerificationTemplates } =
-    useVerificationTemplatesActions();
   const { reset: resetPresentation } = usePresentationActions();
 
   const [isTemplateModalOpen, setTemplateModalOpen] = useState(false);
@@ -45,22 +39,14 @@ export const VerificationFromTemplate = () => {
   );
 
   useEffect(() => {
-    resetVerificationTemplates();
     resetPresentation();
-  }, [resetVerificationTemplates, resetPresentation]);
+  }, [resetPresentation]);
 
   const templateId: string | undefined = state?.context?.templateId;
-  const [loadFailed, setLoadFailed] = useState(false);
-
-  useEffect(() => {
-    if (!templateId) return;
-    dispatch(getVerificationTemplate({ id: templateId }))
-      .unwrap()
-      .catch(() => {
-        // The thunk has already shown the error
-        setLoadFailed(true);
-      });
-  }, [dispatch, templateId]);
+  // Cached; "Save template" invalidates it, so it refetches once. A 404 (deleted elsewhere)
+  // also invalidates the cached list. The base query has already shown the error.
+  const { currentData: verificationTemplate, isError: loadFailed } =
+    useGetVerificationTemplateQuery(templateId ?? skipToken);
 
   const onChangeSelectedAttributes = useCallback(
     (attributes: Array<string>) => {
