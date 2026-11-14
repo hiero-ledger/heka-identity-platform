@@ -4,7 +4,11 @@ import toast from 'react-hot-toast';
 
 import ROUTES from '@/app/routes/RoutePaths';
 import { issuanceTemplateApi } from '@/entities/IssuanceTemplate/api/issuanceTemplateApi';
-import { cachedQueries, requestsTo } from '@/shared/lib/tests/apiCache';
+import {
+  cachedQueries,
+  dropSessionWhileMounted,
+  requestsTo,
+} from '@/shared/lib/tests/apiCache';
 import {
   LocationDisplay,
   readLocationState,
@@ -13,6 +17,7 @@ import {
   createMockApi,
   createTestStore,
   renderWithProviders,
+  signedInUserState,
 } from '@/shared/lib/tests/renderWithProviders';
 
 import { INDY_DID, issuanceTemplate, routeAgencyGets } from '../testUtils';
@@ -66,7 +71,7 @@ describe('IssueFromTemplate', () => {
           }),
     );
     // The list was shown before (cached, no longer subscribed)
-    const store = createTestStore({}, api);
+    const store = createTestStore(signedInUserState(), api);
     const list = store.dispatch(
       issuanceTemplateApi.endpoints.getIssuanceTemplateList.initiate(),
     );
@@ -243,6 +248,17 @@ describe('IssueFromTemplate', () => {
         '/issuance-templates',
         expect.objectContaining({ name: 'Copy of passport' }),
       ),
+    );
+  });
+
+  test('sends nothing when the session drops while the page is open', async () => {
+    const { api, store } = renderIssueFromTemplate();
+    await screen.findByText('Template: My passport template');
+
+    await dropSessionWhileMounted(store);
+
+    expect(requestsTo(api, `/issuance-templates/${issuanceTemplate.id}`)).toBe(
+      1,
     );
   });
 });

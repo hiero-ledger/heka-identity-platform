@@ -1,5 +1,6 @@
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { agencyApi, LIST } from '@/shared/api/rtk/agencyApi';
+import { signedInOnly } from '@/shared/api/rtk/signedInOnly';
 
 import {
   DidDocument,
@@ -29,4 +30,7 @@ export const userApi = agencyApi.injectEndpoints({
   }),
 });
 
-export const { useGetProfileQuery, useGetOwnDidsQuery } = userApi;
+/** Skipped while signed out */
+export const useGetProfileQuery = signedInOnly(userApi.useGetProfileQuery);
+/** Skipped while signed out */
+export const useGetOwnDidsQuery = signedInOnly(userApi.useGetOwnDidsQuery);

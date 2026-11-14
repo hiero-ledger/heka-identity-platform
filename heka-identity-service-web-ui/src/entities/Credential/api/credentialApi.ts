@@ -1,5 +1,6 @@
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { agencyApi } from '@/shared/api/rtk/agencyApi';
+import { signedInOnly } from '@/shared/api/rtk/signedInOnly';
 
 import { CredentialConfig } from '../model/types/credential';
 
@@ -16,4 +17,7 @@ export const credentialApi = agencyApi.injectEndpoints({
   }),
 });
 
-export const { useGetCredentialConfigQuery } = credentialApi;
+/** Skipped while signed out */
+export const useGetCredentialConfigQuery = signedInOnly(
+  credentialApi.useGetCredentialConfigQuery,
+);

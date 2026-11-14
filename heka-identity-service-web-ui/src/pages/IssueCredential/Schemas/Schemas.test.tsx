@@ -9,6 +9,7 @@ import { Schema as SchemaType } from '@/entities/Schema';
 import { changeSchemaVisibility } from '@/entities/Schema/model/services/changeSchemaVisibility';
 import { createNewSchema } from '@/entities/Schema/model/services/createSchema';
 import { DidDocument } from '@/entities/User/model/types/user';
+import { dropSessionWhileMounted } from '@/shared/lib/tests/apiCache';
 import {
   createMockApi,
   MockApi,
@@ -569,5 +570,20 @@ describe('Schemas', () => {
         screen.getByRole('button', { name: 'Register' }),
       ).toBeInTheDocument();
     });
+  });
+
+  test('sends nothing when the session drops while the page is open', async () => {
+    const { api, store, user } = renderSchemas();
+    // The schema list and, in the registrations modal, the own DIDs
+    await user.click(
+      await screen.findByRole('button', { name: 'Registrations of Passport' }),
+    );
+    expect(await screen.findByText(INDY_DID)).toBeInTheDocument();
+    const before = api.get.mock.calls.length;
+
+    await dropSessionWhileMounted(store);
+
+    expect(api.get).toHaveBeenCalledTimes(before);
+    expect(store.getState().agencyApi.queries).toEqual({});
   });
 });

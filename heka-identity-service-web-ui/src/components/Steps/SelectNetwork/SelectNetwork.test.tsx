@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ProtocolType } from '@/entities/Schema';
 import { DidDocument } from '@/entities/User/model/types/user';
 import { INDY_DID, routeAgencyGets } from '@/pages/IssueCredential/testUtils';
+import { dropSessionWhileMounted } from '@/shared/lib/tests/apiCache';
 import {
   createMockApi,
   renderWithProviders,
@@ -55,8 +56,8 @@ const renderStep = (
 ) => {
   const api = createMockApi();
   routeAgencyGets(api, { dids });
-  renderWithProviders(<Harness {...props} />, { api });
-  return { api, user: userEvent.setup() };
+  const { store } = renderWithProviders(<Harness {...props} />, { api });
+  return { api, store, user: userEvent.setup() };
 };
 
 const didRequests = (api: ReturnType<typeof createMockApi>, method?: string) =>
@@ -202,5 +203,15 @@ describe('SelectNetwork', () => {
     );
     expect(await screen.findByText(second)).toBeInTheDocument();
     expect(screen.getByTestId('selection')).toHaveTextContent(`indy|${second}`);
+  });
+
+  test('sends nothing when the session drops while the step is open', async () => {
+    const { api, store } = renderStep();
+    await screen.findByText(INDY_DID);
+    const before = api.get.mock.calls.length;
+
+    await dropSessionWhileMounted(store);
+
+    expect(api.get).toHaveBeenCalledTimes(before);
   });
 });

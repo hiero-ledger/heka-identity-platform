@@ -1,6 +1,7 @@
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { agencyApi, LIST } from '@/shared/api/rtk/agencyApi';
 import { isNotFound } from '@/shared/api/rtk/isNotFound';
+import { signedInOnly } from '@/shared/api/rtk/signedInOnly';
 
 import {
   VerificationTemplate,
@@ -51,7 +52,11 @@ export const verificationTemplateApi = agencyApi.injectEndpoints({
   }),
 });
 
-export const {
-  useGetVerificationTemplateListQuery,
-  useGetVerificationTemplateQuery,
-} = verificationTemplateApi;
+/** Skipped while signed out */
+export const useGetVerificationTemplateListQuery = signedInOnly(
+  verificationTemplateApi.useGetVerificationTemplateListQuery,
+);
+/** Skipped while signed out */
+export const useGetVerificationTemplateQuery = signedInOnly(
+  verificationTemplateApi.useGetVerificationTemplateQuery,
+);

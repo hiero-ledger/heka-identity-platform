@@ -21,6 +21,7 @@ import {
   createMockApi,
   createTestStore,
   renderWithProviders,
+  signedInUserState,
 } from '@/shared/lib/tests/renderWithProviders';
 
 import AdvancedVerification from './AdvancedVerification';
@@ -113,7 +114,7 @@ const checkbox = (name: string) =>
 describe('AdvancedVerification', () => {
   test('resets the templates once when opened', () => {
     const api = createMockApi();
-    const store = createTestStore({}, api);
+    const store = createTestStore(signedInUserState(), api);
     const dispatch = jest.spyOn(store, 'dispatch');
 
     renderWithProviders(<AdvancedVerification />, {
@@ -287,7 +288,7 @@ describe('AdvancedVerification', () => {
     const user = userEvent.setup();
     const api = createMockApi();
     api.get.mockResolvedValue({ data: makeVerificationTemplate() });
-    const store = createTestStore({}, api);
+    const store = createTestStore(signedInUserState(), api);
     // Opened from the template list before
     await store.dispatch(
       verificationTemplateApi.endpoints.getVerificationTemplate.initiate(

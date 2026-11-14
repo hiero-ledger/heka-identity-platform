@@ -5,6 +5,7 @@ import { Route, Routes } from 'react-router-dom';
 
 import { StateSchema } from '@/app/providers/StoreProvider';
 import { userActions } from '@/entities/User';
+import { dropSessionWhileMounted } from '@/shared/lib/tests/apiCache';
 import {
   createMockApi,
   MockApi,
@@ -297,5 +298,15 @@ describe('Home', () => {
       await waitFor(() => expect(userRequests(api)).toHaveLength(2));
       expect(view.store.getState().user.isWalletPrepared).toBe(true);
     });
+  });
+
+  test('does not read the profile again when the session drops on this page', async () => {
+    const { api, store } = renderHome(true, '2026-01-01T00:00:00Z');
+    await screen.findByRole('button', { name: 'Get started' });
+    await waitFor(() => expect(userRequests(api)).toHaveLength(1));
+
+    await dropSessionWhileMounted(store);
+
+    expect(userRequests(api)).toHaveLength(1);
   });
 });

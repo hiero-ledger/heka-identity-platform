@@ -30,14 +30,14 @@ const Home = () => {
   const isPreparingUser = useSelector(getIsPreparingUser);
   const isWalletPrepared = useSelector(getIsWalletPrepared);
 
-  // Only a signed-in user has an agency profile to fetch: for a visitor the request would be
-  // rejected ("Authorization token is missing") and toast an error on every start. The profile
-  // is cached, so coming back to Home does not fetch it again.
+  // Only a signed-in user has an agency profile to fetch (the hook skips it for a visitor,
+  // whose request would be rejected). The profile is cached, so coming back to Home does not
+  // fetch it again.
   const {
     data: profile,
     isLoading: isUserFetching,
     isSuccess,
-  } = useGetProfileQuery(undefined, { skip: !isSignedIn });
+  } = useGetProfileQuery();
   const registeredAt = profile?.registeredAt;
 
   // Prepare the wallet until a preparation leaves no DID `failed`: at most one attempt per

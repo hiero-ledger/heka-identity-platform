@@ -4,7 +4,10 @@ import toast from 'react-hot-toast';
 import ROUTES from '@/app/routes/RoutePaths';
 import { TemplatesProps, TemplateType } from '@/components/Templates/types';
 import { makeVerificationTemplate } from '@/pages/VerifyCredential/testUtils';
-import { requestsTo } from '@/shared/lib/tests/apiCache';
+import {
+  dropSessionWhileMounted,
+  requestsTo,
+} from '@/shared/lib/tests/apiCache';
 import {
   createMockApi,
   renderWithProviders,
@@ -134,5 +137,14 @@ describe('VerificationTemplates', () => {
         'No',
       ),
     );
+  });
+
+  test('sends nothing when the session drops while the page is open', async () => {
+    const { api, store } = renderPage();
+    await screen.findByText('KYC check');
+
+    await dropSessionWhileMounted(store);
+
+    expect(listRequests(api)).toBe(1);
   });
 });

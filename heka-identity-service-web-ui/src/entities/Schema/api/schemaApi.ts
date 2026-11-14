@@ -1,5 +1,6 @@
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { agencyApi, LIST } from '@/shared/api/rtk/agencyApi';
+import { signedInOnly } from '@/shared/api/rtk/signedInOnly';
 
 import { Schema, SchemasParams, SchemasResponse } from '../model/types/schema';
 
@@ -31,4 +32,9 @@ export const schemaApi = agencyApi.injectEndpoints({
   }),
 });
 
-export const { useGetSchemaListQuery, useGetDemoSchemaListQuery } = schemaApi;
+/** The tenant's lists: skipped while signed out */
+export const useGetSchemaListQuery = signedInOnly(
+  schemaApi.useGetSchemaListQuery,
+);
+/** The demo tenant's list: read with the demo token, also for visitors */
+export const { useGetDemoSchemaListQuery } = schemaApi;

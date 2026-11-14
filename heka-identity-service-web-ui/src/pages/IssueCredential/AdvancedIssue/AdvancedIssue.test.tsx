@@ -14,6 +14,7 @@ import {
   createMockApi,
   createTestStore,
   renderWithProviders,
+  signedInUserState,
 } from '@/shared/lib/tests/renderWithProviders';
 
 import {
@@ -101,7 +102,7 @@ describe('AdvancedIssue', () => {
   test('resets the templates once when opened', () => {
     const api = createMockApi();
     routeAgencyGets(api);
-    const store = createTestStore({}, api);
+    const store = createTestStore(signedInUserState(), api);
     const dispatch = jest.spyOn(store, 'dispatch');
 
     renderWithProviders(<AdvancedIssue />, {
@@ -434,7 +435,7 @@ describe('AdvancedIssue', () => {
     const api = createMockApi();
     // The template's schema (Passport) is not the first of the list
     routeAgencyGets(api, { schemas: [unregisteredSchema, registeredSchema] });
-    const store = createTestStore({}, api);
+    const store = createTestStore(signedInUserState(), api);
     // Opened from the template list before
     await store.dispatch(
       issuanceTemplateApi.endpoints.getIssuanceTemplate.initiate('template-1'),

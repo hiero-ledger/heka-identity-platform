@@ -1,3 +1,8 @@
+import { act } from '@testing-library/react';
+
+import { userActions } from '@/entities/User';
+import { agencyApi } from '@/shared/api/rtk/agencyApi';
+
 import { createTestStore, MockApi } from './renderWithProviders';
 
 type TestStore = ReturnType<typeof createTestStore>;
@@ -19,3 +24,16 @@ export const cachedQueries = (store: TestStore) =>
  */
 export const useLifetimeTimers = () =>
   jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask'] });
+
+/**
+ * What `SessionBridge` dispatches when the OIDC session drops (failed renewal, removed user):
+ * the token mirror is cleared, then the cache is reset. Waits until mounted query hooks have
+ * reacted (subscribers are notified on an animation frame).
+ */
+export const dropSessionWhileMounted = async (store: TestStore) => {
+  act(() => {
+    store.dispatch(userActions.clearSession());
+    store.dispatch(agencyApi.util.resetApiState());
+  });
+  await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+};

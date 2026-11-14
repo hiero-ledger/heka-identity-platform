@@ -11,7 +11,11 @@ import {
 import { verificationTemplateApi } from '@/entities/VerificationTemplate/api/verificationTemplateApi';
 import { VerificationTemplate } from '@/entities/VerificationTemplate/model/types/verificationTemplate';
 import { makeVerificationTemplate } from '@/pages/VerifyCredential/testUtils';
-import { cachedQueries, requestsTo } from '@/shared/lib/tests/apiCache';
+import {
+  cachedQueries,
+  dropSessionWhileMounted,
+  requestsTo,
+} from '@/shared/lib/tests/apiCache';
 import {
   LocationDisplay,
   readLocationState,
@@ -20,6 +24,7 @@ import {
   createMockApi,
   createTestStore,
   renderWithProviders,
+  signedInUserState,
 } from '@/shared/lib/tests/renderWithProviders';
 
 import { VerificationFromTemplate } from './VerificationFromTemplate';
@@ -70,7 +75,7 @@ describe('VerificationFromTemplate', () => {
           }),
     );
     // The list was shown before (cached, no longer subscribed)
-    const store = createTestStore({}, api);
+    const store = createTestStore(signedInUserState(), api);
     const list = store.dispatch(
       verificationTemplateApi.endpoints.getVerificationTemplateList.initiate(),
     );
@@ -259,5 +264,14 @@ describe('VerificationFromTemplate', () => {
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
+  });
+
+  test('sends nothing when the session drops while the page is open', async () => {
+    const { api, store } = renderPage(makeVerificationTemplate());
+    await screen.findByText('Template: KYC check');
+
+    await dropSessionWhileMounted(store);
+
+    expect(requestsTo(api, '/verification-templates/tpl-1')).toBe(1);
   });
 });

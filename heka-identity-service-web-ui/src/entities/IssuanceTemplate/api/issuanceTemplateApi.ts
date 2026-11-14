@@ -1,6 +1,7 @@
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { agencyApi, LIST } from '@/shared/api/rtk/agencyApi';
 import { isNotFound } from '@/shared/api/rtk/isNotFound';
+import { signedInOnly } from '@/shared/api/rtk/signedInOnly';
 
 import {
   IssuanceTemplate,
@@ -47,5 +48,11 @@ export const issuanceTemplateApi = agencyApi.injectEndpoints({
   }),
 });
 
-export const { useGetIssuanceTemplateListQuery, useGetIssuanceTemplateQuery } =
-  issuanceTemplateApi;
+/** Skipped while signed out */
+export const useGetIssuanceTemplateListQuery = signedInOnly(
+  issuanceTemplateApi.useGetIssuanceTemplateListQuery,
+);
+/** Skipped while signed out */
+export const useGetIssuanceTemplateQuery = signedInOnly(
+  issuanceTemplateApi.useGetIssuanceTemplateQuery,
+);

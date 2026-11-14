@@ -3,7 +3,10 @@ import toast from 'react-hot-toast';
 
 import ROUTES from '@/app/routes/RoutePaths';
 import { TemplatesProps, TemplateType } from '@/components/Templates/types';
-import { requestsTo } from '@/shared/lib/tests/apiCache';
+import {
+  dropSessionWhileMounted,
+  requestsTo,
+} from '@/shared/lib/tests/apiCache';
 import {
   createMockApi,
   renderWithProviders,
@@ -131,5 +134,14 @@ describe('IssueTemplates', () => {
 
     expect(toast.error).toHaveBeenCalledWith('Not found');
     expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  test('sends nothing when the session drops while the page is open', async () => {
+    const { api, store } = renderIssueTemplates();
+    await screen.findByText(issuanceTemplate.name);
+
+    await dropSessionWhileMounted(store);
+
+    expect(requestsTo(api, '/issuance-templates')).toBe(1);
   });
 });

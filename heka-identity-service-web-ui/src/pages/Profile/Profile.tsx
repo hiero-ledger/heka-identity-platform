@@ -20,7 +20,6 @@ import { useGetProfileQuery } from '@/entities/User/api/userApi';
 import {
   getIsPreparingUser,
   getUser,
-  getUserIsSignedIn,
 } from '@/entities/User/model/selectors/userSelector';
 import {
   AgencyUserParams,
@@ -40,17 +39,16 @@ const ISSUER_NAME_MAX_LENGTH = 250;
 const Profile = () => {
   const user = useSelector(getUser);
   const isPreparingUser = useSelector(getIsPreparingUser);
-  const isSignedIn = useSelector(getUserIsSignedIn);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const session = useAuthSession();
 
   // Waits for a running wallet preparation, which may change the profile. The profile is
-  // cached (and updated from every save), and the user slice mirrors its fields. Skipped once
-  // signed out: sign-out empties the cache, which would otherwise fetch the profile again.
+  // cached (and updated from every save), and the user slice mirrors its fields. The hook skips
+  // it once signed out: sign-out empties the cache, which would otherwise fetch it again.
   const { isUninitialized, isLoading } = useGetProfileQuery(undefined, {
-    skip: isPreparingUser || !isSignedIn,
+    skip: isPreparingUser,
   });
   const isUserFetching = isUninitialized || isLoading;
   const [firstLoginNotified, setFirstLoginNotified] = useState(false);
