@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 
 import ROUTES from '@/app/routes/RoutePaths';
+import { issuanceTemplateApi } from '@/entities/IssuanceTemplate/api/issuanceTemplateApi';
 import { ProtocolType } from '@/entities/Schema';
 import { requestsTo } from '@/shared/lib/tests/apiCache';
 import {
@@ -427,5 +428,31 @@ describe('AdvancedIssue', () => {
     // ...without seeding the wizard again: the chosen schema stays
     expect(screen.getByPlaceholderText('degree')).toBeInTheDocument();
     expect(screen.queryByPlaceholderText('firstName')).toBeNull();
+  });
+
+  test('seeds the wizard from a cached template right away', async () => {
+    const api = createMockApi();
+    // The template's schema (Passport) is not the first of the list
+    routeAgencyGets(api, { schemas: [unregisteredSchema, registeredSchema] });
+    const store = createTestStore({}, api);
+    // Opened from the template list before
+    await store.dispatch(
+      issuanceTemplateApi.endpoints.getIssuanceTemplate.initiate('template-1'),
+    );
+
+    const { user } = renderAdvancedIssue(
+      'template',
+      { context: { templateId: 'template-1' } },
+      { api, store },
+    );
+    await goToSchemaStep(user);
+    await clickNext(user);
+
+    // The template's schema is kept (it is registered): no registration step
+    expect(
+      await screen.findByText('Edit issuance template'),
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('firstName')).toBeInTheDocument();
+    expect(requestsTo(api, '/issuance-templates/template-1')).toBe(1);
   });
 });
