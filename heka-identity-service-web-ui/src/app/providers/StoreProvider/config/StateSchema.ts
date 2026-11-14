@@ -13,6 +13,7 @@ import { PresentationSchema } from '@/entities/Presentation/model/types/presenta
 import { SchemasSchema } from '@/entities/Schema';
 import { UserSchema } from '@/entities/User';
 import { VerificationTemplateSchema } from '@/entities/VerificationTemplate';
+import type { agencyApi } from '@/shared/api/rtk/agencyApi';
 
 export interface StateSchema {
   schemas: SchemasSchema;
@@ -22,6 +23,8 @@ export interface StateSchema {
   issuanceTemplates: IssuanceTemplateSchema;
   verificationTemplates: VerificationTemplateSchema;
   user: UserSchema;
+  /** RTK Query cache of the identity service reads */
+  agencyApi: ReturnType<typeof agencyApi.reducer>;
 }
 
 export type StateSchemaKey = keyof StateSchema;

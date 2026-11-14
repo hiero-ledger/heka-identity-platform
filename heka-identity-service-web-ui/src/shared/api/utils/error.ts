@@ -36,6 +36,16 @@ const describeError = (error: unknown): string | string[] => {
 };
 
 /**
+ * Describes a failed request and shows the message as a toast (none for a 401 while nobody
+ * is signed in). Shared by the thunks (`handleError`) and the RTK Query base query.
+ */
+export const notifyApiError = (error: unknown): string => {
+  const message = errorMessage(describeError(error));
+  if (message && !isUnauthorizedWithoutSession(error)) toast.error(message);
+  return message;
+};
+
+/**
  * Shows the server's message and rejects the thunk with it. Session state is not touched
  * here: an expired session is renewed or dropped by the API layer, and the OIDC provider
  * mirrors the result into the user slice. The dispatch parameter is kept so existing
@@ -45,12 +55,7 @@ export const handleError = (
   error: Error,
   rejectWithValue: (message: string) => any,
   _dispatch?: Dispatch<any>,
-) => {
-  const message = errorMessage(describeError(error));
-  if (message && !isUnauthorizedWithoutSession(error)) toast.error(message);
-
-  return rejectWithValue(message);
-};
+) => rejectWithValue(notifyApiError(error));
 
 /**
  * A 401 while nobody is signed in ("Authorization token is missing") is expected, not an

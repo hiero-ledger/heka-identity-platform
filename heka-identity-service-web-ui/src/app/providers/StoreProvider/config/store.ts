@@ -10,6 +10,7 @@ import { userReducer } from '@/entities/User';
 import { verificationTemplatesReducer } from '@/entities/VerificationTemplate/model/slices/verificationTemplatesSlice';
 import { $agencyDemoApi } from '@/shared/api';
 import { $agencyApi } from '@/shared/api/config/api';
+import { agencyApi } from '@/shared/api/rtk/agencyApi';
 
 import { createReducerManager } from './reducerManager';
 import { StateSchema, ThunkExtraArg } from './StateSchema';
@@ -31,6 +32,7 @@ export function createReduxStore(
     user: userReducer,
     issuanceTemplates: issuanceTemplatesReducer,
     verificationTemplates: verificationTemplatesReducer,
+    [agencyApi.reducerPath]: agencyApi.reducer,
   };
 
   const reducerManager = createReducerManager(rootReducers);
@@ -50,7 +52,8 @@ export function createReduxStore(
         thunk: {
           extraArgument: extraArg,
         },
-      }),
+        // The RTK Query middleware hands the same `extra` to the base query
+      }).concat(agencyApi.middleware),
   });
 
   // @ts-ignore
