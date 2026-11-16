@@ -71,7 +71,7 @@ describe('SelectProtocolType', () => {
       ),
     );
 
-    await user.click(screen.getByRole('button', { name: /Aries/ }));
+    await user.click(await screen.findByRole('button', { name: /Aries/ }));
     await user.click(
       await screen.findByRole('option', { name: ProtocolType.Oid4vc }),
     );
@@ -81,11 +81,11 @@ describe('SelectProtocolType', () => {
       ),
     );
 
-    await user.click(screen.getByRole('button', { name: /OpenId4VC/ }));
+    await user.click(await screen.findByRole('button', { name: /OpenId4VC/ }));
     await user.click(
       await screen.findByRole('option', { name: ProtocolType.Aries }),
     );
-    await user.click(screen.getByRole('button', { name: /anoncreds-indy/ }));
+    await user.click(await screen.findByRole('button', { name: /anoncreds-indy/ }));
     await user.click(
       await screen.findByRole('option', { name: 'anoncreds-w3c' }),
     );
