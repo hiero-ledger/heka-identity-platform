@@ -35,6 +35,11 @@ export interface UserSchema {
    * only, so a reload, sign-out or session drop prepares again.
    */
   isWalletPrepared: boolean;
+  /**
+   * The `GET /user` request whose answer may update `data`. A cache reset or a sign-out clears
+   * it, so an answer still in flight for the previous session is dropped.
+   */
+  profileRequestId?: string;
 }
 
 /** The agency profile, `GET /user` (and the `PATCH /user` response) */

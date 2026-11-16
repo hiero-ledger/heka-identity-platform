@@ -73,3 +73,55 @@ describe('userSlice isWalletPrepared', () => {
     expect(state.isWalletPrepared).toBe(true);
   });
 });
+
+const profileQuery = (status: 'pending' | 'fulfilled', requestId: string) => ({
+  type: `agencyApi/executeQuery/${status}`,
+  payload:
+    status === 'fulfilled'
+      ? { name: `Issuer ${requestId}`, logo: `${requestId}.png` }
+      : undefined,
+  meta: {
+    requestId,
+    requestStatus: status,
+    arg: { type: 'query', endpointName: 'getProfile', originalArgs: undefined },
+  },
+});
+
+describe('userSlice profile mirror', () => {
+  const signedIn = () =>
+    userReducer(
+      initial(),
+      userActions.setSession({ accessToken: 'token', name: 'Ada' }),
+    );
+
+  test('copies the answer of the current GET /user', () => {
+    let state = userReducer(signedIn(), profileQuery('pending', 'a'));
+    state = userReducer(state, profileQuery('fulfilled', 'a'));
+
+    expect(state.data?.issuerName).toBe('Issuer a');
+    expect(state.data?.logo).toBe('a.png');
+  });
+
+  test.each([
+    ['clearSession (dropped session)', userActions.clearSession()],
+    ['signOut.pending', signOut.pending('req-1')],
+    ['a cache reset (user change)', agencyApi.util.resetApiState()],
+  ])('drops an answer still in flight before %s', (_name, action) => {
+    let state = userReducer(signedIn(), profileQuery('pending', 'a'));
+    state = userReducer(state, action);
+    state = userReducer(state, profileQuery('fulfilled', 'a'));
+
+    expect(state.data?.issuerName).toBeUndefined();
+    expect(state.data?.logo).toBeUndefined();
+  });
+
+  test('keeps only the answer of the latest request', () => {
+    let state = userReducer(signedIn(), profileQuery('pending', 'a'));
+    state = userReducer(state, agencyApi.util.resetApiState());
+    state = userReducer(state, profileQuery('pending', 'b'));
+    state = userReducer(state, profileQuery('fulfilled', 'a'));
+    state = userReducer(state, profileQuery('fulfilled', 'b'));
+
+    expect(state.data?.issuerName).toBe('Issuer b');
+  });
+});

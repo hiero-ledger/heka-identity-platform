@@ -53,6 +53,7 @@ export const userSlice = buildSlice({
     clearSession: (state) => {
       // A dropped session counts as a sign-out: the next session prepares the wallet again
       state.isWalletPrepared = false;
+      state.profileRequestId = undefined;
       state.data = {
         ...(state.data ?? {}),
         name: null,
@@ -113,20 +114,27 @@ export const userSlice = buildSlice({
       .addCase(signOut.pending, (state) => {
         state.isLoading = false;
         state.isWalletPrepared = false;
+        state.profileRequestId = undefined;
         state.error = undefined;
         state.data = undefined;
       })
       .addCase(signOut.fulfilled, (state) => {
         state.isLoading = false;
         state.isWalletPrepared = false;
+        state.profileRequestId = undefined;
         state.error = undefined;
         state.data = undefined;
       })
       // The profile fields shown across the app mirror the cached `GET /user`
       // (matchers must follow all addCase calls)
+      .addMatcher(userApi.endpoints.getProfile.matchPending, (state, action) => {
+        state.profileRequestId = action.meta.requestId;
+      })
       .addMatcher(
         userApi.endpoints.getProfile.matchFulfilled,
         (state, action) => {
+          // An answer for the previous session (sent before a sign-out or a user change)
+          if (action.meta.requestId !== state.profileRequestId) return;
           state.data = {
             ...(state.data ?? {}),
             backgroundColor: action.payload.backgroundColor,
@@ -140,6 +148,7 @@ export const userSlice = buildSlice({
       // prepare the next user's wallet again
       .addMatcher(agencyApi.util.resetApiState.match, (state) => {
         state.isWalletPrepared = false;
+        state.profileRequestId = undefined;
       }),
 });
 
