@@ -19,6 +19,7 @@ import { useCredentialActions } from '@/entities/Credential/model/slices/credent
 import { useGetIssuanceTemplateQuery } from '@/entities/IssuanceTemplate/api/issuanceTemplateApi';
 import { updateIssuanceTemplate } from '@/entities/IssuanceTemplate/model/services/updateIssuanceTemplate';
 import { IssueCredentialSteps } from '@/pages/IssueCredential/IssueCredential.config';
+import { isNotFoundError } from '@/shared/api/rtk/isNotFound';
 import { Button } from '@/shared/ui/Button';
 import { Column, Row } from '@/shared/ui/Grid';
 import { LoaderView } from '@/shared/ui/Loader';
@@ -43,8 +44,12 @@ export const IssueFromTemplate = () => {
   const templateId: string | undefined = state?.context?.templateId;
   // Cached; "Save template" invalidates it, so it refetches once. A 404 (deleted elsewhere)
   // also invalidates the cached list. The base query has already shown the error.
-  const { currentData: issuanceTemplate, isError: loadFailed } =
-    useGetIssuanceTemplateQuery(templateId ?? skipToken);
+  const { currentData: issuanceTemplate, error } = useGetIssuanceTemplateQuery(
+    templateId ?? skipToken,
+  );
+  // Back to the list only when there is no template to show or it was deleted. A failed
+  // background refetch (after "Save template", on reconnect) keeps the page and the typed values.
+  const loadFailed = !!error && (!issuanceTemplate || isNotFoundError(error));
 
   const defaultFormValues = useMemo(
     () =>

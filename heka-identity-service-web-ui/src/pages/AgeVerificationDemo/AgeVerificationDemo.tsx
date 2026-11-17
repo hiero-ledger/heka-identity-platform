@@ -193,13 +193,15 @@ const AgeVerificationDemo = () => {
   const { t } = useTranslation();
   // The demo tenant's list, a cache entry of its own (never another page's list)
   const { data: schemas, isError } = useGetDemoSchemaListQuery();
-  const schemaStatus: 'loading' | 'ready' | 'missing' | 'failed' = isError
-    ? 'failed'
-    : !schemas
-      ? 'loading'
-      : schemas.some((s) => s.name === MDL_SCHEMA_NAME)
-        ? 'ready'
-        : 'missing';
+  // A failed background refetch keeps the list already loaded
+  const schemaStatus: 'loading' | 'ready' | 'missing' | 'failed' =
+    isError && !schemas
+      ? 'failed'
+      : !schemas
+        ? 'loading'
+        : schemas.some((s) => s.name === MDL_SCHEMA_NAME)
+          ? 'ready'
+          : 'missing';
   const isPresentationCompleted = useSelector(getIsPresentationCompleted);
 
   const initialContext = {

@@ -17,6 +17,7 @@ import { ProtocolType } from '@/entities/Schema';
 import { Openid4CredentialFormat } from '@/entities/Schema/model/types/schema';
 import { useGetVerificationTemplateQuery } from '@/entities/VerificationTemplate/api/verificationTemplateApi';
 import { updateVerificationTemplate } from '@/entities/VerificationTemplate/model/services/updateVerificationTemplate';
+import { isNotFoundError } from '@/shared/api/rtk/isNotFound';
 import { Button } from '@/shared/ui/Button';
 import { CheckboxGroup } from '@/shared/ui/CheckboxGroup';
 import { Column, Row } from '@/shared/ui/Grid';
@@ -45,8 +46,12 @@ export const VerificationFromTemplate = () => {
   const templateId: string | undefined = state?.context?.templateId;
   // Cached; "Save template" invalidates it, so it refetches once. A 404 (deleted elsewhere)
   // also invalidates the cached list. The base query has already shown the error.
-  const { currentData: verificationTemplate, isError: loadFailed } =
+  const { currentData: verificationTemplate, error } =
     useGetVerificationTemplateQuery(templateId ?? skipToken);
+  // Back to the list only when there is no template to show or it was deleted. A failed
+  // background refetch (after "Save template", on reconnect) keeps the page and the typed values.
+  const loadFailed =
+    !!error && (!verificationTemplate || isNotFoundError(error));
 
   const onChangeSelectedAttributes = useCallback(
     (attributes: Array<string>) => {

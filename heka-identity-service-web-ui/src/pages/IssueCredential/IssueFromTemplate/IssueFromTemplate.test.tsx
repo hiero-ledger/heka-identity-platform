@@ -7,6 +7,7 @@ import { issuanceTemplateApi } from '@/entities/IssuanceTemplate/api/issuanceTem
 import {
   cachedQueries,
   dropSessionWhileMounted,
+  flushCacheUpdates,
   requestsTo,
 } from '@/shared/lib/tests/apiCache';
 import {
@@ -214,6 +215,40 @@ describe('IssueFromTemplate', () => {
       ).toBe(2),
     );
   });
+
+  test.each([
+    [503, 'stays on the template', ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE],
+    [404, 'goes back to the templates', ROUTES.ISSUE_CREDENTIAL_TEMPLATES],
+  ])(
+    'when the read-back after Save fails with %i, %s',
+    async (status, _outcome, expectedRoute) => {
+      const { user, api } = renderIssueFromTemplate();
+      const firstName = await screen.findByPlaceholderText('firstName');
+      await waitFor(() => expect(firstName).toHaveValue('Alice'));
+
+      const routeGets = api.get.getMockImplementation()!;
+      api.get.mockImplementation((url: string, config?: unknown) =>
+        url === `/issuance-templates/${issuanceTemplate.id}`
+          ? Promise.reject({
+              response: { status, data: { message: 'Read-back failed' } },
+            })
+          : routeGets(url, config),
+      );
+      await user.clear(firstName);
+      await user.type(firstName, 'Bob');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith('Read-back failed'),
+      );
+      await flushCacheUpdates();
+      expect(screen.getByTestId('location')).toHaveTextContent(expectedRoute);
+      if (status === 503) {
+        // The template already shown and the typed value are kept
+        expect(screen.getByPlaceholderText('firstName')).toHaveValue('Bob');
+      }
+    },
+  );
 
   test('reports nothing extra when saving the template fails', async () => {
     const { user, api } = renderIssueFromTemplate();

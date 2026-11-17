@@ -14,6 +14,7 @@ import { makeVerificationTemplate } from '@/pages/VerifyCredential/testUtils';
 import {
   cachedQueries,
   dropSessionWhileMounted,
+  flushCacheUpdates,
   requestsTo,
 } from '@/shared/lib/tests/apiCache';
 import {
@@ -225,6 +226,36 @@ describe('VerificationFromTemplate', () => {
       expect(requestsTo(api, '/verification-templates/tpl-1')).toBe(2),
     );
   });
+
+  test.each([
+    [503, 'stays on the template', ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE],
+    [404, 'goes back to the templates', ROUTES.VERIFY_CREDENTIAL_TEMPLATES],
+  ])(
+    'when the read-back after Save fails with %i, %s',
+    async (status, _outcome, expectedRoute) => {
+      const user = userEvent.setup();
+      const error = jest.spyOn(toast, 'error');
+      const { api } = renderPage(makeVerificationTemplate());
+
+      await screen.findByText('Template: KYC check');
+      api.get.mockRejectedValue({
+        response: { status, data: { message: 'Read-back failed' } },
+      });
+      await user.click(checkbox('lastName'));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() =>
+        expect(error).toHaveBeenCalledWith('Read-back failed'),
+      );
+      await flushCacheUpdates();
+      expect(screen.getByTestId('location')).toHaveTextContent(expectedRoute);
+      if (status === 503) {
+        // The template already shown and the changed selection are kept
+        expect(screen.getByText('Template: KYC check')).toBeInTheDocument();
+        expect(checkbox('lastName')).toBeChecked();
+      }
+    },
+  );
 
   test('does not report success when saving fails', async () => {
     const user = userEvent.setup();

@@ -25,6 +25,10 @@ export const cachedQueries = (store: TestStore) =>
 export const useLifetimeTimers = () =>
   jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask'] });
 
+/** Waits until mounted query hooks have seen the latest cache change (notified on an animation frame) */
+export const flushCacheUpdates = () =>
+  act(() => new Promise<void>((resolve) => setTimeout(resolve, 50)));
+
 /**
  * What `SessionBridge` dispatches when the OIDC session drops (failed renewal, removed user):
  * the token mirror is cleared, then the cache is reset. Waits until mounted query hooks have
@@ -35,5 +39,5 @@ export const dropSessionWhileMounted = async (store: TestStore) => {
     store.dispatch(userActions.clearSession());
     store.dispatch(agencyApi.util.resetApiState());
   });
-  await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+  await flushCacheUpdates();
 };

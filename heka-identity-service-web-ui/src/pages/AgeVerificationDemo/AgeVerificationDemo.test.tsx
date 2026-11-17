@@ -1,7 +1,9 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { OpenIdPresentationState } from '@/entities/Presentation/model/types/presentation';
+import { agencyApi, LIST } from '@/shared/api/rtk/agencyApi';
+import { flushCacheUpdates } from '@/shared/lib/tests/apiCache';
 import {
   createMockApi,
   MockApi,
@@ -122,6 +124,31 @@ describe('AgeVerificationDemo', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'The demo schemas could not be loaded. Please try again later.',
     );
+  });
+
+  test('keeps the loaded demo schemas when a refetch fails', async () => {
+    const demoApi = stubDemoAgency({});
+    const { store } = renderDemo(demoApi);
+    expect(await screen.findByText('fill: mDL')).toBeInTheDocument();
+
+    demoApi.get.mockRejectedValue({
+      response: { status: 503, data: { message: 'Demo unavailable' } },
+    });
+    // The cached list is refetched in the background (as on reconnect), and that fails
+    act(() => {
+      store.dispatch(
+        agencyApi.util.invalidateTags([{ type: 'DemoSchema', id: LIST }]),
+      );
+    });
+    await waitFor(() =>
+      expect(
+        demoApi.get.mock.calls.filter(([url]) => url === '/v2/schemas'),
+      ).toHaveLength(2),
+    );
+    await flushCacheUpdates();
+
+    expect(screen.getByText('fill: mDL')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   test('reads the demo schemas from the cache when opened again', async () => {
