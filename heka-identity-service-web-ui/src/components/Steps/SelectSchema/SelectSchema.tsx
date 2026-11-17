@@ -11,18 +11,16 @@ import { defaultSchemaBackgroundColor } from '@/const/color';
 import { defaultLogoImagePath } from '@/const/image';
 import { ProtocolType, Schema } from '@/entities/Schema';
 import {
-  getSchema,
-  getSchemas,
-} from '@/entities/Schema/model/selectors/schemasSelector';
-import { getDemoSchemaList } from '@/entities/Schema/model/services/getDemoSchemaList';
-import { getSchemaList } from '@/entities/Schema/model/services/getSchemaList';
+  useGetDemoSchemaListQuery,
+  useGetSchemaListQuery,
+} from '@/entities/Schema/api/schemaApi';
+import { getSchema } from '@/entities/Schema/model/selectors/schemasSelector';
 import { useSchemasActions } from '@/entities/Schema/model/slices/schemasSlice';
 import {
   CredentialFormat,
   credentialFormatToCredentialRegistrationFormat,
   SchemaField,
 } from '@/entities/Schema/model/types/schema';
-import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { useLatest } from '@/shared/lib/hooks/useLatest';
 import { Button } from '@/shared/ui/Button';
 import { ButtonCards } from '@/shared/ui/ButtonCards';
@@ -69,10 +67,17 @@ export const SelectSchema = ({
 
   const [isSchemaModalOpen, setSchemaModalOpen] = useState(false);
 
-  const dispatch = useAppDispatch();
   const { updateSchema } = useSchemasActions();
 
-  const schemasList = useSelector(getSchemas);
+  // The demo pages list the demo tenant's schemas, a cache entry of its own
+  const { data: demoSchemas } = useGetDemoSchemaListQuery(undefined, {
+    skip: !useDemo,
+  });
+  const { data: tenantSchemas } = useGetSchemaListQuery(
+    { isHidden: false },
+    { skip: useDemo },
+  );
+  const schemasList = useDemo ? demoSchemas : tenantSchemas;
   const singleSchema = useSelector(getSchema);
 
   // The parent passes a new `setSchema` on every render: effects call the latest one through a
@@ -81,14 +86,6 @@ export const SelectSchema = ({
 
   const backgroundColor: string =
     schema?.bgColor ?? defaultSchemaBackgroundColor;
-
-  useEffect(() => {
-    if (useDemo) {
-      dispatch(getDemoSchemaList());
-    } else {
-      dispatch(getSchemaList({ isHidden: false }));
-    }
-  }, [dispatch, useDemo]);
 
   useEffect(() => {
     if (singleSchema) {
@@ -127,12 +124,12 @@ export const SelectSchema = ({
     setSchemaModalOpen(true);
   }, []);
 
+  // The create has invalidated the list, which refetches once
   const onSchemaCreated = useCallback(
-    async (schema: Schema) => {
-      await dispatch(getSchemaList({ isHidden: false }));
+    (schema: Schema) => {
       setSchemaRef.current(schema);
     },
-    [dispatch, setSchemaRef],
+    [setSchemaRef],
   );
 
   const isSchemaRegistered = useCallback(() => {

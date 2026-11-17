@@ -11,6 +11,7 @@ const userState = (accessToken: string | null): Partial<StateSchema> => ({
   user: {
     isLoading: false,
     isPreparing: false,
+    isWalletPrepared: false,
     data: { name: null, tokens: { accessToken } },
   },
 });

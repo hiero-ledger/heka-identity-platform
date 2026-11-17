@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { PropsWithChildren } from 'react';
 import toast from 'react-hot-toast';
 
+import { schemaApi } from '@/entities/Schema/api/schemaApi';
+import { requestsTo } from '@/shared/lib/tests/apiCache';
 import { renderWithProviders } from '@/shared/lib/tests/renderWithProviders';
 
 // Capture the drag handler instead of simulating pointer gestures in jsdom
@@ -148,13 +150,17 @@ describe('CreateSchemaModal', () => {
     );
   });
 
-  test('shows the server error and reloads the schema list when creation fails', async () => {
+  test('shows the server error and refetches the shown schema list when creation fails', async () => {
     const user = userEvent.setup();
-    const { api, onOpenChange } = renderModal();
+    const { api, store, onOpenChange } = renderModal();
     api.post.mockRejectedValue({
       response: { data: { message: 'Schema already exists' } },
     });
     api.get.mockResolvedValue({ data: { items: [] } });
+    // The page behind the modal shows the active list
+    await store.dispatch(
+      schemaApi.endpoints.getSchemaList.initiate({ isHidden: false }),
+    );
 
     await user.type(screen.getByPlaceholderText('Schema name'), 'Passport');
     await addCredential(user, 'number');
@@ -166,11 +172,8 @@ describe('CreateSchemaModal', () => {
         selector: 'div',
       }),
     ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(api.get).toHaveBeenCalledWith('/v2/schemas', {
-        params: { isHidden: false },
-      }),
-    );
+    // The schema may exist although the answer was lost
+    await waitFor(() => expect(requestsTo(api, '/v2/schemas')).toBe(2));
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 

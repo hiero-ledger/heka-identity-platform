@@ -7,6 +7,7 @@ import {
   Schema,
 } from '@/entities/Schema/model/types/schema';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
+import { agencyApi, LIST } from '@/shared/api/rtk/agencyApi';
 import { handleError } from '@/shared/api/utils/error';
 
 import { IssuanceTemplate } from '../types/issuanceTemplate';
@@ -48,6 +49,9 @@ export const createIssuanceTemplate = createAsyncThunk<
       },
     );
 
+    dispatch(
+      agencyApi.util.invalidateTags([{ type: 'IssuanceTemplate', id: LIST }]),
+    );
     return data;
   } catch (error) {
     return handleError(error, rejectWithValue, dispatch);

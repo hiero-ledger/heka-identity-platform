@@ -7,6 +7,7 @@ import {
   Schema,
 } from '@/entities/Schema/model/types/schema';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
+import { agencyApi, LIST } from '@/shared/api/rtk/agencyApi';
 import { handleError } from '@/shared/api/utils/error';
 
 import { VerificationTemplate } from '../types/verificationTemplate';
@@ -47,6 +48,11 @@ export const createVerificationTemplate = createAsyncThunk<
       },
     );
 
+    dispatch(
+      agencyApi.util.invalidateTags([
+        { type: 'VerificationTemplate', id: LIST },
+      ]),
+    );
     return data;
   } catch (error) {
     return handleError(error, rejectWithValue, dispatch);

@@ -1,13 +1,11 @@
-import toast from 'react-hot-toast';
-
 import { defaultLogoImagePath } from '@/const/image';
 import { USER_ID } from '@/entities/User/model/const';
 import {
   getIsPreparingUser,
+  getIsWalletPrepared,
   getUser,
   getUserAccessToken,
   getUserDid,
-  getUserDidDocuments,
   getUserDidMethods,
   getUserError,
   getUserId,
@@ -26,9 +24,7 @@ import {
   createTestStore,
 } from '@/shared/lib/tests/renderWithProviders';
 
-import { fetchDidDocuments } from './fetchDidDocuments';
 import { fetchDidMethods } from './fetchDidMethods';
-import { getAgencyUser } from './getAgencyUser';
 import { patchAgencyUser } from './patchAgencyUser';
 import { prepareWallet } from './prepareWallet';
 import { signOut } from './signOut';
@@ -47,6 +43,7 @@ const signedIn = {
   user: {
     isLoading: false,
     isPreparing: false,
+    isWalletPrepared: false,
     data: { name: 'Ada', did: 'did:key:1', tokens: { accessToken: 'tok' } },
   },
 };
@@ -61,11 +58,11 @@ describe('user selectors', () => {
     const state = createTestStore({
       user: {
         ...signedIn.user,
+        isWalletPrepared: true,
         error: 'oops',
         data: {
           ...signedIn.user.data,
           didMethods: ['key'],
-          didDocuments: [{ id: 'did:key:1', verificationMethod: [] }],
           messageDeliveryType: 'WebSocket',
         },
       },
@@ -76,7 +73,7 @@ describe('user selectors', () => {
     expect(getUserDid(state)).toBe('did:key:1');
     expect(getUserId(state)).toBe('did:key:1');
     expect(getUserDidMethods(state)).toEqual(['key']);
-    expect(getUserDidDocuments(state)).toHaveLength(1);
+    expect(getIsWalletPrepared(state)).toBe(true);
     expect(getUserError(state)).toBe('oops');
     expect(getIsPreparingUser(state)).toBe(false);
     expect(getUserName(state)).toBe('Ada');
@@ -86,7 +83,7 @@ describe('user selectors', () => {
 
   test('a user without a token is signed out', () => {
     const state = createTestStore({
-      user: { isLoading: false, isPreparing: false },
+      user: { isLoading: false, isPreparing: false, isWalletPrepared: false },
     }).getState();
 
     expect(getUserIsSignedIn(state)).toBe(false);
@@ -97,7 +94,12 @@ describe('user selectors', () => {
 describe('userSlice session reducers', () => {
   test('setSession and clearSession mirror the OIDC session', () => {
     const store = createTestStore({
-      user: { isLoading: false, isPreparing: false, data: { did: 'did:1' } },
+      user: {
+        isLoading: false,
+        isPreparing: false,
+        isWalletPrepared: false,
+        data: { did: 'did:1' },
+      },
     });
 
     store.dispatch(userActions.setSession({ accessToken: 'a', name: 'Ada' }));
@@ -124,6 +126,7 @@ describe('userSlice session reducers', () => {
     expect(store.getState().user).toEqual({
       isLoading: false,
       isPreparing: false,
+      isWalletPrepared: false,
       error: undefined,
       data: { name: null, did: 'did:stored', tokens: { accessToken: null } },
     });
@@ -131,7 +134,7 @@ describe('userSlice session reducers', () => {
 
   test('setSession and clearSession work without user data', () => {
     const store = createTestStore({
-      user: { isLoading: false, isPreparing: false },
+      user: { isLoading: false, isPreparing: false, isWalletPrepared: false },
     });
 
     store.dispatch(userActions.clearSession());
@@ -139,41 +142,13 @@ describe('userSlice session reducers', () => {
   });
 });
 
-describe('getAgencyUser / patchAgencyUser', () => {
+describe('patchAgencyUser', () => {
   const profile = {
     name: 'Heka Issuer',
     backgroundColor: '#123456',
     logo: '/logo.png',
     registeredAt: '2026-01-01',
   };
-
-  test('getAgencyUser stores the issuer profile', async () => {
-    const api = createMockApi();
-    api.get.mockResolvedValue({ data: profile });
-    const store = createTestStore(signedIn, api);
-
-    await store.dispatch(getAgencyUser());
-
-    expect(api.get).toHaveBeenCalledWith(agencyEndpoints.getUserData);
-    expect(store.getState().user.data).toMatchObject({
-      did: 'did:key:1',
-      issuerName: 'Heka Issuer',
-      backgroundColor: '#123456',
-      logo: '/logo.png',
-      registeredAt: '2026-01-01',
-    });
-  });
-
-  test('getAgencyUser rejects with the server message', async () => {
-    const api = createMockApi();
-    api.get.mockRejectedValue(apiError('no user'));
-    const store = createTestStore(signedIn, api);
-
-    const action = await store.dispatch(getAgencyUser());
-
-    expect(action.payload).toBe('no user');
-    expect(toast.error).toHaveBeenCalledWith('no user');
-  });
 
   test('patchAgencyUser sends only the set fields as a form', async () => {
     const api = createMockApi();
@@ -224,7 +199,12 @@ describe('prepareWallet', () => {
 
   test('uploads the default logo, stores the DID and marks the user prepared', async () => {
     const api = createMockApi();
-    api.post.mockResolvedValue({ data: { did: 'did:key:new' } });
+    api.post.mockResolvedValue({
+      data: {
+        did: 'did:key:new',
+        dids: [{ method: 'key', did: 'did:key:new', status: 'created' }],
+      },
+    });
     const store = createTestStore(signedIn, api);
 
     const pending = store.dispatch(prepareWallet());
@@ -239,6 +219,7 @@ describe('prepareWallet', () => {
     expect(store.getState().user).toMatchObject({
       isLoading: false,
       isPreparing: false,
+      isWalletPrepared: true,
       error: undefined,
       data: { did: 'did:key:new', name: 'Ada' },
     });
@@ -255,12 +236,13 @@ describe('prepareWallet', () => {
     expect(store.getState().user).toMatchObject({
       isLoading: false,
       isPreparing: false,
+      isWalletPrepared: false,
       error: 'wallet exists',
     });
   });
 });
 
-describe('fetchDidMethods / fetchDidDocuments', () => {
+describe('fetchDidMethods', () => {
   test('fetchDidMethods stores the methods', async () => {
     const api = createMockApi();
     api.get.mockResolvedValue({ data: { methods: ['key', 'indy'] } });
@@ -280,30 +262,6 @@ describe('fetchDidMethods / fetchDidDocuments', () => {
     await store.dispatch(fetchDidMethods());
 
     expect(getUserError(store.getState())).toBe('methods down');
-  });
-
-  test('fetchDidDocuments asks for own DIDs of the method', async () => {
-    const docs = [{ id: 'did:key:1', verificationMethod: [{ id: 'vm' }] }];
-    const api = createMockApi();
-    api.get.mockResolvedValue({ data: docs });
-    const store = createTestStore(signedIn, api);
-
-    await store.dispatch(fetchDidDocuments({ method: 'key' }));
-
-    expect(api.get).toHaveBeenCalledWith(agencyEndpoints.getDids, {
-      params: { own: true, method: 'key' },
-    });
-    expect(getUserDidDocuments(store.getState())).toEqual(docs);
-  });
-
-  test('fetchDidDocuments stores the error on failure', async () => {
-    const api = createMockApi();
-    api.get.mockRejectedValue(apiError('dids down'));
-    const store = createTestStore(signedIn, api);
-
-    await store.dispatch(fetchDidDocuments({}));
-
-    expect(getUserError(store.getState())).toBe('dids down');
   });
 });
 

@@ -41,11 +41,7 @@ export interface VerificationTemplateList {
 }
 
 export interface VerificationTemplateSchema {
-  isLoading: boolean;
-  error?: string;
-  /** A create or delete is in flight; kept apart from the list's loading state. */
+  /** A create or delete is in flight */
   isMutating: boolean;
   mutationError?: string;
-  verificationTemplates?: VerificationTemplate[];
-  verificationTemplate?: VerificationTemplate;
 }

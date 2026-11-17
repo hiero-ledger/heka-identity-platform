@@ -43,6 +43,19 @@ export const createTestSession = (
   ...overrides,
 });
 
+/**
+ * A signed-in user as the OIDC session mirrors it into the store. `renderWithProviders`
+ * starts from it (matching its authenticated test session) unless the test gives a user.
+ */
+export const signedInUserState = (): Pick<StateSchema, 'user'> => ({
+  user: {
+    isLoading: false,
+    isPreparing: false,
+    isWalletPrepared: false,
+    data: { name: 'Test User', tokens: { accessToken: 'test-token' } },
+  },
+});
+
 /** A real store with the app's reducers; thunks talk to the given mock APIs. */
 export const createTestStore = (
   initialState: Partial<StateSchema> = {},
@@ -81,7 +94,11 @@ export const renderWithProviders = (
     route = '/',
     path,
     session,
-    store = createTestStore(initialState, api, demoApi),
+    store = createTestStore(
+      { ...signedInUserState(), ...initialState },
+      api,
+      demoApi,
+    ),
     ...renderOptions
   }: RenderWithProvidersOptions = {},
 ) => {

@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { skipToken } from '@reduxjs/toolkit/query';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { AppDispatch } from '@/app/providers/StoreProvider';
-import { RootState } from '@/app/providers/StoreProvider/config/store';
 import ROUTES from '@/app/routes/RoutePaths';
 import { WizardType } from '@/app/types/WizardContext';
 import {
@@ -17,7 +16,7 @@ import { ProtocolType, Schema } from '@/entities/Schema';
 import { getSchema } from '@/entities/Schema/model/selectors/schemasSelector';
 import { AriesCredentialFormat } from '@/entities/Schema/model/types/schema';
 import { getUserDid } from '@/entities/User/model/selectors/userSelector';
-import { getVerificationTemplate } from '@/entities/VerificationTemplate/model/services/getVerificationTemplate';
+import { useGetVerificationTemplateQuery } from '@/entities/VerificationTemplate/api/verificationTemplateApi';
 import {
   steps,
   totalPreparationSteps,
@@ -33,14 +32,10 @@ export interface AdvancedVerificationProps {
 const AdvancedVerification = ({
   type = 'issue',
 }: AdvancedVerificationProps) => {
-  const dispatch: AppDispatch = useDispatch();
   const navigate = useNavigate();
   const { state } = useLocation();
   const did = useSelector(getUserDid);
 
-  const { verificationTemplate } = useSelector(
-    (state: RootState) => state.verificationTemplates,
-  );
   const singleSchema = useSelector(getSchema);
 
   const {
@@ -69,42 +64,10 @@ const AdvancedVerification = ({
     resetFlowState();
   }, [resetFlowState]);
 
-  useEffect(() => {
-    if (!editedTemplateId) return;
-    dispatch(
-      getVerificationTemplate({
-        id: editedTemplateId,
-      }),
-    );
-  }, [dispatch, editedTemplateId]);
-
-  useEffect(() => {
-    // Only the template being edited may seed the context: the store can still hold a template
-    // from another flow (e.g. a template that was just used or edited), and applying it here
-    // would turn a new template into an update of that one.
-    if (
-      !editedTemplateId ||
-      !verificationTemplate ||
-      verificationTemplate.id !== editedTemplateId
-    )
-      return;
-
-    onChangeContextProperty('templateId')(verificationTemplate.id);
-    onChangeContextProperty('templateName')(verificationTemplate.name);
-    onChangeContextProperty('protocolType')(verificationTemplate.protocol);
-    onChangeContextProperty('credentialType')(
-      verificationTemplate.credentialFormat,
-    );
-    onChangeContextProperty('network')(verificationTemplate.network);
-    onChangeContextProperty('did')(verificationTemplate.did);
-    onChangeContextProperty('schema')(verificationTemplate.schema);
-    if (verificationTemplate?.fields) {
-      const attributes = verificationTemplate.fields.map(
-        (field) => field.schemaFieldName,
-      );
-      onChangeContextProperty('attributes')(attributes);
-    }
-  }, [verificationTemplate, onChangeContextProperty, editedTemplateId]);
+  // Cached: the template being edited, if any
+  const { currentData: verificationTemplate } = useGetVerificationTemplateQuery(
+    editedTemplateId ?? skipToken,
+  );
 
   const onChangeNetwork = useMemo(
     () => onChangeContextProperty('network'),
@@ -142,6 +105,45 @@ const AdvancedVerification = ({
   useEffect(() => {
     onChangeContextProperty('schema')(singleSchema);
   }, [singleSchema, onChangeContextProperty]);
+
+  // A new template to edit (or none) is seeded again
+  const seededTemplateId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    seededTemplateId.current = undefined;
+  }, [editedTemplateId]);
+
+  // After the effect above: a cached template is there on mount, and the selected schema
+  // (none yet) must not overwrite the template's schema
+  useEffect(() => {
+    // Only the template being edited may seed the context: applying any other would turn a
+    // new template into an update of that one.
+    if (
+      !editedTemplateId ||
+      !verificationTemplate ||
+      verificationTemplate.id !== editedTemplateId
+    )
+      return;
+    // Once per edited template: a refetch (e.g. a schema registration during the edit
+    // invalidates the templates) must not overwrite the choices made in the wizard since
+    if (seededTemplateId.current === editedTemplateId) return;
+    seededTemplateId.current = editedTemplateId;
+
+    onChangeContextProperty('templateId')(verificationTemplate.id);
+    onChangeContextProperty('templateName')(verificationTemplate.name);
+    onChangeContextProperty('protocolType')(verificationTemplate.protocol);
+    onChangeContextProperty('credentialType')(
+      verificationTemplate.credentialFormat,
+    );
+    onChangeContextProperty('network')(verificationTemplate.network);
+    onChangeContextProperty('did')(verificationTemplate.did);
+    onChangeContextProperty('schema')(verificationTemplate.schema);
+    if (verificationTemplate?.fields) {
+      const attributes = verificationTemplate.fields.map(
+        (field) => field.schemaFieldName,
+      );
+      onChangeContextProperty('attributes')(attributes);
+    }
+  }, [verificationTemplate, onChangeContextProperty, editedTemplateId]);
 
   return (
     <PreparationStepLayout

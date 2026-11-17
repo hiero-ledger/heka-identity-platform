@@ -17,6 +17,7 @@ const renderConnector = (accessToken: string | null) => {
     user: {
       isLoading: false,
       isPreparing: false,
+      isWalletPrepared: false,
       data: { tokens: { accessToken } },
     },
   });

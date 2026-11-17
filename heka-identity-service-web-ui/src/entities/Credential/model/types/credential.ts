@@ -1,5 +1,12 @@
-import { CredentialConfig } from '@/entities/Credential/model/services/getCredentialConfig';
 import { Openid4CredentialFormat } from '@/entities/Schema/model/types/schema';
+
+/** `GET /credentials/config`: credential formats and networks per protocol */
+export interface CredentialConfig {
+  [protocol: string]: {
+    credentials: string[];
+    networks: string[];
+  };
+}
 
 export enum OpenIdIssuanceState {
   OfferCreated = 'OfferCreated',
@@ -37,7 +44,6 @@ export interface CredentialSchema {
   issuanceSession?: IssuanceSession;
   /** requestId of the latest offerCredential: answers to older or reset requests are ignored */
   offerRequestId?: string;
-  credentialsConfig?: CredentialConfig;
 }
 
 export interface OpenIdCredentialCommon {

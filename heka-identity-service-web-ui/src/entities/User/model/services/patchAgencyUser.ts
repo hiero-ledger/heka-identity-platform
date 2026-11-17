@@ -1,9 +1,12 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
 import { ThunkConfig } from '@/app/providers/StoreProvider';
-import { GetAgencyUserResult } from '@/entities/User/model/services/getAgencyUser';
 import { agencyEndpoints } from '@/shared/api/config/endpoints';
+import { agencyApi, LIST } from '@/shared/api/rtk/agencyApi';
 import { handleError } from '@/shared/api/utils/error';
+
+import { userApi } from '../../api/userApi';
+import { GetAgencyUserResult } from '../types/user';
 
 export type AgencyUserFieldType = string | null | undefined | File;
 
@@ -30,7 +33,9 @@ export const patchAgencyUser = createAsyncThunk<
   AgencyUserParams,
   ThunkConfig<string>
 >('user/patch', async (body, thunkAPI) => {
-  const { extra, rejectWithValue, dispatch } = thunkAPI;
+  const { extra, rejectWithValue, dispatch, getState } = thunkAPI;
+  const previousName =
+    userApi.endpoints.getProfile.select()(getState()).data?.name;
   try {
     const formData = new FormData();
 
@@ -41,10 +46,18 @@ export const patchAgencyUser = createAsyncThunk<
       }
     });
 
-    const response = await extra.agencyApi.patch(
+    const response = await extra.agencyApi.patch<GetAgencyUserResult>(
       agencyEndpoints.patchUserData,
       formData,
     );
+    // The response is the whole profile: put it in the cache instead of fetching it again
+    dispatch(
+      userApi.util.upsertQueryData('getProfile', undefined, response.data),
+    );
+    // Every schema in the list carries its creator's name as `issuerName`
+    if (response.data.name !== previousName) {
+      dispatch(agencyApi.util.invalidateTags([{ type: 'Schema', id: LIST }]));
+    }
     return response.data;
   } catch (error) {
     return handleError(error, rejectWithValue, dispatch);

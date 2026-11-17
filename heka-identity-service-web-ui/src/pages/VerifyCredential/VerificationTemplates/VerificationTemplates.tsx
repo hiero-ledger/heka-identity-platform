@@ -1,30 +1,30 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 
-import {
-  AppDispatch,
-  RootState,
-} from '@/app/providers/StoreProvider/config/store';
+import { AppDispatch } from '@/app/providers/StoreProvider/config/store';
 import ROUTES from '@/app/routes/RoutePaths';
 import { Templates } from '@/components/Templates';
 import { TemplateType } from '@/components/Templates/types';
+import { VerificationTemplate } from '@/entities/VerificationTemplate';
+import { useGetVerificationTemplateListQuery } from '@/entities/VerificationTemplate/api/verificationTemplateApi';
 import { deleteVerificationTemplate } from '@/entities/VerificationTemplate/model/services/deleteVerificationTemplate';
-import { getVerificationTemplateList } from '@/entities/VerificationTemplate/model/services/getVerificationTemplateList';
 import { updateVerificationTemplate } from '@/entities/VerificationTemplate/model/services/updateVerificationTemplate';
+
+// Stable while the list loads: `Templates` copies the list into local state on every change
+const NO_TEMPLATES: VerificationTemplate[] = [];
 
 export const VerificationTemplates = () => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
-  const templatesState = useSelector(
-    (state: RootState) => state.verificationTemplates,
-  );
-
-  useEffect(() => {
-    dispatch(getVerificationTemplateList());
-  }, [dispatch]);
+  // Cached; the reorder and delete thunks invalidate it, so it refetches once after each
+  const {
+    data: templates,
+    isLoading,
+    error,
+  } = useGetVerificationTemplateListQuery();
 
   const changeTemplateOrder = useCallback(
     async (templateId: string, previousTemplateId: string | null) => {
@@ -60,9 +60,9 @@ export const VerificationTemplates = () => {
   return (
     <Templates
       templatesState={{
-        isLoading: templatesState.isLoading,
-        templates: templatesState.verificationTemplates!,
-        error: templatesState.error!,
+        isLoading,
+        templates: templates ?? NO_TEMPLATES,
+        error: error?.message ?? '',
       }}
       templateType={TemplateType.Verification}
       changeTemplateOrder={changeTemplateOrder}

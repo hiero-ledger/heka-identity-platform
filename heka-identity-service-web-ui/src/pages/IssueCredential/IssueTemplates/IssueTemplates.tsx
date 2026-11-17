@@ -1,30 +1,30 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 
-import {
-  AppDispatch,
-  RootState,
-} from '@/app/providers/StoreProvider/config/store';
+import { AppDispatch } from '@/app/providers/StoreProvider/config/store';
 import ROUTES from '@/app/routes/RoutePaths';
 import { Templates } from '@/components/Templates';
 import { TemplateType } from '@/components/Templates/types';
+import { IssuanceTemplate } from '@/entities/IssuanceTemplate';
+import { useGetIssuanceTemplateListQuery } from '@/entities/IssuanceTemplate/api/issuanceTemplateApi';
 import { deleteIssuanceTemplate } from '@/entities/IssuanceTemplate/model/services/deleteIssuanceTemplate';
-import { getIssuanceTemplateList } from '@/entities/IssuanceTemplate/model/services/getIssuanceTemplateList';
 import { updateIssuanceTemplate } from '@/entities/IssuanceTemplate/model/services/updateIssuanceTemplate';
+
+// Stable while the list loads: `Templates` copies the list into local state on every change
+const NO_TEMPLATES: IssuanceTemplate[] = [];
 
 export const IssueTemplates = () => {
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
 
-  const templatesState = useSelector(
-    (state: RootState) => state.issuanceTemplates,
-  );
-
-  useEffect(() => {
-    dispatch(getIssuanceTemplateList());
-  }, [dispatch]);
+  // Cached; the reorder and delete thunks invalidate it, so it refetches once after each
+  const {
+    data: templates,
+    isLoading,
+    error,
+  } = useGetIssuanceTemplateListQuery();
 
   const changeTemplateOrder = useCallback(
     async (templateId: string, previousTemplateId: string | null) => {
@@ -60,9 +60,9 @@ export const IssueTemplates = () => {
   return (
     <Templates
       templatesState={{
-        isLoading: templatesState.isLoading,
-        templates: templatesState.issuanceTemplates!,
-        error: templatesState.error!,
+        isLoading,
+        templates: templates ?? NO_TEMPLATES,
+        error: error?.message ?? '',
       }}
       templateType={TemplateType.Issue}
       changeTemplateOrder={changeTemplateOrder}

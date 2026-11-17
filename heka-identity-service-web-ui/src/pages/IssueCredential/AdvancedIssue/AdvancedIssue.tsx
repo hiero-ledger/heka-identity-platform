@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { skipToken } from '@reduxjs/toolkit/query';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { AppDispatch } from '@/app/providers/StoreProvider';
-import { RootState } from '@/app/providers/StoreProvider/config/store';
 import ROUTES from '@/app/routes/RoutePaths';
 import { WizardType } from '@/app/types/WizardContext';
 import {
@@ -14,7 +13,7 @@ import {
   SelectSchema,
   SchemaRegistration,
 } from '@/components/Steps';
-import { getIssuanceTemplate } from '@/entities/IssuanceTemplate/model/services/getIssuanceTemplate';
+import { useGetIssuanceTemplateQuery } from '@/entities/IssuanceTemplate/api/issuanceTemplateApi';
 import { ProtocolType, Schema } from '@/entities/Schema';
 import { getSchema } from '@/entities/Schema/model/selectors/schemasSelector';
 import {
@@ -35,13 +34,9 @@ export interface AdvancedIssueProps {
 }
 
 export const AdvancedIssue = ({ type = 'issue' }: AdvancedIssueProps) => {
-  const dispatch: AppDispatch = useDispatch();
   const navigate = useNavigate();
   const { state } = useLocation();
 
-  const { issuanceTemplate } = useSelector(
-    (state: RootState) => state.issuanceTemplates,
-  );
   const singleSchema = useSelector(getSchema);
 
   const {
@@ -69,46 +64,10 @@ export const AdvancedIssue = ({ type = 'issue' }: AdvancedIssueProps) => {
     resetFlowState();
   }, [resetFlowState]);
 
-  useEffect(() => {
-    if (!editedTemplateId) return;
-    dispatch(
-      getIssuanceTemplate({
-        id: editedTemplateId,
-      }),
-    );
-  }, [dispatch, editedTemplateId]);
-
-  useEffect(() => {
-    // Only the template being edited may seed the context: the store can still hold a template
-    // from another flow (e.g. a template that was just used or edited), and applying it here
-    // would turn a new template into an update of that one.
-    if (
-      !editedTemplateId ||
-      !issuanceTemplate ||
-      issuanceTemplate.id !== editedTemplateId
-    )
-      return;
-
-    onChangeContextProperty('templateId')(issuanceTemplate.id);
-    onChangeContextProperty('templateName')(issuanceTemplate.name);
-    onChangeContextProperty('protocolType')(issuanceTemplate.protocol);
-    onChangeContextProperty('credentialType')(
-      issuanceTemplate.credentialFormat,
-    );
-    onChangeContextProperty('network')(issuanceTemplate.network);
-    onChangeContextProperty('did')(issuanceTemplate.did);
-    onChangeContextProperty('schema')(issuanceTemplate.schema);
-    if (issuanceTemplate?.fields) {
-      const fields: Record<string, string> = issuanceTemplate?.fields.reduce(
-        (obj, field) => {
-          obj[field.schemaFieldName] = field.value;
-          return obj;
-        },
-        {} as Record<string, string>,
-      );
-      onChangeContextProperty('credentialValues')(fields);
-    }
-  }, [editedTemplateId, issuanceTemplate, onChangeContextProperty]);
+  // Cached: the template being edited, if any
+  const { currentData: issuanceTemplate } = useGetIssuanceTemplateQuery(
+    editedTemplateId ?? skipToken,
+  );
 
   const onChangeDid = useMemo(
     () => onChangeContextProperty('did'),
@@ -150,6 +109,49 @@ export const AdvancedIssue = ({ type = 'issue' }: AdvancedIssueProps) => {
   useEffect(() => {
     onChangeContextProperty('schema')(singleSchema);
   }, [singleSchema, onChangeContextProperty]);
+
+  // A new template to edit (or none) is seeded again
+  const seededTemplateId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    seededTemplateId.current = undefined;
+  }, [editedTemplateId]);
+
+  // After the effect above: a cached template is there on mount, and the selected schema
+  // (none yet) must not overwrite the template's schema
+  useEffect(() => {
+    // Only the template being edited may seed the context: applying any other would turn a
+    // new template into an update of that one.
+    if (
+      !editedTemplateId ||
+      !issuanceTemplate ||
+      issuanceTemplate.id !== editedTemplateId
+    )
+      return;
+    // Once per edited template: a refetch (e.g. a schema registration during the edit
+    // invalidates the templates) must not overwrite the choices made in the wizard since
+    if (seededTemplateId.current === editedTemplateId) return;
+    seededTemplateId.current = editedTemplateId;
+
+    onChangeContextProperty('templateId')(issuanceTemplate.id);
+    onChangeContextProperty('templateName')(issuanceTemplate.name);
+    onChangeContextProperty('protocolType')(issuanceTemplate.protocol);
+    onChangeContextProperty('credentialType')(
+      issuanceTemplate.credentialFormat,
+    );
+    onChangeContextProperty('network')(issuanceTemplate.network);
+    onChangeContextProperty('did')(issuanceTemplate.did);
+    onChangeContextProperty('schema')(issuanceTemplate.schema);
+    if (issuanceTemplate?.fields) {
+      const fields: Record<string, string> = issuanceTemplate?.fields.reduce(
+        (obj, field) => {
+          obj[field.schemaFieldName] = field.value;
+          return obj;
+        },
+        {} as Record<string, string>,
+      );
+      onChangeContextProperty('credentialValues')(fields);
+    }
+  }, [editedTemplateId, issuanceTemplate, onChangeContextProperty]);
 
   return (
     <PreparationStepLayout

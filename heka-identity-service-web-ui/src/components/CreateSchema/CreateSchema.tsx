@@ -15,7 +15,6 @@ import { defaultLogoImagePath } from '@/const/image';
 import { Schema } from '@/entities/Schema';
 import { selectSchemaLoading } from '@/entities/Schema/model/selectors/schemasSelector';
 import { createNewSchema } from '@/entities/Schema/model/services/createSchema';
-import { getSchemaList } from '@/entities/Schema/model/services/getSchemaList';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
 import { Column, Row } from '@/shared/ui/Grid';
@@ -143,8 +142,9 @@ export const CreateSchemaModal = ({
           onSchemaCreated(newSchema);
         }
       } catch (e) {
+        // The thunk has invalidated the schema lists: the schema may exist although the
+        // answer was lost
         setErrorMessage(e);
-        dispatch(getSchemaList({ isHidden: false }));
       }
     },
     [

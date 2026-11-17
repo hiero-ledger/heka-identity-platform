@@ -28,6 +28,7 @@ const userState = (signedIn: boolean): Partial<StateSchema> => ({
   user: {
     isLoading: false,
     isPreparing: false,
+    isWalletPrepared: false,
     data: {
       name: signedIn ? 'Jane Doe' : null,
       tokens: { accessToken: signedIn ? 'token' : null },

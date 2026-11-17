@@ -2,10 +2,9 @@ import { DndContext, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext } from '@dnd-kit/sortable';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 
 import { AppDispatch } from '@/app/providers/StoreProvider';
-import { RootState } from '@/app/providers/StoreProvider/config/store';
 import { CreateSchemaModal } from '@/components/CreateSchema/CreateSchema';
 import { useSortableSensors } from '@/components/Draggable/Draggable';
 import { NoItemFound } from '@/components/NoItemFound/NoItemFound';
@@ -16,7 +15,7 @@ import { DesktopView } from '@/components/Screen/Screen';
 import { defaultSchemaBackgroundColor } from '@/const/color';
 import { defaultLogoImagePath } from '@/const/image';
 import { Schema as SchemaType } from '@/entities/Schema';
-import { getSchemaList } from '@/entities/Schema/model/services/getSchemaList';
+import { useGetSchemaListQuery } from '@/entities/Schema/api/schemaApi';
 import { updateSchema } from '@/entities/Schema/model/services/updateSchema';
 import { RegistrationsList } from '@/pages/IssueCredential/Schemas/RegistrationsList/RegistrationsList';
 import { Button } from '@/shared/ui/Button';
@@ -28,17 +27,21 @@ import { EditorView } from './EditorView/EditorView';
 import * as cls from './Schemas.module.scss';
 
 export const Schemas = () => {
-  const { schemas, isLoading } = useSelector(
-    (state: RootState) => state.schemas,
-  );
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
+
+  const [showActiveSchemas, setShowActiveSchemas] = useState<boolean>(true);
+  // `currentData`, not `data`: after a filter switch, never show the other filter's list
+  // while this one loads
+  const { currentData: schemas, isFetching } = useGetSchemaListQuery({
+    isHidden: !showActiveSchemas,
+  });
+  const isLoading = isFetching && !schemas;
 
   const [localSchemas, setLocalSchemas] = useState(schemas ?? []);
   const [schema, setSchema] = useState<null | SchemaType>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
   const [isRegistrationsModalOpen, setRegistrationsModalOpen] = useState(false);
-  const [showActiveSchemas, setShowActiveSchemas] = useState<boolean>(true);
   const [isCreateSchemaModalOpen, setIsCreateSchemaModalOpen] =
     useState<boolean>(false);
 
@@ -57,17 +60,10 @@ export const Schemas = () => {
     [localSchemas, setSchema],
   );
 
-  useEffect(() => {
-    dispatch(
-      getSchemaList({
-        isHidden: !showActiveSchemas,
-      }),
-    );
-  }, [dispatch, showActiveSchemas]);
-
+  // A local copy for drag and drop; replaced whenever the cached list changes (refetch)
   useEffect(() => {
     setLocalSchemas(schemas ?? []);
-  }, [setLocalSchemas, isLoading, schemas]);
+  }, [setLocalSchemas, schemas]);
 
   useEffect(() => {
     if (schema?.id) {
@@ -137,22 +133,10 @@ export const Schemas = () => {
     [],
   );
 
+  // The create has invalidated the active list, which refetches once
   const onSchemaCreated = useCallback(() => {
     handleStatusFilterChange(true);
-    dispatch(
-      getSchemaList({
-        isHidden: false,
-      }),
-    );
-  }, [dispatch, handleStatusFilterChange]);
-
-  const reloadList = useCallback(() => {
-    dispatch(
-      getSchemaList({
-        isHidden: !showActiveSchemas,
-      }),
-    );
-  }, [dispatch, showActiveSchemas]);
+  }, [handleStatusFilterChange]);
 
   return (
     <Column className={cls.schemasWrapper}>
@@ -167,10 +151,7 @@ export const Schemas = () => {
         />
         <CreateSchemaModal
           isOpen={isCreateSchemaModalOpen}
-          onOpenChange={(value: boolean) => {
-            setIsCreateSchemaModalOpen(value);
-            reloadList();
-          }}
+          onOpenChange={setIsCreateSchemaModalOpen}
           onSchemaCreated={onSchemaCreated}
         />
       </Row>

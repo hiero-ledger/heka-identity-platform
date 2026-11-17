@@ -16,6 +16,7 @@ const userState = (isPreparing = false): Partial<StateSchema> => ({
   user: {
     isLoading: false,
     isPreparing,
+    isWalletPrepared: !isPreparing,
     data: { name: 'Jane Doe', tokens: { accessToken: 'token' } },
   },
 });
@@ -93,7 +94,7 @@ describe('Profile', () => {
     ).not.toBeInTheDocument();
 
     expect(await screen.findByText('ACME')).toBeInTheDocument();
-    expect(api.get).toHaveBeenCalledWith('/user');
+    expect(api.get).toHaveBeenCalledWith('/user', { params: undefined });
     expect(screen.getByRole('img', { name: 'Issuer logo' })).toHaveAttribute(
       'src',
       '/acme.png',
@@ -130,6 +131,23 @@ describe('Profile', () => {
     expect(api.patch.mock.calls[0][0]).toBe('/user');
     expect(patchedField(api, 'name')).toBe('Globex');
     expect(await screen.findByText('Globex')).toBeInTheDocument();
+    // The PATCH answer updates the cached profile: no GET to read it back
+    expect(api.get.mock.calls.filter(([url]) => url === '/user')).toHaveLength(
+      1,
+    );
+  });
+
+  test('reads the profile from the cache when opened again', async () => {
+    const { api, store, unmount } = renderProfile();
+    expect(await screen.findByText('ACME')).toBeInTheDocument();
+    unmount();
+
+    renderProfile({ api, store });
+
+    expect(await screen.findByText('ACME')).toBeInTheDocument();
+    expect(api.get.mock.calls.filter(([url]) => url === '/user')).toHaveLength(
+      1,
+    );
   });
 
   describe('issuer name', () => {
@@ -251,13 +269,18 @@ describe('Profile', () => {
   test('signs out', async () => {
     const user = userEvent.setup();
     localStorage.setItem('userId', 'did:key:1');
-    const { store } = renderProfile();
+    const { api, store } = renderProfile();
     await screen.findByText('ACME');
 
     await user.click(screen.getByRole('button', { name: /Sign out/ }));
 
     expect(await screen.findByText('sign in page')).toBeInTheDocument();
     await waitFor(() => expect(store.getState().user.data).toBeUndefined());
+    // The cache is emptied and the signed-out user's profile is not fetched again
+    expect(store.getState().agencyApi.queries).toEqual({});
+    expect(api.get.mock.calls.filter(([url]) => url === '/user')).toHaveLength(
+      1,
+    );
   });
 
   test('waits for the wallet preparation before loading issuer settings', async () => {

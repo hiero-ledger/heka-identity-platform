@@ -4,7 +4,12 @@ import { Provider } from 'react-redux';
 
 import { StateSchema } from '@/app/providers/StoreProvider';
 import { WizardContext } from '@/app/types/WizardContext';
-import { createTestStore } from '@/shared/lib/tests/renderWithProviders';
+import { schemaApi } from '@/entities/Schema/api/schemaApi';
+import { cachedQueries } from '@/shared/lib/tests/apiCache';
+import {
+  createMockApi,
+  createTestStore,
+} from '@/shared/lib/tests/renderWithProviders';
 
 import { useAppState } from './app-state';
 import { useFlow } from './flow';
@@ -27,25 +32,23 @@ const dirtyState = (): Partial<StateSchema> => ({
     error: 'x',
     presentationSession: { id: 'p', state: 'done' },
   } as StateSchema['presentations'],
-  schemas: { isLoading: true, error: 'x', schemas: [] },
-  issuanceTemplates: { isLoading: true, isMutating: true, error: 'x' },
-  verificationTemplates: { isLoading: true, isMutating: true, error: 'x' },
+  schemas: { isLoading: true, error: 'x', schema: { id: 's1', fields: [] } },
+  issuanceTemplates: { isMutating: true, mutationError: 'x' },
+  verificationTemplates: { isMutating: true, mutationError: 'x' },
 });
 
 const expectAllReset = (state: StateSchema) => {
   expect(state.credentials.issuanceSession).toBeUndefined();
   expect(state.credentials.error).toBeUndefined();
   expect(state.presentations.presentationSession).toBeUndefined();
-  expect(state.schemas).toMatchObject({ isLoading: false, schemas: undefined });
-  expect(state.issuanceTemplates).toMatchObject({
-    isLoading: false,
+  expect(state.schemas).toMatchObject({ isLoading: false, schema: undefined });
+  expect(state.issuanceTemplates).toEqual({
     isMutating: false,
-    error: undefined,
+    mutationError: undefined,
   });
-  expect(state.verificationTemplates).toMatchObject({
-    isLoading: false,
+  expect(state.verificationTemplates).toEqual({
     isMutating: false,
-    error: undefined,
+    mutationError: undefined,
   });
   expect(state.connections.error).toBeUndefined();
 };
@@ -67,6 +70,23 @@ describe('useAppState', () => {
     act(() => result.current.resetApplicationState());
 
     expectAllReset(store.getState());
+  });
+
+  test('keeps the cached server data: only flow state is reset', async () => {
+    const api = createMockApi();
+    api.get.mockResolvedValue({ data: { items: [] } });
+    const store = createTestStore(dirtyState(), api);
+    await store.dispatch(
+      schemaApi.endpoints.getSchemaList.initiate({ isHidden: false }),
+    );
+    const { result } = renderHook(() => useAppState(), {
+      wrapper: wrapperFor(store),
+    });
+
+    act(() => result.current.resetApplicationState());
+
+    expectAllReset(store.getState());
+    expect(cachedQueries(store)).toEqual(['getSchemaList({"isHidden":false})']);
   });
 });
 

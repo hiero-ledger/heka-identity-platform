@@ -123,12 +123,11 @@ export interface Schema {
 }
 
 export interface SchemasSchema {
+  /** A schema write (create, register, logo/colour) is in flight */
   isLoading: boolean;
   error?: string;
-  schemas?: Schema[];
+  /** The schema selected in the current flow (or just registered) */
   schema?: Schema;
-  /** requestId of the latest schema list request: answers to older ones are ignored */
-  listRequestId?: string;
 }
 
 export interface UpdateSchemaParams {

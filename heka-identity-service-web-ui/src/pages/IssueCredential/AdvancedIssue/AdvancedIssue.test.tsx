@@ -1,9 +1,11 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 
 import ROUTES from '@/app/routes/RoutePaths';
+import { issuanceTemplateApi } from '@/entities/IssuanceTemplate/api/issuanceTemplateApi';
 import { ProtocolType } from '@/entities/Schema';
+import { requestsTo } from '@/shared/lib/tests/apiCache';
 import {
   LocationDisplay,
   readLocationState,
@@ -12,10 +14,12 @@ import {
   createMockApi,
   createTestStore,
   renderWithProviders,
+  signedInUserState,
 } from '@/shared/lib/tests/renderWithProviders';
 
 import {
   INDY_DID,
+  issuanceTemplate,
   registeredSchema,
   routeAgencyGets,
   unregisteredSchema,
@@ -54,21 +58,29 @@ jest.mock('@/components/CreateSchema/CreateSchema', () => ({
 const renderAdvancedIssue = (
   type: 'issue' | 'template' = 'issue',
   state?: unknown,
+  options: Parameters<typeof renderWithProviders>[1] = {},
 ) => {
-  const api = createMockApi();
-  routeAgencyGets(api);
+  const api = options.api ?? createMockApi();
+  if (!options.api) routeAgencyGets(api);
   const result = renderWithProviders(
     <>
       <AdvancedIssue type={type} />
       <LocationDisplay />
     </>,
     {
-      api,
       route: { pathname: ROUTES.ISSUE_ADVANCED_ISSUE, state },
+      ...options,
+      api,
     },
   );
   return { ...result, user: userEvent.setup() };
 };
+
+const activeSchemaListRequests = (api: ReturnType<typeof createMockApi>) =>
+  api.get.mock.calls.filter(
+    ([url, config]) =>
+      url === '/v2/schemas' && config?.params?.isHidden === false,
+  ).length;
 
 const clickNext = async (user: ReturnType<typeof userEvent.setup>) => {
   const next = screen.getByRole('button', { name: /Next/ });
@@ -90,7 +102,7 @@ describe('AdvancedIssue', () => {
   test('resets the templates once when opened', () => {
     const api = createMockApi();
     routeAgencyGets(api);
-    const store = createTestStore({}, api);
+    const store = createTestStore(signedInUserState(), api);
     const dispatch = jest.spyOn(store, 'dispatch');
 
     renderWithProviders(<AdvancedIssue />, {
@@ -221,6 +233,8 @@ describe('AdvancedIssue', () => {
     );
     expect(await screen.findByText('Issue new credential')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('degree')).toBeInTheDocument();
+    // The registered schema is read once (no second read by the step)
+    expect(requestsTo(api, `/v2/schemas/${unregisteredSchema.id}`)).toBe(1);
   });
 
   test('stays on the registration step when registering fails', async () => {
@@ -246,9 +260,7 @@ describe('AdvancedIssue', () => {
   test('selects a schema created from the schema step', async () => {
     const { user, api } = renderAdvancedIssue();
     await goToSchemaStep(user);
-    const schemaListRequests = () =>
-      api.get.mock.calls.filter(([url]) => url === '/v2/schemas').length;
-    const requestsBefore = schemaListRequests();
+    const requestsBefore = activeSchemaListRequests(api);
 
     // The plus button has an icon only
     const plusButton = screen
@@ -259,11 +271,27 @@ describe('AdvancedIssue', () => {
       screen.getByRole('button', { name: 'create schema stub' }),
     );
 
-    // The list is reloaded and the new schema becomes the selection
-    await waitFor(() =>
-      expect(schemaListRequests()).toBeGreaterThan(requestsBefore),
-    );
+    // The new schema becomes the selection; the list is refreshed by the create itself
+    // (tag invalidation), not by the step
     expect(await screen.findByText('nickname')).toBeInTheDocument();
+    expect(activeSchemaListRequests(api)).toBe(requestsBefore);
+  });
+
+  test('reads the config and the schemas once across steps and runs of the wizard', async () => {
+    const { user, api, store, unmount } = renderAdvancedIssue();
+    await goToSchemaStep(user);
+    await user.click(screen.getByRole('button', { name: /Back/ }));
+    expect(await screen.findByText('Select network')).toBeInTheDocument();
+    await clickNext(user);
+    expect(await screen.findByText('Select schema')).toBeInTheDocument();
+    unmount();
+
+    // Starting the wizard again
+    const again = renderAdvancedIssue('issue', undefined, { api, store });
+    await goToSchemaStep(again.user);
+
+    expect(requestsTo(api, '/credentials/config')).toBe(1);
+    expect(activeSchemaListRequests(api)).toBe(1);
   });
 
   test('network step goes back to the protocol step', async () => {
@@ -322,7 +350,9 @@ describe('AdvancedIssue', () => {
     });
 
     await waitFor(() =>
-      expect(api.get).toHaveBeenCalledWith('/issuance-templates/template-1'),
+      expect(api.get).toHaveBeenCalledWith('/issuance-templates/template-1', {
+        params: undefined,
+      }),
     );
     await goToSchemaStep(user);
     await clickNext(user);
@@ -351,5 +381,79 @@ describe('AdvancedIssue', () => {
     expect(screen.getByTestId('location')).toHaveTextContent(
       ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
     );
+  });
+
+  test('registering a schema while editing a template keeps the choices made in the wizard', async () => {
+    const { user, api } = renderAdvancedIssue('template', {
+      context: { templateId: 'template-1' },
+    });
+    await waitFor(() =>
+      expect(requestsTo(api, '/issuance-templates/template-1')).toBe(1),
+    );
+    await goToSchemaStep(user);
+
+    // Another schema than the template's, not registered yet
+    await user.click(await screen.findByTitle('Diploma'));
+    await clickNext(user);
+    expect(
+      await screen.findByText('Registration of the schema'),
+    ).toBeInTheDocument();
+    routeAgencyGets(api, {
+      singleSchema: (id) =>
+        id === unregisteredSchema.id
+          ? {
+              ...unregisteredSchema,
+              registrations: registeredSchema.registrations!.map((r) => ({
+                ...r,
+                schemaId: id,
+              })),
+            }
+          : registeredSchema,
+      // The templates embed the registrations: the refetched template differs
+      template: {
+        ...issuanceTemplate,
+        schema: { ...issuanceTemplate.schema, logo: '/new-logo.png' },
+      },
+    });
+    await user.click(screen.getByRole('button', { name: /Register/ }));
+
+    expect(
+      await screen.findByText('Edit issuance template'),
+    ).toBeInTheDocument();
+    // The registration invalidated the templates: the edited one was read again...
+    await waitFor(() =>
+      expect(requestsTo(api, '/issuance-templates/template-1')).toBe(2),
+    );
+    // Subscribers are notified in a batch (animation frame): let the wizard render the new data
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    // ...without seeding the wizard again: the chosen schema stays
+    expect(screen.getByPlaceholderText('degree')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('firstName')).toBeNull();
+  });
+
+  test('seeds the wizard from a cached template right away', async () => {
+    const api = createMockApi();
+    // The template's schema (Passport) is not the first of the list
+    routeAgencyGets(api, { schemas: [unregisteredSchema, registeredSchema] });
+    const store = createTestStore(signedInUserState(), api);
+    // Opened from the template list before
+    await store.dispatch(
+      issuanceTemplateApi.endpoints.getIssuanceTemplate.initiate('template-1'),
+    );
+
+    const { user } = renderAdvancedIssue(
+      'template',
+      { context: { templateId: 'template-1' } },
+      { api, store },
+    );
+    await goToSchemaStep(user);
+    await clickNext(user);
+
+    // The template's schema is kept (it is registered): no registration step
+    expect(
+      await screen.findByText('Edit issuance template'),
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('firstName')).toBeInTheDocument();
+    expect(requestsTo(api, '/issuance-templates/template-1')).toBe(1);
   });
 });

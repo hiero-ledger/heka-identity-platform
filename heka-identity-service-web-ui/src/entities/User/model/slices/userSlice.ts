@@ -1,21 +1,19 @@
 import { PayloadAction } from '@reduxjs/toolkit';
 
 import {
-  fetchDidDocuments,
-  GetDidDocumentsResult,
-} from '@/entities/User/model/services/fetchDidDocuments';
-import {
   fetchDidMethods,
   FetchDidMethodsResult,
 } from '@/entities/User/model/services/fetchDidMethods';
 import {
+  isWalletFullyPrepared,
   prepareWallet,
   SetupResult,
 } from '@/entities/User/model/services/prepareWallet';
+import { agencyApi } from '@/shared/api/rtk/agencyApi';
 import { getUserId } from '@/shared/api/utils/token';
 import { buildSlice } from '@/shared/lib/store/buildSlice';
 
-import { getAgencyUser } from '../services/getAgencyUser';
+import { userApi } from '../../api/userApi';
 import { patchAgencyUser } from '../services/patchAgencyUser';
 import { signOut } from '../services/signOut';
 import { UserSchema } from '../types/user';
@@ -28,6 +26,7 @@ export interface SessionPayload {
 const getInitialState = (): UserSchema => ({
   isLoading: false,
   isPreparing: false,
+  isWalletPrepared: false,
   error: undefined,
   data: {
     name: null,
@@ -52,6 +51,9 @@ export const userSlice = buildSlice({
       };
     },
     clearSession: (state) => {
+      // A dropped session counts as a sign-out: the next session prepares the wallet again
+      state.isWalletPrepared = false;
+      state.profileRequestId = undefined;
       state.data = {
         ...(state.data ?? {}),
         name: null,
@@ -61,15 +63,6 @@ export const userSlice = buildSlice({
   },
   extraReducers: (builder) =>
     builder
-      .addCase(getAgencyUser.fulfilled, (state, action) => {
-        state.data = {
-          ...(state.data ?? {}),
-          backgroundColor: action.payload.backgroundColor,
-          issuerName: action.payload.name,
-          logo: action.payload.logo,
-          registeredAt: action.payload.registeredAt,
-        };
-      })
       .addCase(patchAgencyUser.fulfilled, (state, action) => {
         state.data = {
           ...(state.data ?? {}),
@@ -90,6 +83,8 @@ export const userSlice = buildSlice({
           state.isLoading = false;
           state.isPreparing = false;
           state.error = undefined;
+          // A `failed` DID leaves it unset, so the next Home visit retries; `skipped` does not
+          state.isWalletPrepared = isWalletFullyPrepared(action.payload);
           state.data = {
             ...(state.data ?? {}),
             did: action.payload.did,
@@ -116,35 +111,44 @@ export const userSlice = buildSlice({
         state.isLoading = false;
         state.error = action.payload ?? action.error.message;
       })
-      .addCase(fetchDidDocuments.pending, (state, action) => {
-        state.didDocumentsRequestId = action.meta.requestId;
-      })
-      .addCase(fetchDidDocuments.fulfilled, (state, action) => {
-        if (action.meta.requestId !== state.didDocumentsRequestId) return;
-        const result: GetDidDocumentsResult = action.payload;
-        state.isLoading = false;
-        state.error = undefined;
-        state.data = {
-          ...(state.data ?? {}),
-          didDocuments: result.didDocuments,
-          // Lets the UI tell which network the DIDs belong to
-          didDocumentsMethod: action.meta.arg.method,
-        };
-      })
-      .addCase(fetchDidDocuments.rejected, (state, action) => {
-        if (action.meta.requestId !== state.didDocumentsRequestId) return;
-        state.isLoading = false;
-        state.error = action.payload ?? action.error.message;
-      })
       .addCase(signOut.pending, (state) => {
         state.isLoading = false;
+        state.isWalletPrepared = false;
+        state.profileRequestId = undefined;
         state.error = undefined;
         state.data = undefined;
       })
       .addCase(signOut.fulfilled, (state) => {
         state.isLoading = false;
+        state.isWalletPrepared = false;
+        state.profileRequestId = undefined;
         state.error = undefined;
         state.data = undefined;
+      })
+      // The profile fields shown across the app mirror the cached `GET /user`
+      // (matchers must follow all addCase calls)
+      .addMatcher(userApi.endpoints.getProfile.matchPending, (state, action) => {
+        state.profileRequestId = action.meta.requestId;
+      })
+      .addMatcher(
+        userApi.endpoints.getProfile.matchFulfilled,
+        (state, action) => {
+          // An answer for the previous session (sent before a sign-out or a user change)
+          if (action.meta.requestId !== state.profileRequestId) return;
+          state.data = {
+            ...(state.data ?? {}),
+            backgroundColor: action.payload.backgroundColor,
+            issuerName: action.payload.name,
+            logo: action.payload.logo,
+            registeredAt: action.payload.registeredAt,
+          };
+        },
+      )
+      // The cache is reset when the user changes (sign-out, session drop, another subject):
+      // prepare the next user's wallet again
+      .addMatcher(agencyApi.util.resetApiState.match, (state) => {
+        state.isWalletPrepared = false;
+        state.profileRequestId = undefined;
       }),
 });
 

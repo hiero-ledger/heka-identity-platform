@@ -3,13 +3,22 @@ import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 
 import ROUTES from '@/app/routes/RoutePaths';
+import { issuanceTemplateApi } from '@/entities/IssuanceTemplate/api/issuanceTemplateApi';
+import {
+  cachedQueries,
+  dropSessionWhileMounted,
+  flushCacheUpdates,
+  requestsTo,
+} from '@/shared/lib/tests/apiCache';
 import {
   LocationDisplay,
   readLocationState,
 } from '@/shared/lib/tests/LocationDisplay';
 import {
   createMockApi,
+  createTestStore,
   renderWithProviders,
+  signedInUserState,
 } from '@/shared/lib/tests/renderWithProviders';
 
 import { INDY_DID, issuanceTemplate, routeAgencyGets } from '../testUtils';
@@ -55,9 +64,21 @@ describe('IssueFromTemplate', () => {
 
   test('goes back to the templates when the template cannot be loaded', async () => {
     const api = createMockApi();
-    api.get.mockRejectedValue({
-      response: { status: 404, data: { message: 'Template not found' } },
-    });
+    api.get.mockImplementation((url: string) =>
+      url === '/issuance-templates'
+        ? Promise.resolve({ data: { items: [issuanceTemplate] } })
+        : Promise.reject({
+            response: { status: 404, data: { message: 'Template not found' } },
+          }),
+    );
+    // The list was shown before (cached, no longer subscribed)
+    const store = createTestStore(signedInUserState(), api);
+    const list = store.dispatch(
+      issuanceTemplateApi.endpoints.getIssuanceTemplateList.initiate(),
+    );
+    await list;
+    list.unsubscribe();
+
     renderWithProviders(
       <>
         <IssueFromTemplate />
@@ -69,6 +90,7 @@ describe('IssueFromTemplate', () => {
           pathname: ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
           state: { context: { templateId: 'gone' } },
         },
+        store,
       },
     );
 
@@ -77,7 +99,78 @@ describe('IssueFromTemplate', () => {
         ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
       ),
     );
+    expect(toast.error).toHaveBeenCalledTimes(1);
     expect(toast.error).toHaveBeenCalledWith('Template not found');
+    // Deleted elsewhere: the cached list is dropped, so the list page reads it again
+    await waitFor(() =>
+      expect(cachedQueries(store)).not.toContain(
+        'getIssuanceTemplateList(undefined)',
+      ),
+    );
+  });
+
+  test('opens the template again once the server recovers', async () => {
+    const api = createMockApi();
+    routeAgencyGets(api);
+    const routeGets = api.get.getMockImplementation()!;
+    api.get.mockImplementation((url: string, config?: unknown) =>
+      url === `/issuance-templates/${issuanceTemplate.id}`
+        ? Promise.reject({
+            response: { status: 500, data: { message: 'Server error' } },
+          })
+        : routeGets(url, config),
+    );
+    const store = createTestStore(signedInUserState(), api);
+    const page = (
+      <>
+        <IssueFromTemplate />
+        <LocationDisplay />
+      </>
+    );
+    const route = {
+      pathname: ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
+      state: { context: { templateId: issuanceTemplate.id } },
+    };
+    const first = renderWithProviders(page, { api, route, store });
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
+      ),
+    );
+    first.unmount();
+
+    // The failed entry is still cached: its error must not send this visit back
+    api.get.mockImplementation(routeGets);
+    renderWithProviders(page, { api, route, store });
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('firstName')).toHaveValue('Alice'),
+    );
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
+    );
+  });
+
+  test('reads the template from the cache when opened again', async () => {
+    const { api, store, unmount } = renderIssueFromTemplate();
+    await screen.findByText('Template: My passport template');
+    unmount();
+
+    renderWithProviders(<IssueFromTemplate />, {
+      api,
+      store,
+      route: {
+        pathname: ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
+        state: { context: { templateId: issuanceTemplate.id } },
+      },
+    });
+
+    expect(
+      screen.getByText('Template: My passport template'),
+    ).toBeInTheDocument();
+    expect(requestsTo(api, `/issuance-templates/${issuanceTemplate.id}`)).toBe(
+      1,
+    );
   });
 
   test('prefills the form from the template and issues with its target', async () => {
@@ -88,6 +181,7 @@ describe('IssueFromTemplate', () => {
     ).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith(
       `/issuance-templates/${issuanceTemplate.id}`,
+      { params: undefined },
     );
     expect(screen.getByText('Issue new credential')).toBeInTheDocument();
     expect(screen.getByText(`DID: ${INDY_DID}`)).toBeInTheDocument();
@@ -156,7 +250,47 @@ describe('IssueFromTemplate', () => {
         'Template was updated successfully',
       ),
     );
+    // The saved template is read back once
+    await waitFor(() =>
+      expect(
+        requestsTo(api, `/issuance-templates/${issuanceTemplate.id}`),
+      ).toBe(2),
+    );
   });
+
+  test.each([
+    [503, 'stays on the template', ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE],
+    [404, 'goes back to the templates', ROUTES.ISSUE_CREDENTIAL_TEMPLATES],
+  ])(
+    'when the read-back after Save fails with %i, %s',
+    async (status, _outcome, expectedRoute) => {
+      const { user, api } = renderIssueFromTemplate();
+      const firstName = await screen.findByPlaceholderText('firstName');
+      await waitFor(() => expect(firstName).toHaveValue('Alice'));
+
+      const routeGets = api.get.getMockImplementation()!;
+      api.get.mockImplementation((url: string, config?: unknown) =>
+        url === `/issuance-templates/${issuanceTemplate.id}`
+          ? Promise.reject({
+              response: { status, data: { message: 'Read-back failed' } },
+            })
+          : routeGets(url, config),
+      );
+      await user.clear(firstName);
+      await user.type(firstName, 'Bob');
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith('Read-back failed'),
+      );
+      await flushCacheUpdates();
+      expect(screen.getByTestId('location')).toHaveTextContent(expectedRoute);
+      if (status === 503) {
+        // The template already shown and the typed value are kept
+        expect(screen.getByPlaceholderText('firstName')).toHaveValue('Bob');
+      }
+    },
+  );
 
   test('reports nothing extra when saving the template fails', async () => {
     const { user, api } = renderIssueFromTemplate();
@@ -191,6 +325,17 @@ describe('IssueFromTemplate', () => {
         '/issuance-templates',
         expect.objectContaining({ name: 'Copy of passport' }),
       ),
+    );
+  });
+
+  test('sends nothing when the session drops while the page is open', async () => {
+    const { api, store } = renderIssueFromTemplate();
+    await screen.findByText('Template: My passport template');
+
+    await dropSessionWhileMounted(store);
+
+    expect(requestsTo(api, `/issuance-templates/${issuanceTemplate.id}`)).toBe(
+      1,
     );
   });
 });

@@ -8,6 +8,8 @@ The application currently supports issuance and verification of multiple types o
 
 The application structure is inspired by [Feature-Sliced Design](https://feature-sliced.design/).
 
+Reads from the identity service (schemas, profile, credential config, own DIDs, templates) are cached in memory with [RTK Query](https://redux-toolkit.js.org/rtk-query/overview): the API slice is in `src/shared/api/rtk`, the endpoints in `src/entities/<Entity>/api`. Writes stay Redux thunks (`src/entities/<Entity>/model/services`) and invalidate the cached reads they change through tags. The cache is cleared on sign-out and when the signed-in user changes.
+
 ## Capabilities
 
 - [Hyperledger AnonCreds](https://hyperledger.github.io/anoncreds-spec/)

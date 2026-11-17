@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSelector } from 'react-redux';
 
 import { useMobile } from '@/components/Screen/Screen';
 import {
@@ -8,14 +7,12 @@ import {
   protocolsTypes,
 } from '@/components/Steps/SelectProtocolType/SelectProtocolType.const';
 import { StepTitle } from '@/components/StepTitle';
-import { getCredentialsConfig } from '@/entities/Credential/model/selectors/credentialSelector';
-import { getCredentialConfig } from '@/entities/Credential/model/services/getCredentialConfig';
+import { useGetCredentialConfigQuery } from '@/entities/Credential/api/credentialApi';
 import {
   AriesCredentialFormat,
   Openid4CredentialFormat,
   ProtocolType,
 } from '@/entities/Schema/model/types/schema';
-import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
 import { ButtonCards } from '@/shared/ui/ButtonCards';
 import { Row } from '@/shared/ui/Grid';
@@ -42,17 +39,14 @@ export const SelectProtocolType = ({
 }: SelectProtocolTypeStepProps) => {
   const { t } = useTranslation();
   const isMobile = useMobile();
-  const dispatch = useAppDispatch();
+  const { data: credentialConfig } = useGetCredentialConfigQuery();
 
   useEffect(() => {
-    dispatch(getCredentialConfig());
-
     if (!protocolType && !credentialType) {
       onChangeProtocolType(ProtocolType.Aries);
       onChangeCredentialType(AriesCredentialFormat.AnoncredsIndy);
     }
   }, [
-    dispatch,
     protocolType,
     credentialType,
     onChangeProtocolType,
@@ -72,8 +66,6 @@ export const SelectProtocolType = ({
     },
     [onChangeProtocolType, onChangeCredentialType],
   );
-
-  const credentialConfig = useSelector(getCredentialsConfig);
 
   const protocolOptions = useMemo(() => {
     return credentialConfig

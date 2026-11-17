@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { ProtocolType } from '@/entities/Schema';
 import { routeAgencyGets } from '@/pages/IssueCredential/testUtils';
+import { dropSessionWhileMounted } from '@/shared/lib/tests/apiCache';
 import {
   createMockApi,
   renderWithProviders,
@@ -70,7 +71,7 @@ describe('SelectProtocolType', () => {
       ),
     );
 
-    await user.click(screen.getByRole('button', { name: /Aries/ }));
+    await user.click(await screen.findByRole('button', { name: /Aries/ }));
     await user.click(
       await screen.findByRole('option', { name: ProtocolType.Oid4vc }),
     );
@@ -80,11 +81,11 @@ describe('SelectProtocolType', () => {
       ),
     );
 
-    await user.click(screen.getByRole('button', { name: /OpenId4VC/ }));
+    await user.click(await screen.findByRole('button', { name: /OpenId4VC/ }));
     await user.click(
       await screen.findByRole('option', { name: ProtocolType.Aries }),
     );
-    await user.click(screen.getByRole('button', { name: /anoncreds-indy/ }));
+    await user.click(await screen.findByRole('button', { name: /anoncreds-indy/ }));
     await user.click(
       await screen.findByRole('option', { name: 'anoncreds-w3c' }),
     );
@@ -93,5 +94,16 @@ describe('SelectProtocolType', () => {
         'Aries|anoncreds-w3c',
       ),
     );
+  });
+
+  test('sends nothing when the session drops while the step is open', async () => {
+    const api = createMockApi();
+    routeAgencyGets(api);
+    const { store } = renderWithProviders(<Harness />, { api });
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+
+    await dropSessionWhileMounted(store);
+
+    expect(api.get).toHaveBeenCalledTimes(1);
   });
 });

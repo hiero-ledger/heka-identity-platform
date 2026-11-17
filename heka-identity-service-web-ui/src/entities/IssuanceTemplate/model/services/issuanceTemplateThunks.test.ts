@@ -1,12 +1,6 @@
 import toast from 'react-hot-toast';
 
-import {
-  getIssuanceTemplate as selectIssuanceTemplate,
-  getIssuanceTemplates,
-  getIssuanceTemplatesError,
-  getIssuanceTemplatesIsLoading,
-  getIssuanceTemplatesIsMutating,
-} from '@/entities/IssuanceTemplate/model/selectors/issuanceTemplatesSelector';
+import { getIssuanceTemplatesIsMutating } from '@/entities/IssuanceTemplate/model/selectors/issuanceTemplatesSelector';
 import { issuanceTemplatesActions } from '@/entities/IssuanceTemplate/model/slices/issuanceTemplatesSlice';
 import { IssuanceTemplate } from '@/entities/IssuanceTemplate/model/types/issuanceTemplate';
 import {
@@ -22,8 +16,6 @@ import {
 
 import { createIssuanceTemplate } from './createIssuanceTemplate';
 import { deleteIssuanceTemplate } from './deleteIssuanceTemplate';
-import { getIssuanceTemplate } from './getIssuanceTemplate';
-import { getIssuanceTemplateList } from './getIssuanceTemplateList';
 import { updateIssuanceTemplate } from './updateIssuanceTemplate';
 
 jest.mock('react-hot-toast', () => ({
@@ -47,70 +39,8 @@ const schema: Schema = {
   ],
 };
 
-const loaded = (templates: IssuanceTemplate[], current?: IssuanceTemplate) => ({
-  issuanceTemplates: {
-    isLoading: false,
-    isMutating: false,
-    issuanceTemplates: templates,
-    issuanceTemplate: current,
-  },
-});
-
-describe('getIssuanceTemplateList', () => {
-  test('fetches with the paging params and stores the items', async () => {
-    const api = createMockApi();
-    api.get.mockResolvedValue({ data: { items: [template('t1')] } });
-    const store = createTestStore({}, api);
-
-    const pending = store.dispatch(getIssuanceTemplateList({ limit: 10 }));
-    expect(getIssuanceTemplatesIsLoading(store.getState())).toBe(true);
-    await pending;
-
-    expect(api.get).toHaveBeenCalledWith(
-      agencyEndpoints.getIssuanceTemplateList,
-      { params: { limit: 10 } },
-    );
-    expect(getIssuanceTemplates(store.getState())).toEqual([template('t1')]);
-    expect(getIssuanceTemplatesIsLoading(store.getState())).toBe(false);
-  });
-
-  test('stores the server message on failure', async () => {
-    const api = createMockApi();
-    api.get.mockRejectedValue(apiError('list failed'));
-    const store = createTestStore(loaded([template('t1')]), api);
-
-    await store.dispatch(getIssuanceTemplateList());
-
-    expect(toast.error).toHaveBeenCalledWith('list failed');
-    expect(getIssuanceTemplatesError(store.getState())).toBe('list failed');
-    expect(getIssuanceTemplates(store.getState())).toBeUndefined();
-  });
-});
-
-describe('getIssuanceTemplate', () => {
-  test('stores the template', async () => {
-    const api = createMockApi();
-    api.get.mockResolvedValue({ data: template('t1') });
-    const store = createTestStore({}, api);
-
-    await store.dispatch(getIssuanceTemplate({ id: 't1' }));
-
-    expect(api.get).toHaveBeenCalledWith(
-      agencyEndpoints.getSingleIssuanceTemplate('t1'),
-    );
-    expect(selectIssuanceTemplate(store.getState())).toEqual(template('t1'));
-  });
-
-  test('clears the template on failure', async () => {
-    const api = createMockApi();
-    api.get.mockRejectedValue(apiError('not found'));
-    const store = createTestStore(loaded([], template('t1')), api);
-
-    await store.dispatch(getIssuanceTemplate({ id: 't1' }));
-
-    expect(selectIssuanceTemplate(store.getState())).toBeUndefined();
-    expect(getIssuanceTemplatesError(store.getState())).toBe('not found');
-  });
+const mutating = (mutationError?: string) => ({
+  issuanceTemplates: { isMutating: false, mutationError },
 });
 
 describe('createIssuanceTemplate', () => {
@@ -124,10 +54,10 @@ describe('createIssuanceTemplate', () => {
     credentialValues: { given_name: 'Ada', family_name: 'Lovelace' },
   };
 
-  test('posts the template with a value per schema field and appends it', async () => {
+  test('posts the template with a value per schema field', async () => {
     const api = createMockApi();
     api.post.mockResolvedValue({ data: template('new') });
-    const store = createTestStore(loaded([template('t1')]), api);
+    const store = createTestStore(mutating(), api);
 
     const pending = store.dispatch(createIssuanceTemplate(params));
     expect(getIssuanceTemplatesIsMutating(store.getState())).toBe(true);
@@ -149,16 +79,12 @@ describe('createIssuanceTemplate', () => {
       },
     );
     expect(getIssuanceTemplatesIsMutating(store.getState())).toBe(false);
-    expect(getIssuanceTemplates(store.getState())).toEqual([
-      template('t1'),
-      template('new'),
-    ]);
   });
 
-  test('keeps the list and records a mutation error on failure', async () => {
+  test('records a mutation error on failure', async () => {
     const api = createMockApi();
     api.post.mockRejectedValue(apiError('name taken'));
-    const store = createTestStore(loaded([template('t1')]), api);
+    const store = createTestStore(mutating(), api);
 
     const action = await store.dispatch(createIssuanceTemplate(params));
 
@@ -166,9 +92,7 @@ describe('createIssuanceTemplate', () => {
     expect(store.getState().issuanceTemplates).toMatchObject({
       isMutating: false,
       mutationError: 'name taken',
-      issuanceTemplates: [template('t1')],
     });
-    expect(getIssuanceTemplatesError(store.getState())).toBeUndefined();
   });
 });
 
@@ -240,64 +164,46 @@ describe('updateIssuanceTemplate', () => {
 });
 
 describe('deleteIssuanceTemplate', () => {
-  test('removes the template from the list and clears it when open', async () => {
+  test('deletes the template', async () => {
     const api = createMockApi();
-    const store = createTestStore(
-      loaded([template('t1'), template('t2')], template('t1')),
-      api,
-    );
+    const store = createTestStore(mutating(), api);
 
-    await store.dispatch(deleteIssuanceTemplate({ templateId: 't1' }));
+    const action = await store.dispatch(
+      deleteIssuanceTemplate({ templateId: 't1' }),
+    );
 
     expect(api.delete).toHaveBeenCalledWith(
       agencyEndpoints.deleteIssuanceTemplate('t1'),
     );
-    expect(getIssuanceTemplates(store.getState())).toEqual([template('t2')]);
-    expect(selectIssuanceTemplate(store.getState())).toBeUndefined();
-  });
-
-  test('keeps another open template', async () => {
-    const store = createTestStore(
-      loaded([template('t1'), template('t2')], template('t2')),
-    );
-
-    await store.dispatch(deleteIssuanceTemplate({ templateId: 't1' }));
-
-    expect(selectIssuanceTemplate(store.getState())).toEqual(template('t2'));
+    expect(action.payload).toEqual({ templateId: 't1' });
+    expect(getIssuanceTemplatesIsMutating(store.getState())).toBe(false);
   });
 
   test('records a mutation error on failure', async () => {
     const api = createMockApi();
     api.delete.mockRejectedValue(apiError('in use'));
-    const store = createTestStore(loaded([template('t1')]), api);
+    const store = createTestStore(mutating(), api);
 
     await store.dispatch(deleteIssuanceTemplate({ templateId: 't1' }));
 
-    expect(store.getState().issuanceTemplates).toMatchObject({
+    expect(store.getState().issuanceTemplates).toEqual({
       isMutating: false,
       mutationError: 'in use',
-      issuanceTemplates: [template('t1')],
     });
   });
 });
 
 describe('issuanceTemplatesSlice reducers', () => {
-  test('updateIssuanceTemplate sets the open template and reset clears all', () => {
-    const store = createTestStore(loaded([template('t1')]));
-
-    store.dispatch(
-      issuanceTemplatesActions.updateIssuanceTemplate(template('t9')),
-    );
-    expect(selectIssuanceTemplate(store.getState())).toEqual(template('t9'));
+  test('reset clears the mutation state', () => {
+    const store = createTestStore({
+      issuanceTemplates: { isMutating: true, mutationError: 'x' },
+    });
 
     store.dispatch(issuanceTemplatesActions.reset());
+
     expect(store.getState().issuanceTemplates).toEqual({
-      isLoading: false,
-      error: undefined,
       isMutating: false,
       mutationError: undefined,
-      issuanceTemplates: undefined,
-      issuanceTemplate: undefined,
     });
   });
 });

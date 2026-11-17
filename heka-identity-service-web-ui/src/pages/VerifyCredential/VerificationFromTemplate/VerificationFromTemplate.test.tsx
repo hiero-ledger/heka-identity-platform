@@ -8,15 +8,24 @@ import {
   Openid4CredentialFormat,
   ProtocolType,
 } from '@/entities/Schema/model/types/schema';
+import { verificationTemplateApi } from '@/entities/VerificationTemplate/api/verificationTemplateApi';
 import { VerificationTemplate } from '@/entities/VerificationTemplate/model/types/verificationTemplate';
 import { makeVerificationTemplate } from '@/pages/VerifyCredential/testUtils';
+import {
+  cachedQueries,
+  dropSessionWhileMounted,
+  flushCacheUpdates,
+  requestsTo,
+} from '@/shared/lib/tests/apiCache';
 import {
   LocationDisplay,
   readLocationState,
 } from '@/shared/lib/tests/LocationDisplay';
 import {
   createMockApi,
+  createTestStore,
   renderWithProviders,
+  signedInUserState,
 } from '@/shared/lib/tests/renderWithProviders';
 
 import { VerificationFromTemplate } from './VerificationFromTemplate';
@@ -59,9 +68,21 @@ describe('VerificationFromTemplate', () => {
   test('goes back to the templates when the template cannot be loaded', async () => {
     const toastError = jest.spyOn(toast, 'error');
     const api = createMockApi();
-    api.get.mockRejectedValue({
-      response: { status: 404, data: { message: 'Template not found' } },
-    });
+    api.get.mockImplementation((url: string) =>
+      url === '/verification-templates'
+        ? Promise.resolve({ data: { items: [makeVerificationTemplate()] } })
+        : Promise.reject({
+            response: { status: 404, data: { message: 'Template not found' } },
+          }),
+    );
+    // The list was shown before (cached, no longer subscribed)
+    const store = createTestStore(signedInUserState(), api);
+    const list = store.dispatch(
+      verificationTemplateApi.endpoints.getVerificationTemplateList.initiate(),
+    );
+    await list;
+    list.unsubscribe();
+
     renderWithProviders(
       <>
         <VerificationFromTemplate />
@@ -69,6 +90,7 @@ describe('VerificationFromTemplate', () => {
       </>,
       {
         api,
+        store,
         route: {
           pathname: ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
           state: { context: { templateId: 'gone' } },
@@ -81,8 +103,69 @@ describe('VerificationFromTemplate', () => {
         ROUTES.VERIFY_CREDENTIAL_TEMPLATES,
       ),
     );
+    expect(toastError).toHaveBeenCalledTimes(1);
     expect(toastError).toHaveBeenCalledWith('Template not found');
+    // Deleted elsewhere: the cached list is dropped, so the list page reads it again
+    await waitFor(() =>
+      expect(cachedQueries(store)).not.toContain(
+        'getVerificationTemplateList(undefined)',
+      ),
+    );
     toastError.mockRestore();
+  });
+
+  test('opens the template again once the server recovers', async () => {
+    const template = makeVerificationTemplate();
+    const api = createMockApi();
+    api.get.mockRejectedValue({
+      response: { status: 500, data: { message: 'Server error' } },
+    });
+    const store = createTestStore(signedInUserState(), api);
+    const page = (
+      <>
+        <VerificationFromTemplate />
+        <LocationDisplay />
+      </>
+    );
+    const route = {
+      pathname: ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
+      state: { context: { templateId: template.id } },
+    };
+    const first = renderWithProviders(page, { api, route, store });
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        ROUTES.VERIFY_CREDENTIAL_TEMPLATES,
+      ),
+    );
+    first.unmount();
+
+    // The failed entry is still cached: its error must not send this visit back
+    api.get.mockResolvedValue({ data: template });
+    renderWithProviders(page, { api, route, store });
+
+    expect(await screen.findByText('Template: KYC check')).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
+    );
+  });
+
+  test('reads the template from the cache when opened again', async () => {
+    const template = makeVerificationTemplate();
+    const { api, store, unmount } = renderPage(template);
+    await screen.findByText('Template: KYC check');
+    unmount();
+
+    renderWithProviders(<VerificationFromTemplate />, {
+      api,
+      store,
+      route: {
+        pathname: ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
+        state: { context: { templateId: template.id } },
+      },
+    });
+
+    expect(screen.getByText('Template: KYC check')).toBeInTheDocument();
+    expect(requestsTo(api, '/verification-templates/tpl-1')).toBe(1);
   });
 
   test('shows the template and requests the selected fields', async () => {
@@ -90,7 +173,9 @@ describe('VerificationFromTemplate', () => {
     const { api } = renderPage(makeVerificationTemplate());
 
     expect(await screen.findByText('Template: KYC check')).toBeInTheDocument();
-    expect(api.get).toHaveBeenCalledWith('/verification-templates/tpl-1');
+    expect(api.get).toHaveBeenCalledWith('/verification-templates/tpl-1', {
+      params: undefined,
+    });
     expect(screen.getByText('Passport')).toBeInTheDocument();
     expect(screen.getByText('Request fields verification')).toBeInTheDocument();
     expect(
@@ -171,7 +256,41 @@ describe('VerificationFromTemplate', () => {
         fields: [{ schemaFieldId: 'f-1' }, { schemaFieldId: 'f-2' }],
       }),
     );
+    // The saved template is read back once
+    await waitFor(() =>
+      expect(requestsTo(api, '/verification-templates/tpl-1')).toBe(2),
+    );
   });
+
+  test.each([
+    [503, 'stays on the template', ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE],
+    [404, 'goes back to the templates', ROUTES.VERIFY_CREDENTIAL_TEMPLATES],
+  ])(
+    'when the read-back after Save fails with %i, %s',
+    async (status, _outcome, expectedRoute) => {
+      const user = userEvent.setup();
+      const error = jest.spyOn(toast, 'error');
+      const { api } = renderPage(makeVerificationTemplate());
+
+      await screen.findByText('Template: KYC check');
+      api.get.mockRejectedValue({
+        response: { status, data: { message: 'Read-back failed' } },
+      });
+      await user.click(checkbox('lastName'));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() =>
+        expect(error).toHaveBeenCalledWith('Read-back failed'),
+      );
+      await flushCacheUpdates();
+      expect(screen.getByTestId('location')).toHaveTextContent(expectedRoute);
+      if (status === 503) {
+        // The template already shown and the changed selection are kept
+        expect(screen.getByText('Template: KYC check')).toBeInTheDocument();
+        expect(checkbox('lastName')).toBeChecked();
+      }
+    },
+  );
 
   test('does not report success when saving fails', async () => {
     const user = userEvent.setup();
@@ -211,5 +330,14 @@ describe('VerificationFromTemplate', () => {
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
+  });
+
+  test('sends nothing when the session drops while the page is open', async () => {
+    const { api, store } = renderPage(makeVerificationTemplate());
+    await screen.findByText('Template: KYC check');
+
+    await dropSessionWhileMounted(store);
+
+    expect(requestsTo(api, '/verification-templates/tpl-1')).toBe(1);
   });
 });

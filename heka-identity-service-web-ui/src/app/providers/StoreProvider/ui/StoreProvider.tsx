@@ -1,5 +1,6 @@
 import { ReducersMapObject } from '@reduxjs/toolkit';
-import { ReactNode, useState } from 'react';
+import { setupListeners } from '@reduxjs/toolkit/query';
+import { ReactNode, useEffect, useState } from 'react';
 import { Provider } from 'react-redux';
 
 import { StateSchema } from '../config/StateSchema';
@@ -22,6 +23,10 @@ export const StoreProvider = (props: StoreProviderProps) => {
       asyncReducers as ReducersMapObject<StateSchema>,
     ),
   );
+
+  // Lets the cached queries refetch when the browser comes back online (`refetchOnReconnect`).
+  // Attached here rather than in `createReduxStore`, so test stores add no window listeners.
+  useEffect(() => setupListeners(store.dispatch), [store]);
 
   return <Provider store={store}>{children}</Provider>;
 };
