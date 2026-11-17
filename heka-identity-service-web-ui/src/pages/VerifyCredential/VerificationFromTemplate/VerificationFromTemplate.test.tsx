@@ -114,6 +114,41 @@ describe('VerificationFromTemplate', () => {
     toastError.mockRestore();
   });
 
+  test('opens the template again once the server recovers', async () => {
+    const template = makeVerificationTemplate();
+    const api = createMockApi();
+    api.get.mockRejectedValue({
+      response: { status: 500, data: { message: 'Server error' } },
+    });
+    const store = createTestStore(signedInUserState(), api);
+    const page = (
+      <>
+        <VerificationFromTemplate />
+        <LocationDisplay />
+      </>
+    );
+    const route = {
+      pathname: ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
+      state: { context: { templateId: template.id } },
+    };
+    const first = renderWithProviders(page, { api, route, store });
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        ROUTES.VERIFY_CREDENTIAL_TEMPLATES,
+      ),
+    );
+    first.unmount();
+
+    // The failed entry is still cached: its error must not send this visit back
+    api.get.mockResolvedValue({ data: template });
+    renderWithProviders(page, { api, route, store });
+
+    expect(await screen.findByText('Template: KYC check')).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
+    );
+  });
+
   test('reads the template from the cache when opened again', async () => {
     const template = makeVerificationTemplate();
     const { api, store, unmount } = renderPage(template);

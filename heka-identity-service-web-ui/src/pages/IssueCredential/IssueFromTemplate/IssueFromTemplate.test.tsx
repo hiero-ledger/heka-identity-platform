@@ -109,6 +109,48 @@ describe('IssueFromTemplate', () => {
     );
   });
 
+  test('opens the template again once the server recovers', async () => {
+    const api = createMockApi();
+    routeAgencyGets(api);
+    const routeGets = api.get.getMockImplementation()!;
+    api.get.mockImplementation((url: string, config?: unknown) =>
+      url === `/issuance-templates/${issuanceTemplate.id}`
+        ? Promise.reject({
+            response: { status: 500, data: { message: 'Server error' } },
+          })
+        : routeGets(url, config),
+    );
+    const store = createTestStore(signedInUserState(), api);
+    const page = (
+      <>
+        <IssueFromTemplate />
+        <LocationDisplay />
+      </>
+    );
+    const route = {
+      pathname: ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
+      state: { context: { templateId: issuanceTemplate.id } },
+    };
+    const first = renderWithProviders(page, { api, route, store });
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
+      ),
+    );
+    first.unmount();
+
+    // The failed entry is still cached: its error must not send this visit back
+    api.get.mockImplementation(routeGets);
+    renderWithProviders(page, { api, route, store });
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('firstName')).toHaveValue('Alice'),
+    );
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      ROUTES.ISSUE_CREDENTIAL_FROM_TEMPLATE,
+    );
+  });
+
   test('reads the template from the cache when opened again', async () => {
     const { api, store, unmount } = renderIssueFromTemplate();
     await screen.findByText('Template: My passport template');
