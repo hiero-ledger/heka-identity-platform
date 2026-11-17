@@ -278,6 +278,23 @@ describe('schema writes invalidate the cached reads', () => {
     ]);
   };
 
+  test('a failed registration also refetches the list and the templates: the schema may be registered anyway', async () => {
+    const { api, store } = setup();
+    api.post.mockRejectedValue(new Error('timeout of 30000ms exceeded'));
+    store.dispatch(schemaApi.endpoints.getSchemaList.initiate(active));
+    await waitFor(() => expect(requestsTo(api, SCHEMAS)).toBe(1));
+    await subscribeTemplates(store);
+
+    const action = await store.dispatch(registerSchema(registration));
+
+    expect(action.type).toBe('schema/register/rejected');
+    await waitFor(() => {
+      expect(requestsTo(api, SCHEMAS)).toBe(2);
+      expect(requestsTo(api, ISSUANCE_TEMPLATES)).toBe(2);
+      expect(requestsTo(api, VERIFICATION_TEMPLATES)).toBe(2);
+    });
+  });
+
   test.each([
     [
       'updateSchemaView',
