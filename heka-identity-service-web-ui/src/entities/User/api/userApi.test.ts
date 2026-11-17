@@ -113,6 +113,28 @@ describe('userApi.getProfile', () => {
     expect(getProfile.select()(store.getState()).data?.name).toBe('Renamed');
     expect(store.getState().user.data?.issuerName).toBe('Renamed');
   });
+
+  test.each([
+    ['a new issuer name refetches', { name: 'Renamed' }, 2],
+    ['other profile fields keep', { backgroundColor: '#654321' }, 1],
+  ])(
+    '%s the schema list (its schemas carry the issuer name)',
+    async (_name, change, schemaListRequests) => {
+      const { api, store } = setup();
+      api.patch.mockResolvedValue({ data: { ...profile, ...change } });
+      await store.dispatch(getProfile.initiate());
+      // The list shown on another page, still subscribed
+      await store.dispatch(
+        schemaApi.endpoints.getSchemaList.initiate({ isHidden: false }),
+      );
+
+      await store.dispatch(patchAgencyUser({ name: profile.name, ...change }));
+
+      // Invalidation refetches a subscribed entry asynchronously: give it time to start
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(requestsTo(api, SCHEMAS)).toBe(schemaListRequests);
+    },
+  );
 });
 
 describe('userApi.getOwnDids', () => {
