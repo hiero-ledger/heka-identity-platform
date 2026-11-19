@@ -59,6 +59,11 @@ export class OpenId4VcIssuanceSessionService {
     tenantAgent: TenantAgent,
     req: OpenId4VcIssuanceSessionsCreateOfferDto,
   ): Promise<OpenId4VcIssuanceSessionsCreateOfferResponse> {
+    // The only check, for API and issuance-template callers alike; it runs before any status list entry is reserved
+    for (const credential of req.credentials) {
+      if (credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc) assertNoStatusClaim(credential)
+    }
+
     const issuer = await tenantAgent.openid4vc.issuer.getIssuerByIssuerId(req.publicIssuerId)
 
     // TODO: It is better to we move setting credential status to `credentialRequestToCredentialMapper`
@@ -91,9 +96,6 @@ export class OpenId4VcIssuanceSessionService {
           `Format of offered credential (credentialSupportedId: ${credential.credentialSupportedId}) is ${credential.format} but expected to be ${supportedFormat}`,
         )
       }
-
-      // The DTO rejects these too; repeated here for internal callers (issuance templates) that skip DTO validation
-      if (credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc) assertNoStatusClaim(credential)
 
       // MsoMdoc uses X.509 certificates, not DIDs — skip DID resolution
       let issuerDidUrl: string | undefined

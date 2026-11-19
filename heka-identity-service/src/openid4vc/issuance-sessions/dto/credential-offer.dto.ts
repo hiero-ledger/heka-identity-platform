@@ -1,19 +1,9 @@
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import {
-  ArrayNotContains,
-  IsArray,
-  IsEnum,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsString,
-  Length,
-  ValidateNested,
-} from 'class-validator'
+import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Length, ValidateNested } from 'class-validator'
 
-import { HasNoOwnProperty, IsValidDynamicObject } from '../../../utils/validation'
+import { IsValidDynamicObject } from '../../../utils/validation'
 
 import { OpenId4VcIssuanceSessionRecordDto } from './issuance-session.dto'
 
@@ -30,7 +20,6 @@ export class DisclosureFrame {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @ArrayNotContains(['status'], { message: '`status` is set by the issuer and cannot be selectively disclosed' })
   public _sd?: string[]
 }
 
@@ -128,7 +117,6 @@ export class OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions extends O
    */
   @ApiProperty()
   @IsValidDynamicObject()
-  @HasNoOwnProperty('status', { message: '`status` is set by the issuer' })
   public payload!: CredentialPayload
 
   /**

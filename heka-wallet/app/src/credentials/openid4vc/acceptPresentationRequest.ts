@@ -12,8 +12,8 @@ import { Linking } from 'react-native'
 import { HekaWalletAgent } from '../../utils/agent'
 import { CredentialRecord, OpenIdPresentationSubmissionParams } from '../types'
 
-import { findRevokedCredentialIds } from './credentialStatus'
 import { PresentationRejectedError } from './presentationErrors'
+import { findRevokedSdJwtVcIds } from './sdJwtVcStatus'
 
 export type AcceptPresentationRequestOptions = {
   submissionParams: OpenIdPresentationSubmissionParams
@@ -109,7 +109,7 @@ export async function acceptPresentationRequest(
     throw new PresentationRejectedError({
       status: result.serverResponse.status,
       body: result.serverResponse.body,
-      revokedCredentialIds: await findRevokedCredentialIds(agent, presentedRecords),
+      revokedCredentialIds: await findRevokedSdJwtVcIds(agent, presentedRecords),
     })
   }
 

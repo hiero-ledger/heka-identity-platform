@@ -15,7 +15,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { JwtAuthGuard, Role } from 'common/auth'
-import { AnyRole, RoleGuard, Roles } from 'common/authz'
+import { AnyRole, CREDENTIAL_REVOKING_ROLES, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { CredentialService } from './credential.service'
@@ -144,7 +144,7 @@ export class CredentialController {
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @Post(':id/revoke')
   @HttpCode(200)
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
+  @Roles(...CREDENTIAL_REVOKING_ROLES)
   public async revoke(@ReqTenantAgent() tenantAgent: TenantAgent, @Param('id') id: string): Promise<void> {
     const logger = this.logger.child('revoke', { id })
     logger.trace('>')

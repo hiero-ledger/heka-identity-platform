@@ -11,6 +11,8 @@ export interface GetAgencyUserResult {
   backgroundColor?: string;
   logo?: string;
   registeredAt?: string;
+  /** Whether this user may revoke issued credentials; `true` while the role model is not enforced */
+  canRevokeCredentials?: boolean;
 }
 
 export const getAgencyUser = createAsyncThunk<

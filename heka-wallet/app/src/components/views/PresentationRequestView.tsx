@@ -121,7 +121,6 @@ export const PresentationRequestView: React.FC<Props> = ({
           scrollEnabled={false}
           renderItem={({ item: entry }) => {
             const hasAltCredentials = entry.submissionOptions.length > 1
-            // A held credential that would match but is revoked: name it and say why it can't be shared
             const revokedCredential = entry.selectedOption ? undefined : entry.revokedCredential
             const credentialDisplay =
               entry.selectedOption?.credential.display ??

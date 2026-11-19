@@ -17,6 +17,8 @@ import {
 } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
 import ExpressConfig from 'config/express'
+import { isBitSet, setBit } from 'utils/bitmap'
+import { fromBase64, toBase64, toBase64Url } from 'utils/convert'
 
 /** The credential-signing identity a list is created for. */
 export interface TokenStatusListSignerIdentity {
@@ -313,13 +315,13 @@ export class TokenStatusListService {
     )
 
     // createHeaderAndPayload does not sign: KMS-sign the JWS signing input ourselves.
-    const signingInput = `${base64Url(JSON.stringify({ ...header, alg }))}.${base64Url(JSON.stringify(payload))}`
+    const signingInput = `${toBase64Url(JSON.stringify({ ...header, alg }))}.${toBase64Url(JSON.stringify(payload))}`
     const { signature } = await kms.sign({
       keyId: list.signerKeyId,
       algorithm: alg,
       data: Uint8Array.from(Buffer.from(signingInput, 'utf8')),
     })
-    list.token = `${signingInput}.${base64Url(signature)}`
+    list.token = `${signingInput}.${toBase64Url(signature)}`
     list.tokenIssuedAt = issuedAt
   }
 }
@@ -331,27 +333,7 @@ function allocationLockKey(tenantContextId: string, signerKeyId: string): string
 
 /** The token's `lst` value: the compressed list, base64url-encoded. */
 function encodeStatuses(statusList: StatusList): string {
-  return base64Url(statusList.compressStatusListToBytes())
-}
-
-function base64Url(value: string | Uint8Array): string {
-  return Buffer.from(value).toString('base64url')
-}
-
-function toBase64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString('base64')
-}
-
-function fromBase64(value: string): Uint8Array {
-  return Uint8Array.from(Buffer.from(value, 'base64'))
-}
-
-function isSet(bitmap: Uint8Array, index: number): boolean {
-  return (bitmap[index >> 3] & (1 << (index & 7))) !== 0
-}
-
-function setBit(bitmap: Uint8Array, index: number): void {
-  bitmap[index >> 3] |= 1 << (index & 7)
+  return toBase64Url(statusList.compressStatusListToBytes())
 }
 
 /**
@@ -361,12 +343,12 @@ function setBit(bitmap: Uint8Array, index: number): void {
 function pickFreeIndex(bitmap: Uint8Array, size: number): number {
   for (let attempt = 0; attempt < 16; attempt++) {
     const candidate = randomInt(size)
-    if (!isSet(bitmap, candidate)) return candidate
+    if (!isBitSet(bitmap, candidate)) return candidate
   }
   const start = randomInt(size)
   for (let offset = 0; offset < size; offset++) {
     const candidate = (start + offset) % size
-    if (!isSet(bitmap, candidate)) return candidate
+    if (!isBitSet(bitmap, candidate)) return candidate
   }
   throw new BadRequestException('Token status list is full')
 }

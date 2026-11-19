@@ -1,4 +1,4 @@
-import { canRevoke, getIssuedCredentialStatus } from './issuedCredentialView';
+import { canRevoke, getIssuedCredentialStatus } from './issuedCredentialStatus';
 
 describe('canRevoke', () => {
   test.each([

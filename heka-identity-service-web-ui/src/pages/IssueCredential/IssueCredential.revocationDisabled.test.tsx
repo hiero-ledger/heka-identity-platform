@@ -41,9 +41,13 @@ describe('IssueCredential with revocation disabled', () => {
     expect(screen.queryByText('Issued credentials')).not.toBeInTheDocument();
   });
 
-  test('the issued credentials page is not rendered and loads nothing', () => {
+  test('a link to the issued credentials page opens the templates instead, and loads no credentials', async () => {
     const api = renderAt(ROUTES.ISSUE_CREDENTIAL_ISSUED_CREDENTIALS);
 
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      ROUTES.ISSUE_CREDENTIAL_TEMPLATES,
+    );
+    expect(await screen.findByText('My passport template')).toBeInTheDocument();
     expect(screen.queryByText('Issued credentials')).not.toBeInTheDocument();
     expect(screen.queryByText('No issued credentials yet')).not.toBeInTheDocument();
     expect(api.get).not.toHaveBeenCalledWith('/credentials', expect.anything());

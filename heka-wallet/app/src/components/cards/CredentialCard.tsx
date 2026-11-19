@@ -75,6 +75,8 @@ interface Props {
   containerStyle?: ViewStyle
   credentialNameStyle?: TextStyle
   issuerLabelStyle?: TextStyle
+  /** A fixed-height card (Home): a revoked credential's name gets one line, so the revoked badge fits */
+  compact?: boolean
 }
 
 export const CredentialCard: React.FC<Props> = ({
@@ -87,6 +89,7 @@ export const CredentialCard: React.FC<Props> = ({
   containerStyle,
   credentialNameStyle,
   issuerLabelStyle,
+  compact,
 }) => {
   const { t } = useTranslation()
 
@@ -135,10 +138,9 @@ export const CredentialCard: React.FC<Props> = ({
             <CardWatermark width={width} height={height} watermark={credentialDisplay.watermark} />
           )}
           {credentialDisplay.isRevoked && <CredentialRevokedBadge />}
-          {/* A revoked card shows the name on one line so the badge fits fixed-height cards (Home) */}
           <Text
             style={{ ...TextTheme.headingFour, ...credentialNameStyle, ...styles.textContainer }}
-            numberOfLines={credentialDisplay.isRevoked ? 1 : 2}
+            numberOfLines={compact && credentialDisplay.isRevoked ? 1 : 2}
           >
             {credentialDisplay.name}
           </Text>

@@ -2,12 +2,12 @@ import { createHeaderAndPayload, StatusList } from '@owf/token-status-list'
 import { SDJwtVcInstance } from '@sd-jwt/sd-jwt-vc'
 
 import {
-  CredentialStatus,
-  findRevokedCredentialIds,
+  SdJwtVcStatus,
+  findRevokedSdJwtVcIds,
   getSdJwtVcStatus,
-  isInvalidStatusError,
-  STATUS_CHECK_TIMEOUT_MS,
-} from '../../../src/credentials/openid4vc/credentialStatus'
+  isSdJwtVcInvalidStatusError,
+  SD_JWT_VC_STATUS_CHECK_TIMEOUT_MS,
+} from '../../../src/credentials/openid4vc/sdJwtVcStatus'
 import { HekaWalletAgent } from '../../../src/utils/agent'
 
 jest.mock('../../../src/utils/agent', () => ({}))
@@ -67,12 +67,12 @@ function createAgent() {
   }
 }
 
-describe('isInvalidStatusError', () => {
+describe('isSdJwtVcInvalidStatusError', () => {
   it('recognises the error @sd-jwt/sd-jwt-vc throws for a revoked status list entry', async () => {
     const error = await sdJwtLibraryStatusError(1, async () => statusListJwt())
 
     expect(error).toBeInstanceOf(Error)
-    expect(isInvalidStatusError(error)).toBe(true)
+    expect(isSdJwtVcInvalidStatusError(error)).toBe(true)
   })
 
   it('does not see a valid status list entry as an error', async () => {
@@ -88,7 +88,7 @@ describe('isInvalidStatusError', () => {
     })
 
     expect(error).toBeInstanceOf(Error)
-    expect(isInvalidStatusError(error)).toBe(false)
+    expect(isSdJwtVcInvalidStatusError(error)).toBe(false)
   })
 
   it.each([
@@ -100,7 +100,7 @@ describe('isInvalidStatusError', () => {
     ['a non-error value', 'Status is not valid'],
     ['undefined', undefined],
   ])('does not match %s', (_, error) => {
-    expect(isInvalidStatusError(error)).toBe(false)
+    expect(isSdJwtVcInvalidStatusError(error)).toBe(false)
   })
 })
 
@@ -112,7 +112,7 @@ describe('getSdJwtVcStatus', () => {
 
     await expect(
       getSdJwtVcStatus(agent as unknown as HekaWalletAgent, sdJwtVcRecord('revoked') as never)
-    ).resolves.toBe(CredentialStatus.Revoked)
+    ).resolves.toBe(SdJwtVcStatus.Revoked)
   })
 
   it('reports unknown when the status list server answers 404 with "Status is not valid" in the body', async () => {
@@ -125,7 +125,7 @@ describe('getSdJwtVcStatus', () => {
     agent.sdJwtVc.verify.mockResolvedValue({ isValid: false, error })
 
     await expect(getSdJwtVcStatus(agent as unknown as HekaWalletAgent, sdJwtVcRecord('404') as never)).resolves.toBe(
-      CredentialStatus.Unknown
+      SdJwtVcStatus.Unknown
     )
     expect(agent.config.logger.warn).toHaveBeenCalledWith('Could not verify the status of an SD-JWT VC', {
       credentialRecordId: '404',
@@ -134,7 +134,7 @@ describe('getSdJwtVcStatus', () => {
   })
 })
 
-describe('findRevokedCredentialIds', () => {
+describe('findRevokedSdJwtVcIds', () => {
   afterEach(() => {
     jest.useRealTimers()
   })
@@ -145,20 +145,20 @@ describe('findRevokedCredentialIds', () => {
     agent.sdJwtVc.verify.mockReturnValue(new Promise(() => undefined))
 
     let revokedIds: string[] | undefined
-    const check = findRevokedCredentialIds(agent as unknown as HekaWalletAgent, [
-      sdJwtVcRecord('hanging') as never,
-    ]).then((ids) => {
-      revokedIds = ids
-    })
+    const check = findRevokedSdJwtVcIds(agent as unknown as HekaWalletAgent, [sdJwtVcRecord('hanging') as never]).then(
+      (ids) => {
+        revokedIds = ids
+      }
+    )
 
-    await jest.advanceTimersByTimeAsync(STATUS_CHECK_TIMEOUT_MS - 1)
+    await jest.advanceTimersByTimeAsync(SD_JWT_VC_STATUS_CHECK_TIMEOUT_MS - 1)
     expect(revokedIds).toBeUndefined()
 
     await jest.advanceTimersByTimeAsync(1)
     await check
     expect(revokedIds).toEqual([])
     expect(agent.config.logger.warn).toHaveBeenCalledWith('Timed out checking the status of SD-JWT VCs', {
-      timeoutMs: STATUS_CHECK_TIMEOUT_MS,
+      timeoutMs: SD_JWT_VC_STATUS_CHECK_TIMEOUT_MS,
       credentialCount: 1,
     })
     expect(jest.getTimerCount()).toBe(0)
@@ -171,7 +171,7 @@ describe('findRevokedCredentialIds', () => {
     agent.sdJwtVc.verify.mockResolvedValue({ isValid: false, error })
 
     await expect(
-      findRevokedCredentialIds(agent as unknown as HekaWalletAgent, [sdJwtVcRecord('revoked') as never])
+      findRevokedSdJwtVcIds(agent as unknown as HekaWalletAgent, [sdJwtVcRecord('revoked') as never])
     ).resolves.toEqual(['revoked'])
     expect(jest.getTimerCount()).toBe(0)
     expect(agent.config.logger.warn).not.toHaveBeenCalled()
@@ -182,7 +182,7 @@ describe('findRevokedCredentialIds', () => {
     const agent = createAgent()
 
     await expect(
-      findRevokedCredentialIds(agent as unknown as HekaWalletAgent, [{ id: 'mdoc', type: 'MdocRecord' } as never])
+      findRevokedSdJwtVcIds(agent as unknown as HekaWalletAgent, [{ id: 'mdoc', type: 'MdocRecord' } as never])
     ).resolves.toEqual([])
     expect(jest.getTimerCount()).toBe(0)
     expect(agent.sdJwtVc.verify).not.toHaveBeenCalled()

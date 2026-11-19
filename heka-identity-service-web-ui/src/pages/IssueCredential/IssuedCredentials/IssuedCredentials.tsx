@@ -3,25 +3,27 @@ import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 
 import { NoItemFound } from '@/components/NoItemFound/NoItemFound';
-import { getIssuedCredentials, IssuedCredential } from '@/entities/IssuedCredential';
+import {
+  getIssuedCredentials,
+  getIssuedCredentialStatus,
+  IssuedCredential,
+} from '@/entities/IssuedCredential';
 import {
   getIssuedCredentialItems,
   getIssuedCredentialsError,
   getIssuedCredentialsIsLoading,
 } from '@/entities/IssuedCredential/model/selectors/issuedCredentialsSelector';
+import { getUserCanRevokeCredentials } from '@/entities/User/model/selectors/userSelector';
+import { getAgencyUser } from '@/entities/User/model/services/getAgencyUser';
 import { classNames } from '@/shared/lib/classNames';
+import { formatDateTime } from '@/shared/lib/date';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
 import { Column, Row } from '@/shared/ui/Grid';
 import { LoaderView } from '@/shared/ui/Loader';
 
 import { IssuedCredentialDetails } from './IssuedCredentialDetails/IssuedCredentialDetails';
-import {
-  formatIssuedAt,
-  getIssuedCredentialStatus,
-  protocolLabel,
-  statusLabel,
-} from './issuedCredentialView';
+import { protocolLabel, statusLabel } from './issuedCredentialLabels';
 
 import * as cls from './IssuedCredentials.module.scss';
 
@@ -32,6 +34,7 @@ export const IssuedCredentials = () => {
   const items = useSelector(getIssuedCredentialItems);
   const isLoading = useSelector(getIssuedCredentialsIsLoading);
   const error = useSelector(getIssuedCredentialsError);
+  const canRevokeCredentials = useSelector(getUserCanRevokeCredentials);
 
   const [selectedKey, setSelectedKey] = useState<string | undefined>();
 
@@ -42,6 +45,11 @@ export const IssuedCredentials = () => {
   useEffect(() => {
     loadList();
   }, [loadList]);
+
+  // Home loads the profile after sign-in; a deep link to this page may arrive without it
+  useEffect(() => {
+    if (canRevokeCredentials === undefined) dispatch(getAgencyUser());
+  }, [canRevokeCredentials, dispatch]);
 
   const openDetails = useCallback((item: IssuedCredential) => {
     setSelectedKey(item.key);
@@ -81,7 +89,6 @@ export const IssuedCredentials = () => {
           role="alert"
         >
           <p>{t('IssueCredential.issuedCredentials.loadError')}</p>
-          <p className={cls.errorDetails}>{error}</p>
           <Button onPress={loadList}>
             {t('IssueCredential.issuedCredentials.retry')}
           </Button>
@@ -121,7 +128,7 @@ export const IssuedCredentials = () => {
             const status = getIssuedCredentialStatus(item);
             const protocol = protocolLabel(item.protocol, t);
             const formats = item.formats.join(', ');
-            const issuedAt = formatIssuedAt(item.issuedAt);
+            const issuedAt = formatDateTime(item.issuedAt);
             const statusText = statusLabel(status, t);
             return (
               <div

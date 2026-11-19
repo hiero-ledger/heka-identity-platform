@@ -79,6 +79,18 @@ describe('DesktopNavigationMenu', () => {
     expect(location()).toHaveTextContent('/issue-credential/templates');
   });
 
+  test('Issue credential is the current section on the issued credentials page', () => {
+    renderMenu(
+      <DesktopNavigationMenu />,
+      signedInState,
+      '/issue-credential/issued-credentials',
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Issue credential' }),
+    ).toHaveAttribute('aria-current', 'page');
+  });
+
   test('menu items are disabled for the keyboard while the wallet is prepared', async () => {
     const user = userEvent.setup();
 

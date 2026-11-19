@@ -16,7 +16,7 @@ import {
 
 import { ReqTenantAgent, TenantAgent, TenantAgentInterceptor } from 'common/agent'
 import { AuthInfo, JwtAuthGuard, ReqAuthInfo, Role } from 'common/auth'
-import { AnyRole, RoleGuard, Roles } from 'common/authz'
+import { AnyRole, CREDENTIAL_REVOKING_ROLES, RoleGuard, Roles } from 'common/authz'
 import { InjectLogger, Logger } from 'common/logger'
 
 import {
@@ -161,7 +161,7 @@ export class OpenId4VcIssuanceSessionController {
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @Post(':id/revoke')
   @HttpCode(200)
-  @Roles(Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer)
+  @Roles(...CREDENTIAL_REVOKING_ROLES)
   public async revoke(
     @ReqAuthInfo() authInfo: AuthInfo,
     @ReqTenantAgent() tenantAgent: TenantAgent,

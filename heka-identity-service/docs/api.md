@@ -25,7 +25,7 @@ Endpoints are grouped by domain:
 - **Prepare Wallet** (`/prepare-wallet`) — bootstrap a tenant wallet with default state.
 - **Health** (`/health`) — memory + database health probe.
 
-### Issued credentials and revocation
+### Issued credentials
 
 There is no single "issued credentials" endpoint. A client lists finished issuances per protocol and merges them:
 
@@ -39,7 +39,9 @@ There is no single "issued credentials" endpoint. A client lists finished issuan
   - `revocable` — `true` for sessions whose SD-JWT VCs (`vc+sd-jwt`) reference an IETF Token Status List (see [SD-JWT VC status](#sd-jwt-vc-status)). Always `false` for `jwt_vc_json`, `jwt_vc_json-ld`, `ldp_vc` and mDoc (`mso_mdoc`), and for SD-JWT VC sessions created before token status lists;
   - `revoked` — only when `revocable`: `true` once every status entry of the session is invalid. It is read from the token status lists in the service's own database (one query per list call), so there is no ledger and no lag. If they cannot be read, `revoked` is absent ("unknown"), one warning with the list ids is logged, and the list itself still returns `200`. `GET /openid4vc/issuance-session/:id` and the offer response carry the same fields.
 
-Revoking:
+### Revocation
+
+With the role model enforced (`ROLE_MODEL_ENABLED=true`), only the Admin, OrgAdmin, OrgManager and Issuer roles may revoke; other roles get `403`. `GET /user` returns `canRevokeCredentials` for the caller (always `true` while the role model is not enforced), so a client can hide revocation from users who may not use it.
 
 | Endpoint | Success | Errors |
 |---|---|---|
@@ -52,6 +54,8 @@ After a successful `POST /credentials/:id/revoke`, the service sends a [revocati
 `DELETE /openid4vc/issuance-session/:id` returns `204`. The session is the only link to the token status list entries of its SD-JWT VCs, so a session the holder has started to redeem (any state after `OfferCreated` / `OfferUriRetrieved`, `Error` included) is deleted only after its credentials are revoked; otherwise it returns `409` and keeps the session. Pending offers and sessions of other formats are deleted in any case. An unknown session returns `404`.
 
 `POST /openid4vc/issuance-session/:id/revoke` still returns `200` for `jwt_vc_json`, `jwt_vc_json-ld` and `ldp_vc` sessions, although their `revocable` is `false`: the issued credentials do not contain `credentialStatus`, so wallets and verifiers never read the bit it sets. Repeating it returns `200` again (no `409`).
+
+To check that an `anoncreds-w3c` credential is not revoked, a DIDComm proof request in the `dif-presentation-exchange` format sets `statuses.active.directive: required` in the input descriptor's constraints, as the Heka web UI does. Credo then requires a non-revocation proof for every credential the holder selects, so a holder whose only matching credential comes from a credential definition without revocation support gets an error from its wallet ("Selected credentials must be revocable but are not") instead of "no matching credential". Credential definitions created through Heka always support revocation.
 
 #### SD-JWT VC status
 

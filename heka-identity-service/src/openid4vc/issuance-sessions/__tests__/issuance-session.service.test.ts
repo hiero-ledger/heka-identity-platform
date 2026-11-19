@@ -573,6 +573,35 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(tokenStatusListService.reserveIndexes).not.toHaveBeenCalled()
     })
 
+    test('should reject a status claim in any credential before reserving entries for the others', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+        issuerRecordStub({
+          issuerId: 'issuer-1',
+          credentialConfigurationsSupported: { 'cred-sd-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' } },
+        }),
+      )
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+        didResolutionResultStub({ didDocument: { verificationMethod: [{ id: 'did:key:z6MkGood#key-1' }] } }),
+      )
+
+      const sdJwtCredential = {
+        credentialSupportedId: 'cred-sd-1',
+        format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+        issuer: { did: 'did:key:z6MkGood' },
+      }
+      await expect(
+        service.offer(authInfo, tenantAgent, {
+          publicIssuerId: 'issuer-1',
+          credentials: [
+            { ...sdJwtCredential, payload: {} },
+            { ...sdJwtCredential, payload: { status: { status_list: { idx: 0, uri: 'https://evil.example' } } } },
+          ],
+        } as any),
+      ).rejects.toThrow(new BadRequestException('`status` is set by the issuer'))
+      expect(tenantAgent.dids.resolve).not.toHaveBeenCalled()
+      expect(tokenStatusListService.reserveIndexes).not.toHaveBeenCalled()
+    })
+
     test('should rethrow unexpected errors from resolving the SdJwtVc signing key', async () => {
       vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
         issuerRecordStub({

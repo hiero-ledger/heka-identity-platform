@@ -125,9 +125,16 @@ const routeGets = (
   {
     anoncreds = [anoncredsActive, anoncredsRevoked, anoncredsUnknown],
     sessions = [jwtSession],
-  }: { anoncreds?: unknown[]; sessions?: unknown[] } = {},
+    canRevokeCredentials = true,
+  }: {
+    anoncreds?: unknown[];
+    sessions?: unknown[];
+    canRevokeCredentials?: boolean;
+  } = {},
 ) =>
   api.get.mockImplementation((url: string) => {
+    if (url === agencyEndpoints.getUserData)
+      return Promise.resolve({ data: { canRevokeCredentials } });
     if (url === agencyEndpoints.getAnoncredsCredentials)
       return Promise.resolve({ data: anoncreds });
     if (url === agencyEndpoints.getOpenIdIssuanceSessions)
@@ -188,7 +195,9 @@ describe('IssuedCredentials page', () => {
 
     const alert = await screen.findByRole('alert');
     expect(within(alert).getByText('Could not load the issued credentials.')).toBeInTheDocument();
+    // The server message is in the toast only, not repeated in the page
     expect(toast.error).toHaveBeenCalledWith('Service unavailable');
+    expect(within(alert).queryByText('Service unavailable')).not.toBeInTheDocument();
 
     routeGets(api);
     await user.click(within(alert).getByRole('button', { name: 'Retry' }));
@@ -302,6 +311,20 @@ describe('IssuedCredentials page', () => {
     expect(within(dialog).getByText('Credential configuration(s)')).toBeInTheDocument();
     expect(within(dialog).queryByText('Master of Secrets')).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument();
+  });
+
+  test('a user who may not revoke gets no Revoke button', async () => {
+    const api = createMockApi();
+    routeGets(api, { canRevokeCredentials: false });
+    const { user } = renderPage(api);
+
+    const dialog = await openDetails(user, 'Passport');
+
+    expect(within(dialog).getByText('Active')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(dialog).queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument(),
+    );
+    expect(api.get).toHaveBeenCalledWith(agencyEndpoints.getUserData);
   });
 
   test('a revoked credential has no Revoke button', async () => {
@@ -434,8 +457,15 @@ describe('IssuedCredentials page', () => {
     expect(
       within(details).queryByRole('button', { name: 'Revoke' }),
     ).not.toBeInTheDocument();
-    // The list was loaded once (3 requests): the new status comes from the store, not a reload
-    expect(api.get).toHaveBeenCalledTimes(3);
+    // The list was loaded once: the new status comes from the store, not a reload
+    const listRequests = api.get.mock.calls.filter(([url]) =>
+      [
+        agencyEndpoints.getAnoncredsCredentials,
+        agencyEndpoints.getOpenIdIssuanceSessions,
+        agencyEndpoints.getSchemaList,
+      ].includes(url),
+    );
+    expect(listRequests).toHaveLength(3);
   });
 
   test('an already revoked credential is marked Revoked with its own message', async () => {

@@ -152,7 +152,6 @@ export const createCredentialRequestToCredentialMapper =
           payload: {
             vct,
             ...issuanceMetadata.payload,
-            // Last, so it always wins; the offer rejects a user-supplied `status` claim anyway
             ...tokenStatusListClaim(issuanceMetadata.credentialStatus, position),
           },
           disclosureFrame: issuanceMetadata.disclosureFrame,

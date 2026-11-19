@@ -1,26 +1,28 @@
-import { ReactNode, useCallback, useMemo } from 'react';
+import { TFunction } from 'i18next';
+import { useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 
-import { revokeIssuedCredential } from '@/entities/IssuedCredential';
+import {
+  canRevoke,
+  getIssuedCredentialStatus,
+  IssuedCredential,
+  revokeIssuedCredential,
+} from '@/entities/IssuedCredential';
 import {
   getIsIssuedCredentialRevoking,
   getIssuedCredentialByKey,
 } from '@/entities/IssuedCredential/model/selectors/issuedCredentialsSelector';
 import { ProtocolType } from '@/entities/Schema';
+import { getUserCanRevokeCredentials } from '@/entities/User/model/selectors/userSelector';
+import { formatDateTime } from '@/shared/lib/date';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Button } from '@/shared/ui/Button';
 import useConfirmDialog, { ConfirmForm } from '@/shared/ui/ConfirmDialog';
 import { Modal } from '@/shared/ui/Modal/Modal';
 
-import {
-  canRevoke,
-  formatIssuedAt,
-  getIssuedCredentialStatus,
-  protocolLabel,
-  statusLabel,
-} from '../issuedCredentialView';
+import { protocolLabel, statusLabel } from '../issuedCredentialLabels';
 
 import * as cls from './IssuedCredentialDetails.module.scss';
 
@@ -29,6 +31,59 @@ interface IssuedCredentialDetailsProps {
   itemKey?: string;
   onOpenChange: (open: boolean) => void;
 }
+
+/** Label and value of each detail row; protocol-specific rows only when the credential has them */
+const issuedCredentialDetailRows = (
+  item: IssuedCredential,
+  t: TFunction,
+): Array<[label: string, value: string]> => {
+  const rows: Array<[string, string]> = [];
+  // Without a resolved schema the title already shows the raw ids: no row repeats them
+  if (item.schemaName) {
+    rows.push([
+      t('IssueCredential.issuedCredentials.details.schema'),
+      item.schemaName,
+    ]);
+  }
+  rows.push(
+    [
+      t('IssueCredential.issuedCredentials.details.protocol'),
+      protocolLabel(item.protocol, t),
+    ],
+    [
+      t('IssueCredential.issuedCredentials.details.format'),
+      item.formats.join(', '),
+    ],
+    [
+      t('IssueCredential.issuedCredentials.details.issued'),
+      formatDateTime(item.issuedAt),
+    ],
+    [
+      t('IssueCredential.issuedCredentials.details.status'),
+      statusLabel(getIssuedCredentialStatus(item), t),
+    ],
+  );
+  if (item.protocol === ProtocolType.Oid4vc && item.issuerDid) {
+    rows.push([
+      t('IssueCredential.issuedCredentials.details.issuerDid'),
+      item.issuerDid,
+    ]);
+  }
+  if (item.protocol === ProtocolType.Aries && item.credentialDefinitionId) {
+    rows.push([
+      t('IssueCredential.issuedCredentials.details.credentialDefinitionId'),
+      item.credentialDefinitionId,
+    ]);
+  }
+  if (item.protocol === ProtocolType.Oid4vc && item.credentialConfigurationIds) {
+    rows.push([
+      t('IssueCredential.issuedCredentials.details.credentialConfigurations'),
+      item.credentialConfigurationIds.join(', '),
+    ]);
+  }
+  rows.push([t('IssueCredential.issuedCredentials.details.recordId'), item.id]);
+  return rows;
+};
 
 /**
  * Metadata of an issued credential, never its claims, with Revoke for revocable credentials
@@ -49,6 +104,8 @@ export const IssuedCredentialDetails = ({
     [itemKey],
   );
   const isRevoking = useSelector(selectIsRevoking);
+  // Unknown (not loaded yet) still offers Revoke: the identity service enforces the roles
+  const canRevokeCredentials = useSelector(getUserCanRevokeCredentials) !== false;
 
   const revoke = useCallback(async () => {
     if (!item) return;
@@ -80,52 +137,7 @@ export const IssuedCredentialDetails = ({
 
   if (!item) return <ConfirmForm {...dialogProps} />;
 
-  const status = getIssuedCredentialStatus(item);
-  const fields: Array<[string, ReactNode]> = [];
-  // Without a resolved schema the title already shows the raw ids: no row repeats them
-  if (item.schemaName) {
-    fields.push([
-      t('IssueCredential.issuedCredentials.details.schema'),
-      item.schemaName,
-    ]);
-  }
-  fields.push(
-    [
-      t('IssueCredential.issuedCredentials.details.protocol'),
-      protocolLabel(item.protocol, t),
-    ],
-    [
-      t('IssueCredential.issuedCredentials.details.format'),
-      item.formats.join(', '),
-    ],
-    [
-      t('IssueCredential.issuedCredentials.details.issued'),
-      formatIssuedAt(item.issuedAt),
-    ],
-    [
-      t('IssueCredential.issuedCredentials.details.status'),
-      statusLabel(status, t),
-    ],
-  );
-  if (item.protocol === ProtocolType.Oid4vc && item.issuerDid) {
-    fields.push([
-      t('IssueCredential.issuedCredentials.details.issuerDid'),
-      item.issuerDid,
-    ]);
-  }
-  if (item.protocol === ProtocolType.Aries && item.credentialDefinitionId) {
-    fields.push([
-      t('IssueCredential.issuedCredentials.details.credentialDefinitionId'),
-      item.credentialDefinitionId,
-    ]);
-  }
-  if (item.protocol === ProtocolType.Oid4vc && item.credentialConfigurationIds) {
-    fields.push([
-      t('IssueCredential.issuedCredentials.details.credentialConfigurations'),
-      item.credentialConfigurationIds.join(', '),
-    ]);
-  }
-  fields.push([t('IssueCredential.issuedCredentials.details.recordId'), item.id]);
+  const rows = issuedCredentialDetailRows(item, t);
 
   return (
     <>
@@ -135,7 +147,7 @@ export const IssuedCredentialDetails = ({
         handleToggle={onOpenChange}
       >
         <dl className={cls.fields}>
-          {fields.map(([label, value]) => (
+          {rows.map(([label, value]) => (
             <div
               key={label}
               className={cls.field}
@@ -145,7 +157,7 @@ export const IssuedCredentialDetails = ({
             </div>
           ))}
         </dl>
-        {canRevoke(item) && (
+        {canRevokeCredentials && canRevoke(item) && (
           <Button
             className={cls.revokeButton}
             fullWidth

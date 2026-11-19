@@ -39,7 +39,6 @@ export const PendingPresentation = ({
   const dispatch = useAppDispatch();
 
   const presentationRequestId = useSelector(getPresentationRequestId);
-  // A failed verification is final too: stop waiting for it
   const isPresentationFinished = useSelector(getIsPresentationFinished);
 
   const refreshPresentationState = useCallback(() => {

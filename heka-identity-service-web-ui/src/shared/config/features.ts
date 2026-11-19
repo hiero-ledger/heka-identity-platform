@@ -4,16 +4,27 @@
  * decides who may call an endpoint.
  */
 
-const DISABLED_VALUES = ['false', '0', 'off'];
-
-/** `defaultValue` for an unset or empty value; `false` only for `false`, `0` or `off` */
-export const flag = (value: string | undefined, defaultValue: boolean) => {
+/**
+ * `true` or `false` (trimmed, any case), as for the services' boolean settings; `defaultValue`
+ * when unset or empty. Any other value throws, so a typo can't silently keep a feature on.
+ */
+export const flag = (
+  name: string,
+  value: string | undefined,
+  defaultValue: boolean,
+) => {
   const normalized = value?.trim().toLowerCase();
   if (!normalized) return defaultValue;
-  return !DISABLED_VALUES.includes(normalized);
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  throw new Error(`${name} must be "true" or "false", got "${value}"`);
 };
 
 export const features = {
   /** "Issued credentials" list with credential revocation */
-  revocation: flag(process.env.REACT_APP_FEATURE_REVOCATION, true),
+  revocation: flag(
+    'REACT_APP_FEATURE_REVOCATION',
+    process.env.REACT_APP_FEATURE_REVOCATION,
+    true,
+  ),
 };

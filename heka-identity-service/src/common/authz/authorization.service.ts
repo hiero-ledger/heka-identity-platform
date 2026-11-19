@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 
+import { Role } from 'common/auth'
 import RoleModelConfig from 'config/role-model'
 
 /**
@@ -16,5 +17,10 @@ export class AuthorizationService {
 
   public get isEnforced(): boolean {
     return this.roleModelConfig.enabled
+  }
+
+  /** Whether `role` may call a route restricted to `roles`, as `RoleGuard` decides it */
+  public allows(role: Role, roles: readonly Role[]): boolean {
+    return !this.isEnforced || roles.includes(role)
   }
 }

@@ -116,6 +116,7 @@ export const Home: React.FC<HomeProps> = () => {
         credentialDisplay={credential.display}
         credentialNameStyle={TextTheme.bold}
         shortIssuerLabel
+        compact
         onPress={() =>
           navigation.navigate(BifoldStacks.NotificationStack, {
             screen: BifoldScreens.CredentialDetails,

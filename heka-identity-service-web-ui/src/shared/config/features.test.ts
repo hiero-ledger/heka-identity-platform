@@ -4,22 +4,25 @@ describe('flag', () => {
   test.each([undefined, '', '   '])(
     'falls back to the default for %p',
     (value) => {
-      expect(flag(value, true)).toBe(true);
-      expect(flag(value, false)).toBe(false);
+      expect(flag('FLAG', value, true)).toBe(true);
+      expect(flag('FLAG', value, false)).toBe(false);
     },
   );
 
-  test.each(['true', 'TRUE', ' True ', '1', 'on', 'yes'])(
-    'is on for %p',
-    (value) => {
-      expect(flag(value, false)).toBe(true);
-    },
-  );
+  test.each(['true', 'TRUE', ' True '])('is on for %p', (value) => {
+    expect(flag('FLAG', value, false)).toBe(true);
+  });
 
-  test.each(['false', 'FALSE', ' false ', '0', 'off', 'Off'])(
-    'is off for %p',
+  test.each(['false', 'FALSE', ' false '])('is off for %p', (value) => {
+    expect(flag('FLAG', value, true)).toBe(false);
+  });
+
+  test.each(['1', '0', 'on', 'off', 'yes', 'no', 'flase', 'disabled'])(
+    'rejects %p, naming the variable',
     (value) => {
-      expect(flag(value, true)).toBe(false);
+      expect(() => flag('REACT_APP_FEATURE_X', value, true)).toThrow(
+        `REACT_APP_FEATURE_X must be "true" or "false", got "${value}"`,
+      );
     },
   );
 });
@@ -46,5 +49,13 @@ describe('features', () => {
     process.env.REACT_APP_FEATURE_REVOCATION = 'false';
     jest.resetModules();
     expect(loadFeatures().revocation).toBe(false);
+  });
+
+  test('a value other than true or false fails at load', () => {
+    process.env.REACT_APP_FEATURE_REVOCATION = 'off';
+    jest.resetModules();
+    expect(loadFeatures).toThrow(
+      'REACT_APP_FEATURE_REVOCATION must be "true" or "false"',
+    );
   });
 });

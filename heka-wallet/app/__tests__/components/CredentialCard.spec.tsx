@@ -42,8 +42,20 @@ describe('CredentialCard', () => {
 
     expect(screen.getByTestId('CredentialRevokedBadge')).toBeTruthy()
     expect(screen.getByText('CredentialDetails.Revoked')).toBeTruthy()
-    // The name gives up its second line to the badge so fixed-height cards keep their size
+    expect(screen.getByText('University diploma for the bachelor degree')).toHaveProp('numberOfLines', 2)
+  })
+
+  it('gives a revoked name one line on a compact card, so the badge fits its fixed height', () => {
+    render(<CredentialCard credentialDisplay={display(true)} compact />)
+
+    expect(screen.getByTestId('CredentialRevokedBadge')).toBeTruthy()
     expect(screen.getByText('University diploma for the bachelor degree')).toHaveProp('numberOfLines', 1)
+  })
+
+  it('keeps two lines on a compact card for a credential that is not revoked', () => {
+    render(<CredentialCard credentialDisplay={display(false)} compact />)
+
+    expect(screen.getByText('University diploma for the bachelor degree')).toHaveProp('numberOfLines', 2)
   })
 
   it('keeps the card unchanged for a credential that is not revoked', () => {
