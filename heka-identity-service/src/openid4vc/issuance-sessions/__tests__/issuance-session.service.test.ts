@@ -399,7 +399,8 @@ describe('OpenId4VcIssuanceSessionService', () => {
             credentialSupportedId: 'cred-sd-1',
             format: OpenId4VciCredentialFormatProfile.SdJwtVc,
             issuer: { did: 'did:key:z6MkGood' },
-            payload: { some: 'payload' },
+            // Only a top-level `status` is the issuer's; a nested claim with that name is ordinary data
+            payload: { some: 'payload', employment: { status: 'active' } },
           },
         ],
         baseUri: 'https://example.com',

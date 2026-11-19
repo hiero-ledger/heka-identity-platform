@@ -18,7 +18,7 @@ import {
 import { InjectLogger, Logger } from 'common/logger'
 import ExpressConfig from 'config/express'
 import { isBitSet, setBit } from 'utils/bitmap'
-import { fromBase64, toBase64, toBase64Url } from 'utils/convert'
+import { fromBase64, fromBase64Url, toBase64, toBase64Url } from 'utils/convert'
 
 /** The credential-signing identity a list is created for. */
 export interface TokenStatusListSignerIdentity {
@@ -280,7 +280,7 @@ export class TokenStatusListService {
 
   private decode(list: TokenStatusList): StatusList {
     return StatusList.decompressStatusListFromBytes(
-      Uint8Array.from(Buffer.from(list.encodedStatuses, 'base64url')),
+      fromBase64Url(list.encodedStatuses),
       list.bitsPerStatus as BitsPerStatus,
     )
   }

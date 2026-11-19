@@ -13,7 +13,6 @@ import {
   getIssuedCredentialsError,
   getIssuedCredentialsIsLoading,
 } from '@/entities/IssuedCredential/model/selectors/issuedCredentialsSelector';
-import { getUserCanRevokeCredentials } from '@/entities/User/model/selectors/userSelector';
 import { getAgencyUser } from '@/entities/User/model/services/getAgencyUser';
 import { classNames } from '@/shared/lib/classNames';
 import { formatDateTime } from '@/shared/lib/date';
@@ -34,22 +33,24 @@ export const IssuedCredentials = () => {
   const items = useSelector(getIssuedCredentialItems);
   const isLoading = useSelector(getIssuedCredentialsIsLoading);
   const error = useSelector(getIssuedCredentialsError);
-  const canRevokeCredentials = useSelector(getUserCanRevokeCredentials);
 
   const [selectedKey, setSelectedKey] = useState<string | undefined>();
 
+  // The revoke permission is refreshed after the list loads: a deep link may skip Home, which
+  // loads it after sign-in, and a role change shows on the next visit. Not in parallel with the
+  // list, so an unreachable identity service is reported once, not by both requests.
   const loadList = useCallback(() => {
-    dispatch(getIssuedCredentials());
+    dispatch(getIssuedCredentials())
+      .unwrap()
+      .then(
+        () => dispatch(getAgencyUser()),
+        () => undefined, // getIssuedCredentials has already shown the error
+      );
   }, [dispatch]);
 
   useEffect(() => {
     loadList();
   }, [loadList]);
-
-  // Home loads the profile after sign-in; a deep link to this page may arrive without it
-  useEffect(() => {
-    if (canRevokeCredentials === undefined) dispatch(getAgencyUser());
-  }, [canRevokeCredentials, dispatch]);
 
   const openDetails = useCallback((item: IssuedCredential) => {
     setSelectedKey(item.key);

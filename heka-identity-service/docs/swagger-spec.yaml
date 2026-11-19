@@ -2096,6 +2096,14 @@ components:
         registeredAt:
           format: date-time
           type: string
+        canRevokeCredentials:
+          type: boolean
+          description: "Whether this user may revoke issued credentials (`POST
+            /credentials/:id/revoke`, `POST
+            /openid4vc/issuance-session/:id/revoke`): always `true` while the
+            role model is not enforced"
+      required:
+        - canRevokeCredentials
     PatchUserDto:
       type: object
       properties:

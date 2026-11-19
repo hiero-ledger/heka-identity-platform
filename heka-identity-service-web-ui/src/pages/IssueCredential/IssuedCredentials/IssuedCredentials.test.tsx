@@ -195,9 +195,12 @@ describe('IssuedCredentials page', () => {
 
     const alert = await screen.findByRole('alert');
     expect(within(alert).getByText('Could not load the issued credentials.')).toBeInTheDocument();
-    // The server message is in the toast only, not repeated in the page
+    // The server message is in one toast only: not repeated in the page, and the profile
+    // (revoke permission) is not requested while the list fails
+    expect(toast.error).toHaveBeenCalledTimes(1);
     expect(toast.error).toHaveBeenCalledWith('Service unavailable');
     expect(within(alert).queryByText('Service unavailable')).not.toBeInTheDocument();
+    expect(api.get).not.toHaveBeenCalledWith(agencyEndpoints.getUserData);
 
     routeGets(api);
     await user.click(within(alert).getByRole('button', { name: 'Retry' }));

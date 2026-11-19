@@ -22,3 +22,5 @@ export const fromBase64 = (value: string): Uint8Array => Uint8Array.from(Buffer.
 
 /** Unpadded base64url (RFC 4648 §5) of a byte array or of a string's UTF-8 bytes, as used in JWS */
 export const toBase64Url = (value: string | Uint8Array): string => Buffer.from(value).toString('base64url')
+
+export const fromBase64Url = (value: string): Uint8Array => Uint8Array.from(Buffer.from(value, 'base64url'))
