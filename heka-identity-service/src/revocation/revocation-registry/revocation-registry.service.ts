@@ -117,6 +117,19 @@ export class RevocationRegistryService {
     )
   }
 
+  /**
+   * Credential definition id of a revocation registry created by this wallet, or undefined when
+   * the registry is unknown here.
+   */
+  public async findCredentialDefinitionId(
+    tenantAgent: TenantAgent,
+    revocationRegistryDefinitionId: string,
+  ): Promise<string | undefined> {
+    const records = await tenantAgent.genericRecords.findAllByQuery({ revocationRegistryDefinitionId })
+    const credentialDefinitionId = records[0]?.content.credentialDefinitionId
+    return typeof credentialDefinitionId === 'string' ? credentialDefinitionId : undefined
+  }
+
   public async update(tenantAgent: TenantAgent, revocationRegistryDefinitionId: string, data: { lastIndex: number }) {
     const records = await tenantAgent.genericRecords.findAllByQuery({
       revocationRegistryDefinitionId,

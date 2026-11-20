@@ -13,6 +13,9 @@ export enum CredentialVersion {
 }
 
 export class DisclosureFrame {
+  /**
+   * Claims to make selectively disclosable. `status` is not allowed: the issuer sets it, always disclosed.
+   */
   @ApiProperty()
   @IsOptional()
   @IsArray()
@@ -99,6 +102,7 @@ export class OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions extends O
    *
    * If `vct` claim is included, it MUST match the `vct` claim from the issuer metadata.
    * If `vct` claim is not included, it will be added automatically.
+   * The `status` claim is set by the issuer (IETF Token Status List) and must not be included.
    *
    * @example
    * {

@@ -1,8 +1,11 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 
+import ROUTES from '@/app/routes/RoutePaths';
 import { IssueFromTemplate } from '@/pages/IssueCredential/IssueFromTemplate/IssueFromTemplate';
+import { features } from '@/shared/config/features';
 
 import { AdvancedIssue } from './AdvancedIssue/AdvancedIssue';
+import { IssuedCredentials } from './IssuedCredentials/IssuedCredentials';
 import { IssueTemplates } from './IssueTemplates/IssueTemplates';
 import { Schemas } from './Schemas/Schemas';
 
@@ -27,7 +30,16 @@ export const IssueCredentialRoutes = () => {
       />
       <Route
         path="issued-credentials"
-        element={<div>Issued credentials</div>}
+        element={
+          features.revocation ? (
+            <IssuedCredentials />
+          ) : (
+            <Navigate
+              to={ROUTES.ISSUE_CREDENTIAL_TEMPLATES}
+              replace
+            />
+          )
+        }
       />
       <Route
         path="advanced-issue"

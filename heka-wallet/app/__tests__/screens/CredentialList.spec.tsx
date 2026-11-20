@@ -1,3 +1,4 @@
+import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs'
 import { render, screen } from '@testing-library/react-native'
 import React from 'react'
 
@@ -23,7 +24,8 @@ jest.mock('@heka-wallet/shared', () => {
     IconSizes: {},
     BorderRadius: {},
     TextTheme: { title: {}, modalNormal: {}, normal: {} },
-    Spacing: {},
+    Spacing: { md: 16, lg: 20 },
+    TabTheme: { tabBarStyle: { position: 'absolute', height: 65, marginBottom: 16 } },
     BorderWidth: {},
     ColorPalette: { brand: {}, grayscale: {}, semantic: {} },
     HekaTextTheme: { bodySmall: {} },
@@ -31,6 +33,11 @@ jest.mock('@heka-wallet/shared', () => {
   }
   return { useHekaTheme: () => theme }
 })
+
+// The real package index needs the full @react-navigation/core, which is mocked below; the context is all the screen uses
+jest.mock('@react-navigation/bottom-tabs', () => ({
+  BottomTabBarHeightContext: jest.requireActual('react').createContext(undefined),
+}))
 
 jest.mock('@react-navigation/core', () => {
   const navigation = { navigate: jest.fn() }
@@ -90,5 +97,68 @@ describe('CredentialList', () => {
 
     expect(screen.getByText('Credentials.LoadFailed')).toBeTruthy()
     expect(screen.getByText('Diploma')).toBeTruthy()
+  })
+
+  it('marks revoked credentials in the list', () => {
+    const revokedCredential = {
+      id: 'revoked-credential-id',
+      display: { name: 'Revoked diploma', issuer: { name: 'University' }, isRevoked: true },
+    }
+    mockFunction(useCredentials).mockReturnValue({
+      credentials: [credential, revokedCredential] as never,
+      isLoading: false,
+      isPartial: false,
+    })
+
+    render(<CredentialList />)
+
+    expect(screen.getAllByTestId('CredentialRevokedBadge')).toHaveLength(1)
+    expect(screen.getByText('CredentialDetails.Revoked')).toBeTruthy()
+  })
+
+  it('does not mark credentials that are not revoked', () => {
+    mockFunction(useCredentials).mockReturnValue({
+      credentials: [credential] as never,
+      isLoading: false,
+      isPartial: false,
+    })
+
+    render(<CredentialList />)
+
+    expect(screen.getByText('Diploma')).toBeTruthy()
+    expect(screen.queryByTestId('CredentialRevokedBadge')).toBeNull()
+  })
+
+  it('lets the last credential scroll fully above the floating tab bar', () => {
+    mockFunction(useCredentials).mockReturnValue({
+      credentials: [credential] as never,
+      isLoading: false,
+      isPartial: false,
+    })
+
+    render(
+      <BottomTabBarHeightContext.Provider value={65}>
+        <CredentialList />
+      </BottomTabBarHeightContext.Provider>
+    )
+
+    // Measured tab bar height + its bottom margin + spacing
+    expect(screen.getByTestId('CredentialList').props.contentContainerStyle).toEqual(
+      expect.objectContaining({ paddingBottom: 65 + 16 + 16 })
+    )
+  })
+
+  it('adds no bottom space outside the tab navigator', () => {
+    mockFunction(useCredentials).mockReturnValue({
+      credentials: [credential] as never,
+      isLoading: false,
+      isPartial: false,
+    })
+
+    render(<CredentialList />)
+
+    expect(screen.getByTestId('CredentialList').props.contentContainerStyle).toEqual(
+      expect.objectContaining({ paddingBottom: 0 })
+    )
   })
 })

@@ -10,8 +10,11 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { CredentialCard } from '../components/cards'
 import { Record } from '../components/misc'
 import CredentialContextMenu from '../components/misc/CredentialContextMenu'
+import { CredentialRevokedBanner } from '../components/misc/CredentialRevokedBanner'
 import LoadingView from '../components/views/LoadingView'
 import { mapCredentialRecord, Credential } from '../credentials'
+import { useCredentialRevocation } from '../hooks/useCredentialRevocation'
+import { useFloatingTabBarInset } from '../hooks/useFloatingTabBarInset'
 import { useHekaAgent } from '../utils/agent'
 import { formatError } from '../utils/error'
 
@@ -41,6 +44,11 @@ export const CredentialDetails: React.FC<Props> = ({ navigation, route }) => {
   const [credential, setCredential] = useState<Credential | undefined>(
     !routeWithCredentialId ? routeCredential : undefined
   )
+
+  const { revocationNotification, isDetailDismissed, dismissDetail } = useCredentialRevocation(credential)
+
+  // Opened from the credential list, the details are inside the tab navigator under the floating tab bar
+  const tabBarInset = useFloatingTabBarInset()
 
   const [shown, setShown] = useState<boolean[]>([])
   const [showAll, setShowAll] = useState<boolean>(false)
@@ -129,14 +137,25 @@ export const CredentialDetails: React.FC<Props> = ({ navigation, route }) => {
     <SafeAreaView style={{ flexGrow: 1, paddingHorizontal: Spacing.xl }} edges={['left', 'right']}>
       <Record
         fields={credential.display.attributes || []}
+        contentContainerStyle={{ paddingBottom: tabBarInset }}
         hideFieldValues
         header={() => (
-          <CredentialCard
-            credentialDisplay={credential.display}
-            showActionButton
-            actionButtonTitle={showAll ? t('CredentialDetails.ShowAll') : t('CredentialDetails.HideAll')}
-            onActionButtonPress={resetShown}
-          />
+          <>
+            <CredentialCard
+              credentialDisplay={credential.display}
+              showActionButton
+              actionButtonTitle={showAll ? t('CredentialDetails.ShowAll') : t('CredentialDetails.HideAll')}
+              onActionButtonPress={resetShown}
+            />
+            {revocationNotification && (
+              <CredentialRevokedBanner
+                revocationDate={revocationNotification.revocationDate}
+                comment={revocationNotification.comment}
+                showMessage={!isDetailDismissed}
+                onDismiss={dismissDetail}
+              />
+            )}
+          </>
         )}
         shown={shown}
         toggleShownState={toggleShownState}

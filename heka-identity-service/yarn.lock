@@ -2242,7 +2242,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@owf/token-status-list@npm:^0.4.1":
+"@owf/token-status-list@npm:0.4.2, @owf/token-status-list@npm:^0.4.1":
   version: 0.4.2
   resolution: "@owf/token-status-list@npm:0.4.2"
   dependencies:
@@ -6078,6 +6078,7 @@ __metadata:
     "@nestjs/websockets": "npm:11.1.24"
     "@openwallet-foundation/askar-nodejs": "npm:0.6.0"
     "@openwallet-foundation/askar-shared": "npm:0.6.0"
+    "@owf/token-status-list": "npm:0.4.2"
     "@types/express": "npm:^5.0.0"
     "@types/fs-extra": "npm:^11.0.2"
     "@types/multer": "npm:^1.4.11"

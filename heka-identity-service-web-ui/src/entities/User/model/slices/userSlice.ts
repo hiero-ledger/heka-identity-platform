@@ -56,6 +56,7 @@ export const userSlice = buildSlice({
         ...(state.data ?? {}),
         name: null,
         tokens: { accessToken: null },
+        canRevokeCredentials: undefined,
       };
     },
   },
@@ -68,6 +69,7 @@ export const userSlice = buildSlice({
           issuerName: action.payload.name,
           logo: action.payload.logo,
           registeredAt: action.payload.registeredAt,
+          canRevokeCredentials: action.payload.canRevokeCredentials,
         };
       })
       .addCase(patchAgencyUser.fulfilled, (state, action) => {
@@ -77,6 +79,7 @@ export const userSlice = buildSlice({
           issuerName: action.payload.name,
           logo: action.payload.logo,
           registeredAt: action.payload.registeredAt,
+          canRevokeCredentials: action.payload.canRevokeCredentials,
         };
       })
       .addCase(prepareWallet.pending, (state) => {

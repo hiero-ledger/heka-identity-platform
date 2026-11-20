@@ -255,6 +255,8 @@ Real deployments should set `NODE_ENV=production` explicitly: an unset `NODE_ENV
 
 `APP_ENDPOINT` falls back to the default only when it is unset: an empty `APP_ENDPOINT=` is used as is and produces relative URLs, so leave the variable out instead.
 
+Every SD-JWT VC references a token status list under `APP_ENDPOINT` (`/token-status-lists/:id`), and wallets fetch it when they receive the credential: with a `localhost` `APP_ENDPOINT`, a phone cannot accept SD-JWT VCs. See [API — SD-JWT VC status](api.md#sd-jwt-vc-status).
+
 ### Agent transports
 
 The agent exposes three separate ports — REST/Swagger uses `EXPRESS_PORT`, DIDComm uses two ports, and OpenID4VC uses one. The `*_ENDPOINT` variables are what gets advertised in OOB invitations and OID4VCI metadata; override them when fronting the service with a reverse proxy or a tunnel (see [Local Configuration for Heka Wallet Integration](local-config-for-heka-wallet-integration.md)).

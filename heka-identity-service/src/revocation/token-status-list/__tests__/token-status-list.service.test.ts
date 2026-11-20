@@ -1,0 +1,480 @@
+import { generateKeyPairSync } from 'node:crypto'
+import { deflateSync, inflateSync } from 'node:zlib'
+
+import { AgentContext, Kms } from '@credo-ts/core'
+import { createMock } from '@golevelup/ts-vitest'
+import { EntityManager, LockMode } from '@mikro-orm/core'
+import { BadRequestException, NotFoundException } from '@nestjs/common'
+import { ConfigType } from '@nestjs/config'
+import { getListFromStatusListJWT } from '@owf/token-status-list'
+
+import { AuthInfo } from 'common/auth'
+import { defaultTokenStatusListSize, TokenStatusList } from 'common/entities'
+import { Logger } from 'common/logger'
+import ExpressConfig from 'config/express'
+
+import { TokenStatus, TokenStatusListService, TokenStatusListSignerIdentity } from '../token-status-list.service'
+
+const b64url = (value: string | Uint8Array): string => Buffer.from(value).toString('base64url')
+const decodeJwt = (jwt: string) => {
+  const [header, payload] = jwt.split('.')
+  return {
+    header: JSON.parse(Buffer.from(header, 'base64url').toString()) as Record<string, unknown>,
+    payload: JSON.parse(Buffer.from(payload, 'base64url').toString()) as Record<string, unknown>,
+  }
+}
+
+describe('TokenStatusListService', () => {
+  const p256 = generateKeyPairSync('ec', { namedCurve: 'P-256' }).publicKey.export({ format: 'jwk' })
+  const identity: TokenStatusListSignerIdentity = {
+    issuer: 'https://issuer.example',
+    keyId: 'kms-key-1',
+    signer: { method: 'x5c', x5c: ['LEAF', 'ROOT'] },
+  }
+  const authInfo = { user: { id: 'user-1' } } as unknown as AuthInfo
+
+  type Where = { id?: string | { $in: string[] }; signerKeyId?: string; tenantContextId?: string }
+  const matches = (list: TokenStatusList, where: Where) =>
+    (where.id === undefined ||
+      (typeof where.id === 'string' ? list.id === where.id : where.id.$in.includes(list.id))) &&
+    (where.signerKeyId === undefined || list.signerKeyId === where.signerKeyId) &&
+    (where.tenantContextId === undefined || list.tenantContextId === where.tenantContextId)
+
+  let service: TokenStatusListService
+  const allocateOne = async (context: AgentContext, auth: AuthInfo, identity: TokenStatusListSignerIdentity) => {
+    const { id, uri, indexes } = await service.reserveIndexes(context, auth, identity, 1)
+    return { id, uri, idx: indexes[0] }
+  }
+  const setOneStatus = (context: AgentContext, id: string, idx: number, status: TokenStatus) =>
+    service.setStatuses(context, id, [idx], status)
+  let em: EntityManager
+  let agentContext: AgentContext
+  let stored: TokenStatusList[]
+  const sign = vi.fn()
+  const execute = vi.fn()
+
+  beforeEach(() => {
+    stored = []
+    em = createMock<EntityManager>({
+      find: vi.fn((_entity: unknown, where: Where) => Promise.resolve(stored.filter((list) => matches(list, where)))),
+      findOne: vi.fn((_entity: unknown, where: Where) =>
+        Promise.resolve(stored.find((list) => matches(list, where)) ?? null),
+      ),
+      persist: vi.fn((entity: TokenStatusList) => {
+        stored.push(entity)
+        return em
+      }),
+      flush: vi.fn().mockResolvedValue(undefined),
+      // Raw SQL: the per-key advisory lock of `reserveIndexes`
+      execute,
+      // The service runs every read-modify-write inside `em.transactional`; the callback gets the forked em.
+      transactional: vi.fn((callback: (em: EntityManager) => Promise<unknown>) => callback(em)),
+    } as never)
+
+    // The KMS: a real P-256 public key (so the JWA algorithm resolves to ES256) and a fake signature.
+    sign.mockReset()
+    execute.mockReset().mockResolvedValue([])
+    sign.mockResolvedValue({ signature: Uint8Array.from(Buffer.from('sig')) })
+    const kms = { getPublicKey: vi.fn().mockResolvedValue({ ...p256, kid: 'kms-key-1' }), sign }
+    agentContext = {
+      contextCorrelationId: 'tenant-1',
+      resolve: vi.fn((token: unknown) => (token === Kms.KeyManagementApi ? kms : undefined)),
+    } as unknown as AgentContext
+
+    service = new TokenStatusListService(
+      em,
+      { appEndpoint: 'https://heka.example' } as ConfigType<typeof ExpressConfig>,
+      createMock<Logger>(),
+    )
+  })
+
+  test('allocate creates a signed list on first use and reserves a random index in it', async () => {
+    const reference = await allocateOne(agentContext, authInfo, identity)
+
+    // the allocation is one transaction that first takes the advisory lock of (tenant, key), then reads the lists
+    expect(em.transactional).toHaveBeenCalledTimes(1)
+    expect(execute).toHaveBeenCalledWith('select pg_advisory_xact_lock(hashtextextended(?, 0))', [
+      'token-status-list:tenant-1:kms-key-1',
+    ])
+    expect(execute.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(em.find).mock.invocationCallOrder[0])
+    expect(em.find).toHaveBeenCalledWith(
+      TokenStatusList,
+      { tenantContextId: 'tenant-1', signerKeyId: 'kms-key-1' },
+      { orderBy: { id: 'asc' } },
+    )
+
+    expect(stored).toHaveLength(1)
+    const list = stored[0]
+    expect(reference).toEqual({
+      id: list.id,
+      uri: `https://heka.example/token-status-lists/${list.id}`,
+      idx: reference.idx,
+    })
+    expect(reference.idx).toBeGreaterThanOrEqual(0)
+    expect(reference.idx).toBeLessThan(defaultTokenStatusListSize)
+    expect(list).toMatchObject({
+      issuer: 'https://issuer.example',
+      signerKeyId: 'kms-key-1',
+      tenantContextId: 'tenant-1',
+      signer: { method: 'x5c', x5c: ['LEAF', 'ROOT'] },
+      bitsPerStatus: 1,
+      size: defaultTokenStatusListSize,
+      allocatedCount: 1,
+    })
+
+    // signed with the credential-signing key, as statuslist+jwt, with the issuer's x5c
+    expect(sign).toHaveBeenCalledTimes(1)
+    expect(sign.mock.calls[0][0]).toMatchObject({ keyId: 'kms-key-1', algorithm: 'ES256' })
+    const { header, payload } = decodeJwt(list.token!)
+    expect(header).toMatchObject({ alg: 'ES256', typ: 'statuslist+jwt', x5c: ['LEAF', 'ROOT'] })
+    expect(list.token!.endsWith(`.${b64url('sig')}`)).toBe(true)
+    expect(payload).toMatchObject({
+      iss: 'https://issuer.example',
+      sub: `https://heka.example/token-status-lists/${list.id}`,
+      iat: expect.any(Number),
+      ttl: 300,
+      status_list: { bits: 1, lst: expect.any(String) },
+    })
+    expect(getListFromStatusListJWT(list.token!).getStatus(reference.idx)).toBe(TokenStatus.Valid)
+  })
+
+  test('allocate reuses the list of the same signing key and never hands out an index twice', async () => {
+    const first = await allocateOne(agentContext, authInfo, identity)
+    const second = await allocateOne(agentContext, authInfo, identity)
+
+    expect(stored).toHaveLength(1)
+    expect(stored[0].allocatedCount).toBe(2)
+    expect(first.id).toBe(second.id)
+    expect(first.idx).not.toBe(second.idx)
+    // reserving indexes does not change any status → no re-signing
+    expect(sign).toHaveBeenCalledTimes(1)
+  })
+
+  test('reserveIndexes reserves N distinct entries of one list in one locked transaction, without re-signing', async () => {
+    const batch = await service.reserveIndexes(agentContext, authInfo, identity, 3)
+
+    expect(stored).toHaveLength(1)
+    expect(batch.id).toBe(stored[0].id)
+    expect(batch.indexes).toHaveLength(3)
+    expect(new Set(batch.indexes).size).toBe(3)
+    expect(stored[0].allocatedCount).toBe(3)
+    expect(em.transactional).toHaveBeenCalledTimes(1)
+    expect(sign).toHaveBeenCalledTimes(1) // creation only
+
+    const later = await allocateOne(agentContext, authInfo, identity)
+    expect(later.id).toBe(batch.id)
+    expect(batch.indexes).not.toContain(later.idx)
+  })
+
+  test('reserveIndexes rejects a count below one', async () => {
+    await expect(service.reserveIndexes(agentContext, authInfo, identity, 0)).rejects.toBeInstanceOf(
+      BadRequestException,
+    )
+    expect(em.transactional).not.toHaveBeenCalled()
+  })
+
+  test('setStatuses flips every entry of a batch and re-signs the token once', async () => {
+    const batch = await service.reserveIndexes(agentContext, authInfo, identity, 3)
+    const untouched = await allocateOne(agentContext, authInfo, identity)
+
+    await service.setStatuses(agentContext, batch.id, batch.indexes, TokenStatus.Invalid)
+
+    expect(sign).toHaveBeenCalledTimes(2)
+    const list = getListFromStatusListJWT(stored[0].token!)
+    for (const idx of batch.indexes) expect(list.getStatus(idx)).toBe(TokenStatus.Invalid)
+    expect(list.getStatus(untouched.idx)).toBe(TokenStatus.Valid)
+  })
+
+  test('setStatuses rejects the whole batch when any index is out of range', async () => {
+    const batch = await service.reserveIndexes(agentContext, authInfo, identity, 2)
+    const before = stored[0].token
+    await expect(
+      service.setStatuses(agentContext, batch.id, [...batch.indexes, defaultTokenStatusListSize], TokenStatus.Invalid),
+    ).rejects.toBeInstanceOf(BadRequestException)
+    expect(stored[0].token).toBe(before)
+  })
+
+  test('a different signing key (rotated issuer certificate) starts a separate list', async () => {
+    await allocateOne(agentContext, authInfo, identity)
+    await allocateOne(agentContext, authInfo, {
+      ...identity,
+      keyId: 'kms-key-2',
+      signer: { method: 'x5c', x5c: ['LEAF2', 'ROOT'] },
+    })
+
+    expect(stored.map((list) => list.signerKeyId)).toEqual(['kms-key-1', 'kms-key-2'])
+  })
+
+  test('a DID issuer signs with kid instead of x5c', async () => {
+    await allocateOne(agentContext, authInfo, {
+      issuer: 'did:key:z6MkIssuer',
+      keyId: 'kms-key-did',
+      signer: { method: 'did', kid: 'did:key:z6MkIssuer#z6MkIssuer' },
+    })
+    const { header, payload } = decodeJwt(stored[0].token!)
+    expect(header).toMatchObject({ kid: 'did:key:z6MkIssuer#z6MkIssuer', typ: 'statuslist+jwt' })
+    expect(header.x5c).toBeUndefined()
+    expect(payload.iss).toBe('did:key:z6MkIssuer')
+  })
+
+  test('setStatus flips the entry and re-signs the token', async () => {
+    const reference = await allocateOne(agentContext, authInfo, identity)
+    const before = stored[0].token
+
+    await setOneStatus(agentContext, reference.id, reference.idx, TokenStatus.Invalid)
+
+    expect(sign).toHaveBeenCalledTimes(2)
+    expect(stored[0].token).not.toBe(before)
+    const list = getListFromStatusListJWT(stored[0].token!)
+    expect(list.getStatus(reference.idx)).toBe(TokenStatus.Invalid)
+    expect(list.getStatus((reference.idx + 1) % defaultTokenStatusListSize)).toBe(TokenStatus.Valid)
+    expect(await service.getToken(reference.id)).toBe(stored[0].token)
+  })
+
+  test('setStatus rejects an out-of-range index', async () => {
+    const reference = await allocateOne(agentContext, authInfo, identity)
+    await expect(
+      setOneStatus(agentContext, reference.id, defaultTokenStatusListSize, TokenStatus.Invalid),
+    ).rejects.toBeInstanceOf(BadRequestException)
+  })
+
+  test('setStatus rejects a status that does not fit the list (Suspended on a 1-bit list)', async () => {
+    const reference = await allocateOne(agentContext, authInfo, identity)
+    const before = stored[0].token
+    await expect(setOneStatus(agentContext, reference.id, reference.idx, TokenStatus.Suspended)).rejects.toBeInstanceOf(
+      BadRequestException,
+    )
+    expect(sign).toHaveBeenCalledTimes(1)
+    expect(stored[0].token).toBe(before)
+  })
+
+  test('another tenant cannot find, and so cannot re-sign, a list (404)', async () => {
+    const reference = await allocateOne(agentContext, authInfo, identity)
+    const before = stored[0].token
+    const otherContext = { ...agentContext, contextCorrelationId: 'tenant-2' } as unknown as AgentContext
+    await expect(setOneStatus(otherContext, reference.id, reference.idx, TokenStatus.Invalid)).rejects.toThrow(
+      new NotFoundException('Status list not found'),
+    )
+    expect(em.find).toHaveBeenLastCalledWith(
+      TokenStatusList,
+      { id: { $in: [reference.id] }, tenantContextId: 'tenant-2' },
+      { lockMode: LockMode.PESSIMISTIC_WRITE, orderBy: { id: 'asc' } },
+    )
+    expect(stored[0].token).toBe(before)
+  })
+
+  test('the advisory lock key is per tenant and per signing key', async () => {
+    await allocateOne(agentContext, authInfo, identity)
+    await allocateOne(
+      { ...agentContext, contextCorrelationId: 'tenant-2' } as unknown as AgentContext,
+      authInfo,
+      identity,
+    )
+    await allocateOne(agentContext, authInfo, { ...identity, keyId: 'kms-key-2' })
+
+    expect(execute.mock.calls.map(([, params]) => (params as string[])[0])).toEqual([
+      'token-status-list:tenant-1:kms-key-1',
+      'token-status-list:tenant-2:kms-key-1',
+      'token-status-list:tenant-1:kms-key-2',
+    ])
+  })
+
+  describe('setEntryStatuses', () => {
+    test('changes and re-signs only the lists whose entries differ, and reports a change', async () => {
+      const first = await allocateOne(agentContext, authInfo, identity)
+      const second = await allocateOne(agentContext, authInfo, { ...identity, keyId: 'kms-key-2' })
+      await setOneStatus(agentContext, first.id, first.idx, TokenStatus.Invalid)
+      const firstToken = stored[0].token
+      sign.mockClear()
+
+      const changed = await service.setEntryStatuses(
+        agentContext,
+        [
+          { id: first.id, indexes: [first.idx] },
+          { id: second.id, indexes: [second.idx] },
+        ],
+        TokenStatus.Invalid,
+      )
+
+      expect(changed).toBe(true)
+      expect(sign).toHaveBeenCalledTimes(1)
+      expect(stored[0].token).toBe(firstToken)
+      expect(getListFromStatusListJWT(stored[1].token!).getStatus(second.idx)).toBe(TokenStatus.Invalid)
+      // Both lists are locked in one query, in id order, for the read and the write
+      expect(em.find).toHaveBeenLastCalledWith(
+        TokenStatusList,
+        { id: { $in: [first.id, second.id] }, tenantContextId: 'tenant-1' },
+        { lockMode: LockMode.PESSIMISTIC_WRITE, orderBy: { id: 'asc' } },
+      )
+    })
+
+    test('reports no change, and re-signs nothing, when every entry already has the status', async () => {
+      const batch = await service.reserveIndexes(agentContext, authInfo, identity, 2)
+      await service.setStatuses(agentContext, batch.id, batch.indexes, TokenStatus.Invalid)
+      const before = stored[0].token
+      sign.mockClear()
+
+      const changed = await service.setEntryStatuses(agentContext, [batch], TokenStatus.Invalid)
+
+      expect(changed).toBe(false)
+      expect(sign).not.toHaveBeenCalled()
+      expect(stored[0].token).toBe(before)
+    })
+
+    test('changes nothing when one of the lists is missing (404)', async () => {
+      const reference = await allocateOne(agentContext, authInfo, identity)
+      const before = stored[0].token
+
+      await expect(
+        service.setEntryStatuses(
+          agentContext,
+          [
+            { id: reference.id, indexes: [reference.idx] },
+            { id: 'gone', indexes: [1] },
+          ],
+          TokenStatus.Invalid,
+        ),
+      ).rejects.toThrow(new NotFoundException('Status list not found'))
+      expect(stored[0].token).toBe(before)
+      expect(getListFromStatusListJWT(stored[0].token!).getStatus(reference.idx)).toBe(TokenStatus.Valid)
+    })
+
+    test('rejects an empty entry list', async () => {
+      await expect(service.setEntryStatuses(agentContext, [], TokenStatus.Invalid)).rejects.toBeInstanceOf(
+        BadRequestException,
+      )
+      expect(em.transactional).not.toHaveBeenCalled()
+    })
+  })
+
+  test('setStatuses of an unknown list is a 404', async () => {
+    await expect(setOneStatus(agentContext, 'nope', 0, TokenStatus.Invalid)).rejects.toThrow(
+      new NotFoundException('Status list not found'),
+    )
+    expect(sign).not.toHaveBeenCalled()
+  })
+
+  test('lists are shared per tenant: another user of the same wallet reuses the list and can revoke', async () => {
+    const otherUser = { user: { id: 'user-2' } } as unknown as AuthInfo
+    const first = await allocateOne(agentContext, authInfo, identity)
+    const second = await allocateOne(agentContext, otherUser, identity)
+
+    expect(stored).toHaveLength(1)
+    expect(second.id).toBe(first.id)
+
+    await setOneStatus(agentContext, first.id, first.idx, TokenStatus.Invalid)
+    expect(getListFromStatusListJWT(stored[0].token!).getStatus(first.idx)).toBe(TokenStatus.Invalid)
+  })
+
+  test('the same key in another tenant context gets its own list', async () => {
+    await allocateOne(agentContext, authInfo, identity)
+    const otherContext = { ...agentContext, contextCorrelationId: 'tenant-2' } as unknown as AgentContext
+    await allocateOne(otherContext, authInfo, identity)
+
+    expect(stored.map((list) => list.tenantContextId)).toEqual(['tenant-1', 'tenant-2'])
+  })
+
+  test('entries are packed LSB first, as draft-ietf-oauth-status-list requires', async () => {
+    const reference = await allocateOne(agentContext, authInfo, identity)
+
+    await service.setStatuses(agentContext, reference.id, [0, 7, 9], TokenStatus.Invalid)
+
+    const list = getListFromStatusListJWT(stored[0].token!)
+    expect(list.getStatus(0)).toBe(TokenStatus.Invalid)
+    expect(list.getStatus(1)).toBe(TokenStatus.Valid)
+    expect(list.getStatus(7)).toBe(TokenStatus.Invalid)
+    expect(list.getStatus(8)).toBe(TokenStatus.Valid)
+    expect(list.getStatus(9)).toBe(TokenStatus.Invalid)
+    // The wire format, independent of the library: in the zlib-inflated `lst`, entry 9 is bit 1 of byte 1
+    // (0b0000_0010). MSB-first packing, as in the W3C bitstring list, would give 0b0100_0000.
+    const { payload } = decodeJwt(stored[0].token!)
+    const lst = (payload.status_list as { lst: string }).lst
+    const bytes = inflateSync(Buffer.from(lst, 'base64url'))
+    expect(bytes[0]).toBe(0b1000_0001)
+    expect(bytes[1]).toBe(0b0000_0010)
+  })
+
+  test('keeps the statuses of a stored list encoded by another zlib implementation', async () => {
+    const reference = await allocateOne(agentContext, authInfo, identity)
+    // As stored before the switch to @owf/token-status-list: base64url of the zlib-deflated list, here with
+    // entry 3 already revoked and deflated by node:zlib instead of the library's own compressor.
+    const legacy = new Uint8Array(Math.ceil(defaultTokenStatusListSize / 8))
+    legacy[0] = 0b0000_1000
+    stored[0].encodedStatuses = deflateSync(legacy).toString('base64url')
+
+    await service.setStatuses(agentContext, reference.id, [5], TokenStatus.Invalid)
+
+    const list = getListFromStatusListJWT(stored[0].token!)
+    expect(list.getStatus(3)).toBe(TokenStatus.Invalid)
+    expect(list.getStatus(4)).toBe(TokenStatus.Valid)
+    expect(list.getStatus(5)).toBe(TokenStatus.Invalid)
+    expect(inflateSync(Buffer.from(stored[0].encodedStatuses, 'base64url'))[0]).toBe(0b0010_1000)
+  })
+
+  describe('getStatuses', () => {
+    test('reads the statuses of the calling tenant, aligned with the requested indexes', async () => {
+      const batch = await service.reserveIndexes(agentContext, authInfo, identity, 3)
+      await service.setStatuses(agentContext, batch.id, [batch.indexes[1]], TokenStatus.Invalid)
+      vi.mocked(em.find).mockClear()
+
+      const statuses = await service.getStatuses(agentContext, [{ id: batch.id, indexes: batch.indexes }])
+
+      expect(em.find).toHaveBeenCalledTimes(1)
+      expect(em.find).toHaveBeenCalledWith(TokenStatusList, {
+        id: { $in: [batch.id] },
+        tenantContextId: 'tenant-1',
+      })
+      expect(statuses.get(batch.id)).toEqual([TokenStatus.Valid, TokenStatus.Invalid, TokenStatus.Valid])
+    })
+
+    test('leaves out unknown lists and lists of other tenants instead of throwing', async () => {
+      const reference = await allocateOne(agentContext, authInfo, identity)
+      const otherContext = { ...agentContext, contextCorrelationId: 'tenant-2' } as unknown as AgentContext
+
+      const statuses = await service.getStatuses(otherContext, [
+        { id: reference.id, indexes: [reference.idx] },
+        { id: 'missing', indexes: [0] },
+      ])
+
+      expect(statuses.size).toBe(0)
+    })
+
+    test('concatenates the indexes of an id passed twice', async () => {
+      const reference = await allocateOne(agentContext, authInfo, identity)
+      await setOneStatus(agentContext, reference.id, 5, TokenStatus.Invalid)
+
+      const statuses = await service.getStatuses(agentContext, [
+        { id: reference.id, indexes: [5] },
+        { id: reference.id, indexes: [6] },
+      ])
+
+      expect(statuses.get(reference.id)).toEqual([TokenStatus.Invalid, TokenStatus.Valid])
+    })
+
+    test('makes no query without refs', async () => {
+      expect((await service.getStatuses(agentContext, [])).size).toBe(0)
+      expect(em.find).not.toHaveBeenCalled()
+    })
+  })
+
+  test('getToken of an unknown list is a 404', async () => {
+    await expect(service.getToken('nope')).rejects.toBeInstanceOf(NotFoundException)
+  })
+
+  test('getToken of a list without a signed token is a 404', async () => {
+    await allocateOne(agentContext, authInfo, identity)
+    stored[0].token = null
+
+    await expect(service.getToken(stored[0].id)).rejects.toBeInstanceOf(NotFoundException)
+  })
+
+  test('a full list is not reused — a new one is created', async () => {
+    const reference = await allocateOne(agentContext, authInfo, identity)
+    stored[0].allocatedCount = stored[0].size // pretend every index is taken
+
+    const next = await allocateOne(agentContext, authInfo, identity)
+
+    expect(stored).toHaveLength(2)
+    expect(next.id).not.toBe(reference.id)
+  })
+})

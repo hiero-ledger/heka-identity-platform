@@ -127,6 +127,7 @@ describe('E2E issuance session', () => {
         state: 'OfferCreated',
         type: 'OpenId4VcIssuanceSessionRecord',
         updatedAt: expect.any(String),
+        revocable: false,
         credentialOfferUri: expect.stringMatching(new RegExp(`/oid4vci/${issuerId}/offers/`)),
         issuanceMetadata: {
           credentials: [

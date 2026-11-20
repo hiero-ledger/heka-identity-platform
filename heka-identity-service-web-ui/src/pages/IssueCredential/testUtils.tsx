@@ -142,6 +142,9 @@ export const routeAgencyGets = (
       if (url.startsWith('/issuance-templates/'))
         return Promise.resolve({ data: template });
       if (url === 'connections') return Promise.resolve({ data: [] });
+      // The issued credentials page loads the user's revoke permission
+      if (url === '/user')
+        return Promise.resolve({ data: { canRevokeCredentials: true } });
       return Promise.resolve({ data: undefined });
     },
   );
