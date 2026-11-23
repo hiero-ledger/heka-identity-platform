@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
 import { AnoncredsRegistryService } from 'common/anoncreds-registry'
+import { assertDidActiveOnLedger } from 'common/did-registrar'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { CreateCredentialDefinitionDto, CredentialDefinitionDto } from './dto'
@@ -47,6 +48,7 @@ export class CredentialDefinitionService {
     const logger = this.logger.child('create')
     logger.trace('>')
 
+    await assertDidActiveOnLedger(tenantAgent, req.issuerId)
     await this.anoncredsRegistryService.getSchema(tenantAgent, req.schemaId)
 
     const registrationResult = await this.anoncredsRegistryService.registerCredentialDefinition(tenantAgent, req)

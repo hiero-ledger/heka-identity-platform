@@ -15,14 +15,16 @@ import {
 } from '@credo-ts/core'
 import { DidCommModule } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver, HederaModule } from '@credo-ts/hedera'
-import { IndyVdrAnonCredsRegistry, IndyVdrIndyDidRegistrar, IndyVdrIndyDidResolver } from '@credo-ts/indy-vdr'
+import { IndyVdrAnonCredsRegistry, IndyVdrModule } from '@credo-ts/indy-vdr'
 import { agentDependencies } from '@credo-ts/node'
 import { OpenId4VcModule } from '@credo-ts/openid4vc'
 import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
+import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
 import { NativeAskar } from '@openwallet-foundation/askar-nodejs'
 
 import { IndyBesuDidRegistrar, IndyBesuDidResolver, IndyBesuModule } from 'common/indy-besu-vdr'
 import { IndyBesuAnonCredsRegistry } from 'common/indy-besu-vdr/anoncreds/IndyBesuAnonCredsRegistry'
+import { IndyDidRegistrar, IndyDidResolver } from 'common/indy-vdr/indy-did'
 import { TailsService } from 'revocation/revocation-registry/tails.service'
 import { uuid } from 'src/utils/misc'
 import AgentConfig from 'test/config/agent'
@@ -59,7 +61,13 @@ function getTestModulesMap() {
       endpoints: ['http://localhost:3000', 'ws://localhost:3002'],
     }),
     openid4vc: new OpenId4VcModule(),
-    indyBesu: new IndyBesuModule({ chainId: 1337, nodeAddress: 'http://localhost:8545' }),
+    // The did:indy resolver and the Indy AnonCreds registry read the ledger through it
+    indyVdr: new IndyVdrModule({ indyVdr, networks: AgentConfig().networks }),
+    indyBesu: new IndyBesuModule({
+      chainId: 1337,
+      nodeAddress: 'http://localhost:8545',
+      endorserPrivateKey: AgentConfig().indyBesuEndorserPrivateKey,
+    }),
     hedera: new HederaModule({
       networks: [
         {
@@ -75,7 +83,7 @@ function getTestModulesMap() {
         new PeerDidResolver(),
         new JwkDidResolver(),
         new WebDidResolver(),
-        new IndyVdrIndyDidResolver(),
+        new IndyDidResolver(),
         new IndyBesuDidResolver(),
         new HederaDidResolver(),
       ],
@@ -83,7 +91,7 @@ function getTestModulesMap() {
         new KeyDidRegistrar(),
         new PeerDidRegistrar(),
         new JwkDidRegistrar(),
-        new IndyVdrIndyDidRegistrar(),
+        new IndyDidRegistrar(),
         new IndyBesuDidRegistrar(),
         new HederaDidRegistrar(),
       ],

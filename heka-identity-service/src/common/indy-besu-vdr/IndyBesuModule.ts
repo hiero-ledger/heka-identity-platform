@@ -17,6 +17,7 @@ export class IndyBesuModule implements Module {
 
     const client = new LedgerClient(this.config.chainId, this.config.nodeAddress, contracts, undefined, undefined)
 
+    dependencyManager.registerInstance(IndyBesuModuleConfig, this.config)
     dependencyManager.registerInstance(LedgerClient, client)
     dependencyManager.registerSingleton(DidRegistry)
     dependencyManager.registerSingleton(SchemaRegistry)

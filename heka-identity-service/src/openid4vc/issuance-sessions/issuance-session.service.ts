@@ -1,3 +1,5 @@
+import type { DidDocument } from '@credo-ts/core'
+
 import { parseDid, RecordNotFoundError, SdJwtVcPayload } from '@credo-ts/core'
 import {
   OpenId4VciCredentialFormatProfile,
@@ -21,6 +23,7 @@ import { InjectLogger, Logger } from 'common/logger'
 import AgentConfig from 'config/agent'
 
 import { AuthInfo } from '../../common/auth'
+import { resolveActiveDidDocument, selectSigningKey } from '../../common/did-registrar'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
 import {
   TokenStatus,
@@ -75,6 +78,17 @@ export class OpenId4VcIssuanceSessionService {
     let credentialIndex = statusList?.lastIndex ?? 0
     const credentialIndexes = []
 
+    // One ledger read per issuer DID for the whole offer: it checks the deactivation and is what the key is chosen from
+    const issuerDocuments = new Map<string, Promise<DidDocument | null>>()
+    const issuerDocument = (did: string) => {
+      let document = issuerDocuments.get(did)
+      if (!document) {
+        document = resolveActiveDidDocument(tenantAgent, did)
+        issuerDocuments.set(did, document)
+      }
+      return document
+    }
+
     // Maps credentials, adds properties, and throws errors if needed
     const mappedCredentials: Array<CredentialIssuanceMetadata> = []
     for (const credential of req.credentials) {
@@ -100,14 +114,23 @@ export class OpenId4VcIssuanceSessionService {
       // MsoMdoc uses X.509 certificates, not DIDs — skip DID resolution
       let issuerDidUrl: string | undefined
       if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
-        const issuerCredential = credential as { issuer: { did: string } }
-        const { didDocument } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
-        if (!didDocument || !didDocument.verificationMethod?.length) {
+        const issuerCredential = credential as { issuer: { did: string; keyId?: string } }
+        const didDocument = await issuerDocument(issuerCredential.issuer.did)
+        const purposes: Array<'assertionMethod' | 'authentication'> =
+          credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc
+            ? ['assertionMethod']
+            : ['assertionMethod', 'authentication']
+        const { keyId } = issuerCredential.issuer
+        const selected = didDocument ? await selectSigningKey(tenantAgent, didDocument, purposes, keyId) : {}
+        issuerDidUrl = selected.didUrl
+        if (!issuerDidUrl) {
+          const key = keyId ? `key ${keyId}` : 'key'
           throw new UnprocessableEntityException(
-            `Unable to resolve signing key for DID: ${issuerCredential.issuer.did}`,
+            selected.unusable
+              ? `DID ${issuerCredential.issuer.did} has no ${key} this wallet can sign credentials with: ${selected.unusable}`
+              : `DID ${issuerCredential.issuer.did} has no ${key} for signing credentials (a verification method referenced from ${purposes.join(' and ')})`,
           )
         }
-        issuerDidUrl = didDocument.verificationMethod[0].id
       }
 
       let credentialStatus: CredentialIssuanceMetadata['credentialStatus']
@@ -160,11 +183,13 @@ export class OpenId4VcIssuanceSessionService {
           namespaces: credential.namespaces,
         }
       } else {
+        // `keyId` is resolved into `didUrl`
+        const { keyId: _keyId, ...issuer } = credential.issuer
         credentialIssuanceMeta = {
           ...credential,
           type,
           issuer: {
-            ...credential.issuer,
+            ...issuer,
             didUrl: issuerDidUrl,
           },
           credentialStatus,

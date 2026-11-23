@@ -3,7 +3,7 @@ import { injectable } from '@credo-ts/core'
 import { IndyDidRegistry, LedgerClient } from 'indybesu-vdr'
 
 import { IndyBesuSigner } from '../IndyBesuSigner'
-import { DidDocument } from '../types'
+import { DidDocument, DidMetadata } from '../types'
 
 import { Contract } from './Contract'
 
@@ -44,12 +44,24 @@ export class DidRegistry extends Contract {
     return await this.signAndSubmit(transaction, signer)
   }
 
+  public async endorseUpdateDid(didDocument: DidDocument, identity: IndyBesuSigner, endorser: IndyBesuSigner) {
+    const endorsingData = await IndyDidRegistry.buildUpdateDidEndorsingData(this.client, didDocument.id, didDocument)
+    await identity.signTransaction(endorsingData)
+    return await this.endorseTransaction(endorsingData, endorser)
+  }
+
   public async deactivateDid(id: string, signer: IndyBesuSigner) {
     const transaction = await IndyDidRegistry.buildDeactivateDidTransaction(this.client, signer.address, id)
     return await this.signAndSubmit(transaction, signer)
   }
 
-  public async resolveDid(id: string): Promise<{ document: DidDocument }> {
+  public async endorseDeactivateDid(id: string, identity: IndyBesuSigner, endorser: IndyBesuSigner) {
+    const endorsingData = await IndyDidRegistry.buildDeactivateDidEndorsingData(this.client, id)
+    await identity.signTransaction(endorsingData)
+    return await this.endorseTransaction(endorsingData, endorser)
+  }
+
+  public async resolveDid(id: string): Promise<{ document: DidDocument; metadata: DidMetadata }> {
     const transaction = await IndyDidRegistry.buildResolveDidTransaction(this.client, id)
     const response = await this.client.submitTransaction(transaction)
     return IndyDidRegistry.parseResolveDidResult(this.client, response)

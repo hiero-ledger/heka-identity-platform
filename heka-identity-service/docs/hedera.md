@@ -47,12 +47,13 @@ For programmatic account creation (CI / multiple environments), see the [Hedera 
 
 The service writes the following resource types when Hedera is the active registry:
 
-| Resource                                                   | When written                                                                                    |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| **DID document**                                           | When a tenant creates a `did:hedera` (e.g. via `POST /dids` or via `prepare-wallet`).           |
-| **AnonCreds schema**                                       | When a tenant publishes a schema against a Hedera-based issuer DID.                             |
-| **AnonCreds credential definition**                        | When a credential definition is registered against a Hedera schema.                             |
-| **AnonCreds revocation registry definition / status list** | If revocation is enabled for a credential definition; updated whenever credentials are revoked. |
+| Resource                                                   | When written                                                                                       |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **DID document**                                           | When a tenant creates a `did:hedera` (e.g. via `POST /dids` or via `prepare-wallet`).              |
+| **DID document update / deactivation**                     | On `PATCH /dids/:did` (one HCS message per added or removed entry) / `POST /dids/:did/deactivate`. |
+| **AnonCreds schema**                                       | When a tenant publishes a schema against a Hedera-based issuer DID.                                |
+| **AnonCreds credential definition**                        | When a credential definition is registered against a Hedera schema.                                |
+| **AnonCreds revocation registry definition / status list** | If revocation is enabled for a credential definition; updated whenever credentials are revoked.    |
 
 Each of these is a real Hedera transaction and consumes HBAR. Plan operator-account funding accordingly for production deployments — especially revocation, which writes on every revocation event.
 

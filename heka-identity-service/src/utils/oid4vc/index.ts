@@ -1,4 +1,4 @@
-import type { JsonObject } from '@credo-ts/core'
+import type { DidDocument, JsonObject, VerificationMethod } from '@credo-ts/core'
 
 import {
   ClaimFormat,
@@ -17,6 +17,28 @@ import {
 import { v4 } from 'uuid'
 
 import { normalizeMdocNamespaces } from './mdoc-namespaces'
+
+/**
+ * Ids (absolute) of the verification methods of the document, in document order, that every one of `purposes`
+ * references; only `keyId` (relative or absolute) when one is given. Verifiers accept a signature only from a key of the
+ * right purpose: a credential from an `assertionMethod` key, a signed request from an `authentication` key. The first
+ * verification method is not always one: the did:indy `#verkey` is `authentication` only.
+ */
+export function signingKeyCandidates(
+  didDocument: DidDocument,
+  purposes: Array<'assertionMethod' | 'authentication'>,
+  keyId?: string,
+): string[] {
+  const absolute = (entry: string | VerificationMethod) => {
+    const id = typeof entry === 'string' ? entry : entry.id
+    return id.startsWith('#') ? `${didDocument.id}${id}` : id
+  }
+  const referenced = purposes.map((purpose) => new Set((didDocument[purpose] ?? []).map(absolute)))
+  const wanted = keyId && absolute(keyId)
+  return (didDocument.verificationMethod ?? [])
+    .map(absolute)
+    .filter((id) => (!wanted || id === wanted) && referenced.every((ids) => ids.has(id)))
+}
 
 export interface CredentialIssuanceMetadata {
   format: string

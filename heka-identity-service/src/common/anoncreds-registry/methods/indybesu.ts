@@ -5,21 +5,12 @@ import {
   RegisterRevocationRegistryDefinitionReturn,
   RegisterSchemaReturn,
 } from '@credo-ts/anoncreds'
-import { ConfigType } from '@nestjs/config'
 
-import AgentConfig from '../../../config/agent'
 import { TenantAgent } from '../../agent'
 import { AnoncredsRegistry, CredentialDefinition, Schema } from '../anoncreds-registry.types'
 
 export class AnoncredsIndyBesuRegistrar extends AnoncredsRegistry {
   public static readonly method = 'indybesu'
-
-  private readonly endorserPublicKey!: string
-
-  public constructor(agencyConfig: ConfigType<typeof AgentConfig>) {
-    super()
-    this.endorserPublicKey = agencyConfig.indyBesuEndorserPublicKey
-  }
 
   public getSchema(tenantAgent: TenantAgent, schemaId: string): Promise<GetSchemaReturn> {
     return tenantAgent.modules.anoncreds.getSchema(schemaId)
@@ -30,7 +21,6 @@ export class AnoncredsIndyBesuRegistrar extends AnoncredsRegistry {
       schema,
       options: {
         issuerId: schema.issuerId,
-        endorserKey: this.endorserPublicKey,
       },
     })
   }
@@ -51,7 +41,6 @@ export class AnoncredsIndyBesuRegistrar extends AnoncredsRegistry {
       options: {
         supportRevocation: true,
         issuerId: credDef.issuerId,
-        endorserKey: this.endorserPublicKey,
       },
     })
   }

@@ -12,12 +12,7 @@ import {
 } from '@credo-ts/core'
 import { DidCommMessagePickupModule } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver } from '@credo-ts/hedera'
-import {
-  IndyVdrAnonCredsRegistry,
-  IndyVdrIndyDidRegistrar,
-  IndyVdrIndyDidResolver,
-  IndyVdrModule,
-} from '@credo-ts/indy-vdr'
+import { IndyVdrAnonCredsRegistry, IndyVdrModule } from '@credo-ts/indy-vdr'
 import { OpenId4VcIssuerModule, OpenId4VcVerifierModule } from '@credo-ts/openid4vc'
 import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
@@ -28,6 +23,7 @@ import { NativeAskar } from '@openwallet-foundation/askar-nodejs'
 
 import { IndyBesuDidRegistrar, IndyBesuDidResolver } from 'common/indy-besu-vdr'
 import { IndyBesuAnonCredsRegistry } from 'common/indy-besu-vdr/anoncreds/IndyBesuAnonCredsRegistry'
+import { IndyDidRegistrar, IndyDidResolver } from 'common/indy-vdr/indy-did'
 import AppConfig from 'config/express'
 import { TailsService } from 'revocation/revocation-registry/tails.service'
 import { AppModule } from 'src/app.module'
@@ -114,7 +110,7 @@ export async function startTestApp(options: TestAppOptions = {}): Promise<INestA
               new PeerDidResolver(),
               new JwkDidResolver(),
               new WebDidResolver(),
-              new IndyVdrIndyDidResolver(),
+              new IndyDidResolver(),
               new IndyBesuDidResolver(),
               new HederaDidResolver(),
             ],
@@ -122,7 +118,7 @@ export async function startTestApp(options: TestAppOptions = {}): Promise<INestA
               new KeyDidRegistrar(),
               new PeerDidRegistrar(),
               new JwkDidRegistrar(),
-              new IndyVdrIndyDidRegistrar(),
+              new IndyDidRegistrar(),
               new IndyBesuDidRegistrar(),
               new HederaDidRegistrar(),
             ],
