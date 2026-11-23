@@ -1,10 +1,9 @@
 diff --git a/build/anoncreds/HederaAnonCredsRegistry.mjs b/build/anoncreds/HederaAnonCredsRegistry.mjs
-index a790c789ee6c4de59970d909d414fd4e4ef66821..ef1e75c4a4d7b9c0398f4fe402acb9b3af1d8ba6 100644
+index 0770f49fe78f3b04c9142c41037b94527728d7bd..a2799904f1a6a3f0b09376d1d0e53c83a1a5476d 100644
 --- a/build/anoncreds/HederaAnonCredsRegistry.mjs
 +++ b/build/anoncreds/HederaAnonCredsRegistry.mjs
-@@ -1,6 +1,13 @@
- import { HederaLedgerService } from "../ledger/HederaLedgerService.mjs";
- 
+@@ -1,5 +1,12 @@
+ import { HederaAnonCredsService } from "./HederaAnonCredsService.mjs";
  //#region src/anoncreds/HederaAnonCredsRegistry.ts
 +// The Hedera SDK works with millisecond timestamps, while AnonCreds uses seconds
 +function toSecondsTimestamp(revocationStatusList) {
@@ -16,23 +15,23 @@ index a790c789ee6c4de59970d909d414fd4e4ef66821..ef1e75c4a4d7b9c0398f4fe402acb9b3
  var HederaAnonCredsRegistry = class {
  	constructor() {
  		this.methodName = "hedera";
-@@ -131,7 +138,9 @@ var HederaAnonCredsRegistry = class {
+@@ -130,7 +137,9 @@ var HederaAnonCredsRegistry = class {
  	async registerRevocationStatusList(agentContext, options) {
  		try {
  			agentContext.config.logger.trace(`Registering revocation status list for '${options.revocationStatusList.revRegDefId}' on Hedera ledger`);
--			return await agentContext.dependencyManager.resolve(HederaLedgerService).registerRevocationStatusList(agentContext, options);
-+			const result = await agentContext.dependencyManager.resolve(HederaLedgerService).registerRevocationStatusList(agentContext, options);
+-			return await agentContext.dependencyManager.resolve(HederaAnonCredsService).registerRevocationStatusList(agentContext, options);
++			const result = await agentContext.dependencyManager.resolve(HederaAnonCredsService).registerRevocationStatusList(agentContext, options);
 +			if (result.revocationStatusListState.state === "finished") result.revocationStatusListState.revocationStatusList = toSecondsTimestamp(result.revocationStatusListState.revocationStatusList);
 +			return result;
  		} catch (error) {
  			agentContext.config.logger.error(`Error registering revocation status list for did '${options.revocationStatusList.issuerId}'`, {
  				error,
-@@ -152,7 +161,9 @@ var HederaAnonCredsRegistry = class {
+@@ -151,7 +160,9 @@ var HederaAnonCredsRegistry = class {
  	async getRevocationStatusList(agentContext, revocationRegistryId, timestamp) {
  		try {
  			agentContext.config.logger.trace(`Resolving revocation status for for '${revocationRegistryId}' from Hedera ledger`);
--			return await agentContext.dependencyManager.resolve(HederaLedgerService).getRevocationStatusList(agentContext, revocationRegistryId, timestamp * 1e3);
-+			const result = await agentContext.dependencyManager.resolve(HederaLedgerService).getRevocationStatusList(agentContext, revocationRegistryId, timestamp * 1e3);
+-			return await agentContext.dependencyManager.resolve(HederaAnonCredsService).getRevocationStatusList(agentContext, revocationRegistryId, timestamp * 1e3);
++			const result = await agentContext.dependencyManager.resolve(HederaAnonCredsService).getRevocationStatusList(agentContext, revocationRegistryId, timestamp * 1e3);
 +			if (result.revocationStatusList) result.revocationStatusList = toSecondsTimestamp(result.revocationStatusList);
 +			return result;
  		} catch (error) {

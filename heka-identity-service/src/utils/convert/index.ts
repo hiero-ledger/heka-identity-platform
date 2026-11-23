@@ -15,3 +15,12 @@ export const bytesToSize = (bytes: number, precision?: number): string => {
   const value: number = bytes / Math.pow(1024, index)
   return `${parseFloat(value.toFixed(precision ?? 2))} ${units[index]}`
 }
+
+export const toBase64 = (bytes: Uint8Array): string => Buffer.from(bytes).toString('base64')
+
+export const fromBase64 = (value: string): Uint8Array => Uint8Array.from(Buffer.from(value, 'base64'))
+
+/** Unpadded base64url (RFC 4648 §5) of a byte array or of a string's UTF-8 bytes, as used in JWS */
+export const toBase64Url = (value: string | Uint8Array): string => Buffer.from(value).toString('base64url')
+
+export const fromBase64Url = (value: string): Uint8Array => Uint8Array.from(Buffer.from(value, 'base64url'))

@@ -1,0 +1,17 @@
+# Checks on Home that the wallet is logged in as the expected Keycloak user, then returns to Home.
+# login.yaml may reuse Chrome's Keycloak session, which can belong to another user.
+# Input: env KC_EMAIL, the email of the KC_USERNAME user (matched literally).
+appId: com.heka.wallet
+---
+- tapOn:
+    id: 'com.ariesbifold:id/TabSettings'
+- tapOn: 'User profile'
+# The profile loads from the userinfo endpoint.
+# Text selectors are full-match regexes; \Q...\E quotes the email so "." matches only a dot.
+# No "$" inside ${...}: Maestro's interpolation pattern stops at it.
+- extendedWaitUntil:
+    visible: '${"\\Q" + KC_EMAIL + "\\E"}'
+    timeout: 15000
+- back
+- tapOn:
+    id: 'com.ariesbifold:id/TabCredentials'

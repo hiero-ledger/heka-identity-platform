@@ -10,9 +10,13 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { CredentialCard } from '../components/cards'
 import { Record } from '../components/misc'
 import CredentialContextMenu from '../components/misc/CredentialContextMenu'
+import { CredentialRevokedBanner } from '../components/misc/CredentialRevokedBanner'
 import LoadingView from '../components/views/LoadingView'
 import { mapCredentialRecord, Credential } from '../credentials'
+import { useCredentialRevocation } from '../hooks/useCredentialRevocation'
+import { useFloatingTabBarInset } from '../hooks/useFloatingTabBarInset'
 import { useHekaAgent } from '../utils/agent'
+import { formatError } from '../utils/error'
 
 type CredentialStackParams = {
   [Screens.CredentialDetails]: { credentialId: string | Credential }
@@ -40,6 +44,11 @@ export const CredentialDetails: React.FC<Props> = ({ navigation, route }) => {
   const [credential, setCredential] = useState<Credential | undefined>(
     !routeWithCredentialId ? routeCredential : undefined
   )
+
+  const { revocationNotification, isDetailDismissed, dismissDetail } = useCredentialRevocation(credential)
+
+  // Opened from the credential list, the details are inside the tab navigator under the floating tab bar
+  const tabBarInset = useFloatingTabBarInset()
 
   const [shown, setShown] = useState<boolean[]>([])
   const [showAll, setShowAll] = useState<boolean>(false)
@@ -71,12 +80,13 @@ export const CredentialDetails: React.FC<Props> = ({ navigation, route }) => {
     setShown(newShowStates)
   }
 
-  // TODO: Rework current resetShown function to fix eslint error
+  // A loaded credential opens with every value hidden
   useEffect(() => {
-    if (credential) {
-      resetShown()
-    }
-  }, [credential]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!credential) return
+
+    setShown(credential.display.attributes.map(() => false))
+    setShowAll(true)
+  }, [credential])
 
   useEffect(() => {
     if (credential || !routeWithCredentialId || !agent) return
@@ -88,8 +98,18 @@ export const CredentialDetails: React.FC<Props> = ({ navigation, route }) => {
       .getById(routeCredential)
       .then((record) => mapCredentialRecord(record, agent))
       .then((credential) => setCredential(credential))
+      .catch((err: unknown) => {
+        agent.config.logger.error('Failed to load the credential', {
+          credentialId: routeCredential,
+          error: formatError(err),
+        })
+        DeviceEventEmitter.emit(
+          EventTypes.ERROR_ADDED,
+          new BifoldError(t('Error.Title1033'), t('Error.Message1033'), (err as Error)?.message ?? err, 1033)
+        )
+      })
       .finally(() => setIsCredentialLoading(false))
-  }, [agent, routeCredential, credential, routeWithCredentialId])
+  }, [agent, routeCredential, credential, routeWithCredentialId, t])
 
   useEffect(() => {
     if (!agent) {
@@ -117,14 +137,25 @@ export const CredentialDetails: React.FC<Props> = ({ navigation, route }) => {
     <SafeAreaView style={{ flexGrow: 1, paddingHorizontal: Spacing.xl }} edges={['left', 'right']}>
       <Record
         fields={credential.display.attributes || []}
+        contentContainerStyle={{ paddingBottom: tabBarInset }}
         hideFieldValues
         header={() => (
-          <CredentialCard
-            credentialDisplay={credential.display}
-            showActionButton
-            actionButtonTitle={showAll ? t('CredentialDetails.ShowAll') : t('CredentialDetails.HideAll')}
-            onActionButtonPress={resetShown}
-          />
+          <>
+            <CredentialCard
+              credentialDisplay={credential.display}
+              showActionButton
+              actionButtonTitle={showAll ? t('CredentialDetails.ShowAll') : t('CredentialDetails.HideAll')}
+              onActionButtonPress={resetShown}
+            />
+            {revocationNotification && (
+              <CredentialRevokedBanner
+                revocationDate={revocationNotification.revocationDate}
+                comment={revocationNotification.comment}
+                showMessage={!isDetailDismissed}
+                onDismiss={dismissDetail}
+              />
+            )}
+          </>
         )}
         shown={shown}
         toggleShownState={toggleShownState}

@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: 'postgres:15'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mediator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mediator}
+    volumes:
+      - mediator-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mediator:
+    # The upstream project publishes images tagged by commit only (there is no `latest` tag).
+    # 375518d corresponds to the v0.0.2-alpha-20251223125919 release.
+    image: ghcr.io/openwallet-foundation/didcomm-mediator-credo/mediator:${MEDIATOR_IMAGE_TAG:-375518d}
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      AGENT_NAME: ${AGENT_NAME:-Heka DIDComm Mediator}
+      AGENT_PORT: 3110
+      # HTTP and WebSocket transports share a single port
+      AGENT_ENDPOINTS: ${AGENT_ENDPOINTS:-http://localhost:3110,ws://localhost:3110}
+
+      # Agent storage and keys - Askar with Postgres (store is created on first start)
+      ASKAR__STORE_ID: ${ASKAR_STORE_ID:-mediator}
+      ASKAR__STORE_KEY: ${ASKAR_STORE_KEY:-mediator}
+      ASKAR__DATABASE__TYPE: postgres
+      ASKAR__DATABASE__HOST: postgres:5432
+      ASKAR__DATABASE__USER: ${POSTGRES_USER:-mediator}
+      ASKAR__DATABASE__PASSWORD: ${POSTGRES_PASSWORD:-mediator}
+      ASKAR__DATABASE__ADMIN_USER: ${POSTGRES_USER:-mediator}
+      ASKAR__DATABASE__ADMIN_PASSWORD: ${POSTGRES_PASSWORD:-mediator}
+
+      # Queued messages are kept in the agent storage, cache is in-memory (single instance setup)
+      MESSAGE_PICKUP__STORAGE__TYPE: credo
+      CACHE__TYPE: in-memory
+    ports:
+      - '${MEDIATOR_PORT:-3110}:3110'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  mediator-postgres:

@@ -196,8 +196,7 @@ export const useWalletSettings = (): SettingSection[] => {
           accessibilityLabel: t('Settings.Notifications'),
           onPress: () =>
             navigation.getParent()?.navigate(BifoldStacks.SettingStack, {
-              screen: BifoldScreens.PushNotifications,
-              params: { isMenu: true },
+              screen: BifoldScreens.TogglePushNotifications,
             }),
         })
     }

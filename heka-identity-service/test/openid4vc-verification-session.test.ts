@@ -10,7 +10,7 @@ import { Role } from 'src/common/auth'
 import { parseDidMethods } from 'src/config/insecure-defaults'
 import { uuid } from 'src/utils/misc'
 
-import { initializeMikroOrm, startTestApp, waitUntil } from './helpers'
+import { escapeRegExp, initializeMikroOrm, startTestApp, waitUntil } from './helpers'
 import { createAuthToken } from './helpers/jwt'
 import { createAgent, TestAgentModulesMap } from './helpers/test-agent'
 
@@ -163,7 +163,7 @@ describe('E2E verification session', () => {
           new RegExp(
             `^openid4vp://\\?client_id=${encodeURIComponent(verifierId)}&request_uri=` +
               `http[^/]+` +
-              encodeURIComponent(`/oid4vp/${verifierId}/authorization-requests/`).replace(/\./g, '\\.') +
+              escapeRegExp(encodeURIComponent(`/oid4vp/${verifierId}/authorization-requests/`)) +
               `[^/]+$`,
           ),
         ),

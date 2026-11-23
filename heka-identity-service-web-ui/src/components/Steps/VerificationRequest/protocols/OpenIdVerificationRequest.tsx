@@ -6,10 +6,12 @@ import { useSelector } from 'react-redux';
 import { VerificationRequestProps } from '@/components/Steps';
 import { DcApiPresentation } from '@/components/Steps/VerificationRequest/states/DcApiPresentation';
 import { PendingPresentation } from '@/components/Steps/VerificationRequest/states/PendingPresentation';
+import { PresentationFailed } from '@/components/Steps/VerificationRequest/states/PresentationFailed';
 import { PresentationReceived } from '@/components/Steps/VerificationRequest/states/PresentationReceived';
 import {
   getPresentationRequest,
   getIsPresentationCompleted,
+  getIsPresentationFailed,
 } from '@/entities/Presentation/model/selectors/presentationSelector';
 import { requestPresentation } from '@/entities/Presentation/model/services/requestPresentation';
 import { isDcApiSupported } from '@/shared/lib/dcApi';
@@ -136,11 +138,14 @@ export const OpenIdVerificationRequest = <T extends object>(
   props: VerificationRequestProps<T>,
 ) => {
   const isPresentationCompleted = useSelector(getIsPresentationCompleted);
+  const isPresentationFailed = useSelector(getIsPresentationFailed);
 
   return (
     <Row className={cls.VerificationRequest}>
       {isPresentationCompleted ? (
         <PresentationReceived {...props} />
+      ) : isPresentationFailed ? (
+        <PresentationFailed {...props} />
       ) : (
         <PresentationRequested {...props} />
       )}

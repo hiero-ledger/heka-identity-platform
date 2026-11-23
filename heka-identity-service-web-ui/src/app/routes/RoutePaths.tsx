@@ -15,6 +15,7 @@ export enum ROUTES {
   ISSUE_CREDENTIAL_SCHEMAS = '/issue-credential/schemas',
   ISSUE_CREDENTIAL_CREDENTIAL_DEFINITIONS = '/issue-credential/credential-definitions',
   ISSUE_CREDENTIAL_DIDS = '/issue-credential/dids',
+  ISSUE_CREDENTIAL_ISSUED_CREDENTIALS = '/issue-credential/issued-credentials',
   ISSUE_ADVANCED_ISSUE = '/issue-credential/advanced-issue',
   ISSUE_CREDENTIAL_FROM_TEMPLATE = '/issue-credential/from-template',
   ISSUE_TEMPLATE = '/issue-credential/template',

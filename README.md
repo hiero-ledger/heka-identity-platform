@@ -17,6 +17,7 @@ The platform is composed of the following components:
 - **[Identity Service](./heka-identity-service)**: Backend service (built with NestJS) that primarily acts as a Verifiable Credentials Issuer and Verifier, while also supporting Holder capabilities for cloud (custodial) wallet scenarios.
 - **[Identity Service Web UI](./heka-identity-service-web-ui)**: Web UI application for Identity Service — allows managing schemas, credential templates, and issuance / verification flows.
 - **OIDC provider** (Keycloak, Auth0 or any standards-compliant provider, not part of the repository): authenticates Identity Service users and tenants; the ready-made recipes live in [heka-sso-service/keycloak](./heka-sso-service/keycloak) and [heka-sso-service/auth0](./heka-sso-service/auth0).
+- **[DIDComm Mediator](./mediator)**: Docker Compose setup for a self-hosted DIDComm mediator ([OWF DIDComm Mediator Credo](https://github.com/openwallet-foundation/didcomm-mediator-credo)) that relays DIDComm messages to Heka Wallet.
 
 The implementation is based on the **DSR SSI Toolkit** and leverages well-established open-source frameworks: **OWF Credo** and **OWF Bifold**.
 
@@ -25,6 +26,7 @@ The implementation is based on the **DSR SSI Toolkit** and leverages well-establ
 ```mermaid
 flowchart LR
     Wallet[Heka Wallet<br/>Holder]
+    Mediator[DIDComm Mediator]
     WebUI[Identity Service Web UI<br/>Issuer / Verifier Client]
     OIDC[OIDC provider<br/>Keycloak / Auth0 / …]
     IS[Identity Service<br/>Issuer / Verifier Wallet]
@@ -34,6 +36,8 @@ flowchart LR
     WebUI -->|REST API + access token| IS
     OIDC -.->|JWKS: tokens verified by| IS
     Wallet <-->|OID4VC / DIDComm| IS
+    Wallet -->|DIDComm message pickup| Mediator
+    IS -->|DIDComm messages to Wallet| Mediator
     IS -->|DIDs / AnonCreds Resources| Hedera
     Wallet -->|DIDs and AnonCreds Resources resolution| Hedera
 ```
@@ -102,7 +106,7 @@ This includes (but is not limited to) VC-based trust models for AI agents and th
 
 Initial supported use cases:
 
-- **VC-based authorization for agents**: [OID4VP In-Task Authorization Extension for Agent2Agent (A2A) protocol](https://github.com/DSRCorporation/a2a-oid4vp-in-task-auth-extension/blob/main/v1/spec.md)
+- **VC-based authorization for agents**: [OID4VP In-Task Authorization Extension for Agent2Agent (A2A) protocol](https://github.com/a2aproject/experimental-ext-oid4vp-auth/blob/main/v1/spec.md)
 
 ## Roadmap
 

@@ -70,7 +70,15 @@ export default {
       presentationRequest: 'Presentation Request',
       verificationRequest: 'Credential verification request',
       presentationReceived: 'Credential verified',
+      presentationFailed: 'Verification failed',
       verify: 'Verify Credential',
+    },
+    messages: {
+      presentationRevoked: 'The credential has been revoked.',
+      presentationExpired:
+        'The verification request expired before the wallet responded.',
+      presentationFailed:
+        'The credential could not be verified, or the holder declined the request.',
     },
     buttons: {
       issue: 'Issue',
@@ -194,6 +202,56 @@ export default {
     },
     errors: {
       BadContext: 'Credential issuance context is invalid',
+    },
+    issuedCredentials: {
+      title: 'Issued credentials',
+      loading: 'Loading issued credentials',
+      empty: 'No issued credentials yet',
+      emptyDescription:
+        'Credentials appear here once the holder has accepted them.',
+      loadError: 'Could not load the issued credentials.',
+      retry: 'Retry',
+      columns: {
+        schema: 'Schema',
+        protocol: 'Protocol',
+        format: 'Format',
+        issued: 'Issued',
+        status: 'Status',
+      },
+      protocols: {
+        didcomm: 'DIDComm',
+        oid4vc: 'OpenID4VC',
+      },
+      status: {
+        active: 'Active',
+        revoked: 'Revoked',
+        notRevocable: 'Not revocable',
+        unknown: 'Status unknown',
+      },
+      details: {
+        schema: 'Schema',
+        protocol: 'Protocol',
+        format: 'Format',
+        issued: 'Issued',
+        status: 'Status',
+        issuerDid: 'Issuer DID',
+        credentialDefinitionId: 'Credential definition ID',
+        credentialConfigurations: 'Credential configuration(s)',
+        recordId: 'Record ID',
+      },
+      buttons: {
+        revoke: 'Revoke',
+      },
+      confirmation: {
+        text: 'Revoke this credential?',
+        details: 'Revocation cannot be undone.',
+        accept: 'Revoke',
+        cancel: 'Cancel',
+      },
+      messages: {
+        revoked: 'Credential revoked',
+        alreadyRevoked: 'The credential was already revoked',
+      },
     },
     schema: {
       create: 'Create schema',

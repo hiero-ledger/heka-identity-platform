@@ -10,11 +10,19 @@ import { TailsService } from './revocation-registry/tails.service'
 import { StatusListController } from './status-list/status-list.controller'
 import { StatusListPublicController } from './status-list/status-list.public.controller'
 import { StatusListService } from './status-list/status-list.service'
+import { TokenStatusListPublicController } from './token-status-list/token-status-list.public.controller'
+import { TokenStatusListService } from './token-status-list/token-status-list.service'
 
 @Module({
   imports: [AgentModule, AnoncredsRegistryModule],
-  controllers: [RevocationRegistryController, TailsController, StatusListController, StatusListPublicController],
-  providers: [RevocationRegistryService, TailsService, StatusListService],
-  exports: [RevocationRegistryService, StatusListService],
+  controllers: [
+    RevocationRegistryController,
+    TailsController,
+    StatusListController,
+    StatusListPublicController,
+    TokenStatusListPublicController,
+  ],
+  providers: [RevocationRegistryService, TailsService, StatusListService, TokenStatusListService],
+  exports: [RevocationRegistryService, StatusListService, TokenStatusListService],
 })
 export class RevocationModule {}

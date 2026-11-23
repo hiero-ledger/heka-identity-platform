@@ -1,4 +1,5 @@
 import Expo
+import FirebaseCore
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
@@ -18,6 +19,12 @@ class AppDelegate: ExpoAppDelegate, UNUserNotificationCenterDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    // GoogleService-Info.plist is gitignored and copied into the app only if present (build phase
+    // "[Heka] Copy GoogleService-Info.plist if present"); without it the app runs without Firebase, push off
+    if Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
+      FirebaseApp.configure()
+    }
+
     // Set notification delegate to allow foreground notifications
     UNUserNotificationCenter.current().delegate = self
 

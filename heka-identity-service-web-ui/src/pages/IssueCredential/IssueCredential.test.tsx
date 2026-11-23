@@ -100,10 +100,36 @@ describe('IssueCredential page', () => {
   test.each([
     ['credential-definitions', 'Credential definitions'],
     ['dids', 'DIDs'],
-    ['issued-credentials', 'Issued credentials'],
   ])('renders the %s placeholder', (segment, text) => {
     renderAt(`/issue-credential/${segment}`);
     expect(screen.getByText(text)).toBeInTheDocument();
+  });
+
+  test('renders the issued credentials list', async () => {
+    const { api } = renderAt(ROUTES.ISSUE_CREDENTIAL_ISSUED_CREDENTIALS);
+
+    expect(
+      await screen.findByText('No issued credentials yet'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Issued credentials' }),
+    ).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/credentials', {
+      params: { role: 'issuer', state: 'done' },
+    });
+  });
+
+  test('opens the issued credentials from the menu', async () => {
+    const { user } = renderAt(ROUTES.ISSUE_CREDENTIAL_TEMPLATES);
+
+    await user.click(screen.getByText('Issued credentials'));
+
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      ROUTES.ISSUE_CREDENTIAL_ISSUED_CREDENTIALS,
+    );
+    expect(
+      await screen.findByText('No issued credentials yet'),
+    ).toBeInTheDocument();
   });
 });
 

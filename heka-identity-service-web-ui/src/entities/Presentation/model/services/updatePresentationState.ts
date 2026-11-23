@@ -9,8 +9,10 @@ import { handleError } from '@/shared/api/utils/error';
 import {
   AnoncredsPresentationState,
   OpenIdPresentationState,
+  PresentationFailureReason,
   SharedAttribute,
 } from '../types/presentation';
+import { toPresentationFailureReason } from '../utils/presentationFailure';
 
 export interface UpdatePresentationStateParams {
   protocolType: ProtocolType;
@@ -21,6 +23,8 @@ export interface UpdatePresentationStateParams {
 export interface CheckPresentationStateResult {
   state: OpenIdPresentationState | AnoncredsPresentationState;
   sharedAttributes?: Array<SharedAttribute>;
+  isVerified?: boolean;
+  failureReason?: PresentationFailureReason;
 }
 
 export const updatePresentationState = createAsyncThunk<
@@ -51,6 +55,8 @@ export const updatePresentationState = createAsyncThunk<
 interface UpdateOpenIdPresentationStateResponse {
   id: string;
   state: OpenIdPresentationState;
+  /** Set by Credo when the session ends in `Error`; used only to derive the failure reason */
+  errorMessage?: string;
   authorizationResponsePayload: {
     presentation_submission: {
       id: string;
@@ -83,6 +89,10 @@ const updateOpenId4VcPresentationState = async (
   return {
     state: response.data.state,
     sharedAttributes,
+    failureReason:
+      response.data.state === OpenIdPresentationState.Error
+        ? toPresentationFailureReason(response.data.errorMessage)
+        : undefined,
   };
 };
 
@@ -92,6 +102,7 @@ interface UpdateAnoncredsPresentationStateResponse {
     value: string;
   }>;
   state: AnoncredsPresentationState;
+  isVerified?: boolean;
 }
 
 const updateAriesPresentationState = async (
@@ -105,5 +116,6 @@ const updateAriesPresentationState = async (
   return {
     state: response.data.state,
     sharedAttributes: response.data.revealedAttributes,
+    isVerified: response.data.isVerified,
   };
 };

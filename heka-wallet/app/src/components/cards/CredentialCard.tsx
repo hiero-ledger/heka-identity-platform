@@ -16,6 +16,7 @@ import {
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons'
 
 import { CredentialDisplay } from '../../credentials'
+import { CredentialRevokedBadge } from '../misc/CredentialRevokedBadge'
 
 const useStyles = (theme: HekaTheme, credentialDisplay?: CredentialDisplay) => {
   const { ColorPalette, Spacing, BorderRadius, IconSizes, BorderWidth } = theme
@@ -74,6 +75,8 @@ interface Props {
   containerStyle?: ViewStyle
   credentialNameStyle?: TextStyle
   issuerLabelStyle?: TextStyle
+  /** A fixed-height card (Home): a revoked credential's name gets one line, so the revoked badge fits */
+  compact?: boolean
 }
 
 export const CredentialCard: React.FC<Props> = ({
@@ -86,6 +89,7 @@ export const CredentialCard: React.FC<Props> = ({
   containerStyle,
   credentialNameStyle,
   issuerLabelStyle,
+  compact,
 }) => {
   const { t } = useTranslation()
 
@@ -133,7 +137,11 @@ export const CredentialCard: React.FC<Props> = ({
           {credentialDisplay.watermark && (
             <CardWatermark width={width} height={height} watermark={credentialDisplay.watermark} />
           )}
-          <Text style={{ ...TextTheme.headingFour, ...credentialNameStyle, ...styles.textContainer }} numberOfLines={2}>
+          {credentialDisplay.isRevoked && <CredentialRevokedBadge />}
+          <Text
+            style={{ ...TextTheme.headingFour, ...credentialNameStyle, ...styles.textContainer }}
+            numberOfLines={compact && credentialDisplay.isRevoked ? 1 : 2}
+          >
             {credentialDisplay.name}
           </Text>
           <Text

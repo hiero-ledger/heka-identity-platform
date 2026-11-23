@@ -6,6 +6,7 @@ import { LoadingModal } from '../components/modals'
 import { isExternalAuthEnabled, isWalletBackupEnabled } from '../config'
 import { useRootStore } from '../contexts'
 import { useDcApiRegistration } from '../hooks/useDcApiRegistration'
+import { usePushNotifications } from '../utils/push-notifications'
 import { useBasicMessageInvitations } from '../utils/useBasicMessageInvitations'
 import { useDeeplinks } from '../utils/useDeeplinks'
 
@@ -27,6 +28,8 @@ export const RootStack: React.FC = observer(() => {
   useBasicMessageInvitations()
 
   useDcApiRegistration()
+
+  usePushNotifications()
 
   if (rootStore.isLoading) return <LoadingModal />
   return (

@@ -1,0 +1,570 @@
+import toast from 'react-hot-toast';
+
+import { ProtocolType } from '@/entities/Schema';
+import {
+  AriesCredentialFormat,
+  SchemaResponse,
+} from '@/entities/Schema/model/types/schema';
+import { agencyEndpoints } from '@/shared/api/config/endpoints';
+import {
+  createMockApi,
+  createTestStore,
+  MockApi,
+} from '@/shared/lib/tests/renderWithProviders';
+
+import { getIssuedCredentials } from './getIssuedCredentials';
+import { revokeIssuedCredential } from './revokeIssuedCredential';
+import { getIsIssuedCredentialRevoking } from '../selectors/issuedCredentialsSelector';
+import {
+  AnoncredsCredentialRecordResponse,
+  IssuedCredential,
+  OpenIdIssuanceSessionResponse,
+} from '../types/issuedCredential';
+
+jest.mock('react-hot-toast', () => ({
+  __esModule: true,
+  default: { error: jest.fn(), success: jest.fn() },
+}));
+
+const apiError = (status: number, message: string) => ({
+  isAxiosError: true,
+  response: { status, data: { message } },
+});
+
+const schemas: SchemaResponse[] = [
+  {
+    id: 'schema-passport',
+    name: 'Passport',
+    isHidden: false,
+    orderIndex: 0,
+    fields: [],
+    registrations: [
+      {
+        schemaId: 'schema-passport',
+        protocol: ProtocolType.Aries,
+        credentialFormat: 'anoncreds',
+        network: 'indy',
+        did: 'did:indy:issuer',
+        credentials: {
+          issuerId: 'did:indy:issuer',
+          schemaId: 'ledger-schema-1',
+          credentialDefinitionId: 'creddef-passport',
+        },
+      },
+    ],
+  },
+  {
+    id: 'schema-diploma',
+    name: 'Diploma',
+    isHidden: true,
+    orderIndex: 1,
+    fields: [],
+    registrations: [
+      {
+        schemaId: 'schema-diploma',
+        protocol: ProtocolType.Oid4vc,
+        credentialFormat: 'jwt_vc_json',
+        network: 'key',
+        did: 'did:key:issuer',
+        credentials: {
+          issuerId: 'issuer-1',
+          supportedCredentialId: 'DiplomaJwt',
+        },
+      },
+    ],
+  },
+];
+
+// Server responses carry claims and secrets the store must never hold
+const anoncredsRecords = [
+  {
+    id: 'cred-known',
+    createdAt: '2026-01-01T10:00:00.000Z',
+    updatedAt: '2026-01-02T10:00:00.000Z',
+    state: 'done',
+    role: 'issuer',
+    revocable: true,
+    revoked: false,
+    credentialDefinitionId: 'creddef-passport',
+    format: AriesCredentialFormat.AnoncredsW3c,
+    credentialAttributes: [{ name: 'firstName', value: 'Alice' }],
+  },
+  {
+    id: 'cred-unknown-schema',
+    createdAt: '2026-01-04T10:00:00.000Z',
+    state: 'done',
+    role: 'issuer',
+    revocable: false,
+    credentialDefinitionId: 'creddef-other',
+  },
+] as AnoncredsCredentialRecordResponse[];
+
+const openIdSessions = [
+  {
+    id: 'session-jwt',
+    createdAt: '2026-01-03T10:00:00.000Z',
+    updatedAt: '2026-01-03T11:00:00.000Z',
+    publicIssuerId: 'issuer-1',
+    state: 'Completed',
+    revocable: false,
+    preAuthorizedCode: 'secret-pre-authorized-code',
+    credentialOfferUri: 'https://issuer.example/offers/secret',
+    issuanceMetadata: {
+      credentials: [
+        {
+          format: 'jwt_vc_json',
+          credentialSupportedId: 'DiplomaJwt',
+          issuer: { did: 'did:key:issuer' },
+          credentialSubject: { degree: 'secret-claim' },
+          credentialStatus: { location: 'https://x/status/1', index: 3 },
+        },
+      ],
+    },
+    credentialOfferPayload: { credential_configuration_ids: ['DiplomaJwt'] },
+  },
+  {
+    id: 'session-sd-jwt',
+    createdAt: '2025-12-31T10:00:00.000Z',
+    publicIssuerId: 'issuer-2',
+    state: 'Completed',
+    revocable: false,
+    issuanceMetadata: {
+      credentials: [
+        { format: 'vc+sd-jwt', credentialSupportedId: 'UnknownSdJwt' },
+      ],
+    },
+  },
+  {
+    id: 'session-sd-jwt-status',
+    createdAt: '2025-12-30T10:00:00.000Z',
+    publicIssuerId: 'issuer-2',
+    state: 'Completed',
+    revocable: true,
+    revoked: false,
+    issuanceMetadata: {
+      credentials: [
+        {
+          format: 'vc+sd-jwt',
+          credentialSupportedId: 'StatusSdJwt',
+          payload: { given_name: 'secret-claim' },
+          credentialStatus: {
+            type: 'token-status-list',
+            location: 'https://x/token-status-lists/1',
+            index: 7,
+            indexes: [7],
+          },
+        },
+      ],
+    },
+  },
+] as OpenIdIssuanceSessionResponse[];
+
+const routeGets = (
+  api: MockApi,
+  {
+    anoncreds = anoncredsRecords,
+    openId = openIdSessions,
+  }: {
+    anoncreds?: AnoncredsCredentialRecordResponse[];
+    openId?: OpenIdIssuanceSessionResponse[];
+  } = {},
+) =>
+  api.get.mockImplementation((url: string) => {
+    if (url === agencyEndpoints.getAnoncredsCredentials)
+      return Promise.resolve({ data: anoncreds });
+    if (url === agencyEndpoints.getOpenIdIssuanceSessions)
+      return Promise.resolve({ data: openId });
+    if (url === agencyEndpoints.getSchemaList)
+      return Promise.resolve({ data: { items: schemas } });
+    return Promise.reject(new Error(`unexpected GET ${url}`));
+  });
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+describe('getIssuedCredentials', () => {
+  test('requests finished issuances of both protocols and all schemas', async () => {
+    const api = createMockApi();
+    routeGets(api);
+    const store = createTestStore({}, api);
+
+    await store.dispatch(getIssuedCredentials());
+
+    expect(api.get).toHaveBeenCalledWith(
+      agencyEndpoints.getAnoncredsCredentials,
+      { params: { role: 'issuer', state: 'done' } },
+    );
+    expect(api.get).toHaveBeenCalledWith(
+      agencyEndpoints.getOpenIdIssuanceSessions,
+      { params: { state: 'Completed' } },
+    );
+    // No isHidden filter: hidden schemas still name their credentials
+    expect(api.get).toHaveBeenCalledWith(agencyEndpoints.getSchemaList);
+  });
+
+  test('merges both protocols newest first, with schema names and fallbacks', async () => {
+    const api = createMockApi();
+    routeGets(api);
+    const store = createTestStore({}, api);
+
+    await store.dispatch(getIssuedCredentials());
+
+    const items = store.getState().issuedCredentials.items!;
+    expect(items.map((item) => item.key)).toEqual([
+      'Aries:cred-unknown-schema',
+      'OpenId4VC:session-jwt',
+      'Aries:cred-known',
+      'OpenId4VC:session-sd-jwt',
+      'OpenId4VC:session-sd-jwt-status',
+    ]);
+    expect(items.map((item) => item.name)).toEqual([
+      'creddef-other',
+      'Diploma',
+      'Passport',
+      'UnknownSdJwt',
+      'StatusSdJwt',
+    ]);
+    // Only a resolved Heka schema sets schemaName; fallbacks to raw ids leave it unset
+    expect(items.map((item) => item.schemaName)).toEqual([
+      undefined,
+      'Diploma',
+      'Passport',
+      undefined,
+      undefined,
+    ]);
+    expect(items[1]).toEqual<IssuedCredential>({
+      key: 'OpenId4VC:session-jwt',
+      id: 'session-jwt',
+      protocol: ProtocolType.Oid4vc,
+      name: 'Diploma',
+      schemaName: 'Diploma',
+      formats: ['jwt_vc_json'],
+      issuedAt: '2026-01-03T11:00:00.000Z',
+      issuerDid: 'did:key:issuer',
+      credentialConfigurationIds: ['DiplomaJwt'],
+      revocable: false,
+    });
+    expect(items[2]).toEqual<IssuedCredential>({
+      key: 'Aries:cred-known',
+      id: 'cred-known',
+      protocol: ProtocolType.Aries,
+      name: 'Passport',
+      schemaName: 'Passport',
+      formats: ['anoncreds-w3c'],
+      issuedAt: '2026-01-02T10:00:00.000Z',
+      credentialDefinitionId: 'creddef-passport',
+      revocable: true,
+      revoked: false,
+    });
+  });
+
+  test('takes the DIDComm format from the response, falling back to anoncreds when it is absent or unknown', async () => {
+    const api = createMockApi();
+    routeGets(api, {
+      anoncreds: [
+        ...anoncredsRecords,
+        {
+          ...anoncredsRecords[1],
+          id: 'cred-indy',
+          format: AriesCredentialFormat.AnoncredsIndy,
+        },
+        {
+          ...anoncredsRecords[1],
+          id: 'cred-future-format',
+          format: 'some-future-format',
+        } as unknown as AnoncredsCredentialRecordResponse,
+      ],
+    });
+    const store = createTestStore({}, api);
+
+    await store.dispatch(getIssuedCredentials());
+
+    const items = store.getState().issuedCredentials.items!;
+    const formatsByKey = Object.fromEntries(
+      items.map((item) => [item.key, item.formats]),
+    );
+    expect(formatsByKey['Aries:cred-known']).toEqual(['anoncreds-w3c']);
+    expect(formatsByKey['Aries:cred-indy']).toEqual(['anoncreds-indy']);
+    expect(formatsByKey['Aries:cred-unknown-schema']).toEqual(['anoncreds']);
+    expect(formatsByKey['Aries:cred-future-format']).toEqual(['anoncreds']);
+  });
+
+  test('takes revocable and revoked from the response, for both protocols', async () => {
+    const api = createMockApi();
+    routeGets(api);
+    const store = createTestStore({}, api);
+
+    await store.dispatch(getIssuedCredentials());
+
+    const items = store.getState().issuedCredentials.items!;
+    const byKey = Object.fromEntries(items.map((item) => [item.key, item]));
+    // jwt_vc_json has a status list entry in its metadata, but the server says it is not revocable
+    expect(byKey['OpenId4VC:session-jwt'].revocable).toBe(false);
+    expect(byKey['OpenId4VC:session-jwt'].revoked).toBeUndefined();
+    // An SD-JWT VC session issued before token status lists
+    expect(byKey['OpenId4VC:session-sd-jwt'].revocable).toBe(false);
+    expect(byKey['OpenId4VC:session-sd-jwt-status'].revocable).toBe(true);
+    expect(byKey['OpenId4VC:session-sd-jwt-status'].revoked).toBe(false);
+    expect(byKey['Aries:cred-known'].revocable).toBe(true);
+    expect(byKey['Aries:cred-unknown-schema'].revocable).toBe(false);
+  });
+
+  test('shows a revoked SD-JWT VC session as revoked after a reload', async () => {
+    const api = createMockApi();
+    routeGets(api, {
+      openId: [{ ...openIdSessions[2], revoked: true }],
+    });
+    const store = createTestStore({}, api);
+
+    await store.dispatch(getIssuedCredentials());
+
+    const [item] = store
+      .getState()
+      .issuedCredentials.items!.filter(
+        (x) => x.protocol === ProtocolType.Oid4vc,
+      );
+    expect(item).toMatchObject({ revocable: true, revoked: true });
+  });
+
+  test('keeps claims, attributes and offer secrets out of the store', async () => {
+    const api = createMockApi();
+    routeGets(api);
+    const store = createTestStore({}, api);
+
+    await store.dispatch(getIssuedCredentials());
+
+    const state = JSON.stringify(store.getState().issuedCredentials);
+    for (const forbidden of [
+      'issuanceMetadata',
+      'credentialAttributes',
+      'preAuthorizedCode',
+      'credentialOfferUri',
+      'credentialSubject',
+      'credentialStatus',
+      'token-status-lists',
+      'payload',
+      'secret',
+      'Alice',
+    ]) {
+      expect(state).not.toContain(forbidden);
+    }
+  });
+
+  test('a failing request shows the error and keeps no items', async () => {
+    const api = createMockApi();
+    routeGets(api);
+    api.get.mockImplementation((url: string) =>
+      url === agencyEndpoints.getOpenIdIssuanceSessions
+        ? Promise.reject(apiError(500, 'Sessions unavailable'))
+        : Promise.resolve({ data: [] }),
+    );
+    const store = createTestStore({}, api);
+
+    await store.dispatch(getIssuedCredentials());
+
+    const state = store.getState().issuedCredentials;
+    expect(state.isLoading).toBe(false);
+    expect(state.items).toBeUndefined();
+    expect(state.error).toBe('Sessions unavailable');
+    expect(toast.error).toHaveBeenCalledWith('Sessions unavailable');
+  });
+});
+
+describe('revokeIssuedCredential', () => {
+  const loadedStore = async (api: MockApi) => {
+    routeGets(api);
+    const store = createTestStore({}, api);
+    await store.dispatch(getIssuedCredentials());
+    return store;
+  };
+
+  const item = (store: Awaited<ReturnType<typeof loadedStore>>) =>
+    store
+      .getState()
+      .issuedCredentials.items!.find((x) => x.key === 'Aries:cred-known')!;
+
+  test('posts the revoke and marks the credential revoked', async () => {
+    const api = createMockApi();
+    const store = await loadedStore(api);
+    api.post.mockResolvedValue({ data: undefined });
+
+    const result = await store
+      .dispatch(revokeIssuedCredential({
+        id: 'cred-known',
+        key: 'Aries:cred-known',
+        protocol: ProtocolType.Aries,
+      }))
+      .unwrap();
+
+    expect(api.post).toHaveBeenCalledWith('/credentials/cred-known/revoke');
+    expect(result).toEqual({ key: 'Aries:cred-known', alreadyRevoked: false });
+    expect(item(store).revoked).toBe(true);
+    expect(store.getState().issuedCredentials.revokingRequests).toEqual({});
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  test('treats 409 as already revoked, without an error toast', async () => {
+    const api = createMockApi();
+    const store = await loadedStore(api);
+    api.post.mockRejectedValue(apiError(409, 'Credential is already revoked.'));
+
+    const result = await store
+      .dispatch(revokeIssuedCredential({
+        id: 'cred-known',
+        key: 'Aries:cred-known',
+        protocol: ProtocolType.Aries,
+      }))
+      .unwrap();
+
+    expect(result).toEqual({ key: 'Aries:cred-known', alreadyRevoked: true });
+    expect(item(store).revoked).toBe(true);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  test('revokes an OpenID4VC issuance session through the OpenID4VC endpoint', async () => {
+    const api = createMockApi();
+    const store = await loadedStore(api);
+    api.post.mockResolvedValue({ data: undefined });
+
+    const result = await store
+      .dispatch(
+        revokeIssuedCredential({
+          id: 'session-sd-jwt-status',
+          key: 'OpenId4VC:session-sd-jwt-status',
+          protocol: ProtocolType.Oid4vc,
+        }),
+      )
+      .unwrap();
+
+    expect(api.post).toHaveBeenCalledTimes(1);
+    expect(api.post).toHaveBeenCalledWith(
+      '/openid4vc/issuance-session/session-sd-jwt-status/revoke',
+    );
+    expect(result).toEqual({
+      key: 'OpenId4VC:session-sd-jwt-status',
+      alreadyRevoked: false,
+    });
+    const revoked = store
+      .getState()
+      .issuedCredentials.items!.find(
+        (x) => x.key === 'OpenId4VC:session-sd-jwt-status',
+      )!;
+    expect(revoked.revoked).toBe(true);
+  });
+
+  test('treats 409 from the OpenID4VC endpoint as already revoked', async () => {
+    const api = createMockApi();
+    const store = await loadedStore(api);
+    api.post.mockRejectedValue(apiError(409, 'Credential is already revoked'));
+
+    const result = await store
+      .dispatch(
+        revokeIssuedCredential({
+          id: 'session-sd-jwt-status',
+          key: 'OpenId4VC:session-sd-jwt-status',
+          protocol: ProtocolType.Oid4vc,
+        }),
+      )
+      .unwrap();
+
+    expect(result).toEqual({
+      key: 'OpenId4VC:session-sd-jwt-status',
+      alreadyRevoked: true,
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  test('encodes the session id in the OpenID4VC revoke URL', () => {
+    expect(agencyEndpoints.revokeOpenIdIssuanceSession('a/b?c')).toBe(
+      '/openid4vc/issuance-session/a%2Fb%3Fc/revoke',
+    );
+  });
+
+  test('shows the server message on other errors and keeps the status', async () => {
+    const api = createMockApi();
+    const store = await loadedStore(api);
+    api.post.mockRejectedValue(apiError(500, 'Ledger update failed'));
+
+    await expect(
+      store
+        .dispatch(revokeIssuedCredential({
+        id: 'cred-known',
+        key: 'Aries:cred-known',
+        protocol: ProtocolType.Aries,
+      }))
+        .unwrap(),
+    ).rejects.toBe('Ledger update failed');
+
+    expect(toast.error).toHaveBeenCalledWith('Ledger update failed');
+    expect(item(store).revoked).toBe(false);
+    expect(store.getState().issuedCredentials.revokingRequests).toEqual({});
+  });
+
+  test('tracks the credential being revoked while the request is in flight', async () => {
+    const api = createMockApi();
+    const store = await loadedStore(api);
+    let resolvePost: (value: unknown) => void = () => undefined;
+    api.post.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePost = resolve;
+      }),
+    );
+
+    const pending = store.dispatch(
+      revokeIssuedCredential({
+        id: 'cred-known',
+        key: 'Aries:cred-known',
+        protocol: ProtocolType.Aries,
+      }),
+    );
+    expect(
+      Object.values(store.getState().issuedCredentials.revokingRequests),
+    ).toEqual(['Aries:cred-known']);
+
+    resolvePost({ data: undefined });
+    await pending;
+    expect(store.getState().issuedCredentials.revokingRequests).toEqual({});
+  });
+
+  test('keeps the second credential revoking when an overlapping first revocation finishes', async () => {
+    const api = createMockApi();
+    const store = await loadedStore(api);
+    const posts: Record<string, (value: unknown) => void> = {};
+    api.post.mockImplementation(
+      (url: string) =>
+        new Promise((resolve) => {
+          posts[url] = resolve;
+        }),
+    );
+    const isRevoking = (key: string) =>
+      getIsIssuedCredentialRevoking(key)(store.getState());
+
+    const first = store.dispatch(
+      revokeIssuedCredential({
+        id: 'cred-known',
+        key: 'Aries:cred-known',
+        protocol: ProtocolType.Aries,
+      }),
+    );
+    const second = store.dispatch(
+      revokeIssuedCredential({
+        id: 'cred-unknown-schema',
+        key: 'Aries:cred-unknown-schema',
+        protocol: ProtocolType.Aries,
+      }),
+    );
+    expect(isRevoking('Aries:cred-known')).toBe(true);
+    expect(isRevoking('Aries:cred-unknown-schema')).toBe(true);
+
+    posts['/credentials/cred-known/revoke']({ data: undefined });
+    await first;
+    expect(isRevoking('Aries:cred-known')).toBe(false);
+    expect(isRevoking('Aries:cred-unknown-schema')).toBe(true);
+
+    posts['/credentials/cred-unknown-schema/revoke']({ data: undefined });
+    await second;
+    expect(isRevoking('Aries:cred-unknown-schema')).toBe(false);
+    expect(store.getState().issuedCredentials.revokingRequests).toEqual({});
+  });
+});

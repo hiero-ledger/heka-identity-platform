@@ -9,6 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { PresentationRequestView } from '../components/views'
 import LoadingView from '../components/views/LoadingView'
 import {
+  describePresentationError,
+  getPresentationErrorContent,
   mapOpenId4VcPresentationRequest,
   OpenIdPresentationSubmission,
   PresentationSubmissionEntry,
@@ -42,6 +44,16 @@ export const OpenIdPresentationRequest: React.FC<Props> = ({ navigation, route }
     navigation.getParent()?.navigate(BifoldTabStacks.HomeStack, { screen: BifoldScreens.Home })
   }, [navigation])
 
+  // Error 1027 ("Unable to accept proof request"). The modal shows the title and the message, so both come
+  // from getPresentationErrorContent, which never passes raw verifier responses through.
+  const reportPresentationError = useCallback(
+    (error: unknown) => {
+      const { title, message } = getPresentationErrorContent(error, t)
+      DeviceEventEmitter.emit(EventTypes.ERROR_ADDED, new BifoldError(title, t('Error.Message1027'), message, 1027))
+    },
+    [t]
+  )
+
   const loadPresentationRequest = useCallback(async () => {
     if (!agent) return
     setIsLoading(true)
@@ -51,18 +63,13 @@ export const OpenIdPresentationRequest: React.FC<Props> = ({ navigation, route }
 
       setPresentationSubmission(mappedSubmission)
     } catch (error: unknown) {
-      console.error(`Couldn't resolve OpenID4VP presentation request`, {
-        error,
-      })
-      DeviceEventEmitter.emit(
-        EventTypes.ERROR_ADDED,
-        new BifoldError(t('Error.Title1027'), t('Error.Message1027'), (error as Error)?.message ?? error, 1027)
-      )
+      console.error(`Couldn't resolve OpenID4VP presentation request`, describePresentationError(error))
+      reportPresentationError(error)
       navigateToHome()
     } finally {
       setIsLoading(false)
     }
-  }, [t, agent, resolveOpenId4VpPresentationRequest, request, navigateToHome])
+  }, [agent, resolveOpenId4VpPresentationRequest, request, reportPresentationError, navigateToHome])
 
   useEffect(() => {
     loadPresentationRequest()
@@ -85,13 +92,8 @@ export const OpenIdPresentationRequest: React.FC<Props> = ({ navigation, route }
       })
     } catch (error: unknown) {
       setIsShared(false)
-      console.error(`Couldn't accept OpenID4VP presentation request`, {
-        error,
-      })
-      DeviceEventEmitter.emit(
-        EventTypes.ERROR_ADDED,
-        new BifoldError(t('Error.Title1027'), t('Error.Message1027'), (error as Error)?.message ?? error, 1027)
-      )
+      console.error(`Couldn't accept OpenID4VP presentation request`, describePresentationError(error))
+      reportPresentationError(error)
     }
   }
 

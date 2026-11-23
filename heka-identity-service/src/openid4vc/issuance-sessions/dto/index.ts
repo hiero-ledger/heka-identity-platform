@@ -1,4 +1,5 @@
 export {
+  OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions,
   OpenId4VcIssuanceSessionsCreateOfferDto,
   OpenId4VcIssuanceSessionsCreateOfferResponse,
 } from './credential-offer.dto'

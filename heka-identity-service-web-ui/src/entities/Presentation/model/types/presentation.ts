@@ -17,6 +17,16 @@ export enum AnoncredsPresentationState {
   Done = 'done',
 }
 
+/**
+ * Why a verification failed, as far as it can be told safely. Derived from the verifier's
+ * error message, which itself is never shown: it holds internal (Credo) details.
+ */
+export enum PresentationFailureReason {
+  Revoked = 'revoked',
+  Expired = 'expired',
+  Unknown = 'unknown',
+}
+
 export interface SharedAttribute {
   name: string;
   value: string;
@@ -27,6 +37,10 @@ export interface PresentationSession {
   request?: string;
   state: OpenIdPresentationState | AnoncredsPresentationState;
   sharedAttributes?: Array<SharedAttribute>;
+  /** DIDComm: the verifier's verdict on the presentation; `false` means it failed verification */
+  isVerified?: boolean;
+  /** Set when an OpenID4VP session ends in `Error` */
+  failureReason?: PresentationFailureReason;
 }
 
 export interface PresentationSchema {

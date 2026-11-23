@@ -1,0 +1,20 @@
+appId: com.heka.wallet
+name: Restarted wallet unlocks with its PIN
+tags:
+  - pin
+  - no-backend
+env:
+  PIN: '482916'
+---
+- runFlow: subflows/onboard.yaml
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/PinKey0'
+    timeout: 120000
+- runFlow: subflows/enter-pin.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'com.ariesbifold:id/TabCredentials'
+    timeout: 120000

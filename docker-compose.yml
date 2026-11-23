@@ -11,11 +11,11 @@ services:
     environment:
       POSTGRES_USER: heka
       POSTGRES_PASSWORD: heka1
-      # The image creates this one; docker/postgres/init-databases.sh adds heka-sso-service.
+      # The image creates this one; docker/postgres/init-databases.sql adds heka-sso-service.
       POSTGRES_DB: heka-identity-service
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./docker/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -d heka-identity-service -U heka']
       interval: 5s
@@ -167,6 +167,8 @@ services:
         # part of this build): copy it into the root .env and rebuild this image. Left empty, the
         # demo pages render but every issuance and verification they start fails.
         REACT_APP_DEMO_USER_DID: ${IDENTITY_WEBUI_DEMO_USER_DID:-}
+        # "Issued credentials" list with revocation; empty keeps the default (on), `false` hides it.
+        REACT_APP_FEATURE_REVOCATION: ${IDENTITY_WEBUI_FEATURE_REVOCATION:-}
     ports:
       - '8000:80'
     healthcheck:

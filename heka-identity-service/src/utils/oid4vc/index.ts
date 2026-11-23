@@ -52,9 +52,18 @@ export interface CredentialIssuanceMetadata {
     url?: string
   }
   '@context'?: Array<string | JsonObject>
+  /**
+   * Revocation reference: `bitstring` = W3C bitstring list (W3C VCs); `token-status-list` = IETF token
+   * status list, carried by SD-JWT VCs as `status.status_list`. Older persisted sessions lack `type`
+   * (→ `bitstring`) and `indexes`.
+   */
   credentialStatus?: {
+    type?: 'bitstring' | 'token-status-list'
     location: string
+    /** Entry of the first credential of the issuance (the only one for W3C VCs). */
     index: number
+    /** One entry per credential of a batch issuance — `indexes[i]` belongs to holder binding key `i`. */
+    indexes?: number[]
   }
   credentialSubject?: Record<string, unknown>
   payload?: SdJwtVcPayload
@@ -62,6 +71,29 @@ export interface CredentialIssuanceMetadata {
     _sd?: string[]
   }
   namespaces?: Record<string, Record<string, unknown>>
+}
+
+/**
+ * The SD-JWT VC `status.status_list` claim (draft-ietf-oauth-status-list) for the credential at `position`
+ * of the issuance: entry `indexes[position]` (a batch reserves one entry per holder binding key at offer
+ * time — two credentials must never share an entry, or revoking one revokes the other). Throws when the
+ * batch is larger than what was reserved.
+ */
+export function tokenStatusListClaim(
+  credentialStatus: CredentialIssuanceMetadata['credentialStatus'],
+  position = 0,
+): { status: { status_list: { idx: number; uri: string } } } | Record<string, never> {
+  if (credentialStatus?.type !== 'token-status-list') return {}
+  const indexes = credentialStatus.indexes ?? [credentialStatus.index]
+  const idx = indexes[position]
+  if (idx === undefined) {
+    throw new Error(
+      `Batch issuance requested credential ${position + 1} but only ${indexes.length} status-list entr${
+        indexes.length === 1 ? 'y was' : 'ies were'
+      } reserved at offer time`,
+    )
+  }
+  return { status: { status_list: { idx, uri: credentialStatus.location } } }
 }
 
 export const createCredentialRequestToCredentialMapper =
@@ -133,7 +165,7 @@ export const createCredentialRequestToCredentialMapper =
       return {
         type: 'credentials' as const,
         format: ClaimFormat.SdJwtDc,
-        credentials: holderBinding.keys.map((binding) => ({
+        credentials: holderBinding.keys.map((binding, position) => ({
           holder: binding,
           issuer: {
             method: 'did',
@@ -142,6 +174,7 @@ export const createCredentialRequestToCredentialMapper =
           payload: {
             vct,
             ...issuanceMetadata.payload,
+            ...tokenStatusListClaim(issuanceMetadata.credentialStatus, position),
           },
           disclosureFrame: issuanceMetadata.disclosureFrame,
           hashingAlgorithm: 'sha-256',

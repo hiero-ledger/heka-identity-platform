@@ -15,6 +15,24 @@ interface Timer {
   seconds: number
 }
 
+const LOCKOUT_TICK_MS = second
+
+// Time left until the lockout ends, or undefined when it is over
+const getTimeRemaining = (lockoutDate?: number): Timer | undefined => {
+  if (!lockoutDate) return undefined
+
+  let diff = lockoutDate - Date.now()
+  if (diff <= 0) return undefined
+
+  const hours = Math.floor(diff / hour)
+  diff -= hours * hour
+
+  const minutes = Math.floor(diff / minute)
+  diff -= minutes * minute
+
+  return { hours, minutes, seconds: Math.floor(diff / second) }
+}
+
 const useStyles = ({ TextTheme, ColorPalette, Spacing }: HekaTheme) => {
   return StyleSheet.create({
     screenContainer: {
@@ -55,49 +73,25 @@ const AttemptLockout: React.FC = () => {
   const theme = useHekaTheme()
   const styles = useStyles(theme)
 
-  // update the countdown timer. Return true if the lockout penalty time is over
-  const updateTimeRemaining = (): boolean => {
-    let penaltyServed = true
-    const penalty = state.loginAttempt.lockoutDate
-    const currDate = Date.now()
-    if (penalty) {
-      let diff = penalty - currDate
-      if (diff > 0) {
-        penaltyServed = false
-        const hoursLeft = Math.floor(diff / hour)
-        diff = diff - hoursLeft * hour
+  const lockoutDate = state.loginAttempt.lockoutDate
 
-        const minutesLeft = Math.floor(diff / minute)
-        diff = diff - minutesLeft * minute
-
-        const secondsLeft = Math.floor(diff / second)
-        const timer: Timer = {
-          hours: hoursLeft,
-          minutes: minutesLeft,
-          seconds: secondsLeft,
-        }
-        setTime(timer)
-      }
+  useEffect(() => {
+    // Returns true once the lockout penalty is served
+    const updateTimeRemaining = (): boolean => {
+      const remaining = getTimeRemaining(lockoutDate)
+      setTime(remaining)
+      setTimeoutDone(!remaining)
+      return !remaining
     }
-    return penaltyServed
-  }
 
-  // run once immediately at screen initialization
-  useEffect(() => {
-    setTimeoutDone(updateTimeRemaining())
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (updateTimeRemaining()) return
 
-  // make sure set timeout only runs once
-  useEffect(() => {
-    const updateTimer = setTimeout(() => {
-      // calculate time remaining
-      const timerDone = updateTimeRemaining()
-      setTimeoutDone(timerDone)
-      if (timerDone) {
-        clearInterval(updateTimer)
-      }
-    }, 1000)
-  })
+    const interval = setInterval(() => {
+      if (updateTimeRemaining()) clearInterval(interval)
+    }, LOCKOUT_TICK_MS)
+
+    return () => clearInterval(interval)
+  }, [lockoutDate])
 
   const unlock = async () => {
     dispatch({

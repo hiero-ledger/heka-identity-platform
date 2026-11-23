@@ -110,6 +110,7 @@ describe('buildAriesPresentationRequest — AnonCreds W3C', () => {
               schema: [{ uri: 'https://www.w3.org/2018/credentials/v1' }],
               constraints: {
                 limit_disclosure: 'required',
+                statuses: { active: { directive: 'required' } },
                 fields: [{ path: ['$.credentialSubject.name'] }],
               },
             },
@@ -133,11 +134,36 @@ describe('buildAriesPresentationRequest — AnonCreds W3C', () => {
           input_descriptors: [
             {
               name: 'Presentation Request',
-              constraints: { fields: undefined },
+              constraints: {
+                statuses: { active: { directive: 'required' } },
+                fields: undefined,
+              },
             },
           ],
         },
       },
+    });
+  });
+
+  test('requires a non-revocation proof, like requestNonRevokedProof for AnonCreds Indy', () => {
+    const request = buildAriesPresentationRequest({
+      format: AriesCredentialFormat.AnoncredsW3c,
+      connectionId: 'conn-1',
+      attributes: ['name', 'age'],
+      schema: registeredSchema,
+    }) as {
+      request: {
+        presentationExchange: {
+          input_descriptors: Array<{ constraints: Record<string, unknown> }>;
+        };
+      };
+    };
+
+    // Credo's AnonCredsDataIntegrityService.descriptorRequiresRevocationStatus reads this path
+    const descriptors = request.request.presentationExchange.input_descriptors;
+    expect(descriptors).toHaveLength(1);
+    expect(descriptors[0].constraints.statuses).toEqual({
+      active: { directive: 'required' },
     });
   });
 });
