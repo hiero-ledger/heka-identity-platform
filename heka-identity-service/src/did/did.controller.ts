@@ -164,7 +164,9 @@ export class DidController {
   @ApiOperation({
     summary: 'Deactivate a DID of the wallet',
     description:
-      'Deactivates a DID the wallet created, irreversibly. Supported for did:hedera, did:indy and did:indybesu. ' +
+      'Deactivates a DID the wallet created. Supported for did:hedera, did:indy and did:indybesu. The Identity ' +
+      'Service never reactivates a DID; whether deactivation is final depends on the method (on did:indy the ' +
+      'endorser, as the guardian of the NYM, can assign a verkey again; see docs/api.md). ' +
       'Deactivating a deactivated DID returns it without a ledger write.',
   })
   @ApiParam({ name: 'did', type: String })

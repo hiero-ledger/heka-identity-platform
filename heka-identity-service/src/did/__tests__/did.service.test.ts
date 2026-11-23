@@ -30,6 +30,7 @@ import { WalletLockService } from 'common/wallet-lock'
 import { didDocumentStub, didRecordStub, didResolutionResultStub, entityStub } from '../../../test/helpers/mock-records'
 import AgentConfig from '../../config/agent'
 import { DidService } from '../did.service'
+import { DidDocumentDto } from '../dto'
 
 describe('DidService', () => {
   let didService: DidService
@@ -845,9 +846,6 @@ describe('DidService', () => {
         [{ addVerificationMethods: [{ id: '#key-9' }, { id: '#key-9' }] }, 'already exists'],
         [{ removeServices: ['#key-1'] }, 'Service #key-1 does not exist'],
         [{ removeServices: ['#svc-1', '#svc-1'] }, 'is named more than once'],
-        // A removal the DID never had is a mistake, not a retry (neither the ledger nor the wallet's record knows it)
-        [{ removeServices: ['#svc-9'] }, 'Service #svc-9 does not exist'],
-        [{ removeVerificationMethods: ['#key-l'] }, 'Verification method #key-l does not exist'],
         // An id removed and added in one request
         [
           {
@@ -871,6 +869,56 @@ describe('DidService', () => {
         await expect(update).rejects.toThrow(UnprocessableEntityException)
         await expect(update).rejects.toThrow(message)
         expect(didRegistrarService.updateDid).not.toHaveBeenCalled()
+      })
+
+      test('a removal retried after it landed is 200 without a write (the first response was lost)', async () => {
+        // The removal rewrote the wallet's record too: neither the ledger nor the record has #key-1 and #svc-1 now
+        const documentAfter = currentDocument()
+        documentAfter.verificationMethod = documentAfter.verificationMethod!.filter(({ id }) => id !== `${did}#key-1`)
+        documentAfter.assertionMethod = [rootKey]
+        documentAfter.service = []
+        didRecord.didDocument = documentAfter
+        didRecord.keys = didRecord.keys!.filter(({ didDocumentRelativeKeyId }) => didDocumentRelativeKeyId !== '#key-1')
+        vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(didResolutionResultStub({ didDocument: documentAfter }))
+        Object.assign(tenantAgent, { kms: { deleteKey: vi.fn().mockResolvedValue(true) } })
+
+        const result = await didService.update(orgAdmin, tenantAgent, did, {
+          removeServices: ['#svc-1'],
+          removeVerificationMethods: ['#key-1'],
+        })
+
+        expect(result).toEqual(new DidDocumentDto(documentAfter))
+        expect(didRegistrarService.updateDid).not.toHaveBeenCalled()
+        expect(didRepository.update).not.toHaveBeenCalled()
+        expect(tenantAgent.kms.deleteKey).not.toHaveBeenCalled()
+      })
+
+      // Indistinguishable from a retry: the wallet's record has no trace of an id an earlier request removed
+      test.each([[{ removeServices: ['#svc-9'] }], [{ removeVerificationMethods: ['#key-l'] }]])(
+        'skips a mistyped removal %j: 200 without a write, with the current document',
+        async (req) => {
+          Object.assign(tenantAgent, { kms: { deleteKey: vi.fn().mockResolvedValue(true) } })
+
+          const result = await didService.update(orgAdmin, tenantAgent, did, req)
+
+          expect(result).toEqual(new DidDocumentDto(currentDocument()))
+          expect(didRegistrarService.updateDid).not.toHaveBeenCalled()
+          expect(tenantAgent.kms.deleteKey).not.toHaveBeenCalled()
+        },
+      )
+
+      test('a key added without an id never gets an id removed in the same request', async () => {
+        // #key-2 was removed by an earlier request whose response was lost; this retry also adds a key without an id
+        const update = didService.update(orgAdmin, tenantAgent, did, {
+          removeVerificationMethods: ['#key-2'],
+          addVerificationMethods: [{ purposes: ['assertionMethod'] }],
+        })
+
+        await expect(update).resolves.toBeDefined()
+        expect(vi.mocked(didRegistrarService.updateDid).mock.calls[0][2]).toMatchObject({
+          addVerificationMethods: [{ id: '#key-3', purposes: ['assertionMethod'] }],
+          removeVerificationMethods: [],
+        })
       })
 
       // The wallet's record before an earlier, partly applied update: it still has #svc-9 and the key of #key-9,

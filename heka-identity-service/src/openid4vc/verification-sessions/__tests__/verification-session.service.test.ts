@@ -11,6 +11,7 @@ import {
   didResolutionResultStub,
   verificationSessionRecordStub,
 } from '../../../../test/helpers/mock-records'
+import { selectSigningKey } from '../../../common/did-registrar/did-signing-key'
 import { OpenId4VcVerificationSessionService } from '../verification-session.service'
 
 // The key is chosen among those the wallet holds (`selectSigningKey`, tested on its own). Here the wallet holds every
@@ -324,6 +325,34 @@ describe('OpenId4VcVerificationSessionService', () => {
       // #c is not an authentication key
       await expect(createRequest('#c')).rejects.toThrow(`DID ${did} has no key #c for signing requests`)
     })
+
+    test.each([
+      ['', undefined],
+      [' #a', '#a'],
+    ])(
+      'rejects a request signer DID whose authentication keys the wallet cannot sign with (422 naming key%s and the reason)',
+      async (key, keyId) => {
+        const did = 'did:key:z6Mk1234'
+        vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+          didResolutionResultStub({
+            didDocument: { id: did, verificationMethod: [{ id: `${did}#a` }], authentication: ['#a'] },
+          }),
+        )
+        vi.mocked(selectSigningKey).mockResolvedValueOnce({ unusable: 'this wallet holds no key for it' })
+
+        const request = service.createRequest(tenantAgent, {
+          publicVerifierId: 'verifier-1',
+          requestSigner: { did, keyId },
+          presentationExchange: { definition: { id: 'def-1', input_descriptors: [] } },
+        } as any)
+
+        await expect(request).rejects.toThrow(UnprocessableEntityException)
+        await expect(request).rejects.toThrow(
+          `DID ${did} has no key${key} this wallet can sign requests with: this wallet holds no key for it`,
+        )
+        expect(mockCreateAuthorizationRequest).not.toHaveBeenCalled()
+      },
+    )
 
     test('should throw UnprocessableEntityException when DID cannot be resolved', async () => {
       const req = {

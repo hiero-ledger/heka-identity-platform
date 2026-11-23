@@ -629,10 +629,9 @@ export class DidService {
    * Checks the requested operations against the current document and resolves them to the registrar's options.
    * Operations the document already reflects are dropped, so a retry after a partly applied update writes only the
    * rest: an added service with the same type and endpoint, an added verification method (with an explicit id) with the
-   * same purposes whose key the wallet holds, and a removed id the document does not use but the wallet's record knows.
-   * Each failure is a 422: an added id that exists with other content or without a key in the wallet, an id that is
-   * both removed and added, an id to remove that the document uses for another kind of entry or that the DID never
-   * had, or the key that controls the DID.
+   * same purposes whose key the wallet holds, and a removed id the document does not use. Each failure is a 422: an
+   * added id that exists with other content or without a key in the wallet, an id that is both removed and added, an
+   * id to remove that the document uses for another kind of entry, or the key that controls the DID.
    */
   private toUpdateOptions(
     did: string,
@@ -666,21 +665,17 @@ export class DidService {
       ].map((id) => id.toLowerCase()),
     )
 
-    // What the wallet has known of the DID: the mapped keys and the record's (possibly older) document
+    // The verification methods whose keys the wallet holds
     const mappedKeyIds = new Set(
       (didRecord.keys ?? []).map(({ didDocumentRelativeKeyId }) => fragmentOf(didDocumentRelativeKeyId)),
     )
-    const knownServiceIds = new Set((didRecord.didDocument?.service ?? []).map(({ id }) => fragmentOf(id)))
-    const knownVerificationMethodIds = new Set([
-      ...mappedKeyIds,
-      ...(didRecord.didDocument?.verificationMethod ?? []).map(({ id }) => fragmentOf(id)),
-    ])
 
-    // Returns the ids still to remove. An id the document does not use was removed already, by an earlier request whose
-    // response was lost, if the wallet knew it; otherwise it is a mistake (a typo must not succeed silently)
-    const toRemove = (ids: string[], existing: Set<string>, known: Set<string>, kind: string) => {
+    // Returns the ids still to remove. An id the document does not use is skipped, whether an earlier request whose
+    // response was lost removed it or it is mistyped: the wallet's record can't tell, since every successful write
+    // rewrites it. The response shows the resulting document. An id the document uses for another kind of entry is 422
+    const toRemove = (ids: string[], existing: Set<string>, kind: string) => {
       ids.forEach((id, index) => {
-        if (!existing.has(id) && (usedIds.has(id.toLowerCase()) || !known.has(id))) {
+        if (!existing.has(id) && usedIds.has(id.toLowerCase())) {
           throw new UnprocessableEntityException(`${kind} ${id} does not exist in the DID document`)
         }
         if (ids.indexOf(id) !== index) {
@@ -689,11 +684,10 @@ export class DidService {
       })
       return ids.filter((id) => existing.has(id))
     }
-    const removeServices = toRemove(req.removeServices ?? [], serviceIds, knownServiceIds, 'Service')
+    const removeServices = toRemove(req.removeServices ?? [], serviceIds, 'Service')
     const removeVerificationMethods = toRemove(
       req.removeVerificationMethods ?? [],
       verificationMethodIds,
-      knownVerificationMethodIds,
       'Verification method',
     )
 
@@ -746,9 +740,10 @@ export class DidService {
       }
       claim(id)
     })
+    // The lowest #key-<n> neither in use nor removed in the same request (`claim` refuses a removed id)
     const nextKeyId = () => {
       let n = 1
-      while (usedIds.has(`#key-${n}`)) n++
+      while (usedIds.has(`#key-${n}`) || removedIds.has(`#key-${n}`)) n++
       claim(`#key-${n}`)
       return `#key-${n}`
     }

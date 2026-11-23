@@ -195,9 +195,12 @@ paths:
       tags: *a6
   /dids/{did}/deactivate:
     post:
-      description: Deactivates a DID the wallet created, irreversibly. Supported for
-        did:hedera, did:indy and did:indybesu. Deactivating a deactivated DID
-        returns it without a ledger write.
+      description: Deactivates a DID the wallet created. Supported for did:hedera,
+        did:indy and did:indybesu. The Identity Service never reactivates a DID;
+        whether deactivation is final depends on the method (on did:indy the
+        endorser, as the guardian of the NYM, can assign a verkey again; see
+        docs/api.md). Deactivating a deactivated DID returns it without a ledger
+        write.
       operationId: DidController_deactivate
       parameters:
         - name: did
@@ -2395,10 +2398,12 @@ components:
       type: object
       properties:
         addServices:
+          maxItems: 10
           type: array
           items:
             $ref: "#/components/schemas/AddServiceDto"
         removeServices:
+          maxItems: 10
           example:
             - "#svc-1"
           description: Fragments of services to remove
@@ -2406,10 +2411,12 @@ components:
           items:
             type: string
         addVerificationMethods:
+          maxItems: 10
           type: array
           items:
             $ref: "#/components/schemas/AddVerificationMethodDto"
         removeVerificationMethods:
+          maxItems: 10
           example:
             - "#key-1"
           description: Fragments of verification methods to remove, with every reference
@@ -2417,6 +2424,9 @@ components:
           type: array
           items:
             type: string
+      description: "Changes to a DID document: between 1 and 10 operations over all
+        four arrays together. A body without operations (empty, or with empty
+        arrays only) is rejected with 400."
     SchemaDto:
       type: object
       properties:

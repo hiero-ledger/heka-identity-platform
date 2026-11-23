@@ -19,20 +19,11 @@ import { v4 } from 'uuid'
 import { normalizeMdocNamespaces } from './mdoc-namespaces'
 
 /**
- * Id of the first verification method of the document (in document order) that every one of `purposes` references, or
- * `undefined`. Verifiers accept a signature only from a key of the right purpose: a credential from an `assertionMethod`
- * key, a signed request from an `authentication` key. The first verification method is not always one: the did:indy
- * `#verkey` is `authentication` only.
+ * Ids (absolute) of the verification methods of the document, in document order, that every one of `purposes`
+ * references; only `keyId` (relative or absolute) when one is given. Verifiers accept a signature only from a key of the
+ * right purpose: a credential from an `assertionMethod` key, a signed request from an `authentication` key. The first
+ * verification method is not always one: the did:indy `#verkey` is `authentication` only.
  */
-export function signingKeyId(
-  didDocument: DidDocument,
-  purposes: Array<'assertionMethod' | 'authentication'>,
-  keyId?: string,
-): string | undefined {
-  return signingKeyCandidates(didDocument, purposes, keyId)[0]
-}
-
-/** Every id `signingKeyId` could pick, in document order (absolute). */
 export function signingKeyCandidates(
   didDocument: DidDocument,
   purposes: Array<'assertionMethod' | 'authentication'>,

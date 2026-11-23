@@ -79,7 +79,7 @@ jobs:
         working-directory: .
         run: |
           docker compose --env-file .env.example --profile indybesu up -d indy-besu
-          for i in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if curl -sf -H 'Content-Type: application/json' \
               -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' http://localhost:8545 \
               | grep -q '"result":"0x[1-9a-f]'; then

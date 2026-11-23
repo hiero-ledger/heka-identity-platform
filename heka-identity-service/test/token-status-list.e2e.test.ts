@@ -479,6 +479,8 @@ describe('Token status list (SD-JWT VC revocation)', () => {
     const response = await offer(issuerAuthToken, issuerDid, {
       issuer: { method: 'did', did: foreignDid.didState.did },
     }).expect(422)
-    expect(response.body.message).toBe('Issuer DID is not controlled by this wallet')
+    expect(response.body.message).toBe(
+      `DID ${foreignDid.didState.did} has no key this wallet can sign credentials with: the DID was not created in this wallet`,
+    )
   })
 })

@@ -446,9 +446,11 @@ Anyone can call the endpoint, as anyone could read the bundled token before, so 
 **What a visitor can do with the demo token.** With `ROLE_MODEL_ENABLED=false` (the default), `User` may call every endpoint, so any visitor can act as the shared demo tenant:
 
 - create DIDs, and change and deactivate the demo tenant's DIDs (`PATCH /dids/:did`, `POST /dids/:did/deactivate`): on did:hedera each change is an HCS message paid by the operator account, and deactivation is final; on did:indy the writes go to the shared ledger;
+- revoke the demo tenant's issued credentials (`POST /credentials/:id/revoke`, `POST /openid4vc/issuance-session/:id/revoke`), and revoke or reinstate entries of the demo account's Bitstring Status Lists (`PUT /status-lists/:id`);
+- register AnonCreds schemas, credential definitions and revocation registries with the demo tenant's DIDs (`POST /schemas`, `POST /credential-definitions`, `POST /v2/schemas/:id/registration`, `POST /revocation-registries`): each is a ledger write, on did:indy to the shared ledger, on did:hedera paid by the operator account;
 - change the demo tenant's profile and webhook (`PATCH /user`, which every role may call, also with the role model on).
 
-That is acceptable for local development. For anything reachable by others, enable the role model (`User` then cannot create, change or deactivate DIDs) or leave the broker unset.
+That is acceptable for local development. For anything reachable by others, enable the role model (`User` then can do none of this except change the profile and webhook) or leave the broker unset.
 
 The demo account is created by the provider recipe: the Keycloak realm ships the `heka-demo` client with a service-account user of fixed id `e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9`, and `setup-tenant.sh` creates an Auth0 machine-to-machine application `heka-demo` whose metadata carries the same `heka_uid`, so the demo tenant and its DID are the same on both providers. The web UI's `yarn prepare-demo-user` then obtains a token from the broker, prepares that tenant's wallet through `/prepare-wallet` and records the DID for the build (see the [web UI README](../../heka-identity-service-web-ui/README.md#creation-of-pre-defined-demo-user)).
 

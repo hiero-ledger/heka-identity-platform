@@ -457,6 +457,49 @@ describe('OpenId4VcIssuanceSessionService', () => {
     })
 
     test.each([
+      ['', undefined],
+      [' #key-1', '#key-1'],
+    ])(
+      'rejects an issuer DID whose assertionMethod keys the wallet cannot sign with (422 naming key%s and the reason)',
+      async (key, keyId) => {
+        const did = 'did:indy:bcovrin:test:Uwy7n9G7pecHxPRxLgsuNU'
+        vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+          issuerRecordStub({
+            issuerId: 'issuer-1',
+            credentialConfigurationsSupported: { 'cred-1': { format: 'vc+sd-jwt', vct: 'https://example.com/vct' } },
+          }),
+        )
+        vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(
+          didResolutionResultStub({
+            didDocument: { id: did, verificationMethod: [{ id: `${did}#key-1` }], assertionMethod: ['#key-1'] },
+          }),
+        )
+        vi.mocked(selectSigningKey).mockResolvedValueOnce({
+          unusable: "the wallet's record of the DID differs from its ledger; a DID update brings it in line",
+        })
+
+        const offer = service.offer(authInfo, tenantAgent, {
+          publicIssuerId: 'issuer-1',
+          credentials: [
+            {
+              credentialSupportedId: 'cred-1',
+              format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+              issuer: { did, keyId },
+            },
+          ],
+          baseUri: 'https://example.com',
+        } as any)
+
+        await expect(offer).rejects.toThrow(UnprocessableEntityException)
+        await expect(offer).rejects.toThrow(
+          `DID ${did} has no key${key} this wallet can sign credentials with: the wallet's record of the DID differs from its ledger`,
+        )
+        expect(tokenStatusListService.reserveIndexes).not.toHaveBeenCalled()
+        expect(tenantAgent.openid4vc.issuer.createCredentialOffer).not.toHaveBeenCalled()
+      },
+    )
+
+    test.each([
       ['deactivated on its ledger (did:indybesu keeps its keys)', { deactivated: true }, undefined],
       ['deactivated by the wallet', {}, () => true],
     ])('rejects an issuer DID %s with 422 before signing', async (_, didDocumentMetadata, getTag) => {

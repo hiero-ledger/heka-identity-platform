@@ -15,8 +15,8 @@ import { escapeRegExp, initializeMikroOrm, startTestApp } from './helpers'
 import { createAuthToken } from './helpers/jwt'
 import { createAgent, TestAgentModulesMap } from './helpers/test-agent'
 
-// Issuer DID methods beyond `key` are tested when enabled in DID_METHODS. `indybesu` needs a local Indy-Besu network
-// (see docs/setup.md, "Local Indy-Besu network"); `indy` and `hedera` write to BCovrin Test and Hedera testnet
+// Each issuer DID method is tested when enabled in DID_METHODS. `indybesu` needs a local Indy-Besu network (see
+// docs/setup.md, "Local Indy-Besu network"); `indy` and `hedera` write to BCovrin Test and Hedera testnet
 const didMethods = parseDidMethods(process.env)
 
 describe('E2E issuance session', () => {
@@ -149,7 +149,9 @@ describe('E2E issuance session', () => {
         state: 'OfferCreated',
         type: 'OpenId4VcIssuanceSessionRecord',
         updatedAt: expect.any(String),
-        revocable: false,
+        // An SD-JWT VC offer reserves an entry in a token status list
+        revocable: true,
+        revoked: false,
         credentialOfferUri: expect.stringMatching(new RegExp(`/oid4vci/${issuerId}/offers/`)),
         issuanceMetadata: {
           credentials: [
@@ -173,6 +175,12 @@ describe('E2E issuance session', () => {
               disclosureFrame: {
                 _sd: ['age.over_21', 'age.over_18', 'age.over_65'],
               },
+              credentialStatus: {
+                type: 'token-status-list',
+                location: expect.stringMatching(/\/token-status-lists\/[0-9a-f-]{36}$/),
+                index: expect.any(Number),
+                indexes: [expect.any(Number)],
+              },
             },
           ],
         },
@@ -186,6 +194,8 @@ describe('E2E issuance session', () => {
         ),
       ),
     })
+    const { credentialStatus } = response.body.issuanceSession.issuanceMetadata.credentials[0]
+    expect(credentialStatus.indexes).toEqual([credentialStatus.index])
 
     // const credentialIssued = firstValueFrom(
     //   agent.events
@@ -298,7 +308,7 @@ describe('E2E issuance session', () => {
     expect(response.body.message).toContain('OpenId4VcIssuerRecord')
   })
 
-  test('create offer with `key` DID method', async () => {
+  test.skipIf(!didMethods.includes('key'))('create offer with `key` DID method', async () => {
     await testCredentialIssuance('key', 'EdDSA')
   })
 
