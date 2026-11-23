@@ -443,6 +443,13 @@ The web UI's public demo pages (Demo, Age verification) run without a signed-in 
 
 Anyone can call the endpoint, as anyone could read the bundled token before, so keep the demo account on the minimum role it needs (`User` in both recipes; never `Admin`, which would hand every visitor the shared `Administration` wallet) and keep the provider's access-token lifetime for that client short (minutes). The three settings must be set together; a partial set is a startup error. The rate limit keys on the connecting address, and Express `trust proxy` is not configurable yet: behind a reverse proxy every visitor shares the proxy's address, so `DEMO_TOKEN_RATE_LIMIT` applies to all visitors together.
 
+**What a visitor can do with the demo token.** With `ROLE_MODEL_ENABLED=false` (the default), `User` may call every endpoint, so any visitor can act as the shared demo tenant:
+
+- create DIDs, and change and deactivate the demo tenant's DIDs (`PATCH /dids/:did`, `POST /dids/:did/deactivate`): on did:hedera each change is an HCS message paid by the operator account, and deactivation is final; on did:indy the writes go to the shared ledger;
+- change the demo tenant's profile and webhook (`PATCH /user`, which every role may call, also with the role model on).
+
+That is acceptable for local development. For anything reachable by others, enable the role model (`User` then cannot create, change or deactivate DIDs) or leave the broker unset.
+
 The demo account is created by the provider recipe: the Keycloak realm ships the `heka-demo` client with a service-account user of fixed id `e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9`, and `setup-tenant.sh` creates an Auth0 machine-to-machine application `heka-demo` whose metadata carries the same `heka_uid`, so the demo tenant and its DID are the same on both providers. The web UI's `yarn prepare-demo-user` then obtains a token from the broker, prepares that tenant's wallet through `/prepare-wallet` and records the DID for the build (see the [web UI README](../../heka-identity-service-web-ui/README.md#creation-of-pre-defined-demo-user)).
 
 ### Ledger / DID methods
@@ -459,7 +466,7 @@ The demo account is created by the provider recipe: the Keycloak realm ships the
 | `INDY_ENDORSER_DID`        | `did:indy:bcovrin:test:4bbYgjU6JbV4DShPbGoQcA` | Endorser DID.                                                                                                                                                                                                                                  |
 | `INDY_ENDORSE_DID_CHANGES` | `false`                                        | `true`: the endorser also signs DID updates and deactivations. Needed on ledgers whose auth rules require an endorser for DIDs without a role (the did:indy spec leaves it to the ledger); BCovrin test accepts the DID's own signature alone. |
 
-Credo signs endorsements with the wallet of the tenant whose DID, schema, credential definition or revocation registry is written, so the endorser DID and its key (from `INDY_ENDORSER_SEED`) are imported into each such wallet on its first Indy write.
+Credo signs endorsements with the wallet of the tenant whose DID, schema, credential definition or revocation registry is written, so the endorser DID and its key (from `INDY_ENDORSER_SEED`) are imported into each such wallet on its first Indy write. The endorser also creates every did:indy DID, which makes it that DID's guardian on Indy Node: whoever holds `INDY_ENDORSER_SEED` can assign a verkey to a deactivated did:indy DID, reactivating or taking it over (see [DID update and deactivation](api.md#did-update-and-deactivation)). Keep the seed as protected as the DIDs it created.
 
 **Indy Besu** — when `indybesu` is enabled:
 

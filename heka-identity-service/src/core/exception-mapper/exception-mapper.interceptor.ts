@@ -22,8 +22,18 @@ export class ExceptionMapperInterceptor implements NestInterceptor {
   public intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     return next.handle().pipe(
       catchError((err) => {
-        if (err instanceof RecordNotFoundError) {
-          return throwError(() => new NotFoundException(err.message))
+        // Usually a lookup by an id the client sent (an issuer, a session, a connection): a client error. Not so a
+        // missing tenant, which every authenticated request resolves first: that is a wallet inconsistency, a 500
+        const recordType = err instanceof RecordNotFoundError ? recordTypeOf(err) : undefined
+        if (err instanceof RecordNotFoundError && recordType !== 'TenantRecord') {
+          const request = context
+            .switchToHttp()
+            .getRequest<{ method?: string; route?: { path?: string } } | undefined>()
+          this.logger
+            .child('intercept')
+            .warn(`${recordType ?? 'Record'} not found: ${request?.method ?? ''} ${request?.route?.path ?? ''}`.trim())
+          // Credo's message can include the record query, which is not the client's business
+          return throwError(() => new NotFoundException(`${recordType ?? 'Record'} not found`))
         }
         if (err instanceof CredoError) {
           const logger = this.logger.child('intercept')
@@ -34,4 +44,9 @@ export class ExceptionMapperInterceptor implements NestInterceptor {
       }),
     )
   }
+}
+
+/** Credo's `RecordNotFoundError` has no field for the record type; its constructor prefixes the message with it. */
+function recordTypeOf(error: RecordNotFoundError): string | undefined {
+  return /^(\w+): /.exec(error.message)?.[1]
 }

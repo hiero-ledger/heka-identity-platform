@@ -32,6 +32,11 @@ import {
   UpdateDidRequestDto,
 } from './dto'
 
+// The roles that may create DIDs may also change and deactivate them: a role allowed to create a ledger DID but not to
+// deactivate it would leave a DID nobody can retire, e.g. after a key compromise (Verifier wallets prepared with the
+// role model off hold ledger DIDs too)
+const DID_ROLES = [Role.Admin, Role.OrgAdmin, Role.Issuer, Role.Verifier]
+
 @ApiTags('Dids')
 @ApiExtraModels(DidMethodCapabilitiesDto)
 @ApiBearerAuth()
@@ -91,7 +96,7 @@ export class DidController {
   @ApiConflictResponse({ description: 'Conflict' })
   @ApiUnprocessableEntityResponse({ description: 'Unprocessable Entity' })
   @Post()
-  @Roles(Role.Admin, Role.OrgAdmin, Role.Issuer, Role.Verifier)
+  @Roles(...DID_ROLES)
   public async create(@ReqAuthInfo() authInfo: AuthInfo, @Body() req: CreateDidRequestDto): Promise<DidDocumentDto> {
     const logger = this.logger.child('create', { authInfo })
     logger.trace('>')
@@ -139,7 +144,7 @@ export class DidController {
     description: 'The wallet is busy with another request, or the ledger of the DID cannot be read',
   })
   @Patch(':did')
-  @Roles(Role.Admin, Role.OrgAdmin, Role.Issuer)
+  @Roles(...DID_ROLES)
   @UseInterceptors(TenantAgentInterceptor)
   public async update(
     @ReqAuthInfo() authInfo: AuthInfo,
@@ -173,7 +178,7 @@ export class DidController {
   @ApiServiceUnavailableResponse({ description: 'The wallet is busy with another request' })
   @Post(':did/deactivate')
   @HttpCode(200)
-  @Roles(Role.Admin, Role.OrgAdmin, Role.Issuer)
+  @Roles(...DID_ROLES)
   @UseInterceptors(TenantAgentInterceptor)
   public async deactivate(
     @ReqAuthInfo() authInfo: AuthInfo,

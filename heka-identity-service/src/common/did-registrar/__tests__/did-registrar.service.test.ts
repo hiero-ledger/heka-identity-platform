@@ -99,6 +99,26 @@ describe('DidRegistrarService: update and deactivate', () => {
     )
   })
 
+  test('turns an update the ledger would refuse, found before anything was sent, into a 422 with the reason', async () => {
+    vi.spyOn(DidHederaRegistrar.prototype, 'updateDid').mockResolvedValueOnce({
+      didState: { state: 'failed', reason: 'The DID document is too large for did:indy' },
+      didDocumentMetadata: {},
+      didRegistrationMetadata: { transactionSubmitted: false, unprocessable: true },
+    })
+    const options = {
+      did,
+      currentDidDocument: new DidDocument({ id: did }),
+      addServices: [],
+      removeServices: ['#svc-1'],
+      addVerificationMethods: [],
+      removeVerificationMethods: [],
+    }
+
+    const failed = service.updateDid(tenantAgent, 'hedera', options)
+    await expect(failed).rejects.toThrow(UnprocessableEntityException)
+    await expect(failed).rejects.toThrow('The DID document is too large for did:indy')
+  })
+
   test('turns a failed deactivation into a 500 with the reason', async () => {
     vi.spyOn(DidHederaRegistrar.prototype, 'deactivateDid').mockResolvedValue({
       didState: { state: 'failed', reason: 'Did not found' },

@@ -149,4 +149,14 @@ describe('IndyBesuSigner', () => {
       'Indy-Besu signer key not found',
     )
   })
+
+  test.each([
+    ['with a trailing newline', `${DEV_PRIVATE_KEY}\n`],
+    ['that is not a secp256k1 scalar', '0'.repeat(64)],
+  ])('a private key %s fails with a fixed message that does not contain the key', (_label, malformed) => {
+    expect(() => IndyBesuSigner.fromPrivateKey(malformed)).toThrow(
+      'The Indy-Besu signer private key is not a valid secp256k1 private key',
+    )
+    expect(() => IndyBesuSigner.fromPrivateKey(malformed)).not.toThrow(malformed.trim())
+  })
 })

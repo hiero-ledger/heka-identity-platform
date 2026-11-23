@@ -6,8 +6,7 @@ import { OpenId4VcVerificationSessionRepository, OpenId4VcVerificationSessionSta
 import { Injectable, InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
-import { assertDidActiveOnLedger } from 'common/did-registrar'
-import { signingKeyId } from 'utils/oid4vc'
+import { resolveActiveDidDocument, selectSigningKey } from 'common/did-registrar'
 
 import {
   OpenId4VcVerificationSessionCreateRequestDto,
@@ -38,14 +37,18 @@ export class OpenId4VcVerificationSessionService {
       if (!req.requestSigner?.did) {
         throw new UnprocessableEntityException('requestSigner.did is required')
       }
-      await assertDidActiveOnLedger(tenantAgent, req.requestSigner.did)
-      const { didDocument } = await tenantAgent.dids.resolve(req.requestSigner.did)
+      // One ledger read: the deactivation check, and the document the key is chosen from
+      const didDocument = await resolveActiveDidDocument(tenantAgent, req.requestSigner.did)
       // Wallets accept a signed request only from an `authentication` key
       const { keyId } = req.requestSigner
-      const didUrl = didDocument ? signingKeyId(didDocument, ['authentication'], keyId) : undefined
+      const selected = didDocument ? await selectSigningKey(tenantAgent, didDocument, ['authentication'], keyId) : {}
+      const didUrl = selected.didUrl
       if (!didUrl) {
+        const key = keyId ? `key ${keyId}` : 'key'
         throw new UnprocessableEntityException(
-          `DID ${req.requestSigner.did} has no ${keyId ? `key ${keyId}` : 'key'} for signing requests (a verification method referenced from authentication)`,
+          selected.unusable
+            ? `DID ${req.requestSigner.did} has no ${key} this wallet can sign requests with: ${selected.unusable}`
+            : `DID ${req.requestSigner.did} has no ${key} for signing requests (a verification method referenced from authentication)`,
         )
       }
       requestSigner = { method: 'did', didUrl }

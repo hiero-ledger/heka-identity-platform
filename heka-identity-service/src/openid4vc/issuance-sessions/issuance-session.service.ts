@@ -1,3 +1,5 @@
+import type { DidDocument } from '@credo-ts/core'
+
 import { parseDid, RecordNotFoundError, SdJwtVcPayload } from '@credo-ts/core'
 import {
   OpenId4VciCredentialFormatProfile,
@@ -21,14 +23,14 @@ import { InjectLogger, Logger } from 'common/logger'
 import AgentConfig from 'config/agent'
 
 import { AuthInfo } from '../../common/auth'
-import { assertDidActiveOnLedger } from '../../common/did-registrar'
+import { resolveActiveDidDocument, selectSigningKey } from '../../common/did-registrar'
 import { StatusListService } from '../../revocation/status-list/status-list.service'
 import {
   TokenStatus,
   TokenStatusListService,
   TokenStatusListSignerIdentity,
 } from '../../revocation/token-status-list/token-status-list.service'
-import { CredentialIssuanceMetadata, signingKeyId } from '../../utils/oid4vc'
+import { CredentialIssuanceMetadata } from '../../utils/oid4vc'
 
 import {
   GetIssuanceSessionByQueryDto,
@@ -76,6 +78,17 @@ export class OpenId4VcIssuanceSessionService {
     let credentialIndex = statusList?.lastIndex ?? 0
     const credentialIndexes = []
 
+    // One ledger read per issuer DID for the whole offer: it checks the deactivation and is what the key is chosen from
+    const issuerDocuments = new Map<string, Promise<DidDocument | null>>()
+    const issuerDocument = (did: string) => {
+      let document = issuerDocuments.get(did)
+      if (!document) {
+        document = resolveActiveDidDocument(tenantAgent, did)
+        issuerDocuments.set(did, document)
+      }
+      return document
+    }
+
     // Maps credentials, adds properties, and throws errors if needed
     const mappedCredentials: Array<CredentialIssuanceMetadata> = []
     for (const credential of req.credentials) {
@@ -102,17 +115,20 @@ export class OpenId4VcIssuanceSessionService {
       let issuerDidUrl: string | undefined
       if (credential.format !== OpenId4VciCredentialFormatProfile.MsoMdoc) {
         const issuerCredential = credential as { issuer: { did: string; keyId?: string } }
-        await assertDidActiveOnLedger(tenantAgent, issuerCredential.issuer.did)
-        const { didDocument } = await tenantAgent.dids.resolve(issuerCredential.issuer.did)
+        const didDocument = await issuerDocument(issuerCredential.issuer.did)
         const purposes: Array<'assertionMethod' | 'authentication'> =
           credential.format === OpenId4VciCredentialFormatProfile.SdJwtVc
             ? ['assertionMethod']
             : ['assertionMethod', 'authentication']
         const { keyId } = issuerCredential.issuer
-        issuerDidUrl = didDocument ? signingKeyId(didDocument, purposes, keyId) : undefined
+        const selected = didDocument ? await selectSigningKey(tenantAgent, didDocument, purposes, keyId) : {}
+        issuerDidUrl = selected.didUrl
         if (!issuerDidUrl) {
+          const key = keyId ? `key ${keyId}` : 'key'
           throw new UnprocessableEntityException(
-            `DID ${issuerCredential.issuer.did} has no ${keyId ? `key ${keyId}` : 'key'} for signing credentials (a verification method referenced from ${purposes.join(' and ')})`,
+            selected.unusable
+              ? `DID ${issuerCredential.issuer.did} has no ${key} this wallet can sign credentials with: ${selected.unusable}`
+              : `DID ${issuerCredential.issuer.did} has no ${key} for signing credentials (a verification method referenced from ${purposes.join(' and ')})`,
           )
         }
       }

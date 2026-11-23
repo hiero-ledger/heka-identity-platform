@@ -14,4 +14,6 @@ export {
   DID_DEACTIVATED_TAG,
   isDidRecordDeactivated,
   isStoredDidDeactivated,
+  resolveActiveDidDocument,
 } from './did-deactivation'
+export { SelectedSigningKey, selectSigningKey } from './did-signing-key'

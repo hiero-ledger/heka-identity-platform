@@ -71,6 +71,15 @@ describe('insecure defaults', () => {
       expect(findInsecureDefaults(env)).toEqual(['MDL_ISSUER_PRIVATE_KEY'])
     })
 
+    it.each([
+      ['with 0x', `0x${INSECURE_DEFAULTS.INDY_BESU_ENDORSER_PRIVATE_KEY}`],
+      ['in upper case', INSECURE_DEFAULTS.INDY_BESU_ENDORSER_PRIVATE_KEY.toUpperCase()],
+      ['with a trailing newline', `${INSECURE_DEFAULTS.INDY_BESU_ENDORSER_PRIVATE_KEY}\n`],
+    ])('flags the default Indy-Besu endorser key written %s', (_label, value) => {
+      const env = { ...secureEnv, DID_METHODS: 'indybesu', INDY_BESU_ENDORSER_PRIVATE_KEY: value }
+      expect(findInsecureDefaults(env)).toEqual(['INDY_BESU_ENDORSER_PRIVATE_KEY'])
+    })
+
     describe('mDL issuer key compared by its private key material', () => {
       const defaultJwk = JSON.parse(INSECURE_DEFAULTS.MDL_ISSUER_PRIVATE_KEY) as Record<string, string>
       const defaultJwkWithoutKid = Object.fromEntries(Object.entries(defaultJwk).filter(([key]) => key !== 'kid'))

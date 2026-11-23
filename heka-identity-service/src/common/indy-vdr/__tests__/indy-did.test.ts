@@ -12,7 +12,7 @@ import {
   TypedArrayEncoder,
 } from '@credo-ts/core'
 import { IndyVdrIndyDidResolver, IndyVdrPoolService } from '@credo-ts/indy-vdr'
-import { GetNymRequest, IndyVdrRequest } from '@hyperledger/indy-vdr-shared'
+import { GetNymRequest, IndyVdrError, IndyVdrRequest } from '@hyperledger/indy-vdr-shared'
 import { Key, KeyAlgorithm } from '@openwallet-foundation/askar-shared'
 
 import { indyBaseDidDocument, IndyDidRegistrar, IndyDidResolver } from '../indy-did'
@@ -179,6 +179,116 @@ describe('IndyDidRegistrar', () => {
     }
     expect(kms.sign).toHaveBeenCalledTimes(2)
     expect(kms.sign.mock.calls[0][0]).toMatchObject({ keyId: 'endorser-key', algorithm: 'EdDSA' })
+  })
+})
+
+describe('IndyDidRegistrar: failed writes', () => {
+  const registrar = new IndyDidRegistrar()
+  // indy-vdr's submit errors: 31 is the ledger's REJECT or REQNACK, 32 a timeout with an unknown outcome
+  const rejected = () => new IndyVdrError({ code: 31, message: 'client request invalid: rejected by the ledger' })
+  const timedOut = () => new IndyVdrError({ code: 32, message: 'pool timeout' })
+  const writes = (pool: ReturnType<typeof context>['pool']) =>
+    pool.submitRequest.mock.calls.filter(([request]) => !(request instanceof GetNymRequest)).length
+  const reads = (pool: ReturnType<typeof context>['pool']) =>
+    pool.submitRequest.mock.calls.filter(([request]) => request instanceof GetNymRequest).length
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  test('an update the ledger rejects (code 31) wrote nothing: no read-back, and the new keys may be released', async () => {
+    const { agentContext, pool, didRepository } = context({ verkey: VERKEY })
+    pool.submitRequest.mockImplementationOnce(() => Promise.reject(rejected()))
+
+    const result = await registrar.update(agentContext, { did: DID, didDocument: updatedDocument() })
+
+    expect(result.didState).toMatchObject({ state: 'failed' })
+    expect(result.didRegistrationMetadata).toEqual({ transactionSubmitted: false })
+    expect(reads(pool)).toBe(0)
+    expect(didRepository.update).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    ['a timeout (code 32)', timedOut],
+    ['a transport error', () => new Error('socket hang up')],
+  ])(
+    'an update that fails with %s and is not on the ledger stays unknown: failed, keys kept, record unchanged',
+    async (_label, error) => {
+      const { agentContext, pool, didRepository } = context({ verkey: VERKEY })
+      pool.submitRequest.mockImplementationOnce(() => Promise.reject(error()))
+
+      const result = await registrar.update(agentContext, { did: DID, didDocument: updatedDocument() })
+
+      expect(result.didState).toMatchObject({ state: 'failed' })
+      expect(result.didRegistrationMetadata.transactionSubmitted).not.toBe(false)
+      expect(reads(pool)).toBe(1)
+      expect(didRepository.update).not.toHaveBeenCalled()
+    },
+  )
+
+  test('an update whose diddocContent exceeds the ledger limit is refused before anything is signed (422)', async () => {
+    const { agentContext, pool } = context({ verkey: VERKEY })
+    const didDocument = updatedDocument()
+    didDocument.service = [
+      new DidDocumentService({
+        id: `${DID}#svc-1`,
+        type: 'LinkedDomains',
+        serviceEndpoint: `https://example.com/${'a'.repeat(10 * 1024)}`,
+      }),
+    ]
+
+    const result = await registrar.update(agentContext, { did: DID, didDocument })
+
+    expect(result.didState).toMatchObject({ state: 'failed', reason: expect.stringContaining('too large') })
+    expect(result.didRegistrationMetadata).toEqual({ transactionSubmitted: false, unprocessable: true })
+    expect(pool.prepareWriteRequest).not.toHaveBeenCalled()
+  })
+
+  test('a deactivation the ledger rejects (code 31) wrote nothing and is not read back', async () => {
+    const { agentContext, pool } = context({ verkey: VERKEY })
+    pool.submitRequest.mockImplementationOnce(() => Promise.reject(rejected()))
+
+    const result = await registrar.deactivate(agentContext, { did: DID })
+
+    expect(result.didState).toMatchObject({ state: 'failed' })
+    expect(result.didRegistrationMetadata).toEqual({ transactionSubmitted: false })
+    expect(writes(pool)).toBe(1)
+    expect(reads(pool)).toBe(0)
+  })
+
+  test('a deactivation that times out while the ledger still shows the verkey fails, its outcome unknown', async () => {
+    const { agentContext, pool } = context({ verkey: VERKEY })
+    pool.submitRequest.mockImplementationOnce(() => Promise.reject(timedOut()))
+
+    const result = await registrar.deactivate(agentContext, { did: DID })
+
+    expect(result.didState).toMatchObject({ state: 'failed' })
+    expect(result.didRegistrationMetadata.transactionSubmitted).not.toBe(false)
+    expect(reads(pool)).toBe(1)
+  })
+
+  test('frees the requests it builds but does not submit', async () => {
+    const free = vi.spyOn(IndyVdrRequest.prototype, 'free')
+
+    // Deactivation builds a NYM request only for its body
+    const deactivation = context({ verkey: VERKEY })
+    await registrar.deactivate(deactivation.agentContext, { did: DID })
+    expect(free).toHaveBeenCalledTimes(1)
+
+    // A request whose preparation fails is never submitted
+    for (const operation of ['update', 'deactivate'] as const) {
+      free.mockClear()
+      const { agentContext, pool } = context({ verkey: VERKEY })
+      pool.prepareWriteRequest.mockRejectedValueOnce(new Error('KMS unavailable'))
+
+      const result =
+        operation === 'update'
+          ? await registrar.update(agentContext, { did: DID, didDocument: updatedDocument() })
+          : await registrar.deactivate(agentContext, { did: DID })
+
+      expect(result.didState).toMatchObject({ state: 'failed' })
+      expect(free).toHaveBeenCalledTimes(operation === 'update' ? 1 : 2)
+    }
   })
 })
 

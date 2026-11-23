@@ -88,19 +88,34 @@ export class IndyDidRegistrar implements DidRegistrar {
     } catch (error) {
       return failedResult(errorReason(error), NOT_SUBMITTED)
     }
+    // Indy Node would reject it (`DIDDOC_CONTENT_SIZE_LIMIT`, counted in characters); refused here, before anything is
+    // signed, so the keys created for the update are released and the client gets 422 instead of 500
+    const size = [...diddocContent].length
+    if (size > DIDDOC_CONTENT_MAX_LENGTH) {
+      return failedResult(
+        `The DID document is too large for did:indy: its diddocContent would be ${size} characters, the ledger accepts at most ${DIDDOC_CONTENT_MAX_LENGTH}`,
+        { ...NOT_SUBMITTED, unprocessable: true },
+      )
+    }
 
     const { pool, namespaceIdentifier, signingKey, didRecord } = prepared
+    let request: NymRequest | undefined
     let writeRequest: NymRequest
     try {
-      const request = new NymRequest({ submitterDid: namespaceIdentifier, dest: namespaceIdentifier, diddocContent })
+      request = new NymRequest({ submitterDid: namespaceIdentifier, dest: namespaceIdentifier, diddocContent })
       writeRequest = await pool.prepareWriteRequest(agentContext, request, signingKey, options.options?.endorserDid)
       await endorse(agentContext, writeRequest, options.options?.endorserDid)
     } catch (error) {
+      // indy-vdr frees a request only when it is submitted
+      request?.free()
       return failedResult(errorReason(error), NOT_SUBMITTED)
     }
     try {
       await pool.submitRequest(writeRequest)
     } catch (error) {
+      if (isLedgerRejection(error)) {
+        return failedResult(errorReason(error), NOT_SUBMITTED)
+      }
       // The transaction may have been written although its response was lost: the ledger decides
       const written = await readNym(pool, namespaceIdentifier)
         // Compared as JSON: indy-vdr re-serializes the content
@@ -129,26 +144,28 @@ export class IndyDidRegistrar implements DidRegistrar {
     const { did } = options
 
     let prepared: Awaited<ReturnType<typeof prepareNymWrite>>
+    let request: CustomRequest | undefined
     let writeRequest: CustomRequest
     try {
       prepared = await prepareNymWrite(agentContext, did)
       const { namespaceIdentifier } = prepared
       // indy-vdr's NYM builder leaves out a missing verkey (no change), so `null` is set on the request body
-      const body = JSON.parse(
-        new NymRequest({ submitterDid: namespaceIdentifier, dest: namespaceIdentifier }).body,
-      ) as {
-        operation: Record<string, unknown>
+      const template = new NymRequest({ submitterDid: namespaceIdentifier, dest: namespaceIdentifier })
+      let body: { operation: Record<string, unknown> }
+      try {
+        body = JSON.parse(template.body) as { operation: Record<string, unknown> }
+      } finally {
+        // Built only for its body, never submitted
+        template.free()
       }
       body.operation.verkey = null
       const endorserDid = (options.options as IndyDidChangeOptions | undefined)?.endorserDid
-      writeRequest = await prepared.pool.prepareWriteRequest(
-        agentContext,
-        new CustomRequest({ customRequest: body }),
-        prepared.signingKey,
-        endorserDid,
-      )
+      request = new CustomRequest({ customRequest: body })
+      writeRequest = await prepared.pool.prepareWriteRequest(agentContext, request, prepared.signingKey, endorserDid)
       await endorse(agentContext, writeRequest, endorserDid)
     } catch (error) {
+      // indy-vdr frees a request only when it is submitted
+      request?.free()
       return failedResult(errorReason(error), NOT_SUBMITTED)
     }
 
@@ -156,6 +173,9 @@ export class IndyDidRegistrar implements DidRegistrar {
     try {
       await pool.submitRequest(writeRequest)
     } catch (error) {
+      if (isLedgerRejection(error)) {
+        return failedResult(errorReason(error), NOT_SUBMITTED)
+      }
       const deactivated = await readNym(pool, namespaceIdentifier)
         .then((nym) => nym?.verkey === null)
         .catch(() => false)
@@ -259,7 +279,19 @@ function documentDiff(document: Record<string, unknown>, base: Record<string, un
   return diff
 }
 
+// Certainly nothing on the ledger: not sent, or refused by it. The caller may then release the keys of the change
 const NOT_SUBMITTED = { transactionSubmitted: false }
+
+// Indy Node's `DIDDOC_CONTENT_SIZE_LIMIT` (indy_common/config.py), applied to the JSON text by the NYM schema
+const DIDDOC_CONTENT_MAX_LENGTH = 10 * 1024
+
+// indy-vdr's `PoolRequestFailed` (libindy_vdr/src/ffi/error.rs): the ledger answered REJECT or REQNACK, so nothing was
+// written. Its other submit errors (30 no consensus, 32 timeout, transport) leave the outcome unknown.
+const INDY_VDR_POOL_REQUEST_FAILED = 31
+
+function isLedgerRejection(error: unknown): boolean {
+  return (error as { code?: unknown } | undefined)?.code === INDY_VDR_POOL_REQUEST_FAILED
+}
 
 function failedResult(
   reason: string,

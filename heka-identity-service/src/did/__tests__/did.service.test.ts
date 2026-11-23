@@ -750,7 +750,15 @@ describe('DidService', () => {
       didResolutionResultStub({ didDocument: currentDocument(), didDocumentMetadata })
 
     beforeEach(() => {
-      didRecord = new DidRecord({ did, role: DidDocumentRole.Created, didDocument: currentDocument() })
+      didRecord = new DidRecord({
+        did,
+        role: DidDocumentRole.Created,
+        didDocument: currentDocument(),
+        keys: [
+          { kmsKeyId: 'root-kms', didDocumentRelativeKeyId: '#did-root-key' },
+          { kmsKeyId: 'kms-1', didDocumentRelativeKeyId: '#key-1' },
+        ],
+      })
       didRepository = { update: vi.fn() }
       Object.assign(tenantAgent, {
         context: {},
@@ -836,7 +844,25 @@ describe('DidService', () => {
         [{ addVerificationMethods: [{ id: '#key-1' }] }, 'already exists'],
         [{ addVerificationMethods: [{ id: '#key-9' }, { id: '#key-9' }] }, 'already exists'],
         [{ removeServices: ['#key-1'] }, 'Service #key-1 does not exist'],
-        [{ removeServices: ['#svc-9', '#svc-9'] }, 'is named more than once'],
+        [{ removeServices: ['#svc-1', '#svc-1'] }, 'is named more than once'],
+        // A removal the DID never had is a mistake, not a retry (neither the ledger nor the wallet's record knows it)
+        [{ removeServices: ['#svc-9'] }, 'Service #svc-9 does not exist'],
+        [{ removeVerificationMethods: ['#key-l'] }, 'Verification method #key-l does not exist'],
+        // An id removed and added in one request
+        [
+          {
+            removeVerificationMethods: ['#key-1'],
+            addVerificationMethods: [{ id: '#key-1', purposes: ['assertionMethod' as const] }],
+          },
+          'is removed and added in the same request',
+        ],
+        [
+          {
+            removeServices: ['#svc-1'],
+            addServices: [{ id: '#svc-1', type: 'LinkedDomains', serviceEndpoint: 'https://a' }],
+          },
+          'is removed and added in the same request',
+        ],
         [{ removeVerificationMethods: ['#svc-1'] }, 'Verification method #svc-1 does not exist'],
         [{ removeVerificationMethods: ['#key-1', '#key-1'] }, 'is named more than once'],
       ])('rejects %j with 422 (%s)', async (req, message) => {
@@ -847,7 +873,29 @@ describe('DidService', () => {
         expect(didRegistrarService.updateDid).not.toHaveBeenCalled()
       })
 
+      // The wallet's record before an earlier, partly applied update: it still has #svc-9 and the key of #key-9,
+      // which that update removed from the ledger
+      const recordBeforeEarlierUpdate = () => {
+        const didDocument = currentDocument()
+        didDocument.service = [
+          ...didDocument.service!,
+          new DidDocumentService({ id: `${did}#svc-9`, type: 'LinkedDomains', serviceEndpoint: 'https://z' }),
+        ]
+        didDocument.verificationMethod = [
+          ...didDocument.verificationMethod!,
+          new VerificationMethod({ id: `${did}#key-9`, type: 'Ed25519VerificationKey2020', controller: did }),
+        ]
+        return new DidRecord({
+          did,
+          role: DidDocumentRole.Created,
+          didDocument,
+          keys: [...didRecord.keys!, { kmsKeyId: 'kms-9', didDocumentRelativeKeyId: '#key-9' }],
+        })
+      }
+
       test('drops operations the ledger document already shows (a retry after a partly applied update)', async () => {
+        vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([recordBeforeEarlierUpdate()])
+
         await didService.update(orgAdmin, tenantAgent, did, {
           addServices: [
             { id: '#svc-1', type: 'LinkedDomains', serviceEndpoint: 'https://a' },
@@ -855,22 +903,69 @@ describe('DidService', () => {
           ],
           addVerificationMethods: [{ id: '#key-1', purposes: ['assertionMethod'] }],
           removeServices: ['#svc-9'],
-          removeVerificationMethods: ['#key-1'],
+          removeVerificationMethods: ['#key-9'],
         })
 
         expect(vi.mocked(didRegistrarService.updateDid).mock.calls[0][2]).toMatchObject({
           addServices: [{ id: '#svc-2', type: 'LinkedDomains', serviceEndpoint: 'https://b' }],
           addVerificationMethods: [],
           removeServices: [],
-          removeVerificationMethods: ['#key-1'],
+          removeVerificationMethods: [],
         })
       })
 
-      test('writes nothing and returns the ledger document when everything is applied already', async () => {
+      test('writes nothing when everything is applied already, and brings the record in line with the ledger', async () => {
+        const recordBefore = recordBeforeEarlierUpdate()
+        vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([recordBefore])
+        Object.assign(tenantAgent, { kms: { deleteKey: vi.fn().mockResolvedValue(true) } })
+
         const result = await didService.update(orgAdmin, tenantAgent, did, {
           addServices: [{ id: '#svc-1', type: 'LinkedDomains', serviceEndpoint: 'https://a' }],
           removeServices: ['#svc-9'],
           removeVerificationMethods: ['#key-9'],
+        })
+
+        expect(result.id).toBe(did)
+        expect(didRegistrarService.updateDid).not.toHaveBeenCalled()
+        // The removal landed after its request failed: its key goes now, and the record takes the ledger document
+        expect(tenantAgent.kms.deleteKey).toHaveBeenCalledExactlyOnceWith({ keyId: 'kms-9' })
+        expect(didRepository.update).toHaveBeenCalledWith(tenantAgent.context, recordBefore)
+        expect(recordBefore.keys!.map(({ didDocumentRelativeKeyId }) => didDocumentRelativeKeyId)).toEqual([
+          '#did-root-key',
+          '#key-1',
+        ])
+        expect(recordBefore.didDocument?.toJSON()).toEqual(currentDocument().toJSON())
+      })
+
+      test('keeps the mapping and key of a method removed outside this service', async () => {
+        const recordBefore = recordBeforeEarlierUpdate()
+        vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([recordBefore])
+        Object.assign(tenantAgent, { kms: { deleteKey: vi.fn().mockResolvedValue(true) } })
+
+        await didService.update(orgAdmin, tenantAgent, did, {
+          addServices: [{ id: '#svc-2', type: 'LinkedDomains', serviceEndpoint: 'https://b' }],
+        })
+
+        expect(tenantAgent.kms.deleteKey).not.toHaveBeenCalled()
+        expect(recordBefore.keys!.map(({ didDocumentRelativeKeyId }) => didDocumentRelativeKeyId)).toContain('#key-9')
+      })
+
+      test('an added id the ledger shows without a key in the wallet is 422, not "applied"', async () => {
+        // #key-1 landed after its update failed: the ledger shows it, the wallet never mapped its key
+        didRecord.keys = didRecord.keys!.filter(({ didDocumentRelativeKeyId }) => didDocumentRelativeKeyId !== '#key-1')
+
+        const update = didService.update(orgAdmin, tenantAgent, did, {
+          addVerificationMethods: [{ id: '#key-1', purposes: ['assertionMethod'] }],
+        })
+
+        await expect(update).rejects.toThrow(UnprocessableEntityException)
+        await expect(update).rejects.toThrow('this wallet holds no key for it')
+        expect(didRegistrarService.updateDid).not.toHaveBeenCalled()
+      })
+
+      test('an added id the ledger shows with the same purposes and a key in the wallet is applied (200, no write)', async () => {
+        const result = await didService.update(orgAdmin, tenantAgent, did, {
+          addVerificationMethods: [{ id: '#key-1', purposes: ['assertionMethod'] }],
         })
 
         expect(result.id).toBe(did)
@@ -955,6 +1050,8 @@ describe('DidService', () => {
           vi.mocked(didRegistrarService.updateDid).mockResolvedValue(after)
           vi.mocked(tenantAgent.dids.getCreatedDids)
             .mockResolvedValueOnce([didRecord])
+            // The record is synchronised with the ledger first; it already matches
+            .mockResolvedValueOnce([didRecord])
             .mockResolvedValueOnce([recordAfter(after, [keyBefore[0], keyBefore[2]])])
 
           await didService.update(orgAdmin, tenantAgent, did, { removeVerificationMethods: ['#key-1'] })
@@ -979,6 +1076,7 @@ describe('DidService', () => {
         ])('a key is kept when %s', async (_case, after, keysAfter) => {
           vi.mocked(didRegistrarService.updateDid).mockResolvedValue(after)
           vi.mocked(tenantAgent.dids.getCreatedDids)
+            .mockResolvedValueOnce([didRecord])
             .mockResolvedValueOnce([didRecord])
             .mockResolvedValueOnce([recordAfter(after, keysAfter)])
 
@@ -1024,7 +1122,7 @@ describe('DidService', () => {
             expect(recordAfterFailure.keys).toEqual([keyBefore[0], keyBefore[2]])
             expect(recordAfterFailure.didDocument?.verificationMethod?.map(({ id }) => id)).toEqual([rootKey])
             expect(childLogger.warn).toHaveBeenCalledWith(
-              'The update failed, but the ledger no longer shows 1 removed verification method(s); deleting their private keys',
+              'The ledger no longer shows 1 verification method(s) removed by an earlier or failed update; deleting their private keys',
             )
             const logged = JSON.stringify([
               ...vi.mocked(childLogger.warn).mock.calls,
@@ -1113,6 +1211,8 @@ describe('DidService', () => {
           vi.mocked(didRegistrarService.updateDid).mockResolvedValue(after)
           vi.mocked(tenantAgent.dids.getCreatedDids)
             .mockResolvedValueOnce([didRecord])
+            // The record is synchronised with the ledger first; it already matches
+            .mockResolvedValueOnce([didRecord])
             .mockResolvedValueOnce([recordAfter(after, [keyBefore[0], keyBefore[2]])])
           vi.mocked(tenantAgent.kms.deleteKey).mockRejectedValue(new Error('Key kms-1 could not be deleted'))
           const childLogger = createMock<Logger>()
@@ -1160,6 +1260,18 @@ describe('DidService', () => {
         expect(didRecord.getTag('hekaDeactivated')).toBe(true)
         expect(didRepository.update).toHaveBeenCalledWith(tenantAgent.context, didRecord)
         expect(invalidateCacheForDid).toHaveBeenCalledWith(tenantAgent.context, did)
+      })
+
+      test("first brings the wallet's record in line with the ledger document", async () => {
+        didRecord.didDocument = new DidDocument({ id: did })
+
+        await didService.deactivate(orgAdmin, tenantAgent, did)
+
+        const [firstUpdate] = vi.mocked(didRepository.update).mock.invocationCallOrder
+        expect(firstUpdate).toBeLessThan(vi.mocked(didRegistrarService.deactivateDid).mock.invocationCallOrder[0])
+        expect((vi.mocked(didRepository.update).mock.calls[0][1] as DidRecord).didDocument?.toJSON()).toEqual(
+          currentDocument().toJSON(),
+        )
       })
 
       test('a DID the wallet deactivated is returned without a ledger write (idempotent)', async () => {

@@ -1,4 +1,4 @@
-import type { DidDocument, DidRecord, DidResolutionResult } from '@credo-ts/core'
+import type { DidDocument, DidDocumentKey, DidRecord, DidResolutionResult } from '@credo-ts/core'
 
 import { DidRepository, DidResolverService, parseDid } from '@credo-ts/core'
 import { EntityManager } from '@mikro-orm/core'
@@ -299,7 +299,13 @@ export class DidService {
           throw new ServiceUnavailableException('Unable to read the current DID document from its ledger; retry later')
         }
 
-        const options = this.toUpdateOptions(did, currentDidDocument, req, didRegistrar)
+        const options = this.toUpdateOptions(did, currentDidDocument, req, didRegistrar, didRecord)
+        // The record follows the ledger before anything is written: Credo signs from the record's document, and keys of
+        // removals that landed after an earlier request failed are deleted here, also when nothing is left to write
+        const removedEarlier = (req.removeVerificationMethods ?? []).filter(
+          (id) => !options.removeVerificationMethods.includes(id),
+        )
+        await this.syncRecordWithLedger(tenantAgent, didRecord, currentDidDocument, removedEarlier, didRegistrar)
         if (
           !options.addServices.length &&
           !options.removeServices.length &&
@@ -323,7 +329,7 @@ export class DidService {
         } finally {
           await this.invalidateCachedDid(tenantAgent, did)
         }
-        await this.deleteRemovedKeys(tenantAgent, didRecord, didDocument, options, didRegistrar)
+        await this.deleteRemovedKeys(tenantAgent, didRecord.keys ?? [], didDocument, options, didRegistrar)
         return new DidDocumentDto(didDocument)
       },
     )
@@ -341,7 +347,7 @@ export class DidService {
       DID_OPERATION_LOCK_TIMEOUT_SECONDS,
       async () => {
         const { didRecord, method } = await this.findOwnDidRecord(tenantAgent, did)
-        this.didRegistrarService.getUpdatingDidRegistrar(method, 'deactivate')
+        const didRegistrar = this.didRegistrarService.getUpdatingDidRegistrar(method, 'deactivate')
 
         if (isDidRecordDeactivated(didRecord)) {
           return new DidDocumentDto(await this.documentOf(tenantAgent, didRecord), { deactivated: true })
@@ -353,6 +359,9 @@ export class DidService {
           return new DidDocumentDto(resolution.didDocument ?? (await this.documentOf(tenantAgent, didRecord)), {
             deactivated: true,
           })
+        }
+        if (resolution.didDocument) {
+          await this.syncRecordWithLedger(tenantAgent, didRecord, resolution.didDocument, [], didRegistrar)
         }
 
         let didDocument: DidDocument
@@ -461,7 +470,7 @@ export class DidService {
 
   private async deleteRemovedKeys(
     tenantAgent: TenantAgent,
-    recordBefore: DidRecord,
+    keysBefore: DidDocumentKey[],
     didDocument: DidDocument,
     options: UpdateDidOptions,
     didRegistrar: DidRegistrar,
@@ -472,7 +481,6 @@ export class DidService {
     }
     const logger = this.logger.child('deleteRemovedKeys', { did: options.did })
     const protectedFragment = didRegistrar.protectedKeyFragment?.toLowerCase()
-    const keysBefore = recordBefore.keys ?? []
 
     let failed = 0
     try {
@@ -523,51 +531,93 @@ export class DidService {
     if (!options.removeVerificationMethods.length) {
       return
     }
-    const logger = this.logger.child('deleteKeysRemovedOnLedger', { did: options.did })
-    const protectedFragment = didRegistrar.protectedKeyFragment?.toLowerCase()
-
     let ledgerDocument: DidDocument
-    let removedOnLedger: string[]
     try {
       const resolution = await this.resolveFromLedger(tenantAgent, options.did)
       if (!resolution.didDocument || resolution.didDocumentMetadata?.deactivated === true) {
         return
       }
       ledgerDocument = resolution.didDocument
-      const onLedger = new Set((ledgerDocument.verificationMethod ?? []).map(({ id }) => fragmentOf(id).toLowerCase()))
-      removedOnLedger = options.removeVerificationMethods.filter(
-        (fragment) => !onLedger.has(fragment.toLowerCase()) && fragment.toLowerCase() !== protectedFragment,
-      )
-      if (!removedOnLedger.length) {
-        return
-      }
+    } catch {
+      this.logger
+        .child('deleteKeysRemovedOnLedger', { did: options.did })
+        .warn('Could not check the ledger for verification methods removed by the failed update')
+      return
+    }
+    await this.syncRecordWithLedger(
+      tenantAgent,
+      recordBefore,
+      ledgerDocument,
+      options.removeVerificationMethods,
+      didRegistrar,
+    )
+  }
 
-      // The record must not keep mappings to keys that are deleted below
-      const [currentRecord] = await tenantAgent.dids.getCreatedDids({ did: options.did })
+  /**
+   * Makes the wallet's record follow the ledger: its document becomes the ledger document, and of `requestedRemovals`
+   * those the ledger no longer shows lose their mapping and private key. Other mappings are kept, also of keys the
+   * ledger no longer shows: their deletion is only ever requested through this service. Best effort; failures are
+   * logged, since the ledger write the caller reports on is unaffected.
+   */
+  private async syncRecordWithLedger(
+    tenantAgent: TenantAgent,
+    recordBefore: DidRecord,
+    ledgerDocument: DidDocument,
+    requestedRemovals: string[],
+    didRegistrar: DidRegistrar,
+  ): Promise<void> {
+    const did = recordBefore.did
+    // Taken before the record changes: the keys to delete are found among these
+    const keysBefore = [...(recordBefore.keys ?? [])]
+    const logger = this.logger.child('syncRecordWithLedger', { did })
+    const protectedFragment = didRegistrar.protectedKeyFragment?.toLowerCase()
+    const onLedger = new Set((ledgerDocument.verificationMethod ?? []).map(({ id }) => fragmentOf(id).toLowerCase()))
+    const removedOnLedger = requestedRemovals.filter(
+      (fragment) => !onLedger.has(fragment.toLowerCase()) && fragment.toLowerCase() !== protectedFragment,
+    )
+
+    try {
+      const [currentRecord] = await tenantAgent.dids.getCreatedDids({ did })
       if (!currentRecord) {
         return
       }
       const removed = new Set(removedOnLedger)
-      currentRecord.didDocument = ledgerDocument
-      currentRecord.keys = (currentRecord.keys ?? []).filter(
+      const keys = (currentRecord.keys ?? []).filter(
         ({ didDocumentRelativeKeyId }) => !removed.has(fragmentOf(didDocumentRelativeKeyId)),
       )
+      const documentChanged =
+        JSON.stringify(currentRecord.didDocument?.toJSON()) !== JSON.stringify(ledgerDocument.toJSON())
+      if (!documentChanged && keys.length === (currentRecord.keys ?? []).length) {
+        return
+      }
+      // The record must not keep mappings to keys that are deleted below
+      currentRecord.didDocument = ledgerDocument
+      currentRecord.keys = keys
       await tenantAgent.dependencyManager.resolve(DidRepository).update(tenantAgent.context, currentRecord)
     } catch {
-      logger.warn('Could not check the ledger for verification methods removed by the failed update')
+      logger.warn("Could not update the wallet's DID record from the ledger")
       return
     }
 
-    logger.warn(
-      `The update failed, but the ledger no longer shows ${removedOnLedger.length} removed verification method(s); deleting their private keys`,
-    )
-    await this.deleteRemovedKeys(
-      tenantAgent,
-      recordBefore,
-      ledgerDocument,
-      { ...options, removeVerificationMethods: removedOnLedger },
-      didRegistrar,
-    )
+    if (removedOnLedger.length) {
+      logger.warn(
+        `The ledger no longer shows ${removedOnLedger.length} verification method(s) removed by an earlier or failed update; deleting their private keys`,
+      )
+      await this.deleteRemovedKeys(
+        tenantAgent,
+        keysBefore,
+        ledgerDocument,
+        {
+          did,
+          currentDidDocument: ledgerDocument,
+          addServices: [],
+          removeServices: [],
+          addVerificationMethods: [],
+          removeVerificationMethods: removedOnLedger,
+        },
+        didRegistrar,
+      )
+    }
   }
 
   private async markDeactivated(tenantAgent: TenantAgent, didRecord: DidRecord): Promise<void> {
@@ -579,15 +629,17 @@ export class DidService {
    * Checks the requested operations against the current document and resolves them to the registrar's options.
    * Operations the document already reflects are dropped, so a retry after a partly applied update writes only the
    * rest: an added service with the same type and endpoint, an added verification method (with an explicit id) with the
-   * same purposes, and a removed id the document does not use at all. Each failure is a 422: an added id that exists
-   * with other content, an id to remove that the document uses for another kind of entry, or the key that controls the
-   * DID.
+   * same purposes whose key the wallet holds, and a removed id the document does not use but the wallet's record knows.
+   * Each failure is a 422: an added id that exists with other content or without a key in the wallet, an id that is
+   * both removed and added, an id to remove that the document uses for another kind of entry or that the DID never
+   * had, or the key that controls the DID.
    */
   private toUpdateOptions(
     did: string,
     didDocument: DidDocument,
     req: UpdateDidRequestDto,
     didRegistrar: DidRegistrar,
+    didRecord: DidRecord,
   ): UpdateDidOptions {
     const protectedFragment = didRegistrar.protectedKeyFragment?.toLowerCase()
     const named = [
@@ -614,10 +666,21 @@ export class DidService {
       ].map((id) => id.toLowerCase()),
     )
 
-    // Returns the ids still to remove; an id the document does not use at all was removed already
-    const toRemove = (ids: string[], existing: Set<string>, kind: string) => {
+    // What the wallet has known of the DID: the mapped keys and the record's (possibly older) document
+    const mappedKeyIds = new Set(
+      (didRecord.keys ?? []).map(({ didDocumentRelativeKeyId }) => fragmentOf(didDocumentRelativeKeyId)),
+    )
+    const knownServiceIds = new Set((didRecord.didDocument?.service ?? []).map(({ id }) => fragmentOf(id)))
+    const knownVerificationMethodIds = new Set([
+      ...mappedKeyIds,
+      ...(didRecord.didDocument?.verificationMethod ?? []).map(({ id }) => fragmentOf(id)),
+    ])
+
+    // Returns the ids still to remove. An id the document does not use was removed already, by an earlier request whose
+    // response was lost, if the wallet knew it; otherwise it is a mistake (a typo must not succeed silently)
+    const toRemove = (ids: string[], existing: Set<string>, known: Set<string>, kind: string) => {
       ids.forEach((id, index) => {
-        if (!existing.has(id) && usedIds.has(id.toLowerCase())) {
+        if (!existing.has(id) && (usedIds.has(id.toLowerCase()) || !known.has(id))) {
           throw new UnprocessableEntityException(`${kind} ${id} does not exist in the DID document`)
         }
         if (ids.indexOf(id) !== index) {
@@ -626,10 +689,11 @@ export class DidService {
       })
       return ids.filter((id) => existing.has(id))
     }
-    const removeServices = toRemove(req.removeServices ?? [], serviceIds, 'Service')
+    const removeServices = toRemove(req.removeServices ?? [], serviceIds, knownServiceIds, 'Service')
     const removeVerificationMethods = toRemove(
       req.removeVerificationMethods ?? [],
       verificationMethodIds,
+      knownVerificationMethodIds,
       'Verification method',
     )
 
@@ -639,8 +703,10 @@ export class DidService {
           (service) =>
             fragmentOf(service.id) === id && service.type === type && service.serviceEndpoint === serviceEndpoint,
         ),
+      // Only with its key in the wallet: a method that landed after its update failed has no mapping and cannot sign
       verificationMethod: (id: string, purposes: string[]) =>
         verificationMethodIds.has(id) &&
+        mappedKeyIds.has(id) &&
         VERIFICATION_RELATIONSHIPS.every(
           (relationship) =>
             purposes.includes(relationship) ===
@@ -649,20 +715,37 @@ export class DidService {
             ),
         ),
     }
-    const addServices = (req.addServices ?? []).filter((service) => !isApplied.service(service))
+    // An id that is also removed is never "applied": the add has to reach `claim`, which refuses it
+    const removedIds = new Set([...(req.removeServices ?? []), ...(req.removeVerificationMethods ?? [])].map(lower))
+    const addServices = (req.addServices ?? []).filter(
+      (service) => removedIds.has(lower(service.id)) || !isApplied.service(service),
+    )
     const addVerificationMethods = (req.addVerificationMethods ?? [])
       .map(({ id, purposes }) => ({ id, purposes: [...new Set(purposes ?? DEFAULT_VERIFICATION_PURPOSES)] }))
-      .filter(({ id, purposes }) => !id || !isApplied.verificationMethod(id, purposes))
+      .filter(({ id, purposes }) => !id || removedIds.has(lower(id)) || !isApplied.verificationMethod(id, purposes))
 
     // Removed ids stay in use: some ledgers apply all operations to the document before the update
     const claim = (id: string) => {
+      if (removedIds.has(lower(id))) {
+        throw new UnprocessableEntityException(
+          `${id} is removed and added in the same request; add it under another id (some ledgers apply all operations to the document at once)`,
+        )
+      }
       if (usedIds.has(id.toLowerCase())) {
         throw new UnprocessableEntityException(`${id} already exists in the DID document`)
       }
       usedIds.add(id.toLowerCase())
     }
     addServices.forEach(({ id }) => claim(id))
-    addVerificationMethods.forEach(({ id }) => id && claim(id))
+    addVerificationMethods.forEach(({ id }) => {
+      if (!id) return
+      if (verificationMethodIds.has(id) && !mappedKeyIds.has(id) && !removedIds.has(lower(id))) {
+        throw new UnprocessableEntityException(
+          `${id} is in the DID document, but this wallet holds no key for it (an earlier update may have landed after it failed); add the key under another id`,
+        )
+      }
+      claim(id)
+    })
     const nextKeyId = () => {
       let n = 1
       while (usedIds.has(`#key-${n}`)) n++
@@ -680,3 +763,5 @@ export class DidService {
     }
   }
 }
+
+const lower = (id: string) => id.toLowerCase()

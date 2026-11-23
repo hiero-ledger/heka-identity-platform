@@ -13,7 +13,8 @@ type RelationshipEntry = string | { id: string }
 
 /**
  * The options of a Credo registrar that writes a whole new document (did:indybesu, did:indy). A failed result reports
- * `didRegistrationMetadata.transactionSubmitted: false` when certainly nothing was sent to the ledger.
+ * `didRegistrationMetadata.transactionSubmitted: false` when certainly nothing is on the ledger (nothing was sent, or the
+ * ledger refused it), and `unprocessable: true` when the change itself is one the ledger would refuse (answered 422).
  */
 export interface SetDidDocumentUpdateOptions extends DidUpdateOptions {
   didDocumentOperation?: 'setDidDocument'

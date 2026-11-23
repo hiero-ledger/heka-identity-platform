@@ -357,21 +357,23 @@ describe('E2E public DIDs creation', () => {
       }
     })
 
-    test('only Admin, OrgAdmin and Issuer may change DIDs (403 for other roles)', async () => {
+    test('only the roles that may create DIDs may change them: Admin, OrgAdmin, Issuer, Verifier (403 for others)', async () => {
       const orgId = uuid()
       const did = 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK'
       for (const token of [
         await createAuthToken(uuid(), Role.OrgManager, orgId),
         await createAuthToken(uuid(), Role.OrgMember, orgId),
-        await createAuthToken(uuid(), Role.Verifier, orgId),
         await createAuthToken(uuid(), Role.User),
       ]) {
         expect((await DidUtilities.update(app, token, did, addService)).status).toBe(403)
         expect((await DidUtilities.deactivate(app, token, did)).status).toBe(403)
       }
-      // The role check comes first; an Issuer gets to the wallet lookup
-      const issuerToken = await createAuthToken(uuid(), Role.Issuer, orgId)
-      expect((await DidUtilities.update(app, issuerToken, did, addService)).status).toBe(404)
+      // The role check comes first; an Issuer or a Verifier gets to the wallet lookup
+      for (const role of [Role.Issuer, Role.Verifier]) {
+        const token = await createAuthToken(uuid(), role, orgId)
+        expect((await DidUtilities.update(app, token, did, addService)).status).toBe(404)
+        expect((await DidUtilities.deactivate(app, token, did)).status).toBe(404)
+      }
     })
 
     test('did:indy: services and keys are added and removed, then the DID is deactivated, once', async () => {

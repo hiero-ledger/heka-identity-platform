@@ -46,10 +46,16 @@ export class IndyBesuSigner {
 
   /** Signer of a configured account, such as the platform endorser, that is not kept in any tenant wallet. */
   public static fromPrivateKey(privateKey: string): IndyBesuSigner {
-    const signingKey = new SigningKey(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`)
-    return new IndyBesuSigner(computeAddress(signingKey.publicKey), (digest) =>
-      Promise.resolve(signingKey.sign(digest)),
-    )
+    let signingKey: SigningKey
+    let address: string
+    try {
+      signingKey = new SigningKey(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`)
+      address = computeAddress(signingKey.publicKey)
+    } catch {
+      // ethers puts the invalid value into its message, which must not reach a response or a log
+      throw new CredoError('The Indy-Besu signer private key is not a valid secp256k1 private key')
+    }
+    return new IndyBesuSigner(address, (digest) => Promise.resolve(signingKey.sign(digest)))
   }
 
   public async signTransaction(transaction: Transaction | TransactionEndorsingData): Promise<void> {

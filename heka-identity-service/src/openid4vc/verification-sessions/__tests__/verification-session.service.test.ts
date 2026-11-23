@@ -1,3 +1,5 @@
+import type { DidDocument } from '@credo-ts/core'
+
 import { OpenId4VcVerificationSessionState } from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
 import { InternalServerErrorException, UnprocessableEntityException } from '@nestjs/common'
@@ -10,6 +12,24 @@ import {
   verificationSessionRecordStub,
 } from '../../../../test/helpers/mock-records'
 import { OpenId4VcVerificationSessionService } from '../verification-session.service'
+
+// The key is chosen among those the wallet holds (`selectSigningKey`, tested on its own). Here the wallet holds every
+// key: the first verification method of the right purposes is taken
+vi.mock('../../../common/did-registrar/did-signing-key', async (importOriginal) => {
+  const { signingKeyCandidates } =
+    await vi.importActual<typeof import('../../../utils/oid4vc')>('../../../utils/oid4vc')
+  return {
+    ...(await importOriginal<typeof import('../../../common/did-registrar/did-signing-key')>()),
+    selectSigningKey: vi.fn(
+      (
+        _tenantAgent: unknown,
+        didDocument: DidDocument,
+        purposes: Array<'assertionMethod' | 'authentication'>,
+        keyId?: string,
+      ) => Promise.resolve({ didUrl: signingKeyCandidates(didDocument, purposes, keyId)[0] }),
+    ),
+  }
+})
 
 describe('OpenId4VcVerificationSessionService', () => {
   let service: OpenId4VcVerificationSessionService
@@ -263,7 +283,11 @@ describe('OpenId4VcVerificationSessionService', () => {
 
       const result = await service.createRequest(tenantAgent, req)
 
-      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6Mk1234')
+      // The document comes from the ledger, uncached
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6Mk1234', {
+        useCache: false,
+        useLocalCreatedDidRecord: false,
+      })
       expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(expect.objectContaining({ verifierId: 'verifier-1' }))
       expect(result.authorizationRequest).toBe('openid://?request_uri=https://example.com/auth')
       expect(result.verificationSession.publicVerifierId).toBe('verifier-1')
@@ -384,7 +408,11 @@ describe('OpenId4VcVerificationSessionService', () => {
       )
 
       await expect(service.createRequest(tenantAgent, req)).rejects.toThrow(UnprocessableEntityException)
-      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkEmpty')
+      // The document comes from the ledger, uncached
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkEmpty', {
+        useCache: false,
+        useLocalCreatedDidRecord: false,
+      })
     })
 
     test('should throw UnprocessableEntityException when both presentationExchange and dcql are missing', async () => {
@@ -422,7 +450,11 @@ describe('OpenId4VcVerificationSessionService', () => {
 
       await service.createRequest(tenantAgent, req)
 
-      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6Mk1234')
+      // The document comes from the ledger, uncached
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6Mk1234', {
+        useCache: false,
+        useLocalCreatedDidRecord: false,
+      })
       expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           version: 'v1',
@@ -564,7 +596,11 @@ describe('OpenId4VcVerificationSessionService', () => {
 
       await service.createRequest(tenantAgent, req)
 
-      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6Mk1234')
+      // The document comes from the ledger, uncached
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6Mk1234', {
+        useCache: false,
+        useLocalCreatedDidRecord: false,
+      })
       expect(mockCreateAuthorizationRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           requestSigner: { method: 'did', didUrl: 'did:key:z6Mk1234#z6Mk1234' },

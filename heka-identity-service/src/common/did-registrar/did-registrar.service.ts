@@ -116,11 +116,14 @@ export class DidRegistrarService implements OnApplicationBootstrap {
   public async updateDid(tenantAgent: TenantAgent, method: string, options: UpdateDidOptions): Promise<DidDocument> {
     const didRegistrar = this.getUpdatingDidRegistrar(method, 'update')
 
-    const { didState } = await didRegistrar.updateDid!(tenantAgent, options)
+    const { didState, didRegistrationMetadata } = await didRegistrar.updateDid!(tenantAgent, options)
     if (didState.state !== 'finished') {
-      throw new InternalServerErrorException(
-        `DID document was not updated: ${didState.state === 'failed' ? didState.reason : 'Not finished'}`,
-      )
+      const reason = didState.state === 'failed' ? didState.reason : 'Not finished'
+      // A change the ledger would refuse, found before anything was sent (e.g. did:indy's diddocContent size)
+      if (didRegistrationMetadata?.unprocessable === true) {
+        throw new UnprocessableEntityException(reason)
+      }
+      throw new InternalServerErrorException(`DID document was not updated: ${reason}`)
     }
 
     return didState.didDocument

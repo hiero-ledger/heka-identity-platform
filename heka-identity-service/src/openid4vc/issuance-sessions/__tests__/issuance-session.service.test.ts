@@ -1,3 +1,5 @@
+import type { DidDocument } from '@credo-ts/core'
+
 import { RecordNotFoundError } from '@credo-ts/core'
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
@@ -15,9 +17,28 @@ import {
   issuanceSessionRecordStub,
   issuerRecordStub,
 } from '../../../../test/helpers/mock-records'
+import { selectSigningKey } from '../../../common/did-registrar/did-signing-key'
 import { StatusListService } from '../../../revocation/status-list/status-list.service'
 import { TokenStatus, TokenStatusListService } from '../../../revocation/token-status-list/token-status-list.service'
 import { OpenId4VcIssuanceSessionService } from '../issuance-session.service'
+
+// The key is chosen among those the wallet holds (`selectSigningKey`, tested on its own). Here the wallet holds every
+// key: the first verification method of the right purposes is taken
+vi.mock('../../../common/did-registrar/did-signing-key', async (importOriginal) => {
+  const { signingKeyCandidates } =
+    await vi.importActual<typeof import('../../../utils/oid4vc')>('../../../utils/oid4vc')
+  return {
+    ...(await importOriginal<typeof import('../../../common/did-registrar/did-signing-key')>()),
+    selectSigningKey: vi.fn(
+      (
+        _tenantAgent: unknown,
+        didDocument: DidDocument,
+        purposes: Array<'assertionMethod' | 'authentication'>,
+        keyId?: string,
+      ) => Promise.resolve({ didUrl: signingKeyCandidates(didDocument, purposes, keyId)[0] }),
+    ),
+  }
+})
 
 describe('OpenId4VcIssuanceSessionService', () => {
   let service: OpenId4VcIssuanceSessionService
@@ -557,7 +578,11 @@ describe('OpenId4VcIssuanceSessionService', () => {
 
       const result = await service.offer(authInfo, tenantAgent, req)
 
-      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkGood')
+      // The document comes from the ledger, uncached
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledWith('did:key:z6MkGood', {
+        useCache: false,
+        useLocalCreatedDidRecord: false,
+      })
       // The signing key is resolved from the same DID URL the credential is signed with
       expect(tenantAgent.dids.resolveVerificationMethodFromCreatedDidRecord).toHaveBeenCalledWith(
         'did:key:z6MkGood#key-1',
@@ -600,6 +625,54 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(statusListService.getOrCreate).not.toHaveBeenCalled()
       expect(statusListService.addItems).not.toHaveBeenCalled()
       expect(statusListService.location).not.toHaveBeenCalled()
+    })
+
+    test('reads the issuer DID from its ledger once per offer, and chooses the key from that document', async () => {
+      const did = 'did:key:z6MkGood'
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+        issuerRecordStub({
+          issuerId: 'issuer-1',
+          credentialConfigurationsSupported: {
+            'cred-a': { format: 'vc+sd-jwt', vct: 'https://example.com/a' },
+            'cred-b': { format: 'vc+sd-jwt', vct: 'https://example.com/b' },
+          },
+        }),
+      )
+      const ledgerDocument = {
+        id: did,
+        verificationMethod: [{ id: `${did}#key-1` }],
+        assertionMethod: [`${did}#key-1`],
+      }
+      vi.mocked(tenantAgent.dids.resolve).mockResolvedValue(didResolutionResultStub({ didDocument: ledgerDocument }))
+      vi.mocked(selectSigningKey).mockClear()
+      vi.mocked(tenantAgent.dids.resolveVerificationMethodFromCreatedDidRecord).mockResolvedValue({
+        publicJwk: { keyId: 'kms-key-1' },
+      } as any)
+      vi.mocked(tokenStatusListService.reserveIndexes).mockResolvedValue({
+        id: 'tsl-1',
+        uri: 'https://example.com/token-status-lists/tsl-1',
+        indexes: [0],
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://...',
+        issuanceSession: issuanceSessionRecordStub({ id: 'session-new', issuerId: 'issuer-1' }),
+      })
+
+      await service.offer(authInfo, tenantAgent, {
+        publicIssuerId: 'issuer-1',
+        credentials: ['cred-a', 'cred-b'].map((credentialSupportedId) => ({
+          credentialSupportedId,
+          format: OpenId4VciCredentialFormatProfile.SdJwtVc,
+          issuer: { did },
+        })),
+        baseUri: 'https://example.com',
+      } as any)
+
+      expect(tenantAgent.dids.resolve).toHaveBeenCalledExactlyOnceWith(did, {
+        useCache: false,
+        useLocalCreatedDidRecord: false,
+      })
+      expect(vi.mocked(selectSigningKey).mock.calls.map(([, didDocument]) => didDocument.id)).toEqual([did, did])
     })
 
     test('should reserve one token status list entry per credential of a batch', async () => {

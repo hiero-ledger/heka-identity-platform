@@ -8,13 +8,14 @@ import { IndyVdrPoolConfig } from '@credo-ts/indy-vdr'
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { HederaNetwork } from '@hiero-did-sdk/client'
 import { registerAs } from '@nestjs/config'
+import { SigningKey } from 'ethers'
 import express from 'express'
 
 import { AriesCredentialFormat, ProtocolType } from 'common/types'
 
 import { CredentialsConfiguration } from './credential-configuration'
 import { FileSystemConfig } from './file-storage'
-import { INSECURE_DEFAULTS, parseDidMethods } from './insecure-defaults'
+import { INSECURE_DEFAULTS, normalizeHexPrivateKey, parseDidMethods } from './insecure-defaults'
 
 export default registerAs('agent', () => {
   const label = process.env.AGENT_LABEL ?? 'Heka'
@@ -84,8 +85,11 @@ export default registerAs('agent', () => {
   const indyBesuChainId = process.env.INDY_BESU_CHAIN_ID ? parseInt(process.env.INDY_BESU_CHAIN_ID) : 1337
   const indyBesuNodeAddress = process.env.INDY_BESU_NODE_ADDRESS ?? 'http://localhost:8545'
   const indyBesuNetwork = process.env.INDY_BESU_NETWORK ?? 'testnet'
-  const indyBesuEndorserPrivateKey =
-    process.env.INDY_BESU_ENDORSER_PRIVATE_KEY ?? INSECURE_DEFAULTS.INDY_BESU_ENDORSER_PRIVATE_KEY
+  const indyBesuEndorserPrivateKey = didMethods.includes('indybesu')
+    ? parseIndyBesuEndorserKey(
+        process.env.INDY_BESU_ENDORSER_PRIVATE_KEY ?? INSECURE_DEFAULTS.INDY_BESU_ENDORSER_PRIVATE_KEY,
+      )
+    : (process.env.INDY_BESU_ENDORSER_PRIVATE_KEY ?? INSECURE_DEFAULTS.INDY_BESU_ENDORSER_PRIVATE_KEY)
   const indyBesuEndorseDidChanges = process.env.INDY_BESU_ENDORSE_DID_CHANGES === 'true'
 
   const hederaNetwork: HederaNetwork = (process.env.HEDERA_NETWORK as HederaNetwork) ?? 'testnet'
@@ -183,3 +187,20 @@ export default registerAs('agent', () => {
     mdlIssuerPrivateKeyJwk,
   }
 })
+
+/**
+ * The Indy-Besu endorser key, checked once at startup and normalised to 64 lower-case hex characters. The error never
+ * contains the value: ethers puts an invalid key into its own message, which would otherwise reach API responses and
+ * logs on the first did:indybesu write.
+ */
+function parseIndyBesuEndorserKey(value: string): string {
+  const hex = normalizeHexPrivateKey(value)
+  try {
+    if (!hex) throw new Error('not 64 hex characters')
+    // The scalar is checked when the public key is derived, not by the constructor
+    void new SigningKey(`0x${hex}`).publicKey
+  } catch {
+    throw new Error('INDY_BESU_ENDORSER_PRIVATE_KEY is not a valid secp256k1 private key (64 hex characters)')
+  }
+  return hex
+}
