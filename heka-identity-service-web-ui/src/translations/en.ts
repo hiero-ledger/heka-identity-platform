@@ -325,6 +325,11 @@ export default {
       advancedVerification: 'Advanced verification',
     },
   },
+  Contributor: {
+    titles: {
+      main: 'Contributor Hub',
+    },
+  },
   SignIn: {
     titles: {
       main: 'Sign in',

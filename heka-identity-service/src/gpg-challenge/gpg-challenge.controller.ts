@@ -1,11 +1,12 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards, Version } from '@nestjs/common'
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common'
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
+  ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiParam,
-  ApiResponse,
   ApiServiceUnavailableResponse,
   ApiTags,
   ApiTooManyRequestsResponse,
@@ -15,35 +16,31 @@ import {
 import { AuthInfo, JwtAuthGuard, ReqAuthInfo } from 'common/auth'
 import { AnyRole, RoleGuard } from 'common/authz'
 
-import { GetStatusParamsDto, VerifySignatureDto } from './dto'
-import { GithubAppStatusGuard } from './github-app-status.guard'
-import { ContributorStatus, GpgChallengeService, VerificationResult } from './gpg-challenge.service'
+import { ContributorThrottlerGuard } from '../contributor-onboarding'
+
+import { GpgChallengeResponseDto, VerifySignatureDto, VerifySignatureResponseDto } from './dto'
+import { GpgChallengeService, VerificationResult } from './gpg-challenge.service'
 
 @ApiTags('GPG Challenge')
-@Controller('gpg-challenge')
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ description: 'Missing or invalid Heka token.' })
+@ApiTooManyRequestsResponse({ description: 'More than 10 requests per minute to this route by this user.' })
+@UseGuards(JwtAuthGuard, RoleGuard, ContributorThrottlerGuard)
+@AnyRole()
+@Controller({ path: 'gpg-challenge', version: ['2'] })
 export class GpgChallengeController {
   public constructor(private readonly gpgChallengeService: GpgChallengeService) {}
 
-  @Version('2')
   @Post('request')
   @HttpCode(HttpStatus.CREATED)
-  @ApiBearerAuth()
-  @ApiUnauthorizedResponse({ description: 'Unauthorized.' })
-  @UseGuards(JwtAuthGuard, RoleGuard)
-  @AnyRole()
   @ApiOperation({
     summary: 'Request a GPG ownership challenge for the linked GitHub account',
     description:
-      'Returns a single-use nonce that expires after 5 minutes. Sign it with `echo "<nonce>" | gpg --clearsign` and submit the armored output to POST /v2/gpg-challenge/verify.',
+      'Optional feature: available when CONTRIBUTOR_VERIFICATION_ENABLED=true. Returns a single-use nonce that expires after 5 minutes. Sign it with `echo "<nonce>" | gpg --clearsign` and submit the armored output to POST /v2/gpg-challenge/verify.',
   })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'Challenge created.' })
-  public async requestChallenge(@ReqAuthInfo() authInfo: AuthInfo): Promise<{
-    challengeId: string
-    nonce: string
-    expiresAt: Date
-    githubUsername: string
-    githubAccountId: string
-  }> {
+  @ApiCreatedResponse({ type: GpgChallengeResponseDto })
+  @ApiConflictResponse({ description: 'No GitHub account is linked yet.' })
+  public async requestChallenge(@ReqAuthInfo() authInfo: AuthInfo): Promise<GpgChallengeResponseDto> {
     const challenge = await this.gpgChallengeService.createChallengeForUser(authInfo)
     return {
       challengeId: challenge.id,
@@ -54,30 +51,27 @@ export class GpgChallengeController {
     }
   }
 
-  @Version('2')
   @Post('verify')
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @ApiUnauthorizedResponse({ description: 'Unauthorized.' })
-  @UseGuards(JwtAuthGuard, RoleGuard)
-  @AnyRole()
   @ApiOperation({
     summary: 'Submit a GPG signature for verification',
     description:
-      'Verifies a cleartext signature against the public key at https://github.com/<username>.gpg. The challenge is burned on first use.',
+      'Optional feature: available when CONTRIBUTOR_VERIFICATION_ENABLED=true. Verifies a cleartext signature against the public key at https://github.com/<username>.gpg. The challenge is burned on first use. The signature must be made within the challenge window, by a key that is valid now.',
   })
-  @ApiOkResponse({ description: 'Verification finished. Read the `verified` field.' })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Replay, expired nonce, missing key, or malformed signature.',
+  @ApiOkResponse({ type: VerifySignatureResponseDto, description: 'Verification finished. Read the `verified` field.' })
+  @ApiBadRequestResponse({
+    description:
+      'Replay, expired nonce, missing key, malformed signature, a signature dated outside the challenge window, or an expired or revoked signing key.',
   })
   @ApiNotFoundResponse({ description: 'Challenge id not found for this user.' })
-  @ApiTooManyRequestsResponse({ description: 'GitHub rate limit reached.' })
+  @ApiTooManyRequestsResponse({
+    description: 'More than 10 requests per minute to this route by this user, or the GitHub rate limit was reached.',
+  })
   @ApiServiceUnavailableResponse({ description: 'GitHub is unreachable.' })
   public async verifySignature(
     @ReqAuthInfo() authInfo: AuthInfo,
     @Body() dto: VerifySignatureDto,
-  ): Promise<{ verified: true; gpgFingerprint: string; message: string } | { verified: false; message: string }> {
+  ): Promise<VerifySignatureResponseDto> {
     const result: VerificationResult = await this.gpgChallengeService.verifySignature(
       authInfo,
       dto.challengeId,
@@ -96,24 +90,5 @@ export class GpgChallengeController {
       verified: false,
       message: result.message ?? 'Cryptographic verification failed. Ensure you signed the exact nonce string.',
     }
-  }
-
-  @Version('2')
-  @Get('status/:githubUsername')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(GithubAppStatusGuard)
-  @ApiBearerAuth()
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid GitHub App status token.' })
-  @ApiTooManyRequestsResponse({ description: 'Too many status requests from this address.' })
-  @ApiServiceUnavailableResponse({ description: 'Status checks are not configured, or GitHub is unreachable.' })
-  @ApiOperation({
-    summary: 'Get GPG verification status for a GitHub login',
-    description:
-      'Used by the Heka GitHub App. Requires the shared status token. Resolves the login to the current numeric GitHub account id on every request, without a cache, and reads that binding. Always returns HTTP 200 for an unknown login; read `isVerified`.',
-  })
-  @ApiParam({ name: 'githubUsername', example: 'octocat' })
-  @ApiOkResponse({ description: 'Status retrieved.' })
-  public async getStatus(@Param() params: GetStatusParamsDto): Promise<ContributorStatus> {
-    return this.gpgChallengeService.getContributorStatus(params.githubUsername)
   }
 }

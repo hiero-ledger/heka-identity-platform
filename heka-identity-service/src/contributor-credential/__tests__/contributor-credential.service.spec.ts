@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AuthInfo, Role } from 'common/auth'
 import { User } from 'common/entities'
+import { Logger } from 'common/logger'
 import { ContributorOnboardingService, type VerifiedContributor } from 'contributor-onboarding'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
 
@@ -39,7 +40,6 @@ function buildContributor(overrides: Partial<VerifiedContributor> = {}): Verifie
   return {
     githubAccountId: '11111111',
     githubUsername: 'test-contributor',
-    walletId: 'User_user-1',
     gpgFingerprint: 'AABBCCDDEEFF00112233445566778899AABBCCDD',
     verifiedAt: '2026-07-13T10:00:00.000Z',
     ...overrides,
@@ -146,6 +146,7 @@ describe('ContributorCredentialService', () => {
       emMock,
       issuerServiceMock,
       onboardingServiceMock,
+      createMock<Logger>(),
     )
   })
 
@@ -166,6 +167,12 @@ describe('ContributorCredentialService', () => {
       expect(callArgs.credentialsSupported).toHaveLength(1)
       expect(callArgs.credentialsSupported[0].id).toBe(CONTRIBUTOR_CREDENTIAL_SUPPORTED_ID)
       expect((callArgs.credentialsSupported[0] as any).vct).toBe(CONTRIBUTOR_CREDENTIAL_VCT)
+      expect(Object.keys((callArgs.credentialsSupported[0] as any).claims)).toEqual([
+        'githubAccountId',
+        'githubUsername',
+        'gpgFingerprint',
+        'verifiedAt',
+      ])
     })
 
     it('refreshes the credential config when it is already registered', async () => {
@@ -232,7 +239,7 @@ describe('ContributorCredentialService', () => {
       expect(result.credentialOffer).toMatch(/^openid-credential-offer:\/\//)
       expect(result.txCode).toBe('12345678')
       expect(result.expiresAt).toBe(FAKE_OFFER_EXPIRES_AT.toISOString())
-      expect(onboardingServiceMock.getVerifiedBindingByUser).toHaveBeenCalledWith('tenant-1', 'user-1', 'User_user-1')
+      expect(onboardingServiceMock.getVerifiedBindingByUser).toHaveBeenCalledWith('user-1')
     })
 
     it('calls createCredentialOffer with the correct credential configuration ID', async () => {
@@ -264,7 +271,7 @@ describe('ContributorCredentialService', () => {
       expect(meta.payload.githubUsername).toBe('test-contributor')
       expect(meta.payload.gpgFingerprint).toBe('AABBCCDDEEFF00112233445566778899AABBCCDD')
       expect(meta.payload.verifiedAt).toBe('2026-07-13T10:00:00.000Z')
-      expect(meta.payload.walletId).toBe('User_user-1')
+      expect(meta.payload).not.toHaveProperty('walletId')
       expect(meta.payload.exp).toBeGreaterThan(
         Math.floor(Date.now() / 1000) + CONTRIBUTOR_CREDENTIAL_LIFETIME_SECONDS - 5,
       )
@@ -277,7 +284,7 @@ describe('ContributorCredentialService', () => {
       expect(offerArgs.expirationInSeconds).toBe(CONTRIBUTOR_CREDENTIAL_OFFER_TTL_SECONDS)
     })
 
-    it('sets the correct disclosure frame matching the Week 2 policy', async () => {
+    it('makes the GitHub account, login and key fingerprint selectively disclosable', async () => {
       await service.issueContributorCredential(buildAuthInfo())
 
       const tenantCalls = vi.mocked(agentMock.modules.tenants.withTenantAgent).mock.calls
@@ -290,6 +297,7 @@ describe('ContributorCredentialService', () => {
 
       expect(disclosureFrame._sd).toEqual(expect.arrayContaining([...CONTRIBUTOR_CREDENTIAL_SELECTIVE_CLAIMS]))
       expect(disclosureFrame._sd).toHaveLength(CONTRIBUTOR_CREDENTIAL_SELECTIVE_CLAIMS.length)
+      expect([...disclosureFrame._sd].sort()).toEqual(['githubAccountId', 'githubUsername', 'gpgFingerprint'])
     })
 
     it('does not include non-selectively-disclosable claims in the disclosure frame', async () => {
@@ -303,9 +311,7 @@ describe('ContributorCredentialService', () => {
       const offerArgs = vi.mocked(spyTenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0][0]
       const { _sd } = offerArgs.issuanceMetadata.credentials[0].disclosureFrame as { _sd: string[] }
 
-      expect(_sd).not.toContain('githubAccountId')
       expect(_sd).not.toContain('verifiedAt')
-      expect(_sd).not.toContain('walletId')
       expect(_sd).not.toContain('exp')
     })
 

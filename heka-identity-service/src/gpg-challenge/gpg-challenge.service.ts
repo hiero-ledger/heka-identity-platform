@@ -8,7 +8,6 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common'
@@ -18,6 +17,7 @@ import * as openpgp from 'openpgp'
 import { firstValueFrom } from 'rxjs'
 
 import { AuthInfo } from 'common/auth'
+import { InjectLogger, Logger } from 'common/logger'
 import GithubConfig from 'config/github'
 
 import { ContributorOnboardingService } from '../contributor-onboarding'
@@ -25,6 +25,10 @@ import { ContributorOnboardingService } from '../contributor-onboarding'
 import { GpgChallenge } from './gpg-challenge.entity'
 
 const CHALLENGE_TTL_MINUTES = 5
+const CHALLENGE_TTL_MS = CHALLENGE_TTL_MINUTES * 60 * 1000
+
+/** Clock difference accepted between the signer and this service, on both ends of the challenge window. */
+const SIGNATURE_CLOCK_SKEW_MS = 5 * 60 * 1000
 
 /** GitHub logins are 1–39 characters and cannot start or end with a hyphen. */
 const GITHUB_USERNAME_PATTERN = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/
@@ -46,13 +50,6 @@ export interface VerificationFailure {
 
 export type VerificationResult = VerificationSuccess | VerificationFailure
 
-export interface ContributorStatus {
-  isVerified: boolean
-  githubUsername: string
-  gpgFingerprint?: string
-  verifiedAt?: Date
-}
-
 interface CreateChallengeInput {
   userId: string
   tenantId: string
@@ -61,15 +58,24 @@ interface CreateChallengeInput {
   githubUsername: string
 }
 
+/** A rejected proof (400) whose reason goes to the audit log. */
+class ProofRejectedException extends BadRequestException {
+  public constructor(
+    public readonly reason: string,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
 @Injectable()
 export class GpgChallengeService {
-  private readonly logger = new Logger(GpgChallengeService.name)
-
   public constructor(
     private readonly em: EntityManager,
     private readonly httpService: HttpService,
     private readonly contributorOnboardingService: ContributorOnboardingService,
     @Inject(GithubConfig.KEY) private readonly githubConfig: ConfigType<typeof GithubConfig>,
+    @InjectLogger(GpgChallengeService) private readonly logger: Logger,
   ) {}
 
   /**
@@ -99,6 +105,9 @@ export class GpgChallengeService {
   }
 
   public async createChallenge(input: CreateChallengeInput): Promise<GpgChallenge> {
+    // Expired challenges stay one more TTL, so a late submission still gets the "expired" answer rather than 404
+    await this.em.nativeDelete(GpgChallenge, { expiresAt: { $lt: new Date(Date.now() - CHALLENGE_TTL_MS) } })
+
     const expiresAt = new Date()
     expiresAt.setMinutes(expiresAt.getMinutes() + CHALLENGE_TTL_MINUTES)
 
@@ -114,7 +123,7 @@ export class GpgChallengeService {
 
     this.em.persist(challenge)
     await this.em.flush()
-    this.logger.log(`Challenge created for @${input.githubUsername} (${challenge.id})`)
+    this.logger.info(`Challenge created for @${input.githubUsername} (${challenge.id})`)
     return challenge
   }
 
@@ -122,7 +131,7 @@ export class GpgChallengeService {
    * Burns the nonce before any network or crypto work, then checks the
    * cleartext signature against the public key published at github.com/<user>.gpg.
    * The stored login is resolved first and must still be the linked numeric account.
-   * A challenge that belongs to another user is reported as not found.
+   * A challenge that belongs to another user (OIDC subject) is reported as not found.
    */
   public async verifySignature(
     authInfo: AuthInfo,
@@ -130,7 +139,7 @@ export class GpgChallengeService {
     armoredMessage: string,
   ): Promise<VerificationResult> {
     const challenge = await this.em.findOne(GpgChallenge, { id: challengeId })
-    if (!challenge || !this.ownsChallenge(authInfo, challenge)) {
+    if (!challenge || challenge.userId !== authInfo.userId) {
       throw new NotFoundException(`Challenge session '${challengeId}' not found.`)
     }
 
@@ -153,7 +162,7 @@ export class GpgChallengeService {
       )
     }
     await this.em.refresh(challenge)
-    this.logger.log(`Challenge ${challengeId} consumed for @${challenge.githubUsername}`)
+    this.logger.info(`Challenge ${challengeId} consumed for @${challenge.githubUsername}`)
 
     const currentAccountId = await this.resolveGithubAccountId(challenge.githubUsername)
     if (currentAccountId !== challenge.githubAccountId) {
@@ -171,10 +180,16 @@ export class GpgChallengeService {
     const publicKeyArmored = await this.fetchGithubGpgKey(challenge.githubUsername)
     let verification: { isValid: false } | { isValid: true; gpgFingerprint: string }
     try {
-      verification = await this.verifyPgpSignature(challenge.nonce, armoredMessage, publicKeyArmored)
+      verification = await this.verifyPgpSignature(
+        challenge.nonce,
+        armoredMessage,
+        publicKeyArmored,
+        new Date(challenge.createdAt.getTime() - SIGNATURE_CLOCK_SKEW_MS),
+      )
     } catch (error: unknown) {
       if (error instanceof BadRequestException) {
-        await this.recordRejectedProof(challenge, challengeId, 'Malformed signature')
+        const reason = error instanceof ProofRejectedException ? error.reason : 'Malformed signature'
+        await this.recordRejectedProof(challenge, challengeId, reason)
       }
       throw error
     }
@@ -187,22 +202,22 @@ export class GpgChallengeService {
 
     const verifiedAt = new Date()
     const binding = await this.contributorOnboardingService.recordProofAccepted({
-      userId: challenge.userId,
-      tenantId: challenge.tenantId,
+      userId: authInfo.userId,
+      tenantId: authInfo.tenantId,
       githubAccountId: challenge.githubAccountId,
       githubUsername: challenge.githubUsername,
-      walletId: challenge.walletId,
+      walletId: authInfo.walletId,
       gpgFingerprint: verification.gpgFingerprint,
       verifiedAt,
     })
     if (!binding) {
       this.logger.warn(
-        `Signature matched for challenge ${challengeId}, but the current binding no longer matches that account or wallet`,
+        `Signature matched for challenge ${challengeId}, but the user's binding no longer points at that GitHub account`,
       )
       return {
         verified: false,
         message:
-          'The signature was valid, but the linked GitHub account or wallet changed before it was saved. Request a new challenge and sign it again.',
+          'The signature was valid, but the linked GitHub account changed before it was saved. Request a new challenge and sign it again.',
       }
     }
 
@@ -215,32 +230,7 @@ export class GpgChallengeService {
       gpgFingerprint: verification.gpgFingerprint,
       githubAccountId: challenge.githubAccountId,
       githubUsername: challenge.githubUsername,
-      walletId: challenge.walletId,
-    }
-  }
-
-  /**
-   * Read-only lookup used by the Heka GitHub App.
-   * The login is resolved to GitHub's numeric account id, then status is read from that binding.
-   * A renamed or reused username cannot be answered from an old challenge row.
-   * Always returns a status for an unknown login. GitHub being unreachable is an error, not "unverified".
-   */
-  public async getContributorStatus(githubUsername: string): Promise<ContributorStatus> {
-    const githubAccountId = await this.resolveGithubAccountId(githubUsername)
-    if (!githubAccountId) {
-      return { isVerified: false, githubUsername }
-    }
-
-    const binding = await this.contributorOnboardingService.findBindingByGithubAccountId(githubAccountId)
-    if (!binding?.verifiedAt || !binding.gpgFingerprint) {
-      return { isVerified: false, githubUsername }
-    }
-
-    return {
-      isVerified: true,
-      githubUsername,
-      gpgFingerprint: binding.gpgFingerprint,
-      verifiedAt: binding.verifiedAt,
+      walletId: authInfo.walletId,
     }
   }
 
@@ -251,7 +241,7 @@ export class GpgChallengeService {
 
   /**
    * Always asks GitHub. A cached username-to-account mapping would let a renamed
-   * or reused login pass proof verification and status checks during the cache window.
+   * or reused login pass proof verification during the cache window.
    */
   private async resolveGithubAccountId(githubUsername: string): Promise<string | null> {
     if (!GITHUB_USERNAME_PATTERN.test(githubUsername)) {
@@ -301,14 +291,6 @@ export class GpgChallengeService {
     })
   }
 
-  private ownsChallenge(authInfo: AuthInfo, challenge: GpgChallenge): boolean {
-    return (
-      challenge.userId === authInfo.userId &&
-      challenge.tenantId === authInfo.tenantId &&
-      challenge.walletId === authInfo.walletId
-    )
-  }
-
   private async fetchGithubGpgKey(githubUsername: string): Promise<string> {
     if (!GITHUB_USERNAME_PATTERN.test(githubUsername)) {
       throw new BadRequestException(
@@ -355,10 +337,16 @@ export class GpgChallengeService {
     return armoredKeys
   }
 
+  /**
+   * openpgp checks the key at the signature's creation time, which the signer chooses. So the creation
+   * time must also fall inside the challenge window (`notBefore` to now, with clock skew), and the
+   * signing key must still be valid now: an expired or revoked key can't prove ownership by backdating.
+   */
   private async verifyPgpSignature(
     expectedNonce: string,
     armoredMessage: string,
     armoredKeys: string,
+    notBefore: Date,
   ): Promise<{ isValid: false } | { isValid: true; gpgFingerprint: string }> {
     const publicKeys = await this.readPublicKeys(armoredKeys)
 
@@ -371,9 +359,13 @@ export class GpgChallengeService {
       )
     }
 
+    const now = new Date()
+    const notAfter = new Date(now.getTime() + SIGNATURE_CLOCK_SKEW_MS)
+    // `date` only moves openpgp's "created in the future" check by the clock skew
     const verificationResult = await openpgp.verify({
       message: signedMessage,
       verificationKeys: publicKeys,
+      date: notAfter,
     })
 
     const signature = verificationResult.signatures[0]
@@ -382,9 +374,11 @@ export class GpgChallengeService {
     }
 
     let signingKeyId: openpgp.KeyID
+    let signedAt: Date | null
     try {
       await signature.verified
       signingKeyId = signature.keyID
+      signedAt = (await signature.signature).packets[0]?.created ?? null
     } catch {
       return { isValid: false }
     }
@@ -394,9 +388,34 @@ export class GpgChallengeService {
       return { isValid: false }
     }
 
+    if (!signedAt || signedAt < notBefore || signedAt > notAfter) {
+      throw new ProofRejectedException(
+        'Signature time outside the challenge window',
+        `The signature is dated ${signedAt?.toISOString() ?? '(no date)'}, outside this challenge's window (${notBefore.toISOString()} to ${notAfter.toISOString()}). Request a new challenge and sign it now.`,
+      )
+    }
+
+    await this.assertSigningKeyValidAt(publicKeys, signingKeyId, now)
+
     return {
       isValid: true,
       gpgFingerprint: this.extractFingerprint(publicKeys, signingKeyId),
+    }
+  }
+
+  private async assertSigningKeyValidAt(
+    publicKeys: openpgp.Key[],
+    signingKeyId: openpgp.KeyID,
+    date: Date,
+  ): Promise<void> {
+    const publicKey = publicKeys.find((key) => key.getKeys(signingKeyId).length > 0)
+    try {
+      await publicKey!.getSigningKey(signingKeyId, date)
+    } catch {
+      throw new ProofRejectedException(
+        'Signing key expired or revoked',
+        'The GPG key that made this signature is expired or revoked. Publish a valid key on GitHub, then request a new challenge and sign it with that key.',
+      )
     }
   }
 

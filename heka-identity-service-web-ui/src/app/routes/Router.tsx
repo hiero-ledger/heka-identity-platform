@@ -18,6 +18,7 @@ import { VerificationFromTemplate } from '@/pages/VerifyCredential/VerificationF
 import VerificationRequest from '@/pages/VerifyCredential/VerificationRequest/VerificationRequest';
 import VerifyCredential from '@/pages/VerifyCredential/VerifyCredential';
 import { useAuthSession } from '@/shared/auth/session';
+import { features } from '@/shared/config/features';
 import { routerFuture } from '@/shared/config/router';
 import { LoaderView } from '@/shared/ui/Loader/Loader';
 
@@ -35,10 +36,6 @@ const AuthenticatedRoutes = () => (
       <Route
         path={ROUTES.PROFILE}
         element={<Profile />}
-      />
-      <Route
-        path={ROUTES.GITHUB_CALLBACK}
-        element={<GithubCallback />}
       />
       <Route
         path={ROUTES.DEMO}
@@ -72,9 +69,26 @@ const AuthenticatedRoutes = () => (
         path={ROUTES.VERIFICATION_REQUEST}
         element={<VerificationRequest />}
       />
-      <Route path={ROUTES.CONTRIBUTOR} element={<ContributorHub />} />
-      <Route path={ROUTES.CONTRIBUTOR_ONBOARDING} element={<ContributorOnboarding />} />
-      <Route path="*" element={<Navigate to={ROUTES.MAIN} />} />
+      {features.contributorVerification && (
+        <>
+          <Route
+            path={ROUTES.CONTRIBUTOR}
+            element={<ContributorHub />}
+          />
+          <Route
+            path={ROUTES.CONTRIBUTOR_ONBOARDING}
+            element={<ContributorOnboarding />}
+          />
+          <Route
+            path={ROUTES.GITHUB_CALLBACK}
+            element={<GithubCallback />}
+          />
+        </>
+      )}
+      <Route
+        path="*"
+        element={<Navigate to={ROUTES.MAIN} />}
+      />
     </Route>
   </Routes>
 );
@@ -95,8 +109,10 @@ const UnauthenticatedRoutes = () => (
         path={ROUTES.AGE_DEMO}
         element={<AgeVerificationDemo />}
       />
-      <Route path="*" element={<Navigate to={ROUTES.MAIN} />} />
-
+      <Route
+        path="*"
+        element={<Navigate to={ROUTES.MAIN} />}
+      />
     </Route>
     <Route element={<UnauthenticatedLayout />}>
       <Route

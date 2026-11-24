@@ -1,7 +1,9 @@
 import React, { useCallback, useState } from 'react';
 
-import type { ContributorGpgChallenge } from '@/entities/User/model/services/requestContributorGpgChallenge';
-import { verifyContributorGpgChallenge } from '@/entities/User/model/services/verifyContributorGpgChallenge';
+import {
+  ContributorGpgChallenge,
+  verifyContributorGpgChallenge,
+} from '@/entities/Contributor';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 
 import * as cls from './Step.module.scss';
@@ -12,7 +14,11 @@ interface Props {
   onNeedNewChallenge: () => void;
 }
 
-const SignStep: React.FC<Props> = ({ challenge, onVerified, onNeedNewChallenge }) => {
+const SignStep: React.FC<Props> = ({
+  challenge,
+  onVerified,
+  onNeedNewChallenge,
+}) => {
   const dispatch = useAppDispatch();
   const [signature, setSignature] = useState('');
   const [copied, setCopied] = useState(false);
@@ -70,8 +76,8 @@ const SignStep: React.FC<Props> = ({ challenge, onVerified, onNeedNewChallenge }
       <h2 className={cls.stepHeading}>Sign the challenge with your GPG key</h2>
 
       <p className={cls.stepDescription}>
-        Run the command below in your terminal to sign the challenge nonce with your GPG
-        key. Then paste the full signed output into the field below.
+        Run the command below in your terminal to sign the challenge nonce with
+        your GPG key. Then paste the full signed output into the field below.
       </p>
 
       {/* Challenge nonce display */}
@@ -119,7 +125,10 @@ const SignStep: React.FC<Props> = ({ challenge, onVerified, onNeedNewChallenge }
 
       {/* Signature textarea */}
       <div className={cls.signatureGroup}>
-        <label htmlFor="gpg-signature" className={cls.fieldLabel}>
+        <label
+          htmlFor="gpg-signature"
+          className={cls.fieldLabel}
+        >
           Paste the signed output here
         </label>
         <textarea
@@ -127,7 +136,9 @@ const SignStep: React.FC<Props> = ({ challenge, onVerified, onNeedNewChallenge }
           className={cls.signatureTextarea}
           value={signature}
           onChange={(e) => setSignature(e.target.value)}
-          placeholder={'-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA512\n\n...\n-----END PGP SIGNATURE-----'}
+          placeholder={
+            '-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA512\n\n...\n-----END PGP SIGNATURE-----'
+          }
           rows={8}
           disabled={isSubmitting}
           spellCheck={false}
@@ -139,16 +150,18 @@ const SignStep: React.FC<Props> = ({ challenge, onVerified, onNeedNewChallenge }
         <p className={cls.errorHintsTitle}>Common errors:</p>
         <ul>
           <li>
-            <strong>invalid signature</strong> — Make sure you are using the GPG key linked to
-            your GitHub account (check with <code>gpg --list-secret-keys</code>)
+            <strong>invalid signature</strong> — Make sure you are using the GPG
+            key linked to your GitHub account (check with{' '}
+            <code>gpg --list-secret-keys</code>)
           </li>
           <li>
-            <strong>expired challenge</strong> — Challenges expire after 5 minutes. Click
-            &quot;Generate Challenge&quot; again to get a fresh one.
+            <strong>expired challenge</strong> — Challenges expire after 5
+            minutes. Click &quot;Generate Challenge&quot; again to get a fresh
+            one.
           </li>
           <li>
-            <strong>missing GPG key</strong> — Your GitHub account must have at least one
-            verified GPG key at{' '}
+            <strong>missing GPG key</strong> — Your GitHub account must have at
+            least one verified GPG key at{' '}
             <a
               href="https://github.com/settings/keys"
               target="_blank"
@@ -162,7 +175,10 @@ const SignStep: React.FC<Props> = ({ challenge, onVerified, onNeedNewChallenge }
       </div>
 
       {rejection && (
-        <div className={cls.errorHints} role="alert">
+        <div
+          className={cls.errorHints}
+          role="alert"
+        >
           <p className={cls.errorHintsTitle}>Signature not accepted</p>
           <p>{rejection}</p>
           <button

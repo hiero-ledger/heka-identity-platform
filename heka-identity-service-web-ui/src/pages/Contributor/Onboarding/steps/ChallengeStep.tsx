@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 
-import { requestContributorGpgChallenge } from '@/entities/User/model/services/requestContributorGpgChallenge';
+import { requestContributorGpgChallenge } from '@/entities/Contributor';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 
 import * as cls from './Step.module.scss';
@@ -47,8 +47,9 @@ const ChallengeStep: React.FC<Props> = ({
       )}
 
       <p className={cls.stepDescription}>
-        Heka will generate a unique challenge nonce that you will sign with your GPG key.
-        This proves that you control the GPG key registered on your GitHub account.
+        Heka will generate a unique challenge nonce that you will sign with your
+        GPG key. This proves that you control the GPG key registered on your
+        GitHub account.
       </p>
 
       <ul className={cls.infoList}>
@@ -58,11 +59,16 @@ const ChallengeStep: React.FC<Props> = ({
         </li>
         <li>
           <span className={cls.infoIcon}>🔐</span>
-          <span>Use the GPG key associated with your GitHub account commits</span>
+          <span>
+            Use the GPG key associated with your GitHub account commits
+          </span>
         </li>
         <li>
           <span className={cls.infoIcon}>💻</span>
-          <span>Signing happens locally on your machine — the private key never leaves your device</span>
+          <span>
+            Signing happens locally on your machine — the private key never
+            leaves your device
+          </span>
         </li>
       </ul>
 

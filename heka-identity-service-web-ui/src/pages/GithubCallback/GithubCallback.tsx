@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import ROUTES from '@/app/routes/RoutePaths';
-import { completeGithubLink } from '@/entities/User/model/services/completeGithubLink';
+import { completeGithubLink } from '@/entities/Contributor';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 import { Column } from '@/shared/ui/Grid';
 import { Loader } from '@/shared/ui/Loader';
@@ -41,7 +41,7 @@ const GithubCallback = () => {
         navigate(ROUTES.CONTRIBUTOR_ONBOARDING);
       })
       .catch(() => {
-        toast.error('GitHub account linking failed. Please try again.');
+        // handleError has shown the identity service's message
         navigate(ROUTES.CONTRIBUTOR);
       })
       .finally(() => {

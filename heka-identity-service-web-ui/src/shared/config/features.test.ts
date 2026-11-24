@@ -29,10 +29,17 @@ describe('flag', () => {
 
 describe('features', () => {
   const original = process.env.REACT_APP_FEATURE_REVOCATION;
+  const originalContributor =
+    process.env.REACT_APP_FEATURE_CONTRIBUTOR_VERIFICATION;
 
   afterEach(() => {
     if (original === undefined) delete process.env.REACT_APP_FEATURE_REVOCATION;
     else process.env.REACT_APP_FEATURE_REVOCATION = original;
+    if (originalContributor === undefined)
+      delete process.env.REACT_APP_FEATURE_CONTRIBUTOR_VERIFICATION;
+    else
+      process.env.REACT_APP_FEATURE_CONTRIBUTOR_VERIFICATION =
+        originalContributor;
     jest.resetModules();
   });
 
@@ -49,6 +56,18 @@ describe('features', () => {
     process.env.REACT_APP_FEATURE_REVOCATION = 'false';
     jest.resetModules();
     expect(loadFeatures().revocation).toBe(false);
+  });
+
+  test('contributor verification is off when REACT_APP_FEATURE_CONTRIBUTOR_VERIFICATION is unset', () => {
+    delete process.env.REACT_APP_FEATURE_CONTRIBUTOR_VERIFICATION;
+    jest.resetModules();
+    expect(loadFeatures().contributorVerification).toBe(false);
+  });
+
+  test('contributor verification is on when REACT_APP_FEATURE_CONTRIBUTOR_VERIFICATION=true', () => {
+    process.env.REACT_APP_FEATURE_CONTRIBUTOR_VERIFICATION = 'true';
+    jest.resetModules();
+    expect(loadFeatures().contributorVerification).toBe(true);
   });
 
   test('a value other than true or false fails at load', () => {

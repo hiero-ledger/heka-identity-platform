@@ -1,0 +1,61 @@
+name: Verify Heka Web Wallet changes
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'heka-web-wallet/**'
+      - '.github/workflows/heka-web-wallet-verify.yml'
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    defaults:
+      run:
+        working-directory: ./heka-web-wallet
+    name: Build and check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
+        with:
+          egress-policy: audit
+
+      - name: Prepare Github Runner
+        uses: pandaswhocode/initialize-github-job@74303607c68fe88ff9b7bfc05c40ca948fa04b13 # v1.5.0
+        with:
+          checkout: 'true'
+          checkout-ref: '${{ github.ref }}'
+          checkout-token: '${{ secrets.GITHUB_TOKEN }}'
+          setup-node: 'true'
+          node-version: '22'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+        shell: bash
+
+      - name: Run tests
+        run: yarn test
+
+      - name: Run type check
+        run: yarn type-check
+
+      - name: Run ESLint
+        run: yarn lint
+
+      # `yarn build` ends with `yarn check:dist`: the content script parses as a classic script,
+      # the vite.config.ts workarounds still apply, and the bundle has no new Function / eval(.
+      - name: Production build and dist checks
+        run: yarn build

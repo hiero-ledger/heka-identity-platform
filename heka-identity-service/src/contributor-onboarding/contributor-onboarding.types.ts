@@ -1,39 +1,6 @@
-import { ContributorAuditEvent, ContributorAuditEventType } from './contributor-audit-event.entity'
+import { ContributorAuditEvent } from './contributor-audit-event.entity'
 import { ContributorBinding } from './contributor-binding.entity'
-
-export interface GithubIdentity {
-  accountId: string
-  username: string
-}
-
-/** Binding fields safe to return to the authenticated user. */
-export interface ContributorBindingView {
-  githubAccountId: string
-  githubUsername: string
-  walletId: string
-  gpgFingerprint?: string
-  verifiedAt?: string
-  linkedAt: string
-  updatedAt: string
-}
-
-export interface ContributorAuditEventView {
-  id: string
-  eventType: ContributorAuditEventType
-  githubAccountId?: string
-  githubUsername?: string
-  walletId?: string
-  gpgFingerprint?: string
-  metadata?: Record<string, unknown>
-  createdAt: string
-}
-
-export interface ContributorOnboardingStatus {
-  github?: GithubIdentity
-  binding?: ContributorBindingView
-  verificationStatus: 'GitHubConnected' | 'GpgVerified' | 'NotConnected'
-  auditEvents: ContributorAuditEventView[]
-}
+import { ContributorAuditEventDto, ContributorBindingDto } from './dto/contributor-onboarding-status.dto'
 
 /**
  * Verified binding used when issuing a GithubContributorCredential.
@@ -44,10 +11,9 @@ export interface VerifiedContributor {
   githubUsername: string
   gpgFingerprint: string
   verifiedAt: string
-  walletId: string
 }
 
-export function toContributorBindingView(binding: ContributorBinding): ContributorBindingView {
+export function toContributorBindingView(binding: ContributorBinding): ContributorBindingDto {
   return {
     githubAccountId: binding.githubAccountId,
     githubUsername: binding.githubUsername,
@@ -59,7 +25,7 @@ export function toContributorBindingView(binding: ContributorBinding): Contribut
   }
 }
 
-export function toContributorAuditEventView(event: ContributorAuditEvent): ContributorAuditEventView {
+export function toContributorAuditEventView(event: ContributorAuditEvent): ContributorAuditEventDto {
   return {
     id: event.id,
     eventType: event.eventType,

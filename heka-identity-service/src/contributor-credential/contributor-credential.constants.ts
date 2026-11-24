@@ -20,18 +20,16 @@ export const CONTRIBUTOR_CREDENTIAL_VCT = 'https://hiero.ledger.org/vct/GithubCo
  * Claims placed inside the SD-JWT selective-disclosure (`_sd`) hash group,
  * allowing the holder to reveal them individually.
  *
- * Disclosure policy (Week 2 credential schema):
- *   - `githubUsername`  — selectively disclosable (username can change;
- *     holder may omit it when only the numeric account ID matters)
- *   - `gpgFingerprint`  — selectively disclosable (holder controls
- *     when to reveal the cryptographic proof of GPG key ownership)
+ * Disclosure policy (docs/contributor-onboarding.md):
+ *   - `githubAccountId` — the immutable GitHub account; disclosed when a verifier
+ *     matches the holder to a GitHub account (e.g. a pull request author)
+ *   - `githubUsername`  — the login at verification time; it can change
+ *   - `gpgFingerprint`  — the verified key, for commit-signature checks
  *
- * Non-disclosable (always present as plain claims):
- *   - `githubAccountId` — immutable identity anchor
- *   - `verifiedAt`      — non-repudiable audit timestamp
- *   - `walletId`        — wallet binding required for presentation
+ * Always present: `verifiedAt` (time of the GPG proof). No claim identifies
+ * the Heka user or wallet; holder binding is the `cnf` key.
  */
-export const CONTRIBUTOR_CREDENTIAL_SELECTIVE_CLAIMS = ['githubUsername', 'gpgFingerprint'] as const
+export const CONTRIBUTOR_CREDENTIAL_SELECTIVE_CLAIMS = ['githubAccountId', 'githubUsername', 'gpgFingerprint'] as const
 
 /**
  * How long a GithubContributorCredential stays valid.

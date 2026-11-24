@@ -67,6 +67,16 @@ services:
       OIDC_INTROSPECTION_CLIENT_SECRET: ${OIDC_INTROSPECTION_CLIENT_SECRET:-}
       OIDC_INTROSPECTION_CLIENT_AUTH_METHOD: ${OIDC_INTROSPECTION_CLIENT_AUTH_METHOD:-}
       OIDC_INTROSPECTION_TIMEOUT_MS: ${OIDC_INTROSPECTION_TIMEOUT_MS:-}
+      # Optional contributor verification: GitHub link, GPG proof, contributor credential (docs/setup.md)
+      CONTRIBUTOR_VERIFICATION_ENABLED: ${CONTRIBUTOR_VERIFICATION_ENABLED:-false}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-}
+      GITHUB_OAUTH_AUTHORIZE_URL: ${GITHUB_OAUTH_AUTHORIZE_URL:-}
+      GITHUB_OAUTH_TOKEN_URL: ${GITHUB_OAUTH_TOKEN_URL:-}
+      GITHUB_USER_API_URL: ${GITHUB_USER_API_URL:-}
+      GITHUB_GPG_KEY_BASE_URL: ${GITHUB_GPG_KEY_BASE_URL:-}
+      GITHUB_REQUEST_TIMEOUT_MS: ${GITHUB_REQUEST_TIMEOUT_MS:-}
       # Demo-token broker for the web UI's public demo pages (docs/setup.md#demo-token-broker);
       # the token endpoint is reached through the host gateway like the JWKS. Dev secret of the
       # shipped realm.

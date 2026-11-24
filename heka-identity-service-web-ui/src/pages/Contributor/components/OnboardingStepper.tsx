@@ -1,8 +1,8 @@
-import React from 'react'
+import React from 'react';
 
 export interface OnboardingStep {
-  id: string
-  label: string
+  id: string;
+  label: string;
 }
 
 export const ONBOARDING_STEPS: OnboardingStep[] = [
@@ -10,12 +10,12 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   { id: 'gpg-challenge', label: 'GPG Challenge' },
   { id: 'sign', label: 'Sign & Submit' },
   { id: 'credential', label: 'Credential' },
-]
+];
 
 interface Props {
-  currentStep: number  // 0-indexed
-  completedSteps: number[]
-  errorStep?: number
+  currentStep: number; // 0-indexed
+  completedSteps: number[];
+  errorStep?: number;
 }
 
 export const OnboardingStepper: React.FC<Props> = ({
@@ -26,10 +26,10 @@ export const OnboardingStepper: React.FC<Props> = ({
   return (
     <div style={styles.wrapper}>
       {ONBOARDING_STEPS.map((step, index) => {
-        const isCompleted = completedSteps.includes(index)
-        const isCurrent = index === currentStep
-        const isError = index === errorStep
-        const isUpcoming = index > currentStep && !isCompleted
+        const isCompleted = completedSteps.includes(index);
+        const isCurrent = index === currentStep;
+        const isError = index === errorStep;
+        const isUpcoming = index > currentStep && !isCompleted;
 
         return (
           <React.Fragment key={step.id}>
@@ -67,11 +67,11 @@ export const OnboardingStepper: React.FC<Props> = ({
               />
             )}
           </React.Fragment>
-        )
+        );
       })}
     </div>
-  )
-}
+  );
+};
 
 const styles: Record<string, React.CSSProperties> = {
   wrapper: {
@@ -141,4 +141,4 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 16,
   },
   connectorDone: { background: '#16a34a' },
-}
+};

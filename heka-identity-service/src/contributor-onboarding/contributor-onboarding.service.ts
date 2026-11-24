@@ -3,31 +3,35 @@ import * as crypto from 'crypto'
 import { EntityManager } from '@mikro-orm/core'
 import { HttpService } from '@nestjs/axios'
 import {
+  BadGatewayException,
+  BadRequestException,
   ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
-  Logger,
   NotFoundException,
   ServiceUnavailableException,
-  UnauthorizedException,
 } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 import axios from 'axios'
 import { firstValueFrom } from 'rxjs'
 
 import { AuthInfo } from 'common/auth'
+import { InjectLogger, Logger } from 'common/logger'
 import GithubConfig from 'config/github'
+import { GpgChallenge } from 'gpg-challenge/gpg-challenge.entity'
 
 import { ContributorAuditEvent, ContributorAuditEventType } from './contributor-audit-event.entity'
 import { ContributorBinding } from './contributor-binding.entity'
 import {
-  ContributorOnboardingStatus,
   VerifiedContributor,
   toContributorAuditEventView,
   toContributorBindingView,
 } from './contributor-onboarding.types'
+import { ContributorOnboardingStatusDto } from './dto/contributor-onboarding-status.dto'
+import { GithubLinkCallbackResponseDto, GithubLinkStartResponseDto } from './dto/github-link-response.dto'
 import { LinkAttemptStatus, OAuthLinkAttempt } from './oauth-link-attempt.entity'
+
+const LINK_ATTEMPT_TTL_MS = 5 * 60 * 1000
 
 interface AuditInput {
   eventType: ContributorAuditEventType
@@ -40,25 +44,25 @@ interface AuditInput {
   metadata?: Record<string, unknown>
 }
 
+/**
+ * GitHub account linking and the contributor binding.
+ * A binding belongs to the OIDC subject (`AuthInfo.userId`); its wallet and tenant are refreshed on
+ * link and verification, so a role or organization change keeps it.
+ */
 @Injectable()
 export class ContributorOnboardingService {
-  private readonly logger = new Logger(ContributorOnboardingService.name)
-
   public constructor(
     private readonly em: EntityManager,
     private readonly httpService: HttpService,
     @Inject(GithubConfig.KEY) private readonly github: ConfigType<typeof GithubConfig>,
+    @InjectLogger(ContributorOnboardingService) private readonly logger: Logger,
   ) {}
 
-  public async getStatus(authInfo: AuthInfo): Promise<ContributorOnboardingStatus> {
-    const binding = await this.findBinding(authInfo.tenantId, authInfo.userId)
-    if (binding) {
-      this.assertWallet(binding, authInfo.walletId)
-    }
-
+  public async getStatus(authInfo: AuthInfo): Promise<ContributorOnboardingStatusDto> {
+    const binding = await this.findBinding(authInfo.userId)
     const auditEvents = await this.em.find(
       ContributorAuditEvent,
-      { tenantId: authInfo.tenantId, userId: authInfo.userId },
+      { userId: authInfo.userId },
       { orderBy: { createdAt: 'DESC' }, limit: 20 },
     )
 
@@ -70,16 +74,12 @@ export class ContributorOnboardingService {
     }
   }
 
-  /**
-   * Binding for the authenticated user. GitHub must already be linked.
-   * A wallet mismatch is rejected so a copied user id cannot read another wallet.
-   */
+  /** Binding for the authenticated user. GitHub must already be linked. */
   public async getRequiredBindingForUser(authInfo: AuthInfo): Promise<ContributorBinding> {
-    const binding = await this.findBinding(authInfo.tenantId, authInfo.userId)
+    const binding = await this.findBinding(authInfo.userId)
     if (!binding) {
-      throw new UnauthorizedException('Link a GitHub account before requesting contributor verification.')
+      throw new ConflictException('Link a GitHub account before requesting contributor verification.')
     }
-    this.assertWallet(binding, authInfo.walletId)
     return binding
   }
 
@@ -87,16 +87,11 @@ export class ContributorOnboardingService {
    * Verified binding for credential issuance.
    * The GitHub account id is read from this row, not from the request.
    */
-  public async getVerifiedBindingByUser(
-    tenantId: string,
-    userId: string,
-    walletId: string,
-  ): Promise<VerifiedContributor> {
-    const binding = await this.findBinding(tenantId, userId)
+  public async getVerifiedBindingByUser(userId: string): Promise<VerifiedContributor> {
+    const binding = await this.findBinding(userId)
     if (!binding) {
       throw new NotFoundException('No contributor binding found for this user.')
     }
-    this.assertWallet(binding, walletId)
     if (!binding.gpgFingerprint || !binding.verifiedAt) {
       throw new ConflictException(`Contributor @${binding.githubUsername} has not completed GPG verification.`)
     }
@@ -106,13 +101,12 @@ export class ContributorOnboardingService {
       githubUsername: binding.githubUsername,
       gpgFingerprint: binding.gpgFingerprint,
       verifiedAt: binding.verifiedAt.toISOString(),
-      walletId: binding.walletId,
     }
   }
 
   /** Starts a GitHub OAuth link. The raw state token is returned only inside the authorization URL. */
-  public async createGithubLinkRequest(authInfo: AuthInfo): Promise<{ authorizationUrl: string }> {
-    this.assertGithubOAuthConfigured()
+  public async createGithubLinkRequest(authInfo: AuthInfo): Promise<GithubLinkStartResponseDto> {
+    await this.purgeExpiredLinkAttempts()
 
     const stateToken = crypto.randomBytes(32).toString('hex')
     const codeVerifier = crypto.randomBytes(32).toString('base64url')
@@ -122,15 +116,15 @@ export class ContributorOnboardingService {
     attempt.tenantId = authInfo.tenantId
     attempt.stateHash = this.sha256(stateToken)
     attempt.codeVerifier = codeVerifier
-    attempt.expiresAt = new Date(Date.now() + 5 * 60 * 1000)
+    attempt.expiresAt = new Date(Date.now() + LINK_ATTEMPT_TTL_MS)
     this.em.persist(attempt)
     await this.em.flush()
 
+    // No scopes: the numeric id and login come from the token's own user, the GPG key from the public .gpg file
     const url = new URL(this.github.authorizeUrl)
     url.searchParams.set('client_id', this.github.clientId!)
     url.searchParams.set('redirect_uri', this.github.callbackUrl!)
     url.searchParams.set('state', stateToken)
-    url.searchParams.set('scope', 'read:user read:gpg_key')
     url.searchParams.set('code_challenge', this.sha256(codeVerifier, 'base64url'))
     url.searchParams.set('code_challenge_method', 'S256')
     return { authorizationUrl: url.toString() }
@@ -139,50 +133,52 @@ export class ContributorOnboardingService {
   /**
    * Exchanges the GitHub code for the user who started the link.
    * Does not issue a session. A different GitHub account clears GPG verification.
+   * The GitHub token is used once to read the account, then revoked.
    */
   public async completeGithubLink(
     authInfo: AuthInfo,
     code: string,
     stateToken: string,
-  ): Promise<{ linked: true; githubUsername: string }> {
-    this.assertGithubOAuthConfigured()
+  ): Promise<GithubLinkCallbackResponseDto> {
     const stateHash = this.sha256(stateToken)
-    const consumed = await this.em.nativeUpdate(
-      OAuthLinkAttempt,
-      {
-        stateHash,
-        userId: authInfo.userId,
-        tenantId: authInfo.tenantId,
-        walletId: authInfo.walletId,
-        status: LinkAttemptStatus.Pending,
-        expiresAt: { $gt: new Date() },
-      },
-      { status: LinkAttemptStatus.Consumed },
-    )
-    if (consumed === 0) {
-      throw new UnauthorizedException('Invalid, expired, or already-consumed OAuth state')
-    }
-
-    const attempt = await this.em.findOneOrFail(OAuthLinkAttempt, {
+    const attempt = await this.em.findOne(OAuthLinkAttempt, {
       stateHash,
       userId: authInfo.userId,
       tenantId: authInfo.tenantId,
       walletId: authInfo.walletId,
+      status: LinkAttemptStatus.Pending,
+      expiresAt: { $gt: new Date() },
     })
+    const codeVerifier = attempt?.codeVerifier
+    // The conditional update keeps the state single-use under concurrent callbacks, and drops the PKCE verifier
+    const consumed = attempt
+      ? await this.em.nativeUpdate(
+          OAuthLinkAttempt,
+          { id: attempt.id, status: LinkAttemptStatus.Pending },
+          { status: LinkAttemptStatus.Consumed, codeVerifier: null },
+        )
+      : 0
+    if (!codeVerifier || consumed === 0) {
+      throw new BadRequestException('Invalid, expired, or already-consumed OAuth state')
+    }
 
-    const accessToken = await this.exchangeCodeForToken(code, attempt.codeVerifier)
-    const githubUser = await this.fetchGithubUser(accessToken)
+    const accessToken = await this.exchangeCodeForToken(code, codeVerifier)
+    let githubUser: { id: string; login: string }
+    try {
+      githubUser = await this.fetchGithubUser(accessToken)
+    } finally {
+      await this.revokeGithubToken(accessToken)
+    }
 
     const taken = await this.em.findOne(ContributorBinding, { githubAccountId: githubUser.id })
-    if (taken && (taken.userId !== authInfo.userId || taken.tenantId !== authInfo.tenantId)) {
+    if (taken && taken.userId !== authInfo.userId) {
       throw new ConflictException('This GitHub account is already linked to another Heka user')
     }
 
-    let binding = await this.findBinding(authInfo.tenantId, authInfo.userId)
+    let binding = await this.findBinding(authInfo.userId)
     if (!binding) {
       binding = new ContributorBinding()
       binding.userId = authInfo.userId
-      binding.tenantId = authInfo.tenantId
       binding.linkedAt = new Date()
       this.em.persist(binding)
     } else if (binding.githubAccountId !== githubUser.id) {
@@ -190,7 +186,8 @@ export class ContributorOnboardingService {
       binding.verifiedAt = null
     }
 
-    binding.walletId = attempt.walletId
+    binding.tenantId = authInfo.tenantId
+    binding.walletId = authInfo.walletId
     binding.githubAccountId = githubUser.id
     binding.githubUsername = githubUser.login
     this.persistAudit({
@@ -199,12 +196,38 @@ export class ContributorOnboardingService {
       tenantId: authInfo.tenantId,
       githubAccountId: githubUser.id,
       githubUsername: githubUser.login,
-      walletId: attempt.walletId,
+      walletId: authInfo.walletId,
       metadata: { source: 'github-link' },
     })
     await this.em.flush()
-    this.logger.log(`GitHub account linked for user ${authInfo.userId}`)
+    this.logger.info(`GitHub account linked for user ${authInfo.userId}`)
     return { linked: true, githubUsername: githubUser.login }
+  }
+
+  /**
+   * Removes the user's GitHub link: the binding, pending link attempts and open GPG challenges.
+   * Idempotent; the audit event is written only when a binding existed.
+   */
+  public async unlinkGithub(authInfo: AuthInfo): Promise<void> {
+    await this.em.nativeDelete(OAuthLinkAttempt, { userId: authInfo.userId, status: LinkAttemptStatus.Pending })
+    await this.em.nativeDelete(GpgChallenge, { userId: authInfo.userId, consumed: false })
+
+    const binding = await this.findBinding(authInfo.userId)
+    if (!binding) return
+
+    this.em.remove(binding)
+    this.persistAudit({
+      eventType: ContributorAuditEventType.BindingRemoved,
+      userId: authInfo.userId,
+      tenantId: authInfo.tenantId,
+      githubAccountId: binding.githubAccountId,
+      githubUsername: binding.githubUsername,
+      walletId: authInfo.walletId,
+      gpgFingerprint: binding.gpgFingerprint ?? undefined,
+      metadata: { source: 'github-unlink' },
+    })
+    await this.em.flush()
+    this.logger.info(`GitHub account unlinked for user ${authInfo.userId}`)
   }
 
   public async recordChallengeRequested(input: {
@@ -227,6 +250,10 @@ export class ContributorOnboardingService {
     await this.em.flush()
   }
 
+  /**
+   * Stamps the user's binding with the verified key, if it still points at the GitHub account the
+   * challenge was issued for. The wallet and tenant are refreshed to those of the verifying request.
+   */
   public async recordProofAccepted(input: {
     userId: string
     tenantId: string
@@ -247,14 +274,16 @@ export class ContributorOnboardingService {
       metadata: { verifiedAt: input.verifiedAt.toISOString() },
     })
 
-    const binding = await this.findBinding(input.tenantId, input.userId)
-    if (!binding || binding.walletId !== input.walletId || binding.githubAccountId !== input.githubAccountId) {
+    const binding = await this.findBinding(input.userId)
+    if (!binding || binding.githubAccountId !== input.githubAccountId) {
       await this.em.flush()
       return undefined
     }
 
     binding.gpgFingerprint = input.gpgFingerprint
     binding.verifiedAt = input.verifiedAt
+    binding.tenantId = input.tenantId
+    binding.walletId = input.walletId
     this.persistAudit({
       eventType: ContributorAuditEventType.BindingUpdated,
       userId: input.userId,
@@ -266,7 +295,7 @@ export class ContributorOnboardingService {
       metadata: { source: 'gpg-proof' },
     })
     await this.em.flush()
-    this.logger.log(`GPG verification stored for user ${input.userId}`)
+    this.logger.info(`GPG verification stored for user ${input.userId}`)
     return binding
   }
 
@@ -291,25 +320,16 @@ export class ContributorOnboardingService {
     await this.em.flush()
   }
 
-  /** Current link for a GitHub account. Usernames are not stable, so callers resolve the numeric id first. */
-  public findBindingByGithubAccountId(githubAccountId: string): Promise<ContributorBinding | null> {
-    return this.em.findOne(ContributorBinding, { githubAccountId })
+  private async findBinding(userId: string): Promise<ContributorBinding | null> {
+    return this.em.findOne(ContributorBinding, { userId })
   }
 
-  private async findBinding(tenantId: string, userId: string): Promise<ContributorBinding | null> {
-    return this.em.findOne(ContributorBinding, { tenantId, userId })
-  }
-
-  private assertWallet(binding: ContributorBinding, walletId: string): void {
-    if (binding.walletId !== walletId) {
-      throw new ForbiddenException('Contributor binding does not belong to this wallet.')
-    }
-  }
-
-  private assertGithubOAuthConfigured(): void {
-    if (!this.github.clientId || !this.github.clientSecret || !this.github.callbackUrl) {
-      throw new ServiceUnavailableException('GitHub OAuth is not configured.')
-    }
+  /**
+   * Deletes attempts that expired more than one TTL ago. It runs before every new attempt, so each
+   * call removes only the rows that crossed the cutoff since the previous one, and the table stays small.
+   */
+  private async purgeExpiredLinkAttempts(): Promise<void> {
+    await this.em.nativeDelete(OAuthLinkAttempt, { expiresAt: { $lt: new Date(Date.now() - LINK_ATTEMPT_TTL_MS) } })
   }
 
   private sha256(value: string, encoding: 'hex' | 'base64url' = 'hex'): string {
@@ -332,11 +352,11 @@ export class ContributorOnboardingService {
         ),
       )
       if (!response.data.access_token) {
-        throw new UnauthorizedException(`GitHub token exchange failed: ${response.data.error ?? 'unknown_error'}`)
+        throw new BadGatewayException(`GitHub token exchange failed: ${response.data.error ?? 'unknown_error'}`)
       }
       return response.data.access_token
     } catch (error: unknown) {
-      if (error instanceof UnauthorizedException) {
+      if (error instanceof BadGatewayException) {
         throw error
       }
       throw new ServiceUnavailableException('Unable to exchange GitHub OAuth code.')
@@ -353,17 +373,39 @@ export class ContributorOnboardingService {
       )
       const id = response.data.id === undefined ? '' : String(response.data.id)
       if (!/^[0-9]+$/.test(id) || !response.data.login) {
-        throw new UnauthorizedException('GitHub identity response did not include a numeric account id and username.')
+        throw new BadGatewayException('GitHub identity response did not include a numeric account id and username.')
       }
       return { id, login: response.data.login }
     } catch (error: unknown) {
-      if (error instanceof UnauthorizedException) {
+      if (error instanceof BadGatewayException) {
         throw error
       }
       if (axios.isAxiosError(error)) {
         throw new ServiceUnavailableException('Unable to retrieve authenticated GitHub identity.')
       }
       throw error
+    }
+  }
+
+  /**
+   * Best effort: a failed revocation is logged without failing the link. The token is never stored and
+   * carries no scopes. GitHub requires basic auth with the OAuth app's credentials here.
+   */
+  private async revokeGithubToken(accessToken: string): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.httpService.delete(this.github.tokenRevocationUrl!, {
+          auth: { username: this.github.clientId!, password: this.github.clientSecret! },
+          data: { access_token: accessToken },
+          headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'heka-identity-service' },
+          timeout: this.github.requestTimeoutMs,
+        }),
+      )
+    } catch (error: unknown) {
+      // Only the message: the request config of an axios error carries the client secret and the token
+      this.logger.warn(
+        `GitHub access token could not be revoked: ${error instanceof Error ? error.message : 'unknown error'}`,
+      )
     }
   }
 

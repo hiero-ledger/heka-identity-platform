@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-import type { ContributorBinding } from '@/entities/User/model/types/user';
+import type { ContributorBinding } from '@/entities/Contributor';
 
 import * as cls from './Step.module.scss';
 
@@ -13,7 +13,13 @@ interface Props {
   offerExpiresAt: string | null;
 }
 
-type WalletStatus = 'idle' | 'sending' | 'sent' | 'received' | 'error' | 'not_installed';
+type WalletStatus =
+  | 'idle'
+  | 'sending'
+  | 'sent'
+  | 'received'
+  | 'error'
+  | 'not_installed';
 
 const VerifyStep: React.FC<Props> = ({
   binding,
@@ -33,14 +39,22 @@ const VerifyStep: React.FC<Props> = ({
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
-      if (event.data?.source !== EXTENSION_SOURCE || event.data?.type !== 'RECEIVE_STATUS') return;
-      const status = event.data.payload as { state?: string; message?: string } | undefined;
+      if (
+        event.data?.source !== EXTENSION_SOURCE ||
+        event.data?.type !== 'RECEIVE_STATUS'
+      )
+        return;
+      const status = event.data.payload as
+        | { state?: string; message?: string }
+        | undefined;
       if (status?.state === 'done') {
         setReceiveError(null);
         setWalletStatus('received');
         onCredentialStored();
       } else if (status?.state === 'error') {
-        setReceiveError(status.message ?? 'The wallet could not store the credential.');
+        setReceiveError(
+          status.message ?? 'The wallet could not store the credential.',
+        );
         setWalletStatus('error');
       }
     };
@@ -55,7 +69,10 @@ const VerifyStep: React.FC<Props> = ({
     // The extension content script responds with PONG if installed
     const pingResult = await new Promise<boolean>((resolve) => {
       const handleMessage = (event: MessageEvent) => {
-        if (event.data?.source === EXTENSION_SOURCE && event.data?.type === 'PING_RESPONSE') {
+        if (
+          event.data?.source === EXTENSION_SOURCE &&
+          event.data?.type === 'PING_RESPONSE'
+        ) {
           clearTimeout(timeout);
           window.removeEventListener('message', handleMessage);
           resolve(true);
@@ -68,7 +85,10 @@ const VerifyStep: React.FC<Props> = ({
       }, 1500);
 
       window.addEventListener('message', handleMessage);
-      window.postMessage({ source: HEKA_SOURCE, type: 'PING' }, window.location.origin);
+      window.postMessage(
+        { source: HEKA_SOURCE, type: 'PING' },
+        window.location.origin,
+      );
     });
 
     if (!pingResult) {
@@ -127,11 +147,15 @@ const VerifyStep: React.FC<Props> = ({
 
       {/* Credential receive section — optional feature */}
       <div className={cls.walletSection}>
-        <h3 className={cls.walletHeading}>Receive your Credential <span className={cls.optionalTag}>Optional</span></h3>
+        <h3 className={cls.walletHeading}>
+          Receive your Credential{' '}
+          <span className={cls.optionalTag}>Optional</span>
+        </h3>
         <p className={cls.walletDescription}>
-          Your <code className={cls.inlineCode}>GithubContributorCredential</code> is ready to be
-          issued. You can receive it into your Heka Web Wallet extension now, or do it later from
-          your profile.
+          Your{' '}
+          <code className={cls.inlineCode}>GithubContributorCredential</code> is
+          ready to be issued. You can receive it into your Heka Web Wallet
+          extension now, or come back to this page later.
         </p>
 
         {walletStatus === 'not_installed' && (
@@ -139,8 +163,8 @@ const VerifyStep: React.FC<Props> = ({
             <span>⚠️</span>
             <div>
               <p>
-                Heka Web Wallet extension not detected. Load it from this project&apos;s Chrome
-                extension build, then try again.
+                Heka Web Wallet extension not detected. Load it from this
+                project&apos;s Chrome extension build, then try again.
               </p>
               <button
                 className={cls.textBtn}
@@ -157,11 +181,15 @@ const VerifyStep: React.FC<Props> = ({
             <span>✅</span>
             <div>
               <p>
-                The wallet is open. Review the issuer, then enter this code. It is not part of the offer.
+                The wallet is open. Review the issuer, then enter this code. It
+                is not part of the offer.
               </p>
               {txCode && <p className={cls.txCode}>{txCode}</p>}
               {offerExpiresAt && (
-                <p>This code expires {new Date(offerExpiresAt).toLocaleString()}. Request a new one after that.</p>
+                <p>
+                  This code expires {new Date(offerExpiresAt).toLocaleString()}.
+                  Request a new one after that.
+                </p>
               )}
             </div>
           </div>
@@ -170,24 +198,32 @@ const VerifyStep: React.FC<Props> = ({
         {walletStatus === 'error' && (
           <div className={cls.errorBox}>
             <span>⚠️</span>
-            <p>{receiveError ?? 'Failed to send credential offer. Please try again or use your wallet manually.'}</p>
+            <p>
+              {receiveError ??
+                'Failed to send credential offer. Please try again or use your wallet manually.'}
+            </p>
           </div>
         )}
 
-        {(stored || walletStatus === 'idle' || walletStatus === 'error' || walletStatus === 'not_installed') && (
+        {(stored ||
+          walletStatus === 'idle' ||
+          walletStatus === 'error' ||
+          walletStatus === 'not_installed') && (
           <button
             id="receive-in-wallet-btn"
             className={cls.walletBtn}
             onClick={() => void handleReceiveInWallet()}
             disabled={stored}
           >
-            {stored ? '✓ Credential already in Wallet' : '🔐 Receive into Web Wallet'}
+            {stored
+              ? '✓ Credential already in Wallet'
+              : '🔐 Receive into Web Wallet'}
           </button>
         )}
 
         <p className={cls.skipNote}>
-          You can always receive your credential later from your Heka profile page.
-          Completing this step is <strong>not required</strong> to finish onboarding.
+          Completing this step is <strong>not required</strong> to finish
+          onboarding.
         </p>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { join, resolve } from 'path'
 
 import { Module } from '@nestjs/common'
+import { ConditionalModule } from '@nestjs/config'
 import { EventEmitterModule } from '@nestjs/event-emitter'
 import { ServeStaticModule } from '@nestjs/serve-static'
 
@@ -16,6 +17,7 @@ import { VerificationTemplateModule } from 'verification-template/verification-t
 import { LoggerModule } from './common/logger'
 import { OCAModule } from './common/oca/oca.module'
 import { fileStorageConfigDefaults } from './config/file-storage'
+import { isContributorVerificationEnabled } from './config/github'
 import { ConnectionModule } from './connection'
 import { ContributorCredentialModule } from './contributor-credential'
 import { ContributorOnboardingModule } from './contributor-onboarding'
@@ -60,9 +62,10 @@ const _appRoot = typeof __dirname !== 'undefined' ? resolve(__dirname, '..') : p
     RevocationModule,
     PrepareWalletModule,
     CredentialV2Module,
-    ContributorOnboardingModule,
-    GpgChallengeModule,
-    ContributorCredentialModule,
+    // Optional contributor verification (CONTRIBUTOR_VERIFICATION_ENABLED): without it, these routes don't exist
+    ConditionalModule.registerWhen(ContributorOnboardingModule, isContributorVerificationEnabled),
+    ConditionalModule.registerWhen(GpgChallengeModule, isContributorVerificationEnabled),
+    ConditionalModule.registerWhen(ContributorCredentialModule, isContributorVerificationEnabled),
     OCAModule,
     DemoModule,
     EventEmitterModule.forRoot(),

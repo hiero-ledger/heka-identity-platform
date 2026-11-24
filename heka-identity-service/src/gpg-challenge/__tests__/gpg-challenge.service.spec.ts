@@ -1,3 +1,4 @@
+import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
 import { HttpService } from '@nestjs/axios'
 import {
@@ -14,10 +15,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AuthInfo, Role } from 'common/auth'
 import { User } from 'common/entities'
+import { Logger } from 'common/logger'
+import { GithubConfig, githubConfigDefaults } from 'config/github'
 
 import { ContributorOnboardingService } from '../../contributor-onboarding'
 import { GpgChallenge } from '../gpg-challenge.entity'
 import { GpgChallengeService } from '../gpg-challenge.service'
+
+const MINUTE_MS = 60 * 1000
+const DAY_MS = 24 * 60 * MINUTE_MS
+
+/** The defaults, as deployed: the key URL must come from `gpgKeyBaseUrl`, never from the REST API root. */
+const githubConfig: GithubConfig = {
+  enabled: true,
+  ...githubConfigDefaults,
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+  callbackUrl: 'http://localhost:8000/github/callback',
+  tokenRevocationUrl: 'https://api.github.com/applications/client-id/token',
+}
 
 function auth(overrides: Partial<AuthInfo> = {}): AuthInfo {
   return {
@@ -89,6 +105,11 @@ function mockLinkedAccountThen(httpGet: ReturnType<typeof vi.fn>, gpg: Observabl
   })
 }
 
+async function clearSign(text: string, armoredPrivateKey: string, date?: Date): Promise<string> {
+  const signingKeys = await openpgp.readPrivateKey({ armoredKey: armoredPrivateKey })
+  return openpgp.sign({ message: await openpgp.createCleartextMessage({ text }), signingKeys, date })
+}
+
 describe('GpgChallengeService', () => {
   let service: GpgChallengeService
   let em: {
@@ -96,6 +117,7 @@ describe('GpgChallengeService', () => {
     flush: ReturnType<typeof vi.fn>
     findOne: ReturnType<typeof vi.fn>
     nativeUpdate: ReturnType<typeof vi.fn>
+    nativeDelete: ReturnType<typeof vi.fn>
     refresh: ReturnType<typeof vi.fn>
   }
   let httpService: { get: ReturnType<typeof vi.fn> }
@@ -104,7 +126,6 @@ describe('GpgChallengeService', () => {
     recordChallengeRequested: ReturnType<typeof vi.fn>
     recordProofAccepted: ReturnType<typeof vi.fn>
     recordProofRejected: ReturnType<typeof vi.fn>
-    findBindingByGithubAccountId: ReturnType<typeof vi.fn>
   }
 
   beforeEach(() => {
@@ -113,6 +134,7 @@ describe('GpgChallengeService', () => {
       flush: vi.fn().mockResolvedValue(undefined),
       findOne: vi.fn(),
       nativeUpdate: vi.fn().mockResolvedValue(1),
+      nativeDelete: vi.fn().mockResolvedValue(0),
       refresh: vi.fn().mockResolvedValue(undefined),
     }
     httpService = { get: vi.fn() }
@@ -121,24 +143,14 @@ describe('GpgChallengeService', () => {
       recordChallengeRequested: vi.fn().mockResolvedValue(undefined),
       recordProofAccepted: vi.fn().mockResolvedValue({ githubAccountId: '4115704' }),
       recordProofRejected: vi.fn().mockResolvedValue(undefined),
-      findBindingByGithubAccountId: vi.fn(),
     }
 
     service = new GpgChallengeService(
       em as unknown as EntityManager,
       httpService as unknown as HttpService,
       onboarding as unknown as ContributorOnboardingService,
-      {
-        clientId: undefined,
-        clientSecret: undefined,
-        callbackUrl: undefined,
-        authorizeUrl: 'https://github.com/login/oauth/authorize',
-        tokenUrl: 'https://github.com/login/oauth/access_token',
-        userApiUrl: 'https://api.github.com/user',
-        gpgKeyBaseUrl: 'https://github.com',
-        requestTimeoutMs: 8000,
-        statusToken: undefined,
-      },
+      githubConfig,
+      createMock<Logger>(),
     )
   })
 
@@ -159,6 +171,24 @@ describe('GpgChallengeService', () => {
       expect(challenge.expiresAt.getTime()).toBeLessThanOrEqual(now + 5 * 60 * 1_000 + 2_000)
       expect(em.persist).toHaveBeenCalledWith(challenge)
       expect(em.flush).toHaveBeenCalledOnce()
+    })
+
+    it('purges challenges that expired more than one TTL ago first', async () => {
+      const before = Date.now()
+
+      await service.createChallenge({
+        userId: 'user-1',
+        tenantId: 'tenant-1',
+        walletId: 'User_user-1',
+        githubAccountId: '4115704',
+        githubUsername: 'test-contributor',
+      })
+
+      expect(em.nativeDelete).toHaveBeenCalledWith(GpgChallenge, { expiresAt: { $lt: expect.any(Date) } })
+      const cutoff = (em.nativeDelete.mock.calls[0][1] as { expiresAt: { $lt: Date } }).expiresAt.$lt.getTime()
+      expect(cutoff).toBeGreaterThanOrEqual(before - 5 * MINUTE_MS)
+      expect(cutoff).toBeLessThanOrEqual(Date.now() - 5 * MINUTE_MS)
+      expect(em.nativeDelete.mock.invocationCallOrder[0]).toBeLessThan(em.persist.mock.invocationCallOrder[0])
     })
   })
 
@@ -236,6 +266,14 @@ describe('GpgChallengeService', () => {
     it('reports a missing GitHub key', async () => {
       mockLinkedAccountThen(httpService.get, httpFail(axiosErrorWithStatus(404)))
       await expect(service.verifySignature(auth(), 'id', 'sig')).rejects.toThrow(/No public GPG key/)
+    })
+
+    it('fetches the key from <gpgKeyBaseUrl>/<login>.gpg, not from the REST API root', async () => {
+      mockLinkedAccountThen(httpService.get, httpFail(axiosErrorWithStatus(404)))
+
+      await expect(service.verifySignature(auth(), 'id', 'sig')).rejects.toThrow(BadRequestException)
+
+      expect(httpService.get).toHaveBeenCalledWith('https://github.com/test-contributor.gpg', expect.anything())
     })
 
     it('maps GitHub 429 and 403 to 429', async () => {
@@ -367,66 +405,126 @@ describe('GpgChallengeService', () => {
       expect(challenge.verifiedAt).toBeUndefined()
       expect(challenge.gpgFingerprint).toBeUndefined()
     }, 30_000)
+
+    it('accepts the challenge of the same user after a role change, and passes the current wallet on', async () => {
+      const challenge = buildChallenge()
+      em.findOne.mockResolvedValue(challenge)
+      const key = await openpgp.generateKey({ userIDs: [{ name: 'Signer' }] })
+      mockLinkedAccountThen(httpService.get, httpOk(key.publicKey))
+
+      const result = await service.verifySignature(
+        auth({ role: Role.Admin, walletId: 'Administration', tenantId: 'tenant-admin' }),
+        challenge.id,
+        await clearSign(challenge.nonce, key.privateKey),
+      )
+
+      expect(result.verified).toBe(true)
+      expect(onboarding.recordProofAccepted).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-1', walletId: 'Administration', tenantId: 'tenant-admin' }),
+      )
+    }, 30_000)
   })
 
-  describe('getContributorStatus', () => {
-    it('returns unverified when GitHub has no such login', async () => {
-      httpService.get.mockReturnValue(httpFail(axiosErrorWithStatus(404)))
+  /**
+   * openpgp judges the key at the signature's creation time, which the signer sets. A key that
+   * expired or was superseded must not prove ownership through a backdated signature.
+   */
+  describe('verifySignature signature time and key validity', () => {
+    const now = () => Date.now()
 
-      await expect(service.getContributorStatus('test-contributor')).resolves.toEqual({
-        isVerified: false,
-        githubUsername: 'test-contributor',
-      })
-      expect(onboarding.findBindingByGithubAccountId).not.toHaveBeenCalled()
-    })
+    async function verifyWith(challenge: GpgChallenge, armoredPublicKey: string, signature: string) {
+      em.findOne.mockResolvedValue(challenge)
+      mockLinkedAccountThen(httpService.get, httpOk(armoredPublicKey))
+      return service.verifySignature(auth(), challenge.id, signature)
+    }
 
-    it('returns unverified when the current account binding has no proof', async () => {
-      httpService.get.mockReturnValue(httpOk({ id: 4115704, login: 'test-contributor' }))
-      onboarding.findBindingByGithubAccountId.mockResolvedValue({
-        githubAccountId: '4115704',
-        githubUsername: 'old-name',
-        verifiedAt: null,
-        gpgFingerprint: null,
-      })
+    function expectRejected(reason: string) {
+      expect(onboarding.recordProofRejected).toHaveBeenCalledWith(expect.objectContaining({ reason }))
+      expect(onboarding.recordProofAccepted).not.toHaveBeenCalled()
+    }
 
-      await expect(service.getContributorStatus('test-contributor')).resolves.toEqual({
-        isVerified: false,
-        githubUsername: 'test-contributor',
-      })
-      expect(onboarding.findBindingByGithubAccountId).toHaveBeenCalledWith('4115704')
-      expect(em.findOne).not.toHaveBeenCalled()
-    })
+    it('accepts a signature made now with a valid key', async () => {
+      const challenge = buildChallenge()
+      const key = await openpgp.generateKey({ userIDs: [{ name: 'Valid' }] })
 
-    it('reads verification from the account-id binding after a username change', async () => {
-      const verifiedAt = new Date('2026-07-06T09:00:00Z')
-      httpService.get.mockReturnValue(httpOk({ id: 4115704, login: 'renamed' }))
-      onboarding.findBindingByGithubAccountId.mockResolvedValue({
-        githubAccountId: '4115704',
-        githubUsername: 'old-name',
-        gpgFingerprint: 'ABCDEF123456',
-        verifiedAt,
-      })
+      const result = await verifyWith(challenge, key.publicKey, await clearSign(challenge.nonce, key.privateKey))
 
-      await expect(service.getContributorStatus('renamed')).resolves.toMatchObject({
-        isVerified: true,
-        githubUsername: 'renamed',
-        gpgFingerprint: 'ABCDEF123456',
-        verifiedAt,
+      expect(result.verified).toBe(true)
+    }, 30_000)
+
+    it('accepts a signature dated up to 5 minutes ahead of this clock', async () => {
+      const challenge = buildChallenge()
+      const key = await openpgp.generateKey({ userIDs: [{ name: 'Ahead' }] })
+      const signature = await clearSign(challenge.nonce, key.privateKey, new Date(now() + 2 * MINUTE_MS))
+
+      const result = await verifyWith(challenge, key.publicKey, signature)
+
+      expect(result.verified).toBe(true)
+    }, 30_000)
+
+    it('rejects an expired key with a signature backdated to its validity, with 400', async () => {
+      const challenge = buildChallenge()
+      const expired = await openpgp.generateKey({
+        userIDs: [{ name: 'Expired' }],
+        date: new Date(now() - 10 * DAY_MS),
+        keyExpirationTime: 5 * 24 * 60 * 60,
       })
-      expect(httpService.get).toHaveBeenCalledWith(
-        'https://api.github.com/users/renamed',
-        expect.objectContaining({ headers: expect.objectContaining({ 'User-Agent': 'heka-identity-service' }) }),
+      const signature = await clearSign(challenge.nonce, expired.privateKey, new Date(now() - 8 * DAY_MS))
+
+      await expect(verifyWith(challenge, expired.publicKey, signature)).rejects.toThrow(
+        /outside this challenge's window/,
       )
-    })
+      expectRejected('Signature time outside the challenge window')
+    }, 30_000)
 
-    it('resolves the GitHub account id again on every status check', async () => {
-      httpService.get.mockReturnValue(httpOk({ id: 4115704, login: 'renamed' }))
-      onboarding.findBindingByGithubAccountId.mockResolvedValue(null)
+    it('rejects a superseded (soft-revoked) key with a backdated signature, with 400', async () => {
+      const challenge = buildChallenge()
+      const key = await openpgp.generateKey({ userIDs: [{ name: 'Superseded' }], date: new Date(now() - 10 * DAY_MS) })
+      const { publicKey: revoked } = await openpgp.revokeKey({
+        key: await openpgp.readPrivateKey({ armoredKey: key.privateKey }),
+        reasonForRevocation: { flag: openpgp.enums.reasonForRevocation.keySuperseded, string: 'superseded' },
+      })
+      const signature = await clearSign(challenge.nonce, key.privateKey, new Date(now() - 8 * DAY_MS))
 
-      await service.getContributorStatus('renamed')
-      await service.getContributorStatus('renamed')
+      await expect(verifyWith(challenge, revoked, signature)).rejects.toThrow(/outside this challenge's window/)
+      expectRejected('Signature time outside the challenge window')
+    }, 30_000)
 
-      expect(httpService.get).toHaveBeenCalledTimes(2)
-    })
+    it('rejects a signature made before the challenge was issued', async () => {
+      const challenge = buildChallenge()
+      const key = await openpgp.generateKey({ userIDs: [{ name: 'Early' }], date: new Date(now() - DAY_MS) })
+      const signature = await clearSign(challenge.nonce, key.privateKey, new Date(now() - 10 * MINUTE_MS))
+
+      await expect(verifyWith(challenge, key.publicKey, signature)).rejects.toThrow(BadRequestException)
+      expectRejected('Signature time outside the challenge window')
+    }, 30_000)
+
+    it('rejects a key that was valid at signature time but has expired since', async () => {
+      const challenge = buildChallenge({ createdAt: new Date(now() - MINUTE_MS) })
+      // Expired 3 minutes ago; the signature is from 4 minutes ago, inside the challenge window
+      const key = await openpgp.generateKey({
+        userIDs: [{ name: 'Expired since' }],
+        date: new Date(now() - DAY_MS),
+        keyExpirationTime: DAY_MS / 1000 - 3 * 60,
+      })
+      const signature = await clearSign(challenge.nonce, key.privateKey, new Date(now() - 4 * MINUTE_MS))
+
+      await expect(verifyWith(challenge, key.publicKey, signature)).rejects.toThrow(/expired or revoked/)
+      expectRejected('Signing key expired or revoked')
+    }, 30_000)
+
+    it('rejects a key that was superseded after the signature was made', async () => {
+      const challenge = buildChallenge({ createdAt: new Date(now() - MINUTE_MS) })
+      const key = await openpgp.generateKey({ userIDs: [{ name: 'Superseded since' }], date: new Date(now() - DAY_MS) })
+      const { publicKey: revoked } = await openpgp.revokeKey({
+        key: await openpgp.readPrivateKey({ armoredKey: key.privateKey }),
+        reasonForRevocation: { flag: openpgp.enums.reasonForRevocation.keySuperseded, string: 'superseded' },
+        date: new Date(now() - MINUTE_MS),
+      })
+      const signature = await clearSign(challenge.nonce, key.privateKey, new Date(now() - 4 * MINUTE_MS))
+
+      await expect(verifyWith(challenge, revoked, signature)).rejects.toThrow(/expired or revoked/)
+      expectRejected('Signing key expired or revoked')
+    }, 30_000)
   })
 })

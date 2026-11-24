@@ -7,9 +7,10 @@ export enum ContributorAuditEventType {
   ProofAccepted = 'ProofAccepted',
   ProofRejected = 'ProofRejected',
   BindingUpdated = 'BindingUpdated',
+  BindingRemoved = 'BindingRemoved',
 }
 
-@Entity({ tableName: 'contributor_onboarding_audit_events' })
+@Entity()
 export class ContributorAuditEvent extends Identified {
   @Enum({ items: () => ContributorAuditEventType })
   public eventType!: ContributorAuditEventType

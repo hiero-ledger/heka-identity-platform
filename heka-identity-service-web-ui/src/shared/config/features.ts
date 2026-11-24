@@ -27,4 +27,13 @@ export const features = {
     process.env.REACT_APP_FEATURE_REVOCATION,
     true,
   ),
+  /**
+   * Contributor Hub: GitHub account linking, GPG proof and the contributor credential offer. The
+   * identity service serves its routes only with CONTRIBUTOR_VERIFICATION_ENABLED=true.
+   */
+  contributorVerification: flag(
+    'REACT_APP_FEATURE_CONTRIBUTOR_VERIFICATION',
+    process.env.REACT_APP_FEATURE_CONTRIBUTOR_VERIFICATION,
+    false,
+  ),
 };

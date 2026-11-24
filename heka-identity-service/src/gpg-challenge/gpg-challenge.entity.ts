@@ -9,8 +9,9 @@ import { Identified } from 'common/entities/identified.entity'
  * `consumed` is set before signature verification so a nonce cannot be replayed,
  * including when verification fails or the process stops mid-request.
  * `verifiedAt` is set only after the signature checks out.
+ * Expired challenges are purged when new ones are created.
  */
-@Entity({ tableName: 'gpg_challenges' })
+@Entity()
 export class GpgChallenge extends Identified {
   @Index()
   @Property({ type: 'string' })

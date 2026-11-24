@@ -8,13 +8,21 @@ import {
 } from 'oidc-client-ts';
 import { AuthProvider } from 'react-oidc-context';
 
-import { SessionBridge } from './OidcAuthProvider';
+import { OidcAuthProvider, SessionBridge } from './OidcAuthProvider';
 import { genericProfile } from './profiles/generic';
-import { useAuthSession } from './session';
+import { AuthSession, useAuthSession } from './session';
 import { getSessionAccessToken, refreshSessionToken } from './sessionBridge';
 
 jest.mock('@/shared/lib/hooks/useAppDispatch', () => ({
   useAppDispatch: () => jest.fn(),
+}));
+
+jest.mock('./config', () => ({
+  authConfig: {
+    provider: 'generic',
+    authority: 'https://idp.example.com',
+    clientId: 'web-ui',
+  },
 }));
 
 const buildUser = (accessToken: string) =>
@@ -89,5 +97,65 @@ describe('SessionBridge', () => {
     expect(tokenBeforeRerender).toBe('token-2');
     expect(getSessionAccessToken()).toBe('token-2');
     expect(isLoading).toBe(false);
+  });
+});
+
+describe('OidcAuthProvider', () => {
+  // Stores a session where the provider's UserManager looks for it (same authority, client and store)
+  const storeSession = (accessToken: string) =>
+    new UserManager({
+      authority: 'https://idp.example.com',
+      client_id: 'web-ui',
+      redirect_uri: 'http://localhost/',
+      userStore: new WebStorageStateStore({ store: window.sessionStorage }),
+    }).storeUser(buildUser(accessToken));
+
+  let session: AuthSession | undefined;
+  const Probe = () => {
+    session = useAuthSession();
+    return null;
+  };
+
+  const renderAt = async (url: string) => {
+    window.history.replaceState({}, '', url);
+    render(
+      <OidcAuthProvider>
+        <Probe />
+      </OidcAuthProvider>,
+    );
+    await waitFor(() => expect(session?.isLoading).toBe(false));
+  };
+
+  afterEach(() => {
+    session = undefined;
+    window.sessionStorage.clear();
+    window.history.replaceState({}, '', '/');
+    jest.restoreAllMocks();
+  });
+
+  test("GitHub's link callback leaves the signed-in session and its own code and state alone", async () => {
+    await storeSession('heka-token');
+    const signinCallback = jest.spyOn(UserManager.prototype, 'signinCallback');
+
+    await renderAt('/github/callback?code=github-code&state=link-state');
+
+    expect(signinCallback).not.toHaveBeenCalled();
+    expect(session).toMatchObject({ isAuthenticated: true, error: undefined });
+    expect(getSessionAccessToken()).toBe('heka-token');
+    // GithubCallback reads them from the URL
+    expect(window.location.search).toBe('?code=github-code&state=link-state');
+  });
+
+  test('the OIDC callback at the redirect path is still processed', async () => {
+    const signinCallback = jest
+      .spyOn(UserManager.prototype, 'signinCallback')
+      .mockResolvedValue(buildUser('new-token'));
+
+    await renderAt('/?code=oidc-code&state=oidc-state');
+
+    expect(signinCallback).toHaveBeenCalledTimes(1);
+    expect(session?.isAuthenticated).toBe(true);
+    expect(getSessionAccessToken()).toBe('new-token');
+    expect(window.location.search).toBe('');
   });
 });

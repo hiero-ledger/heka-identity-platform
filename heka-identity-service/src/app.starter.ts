@@ -9,7 +9,7 @@ import {
   VERSION_NEUTRAL,
   VersioningType,
 } from '@nestjs/common'
-import { ConfigType } from '@nestjs/config'
+import { ConditionalModule, ConfigType } from '@nestjs/config'
 import { Reflector } from '@nestjs/core'
 import { WsAdapter } from '@nestjs/platform-ws'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
@@ -53,7 +53,8 @@ const addSwagger = (app: INestApplication, appConfig: ConfigType<typeof ExpressC
     .build()
 
   const document = SwaggerModule.createDocument(app, config, {
-    include: [AppModule],
+    // The deep scan goes one import level down; modules registered through ConditionalModule sit one level deeper
+    include: [AppModule, ConditionalModule],
     deepScanRoutes: true,
     autoTagControllers: true,
   })

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 import ROUTES from '@/app/routes/RoutePaths';
 import {
+  contributorActions,
   getContributorActiveChallenge,
   getContributorBinding,
   getContributorCompletedSteps,
@@ -12,13 +13,11 @@ import {
   getContributorError,
   getContributorGithubUsername,
   getContributorIsLoading,
+  getContributorOnboardingStatus,
   getContributorStep,
-} from '@/entities/Contributor/model/contributorSelectors';
-import { contributorSlice } from '@/entities/Contributor/model/contributorSlice';
-import { getContributorOnboardingStatus } from '@/entities/User/model/services/getContributorOnboardingStatus';
+  requestContributorCredentialOffer,
+} from '@/entities/Contributor';
 import { OnboardingStepper } from '@/pages/Contributor/components/OnboardingStepper';
-import { $agencyApi } from '@/shared/api/config/api';
-import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import { getSessionAccessToken } from '@/shared/auth/sessionBridge';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
 
@@ -33,16 +32,18 @@ const ContributorOnboarding: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
-  const currentStep     = useSelector(getContributorStep);
-  const completedSteps  = useSelector(getContributorCompletedSteps);
+  const currentStep = useSelector(getContributorStep);
+  const completedSteps = useSelector(getContributorCompletedSteps);
   const activeChallenge = useSelector(getContributorActiveChallenge);
-  const binding          = useSelector(getContributorBinding);
+  const binding = useSelector(getContributorBinding);
   const credentialIssued = useSelector(getContributorCredentialIssued);
-  const isLoading        = useSelector(getContributorIsLoading);
-  const error            = useSelector(getContributorError);
-  const githubUsername   = useSelector(getContributorGithubUsername);
+  const isLoading = useSelector(getContributorIsLoading);
+  const error = useSelector(getContributorError);
+  const githubUsername = useSelector(getContributorGithubUsername);
   const [walletTxCode, setWalletTxCode] = useState<string | null>(null);
-  const [walletOfferExpiresAt, setWalletOfferExpiresAt] = useState<string | null>(null);
+  const [walletOfferExpiresAt, setWalletOfferExpiresAt] = useState<
+    string | null
+  >(null);
 
   // Load the current onboarding status on mount so we can fast-forward
   // the wizard if the user has already completed some steps.
@@ -52,40 +53,32 @@ const ContributorOnboarding: React.FC = () => {
     }
   }, [dispatch]);
 
-  // Clear any Redux-level errors (handleError already toasts them globally)
-  useEffect(() => {
-    if (error) {
-      dispatch(contributorSlice.actions.clearError());
-    }
-  }, [error, dispatch]);
-
   const handleChallengeReady = useCallback(() => {
-    dispatch(contributorSlice.actions.setCurrentStep(2));
+    dispatch(contributorActions.setCurrentStep(2));
   }, [dispatch]);
 
   const handleVerified = useCallback(() => {
-    dispatch(contributorSlice.actions.setCurrentStep(3));
+    dispatch(contributorActions.setCurrentStep(3));
     // Re-fetch status so the binding is populated in Redux
     // (the verify endpoint only returns gpgFingerprint, not the full binding)
     void dispatch(getContributorOnboardingStatus());
   }, [dispatch]);
 
   const handleCredentialStored = useCallback(() => {
-    dispatch(contributorSlice.actions.setCredentialIssued());
+    dispatch(contributorActions.setCredentialIssued());
   }, [dispatch]);
 
+  // The stepper marks the current step as failed until the user acts again: the thunks clear the
+  // error when they start, and going back to request a new challenge clears it here
   const handleNeedNewChallenge = useCallback(() => {
-    dispatch(contributorSlice.actions.setCurrentStep(1));
+    dispatch(contributorActions.clearError());
+    dispatch(contributorActions.setCurrentStep(1));
   }, [dispatch]);
 
   const handleRequestCredential = useCallback(async () => {
-    const response = await $agencyApi.post<{ credentialOffer: string; txCode: string; expiresAt: string }>(
-      agencyEndpoints.contributorCredentialOffer,
-    );
-    const { credentialOffer, txCode, expiresAt } = response.data;
-    if (!credentialOffer.startsWith('openid-credential-offer:') || !txCode || !expiresAt) {
-      throw new Error('The issuer did not return a transaction code and expiry for this offer.');
-    }
+    const { credentialOffer, txCode, expiresAt } = await dispatch(
+      requestContributorCredentialOffer(),
+    ).unwrap();
 
     setWalletTxCode(txCode);
     setWalletOfferExpiresAt(expiresAt);
@@ -97,11 +90,11 @@ const ContributorOnboarding: React.FC = () => {
       },
       window.location.origin,
     );
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     if (currentStep === 2 && !activeChallenge) {
-      dispatch(contributorSlice.actions.setCurrentStep(1));
+      dispatch(contributorActions.setCurrentStep(1));
     }
   }, [activeChallenge, currentStep, dispatch]);
 
@@ -180,7 +173,10 @@ const ContributorOnboarding: React.FC = () => {
       )}
 
       {/* Active step */}
-      <div key={currentStep} className={cls.stepWrapper}>
+      <div
+        key={currentStep}
+        className={cls.stepWrapper}
+      >
         {renderStep()}
       </div>
     </div>

@@ -360,21 +360,6 @@ Trade-offs: every authenticated request makes one extra call to the provider, ad
 
 A claim path is resolved in this order: as a literal top-level key (so namespaced names such as `https://heka/roles` work as-is), as a JSON pointer when it starts with `/` (RFC 6901, e.g. `/realm_access/roles` or `/https:~1~1heka~1roles`), otherwise as a dotted path (`realm_access.roles`).
 
-### Contributor GitHub linking
-
-A signed-in Heka user links a GitHub account before the GPG challenge. Linking does not create a session. `yarn start` in the web UI serves the app on port 8000, while this API stays on port 3000. Create a GitHub OAuth app and set its callback URL to `http://localhost:8000/github/callback`. That page posts the code to `POST /v2/contributor-onboarding/github/link/callback`.
-
-| Variable                    | Default                                    | Description                                                      |
-| --------------------------- | ------------------------------------------ | ---------------------------------------------------------------- |
-| `GITHUB_CLIENT_ID`          | _(unset)_                                  | GitHub OAuth app client ID. Required to start linking.          |
-| `GITHUB_CLIENT_SECRET`      | _(unset)_                                  | GitHub OAuth app client secret. Required to exchange the code.  |
-| `GITHUB_CALLBACK_URL`       | _(unset)_                                  | Callback URL registered with GitHub. Must match the token exchange. |
-| `GITHUB_OAUTH_AUTHORIZE_URL`| `https://github.com/login/oauth/authorize` | Override only for tests or GitHub Enterprise.                    |
-| `GITHUB_OAUTH_TOKEN_URL`    | `https://github.com/login/oauth/access_token` | Override only for tests or GitHub Enterprise.                 |
-| `GITHUB_USER_API_URL`       | `https://api.github.com/user`              | Authenticated GitHub user endpoint.                              |
-| `GITHUB_GPG_KEY_BASE_URL`   | `https://github.com`                       | Host for `https://github.com/<username>.gpg`.                    |
-| `GITHUB_REQUEST_TIMEOUT_MS` | `8000`                                     | Timeout for outbound GitHub requests.                            |
-
 #### Required JWT claims
 
 `TokenVerifier` (`src/common/auth/token-verifier.service.ts`) verifies the token and `mapClaims` (`src/common/auth/claims.ts`) applies the contract. The claim names below are the defaults; each one is read through its `OIDC_CLAIM_*` path.
@@ -468,6 +453,31 @@ Anyone can call the endpoint, as anyone could read the bundled token before, so 
 That is acceptable for local development. For anything reachable by others, enable the role model (`User` then can do none of this except change the profile and webhook) or leave the broker unset.
 
 The demo account is created by the provider recipe: the Keycloak realm ships the `heka-demo` client with a service-account user of fixed id `e5f6a7b8-c9d0-4e1f-a2b3-c4d5e6f7a8b9`, and `setup-tenant.sh` creates an Auth0 machine-to-machine application `heka-demo` whose metadata carries the same `heka_uid`, so the demo tenant and its DID are the same on both providers. The web UI's `yarn prepare-demo-user` then obtains a token from the broker, prepares that tenant's wallet through `/prepare-wallet` and records the DID for the build (see the [web UI README](../../heka-identity-service-web-ui/README.md#creation-of-pre-defined-demo-user)).
+
+### Contributor verification (optional)
+
+Off by default. When enabled, a signed-in Heka user links a GitHub account, proves ownership of a GPG key published on that account, and receives a GitHub contributor credential (SD-JWT VC over OpenID4VCI). The flow, the credential's claims and the known limitations are in [Contributor onboarding](contributor-onboarding.md). When disabled, the routes under `/v2/contributor-onboarding`, `/v2/gpg-challenge` and `/v2/contributor-credential` are not registered (`404`) and no GitHub setting is read; the feature's four tables (`contributor_binding`, `contributor_audit_event`, `oauth_link_attempt`, `gpg_challenge`) are created by the migrations either way.
+
+| Variable                           | Default                                       | Description                                                                                                                                          |
+| ---------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CONTRIBUTOR_VERIFICATION_ENABLED` | `false`                                       | `true` or `false` (empty = `false`); any other value is a startup error.                                                                             |
+| `GITHUB_CLIENT_ID`                 | _(unset)_                                     | GitHub OAuth app client id. Required when enabled.                                                                                                   |
+| `GITHUB_CLIENT_SECRET`             | _(unset)_                                     | Its secret. Required when enabled; also used to revoke each GitHub token right after the account is read.                                            |
+| `GITHUB_CALLBACK_URL`              | _(unset)_                                     | The callback registered with the OAuth app: the web UI page `/github/callback`, e.g. `http://localhost:8000/github/callback`. Required when enabled. |
+| `GITHUB_OAUTH_AUTHORIZE_URL`       | `https://github.com/login/oauth/authorize`    | Override for tests or GitHub Enterprise.                                                                                                             |
+| `GITHUB_OAUTH_TOKEN_URL`           | `https://github.com/login/oauth/access_token` | Override for tests or GitHub Enterprise.                                                                                                             |
+| `GITHUB_USER_API_URL`              | `https://api.github.com/user`                 | Authenticated user endpoint. The REST API root used for `/users/<login>` and token revocation is derived from it.                                    |
+| `GITHUB_GPG_KEY_BASE_URL`          | `https://github.com`                          | Host of the public key files, `<base>/<login>.gpg`.                                                                                                  |
+| `GITHUB_REQUEST_TIMEOUT_MS`        | `8000`                                        | Deadline for each GitHub request; a positive integer.                                                                                                |
+| `DEMO_USER`                        | `demo`                                        | Provisional issuer: the wallet of the user with this OIDC subject (role `User`), signing with its `did:hedera` DID, else its first DID.              |
+
+When enabled, every problem is reported at startup in one error: the three OAuth app settings missing, a URL that is not http(s) (or not `https` in production), or a timeout that is not a positive integer.
+
+**GitHub OAuth app.** Create an OAuth app (not a GitHub App) with the callback URL above. The service requests no scopes: the account id and login come from the token's own user, and the key from the public `.gpg` file. It uses PKCE, binds the single-use state to the user who started the link, and revokes the token once the account is read.
+
+**Issuer.** Until a dedicated issuer organization replaces it, the credential is issued by the wallet of `DEMO_USER`: that user must have signed in once (role `User`) and created a DID (`POST /dids` or `/prepare-wallet`). The service registers the credential configuration on that issuer at startup, or on the first offer.
+
+**Rate limits.** Each contributor route accepts 10 requests per minute per user (`429` above it). The counters live in the process, so several instances each count separately, as for the demo token broker. GitHub's own limit applies too: the verification step reads `api.github.com/users/<login>` and `<login>.gpg` without credentials, and GitHub allows 60 such requests per hour per IP address, shared by every user of the instance (see [limitations](contributor-onboarding.md#limitations)).
 
 ### Ledger / DID methods
 

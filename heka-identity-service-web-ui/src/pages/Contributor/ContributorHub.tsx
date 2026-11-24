@@ -43,7 +43,10 @@ const ContributorHub: React.FC = () => {
         <p className={cls.sectionLabel}>3 Steps</p>
         <div className={cls.stepsGrid}>
           {STEPS.map((step, i) => (
-            <div className={cls.stepRow} key={step.title}>
+            <div
+              className={cls.stepRow}
+              key={step.title}
+            >
               <div className={cls.stepNumCol}>
                 <span className={cls.stepNum}>{i + 1}</span>
                 {i < STEPS.length - 1 && <span className={cls.stepLine} />}
@@ -65,9 +68,10 @@ const ContributorHub: React.FC = () => {
         <div>
           <p className={cls.walletTitle}>Install the Heka Web Wallet</p>
           <p className={cls.walletText}>
-            Load the Heka Web Wallet from this project&apos;s Chrome extension build before starting.
-            It is not published on the Chrome Web Store. Receiving the credential into your wallet is
-            optional — you can complete onboarding without it.
+            Load the Heka Web Wallet from this project&apos;s Chrome extension
+            build before starting. It is not published on the Chrome Web Store.
+            Receiving the credential into your wallet is optional — you can
+            complete onboarding without it.
           </p>
         </div>
       </div>

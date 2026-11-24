@@ -5,7 +5,6 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
-  Logger,
   NotFoundException,
   OnApplicationBootstrap,
 } from '@nestjs/common'
@@ -14,6 +13,7 @@ import { ConfigType } from '@nestjs/config'
 import { Agent, AGENT_TOKEN } from 'common/agent'
 import { AuthInfo, Role } from 'common/auth'
 import { Wallet } from 'common/entities'
+import { InjectLogger, Logger } from 'common/logger'
 import AgentConfig from 'config/agent'
 import { ContributorOnboardingService, type VerifiedContributor } from 'contributor-onboarding'
 import { CredentialFormat } from 'openid4vc/issuer/dto/common/credential'
@@ -66,7 +66,6 @@ import { ContributorCredentialPayload } from './contributor-credential.types'
  */
 @Injectable()
 export class ContributorCredentialService implements OnApplicationBootstrap {
-  private readonly logger = new Logger(ContributorCredentialService.name)
   private issuerConfigured = false
   private configurationLock: Promise<boolean> | null = null
 
@@ -76,6 +75,7 @@ export class ContributorCredentialService implements OnApplicationBootstrap {
     private readonly em: EntityManager,
     private readonly openId4VcIssuerService: OpenId4VcIssuerService,
     private readonly contributorOnboardingService: ContributorOnboardingService,
+    @InjectLogger(ContributorCredentialService) private readonly logger: Logger,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -140,8 +140,8 @@ export class ContributorCredentialService implements OnApplicationBootstrap {
    * Creates an OID4VCI credential offer for a verified contributor.
    *
    * The SD-JWT VC payload is built from the authenticated user's verified binding.
-   * The disclosure frame marks `githubUsername` and `gpgFingerprint` as selectively
-   * disclosable. `walletId` is the Heka wallet from the session, not a GitHub-derived id.
+   * The disclosure frame marks `githubAccountId`, `githubUsername` and `gpgFingerprint`
+   * as selectively disclosable.
    *
    * This method calls `tenantAgent.openid4vc.issuer.createCredentialOffer()`
    * directly instead of going through `OpenId4VcIssuanceSessionService.offer()`
@@ -156,11 +156,7 @@ export class ContributorCredentialService implements OnApplicationBootstrap {
   public async issueContributorCredential(
     authInfo: AuthInfo,
   ): Promise<{ credentialOffer: string; txCode: string; expiresAt: string }> {
-    const contributor = await this.contributorOnboardingService.getVerifiedBindingByUser(
-      authInfo.tenantId,
-      authInfo.userId,
-      authInfo.walletId,
-    )
+    const contributor = await this.contributorOnboardingService.getVerifiedBindingByUser(authInfo.userId)
     await this.ensureIssuerConfigured()
 
     const tenantId = await this.resolveDemoTenantId()
@@ -232,7 +228,7 @@ export class ContributorCredentialService implements OnApplicationBootstrap {
       )
     }
 
-    this.logger.log(
+    this.logger.info(
       `Credential offer created for contributor @${contributor.githubUsername} (account ${contributor.githubAccountId})`,
     )
 
@@ -289,7 +285,7 @@ export class ContributorCredentialService implements OnApplicationBootstrap {
             },
           ],
         })
-        this.logger.log(`OID4VCI issuer registered for DID ${issuerDid}`)
+        this.logger.info(`OID4VCI issuer registered for DID ${issuerDid}`)
         configured = true
         return // createIssuer already included the credential config
       }
@@ -310,7 +306,7 @@ export class ContributorCredentialService implements OnApplicationBootstrap {
           ] as OpenId4VcIssuersUpdateMetadataDto['credentialsSupported'],
           display: issuer.display,
         })
-        this.logger.log(
+        this.logger.info(
           `${CONTRIBUTOR_CREDENTIAL_SUPPORTED_ID} credential configuration updated for issuer ${issuerDid}`,
         )
         configured = true
@@ -322,7 +318,7 @@ export class ContributorCredentialService implements OnApplicationBootstrap {
         action: UpdateIssuerSupportedCredentialsAction.Add,
         credentialsSupported: [this.buildCredentialConfiguration()],
       })
-      this.logger.log(`${CONTRIBUTOR_CREDENTIAL_SUPPORTED_ID} registered in existing issuer ${issuerDid}`)
+      this.logger.info(`${CONTRIBUTOR_CREDENTIAL_SUPPORTED_ID} registered in existing issuer ${issuerDid}`)
       configured = true
     })
     return configured
@@ -357,9 +353,8 @@ export class ContributorCredentialService implements OnApplicationBootstrap {
         githubUsername: { mandatory: true },
         gpgFingerprint: { mandatory: true },
         verifiedAt: { mandatory: true },
-        walletId: { mandatory: true },
       },
-      order: ['githubAccountId', 'githubUsername', 'gpgFingerprint', 'verifiedAt', 'walletId'],
+      order: ['githubAccountId', 'githubUsername', 'gpgFingerprint', 'verifiedAt'],
       display: [
         {
           name: CONTRIBUTOR_CREDENTIAL_DISPLAY_NAME,
@@ -377,7 +372,7 @@ export class ContributorCredentialService implements OnApplicationBootstrap {
 
   /**
    * Builds the SD-JWT VC payload from the contributor binding.
-   * All five claims are included; the disclosure frame determines
+   * All four claims are included; the disclosure frame determines
    * which ones are selectively disclosable.
    */
   private buildPayload(contributor: VerifiedContributor): ContributorCredentialPayload {
@@ -387,7 +382,6 @@ export class ContributorCredentialService implements OnApplicationBootstrap {
       githubUsername: contributor.githubUsername,
       gpgFingerprint: contributor.gpgFingerprint,
       verifiedAt: contributor.verifiedAt,
-      walletId: contributor.walletId,
       exp: Math.floor(Date.now() / 1000) + CONTRIBUTOR_CREDENTIAL_LIFETIME_SECONDS,
     }
   }
@@ -396,8 +390,9 @@ export class ContributorCredentialService implements OnApplicationBootstrap {
    * Builds the disclosure frame that controls which claims are placed in
    * SD-JWT `_sd` digest groups (selectively disclosable).
    *
-   *   - `githubUsername` and `gpgFingerprint` are selectively disclosable.
-   *   - `githubAccountId`, `verifiedAt`, and `walletId` are always revealed.
+   *   - `githubAccountId`, `githubUsername` and `gpgFingerprint` are selectively disclosable:
+   *     a verifier asks for the ones its policy needs.
+   *   - `verifiedAt` is always revealed. No claim identifies the Heka user or wallet.
    */
   private buildDisclosureFrame(): { _sd: string[] } {
     return { _sd: [...CONTRIBUTOR_CREDENTIAL_SELECTIVE_CLAIMS] }

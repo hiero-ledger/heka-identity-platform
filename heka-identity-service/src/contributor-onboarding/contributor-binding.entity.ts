@@ -3,22 +3,23 @@ import { Entity, Index, Property, Unique } from '@mikro-orm/decorators/legacy'
 import { Identified } from 'common/entities/identified.entity'
 
 /**
- * One Heka user linked to one GitHub account inside a tenant.
+ * One Heka user (the OIDC subject) linked to one GitHub account.
  *
- * `githubAccountId` is unique across every tenant. `(tenantId, userId)` is
- * unique, so a user has at most one linked GitHub account per tenant.
+ * Both `userId` and `githubAccountId` are unique. The wallet and tenant are
+ * those of the last link or verification: they follow the user's role and
+ * organization, so a role change keeps the binding.
  * Pointing an existing binding at a different GitHub account clears
  * `gpgFingerprint` and `verifiedAt`.
  */
-@Entity({ tableName: 'contributor_bindings' })
+@Entity()
 @Unique({ properties: ['githubAccountId'] })
-@Unique({ properties: ['tenantId', 'userId'] })
+@Unique({ properties: ['userId'] })
 export class ContributorBinding extends Identified {
-  /** Heka user who linked this GitHub account. */
+  /** OIDC subject (`AuthInfo.userId`) of the user who linked this GitHub account. */
   @Property({ type: 'string' })
   public userId!: string
 
-  /** Wallet id taken from the user's AuthInfo at link time. */
+  /** Wallet from the user's AuthInfo at the last link or verification. */
   @Property({ type: 'string' })
   public walletId!: string
 

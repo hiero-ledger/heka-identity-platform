@@ -1,0 +1,15 @@
+{
+  "name": "heka-web-wallet-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Chrome for Testing harness for the Heka Web Wallet: bridge, wallet window and OID4VCI receive (not run in CI)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "receive": "node receive.mjs"
+  },
+  "dependencies": {
+    "puppeteer": "^24.43.1"
+  },
+  "packageManager": "yarn@4.16.0"
+}

@@ -5,15 +5,14 @@ import { Identified } from 'common/entities/identified.entity'
 export enum LinkAttemptStatus {
   Pending = 'pending',
   Consumed = 'consumed',
-  Expired = 'expired',
-  Rejected = 'rejected',
 }
 
 /**
  * One-time GitHub link attempt bound to the Heka user who started it.
- * Only the SHA-256 hash of the state token is stored. The PKCE verifier stays on the server.
+ * Only the SHA-256 hash of the state token is stored. The PKCE verifier stays on the server
+ * and is cleared when the attempt is consumed. Expired attempts are purged when new ones are created.
  */
-@Entity({ tableName: 'oauth_link_attempts' })
+@Entity()
 @Unique({ properties: ['stateHash'] })
 export class OAuthLinkAttempt extends Identified {
   @Property({ type: 'string' })
@@ -28,8 +27,8 @@ export class OAuthLinkAttempt extends Identified {
   @Property({ type: 'string' })
   public stateHash!: string
 
-  @Property({ type: 'string' })
-  public codeVerifier!: string
+  @Property({ nullable: true, type: 'string' })
+  public codeVerifier?: string | null
 
   @Property({ type: 'Date' })
   public expiresAt!: Date

@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Heka Web Wallet",
+  "version": "0.1.0",
+  "description": "Receive, store and present verifiable credentials (SD-JWT VC) over OpenID4VC.",
+  "minimum_chrome_version": "137",
+
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
+  ],
+
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "Heka Web Wallet",
+    "default_icon": {
+      "16":  "icons/icon-16.png",
+      "48":  "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:8000/*",
+        "http://127.0.0.1:8000/*",
+        "https://heka.hiero.org/*"
+      ],
+      "js":  ["content-scripts/heka-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "icons": {
+    "16":  "icons/icon-16.png",
+    "48":  "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}
