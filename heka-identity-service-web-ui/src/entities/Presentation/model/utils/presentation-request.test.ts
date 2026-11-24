@@ -18,7 +18,7 @@ const baseParams: BuildOpenIdPresentationRequestParams = {
 };
 
 describe('buildSdJwtPresentationRequest', () => {
-  it('builds a signed PEX request for sd-jwt (no DC API fields)', () => {
+  it('builds a signed DCQL request for sd-jwt (no PEX, no DC API fields)', () => {
     const req = buildSdJwtPresentationRequest(baseParams);
 
     expect(req.publicVerifierId).toBe('verifier-1');
@@ -26,13 +26,27 @@ describe('buildSdJwtPresentationRequest', () => {
       method: 'did',
       did: 'did:key:z6Mk123',
     });
-    expect(
-      req.presentationExchange.definition.input_descriptors[0].constraints
-        .fields,
-    ).toEqual([{ path: ['$.age'] }, { path: ['$.name'] }]);
+    expect(req.dcql.query.credentials).toEqual([
+      {
+        id: 'requested-credential',
+        format: 'dc+sd-jwt',
+        claims: [{ path: ['age'] }, { path: ['name'] }],
+      },
+    ]);
+    expect((req as any).presentationExchange).toBeUndefined();
+    // The service picks OID4VP 1.0 for DCQL and the default (non-DC-API) response mode
     expect((req as any).responseMode).toBeUndefined();
-    expect((req as any).dcql).toBeUndefined();
     expect((req as any).version).toBeUndefined();
+    expect((req as any).expectedOrigins).toBeUndefined();
+  });
+
+  it('always builds an SD-JWT query, whatever format the params carry', () => {
+    const req = buildSdJwtPresentationRequest({
+      ...baseParams,
+      format: Openid4CredentialFormat.MsoMdoc,
+    });
+
+    expect(req.dcql.query.credentials[0].format).toBe('dc+sd-jwt');
   });
 });
 
@@ -52,17 +66,30 @@ describe('buildJwtJsonPresentationRequest', () => {
 });
 
 describe('buildMsoMdocPresentationRequest', () => {
-  it('builds a signed PEX request for mso_mdoc with default doctype/namespace', () => {
+  it('builds a signed DCQL request for mso_mdoc with default doctype/namespace (no PEX, no DC API fields)', () => {
     const req = buildMsoMdocPresentationRequest(baseParams);
-    const descriptor = req.presentationExchange.definition.input_descriptors[0];
 
-    expect(descriptor.id).toBe('org.iso.18013.5.1.mDL');
-    expect(descriptor.format?.mso_mdoc).toBeDefined();
-    expect(descriptor.constraints.fields).toEqual([
-      { path: ["$['org.iso.18013.5.1']['age']"], intent_to_retain: false },
-      { path: ["$['org.iso.18013.5.1']['name']"], intent_to_retain: false },
+    expect(req.publicVerifierId).toBe('verifier-1');
+    expect(req.requestSigner).toEqual({
+      method: 'did',
+      did: 'did:key:z6Mk123',
+    });
+    expect(req.dcql.query.credentials).toEqual([
+      {
+        id: 'requested-credential',
+        format: 'mso_mdoc',
+        meta: { doctype_value: 'org.iso.18013.5.1.mDL' },
+        claims: [
+          { path: ['org.iso.18013.5.1', 'age'], intent_to_retain: false },
+          { path: ['org.iso.18013.5.1', 'name'], intent_to_retain: false },
+        ],
+      },
     ]);
+    expect((req as any).presentationExchange).toBeUndefined();
+    // The service picks OID4VP 1.0 for DCQL and the default (non-DC-API) response mode
     expect((req as any).responseMode).toBeUndefined();
+    expect((req as any).version).toBeUndefined();
+    expect((req as any).expectedOrigins).toBeUndefined();
   });
 
   it('uses custom doctype and namespace', () => {
@@ -71,25 +98,33 @@ describe('buildMsoMdocPresentationRequest', () => {
       doctype: 'custom.doctype',
       namespace: 'custom.ns',
     });
-    const descriptor = req.presentationExchange.definition.input_descriptors[0];
+    const credential = req.dcql.query.credentials[0];
 
-    expect(descriptor.id).toBe('custom.doctype');
-    expect(descriptor.constraints.fields[0].path).toEqual([
-      "$['custom.ns']['age']",
-    ]);
+    expect(credential).toMatchObject({
+      meta: { doctype_value: 'custom.doctype' },
+    });
+    expect(credential.claims[0].path).toEqual(['custom.ns', 'age']);
+  });
+
+  it('always builds an mso_mdoc query, whatever format the params carry', () => {
+    const req = buildMsoMdocPresentationRequest({
+      ...baseParams,
+      format: Openid4CredentialFormat.SdJwt,
+    });
+
+    expect(req.dcql.query.credentials[0].format).toBe('mso_mdoc');
   });
 });
 
-describe('buildOpenIdPresentationRequest — PEX dispatch', () => {
-  it('dispatches to sdJwt builder', () => {
+describe('buildOpenIdPresentationRequest — direct_post dispatch', () => {
+  it('dispatches to sdJwt builder (DCQL)', () => {
     const req: any = buildOpenIdPresentationRequest({
       ...baseParams,
       format: Openid4CredentialFormat.SdJwt,
     });
-    expect(
-      req.presentationExchange.definition.input_descriptors[0].constraints
-        .fields[0].path,
-    ).toEqual(['$.age']);
+    expect(req.presentationExchange).toBeUndefined();
+    expect(req.responseMode).toBeUndefined();
+    expect(req.dcql.query.credentials[0].claims[0].path).toEqual(['age']);
   });
 
   it('dispatches to jwtJson builder for JwtJson format', () => {
@@ -103,12 +138,14 @@ describe('buildOpenIdPresentationRequest — PEX dispatch', () => {
     expect(field.path).toEqual(['$.vc.type.*', '$.vct', '$.type']);
   });
 
-  it('dispatches to msoMdoc builder for MsoMdoc format', () => {
+  it('dispatches to msoMdoc builder for MsoMdoc format (DCQL)', () => {
     const req: any = buildOpenIdPresentationRequest({
       ...baseParams,
       format: Openid4CredentialFormat.MsoMdoc,
     });
-    expect(req.presentationExchange.definition.input_descriptors[0].id).toBe(
+    expect(req.presentationExchange).toBeUndefined();
+    expect(req.responseMode).toBeUndefined();
+    expect(req.dcql.query.credentials[0].meta.doctype_value).toBe(
       'org.iso.18013.5.1.mDL',
     );
   });
