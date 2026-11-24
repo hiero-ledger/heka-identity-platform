@@ -27,5 +27,8 @@ export const getIsPreparingUser = (state: StateSchema) =>
 export const getUserName = (state: StateSchema) => state.user?.data?.name;
 export const getUser = (state: StateSchema) => state.user?.data;
 
+export const getUserCanRevokeCredentials = (state: StateSchema) =>
+  state.user?.data?.canRevokeCredentials;
+
 export const getUserMessageDeliveryType = (state: StateSchema) =>
   state.user?.data?.messageDeliveryType;

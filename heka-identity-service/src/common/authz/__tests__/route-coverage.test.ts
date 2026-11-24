@@ -12,7 +12,13 @@ import { collectRoutePermissions, formatRoleMatrix, RoutePermission } from './ro
 const SRC = join(__dirname, '..', '..', '..')
 
 /** Routes reachable without a token, on purpose. */
-const PUBLIC_ROUTES = ['GET /credentials/status/:id', 'GET /demo/token', 'GET /health', 'GET /revocation/tails/:hash']
+const PUBLIC_ROUTES = [
+  'GET /credentials/status/:id',
+  'GET /demo/token',
+  'GET /health',
+  'GET /revocation/tails/:hash',
+  'GET /token-status-lists/:id',
+]
 
 const ISSUING = [Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer]
 const VERIFYING = [Role.Admin, Role.OrgAdmin, Role.OrgManager, Role.Issuer, Role.Verifier]
@@ -79,6 +85,8 @@ describe('route coverage of the role model', () => {
     ['PATCH /verification-templates/:id', VERIFYING],
     ['DELETE /verification-templates/:id', VERIFYING],
     ['POST /dids', [Role.Admin, Role.OrgAdmin, Role.Issuer, Role.Verifier]],
+    ['PATCH /dids/:did', [Role.Admin, Role.OrgAdmin, Role.Issuer, Role.Verifier]],
+    ['POST /dids/:did/deactivate', [Role.Admin, Role.OrgAdmin, Role.Issuer, Role.Verifier]],
   ])('%s is limited to the roles of its purpose', (route, roles) => {
     const found = routes.find((candidate) => key(candidate) === route)
     expect(found?.access).toEqual({ kind: 'roles', roles })

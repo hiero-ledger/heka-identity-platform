@@ -11,11 +11,11 @@ services:
     environment:
       POSTGRES_USER: heka
       POSTGRES_PASSWORD: heka1
-      # The image creates this one; docker/postgres/init-databases.sh adds heka-sso-service.
+      # The image creates this one; docker/postgres/init-databases.sql adds heka-sso-service.
       POSTGRES_DB: heka-identity-service
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./docker/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -d heka-identity-service -U heka']
       interval: 5s
@@ -47,6 +47,13 @@ services:
       DEMO_TOKEN_PARAMS: ${IDENTITY_SERVICE_DEMO_TOKEN_PARAMS:-}
       DEMO_CLIENT_AUTH_METHOD: ${IDENTITY_SERVICE_DEMO_CLIENT_AUTH_METHOD:-}
       DEMO_TOKEN_RATE_LIMIT: ${IDENTITY_SERVICE_DEMO_TOKEN_RATE_LIMIT:-}
+      # Optional token introspection (revocation check), see heka-identity-service/docs/setup.md
+      OIDC_INTROSPECTION_ENABLED: ${IDENTITY_SERVICE_OIDC_INTROSPECTION_ENABLED:-false}
+      OIDC_INTROSPECTION_URL: ${IDENTITY_SERVICE_OIDC_INTROSPECTION_URL:-}
+      OIDC_INTROSPECTION_CLIENT_ID: ${IDENTITY_SERVICE_OIDC_INTROSPECTION_CLIENT_ID:-}
+      OIDC_INTROSPECTION_CLIENT_SECRET: ${IDENTITY_SERVICE_OIDC_INTROSPECTION_CLIENT_SECRET:-}
+      OIDC_INTROSPECTION_CLIENT_AUTH_METHOD: ${IDENTITY_SERVICE_OIDC_INTROSPECTION_CLIENT_AUTH_METHOD:-}
+      OIDC_INTROSPECTION_TIMEOUT_MS: ${IDENTITY_SERVICE_OIDC_INTROSPECTION_TIMEOUT_MS:-}
       # Public base URL of the REST API, embedded into status-list credential URLs and revocation
       # tails URLs; the https tunnel to 3000 when wallets or verifiers resolve them remotely.
       APP_ENDPOINT: ${IDENTITY_SERVICE_APP_ENDPOINT:-http://localhost:3000}
@@ -58,6 +65,8 @@ services:
       WEBHOOK_ALLOW_HTTP: ${IDENTITY_SERVICE_WEBHOOK_ALLOW_HTTP:-false}
       WEBHOOK_ALLOW_PRIVATE_ADDRESSES: ${IDENTITY_SERVICE_WEBHOOK_ALLOW_PRIVATE_ADDRESSES:-false}
       WEBHOOK_HTTP_TIMEOUT_MS: ${IDENTITY_SERVICE_WEBHOOK_HTTP_TIMEOUT_MS:-10000}
+      DID_METHODS: ${IDENTITY_SERVICE_DID_METHODS:-}
+      INDY_BESU_NODE_ADDRESS: ${IDENTITY_SERVICE_INDY_BESU_NODE_ADDRESS:-http://indy-besu:8545}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     ports:
@@ -158,6 +167,8 @@ services:
         # part of this build): copy it into the root .env and rebuild this image. Left empty, the
         # demo pages render but every issuance and verification they start fails.
         REACT_APP_DEMO_USER_DID: ${IDENTITY_WEBUI_DEMO_USER_DID:-}
+        # "Issued credentials" list with revocation; empty keeps the default (on), `false` hides it.
+        REACT_APP_FEATURE_REVOCATION: ${IDENTITY_WEBUI_FEATURE_REVOCATION:-}
     ports:
       - '8000:80'
     healthcheck:
@@ -257,6 +268,33 @@ services:
         condition: service_completed_successfully
       keycloak-realms:
         condition: service_completed_successfully
+
+  # Local Indy Besu network (profile `indybesu`): a single QBFT validator with RPC, the genesis of the
+  # hyperledger/indy-besu dev network reduced to one validator. It pre-deploys the DID, schema and
+  # credential definition registries at the addresses the identity service uses and makes the
+  # service's default endorser account (0x627306...) a Trustee. See docker/indy-besu/README.md.
+  indy-besu:
+    profiles: [indybesu]
+    image: hyperledger/besu:24.12.2
+    restart: on-failure
+    environment:
+      BESU_GENESIS_FILE: /config/genesis.json
+      BESU_NODE_PRIVATE_KEY_FILE: /config/nodekey
+      BESU_DATA_PATH: /opt/besu/data
+      BESU_DISCOVERY_ENABLED: 'false'
+      BESU_MIN_GAS_PRICE: '0'
+      BESU_REVERT_REASON_ENABLED: 'true'
+      BESU_PERMISSIONS_ACCOUNTS_CONTRACT_ENABLED: 'true'
+      BESU_PERMISSIONS_ACCOUNTS_CONTRACT_ADDRESS: '0x0000000000000000000000000000000000008888'
+      BESU_RPC_HTTP_ENABLED: 'true'
+      BESU_RPC_HTTP_HOST: 0.0.0.0
+      BESU_RPC_HTTP_API: ETH,NET,WEB3
+      BESU_HOST_ALLOWLIST: '*'
+    volumes:
+      - ./docker/indy-besu:/config:ro
+    # Published on all interfaces so a phone wallet on the LAN can reach it (INDY_BESU_RPC_URL).
+    ports:
+      - '8545:8545'
 
 volumes:
   postgres-data:

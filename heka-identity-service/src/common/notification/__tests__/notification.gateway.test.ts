@@ -77,6 +77,23 @@ describe('NotificationGateway', () => {
     gateway = new NotificationGateway(authService, makeOrm(), createMock<Logger>())
   })
 
+  test('binds the connection URL with OID4VCI secrets masked', async () => {
+    const child = vi.fn(() => createMock<Logger>())
+    gateway = new NotificationGateway(authService, makeOrm(), createMock<Logger>({ child }))
+    authenticateAs('user-1')
+    const secretRequest = {
+      url: '/notifications?preAuthorizedCode=PRE-SNTL&cNonce=NONCE-SNTL&lang=en',
+      headers: {},
+    } as IncomingMessage
+
+    await gateway.handleConnection(makeSocket() as unknown as WebSocket, secretRequest)
+
+    expect(child).toHaveBeenCalledWith('handleConnection', {
+      url: '/notifications?preAuthorizedCode=******&cNonce=******&lang=en',
+    })
+    expect(JSON.stringify(child.mock.calls)).not.toMatch(/PRE-SNTL|NONCE-SNTL/)
+  })
+
   afterEach(() => {
     vi.useRealTimers()
   })

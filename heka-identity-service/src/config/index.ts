@@ -9,6 +9,7 @@ import oidc from './oidc'
 import pino from './pino'
 import prepareWallet from './prepare-wallet'
 import roleModel from './role-model'
+import tokenIntrospection from './token-introspection'
 import webhook from './webhook'
 
 export default [
@@ -16,6 +17,7 @@ export default [
   express,
   health,
   oidc,
+  tokenIntrospection,
   demo,
   mikroOrm,
   pino,

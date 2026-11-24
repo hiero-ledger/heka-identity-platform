@@ -30,7 +30,7 @@ export class AnoncredsRegistryService {
       this.registrars[AnoncredsIndyRegistrar.method] = new AnoncredsIndyRegistrar(agencyConfig)
     }
     if (ariesCredConfig.networks.includes(AnoncredsIndyBesuRegistrar.method)) {
-      this.registrars[AnoncredsIndyBesuRegistrar.method] = new AnoncredsIndyBesuRegistrar(agencyConfig)
+      this.registrars[AnoncredsIndyBesuRegistrar.method] = new AnoncredsIndyBesuRegistrar()
     }
     if (ariesCredConfig.networks.includes(AnoncredsHederaRegistrar.method)) {
       this.registrars[AnoncredsHederaRegistrar.method] = new AnoncredsHederaRegistrar()
@@ -89,7 +89,8 @@ export class AnoncredsRegistryService {
     schema: AnonCredsSchema
     schemaId: string
   }> {
-    const createSchemaResult = await this.getAnoncredsRegistry(schema.issuerId).registerSchema(tenantAgent, schema)
+    const registry = this.getAnoncredsRegistry(schema.issuerId)
+    const createSchemaResult = await registry.registerSchema(tenantAgent, schema)
 
     const { schemaState } = createSchemaResult
 
@@ -153,10 +154,8 @@ export class AnoncredsRegistryService {
     credentialDefinition: AnonCredsCredentialDefinition
     credentialDefinitionId: string
   }> {
-    const registrationResult = await this.getAnoncredsRegistry(credDef.issuerId).registerCredentialDefinition(
-      tenantAgent,
-      credDef,
-    )
+    const registry = this.getAnoncredsRegistry(credDef.issuerId)
+    const registrationResult = await registry.registerCredentialDefinition(tenantAgent, credDef)
     const registrationState = registrationResult.credentialDefinitionState
     if (registrationState.state !== 'finished') {
       throw new InternalServerErrorException(

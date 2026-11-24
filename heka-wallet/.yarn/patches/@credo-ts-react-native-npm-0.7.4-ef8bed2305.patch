@@ -1,0 +1,52 @@
+diff --git a/build/kms/SecureEnvironmentKeyManagementService.d.mts b/build/kms/SecureEnvironmentKeyManagementService.d.mts
+index b0c22e895d9d7120b4af214423b552ce668d3974..9875984e937651f81bfbcf3c5d4c7d34a98c4fb1 100644
+--- a/build/kms/SecureEnvironmentKeyManagementService.d.mts
++++ b/build/kms/SecureEnvironmentKeyManagementService.d.mts
+@@ -1,8 +1,13 @@
+ import { AgentContext, Kms } from "@credo-ts/core";
+ //#region src/kms/SecureEnvironmentKeyManagementService.d.ts
++export interface SecureEnvironmentKeyManagementServiceOptions {
++  biometricsBacked?: boolean;
++}
+ export declare class SecureEnvironmentKeyManagementService implements Kms.KeyManagementService {
+   readonly backend = "secureEnvironment";
+   private readonly secureEnvironment;
++  private readonly options;
++  constructor(options?: SecureEnvironmentKeyManagementServiceOptions);
+   isOperationSupported(_agentContext: AgentContext, operation: Kms.KmsOperation): boolean;
+   randomBytes(_agentContext: AgentContext, _options: Kms.KmsRandomBytesOptions): Kms.KmsRandomBytesReturn;
+   getPublicKey(_agentContext: AgentContext, keyId: string): Promise<Kms.KmsJwkPublic | null>;
+diff --git a/build/kms/SecureEnvironmentKeyManagementService.mjs b/build/kms/SecureEnvironmentKeyManagementService.mjs
+index 17a6e624093ec86311955def5bd3742a852fa19a..7c59ec15bd0077cc4b1e2bd3d058ec4d2ae884f9 100644
+--- a/build/kms/SecureEnvironmentKeyManagementService.mjs
++++ b/build/kms/SecureEnvironmentKeyManagementService.mjs
+@@ -2,9 +2,10 @@ import { importSecureEnvironment } from "./secureEnvironment.mjs";
+ import { Kms, utils } from "@credo-ts/core";
+ //#region src/kms/SecureEnvironmentKeyManagementService.ts
+ var SecureEnvironmentKeyManagementService = class {
+-	constructor() {
++	constructor(options = {}) {
+ 		this.backend = "secureEnvironment";
+ 		this.secureEnvironment = importSecureEnvironment();
++		this.options = { biometricsBacked: true, ...options };
+ 	}
+ 	isOperationSupported(_agentContext, operation) {
+ 		if (operation.operation === "createKey") return operation.type.kty === "EC" && operation.type.crv === "P-256";
+@@ -48,7 +49,7 @@ var SecureEnvironmentKeyManagementService = class {
+ 		const keyId = options.keyId ?? utils.uuid();
+ 		const secureEnvironment = await this.secureEnvironment;
+ 		try {
+-			await secureEnvironment.generateKeypair(keyId);
++			await secureEnvironment.generateKeypair(keyId, this.options.biometricsBacked);
+ 			return {
+ 				keyId,
+ 				publicJwk: await this.getKeyAsserted(keyId)
+@@ -63,7 +64,7 @@ var SecureEnvironmentKeyManagementService = class {
+ 		if (options.algorithm !== "ES256") throw new Kms.KeyManagementAlgorithmNotSupportedError(`algorithm '${options.algorithm}'. Only 'ES256' supported.`, this.backend);
+ 		const secureEnvironment = await this.secureEnvironment;
+ 		try {
+-			return { signature: await secureEnvironment.sign(options.keyId, options.data) };
++			return { signature: await secureEnvironment.sign(options.keyId, new Uint8Array(options.data), this.options.biometricsBacked) };
+ 		} catch (error) {
+ 			if (error instanceof secureEnvironment.KeyNotFoundError) throw new Kms.KeyManagementKeyNotFoundError(options.keyId, [this.backend]);
+ 			throw new Kms.KeyManagementError("Error signing with key", { cause: error });

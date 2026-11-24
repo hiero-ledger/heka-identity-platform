@@ -3,6 +3,7 @@ import { BadRequestException, Injectable } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
 import { AuthInfo } from 'common/auth'
+import { AuthorizationService, CREDENTIAL_REVOKING_ROLES } from 'common/authz'
 import { User } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
 import { WebhookEgressService, WebhookTargetPolicyError } from 'common/webhook'
@@ -22,6 +23,7 @@ export class UserService {
     private readonly openId4VcIssuerService: OpenId4VcIssuerService,
     private readonly fileStorageService: FileStorageService,
     private readonly webhookEgress: WebhookEgressService,
+    private readonly authorization: AuthorizationService,
   ) {
     this.logger.child('constructor').trace('<>')
   }
@@ -33,7 +35,7 @@ export class UserService {
     const user = await this.em.findOneOrFail(User, { id: authInfo.userId })
     logger.traceObject({ user })
 
-    const res = this.userToUserDto(user)
+    const res = this.userToUserDto(user, authInfo)
     logger.trace({ res }, '<')
     return res
   }
@@ -98,7 +100,7 @@ export class UserService {
     })
     await this.em.flush()
 
-    const res = this.userToUserDto(user)
+    const res = this.userToUserDto(user, authInfo)
     logger.trace({ res }, '<')
     return res
   }
@@ -131,9 +133,13 @@ export class UserService {
     })
   }
 
-  private userToUserDto(user: User): UserDto {
+  private userToUserDto(user: User, authInfo: AuthInfo): UserDto {
     // make logo accessible from external world
     const logo = user.logo ? this.fileStorageService.url(user.logo) : undefined
-    return new UserDto({ ...user, logo })
+    return new UserDto({
+      ...user,
+      logo,
+      canRevokeCredentials: this.authorization.allows(authInfo.role, CREDENTIAL_REVOKING_ROLES),
+    })
   }
 }

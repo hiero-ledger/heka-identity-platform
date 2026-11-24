@@ -17,6 +17,7 @@ The platform is composed of the following components:
 - **[Identity Service](./heka-identity-service)**: Backend service (built with NestJS) that primarily acts as a Verifiable Credentials Issuer and Verifier, while also supporting Holder capabilities for cloud (custodial) wallet scenarios.
 - **[Identity Service Web UI](./heka-identity-service-web-ui)**: Web UI application for Identity Service — allows managing schemas, credential templates, and issuance / verification flows.
 - **OIDC provider** (Keycloak, Auth0 or any standards-compliant provider, not part of the repository): authenticates Identity Service users and tenants; the ready-made recipes live in [heka-sso-service/keycloak](./heka-sso-service/keycloak) and [heka-sso-service/auth0](./heka-sso-service/auth0).
+- **[DIDComm Mediator](./mediator)**: Docker Compose setup for a self-hosted DIDComm mediator ([OWF DIDComm Mediator Credo](https://github.com/openwallet-foundation/didcomm-mediator-credo)) that relays DIDComm messages to Heka Wallet.
 
 The implementation is based on the **DSR SSI Toolkit** and leverages well-established open-source frameworks: **OWF Credo** and **OWF Bifold**.
 
@@ -25,6 +26,7 @@ The implementation is based on the **DSR SSI Toolkit** and leverages well-establ
 ```mermaid
 flowchart LR
     Wallet[Heka Wallet<br/>Holder]
+    Mediator[DIDComm Mediator]
     WebUI[Identity Service Web UI<br/>Issuer / Verifier Client]
     OIDC[OIDC provider<br/>Keycloak / Auth0 / …]
     IS[Identity Service<br/>Issuer / Verifier Wallet]
@@ -34,6 +36,8 @@ flowchart LR
     WebUI -->|REST API + access token| IS
     OIDC -.->|JWKS: tokens verified by| IS
     Wallet <-->|OID4VC / DIDComm| IS
+    Wallet -->|DIDComm message pickup| Mediator
+    IS -->|DIDComm messages to Wallet| Mediator
     IS -->|DIDs / AnonCreds Resources| Hedera
     Wallet -->|DIDs and AnonCreds Resources resolution| Hedera
 ```
@@ -77,7 +81,7 @@ To run the web-facing components together, use the Compose project at the reposi
    ```
 
    `dcqlQuery` is the DCQL query the SSO service sends to the Identity Service when it creates the verification session; `claimMapping` maps the disclosed claims (`<credential query id>.<claim path>`) to OIDC claims; `subStrategy` selects how the OIDC `sub` is derived; `issuerAllowlist` lists the trusted credential issuers. The entry's `id` is referenced by `loginConfigId` in `oidc-clients.json`. See the [SSO service README](./heka-sso-service/README.md#oidc-provider) for the full format.
-6. Run `docker compose --profile <profile> up -d --build`.
+6. Run `docker compose --profile <profile> up -d --build`. Add `--profile indybesu` to also run a local Indy Besu network for `did:indybesu`, see [docker/indy-besu](./docker/indy-besu/README.md).
 7. Prepare the SSO verifier wallet and record its DID in `.env`: `./docker/prepare-sso-verifier.ps1 -Provider <profile>` on Windows, `bash docker/prepare-sso-verifier.sh --provider <profile>` on Linux / macOS.
 8. Restart the SSO service with the new DID: `docker compose --profile <profile> up -d heka-sso-service`.
 9. Optional, for the public demo pages of the identity web UI: run `yarn install && yarn prepare-demo-user` in `heka-identity-service-web-ui` (it talks to the identity service on `localhost:3000` and uses the demo-token broker the stack enables), copy the printed DID into `IDENTITY_WEBUI_DEMO_USER_DID` in `.env`, then rebuild the UI image: `docker compose --profile <profile> up -d --build heka-identity-web-ui`. The script also writes the DID into that package's own `.env`, which only a host-run `yarn start` uses.
@@ -102,7 +106,7 @@ This includes (but is not limited to) VC-based trust models for AI agents and th
 
 Initial supported use cases:
 
-- **VC-based authorization for agents**: [OID4VP In-Task Authorization Extension for Agent2Agent (A2A) protocol](https://github.com/DSRCorporation/a2a-oid4vp-in-task-auth-extension/blob/main/v1/spec.md)
+- **VC-based authorization for agents**: [OID4VP In-Task Authorization Extension for Agent2Agent (A2A) protocol](https://github.com/a2aproject/experimental-ext-oid4vp-auth/blob/main/v1/spec.md)
 
 ## Roadmap
 

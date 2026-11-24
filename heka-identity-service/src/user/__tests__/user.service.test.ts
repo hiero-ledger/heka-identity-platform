@@ -1,15 +1,21 @@
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
+import { ConfigType } from '@nestjs/config'
 
 import { TenantAgent } from 'common/agent'
 import { Role } from 'common/auth'
+import { AuthorizationService } from 'common/authz'
 import { MessageDeliveryType, User } from 'common/entities'
 import { Logger } from 'common/logger'
 import { WebhookEgressService, WebhookTargetPolicyError } from 'common/webhook'
+import RoleModelConfig from 'config/role-model'
 import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
 
 import { FileStorageService } from '../../common/file-storage/file-storage.service'
 import { UserService } from '../user.service'
+
+const authorization = (enforced: boolean) =>
+  new AuthorizationService({ enabled: enforced } as ConfigType<typeof RoleModelConfig>)
 
 describe('UserService', () => {
   let em: EntityManager
@@ -37,7 +43,7 @@ describe('UserService', () => {
     fileStorageService = createMock<FileStorageService>()
     webhookEgress = createMock<WebhookEgressService>()
     vi.mocked(webhookEgress.assertCallbackUrlAllowed).mockResolvedValue(undefined)
-    userService = new UserService(em, logger, issuerService, fileStorageService, webhookEgress)
+    userService = new UserService(em, logger, issuerService, fileStorageService, webhookEgress, authorization(true))
     tenantAgent = createMock<TenantAgent>()
   })
 
@@ -63,6 +69,42 @@ describe('UserService', () => {
     expect(userDto.backgroundColor).toBe('#F58529')
     expect(userDto.name).toBe('Cameron')
     expect(userDto.logo).toBe('https://test.logo')
+  })
+
+  describe('canRevokeCredentials', () => {
+    test.each([
+      [true, Role.Admin, true],
+      [true, Role.OrgAdmin, true],
+      [true, Role.OrgManager, true],
+      [true, Role.Issuer, true],
+      [true, Role.Verifier, false],
+      [true, Role.OrgMember, false],
+      [true, Role.User, false],
+      [false, Role.User, true],
+      [false, Role.Verifier, true],
+    ])('role model enforced: %s, role %s → %s', async (enforced, role, expected) => {
+      vi.mocked(em.findOneOrFail).mockResolvedValue(new User({ id: '11' }))
+      userService = new UserService(
+        em,
+        logger,
+        issuerService,
+        fileStorageService,
+        webhookEgress,
+        authorization(enforced),
+      )
+
+      const userDto = await userService.getMe({ ...authInfo, role })
+
+      expect(userDto.canRevokeCredentials).toBe(expected)
+    })
+
+    test('patchMe returns it too', async () => {
+      vi.mocked(em.findOneOrFail).mockResolvedValue(new User({ id: '11' }))
+
+      const userDto = await userService.patchMe({ ...authInfo, role: Role.Verifier }, tenantAgent, { name: 'New' })
+
+      expect(userDto.canRevokeCredentials).toBe(false)
+    })
   })
 
   describe('patchMe', () => {

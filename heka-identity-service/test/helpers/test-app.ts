@@ -12,12 +12,7 @@ import {
 } from '@credo-ts/core'
 import { DidCommMessagePickupModule } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver } from '@credo-ts/hedera'
-import {
-  IndyVdrAnonCredsRegistry,
-  IndyVdrIndyDidRegistrar,
-  IndyVdrIndyDidResolver,
-  IndyVdrModule,
-} from '@credo-ts/indy-vdr'
+import { IndyVdrAnonCredsRegistry, IndyVdrModule } from '@credo-ts/indy-vdr'
 import { OpenId4VcIssuerModule, OpenId4VcVerifierModule } from '@credo-ts/openid4vc'
 import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
@@ -28,6 +23,7 @@ import { NativeAskar } from '@openwallet-foundation/askar-nodejs'
 
 import { IndyBesuDidRegistrar, IndyBesuDidResolver } from 'common/indy-besu-vdr'
 import { IndyBesuAnonCredsRegistry } from 'common/indy-besu-vdr/anoncreds/IndyBesuAnonCredsRegistry'
+import { IndyDidRegistrar, IndyDidResolver } from 'common/indy-vdr/indy-did'
 import AppConfig from 'config/express'
 import { TailsService } from 'revocation/revocation-registry/tails.service'
 import { AppModule } from 'src/app.module'
@@ -38,6 +34,7 @@ import AgentConfig from 'src/config/agent'
 import FileStorageConfig from 'src/config/file-storage'
 import MikroOrmConfig from 'src/config/mikro-orm'
 import OidcConfig from 'src/config/oidc'
+import PinoConfig from 'src/config/pino'
 import RoleModelConfig from 'src/config/role-model'
 import { createCredentialRequestToCredentialMapper } from 'src/utils/oid4vc'
 import TestAgentConfig from 'test/config/agent'
@@ -58,7 +55,6 @@ export interface TestAppOptions {
 
 export async function startTestApp(options: TestAppOptions = {}): Promise<INestApplication> {
   const storeId = options.storeId ?? `tenant-${uuid()}`
-  process.env.PINO_LEVEL = 'error'
 
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
@@ -80,6 +76,11 @@ export async function startTestApp(options: TestAppOptions = {}): Promise<INestA
     .overrideProvider(OidcConfig.KEY)
     .useFactory({
       factory: TestOidcConfig,
+    })
+    // Log errors only, without changing process.env.PINO_LEVEL for the test files that run later in the same process
+    .overrideProvider(PinoConfig.KEY)
+    .useFactory({
+      factory: () => ({ ...PinoConfig(), level: 'error' }),
     })
     .overrideProvider(AGENT_MODULES_TOKEN)
     .useFactory({
@@ -109,7 +110,7 @@ export async function startTestApp(options: TestAppOptions = {}): Promise<INestA
               new PeerDidResolver(),
               new JwkDidResolver(),
               new WebDidResolver(),
-              new IndyVdrIndyDidResolver(),
+              new IndyDidResolver(),
               new IndyBesuDidResolver(),
               new HederaDidResolver(),
             ],
@@ -117,7 +118,7 @@ export async function startTestApp(options: TestAppOptions = {}): Promise<INestA
               new KeyDidRegistrar(),
               new PeerDidRegistrar(),
               new JwkDidRegistrar(),
-              new IndyVdrIndyDidRegistrar(),
+              new IndyDidRegistrar(),
               new IndyBesuDidRegistrar(),
               new HederaDidRegistrar(),
             ],

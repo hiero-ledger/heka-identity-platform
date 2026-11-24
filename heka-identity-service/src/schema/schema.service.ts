@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
 import { AnoncredsRegistryService } from 'common/anoncreds-registry'
+import { assertDidActiveOnLedger } from 'common/did-registrar'
 import { InjectLogger, Logger } from 'common/logger'
 
 import { CreateSchemaDto, FindSchemasDto, SchemaDto } from './dto'
@@ -55,6 +56,7 @@ export class SchemaService {
     if (!req.attrNames) {
       throw new BadRequestException('Unsupported schema format')
     }
+    await assertDidActiveOnLedger(tenantAgent, req.issuerId)
 
     const schemaResult = await this.anoncredsRegistryService.registerSchema(tenantAgent, {
       attrNames: req.attrNames,

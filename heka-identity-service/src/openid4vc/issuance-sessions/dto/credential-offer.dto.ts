@@ -1,7 +1,17 @@
 import { OpenId4VciCredentialFormatProfile } from '@credo-ts/openid4vc'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
-import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Length, ValidateNested } from 'class-validator'
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  ValidateNested,
+} from 'class-validator'
 
 import { IsValidDynamicObject } from '../../../utils/validation'
 
@@ -13,6 +23,9 @@ export enum CredentialVersion {
 }
 
 export class DisclosureFrame {
+  /**
+   * Claims to make selectively disclosable. `status` is not allowed: the issuer sets it, always disclosed.
+   */
   @ApiProperty()
   @IsOptional()
   @IsArray()
@@ -30,6 +43,16 @@ export class CredentialIssuer {
   @IsOptional()
   @IsString()
   public did!: string
+
+  /**
+   * Relative id of the DID's verification method to sign the credential (or the OpenID4VP request) with.
+   * Defaults to the first one with the purposes signing needs.
+   * @example #key-1
+   */
+  @ApiPropertyOptional({ example: '#key-1' })
+  @IsOptional()
+  @Matches(/^#.+/, { message: 'keyId must be a relative DID URL, e.g. #key-1' })
+  public keyId?: string
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -99,6 +122,7 @@ export class OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions extends O
    *
    * If `vct` claim is included, it MUST match the `vct` claim from the issuer metadata.
    * If `vct` claim is not included, it will be added automatically.
+   * The `status` claim is set by the issuer (IETF Token Status List) and must not be included.
    *
    * @example
    * {

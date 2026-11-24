@@ -16,6 +16,7 @@ import { NativeAskar } from '@openwallet-foundation/askar-react-native'
 import { CredoLogger } from '../logger'
 
 import { HekaWalletAgent, TRUSTED_X509_CERTIFICATES } from './agent'
+import { formatError } from './error'
 
 /**
  * Creates and initializes a minimal Credo agent for the Digital Credentials API overlay.
@@ -57,7 +58,11 @@ export async function createDcApiAgent(walletSecret: WalletSecret): Promise<Heka
   } catch (error) {
     // A failed initialize (e.g. a wrong store key when the key is derived from an incorrect PIN)
     // must not leave a partially-opened Askar store behind.
-    await agent.shutdown().catch(() => undefined)
+    await agent.shutdown().catch((shutdownError: unknown) =>
+      agent.config.logger.warn('DC API agent shutdown after a failed initialize failed', {
+        error: formatError(shutdownError),
+      })
+    )
     throw error
   }
 

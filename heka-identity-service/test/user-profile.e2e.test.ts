@@ -53,7 +53,8 @@ describe('E2E authorization', () => {
     const userProfileResponse = await request(app).get('/user').auth(userAuthToken, { type: 'bearer' })
 
     expect(userProfileResponse.status).toBe(200)
-    expect(userProfileResponse.body).toEqual({} satisfies UserDto)
+    // OrgAdmin may revoke whether or not the role model is enforced
+    expect(userProfileResponse.body).toEqual({ canRevokeCredentials: true } satisfies UserDto)
   })
 
   test('Patch issuer name', async () => {
@@ -79,6 +80,7 @@ describe('E2E authorization', () => {
     expect(userProfileResponse.status).toBe(200)
     expect(userProfileResponse.body).toEqual({
       name: 'ABCD',
+      canRevokeCredentials: true,
       registeredAt: expect.stringMatching(/\d{4}(.\d{2}){2}(\s|T)(\d{2}.){2}\d{2}/g),
     })
   })
@@ -106,6 +108,7 @@ describe('E2E authorization', () => {
     expect(userProfileResponse.status).toBe(200)
     expect(userProfileResponse.body).toEqual({
       backgroundColor: '#fff',
+      canRevokeCredentials: true,
       registeredAt: expect.stringMatching(/\d{4}(.\d{2}){2}(\s|T)(\d{2}.){2}\d{2}/g),
     })
   })
@@ -134,6 +137,7 @@ describe('E2E authorization', () => {
     expect(userProfileResponse.body).toEqual({
       name: 'XXX',
       backgroundColor: '#fff',
+      canRevokeCredentials: true,
       registeredAt: expect.stringMatching(/\d{4}(.\d{2}){2}(\s|T)(\d{2}.){2}\d{2}/g),
     })
   })

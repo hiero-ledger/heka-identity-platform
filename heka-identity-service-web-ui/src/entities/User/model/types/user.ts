@@ -69,6 +69,8 @@ export interface User {
   backgroundColor?: string | null;
   logo?: string | null;
   registeredAt?: string | null;
+  /** From `GET /user`; unknown (`undefined`) until it is loaded or after the session ends */
+  canRevokeCredentials?: boolean;
 }
 
 export interface UserSchema {

@@ -68,7 +68,11 @@ describe('ConnectionService', () => {
     }
 
     test('creates invitation with request label and imageUrl', async () => {
-      vi.mocked(userService.getMe).mockResolvedValue({ name: 'Alice', logo: 'https://logo.png' })
+      vi.mocked(userService.getMe).mockResolvedValue({
+        name: 'Alice',
+        logo: 'https://logo.png',
+        canRevokeCredentials: true,
+      })
 
       const mockOobRecord = oobRecordStub({
         id: 'oob-1',
@@ -102,7 +106,11 @@ describe('ConnectionService', () => {
     })
 
     test('falls back to user name and logo when not provided in request', async () => {
-      vi.mocked(userService.getMe).mockResolvedValue({ name: 'Alice', logo: 'https://alice-logo.png' })
+      vi.mocked(userService.getMe).mockResolvedValue({
+        name: 'Alice',
+        logo: 'https://alice-logo.png',
+        canRevokeCredentials: true,
+      })
 
       const mockOobRecord = oobRecordStub({
         id: 'oob-2',

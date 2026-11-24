@@ -2,6 +2,12 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+// Firebase (React Native Firebase). google-services.json is gitignored and supplied per developer;
+// without it (e.g. the CI debug build) the app builds without Firebase configured.
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
+}
+
 // This is the configuration block to customize your React Native Android app.
 // By default you don't need to apply any configuration, just uncomment the lines you need.
 

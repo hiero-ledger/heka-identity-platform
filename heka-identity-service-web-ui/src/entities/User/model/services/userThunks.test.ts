@@ -145,6 +145,7 @@ describe('getAgencyUser / patchAgencyUser', () => {
     backgroundColor: '#123456',
     logo: '/logo.png',
     registeredAt: '2026-01-01',
+    canRevokeCredentials: false,
   };
 
   test('getAgencyUser stores the issuer profile', async () => {
@@ -161,6 +162,7 @@ describe('getAgencyUser / patchAgencyUser', () => {
       backgroundColor: '#123456',
       logo: '/logo.png',
       registeredAt: '2026-01-01',
+      canRevokeCredentials: false,
     });
   });
 

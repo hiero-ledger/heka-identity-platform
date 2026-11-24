@@ -7,8 +7,10 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
+import { CredentialRevokedBadge } from '../components/misc/CredentialRevokedBadge'
 import LoadingView from '../components/views/LoadingView'
 import { CredentialDisplay, useCredentials } from '../credentials'
+import { useFloatingTabBarInset } from '../hooks/useFloatingTabBarInset'
 
 const useStyles = ({
   IconSizes,
@@ -59,6 +61,11 @@ const useStyles = ({
       ...HekaTextTheme.bodySmall,
       color: ColorPalette.grayscale.mediumGrey,
     },
+    loadError: {
+      ...TextTheme.normal,
+      color: ColorPalette.semantic.error,
+      paddingVertical: Spacing.sm,
+    },
   })
 
 interface CredentialRowProps {
@@ -88,6 +95,7 @@ export const CredentialRow: React.FC<CredentialRowProps> = ({ onPress, credentia
         <Text style={styles.issuerName}>
           {t('CredentialOffer.IssuedBy')} {credentialDisplay.issuer.name}
         </Text>
+        {credentialDisplay.isRevoked && <CredentialRevokedBadge />}
       </View>
     </TouchableOpacity>
   )
@@ -96,7 +104,9 @@ export const CredentialRow: React.FC<CredentialRowProps> = ({ onPress, credentia
 export const CredentialList: React.FC = () => {
   const { t } = useTranslation()
 
-  const { ColorPalette, Spacing } = useHekaTheme()
+  const theme = useHekaTheme()
+  const { ColorPalette, Spacing } = theme
+  const styles = useStyles(theme)
 
   const navigation = useNavigation<StackNavigationProp<NotificationStackParams>>()
 
@@ -105,14 +115,19 @@ export const CredentialList: React.FC = () => {
     TOKENS.COMPONENT_CRED_EMPTY_LIST,
   ])
 
-  const { credentials, isLoading } = useCredentials()
+  const { credentials, isLoading, error } = useCredentials()
+
+  const tabBarInset = useFloatingTabBarInset()
 
   return (
-    <View>
+    <View style={{ flex: 1 }}>
       <FlatList
+        testID="CredentialList"
         style={{ backgroundColor: ColorPalette.brand.primaryBackground }}
         contentContainerStyle={{
           marginHorizontal: Spacing.lg,
+          // The tab bar floats over the list: let the last credential scroll above it
+          paddingBottom: tabBarInset,
         }}
         data={credentials}
         keyExtractor={(credential) => credential.id}
@@ -123,9 +138,13 @@ export const CredentialList: React.FC = () => {
             onPress={() => navigation.navigate(BifoldScreens.CredentialDetails, { credentialId: credential as any })}
           />
         )}
-        ListEmptyComponent={() =>
-          isLoading ? <LoadingView /> : <CredentialEmptyList message={t('Credentials.EmptyList')} />
-        }
+        // A failed load is reported above whatever did load, never as an empty wallet
+        ListHeaderComponent={error ? <Text style={styles.loadError}>{t('Credentials.LoadFailed')}</Text> : null}
+        ListEmptyComponent={() => {
+          if (isLoading) return <LoadingView />
+          if (error) return null
+          return <CredentialEmptyList message={t('Credentials.EmptyList')} />
+        }}
       />
       <CredentialListOptions />
     </View>

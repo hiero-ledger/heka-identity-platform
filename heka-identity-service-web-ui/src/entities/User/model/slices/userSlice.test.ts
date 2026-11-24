@@ -1,5 +1,6 @@
-import { userReducer } from './userSlice';
+import { userActions, userReducer } from './userSlice';
 import { fetchDidDocuments } from '../services/fetchDidDocuments';
+import { getAgencyUser } from '../services/getAgencyUser';
 
 const initial = () => userReducer(undefined, { type: '@@INIT' });
 
@@ -47,5 +48,19 @@ describe('userSlice DID documents', () => {
 
     expect(state.error).toBeUndefined();
     expect(state.data?.didDocumentsMethod).toBe('key');
+  });
+});
+
+describe('userSlice revoke permission', () => {
+  test('is unknown again once the session ends', () => {
+    let state = userReducer(
+      initial(),
+      getAgencyUser.fulfilled({ canRevokeCredentials: true }, 'req'),
+    );
+    expect(state.data?.canRevokeCredentials).toBe(true);
+
+    state = userReducer(state, userActions.clearSession());
+
+    expect(state.data?.canRevokeCredentials).toBeUndefined();
   });
 });

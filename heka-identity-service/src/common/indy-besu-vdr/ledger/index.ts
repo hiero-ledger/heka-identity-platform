@@ -1,3 +1,3 @@
 export * from './contracts'
-export { IndyBesuSigner } from './IndyBesuSigner'
+export { IndyBesuSigner, IndyBesuSignature } from './IndyBesuSigner'
 export * from './types'

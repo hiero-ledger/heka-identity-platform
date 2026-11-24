@@ -62,9 +62,22 @@ function isDefaultMdlIssuerKey(value: unknown): boolean {
   }
 }
 
+/**
+ * A hex private key as 64 lower-case hex characters without `0x`, or `undefined` when it isn't one. Surrounding
+ * whitespace, such as the trailing newline of a secret file, is tolerated.
+ */
+export function normalizeHexPrivateKey(value: string): string | undefined {
+  const hex = value.trim().replace(/^0x/i, '').toLowerCase()
+  return /^[0-9a-f]{64}$/.test(hex) ? hex : undefined
+}
+
 function isInsecure(env: Record<string, unknown>, name: InsecureDefaultName): boolean {
   const value = env[name]
   if (value === undefined || value === '' || value === INSECURE_DEFAULTS[name]) return true
+  // The key is consumed normalised (see `agent.ts`), so `0x`, upper case or a trailing newline is still the default
+  if (name === 'INDY_BESU_ENDORSER_PRIVATE_KEY' && typeof value === 'string') {
+    return normalizeHexPrivateKey(value) === INSECURE_DEFAULTS[name]
+  }
   return name === 'MDL_ISSUER_PRIVATE_KEY' && isDefaultMdlIssuerKey(value)
 }
 
@@ -93,6 +106,14 @@ function isNonProductionEnv(normalizedNodeEnv: string | undefined): boolean {
     normalizedNodeEnv !== undefined &&
     (normalizedNodeEnv === '' || NON_PRODUCTION_NODE_ENVS.includes(normalizedNodeEnv))
   )
+}
+
+/**
+ * True unless `NODE_ENV` is unset, empty, `development` or `test` (case-insensitive): the same fail-closed
+ * rule `assertSecureConfiguration` uses, for other security checks that only apply to production.
+ */
+export function isProductionNodeEnv(nodeEnv: unknown = process.env.NODE_ENV): boolean {
+  return !isNonProductionEnv(normalizeNodeEnv(nodeEnv))
 }
 
 /**

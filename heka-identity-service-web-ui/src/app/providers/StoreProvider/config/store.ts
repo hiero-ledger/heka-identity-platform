@@ -5,6 +5,7 @@ import { connectionReducer } from '@/entities/Connection';
 import { contributorSlice } from '@/entities/Contributor/model/contributorSlice';
 import { credentialReducer } from '@/entities/Credential';
 import { issuanceTemplatesReducer } from '@/entities/IssuanceTemplate';
+import { issuedCredentialsReducer } from '@/entities/IssuedCredential';
 import { presentationReducer } from '@/entities/Presentation';
 import { schemasReducer } from '@/entities/Schema';
 import { userReducer } from '@/entities/User';
@@ -32,6 +33,7 @@ export function createReduxStore(
     user: userReducer,
     issuanceTemplates: issuanceTemplatesReducer,
     verificationTemplates: verificationTemplatesReducer,
+    issuedCredentials: issuedCredentialsReducer,
     contributor: contributorSlice.reducer,
   };
 

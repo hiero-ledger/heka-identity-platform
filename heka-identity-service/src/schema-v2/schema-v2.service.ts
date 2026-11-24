@@ -7,6 +7,7 @@ import { InjectLogger, Logger } from 'common/logger'
 import { TenantAgent } from '../common/agent'
 import { AnoncredsRegistryService } from '../common/anoncreds-registry'
 import { AuthInfo } from '../common/auth'
+import { assertDidActiveOnLedger } from '../common/did-registrar'
 import { Schema, SchemaField, Wallet } from '../common/entities'
 import { StatusListPurpose } from '../common/entities/credential-status-list.entity'
 import { SchemaRegistration } from '../common/entities/schema-registration.entity'
@@ -144,7 +145,6 @@ export class SchemaV2Service {
     const { tenantAgent, schema, credentialFormat, network, did } = prop
 
     if (credentialFormat === AriesCredentialRegistrationFormat.Anoncreds) {
-      // register
       const result = await this.anoncredsRegistryService.registerSchema(tenantAgent, {
         issuerId: did,
         name: schema.name,
@@ -656,6 +656,8 @@ export class SchemaV2Service {
     if (await this.getSchemaRegistration(schema, { ...request })) {
       throw new BadRequestException(`Schema is already registered here`)
     }
+
+    await assertDidActiveOnLedger(tenantAgent, request.did)
 
     let schemaRegistration: SchemaRegistration
     switch (request.protocol) {

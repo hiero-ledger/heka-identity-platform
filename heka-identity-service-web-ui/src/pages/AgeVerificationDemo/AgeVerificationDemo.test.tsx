@@ -46,6 +46,11 @@ const mdlSchema = {
 const stubDemoAgency = (
   sharedAttributes: Record<string, string>,
   schema: typeof mdlSchema = mdlSchema,
+  session: object = {
+    id: 'vs-1',
+    state: OpenIdPresentationState.ResponseVerified,
+    sharedAttributes,
+  },
 ) => {
   const demoApi = createMockApi();
   demoApi.get.mockImplementation((url: string) => {
@@ -57,13 +62,7 @@ const stubDemoAgency = (
       });
     }
     if (url === '/openid4vc/verification-session/vs-1') {
-      return Promise.resolve({
-        data: {
-          id: 'vs-1',
-          state: OpenIdPresentationState.ResponseVerified,
-          sharedAttributes,
-        },
-      });
+      return Promise.resolve({ data: session });
     }
     return Promise.resolve({ data: undefined });
   });
@@ -229,6 +228,35 @@ describe('AgeVerificationDemo', () => {
       screen.getByText(/values: .*"age_over_18":"true"/),
     ).toBeInTheDocument();
     expect(screen.queryByText('Credential verified')).not.toBeInTheDocument();
+  });
+
+  test('shows a failed verification instead of waiting, and starts again from it', async () => {
+    const user = userEvent.setup();
+    renderDemo(
+      stubDemoAgency({}, mdlSchema, {
+        id: 'vs-1',
+        state: OpenIdPresentationState.Error,
+        errorMessage:
+          'Error occured during verification of presentation. Status is not valid',
+      }),
+    );
+
+    await goToFieldSelection(user);
+    await user.click(screen.getByRole('button', { name: 'Request' }));
+
+    expect(
+      await screen.findByText('Verification failed', {}, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The credential has been revoked.',
+    );
+    expect(screen.queryByTestId('qr')).not.toBeInTheDocument();
+    expect(screen.queryByText('Age Verified')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Start again' }));
+
+    expect(await screen.findByText('fill: mDL')).toBeInTheDocument();
+    expect(screen.queryByText('Verification failed')).not.toBeInTheDocument();
   });
 
   test('flags a holder who is not over 18', async () => {

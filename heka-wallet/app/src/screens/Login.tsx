@@ -1,4 +1,4 @@
-import { Button, ButtonType } from '@bifold/core'
+import { Button, ButtonType, testIdWithKey } from '@bifold/core'
 import ButtonLoading from '@bifold/core/src/components/animated/ButtonLoading'
 import { GlobalLogger, useGlobalStyles } from '@heka-wallet/shared'
 import { useIsFocused } from '@react-navigation/native'
@@ -48,7 +48,13 @@ export const Login: React.FC = () => {
       }}
     >
       <HieroLogo />
-      <Button title={t('Auth.Login')} buttonType={ButtonType.Primary} onPress={onLogin} disabled={isLoading}>
+      <Button
+        title={t('Auth.Login')}
+        buttonType={ButtonType.Primary}
+        onPress={onLogin}
+        disabled={isLoading}
+        testID={testIdWithKey('Login')}
+      >
         {isLoading && <ButtonLoading />}
       </Button>
     </View>

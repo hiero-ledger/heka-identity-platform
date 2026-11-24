@@ -10,6 +10,7 @@ import { ConnectionSchema } from '@/entities/Connection';
 import { ContributorState } from '@/entities/Contributor/model/contributorSlice';
 import { CredentialSchema } from '@/entities/Credential';
 import { IssuanceTemplateSchema } from '@/entities/IssuanceTemplate';
+import { IssuedCredentialsSchema } from '@/entities/IssuedCredential';
 import { PresentationSchema } from '@/entities/Presentation/model/types/presentation';
 import { SchemasSchema } from '@/entities/Schema';
 import { UserSchema } from '@/entities/User';
@@ -22,6 +23,7 @@ export interface StateSchema {
   presentations: PresentationSchema;
   issuanceTemplates: IssuanceTemplateSchema;
   verificationTemplates: VerificationTemplateSchema;
+  issuedCredentials: IssuedCredentialsSchema;
   user: UserSchema;
   contributor: ContributorState;
 }

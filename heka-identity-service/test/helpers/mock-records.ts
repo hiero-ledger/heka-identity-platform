@@ -50,7 +50,9 @@ export const verificationSessionRecordStub = (overrides: LooseStub<OpenId4VcVeri
 export const didResolutionResultStub = (overrides: LooseStub<DidResolutionResult> = {}): DidResolutionResult =>
   ({ didResolutionMetadata: {}, didDocumentMetadata: {}, ...overrides }) as DidResolutionResult
 
-export const didRecordStub = (overrides: LooseStub<DidRecord> = {}) => stub<DidRecord>(overrides)
+// A record without tags unless `getTag` is given (e.g. a deactivated DID)
+export const didRecordStub = (overrides: LooseStub<DidRecord> = {}) =>
+  stub<DidRecord>({ getTag: () => undefined, ...overrides })
 
 export const didDocumentStub = (overrides: LooseStub<DidDocument> = {}) => stub<DidDocument>(overrides)
 

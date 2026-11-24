@@ -10,12 +10,19 @@ import { IssuanceTemplate } from './issuance-template.entity'
 import { SchemaField } from './schema-field.entity'
 import { SchemaRegistration } from './schema-registration.entity'
 import { Schema } from './schema.entity'
+import {
+  defaultTokenStatusListBits,
+  defaultTokenStatusListSize,
+  TokenStatusList,
+  TokenStatusListSigner,
+} from './token-status-list.entity'
 import { User } from './user.entity'
 import { VerificationTemplateField } from './verification-template-field.entity'
 import { VerificationTemplate } from './verification-template.entity'
 import { Wallet } from './wallet.entity'
 
 export { MessageDeliveryType } from './user.entity'
+export { defaultTokenStatusListBits, defaultTokenStatusListSize, TokenStatusListSigner }
 export {
   Identified,
   User,
@@ -27,6 +34,7 @@ export {
   VerificationTemplate,
   VerificationTemplateField,
   CredentialStatusList,
+  TokenStatusList,
 }
 
 export default [
@@ -45,4 +53,5 @@ export default [
   VerificationTemplate,
   VerificationTemplateField,
   CredentialStatusList,
+  TokenStatusList,
 ]

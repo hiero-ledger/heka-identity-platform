@@ -2,8 +2,10 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 
+import { pollTimeout } from '@/const/behaviour';
 import {
   OpenIdPresentationState,
+  PresentationFailureReason,
   PresentationSchema,
 } from '@/entities/Presentation/model/types/presentation';
 import {
@@ -164,6 +166,82 @@ describe('OpenIdVerificationRequest', () => {
         '/openid4vc/verification-session/vs-1',
       );
       expect(screen.getByText('Alice')).toBeInTheDocument();
+    });
+  });
+
+  describe('verification failed', () => {
+    const revokedMessage =
+      '\t- [0]: Error occured during verification of presentation. Status is not valid - SDJWTException: Status is not valid';
+
+    test('stops polling a session that ends in Error and says the credential was revoked', async () => {
+      const user = userEvent.setup();
+      const api = createMockApi();
+      stubVerifier(api);
+      api.get.mockResolvedValue({
+        data: {
+          id: 'vs-1',
+          state: OpenIdPresentationState.Error,
+          errorMessage: revokedMessage,
+        },
+      });
+      const { onChangeStep } = renderRequest(context, { api });
+
+      expect(
+        await screen.findByText('Verification failed', {}, { timeout: 4000 }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The credential has been revoked.',
+      );
+      expect(screen.queryByTestId('qr')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Credential verification request'),
+      ).not.toBeInTheDocument();
+      // Credo's message stays out of the page
+      expect(document.body).not.toHaveTextContent(/SDJWT|Status is not valid/);
+      expect(
+        screen.queryByRole('button', { name: 'Save as template' }),
+      ).not.toBeInTheDocument();
+
+      const polls = api.get.mock.calls.length;
+      await new Promise((resolve) => setTimeout(resolve, pollTimeout + 500));
+      expect(api.get).toHaveBeenCalledTimes(polls);
+
+      await user.click(
+        screen.getByRole('button', { name: 'Verify more credential' }),
+      );
+      expect(onChangeStep).toHaveBeenCalledWith('SelectProtocolType');
+    }, 10000);
+
+    test.each([
+      [PresentationFailureReason.Revoked, 'The credential has been revoked.'],
+      [
+        PresentationFailureReason.Expired,
+        'The verification request expired before the wallet responded.',
+      ],
+      [
+        PresentationFailureReason.Unknown,
+        'The credential could not be verified, or the holder declined the request.',
+      ],
+      [
+        undefined,
+        'The credential could not be verified, or the holder declined the request.',
+      ],
+    ])('explains a %s failure', (failureReason, text) => {
+      renderRequest(context, {
+        initialState: {
+          presentations: {
+            isLoading: false,
+            presentationSession: {
+              id: 'vs-1',
+              state: OpenIdPresentationState.Error,
+              failureReason,
+            },
+          },
+        },
+      });
+
+      expect(screen.getByText('Verification failed')).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toHaveTextContent(text);
     });
   });
 

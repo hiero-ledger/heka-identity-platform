@@ -1,0 +1,13 @@
+# Picks Heka Wallet "just once" when another wallet on the device also handles the deep-link scheme.
+appId: com.heka.wallet
+---
+- runFlow:
+    when:
+      visible:
+        id: 'android:id/button_once'
+    commands:
+      - tapOn: 'Heka Wallet'
+      # Some Android skins open the app on the first tap; others need "just once".
+      - tapOn:
+          id: 'android:id/button_once'
+          optional: true
