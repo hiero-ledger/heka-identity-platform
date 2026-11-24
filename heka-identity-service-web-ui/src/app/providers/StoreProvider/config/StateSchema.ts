@@ -2,6 +2,7 @@ import {
   EnhancedStore,
   Reducer,
   ReducersMapObject,
+  ThunkDispatch,
   UnknownAction,
 } from '@reduxjs/toolkit';
 import { AxiosInstance } from 'axios';
@@ -31,7 +32,7 @@ export type MountedReducers = OptionalRecord<StateSchemaKey, boolean>;
 
 export interface ReducerManager {
   getReducerMap: () => ReducersMapObject<StateSchema>;
-  reduce: (state: StateSchema, action: UnknownAction) => StateSchema;
+  reduce: Reducer<StateSchema>;
   add: (key: StateSchemaKey, reducer: Reducer) => void;
   remove: (key: StateSchemaKey) => void;
   getMountedReducers: () => MountedReducers;
@@ -39,6 +40,7 @@ export interface ReducerManager {
 
 export interface ReduxStoreWithManager extends EnhancedStore<StateSchema> {
   reducerManager: ReducerManager;
+  dispatch: ThunkDispatch<StateSchema, ThunkExtraArg, UnknownAction>;
 }
 
 export interface ThunkExtraArg {
