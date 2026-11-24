@@ -95,7 +95,7 @@ afterEach(() => {
 });
 
 describe('requestPresentation — OpenID4VP direct_post', () => {
-  test('posts a PEX request signed with the user DID and stores the session', async () => {
+  test('posts a DCQL request signed with the user DID and stores the session', async () => {
     jest.spyOn(tokenUtils, 'getUserId').mockReturnValue('did:key:user');
     const api = createMockApi();
     api.post.mockResolvedValue({
@@ -123,10 +123,11 @@ describe('requestPresentation — OpenID4VP direct_post', () => {
     expect(url).toBe(agencyEndpoints.requestOpenIdPresentation);
     expect(body.publicVerifierId).toBe('did:key:user');
     expect(body.requestSigner).toEqual({ method: 'did', did: 'did:key:user' });
-    expect(
-      body.presentationExchange.definition.input_descriptors[0].constraints
-        .fields,
-    ).toEqual([{ path: ['$.given_name'] }, { path: ['$.family_name'] }]);
+    expect(body.presentationExchange).toBeUndefined();
+    expect(body.dcql.query.credentials[0].claims).toEqual([
+      { path: ['given_name'] },
+      { path: ['family_name'] },
+    ]);
 
     const state = store.getState();
     expect(getPresentationRequestIsLoading(state)).toBe(false);
@@ -164,10 +165,44 @@ describe('requestPresentation — OpenID4VP direct_post', () => {
     const body = demoApi.post.mock.calls[0][1];
     expect(body.publicVerifierId).toBe('did:key:z6MkDemoUser');
     expect(body.requestSigner.did).toBe('did:key:verifier');
-    expect(
-      body.presentationExchange.definition.input_descriptors[0].constraints
-        .fields,
-    ).toEqual([{ path: ['$.family_name'] }]);
+    expect(body.dcql.query.credentials[0].claims).toEqual([
+      { path: ['family_name'] },
+    ]);
+  });
+
+  test('posts a DCQL mdoc request with the schema name as doctype and namespace', async () => {
+    jest.spyOn(tokenUtils, 'getUserId').mockReturnValue('did:key:user');
+    const api = createMockApi();
+    api.post.mockResolvedValue({
+      data: {
+        authorizationRequest: 'openid4vp://request',
+        verificationSession: { id: 'vs-3', state: 'RequestCreated' },
+      },
+    });
+    const store = createTestStore({}, api);
+
+    await store.dispatch(
+      requestPresentation({
+        protocolType: ProtocolType.Oid4vc,
+        credentialType: Openid4CredentialFormat.MsoMdoc,
+        schema,
+      }),
+    );
+
+    const body = api.post.mock.calls[0][1];
+    expect(body.presentationExchange).toBeUndefined();
+    expect(body.responseMode).toBeUndefined();
+    expect(body.dcql.query.credentials).toEqual([
+      {
+        id: 'requested-credential',
+        format: 'mso_mdoc',
+        meta: { doctype_value: 'Passport' },
+        claims: [
+          { path: ['Passport', 'given_name'], intent_to_retain: false },
+          { path: ['Passport', 'family_name'], intent_to_retain: false },
+        ],
+      },
+    ]);
   });
 
   test('does not send a request when the user has no DID yet', async () => {

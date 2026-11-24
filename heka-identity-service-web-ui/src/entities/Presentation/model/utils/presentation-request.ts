@@ -31,34 +31,17 @@ export interface BuildOpenIdPresentationRequestParams {
 // The DC API flow is built separately (see buildDcApiPresentationRequest) — it is also
 // signed with the verifier's DID (a JAR, required by the wallet matcher) but MUST use DCQL, not PEX.
 
-export const buildSdJwtPresentationRequest = ({
-  id,
-  did,
-  name,
-  attributes,
-  purpose,
-}: BuildOpenIdPresentationRequestParams) => {
+export const buildSdJwtPresentationRequest = (
+  params: BuildOpenIdPresentationRequestParams,
+) => {
   return {
-    publicVerifierId: id,
-    requestSigner: { method: 'did', did },
-    presentationExchange: {
-      definition: {
-        id: v4(),
-        name,
-        input_descriptors: [
-          {
-            id: v4(),
-            constraints: {
-              limit_disclosure: 'required',
-              fields: attributes.map((attribute) => ({
-                path: [`$.${attribute}`],
-              })),
-            },
-            name,
-            purpose: purpose ?? 'To obtain credential data',
-          },
-        ],
-      },
+    publicVerifierId: params.id,
+    requestSigner: { method: 'did', did: params.did },
+    dcql: {
+      query: buildDcqlQuery({
+        ...params,
+        format: Openid4CredentialFormat.SdJwt,
+      }),
     },
   };
 };
@@ -101,53 +84,18 @@ export const buildJwtJsonPresentationRequest = ({
 
 const MDL_DOCTYPE = 'org.iso.18013.5.1.mDL';
 const MDL_NAMESPACE = 'org.iso.18013.5.1';
-const MDL_ALG = [
-  'ES256',
-  'ES384',
-  'ES512',
-  'EdDSA',
-  'ESB256',
-  'ESB320',
-  'ESB384',
-  'ESB512',
-];
 
-export const buildMsoMdocPresentationRequest = ({
-  id,
-  did,
-  name,
-  attributes,
-  purpose,
-  doctype = MDL_DOCTYPE,
-  namespace = MDL_NAMESPACE,
-}: BuildOpenIdPresentationRequestParams) => {
+export const buildMsoMdocPresentationRequest = (
+  params: BuildOpenIdPresentationRequestParams,
+) => {
   return {
-    publicVerifierId: id,
-    requestSigner: { method: 'did', did },
-    presentationExchange: {
-      definition: {
-        id: v4(),
-        name,
-        input_descriptors: [
-          {
-            id: doctype,
-            format: {
-              mso_mdoc: {
-                alg: MDL_ALG,
-              },
-            },
-            constraints: {
-              limit_disclosure: 'required',
-              fields: attributes.map((attribute) => ({
-                path: [`$['${namespace}']['${attribute}']`],
-                intent_to_retain: false,
-              })),
-            },
-            name,
-            purpose: purpose ?? 'To obtain credential data',
-          },
-        ],
-      },
+    publicVerifierId: params.id,
+    requestSigner: { method: 'did', did: params.did },
+    dcql: {
+      query: buildDcqlQuery({
+        ...params,
+        format: Openid4CredentialFormat.MsoMdoc,
+      }),
     },
   };
 };
@@ -183,8 +131,8 @@ const buildDcqlQuery = ({
           {
             id: DCQL_CREDENTIAL_ID,
             format: DCQL_SD_JWT_FORMAT,
-            // No `meta.vct_values`: the SD-JWT PEX path did not constrain the vct either, so we
-            // match on the requested claims alone. Add vct_values here to restrict by type.
+            // No `meta.vct_values`: SD-JWT VCs are matched on the requested claims alone, as the
+            // earlier Presentation Exchange request did. Add vct_values here to restrict by type.
             claims: attributes.map((attribute) => ({ path: [attribute] })),
           },
         ],
