@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 
@@ -41,6 +41,7 @@ const binding: ContributorBinding = {
   walletId: 'wallet-1',
   gpgFingerprint: 'ABCD',
   verifiedAt: '2026-01-01T00:00:00.000Z',
+  linkedAt: '2025-12-31T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
@@ -202,6 +203,35 @@ describe('ContributorOnboarding', () => {
         expect.objectContaining({ type: 'RECEIVE_OFFER' }),
         expect.anything(),
       );
+    });
+
+    test("the wallet's confirmation completes the last step", async () => {
+      renderAtStep(verified);
+      expect(
+        screen.getByText('Credential').previousElementSibling,
+      ).toHaveTextContent('4');
+
+      act(() => {
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            data: {
+              source: 'heka-extension-bridge',
+              type: 'RECEIVE_STATUS',
+              payload: { state: 'done' },
+            },
+            origin: window.location.origin,
+          }),
+        );
+      });
+
+      expect(
+        await screen.findByRole('button', {
+          name: /Credential already in Wallet/,
+        }),
+      ).toBeDisabled();
+      expect(
+        screen.getByText('Credential').previousElementSibling,
+      ).toHaveTextContent('✓');
     });
 
     test('promises no profile page to receive it from later', () => {

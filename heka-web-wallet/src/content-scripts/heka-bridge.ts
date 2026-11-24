@@ -1,6 +1,4 @@
 /**
- * heka-bridge.ts
- *
  * Content script injected into trusted Heka pages only.
  *
  *   Heka page  --window.postMessage-->  content script  --chrome.runtime.sendMessage-->  service worker

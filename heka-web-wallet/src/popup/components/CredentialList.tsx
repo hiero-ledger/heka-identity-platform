@@ -62,7 +62,6 @@ const CredentialCard: React.FC<{ credential: CredentialSummary }> = ({ credentia
 
   return (
     <div style={s.card}>
-      {/* Top accent bar */}
       <div style={display?.backgroundColor ? { ...s.cardAccent, background: display.backgroundColor } : s.cardAccent} />
 
       <button type="button" style={s.cardHeader} onClick={() => setExpanded((p) => !p)} aria-expanded={expanded}>
@@ -225,7 +224,6 @@ const s: Record<string, React.CSSProperties> = {
     background: 'rgba(0,0,0,0.15)',
   },
 
-  // Empty state
   empty: {
     display: 'flex',
     flexDirection: 'column',

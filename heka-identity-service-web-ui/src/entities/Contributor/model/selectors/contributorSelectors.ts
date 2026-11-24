@@ -18,9 +18,6 @@ export const getContributorActiveChallenge = (state: StateSchema) =>
 export const getContributorBinding = (state: StateSchema) =>
   state.contributor?.binding ?? null;
 
-export const getContributorCredentialIssued = (state: StateSchema) =>
-  state.contributor?.credentialIssued ?? false;
-
 export const getContributorIsLoading = (state: StateSchema) =>
   state.contributor?.isLoading ?? false;
 

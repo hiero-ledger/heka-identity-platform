@@ -1,4 +1,3 @@
-// ContributorOnboarding.tsx
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +8,6 @@ import {
   getContributorActiveChallenge,
   getContributorBinding,
   getContributorCompletedSteps,
-  getContributorCredentialIssued,
   getContributorError,
   getContributorGithubUsername,
   getContributorIsLoading,
@@ -36,7 +34,6 @@ const ContributorOnboarding: React.FC = () => {
   const completedSteps = useSelector(getContributorCompletedSteps);
   const activeChallenge = useSelector(getContributorActiveChallenge);
   const binding = useSelector(getContributorBinding);
-  const credentialIssued = useSelector(getContributorCredentialIssued);
   const isLoading = useSelector(getContributorIsLoading);
   const error = useSelector(getContributorError);
   const githubUsername = useSelector(getContributorGithubUsername);
@@ -45,8 +42,7 @@ const ContributorOnboarding: React.FC = () => {
     string | null
   >(null);
 
-  // Load the current onboarding status on mount so we can fast-forward
-  // the wizard if the user has already completed some steps.
+  // The status fast-forwards the wizard past the steps the user has completed
   useEffect(() => {
     if (getSessionAccessToken()) {
       void dispatch(getContributorOnboardingStatus());
@@ -59,13 +55,12 @@ const ContributorOnboarding: React.FC = () => {
 
   const handleVerified = useCallback(() => {
     dispatch(contributorActions.setCurrentStep(3));
-    // Re-fetch status so the binding is populated in Redux
-    // (the verify endpoint only returns gpgFingerprint, not the full binding)
+    // The verify response has no binding; the status returns the verified one
     void dispatch(getContributorOnboardingStatus());
   }, [dispatch]);
 
   const handleCredentialStored = useCallback(() => {
-    dispatch(contributorActions.setCredentialIssued());
+    dispatch(contributorActions.markStepCompleted(3));
   }, [dispatch]);
 
   // The stepper marks the current step as failed until the user acts again: the thunks clear the
@@ -125,7 +120,6 @@ const ContributorOnboarding: React.FC = () => {
         return (
           <VerifyStep
             binding={binding}
-            credentialIssued={credentialIssued}
             onRequestCredential={handleRequestCredential}
             onCredentialStored={handleCredentialStored}
             txCode={walletTxCode}
@@ -140,7 +134,6 @@ const ContributorOnboarding: React.FC = () => {
 
   return (
     <div className={cls.container}>
-      {/* Page header */}
       <div className={cls.header}>
         <button
           className={cls.backBtn}
@@ -158,21 +151,18 @@ const ContributorOnboarding: React.FC = () => {
         </div>
       </div>
 
-      {/* Progress stepper */}
       <OnboardingStepper
         currentStep={currentStep}
         completedSteps={completedSteps as number[]}
         errorStep={error ? currentStep : undefined}
       />
 
-      {/* Loading bar */}
       {isLoading && (
         <div className={cls.loadingBar}>
           <div className={cls.loadingBarFill} />
         </div>
       )}
 
-      {/* Active step */}
       <div
         key={currentStep}
         className={cls.stepWrapper}

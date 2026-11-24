@@ -15,7 +15,7 @@ export class VerifySignatureDto {
 
   @ApiProperty({
     description:
-      'PGP cleartext-signed message produced by `echo "<nonce>" | gpg --clearsign`, including the BEGIN/END headers.',
+      'PGP cleartext-signed message produced by `echo -n "<nonce>" | gpg --clearsign --armor`, including the BEGIN/END headers.',
   })
   @IsString()
   @IsNotEmpty({ message: 'signature must not be empty.' })

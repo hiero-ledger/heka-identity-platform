@@ -345,7 +345,7 @@ describe('GpgChallengeService', () => {
       mockLinkedAccountThen(httpService.get, httpOk(keyPair.publicKey))
 
       await expect(service.verifySignature(auth(), 'id', 'this is not a pgp message')).rejects.toThrow(
-        /could not be parsed as a PGP cleartext-signed message/,
+        /could not be parsed as a PGP cleartext-signed message.*echo -n "<nonce>" \| gpg --clearsign --armor /,
       )
       expect(onboarding.recordProofRejected).toHaveBeenCalledWith(
         expect.objectContaining({ challengeId: 'id', reason: 'Malformed signature' }),

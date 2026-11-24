@@ -17,7 +17,6 @@ const initialState: ContributorSchema = {
   activeChallenge: null,
   verificationResult: null,
   binding: null,
-  credentialIssued: false,
   isLoading: false,
   error: null,
 };
@@ -44,12 +43,6 @@ export const contributorSlice = buildSlice({
       state.githubLinked = true;
       state.githubAccountId = action.payload.githubAccountId;
       state.githubUsername = action.payload.githubUsername;
-    },
-    setCredentialIssued(state) {
-      state.credentialIssued = true;
-      if (!state.completedSteps.includes(3)) {
-        state.completedSteps.push(3);
-      }
     },
     clearError(state) {
       state.error = null;
@@ -111,7 +104,6 @@ export const contributorSlice = buildSlice({
         if (isGpgVerified) {
           state.currentStep = 3;
         }
-        state.credentialIssued = Boolean(action.payload.credentialIssued);
       })
       .addCase(getContributorOnboardingStatus.rejected, (state, action) => {
         state.isLoading = false;
@@ -146,7 +138,6 @@ export const contributorSlice = buildSlice({
         state.isLoading = false;
         state.verificationResult = action.payload;
         if (action.payload.verified) {
-          state.binding = action.payload.binding ?? null;
           if (!state.completedSteps.includes(2)) {
             state.completedSteps.push(2);
           }

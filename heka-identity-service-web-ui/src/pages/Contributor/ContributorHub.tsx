@@ -1,4 +1,3 @@
-// ContributorHub.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -26,7 +25,6 @@ const ContributorHub: React.FC = () => {
 
   return (
     <div className={cls.container}>
-      {/* Hero */}
       <div className={cls.heroPanel}>
         <div className={cls.heroIconWrap}>
           <span className={cls.heroIcon}>🏅</span>
@@ -38,7 +36,6 @@ const ContributorHub: React.FC = () => {
         </p>
       </div>
 
-      {/* Steps overview */}
       <div>
         <p className={cls.sectionLabel}>3 Steps</p>
         <div className={cls.stepsGrid}>
@@ -60,7 +57,6 @@ const ContributorHub: React.FC = () => {
         </div>
       </div>
 
-      {/* Wallet status notice */}
       <div className={cls.walletNotice}>
         <div className={cls.walletIconWrap}>
           <span className={cls.walletIcon}>🔐</span>

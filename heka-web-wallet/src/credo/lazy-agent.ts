@@ -23,9 +23,8 @@ export async function getOrCreateAgent(): Promise<Agent> {
 
       const agent = new Agent({
         config: {
-          // Production builds require HTTPS issuer and verifier URLs.
-          // `yarn dev` is a development-mode build, so localhost HTTP still works there. MODE, not
-          // DEV: `vite build --mode development` keeps NODE_ENV=production, so DEV is false.
+          // http:// issuers and verifiers only in the development build (`yarn dev`). MODE, not DEV:
+          // `vite build --mode development` keeps NODE_ENV=production, so DEV is false.
           allowInsecureHttpUrls: import.meta.env.MODE === 'development',
           // IndexedDbStorageService stamps a new wallet with the current storage version. After a
           // Credo upgrade that changes it, the agent refuses to start rather than migrate the only

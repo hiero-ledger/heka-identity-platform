@@ -33,6 +33,18 @@ const checks = [
     workaround: 'reflect-metadata global lookup rewrite (strip-extension-unsafe-eval)',
     absent: ['Function("return this;")', '(void 0, eval)'],
   },
+  {
+    workaround: '@hiero-did-sdk/crypto alias (src/credo/browser-hedera-crypto.ts)',
+    // The package hashes HCS checksums with Node's createHash, or react-native-quick-crypto.
+    absent: ['createHash("sha256")', 'No compatible crypto module found'],
+  },
+  {
+    workaround: '@hashgraph/sdk alias (lib/browser.js)',
+    // The browser client reads the mirror node over gRPC-web. `absent` comes from a build with the
+    // alias pointing at the Node entry: grpc-js's HTTP/2 transport.
+    present: ['application/grpc-web+proto'],
+    absent: ['Http2SubchannelCall'],
+  },
 ]
 
 const dist = fileURLToPath(new URL('../dist/', import.meta.url))

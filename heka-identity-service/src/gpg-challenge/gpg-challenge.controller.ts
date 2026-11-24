@@ -36,7 +36,7 @@ export class GpgChallengeController {
   @ApiOperation({
     summary: 'Request a GPG ownership challenge for the linked GitHub account',
     description:
-      'Optional feature: available when CONTRIBUTOR_VERIFICATION_ENABLED=true. Returns a single-use nonce that expires after 5 minutes. Sign it with `echo "<nonce>" | gpg --clearsign` and submit the armored output to POST /v2/gpg-challenge/verify.',
+      'Optional feature: available when CONTRIBUTOR_VERIFICATION_ENABLED=true. Returns a single-use nonce that expires after 5 minutes. Sign it with `echo -n "<nonce>" | gpg --clearsign --armor` and submit the armored output to POST /v2/gpg-challenge/verify.',
   })
   @ApiCreatedResponse({ type: GpgChallengeResponseDto })
   @ApiConflictResponse({ description: 'No GitHub account is linked yet.' })

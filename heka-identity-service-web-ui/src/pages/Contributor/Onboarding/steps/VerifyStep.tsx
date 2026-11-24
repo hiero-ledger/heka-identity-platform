@@ -6,7 +6,6 @@ import * as cls from './Step.module.scss';
 
 interface Props {
   binding: ContributorBinding | null;
-  credentialIssued: boolean;
   onRequestCredential: () => Promise<void>;
   onCredentialStored: () => void;
   txCode: string | null;
@@ -23,7 +22,6 @@ type WalletStatus =
 
 const VerifyStep: React.FC<Props> = ({
   binding,
-  credentialIssued,
   onRequestCredential,
   onCredentialStored,
   txCode,
@@ -34,7 +32,7 @@ const VerifyStep: React.FC<Props> = ({
 
   const EXTENSION_SOURCE = 'heka-extension-bridge';
   const HEKA_SOURCE = 'heka-web-wallet-bridge';
-  const stored = credentialIssued || walletStatus === 'received';
+  const stored = walletStatus === 'received';
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -65,8 +63,7 @@ const VerifyStep: React.FC<Props> = ({
   const handleReceiveInWallet = useCallback(async () => {
     setWalletStatus('sending');
 
-    // Check if the Heka extension is installed by sending a PING
-    // The extension content script responds with PONG if installed
+    // The wallet's content script answers a PING only when the extension is installed
     const pingResult = await new Promise<boolean>((resolve) => {
       const handleMessage = (event: MessageEvent) => {
         if (
@@ -106,7 +103,6 @@ const VerifyStep: React.FC<Props> = ({
 
   return (
     <div className={cls.step}>
-      {/* Success banner */}
       <div className={cls.successBanner}>
         <span className={cls.successCheck}>✓</span>
         <div>
@@ -117,7 +113,6 @@ const VerifyStep: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Binding details */}
       {binding && (
         <div className={cls.bindingCard}>
           <div className={cls.bindingRow}>
@@ -145,7 +140,6 @@ const VerifyStep: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Credential receive section — optional feature */}
       <div className={cls.walletSection}>
         <h3 className={cls.walletHeading}>
           Receive your Credential{' '}

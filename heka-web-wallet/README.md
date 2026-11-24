@@ -26,7 +26,7 @@ yarn build
 
 Load `dist/` in Chrome at `chrome://extensions` with Developer Mode, then Load unpacked. Chrome does not support `protocol_handlers`, so an `openid-credential-offer:` link does not open this extension.
 
-The Heka page sends the offer to the content script. The service worker stores it and opens `wallet.html`, or hands it to the wallet window that is already open, so one Credo agent serves consecutive requests. The wallet page asks for approval before contacting the issuer. Localhost and `127.0.0.1` are always allowed. Contacting any other HTTPS issuer or verifier asks for the optional `https://*/*` host permission from the Review or Accept click. To import an offer that did not come from that page, paste the URI on the popup Receive tab. That opens the same approval screen. The popup itself does not run Credo.
+The Heka page sends the offer to the content script. The service worker stores it and opens `wallet.html`, or hands it to the wallet window that is already open, so one Credo agent serves consecutive requests. A newer offer or presentation request replaces the one under review. The wallet page asks for approval before contacting the issuer. Localhost and `127.0.0.1` are always allowed. Contacting any other HTTPS issuer or verifier asks for the optional `https://*/*` host permission from the Review or Accept click. To import an offer that did not come from that page, paste the URI on the popup Receive tab. That opens the same approval screen. The popup itself does not run Credo.
 
 `yarn build` does not emit source maps. `yarn dev` does, because that build is for local debugging.
 
@@ -48,13 +48,3 @@ yarn build
 - the bundle contains `new Function` or `eval(` (`check:csp`), which Manifest V3 blocks.
 
 [e2e/](e2e/README.md) drives the extension in Chrome for Testing: the bridge, the wallet window and a credential receive. It is not part of CI.
-
-The Heka web UI checks that CI runs are in `heka-identity-service-web-ui`:
-
-```bash
-yarn install --immutable
-yarn lint:ts
-yarn lint:scss
-```
-
-Those are the same commands as `.github/workflows/heka-identity-service-web-ui-verify.yml`. If `yarn lint:ts` cannot find `eslint-plugin-unused-imports`, the install is stale — run `yarn install --immutable` again in that package. Do not add the plugin by hand.

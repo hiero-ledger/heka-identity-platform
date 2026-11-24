@@ -1,6 +1,6 @@
 import * as crypto from 'crypto'
 
-import { EntityManager } from '@mikro-orm/core'
+import { EntityManager, UniqueConstraintViolationException } from '@mikro-orm/core'
 import { HttpService } from '@nestjs/axios'
 import {
   BadGatewayException,
@@ -32,6 +32,10 @@ import { GithubLinkCallbackResponseDto, GithubLinkStartResponseDto } from './dto
 import { LinkAttemptStatus, OAuthLinkAttempt } from './oauth-link-attempt.entity'
 
 const LINK_ATTEMPT_TTL_MS = 5 * 60 * 1000
+
+const ACCOUNT_LINKED_TO_ANOTHER_USER = 'This GitHub account is already linked to another Heka user'
+const GITHUB_ACCOUNT_UNIQUE_CONSTRAINT = 'contributor_binding_github_account_id_unique'
+const USER_UNIQUE_CONSTRAINT = 'contributor_binding_user_id_unique'
 
 interface AuditInput {
   eventType: ContributorAuditEventType
@@ -172,7 +176,7 @@ export class ContributorOnboardingService {
 
     const taken = await this.em.findOne(ContributorBinding, { githubAccountId: githubUser.id })
     if (taken && taken.userId !== authInfo.userId) {
-      throw new ConflictException('This GitHub account is already linked to another Heka user')
+      throw new ConflictException(ACCOUNT_LINKED_TO_ANOTHER_USER)
     }
 
     let binding = await this.findBinding(authInfo.userId)
@@ -199,7 +203,22 @@ export class ContributorOnboardingService {
       walletId: authInfo.walletId,
       metadata: { source: 'github-link' },
     })
-    await this.em.flush()
+    try {
+      await this.em.flush()
+    } catch (error: unknown) {
+      // A concurrent callback can pass the checks above as well; the unique constraints reject the later write
+      const constraint =
+        error instanceof UniqueConstraintViolationException ? (error as { constraint?: string }).constraint : undefined
+      if (constraint === GITHUB_ACCOUNT_UNIQUE_CONSTRAINT) {
+        throw new ConflictException(ACCOUNT_LINKED_TO_ANOTHER_USER)
+      }
+      if (constraint === USER_UNIQUE_CONSTRAINT) {
+        throw new ConflictException(
+          'Another request linked a GitHub account to this Heka user at the same time. Check the status and link again if needed.',
+        )
+      }
+      throw error
+    }
     this.logger.info(`GitHub account linked for user ${authInfo.userId}`)
     return { linked: true, githubUsername: githubUser.login }
   }

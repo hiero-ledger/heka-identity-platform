@@ -7,8 +7,6 @@ import { CredentialList } from './components/CredentialList'
 import { ReceiveCredential } from './components/ReceiveCredential'
 import { WalletStatus } from './components/WalletStatus'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 export type AppView = 'wallet' | 'receive'
 
 export interface WalletState {
@@ -16,8 +14,6 @@ export interface WalletState {
   loading: boolean
   error: string | null
 }
-
-// ── Hiero "H" logo mark ───────────────────────────────────────────────────────
 
 const HieroMark: React.FC<{ size?: number }> = ({ size = 26 }) => (
   <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -31,8 +27,6 @@ const HieroMark: React.FC<{ size?: number }> = ({ size = 26 }) => (
     </defs>
   </svg>
 )
-
-// ── App ───────────────────────────────────────────────────────────────────────
 
 export const App: React.FC = () => {
   const [view, setView] = useState<AppView>('wallet')
@@ -157,8 +151,6 @@ export const App: React.FC = () => {
   )
 }
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
-
 const PINK = '#c6136a'
 const RED = '#e83d6f'
 const DARK = '#100b0e'
@@ -273,7 +265,6 @@ const s: Record<string, React.CSSProperties> = {
   },
   footerDot: { display: 'inline-block', width: 3, height: 3, borderRadius: '50%', background: 'rgba(198,19,106,0.4)' },
 
-  // Loading
   center: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, paddingTop: 48 },
   spinnerOuter: {
     width: 52,
@@ -296,7 +287,6 @@ const s: Record<string, React.CSSProperties> = {
   loadTitle: { color: '#fff', fontSize: 13, fontWeight: 700, marginTop: 4 },
   loadSub: { color: 'rgba(255,255,255,0.3)', fontSize: 11 },
 
-  // Error
   errCard: {
     background: CARD,
     border: '1px solid rgba(220,38,38,0.22)',

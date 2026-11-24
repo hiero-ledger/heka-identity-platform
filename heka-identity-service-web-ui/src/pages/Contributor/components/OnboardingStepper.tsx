@@ -33,7 +33,6 @@ export const OnboardingStepper: React.FC<Props> = ({
 
         return (
           <React.Fragment key={step.id}>
-            {/* Step circle */}
             <div style={styles.stepCol}>
               <div
                 style={{
@@ -57,7 +56,6 @@ export const OnboardingStepper: React.FC<Props> = ({
               </span>
             </div>
 
-            {/* Connector line (except after last step) */}
             {index < ONBOARDING_STEPS.length - 1 && (
               <div
                 style={{

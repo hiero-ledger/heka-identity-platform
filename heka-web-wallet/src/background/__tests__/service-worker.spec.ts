@@ -76,6 +76,19 @@ describe('service worker: the wallet window', () => {
     expect(chrome.storage.local.values.get(PENDING_OFFER_KEY)).toEqual({ offerUri: `${offer}-2` })
   })
 
+  it('opens one window for requests that arrive together, and hands the later one to it', async () => {
+    const { chrome, send } = await loadServiceWorker()
+
+    await Promise.all([
+      send({ type: 'RECEIVE_OFFER', offerUri: offer }),
+      send({ type: 'PRESENT_REQUEST', requestUri: 'openid4vp://?request_uri=https%3A%2F%2Fverifier.example%2Fr' }),
+    ])
+
+    expect(chrome.windows.create).toHaveBeenCalledTimes(1)
+    expect(chrome.windows.update).toHaveBeenCalledWith(1, { focused: true })
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: 'PENDING_UPDATED' })
+  })
+
   it('opens a new window when the stored one is gone', async () => {
     const { chrome, send } = await loadServiceWorker()
     await send({ type: 'RECEIVE_OFFER', offerUri: offer })

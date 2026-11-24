@@ -5,7 +5,6 @@ import {
   getContributorActiveChallenge,
   getContributorBinding,
   getContributorCompletedSteps,
-  getContributorCredentialIssued,
   getContributorError,
   getContributorGithubLinked,
   getContributorGithubUsername,
@@ -32,6 +31,7 @@ const binding: ContributorBinding = {
   walletId: 'wallet-1',
   gpgFingerprint: 'ABCD',
   verifiedAt: '2026-01-01T00:00:00.000Z',
+  linkedAt: '2025-12-31T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
@@ -64,7 +64,6 @@ describe('contributorSlice', () => {
       activeChallenge: null,
       verificationResult: null,
       binding: null,
-      credentialIssued: false,
       isLoading: false,
       error: null,
     });
@@ -142,11 +141,21 @@ describe('contributorSlice', () => {
     });
   });
 
-  test('an accepted signature stores the binding and moves to the credential step', () => {
+  test('an accepted signature moves to the credential step and keeps the binding until the status refreshes it', () => {
+    const linked: ContributorBinding = {
+      ...binding,
+      gpgFingerprint: undefined,
+      verifiedAt: undefined,
+    };
     const state = contributorReducer(
-      { ...initial(), currentStep: 2, activeChallenge: challenge },
+      {
+        ...initial(),
+        currentStep: 2,
+        activeChallenge: challenge,
+        binding: linked,
+      },
       verifyContributorGpgChallenge.fulfilled(
-        { verified: true, message: 'Verified', binding },
+        { verified: true, message: 'Verified', gpgFingerprint: 'ABCD' },
         'r',
         verifyArgs,
       ),
@@ -155,7 +164,7 @@ describe('contributorSlice', () => {
     expect(state).toMatchObject({
       currentStep: 3,
       completedSteps: [2],
-      binding,
+      binding: linked,
       error: null,
     });
   });
@@ -226,13 +235,13 @@ describe('contributorSlice', () => {
     expect(state.currentStep).toBe(1);
   });
 
-  test('a credential stored in the wallet completes the last step', () => {
-    const state = contributorReducer(
+  test('markStepCompleted adds a step once', () => {
+    let state = contributorReducer(
       { ...initial(), currentStep: 3, completedSteps: [0, 1, 2] },
-      contributorActions.setCredentialIssued(),
+      contributorActions.markStepCompleted(3),
     );
+    state = contributorReducer(state, contributorActions.markStepCompleted(3));
 
-    expect(state.credentialIssued).toBe(true);
     expect(state.completedSteps).toEqual([0, 1, 2, 3]);
   });
 });
@@ -248,7 +257,6 @@ describe('contributor selectors', () => {
         githubUsername: 'octocat',
         activeChallenge: challenge,
         binding,
-        credentialIssued: true,
         isLoading: true,
         error: 'oops',
       },
@@ -260,7 +268,6 @@ describe('contributor selectors', () => {
     expect(getContributorGithubUsername(state)).toBe('octocat');
     expect(getContributorActiveChallenge(state)).toEqual(challenge);
     expect(getContributorBinding(state)).toEqual(binding);
-    expect(getContributorCredentialIssued(state)).toBe(true);
     expect(getContributorIsLoading(state)).toBe(true);
     expect(getContributorError(state)).toBe('oops');
   });

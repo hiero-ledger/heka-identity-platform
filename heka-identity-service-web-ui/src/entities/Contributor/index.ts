@@ -12,7 +12,6 @@ export {
   getContributorActiveChallenge,
   getContributorBinding,
   getContributorCompletedSteps,
-  getContributorCredentialIssued,
   getContributorError,
   getContributorGithubLinked,
   getContributorGithubUsername,

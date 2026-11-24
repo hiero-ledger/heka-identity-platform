@@ -66,7 +66,10 @@ export class ContributorOnboardingController {
   @ApiBadRequestResponse({
     description: 'The state is invalid, expired, already used, or was started by another user.',
   })
-  @ApiConflictResponse({ description: 'The GitHub account is linked to another Heka user.' })
+  @ApiConflictResponse({
+    description:
+      'The GitHub account is linked to another Heka user, or a concurrent request linked a GitHub account to this user.',
+  })
   @ApiBadGatewayResponse({ description: 'GitHub rejected the code or returned no usable identity.' })
   public async githubLinkCallback(
     @ReqAuthInfo() authInfo: AuthInfo,

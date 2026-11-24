@@ -14,7 +14,7 @@ import { Role } from 'src/common/auth'
 import { ADMINISTRATION_WALLET_ID } from 'src/utils/auth'
 import { uuid } from 'src/utils/misc'
 
-import { initializeMikroOrm, startTestApp } from './helpers'
+import { initializeMikroOrm, startTestApp, waitUntil } from './helpers'
 import { createAuthToken } from './helpers/jwt'
 import { createAgent, TestAgentModulesMap } from './helpers/test-agent'
 
@@ -28,7 +28,7 @@ const originalEnv = vi.hoisted(() => {
 
 const CLIENT_ID = 'e2e-github-client'
 const CLIENT_SECRET = 'e2e-github-secret'
-/** `DEMO_USER`: the static issuer wallet of the contributor credential until pass 2 replaces it. */
+/** `DEMO_USER`: the provisional issuer wallet of the contributor credential. */
 const ISSUER_SUB = 'demo'
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -198,6 +198,34 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
     return request(app).get('/v2/contributor-onboarding/status').auth(token, { type: 'bearer' })
   }
 
+  /**
+   * Runs `start` while a transaction holds an EXCLUSIVE lock on `contributor_binding`: reads pass, writes
+   * wait. The lock is released once `writers` requests wait on it, so each has passed its checks before
+   * any of them writes, and the unique constraints decide.
+   */
+  async function withBindingWritesHeld<T>(writers: number, start: () => Promise<T>): Promise<T> {
+    const lock = orm.em.fork()
+    await lock.begin()
+    await lock.execute('lock table "contributor_binding" in exclusive mode')
+    const pending = start()
+    try {
+      await waitUntil(
+        async () => {
+          const [{ waiting }] = await orm.em
+            .fork()
+            .execute<Array<{ waiting: number }>>(
+              `select count(*)::int as waiting from pg_locks where relation = 'contributor_binding'::regclass and not granted`,
+            )
+          return waiting >= writers
+        },
+        { timeout: 30_000, message: `${writers} binding writes did not wait on the lock` },
+      )
+    } finally {
+      await lock.commit()
+    }
+    return pending
+  }
+
   async function requestChallenge(token: string) {
     const res = await request(app).post('/v2/gpg-challenge/request').auth(token, { type: 'bearer' })
     expect(res.status).toBe(201)
@@ -290,6 +318,7 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
 
     const credential = (result.credentials[0].record as SdJwtVcRecord).firstCredential
     const payload = decodeJwtPart(credential.compact.split('~')[0].split('.')[1])
+    expect(payload.vct).toBe('GitHub Contributor')
     expect(typeof payload.exp).toBe('number')
     expect((payload.cnf as { jwk?: unknown }).jwk).toBeDefined()
     expect(payload).not.toHaveProperty('githubAccountId')
@@ -300,14 +329,34 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
     expect(credential.prettyClaims).not.toHaveProperty('walletId')
   }, 120_000)
 
-  test('two users linking one GitHub account at once: only one of them gets it', async () => {
+  test('two users linking one GitHub account at once: one gets it, the other 409', async () => {
     gh.tokens.set('tok-shared', { id: 777, login: 'shared' })
     const carol = await createAuthToken(`carol-${uuid()}`, Role.User)
     const dave = await createAuthToken(`dave-${uuid()}`, Role.User)
 
-    const statuses = (await Promise.all([link(carol, 'tok-shared'), link(dave, 'tok-shared')])).map((r) => r.status)
+    const responses = await withBindingWritesHeld(2, () =>
+      Promise.all([link(carol, 'tok-shared'), link(dave, 'tok-shared')]),
+    )
 
-    expect(statuses.filter((s) => s === 200)).toHaveLength(1)
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 409])
+    const conflict = responses.find((r) => r.status === 409)?.body as { message: string }
+    expect(conflict.message).toMatch(/already linked to another Heka user/)
+  })
+
+  test('one user linking two GitHub accounts at once: one link wins, the other 409', async () => {
+    gh.tokens.set('tok-erin-1', { id: 881, login: 'erin-one' })
+    gh.tokens.set('tok-erin-2', { id: 882, login: 'erin-two' })
+    const erin = await createAuthToken(`erin-${uuid()}`, Role.User)
+
+    const responses = await withBindingWritesHeld(2, () =>
+      Promise.all([link(erin, 'tok-erin-1'), link(erin, 'tok-erin-2')]),
+    )
+
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 409])
+    const conflict = responses.find((r) => r.status === 409)?.body as { message: string }
+    expect(conflict.message).toMatch(/at the same time/)
+    const winner = responses.find((r) => r.status === 200)?.body as { githubUsername: string }
+    expect((await status(erin)).body).toMatchObject({ github: { username: winner.githubUsername } })
   })
 
   test('role change: the same OIDC subject as Admin keeps its binding and can link the same account again', async () => {

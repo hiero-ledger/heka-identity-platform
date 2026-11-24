@@ -33,10 +33,6 @@ import { ContributorCredentialOfferResponseDto } from './dto/contributor-credent
 export class ContributorCredentialController {
   public constructor(private readonly contributorCredentialService: ContributorCredentialService) {}
 
-  /**
-   * Create an OID4VCI credential offer for the authenticated user.
-   * The binding is loaded from identity-service by the user's OIDC subject.
-   */
   @Post('offer')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

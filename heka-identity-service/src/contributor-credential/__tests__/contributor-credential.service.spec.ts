@@ -20,10 +20,6 @@ import {
 } from '../contributor-credential.constants'
 import { ContributorCredentialService } from '../contributor-credential.service'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function buildAuthInfo(): AuthInfo {
   return {
     userId: 'user-1',
@@ -35,7 +31,6 @@ function buildAuthInfo(): AuthInfo {
   }
 }
 
-/** Builds a minimal verified contributor payload for use in tests. */
 function buildContributor(overrides: Partial<VerifiedContributor> = {}): VerifiedContributor {
   return {
     githubAccountId: '11111111',
@@ -46,20 +41,16 @@ function buildContributor(overrides: Partial<VerifiedContributor> = {}): Verifie
   }
 }
 
-/** Minimal AgentConfig read by the service. */
 const mockAgentConfig = {
   contributorIssuerDemoUser: 'demo',
 } as any
-
-// ---------------------------------------------------------------------------
-// Fake tenant agent returned by withTenantAgent callback
-// ---------------------------------------------------------------------------
 
 const FAKE_ISSUER_DID = 'did:hedera:testnet:z6Mk'
 const FAKE_VERIFICATION_METHOD = `${FAKE_ISSUER_DID}#key-1`
 const FAKE_CREDENTIAL_OFFER_URI = 'openid-credential-offer://?credential_offer_uri=https://example.com/offer/abc'
 const FAKE_OFFER_EXPIRES_AT = new Date('2026-10-30T12:10:00.000Z')
 
+/** The tenant agent that `withTenantAgent` hands to the service's callback. */
 function buildFakeTenantAgent(
   overrides: Partial<{
     createdDids: Array<{ did: string }>
@@ -94,10 +85,6 @@ function buildFakeTenantAgent(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Test suite
-// ---------------------------------------------------------------------------
-
 describe('ContributorCredentialService', () => {
   let service: ContributorCredentialService
   let agentMock: any
@@ -109,7 +96,6 @@ describe('ContributorCredentialService', () => {
   beforeEach(() => {
     const fakeTenantAgent = buildFakeTenantAgent()
 
-    // Credo agent mock — withTenantAgent invokes the callback with the fake tenant agent
     agentMock = {
       modules: {
         tenants: {
@@ -149,10 +135,6 @@ describe('ContributorCredentialService', () => {
       createMock<Logger>(),
     )
   })
-
-  // -------------------------------------------------------------------------
-  // onApplicationBootstrap
-  // -------------------------------------------------------------------------
 
   describe('onApplicationBootstrap', () => {
     it('creates an OID4VCI issuer when none exists for the demo tenant DID', async () => {
@@ -209,7 +191,7 @@ describe('ContributorCredentialService', () => {
       vi.mocked(issuerServiceMock.find).mockResolvedValue([
         {
           publicIssuerId: FAKE_ISSUER_DID,
-          credentialConfigurationsSupported: {}, // issuer exists but credential not registered
+          credentialConfigurationsSupported: {},
         } as any,
       ])
 
@@ -217,15 +199,10 @@ describe('ContributorCredentialService', () => {
 
       expect(issuerServiceMock.updateIssuerMetadata).toHaveBeenCalledOnce()
       const updateArgs = vi.mocked(issuerServiceMock.updateIssuerMetadata).mock.calls[0][2]
-      // Verify the enum value 'add' (lowercase) is used, not 'Add'
       expect(updateArgs.action).toBe('add')
       expect(updateArgs.credentialsSupported![0].id).toBe(CONTRIBUTOR_CREDENTIAL_SUPPORTED_ID)
     })
   })
-
-  // -------------------------------------------------------------------------
-  // issueContributorCredential
-  // -------------------------------------------------------------------------
 
   describe('issueContributorCredential', () => {
     beforeEach(() => {
@@ -245,7 +222,6 @@ describe('ContributorCredentialService', () => {
     it('calls createCredentialOffer with the correct credential configuration ID', async () => {
       await service.issueContributorCredential(buildAuthInfo())
 
-      // We verify indirectly via the agentMock's withTenantAgent callback
       const withTenantCall = vi.mocked(agentMock.modules.tenants.withTenantAgent)
       expect(withTenantCall).toHaveBeenCalled()
     })
@@ -253,11 +229,9 @@ describe('ContributorCredentialService', () => {
     it('passes the correct payload through issuance metadata', async () => {
       await service.issueContributorCredential(buildAuthInfo())
 
-      // The fake tenant agent's createCredentialOffer was called — verify its args
       const tenantCalls = vi.mocked(agentMock.modules.tenants.withTenantAgent).mock.calls
       const withTenantCb = tenantCalls[tenantCalls.length - 1][1]
 
-      // Build a spy tenant agent to intercept the call
       const spyTenantAgent = buildFakeTenantAgent()
       await withTenantCb(spyTenantAgent)
 
@@ -370,7 +344,7 @@ describe('ContributorCredentialService', () => {
       expect(offerArgs.issuanceMetadata.credentials[0].issuer.didUrl).toBe(rootKeyId)
     })
 
-    it('prefers the ADR assertion-key fragment over the Hedera root key', async () => {
+    it('prefers the #assertion-key fragment over the Hedera root key', async () => {
       const assertionKeyId = `${FAKE_ISSUER_DID}#assertion-key`
       const rootKeyId = `${FAKE_ISSUER_DID}#did-root-key`
       const spyTenantAgent = buildFakeTenantAgent({

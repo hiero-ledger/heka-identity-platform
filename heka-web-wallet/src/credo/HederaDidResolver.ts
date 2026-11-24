@@ -6,21 +6,14 @@ const RESOLUTION_ACCEPT = 'application/ld+json;profile="https://w3id.org/did-res
 const topicReader = new TopicReaderHederaRestApi()
 
 /**
- * Resolves did:hedera from the public Hedera mirror node.
- * The issuer signs the contributor credential with a did:hedera key, and the
- * wallet has to fetch that DID document before it can accept the credential.
- *
- * A copy of `@credo-ts/hedera`'s HederaDidResolver (0.7.4) with two differences:
- * - it reads the DID topic with `TopicReaderHederaRestApi`: mirror node REST over fetch, no
- *   client. The package's resolver goes through its HederaModule's HederaLedgerService, which
- *   builds a Hedera SDK client from the module's network configuration, reads with
- *   `TopicReaderHederaHcs` (gRPC where the client supports mirror queries), and brings the
+ * Resolves did:hedera, for credentials signed with a did:hedera key. A copy of
+ * `@credo-ts/hedera`'s HederaDidResolver (0.7.4) with two differences:
+ * - it reads the DID topic over the mirror node's REST API (`TopicReaderHederaRestApi`). The
+ *   package's resolver needs its HederaModule, which builds a Hedera SDK client and brings the
  *   registrar and the AnonCreds registry into the wallet bundle;
- * - `allowsLocalDidRecord` is false: the wallet never creates a did:hedera, so a local
- *   record must not stand in for the ledger.
- * It can go once `@credo-ts/hedera` lets the resolver take a topic reader (follow-up issue).
- * Main's `@credo-ts/hedera` patch (heka-identity-service/.yarn/patches) changes only the
- * AnonCreds registry, so it doesn't apply here.
+ * - `allowsLocalDidRecord` is false: the wallet never creates a did:hedera, so a local record
+ *   must not stand in for the ledger.
+ * It can go once `@credo-ts/hedera`'s resolver takes a topic reader.
  */
 export class HederaDidResolver implements DidResolver {
   public readonly supportedMethods = ['hedera']

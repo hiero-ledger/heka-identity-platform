@@ -4,10 +4,9 @@ import { defineConfig } from 'vite'
 
 /**
  * Chrome runs manifest content scripts as classic scripts, where an `import` statement is a
- * SyntaxError. In the main build the bridge shared modules with the service worker, so Rollup
- * emitted it with `import` from `chunks/` and it never ran. This build emits it as one IIFE with
- * those modules inlined. vite.config.ts runs it after every main build (also in watch mode), and
- * scripts/check-content-scripts.mjs checks the result.
+ * SyntaxError, so the bridge cannot share chunks with the service worker. This build emits it as
+ * one IIFE. vite.config.ts runs it after every main build; scripts/check-content-scripts.mjs
+ * checks the result.
  */
 export default defineConfig(({ mode }) => ({
   build: {

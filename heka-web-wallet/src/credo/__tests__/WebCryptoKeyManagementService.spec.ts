@@ -1,7 +1,8 @@
 import { Kms, type AgentContext } from '@credo-ts/core'
 import { KeyManagementError } from '@credo-ts/core/kms'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { getOrCreateAgent } from '../lazy-agent'
 import { WebCryptoKeyManagementService } from '../WebCryptoKeyManagementService'
 
 const context = {} as AgentContext
@@ -43,7 +44,21 @@ describe('WebCryptoKeyManagementService', () => {
     expect(await kms.getPublicKey(context, ec.keyId)).toEqual(ec.publicJwk)
   })
 
-  it('claims only the signature algorithms it can sign and verify with', () => {
+  it('drops an `alg` that the runtime adds to exported keys (Node 22.23 does for Ed25519)', async () => {
+    const exportKey = crypto.subtle.exportKey.bind(crypto.subtle)
+    const spy = vi.spyOn(crypto.subtle, 'exportKey').mockImplementation(async (format, key) => {
+      const jwk = (await exportKey(format as 'jwk', key)) as JsonWebKey
+      return { ...jwk, alg: 'Ed25519' }
+    })
+    try {
+      const okp = await kms.createKey(context, { type: { kty: 'OKP', crv: 'Ed25519' } })
+      expect(Object.keys(okp.publicJwk).sort()).toEqual(['crv', 'kid', 'kty', 'x'])
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('signs only with the algorithms of the keys it creates', () => {
     const supports = (algorithm: string) =>
       kms.isOperationSupported(context, { operation: 'sign', algorithm } as Parameters<
         WebCryptoKeyManagementService['isOperationSupported']
@@ -55,6 +70,34 @@ describe('WebCryptoKeyManagementService', () => {
     for (const algorithm of ['ES256K', 'ES512', 'RS256', 'PS256']) {
       expect(supports(algorithm), algorithm).toBe(false)
     }
+  })
+
+  it("verifies an ES512 (P-521) signature through Credo's KeyManagementApi", async () => {
+    const pair = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-521' }, true, [
+      'sign',
+      'verify',
+    ])) as CryptoKeyPair
+    const data = new TextEncoder().encode('signed by an issuer')
+    const signature = new Uint8Array(
+      await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-512' }, pair.privateKey, data),
+    )
+    const { kty, crv, x, y } = await crypto.subtle.exportKey('jwk', pair.publicKey)
+    const agent = await getOrCreateAgent()
+
+    const result = await agent.kms.verify({
+      key: { publicJwk: { kty, crv, x, y } as Kms.KmsJwkPublicEc },
+      algorithm: 'ES512',
+      data,
+      signature,
+    })
+
+    expect(result.verified).toBe(true)
+  })
+
+  it('creates no X25519 keys, which no operation here could use', async () => {
+    const type = { kty: 'OKP', crv: 'X25519' } as const
+    expect(kms.isOperationSupported(context, { operation: 'createKey', type })).toBe(false)
+    await expect(kms.createKey(context, { type })).rejects.toBeInstanceOf(KeyManagementError)
   })
 
   it('leaves the key for an encrypted OpenID4VP response to the key-agreement backend', () => {

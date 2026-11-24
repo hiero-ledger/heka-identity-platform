@@ -87,7 +87,6 @@ const s: Record<string, React.CSSProperties> = {
   note: { fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 },
 }
 
-// inject pulse keyframe once
 const pulseStyle = document.createElement('style')
 pulseStyle.textContent = `@keyframes heka-pulse { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.6);opacity:0} }`
 document.head.appendChild(pulseStyle)

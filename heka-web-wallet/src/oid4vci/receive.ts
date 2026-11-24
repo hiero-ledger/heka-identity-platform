@@ -26,8 +26,8 @@ import {
 
 export type ResolvedCredentialOffer = Awaited<ReturnType<OpenId4VcHolderApi['resolveCredentialOffer']>>
 
-// ES256 first: P-256 works in WebCrypto in every Chrome this wallet supports, and it is what
-// Heka's issuer has received so far. EdDSA covers issuers that accept only Ed25519 proofs.
+// ES256 first: P-256 works in WebCrypto in every Chrome this wallet supports, and Heka's issuers
+// accept it. EdDSA covers issuers that accept only Ed25519 proofs.
 const PROOF_SIGNATURE_ALGORITHMS = [Kms.KnownJwaSignatureAlgorithms.ES256, Kms.KnownJwaSignatureAlgorithms.EdDSA]
 
 /** What a receive attempt created, so that a failed attempt can remove it again. */
@@ -54,8 +54,7 @@ export class CredentialReceiveError extends Error {
  * Creates a non-extractable holder key for the issuer's proof algorithm and binds the credential
  * to it as heka-wallet does (app/src/credentials/useOpenIdHandlers.ts), except that a plain JWK
  * comes first when the issuer accepts one, so no DID record is created for it. Otherwise
- * did:jwk, then did:key. The stored SdJwtVcRecord keeps the KMS key id either way, so the wallet
- * page does not keep a separate thumbprint map.
+ * did:jwk, then did:key.
  */
 export async function createHolderBinding(
   agent: Agent,

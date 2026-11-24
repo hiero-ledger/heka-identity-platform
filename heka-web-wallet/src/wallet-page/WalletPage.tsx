@@ -1,5 +1,5 @@
 import type { DcqlCredentialsForRequest } from '@credo-ts/core'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 import type { WalletPageMessage } from '../background/service-worker'
 import { getOrCreateAgent } from '../credo/lazy-agent'
@@ -17,13 +17,19 @@ import { presentErrorMessage } from '../oid4vp/present-errors'
 import { describePresentation, type PresentationPreview } from '../oid4vp/presentation-preview'
 import { needsHostGrant, requestOptionalHostAccess } from '../wallet/host-access'
 import {
+  loadPendingOffer,
+  loadPendingRequest,
+  reportPendingOffer,
+  settlePendingOffer,
+  settlePendingRequest,
+} from '../wallet/pending-items'
+import {
   formatOfferExpiry,
   issuerRejectedExpiredOffer,
   pendingOfferExpired,
-  readPendingOffer,
   type PendingOffer,
 } from '../wallet/pending-offer'
-import { PENDING_OFFER_KEY, PENDING_REQUEST_KEY, RECEIVE_STATUS_KEY, WALLET_STATUS_KEY } from '../wallet/storage-keys'
+import { RECEIVE_STATUS_KEY, WALLET_STATUS_KEY } from '../wallet/storage-keys'
 import { syncCredentialSummaryCache } from '../wallet/summary-cache'
 
 type Status = { state: 'loading' } | { state: 'ready' } | { state: 'error'; message: string }
@@ -41,6 +47,12 @@ interface PresentationReview {
   preview: PresentationPreview
 }
 
+/**
+ * The offer or request the page handles now, one object per opening. A newer one replaces it; an
+ * async step that finds itself replaced leaves the page state alone.
+ */
+type Current<T> = React.MutableRefObject<T | null>
+
 export const WalletPage: React.FC = () => {
   const params = new URLSearchParams(window.location.search)
   const offer = params.get('offer')
@@ -55,22 +67,35 @@ export const WalletPage: React.FC = () => {
   const [presentation, setPresentation] = useState<PresentationReview | null>(null)
   const [heldRequest, setHeldRequest] = useState<string | null>(null)
   const [requestNeedsAccess, setRequestNeedsAccess] = useState(false)
+  const currentOffer = useRef<PendingOffer | null>(null)
+  const currentRequest = useRef<{ requestUri: string } | null>(null)
 
   useEffect(() => {
     let cancelled = false
+    // PENDING_UPDATED also comes when only the other pending item changed, or from the popup's "Open
+    // wallet", so an item already on the page is not opened again.
     const openPending = async (pendingOffer: PendingOffer | null, presentationRequest: string | null) => {
-      if (pendingOffer) await openOffer(pendingOffer, setFlow, setOfferReview, setHeldOffer, setOfferNeedsAccess)
+      if (pendingOffer && pendingOffer.offerUri !== currentOffer.current?.offerUri) {
+        setTxCode('')
+        await openOffer(pendingOffer, currentOffer, setFlow, setOfferReview, setHeldOffer, setOfferNeedsAccess)
+      }
       if (cancelled) return
-      if (presentationRequest) {
-        await openPresentation(presentationRequest, setFlow, setPresentation, setHeldRequest, setRequestNeedsAccess)
+      if (presentationRequest && presentationRequest !== currentRequest.current?.requestUri) {
+        await openPresentation(
+          presentationRequest,
+          currentRequest,
+          setFlow,
+          setPresentation,
+          setHeldRequest,
+          setRequestNeedsAccess,
+        )
       }
     }
     // The service worker keeps this window for later requests. Registered before the first read of
     // the pending items, so a request stored while the agent starts is not missed.
     const onMessage = (message: WalletPageMessage) => {
       if (message?.type !== 'PENDING_UPDATED' || cancelled) return
-      setTxCode('')
-      void (async () => openPending(await loadPendingOffer(), await peekPendingRequest()))()
+      void (async () => openPending(await loadPendingOffer(), await loadPendingRequest()))()
     }
     chrome.runtime.onMessage.addListener(onMessage)
 
@@ -95,7 +120,7 @@ export const WalletPage: React.FC = () => {
       }
 
       if (cancelled) return
-      await openPending(offer ? { offerUri: offer } : await loadPendingOffer(), request ?? (await peekPendingRequest()))
+      await openPending(offer ? { offerUri: offer } : await loadPendingOffer(), request ?? (await loadPendingRequest()))
     })()
     return () => {
       cancelled = true
@@ -106,15 +131,19 @@ export const WalletPage: React.FC = () => {
   const onGrantOfferAccess = async () => {
     if (!heldOffer) return
     const granted = await requestOptionalHostAccess()
+    if (currentOffer.current?.offerUri !== heldOffer.offerUri) return
     if (!granted) {
       setFlow({ state: 'error', message: 'Remote issuer access was not allowed. The offer is still saved.' })
       return
     }
-    await openOffer(heldOffer, setFlow, setOfferReview, setHeldOffer, setOfferNeedsAccess)
+    await openOffer(heldOffer, currentOffer, setFlow, setOfferReview, setHeldOffer, setOfferNeedsAccess)
   }
 
   const onAcceptOffer = async () => {
     if (!offerReview) return
+    const handling = currentOffer.current
+    if (handling?.offerUri !== offerReview.offerUri) return
+    const replaced = () => currentOffer.current !== handling
     const codeError = transactionCodeError(txCode, offerReview.preview.txCode)
     if (codeError) {
       setFlow({ state: 'error', message: codeError })
@@ -122,11 +151,13 @@ export const WalletPage: React.FC = () => {
     }
     if (await needsHostGrant(offerReview.offerUri)) {
       const granted = await requestOptionalHostAccess()
+      if (replaced()) return
       if (!granted) {
         setFlow({ state: 'error', message: 'Remote issuer access was not allowed. The offer is still saved.' })
         return
       }
     }
+    if (replaced()) return
     setFlow({ state: 'working' })
     try {
       const { received, deferred } = await acceptCredentialOffer(
@@ -136,87 +167,93 @@ export const WalletPage: React.FC = () => {
       const message = receiveResultMessage(received, deferred)
       // Only a stored credential is 'done'; the Heka page treats 'done' as received.
       const state = received > 0 ? 'done' : 'error'
+      await settlePendingOffer(offerReview.offerUri, { state, message })
+      if (replaced()) return
+      currentOffer.current = null
       setFlow({ state, message })
       setOfferReview(null)
       setHeldOffer(null)
-      await chrome.storage.local.set({ [RECEIVE_STATUS_KEY]: { state, message } })
-      await chrome.storage.local.remove(PENDING_OFFER_KEY)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Credential receive failed'
       if (issuerRejectedExpiredOffer(message)) {
+        await settlePendingOffer(offerReview.offerUri, {
+          state: 'error',
+          message: 'This credential offer expired. Request a new one in Heka.',
+        })
+        if (replaced()) return
+        currentOffer.current = null
         setHeldOffer(null)
         setOfferReview(null)
         setFlow({ state: 'error', message: `${message} Request a new credential in Heka.` })
-        await chrome.storage.local.remove(PENDING_OFFER_KEY)
-        await chrome.storage.local.set({
-          [RECEIVE_STATUS_KEY]: {
-            state: 'error',
-            message: 'This credential offer expired. Request a new one in Heka.',
-          },
-        })
         return
       }
       if (error instanceof CredentialReceiveError && !error.retryable) {
         const text = `${message} The issuer has already redeemed this offer, so it cannot be retried. Request a new credential in Heka.`
+        await settlePendingOffer(offerReview.offerUri, { state: 'error', message: text })
+        if (replaced()) return
+        currentOffer.current = null
         setHeldOffer(null)
         setOfferReview(null)
         setFlow({ state: 'error', message: text })
-        await chrome.storage.local.remove(PENDING_OFFER_KEY)
-        await chrome.storage.local.set({ [RECEIVE_STATUS_KEY]: { state: 'error', message: text } })
         return
       }
-      setFlow({ state: 'error', message: `${message} The offer is still saved. Open the wallet page to retry.` })
-      await chrome.storage.local.set({
-        [PENDING_OFFER_KEY]: storedOffer(offerReview),
-        [RECEIVE_STATUS_KEY]: {
-          state: 'error',
-          message: `${message} The offer is still saved. Open the wallet page to retry.`,
-        },
-      })
+      const text = `${message} The offer is still saved. Open the wallet page to retry.`
+      await reportPendingOffer(offerReview.offerUri, { state: 'error', message: text })
+      if (replaced()) return
+      setFlow({ state: 'error', message: text })
     }
   }
 
   const onDeclineOffer = async () => {
+    const declined = offerReview ?? heldOffer
+    if (!declined || currentOffer.current?.offerUri !== declined.offerUri) return
+    currentOffer.current = null
     setOfferReview(null)
     setHeldOffer(null)
     setOfferNeedsAccess(false)
     setFlow({ state: 'error', message: 'Credential offer declined.' })
-    await chrome.storage.local.remove(PENDING_OFFER_KEY)
-    await chrome.storage.local.set({
-      [RECEIVE_STATUS_KEY]: { state: 'error', message: 'Credential offer declined.' },
-    })
+    await settlePendingOffer(declined.offerUri, { state: 'error', message: 'Credential offer declined.' })
   }
 
   const onGrantRequestAccess = async () => {
     if (!heldRequest) return
     const granted = await requestOptionalHostAccess()
+    if (currentRequest.current?.requestUri !== heldRequest) return
     if (!granted) {
       setFlow({ state: 'error', message: 'Remote verifier access was not allowed. The request is still saved.' })
       return
     }
-    await openPresentation(heldRequest, setFlow, setPresentation, setHeldRequest, setRequestNeedsAccess)
+    await openPresentation(heldRequest, currentRequest, setFlow, setPresentation, setHeldRequest, setRequestNeedsAccess)
   }
 
   const onSubmitPresentation = async () => {
     if (!presentation || !heldRequest) return
+    const handling = currentRequest.current
+    if (handling?.requestUri !== heldRequest) return
+    const replaced = () => currentRequest.current !== handling
     if (await needsHostGrant(heldRequest)) {
       const granted = await requestOptionalHostAccess()
+      if (replaced()) return
       if (!granted) {
         setFlow({ state: 'error', message: 'Remote verifier access was not allowed. The request is still saved.' })
         return
       }
     }
+    if (replaced()) return
     setFlow({ state: 'working' })
     try {
       const result = await submitPresentation(presentation.resolved, presentation.selectedCredentials)
+      if (result.ok) await settlePendingRequest(heldRequest)
+      if (replaced()) return
       const message = result.ok ? 'Presentation submitted.' : 'The verifier rejected the presentation.'
       setFlow({ state: result.ok ? 'done' : 'error', message })
       setPresentation(null)
       if (result.ok) {
+        currentRequest.current = null
         setHeldRequest(null)
-        await chrome.storage.local.remove(PENDING_REQUEST_KEY)
       }
     } catch (error: unknown) {
+      if (replaced()) return
       const message = error instanceof Error ? error.message : 'Presentation failed'
       setFlow({
         state: 'error',
@@ -226,11 +263,14 @@ export const WalletPage: React.FC = () => {
   }
 
   const onDeclinePresentation = async () => {
+    const declined = heldRequest
+    if (!declined || currentRequest.current?.requestUri !== declined) return
+    currentRequest.current = null
     setPresentation(null)
     setHeldRequest(null)
     setRequestNeedsAccess(false)
     setFlow({ state: 'error', message: 'Presentation request declined.' })
-    await chrome.storage.local.remove(PENDING_REQUEST_KEY)
+    await settlePendingRequest(declined)
   }
 
   const codeError = offerReview ? transactionCodeError(txCode, offerReview.preview.txCode) : null
@@ -406,7 +446,9 @@ export const WalletPage: React.FC = () => {
           <button
             type="button"
             style={page.button}
-            onClick={() => void openOffer(heldOffer, setFlow, setOfferReview, setHeldOffer, setOfferNeedsAccess)}
+            onClick={() =>
+              void openOffer(heldOffer, currentOffer, setFlow, setOfferReview, setHeldOffer, setOfferNeedsAccess)
+            }
           >
             Retry offer
           </button>
@@ -418,7 +460,14 @@ export const WalletPage: React.FC = () => {
             type="button"
             style={page.button}
             onClick={() =>
-              void openPresentation(heldRequest, setFlow, setPresentation, setHeldRequest, setRequestNeedsAccess)
+              void openPresentation(
+                heldRequest,
+                currentRequest,
+                setFlow,
+                setPresentation,
+                setHeldRequest,
+                setRequestNeedsAccess,
+              )
             }
           >
             Retry presentation
@@ -432,43 +481,36 @@ export const WalletPage: React.FC = () => {
   )
 }
 
-function storedOffer(offer: PendingOffer): PendingOffer {
-  return offer.expiresAt ? { offerUri: offer.offerUri, expiresAt: offer.expiresAt } : { offerUri: offer.offerUri }
-}
-
-async function loadPendingOffer(): Promise<PendingOffer | null> {
-  const stored = await chrome.storage.local.get(PENDING_OFFER_KEY)
-  return readPendingOffer(stored[PENDING_OFFER_KEY])
-}
-
-async function peekPendingRequest(): Promise<string | null> {
-  const stored = await chrome.storage.local.get(PENDING_REQUEST_KEY)
-  const pending = stored[PENDING_REQUEST_KEY]
-  return typeof pending === 'string' && pending.length > 0 ? pending : null
-}
-
 async function openOffer(
   held: PendingOffer,
+  current: Current<PendingOffer>,
   setFlow: (status: FlowStatus) => void,
   setOfferReview: (value: OfferReview | null) => void,
   setHeldOffer: (value: PendingOffer | null) => void,
   setOfferNeedsAccess: (value: boolean) => void,
 ): Promise<void> {
+  const handling = { ...held }
+  current.current = handling
+  const replaced = () => current.current !== handling
+  setOfferReview(null)
+
   if (pendingOfferExpired(held)) {
+    current.current = null
     setHeldOffer(null)
     setOfferNeedsAccess(false)
-    setOfferReview(null)
     const message = `This offer expired at ${formatOfferExpiry(held.expiresAt ?? '')}. Request a new credential in Heka.`
     setFlow({ state: 'error', message })
-    await chrome.storage.local.remove(PENDING_OFFER_KEY)
-    await chrome.storage.local.set({
-      [RECEIVE_STATUS_KEY]: { state: 'error', message: 'This credential offer expired. Request a new one in Heka.' },
+    await settlePendingOffer(held.offerUri, {
+      state: 'error',
+      message: 'This credential offer expired. Request a new one in Heka.',
     })
     return
   }
 
   setHeldOffer(held)
-  if (await needsHostGrant(held.offerUri)) {
+  const needsGrant = await needsHostGrant(held.offerUri)
+  if (replaced()) return
+  if (needsGrant) {
     setOfferNeedsAccess(true)
     setFlow({ state: 'idle' })
     return
@@ -478,39 +520,44 @@ async function openOffer(
   setFlow({ state: 'working' })
   try {
     const resolved = await resolveIncomingOffer(held.offerUri)
+    if (replaced()) return
     setOfferReview({ ...held, resolved, preview: describeCredentialOffer(resolved) })
     setFlow({ state: 'idle' })
   } catch (error: unknown) {
+    if (replaced()) return
     const message = error instanceof Error ? error.message : 'Could not read this offer'
     if (issuerRejectedExpiredOffer(message)) {
+      current.current = null
       setHeldOffer(null)
-      setOfferReview(null)
       setFlow({ state: 'error', message: `${message} Request a new credential in Heka.` })
-      await chrome.storage.local.remove(PENDING_OFFER_KEY)
-      await chrome.storage.local.set({
-        [RECEIVE_STATUS_KEY]: { state: 'error', message: 'This credential offer expired. Request a new one in Heka.' },
+      await settlePendingOffer(held.offerUri, {
+        state: 'error',
+        message: 'This credential offer expired. Request a new one in Heka.',
       })
       return
     }
-    setFlow({ state: 'error', message: `${message} The offer is still saved. Open the wallet page to retry.` })
-    await chrome.storage.local.set({
-      [RECEIVE_STATUS_KEY]: {
-        state: 'error',
-        message: `${message} The offer is still saved. Open the wallet page to retry.`,
-      },
-    })
+    const text = `${message} The offer is still saved. Open the wallet page to retry.`
+    setFlow({ state: 'error', message: text })
+    await reportPendingOffer(held.offerUri, { state: 'error', message: text })
   }
 }
 
 async function openPresentation(
   requestUri: string,
+  current: Current<{ requestUri: string }>,
   setFlow: (status: FlowStatus) => void,
   setPresentation: (value: PresentationReview | null) => void,
   setHeldRequest: (value: string | null) => void,
   setRequestNeedsAccess: (value: boolean) => void,
 ): Promise<void> {
+  const handling = { requestUri }
+  current.current = handling
+  const replaced = () => current.current !== handling
+  setPresentation(null)
   setHeldRequest(requestUri)
-  if (await needsHostGrant(requestUri)) {
+  const needsGrant = await needsHostGrant(requestUri)
+  if (replaced()) return
+  if (needsGrant) {
     setRequestNeedsAccess(true)
     setFlow({ state: 'idle' })
     return
@@ -520,12 +567,14 @@ async function openPresentation(
   setFlow({ state: 'working' })
   try {
     const resolved = await handlePresentationRequest(requestUri)
+    if (replaced()) return
     setPresentation({
       ...resolved,
       preview: describePresentation(resolved.resolved, resolved.selectedCredentials),
     })
     setFlow({ state: 'idle' })
   } catch (error: unknown) {
+    if (replaced()) return
     setFlow({ state: 'error', message: presentErrorMessage(error) })
   }
 }

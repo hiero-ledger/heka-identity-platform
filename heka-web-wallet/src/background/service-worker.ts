@@ -9,8 +9,6 @@ import {
   WALLET_WINDOW_KEY,
 } from '../wallet/storage-keys'
 
-// ── Types for cross-context messages ─────────────────────────────────────────
-
 export type ExtensionMessage =
   | { type: 'PING' }
   | { type: 'RECEIVE_OFFER'; offerUri: string; expiresAt?: string }
@@ -117,13 +115,22 @@ async function presentRequestInExtension(requestUri: string): Promise<void> {
   await openWalletPage()
 }
 
+let walletWindowQueue: Promise<void> = Promise.resolve()
+
 /**
  * One wallet window, and so one Credo agent, serves consecutive requests: the window opened last
  * is focused and told to read the pending offer or request again. A new window opens only when
  * that one is gone. (Without the tabs permission, chrome.tabs.query doesn't return the
- * extension's own pages, so the window id is kept in session storage instead.)
+ * extension's own pages, so the window id is kept in session storage instead.) Calls run one
+ * after another, so requests that arrive together cannot each open a window.
  */
-async function openWalletPage(): Promise<void> {
+function openWalletPage(): Promise<void> {
+  const opened = walletWindowQueue.then(focusOrOpenWalletWindow)
+  walletWindowQueue = opened.catch(() => undefined)
+  return opened
+}
+
+async function focusOrOpenWalletWindow(): Promise<void> {
   const stored = await chrome.storage.session.get(WALLET_WINDOW_KEY)
   const windowId = stored[WALLET_WINDOW_KEY]
   if (typeof windowId === 'number') {

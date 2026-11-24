@@ -6,18 +6,6 @@ import react from '@vitejs/plugin-react'
 import { build, defineConfig, type Plugin } from 'vite'
 
 /**
- * Vite config for the Heka Web Wallet browser extension (Manifest V3).
- *
- * Entry points (one per Chrome context):
- *   - popup/index.html     → popup.html at project root (Vite HTML entry)
- *   - background/service-worker.js
- *   - content-scripts/heka-bridge.js, built separately as a classic script (vite.content-script.config.ts)
- *
- * Manifest V3 requirement: manifest.json and icons/ must be at dist/ root.
- * We handle this with a custom writeBundle Rollup plugin hook (no extra deps).
- */
-
-/**
  * reflect-metadata falls back to Function / eval to find the global object.
  * Manifest V3 will not execute those calls. Rewrite the dead browser paths so the
  * shipped bundle does not contain them.
@@ -33,10 +21,9 @@ const stripExtensionUnsafeEval = () => ({
 })
 
 /**
- * cbor-x's default build and Ajv (via Presentation Exchange) call Function().
- * Manifest V3 rejects that at runtime. The holder path uses DCQL, so the
- * Presentation Exchange modules are replaced with stubs, and CBOR uses the
- * package's no-eval build.
+ * Modules that call Function(), which the extension's CSP blocks. Presentation Exchange (Ajv,
+ * JSONPath) is replaced with stubs: the holder path uses DCQL. cbor-x catches the blocked call and
+ * falls back by itself; its no-eval build keeps Chrome's CSP report and check:csp clean.
  */
 const cspSafeCredoModules = () => ({
   name: 'csp-safe-credo-modules',
@@ -77,14 +64,11 @@ const buildContentScript = (mode: string): Plugin => ({
   },
 })
 
-/** Inline Rollup plugin that copies static assets into dist after the build. */
 const copyExtensionAssets = () => ({
   name: 'copy-extension-assets',
   writeBundle() {
-    // Copy manifest.json → dist/manifest.json
     copyFileSync(resolve(__dirname, 'manifest.json'), resolve(__dirname, 'dist/manifest.json'))
 
-    // Copy icons/ → dist/icons/  (skip silently if folder doesn't exist)
     const iconsDir = resolve(__dirname, 'icons')
     const distIconsDir = resolve(__dirname, 'dist/icons')
     if (existsSync(iconsDir)) {
@@ -94,8 +78,7 @@ const copyExtensionAssets = () => ({
       }
     }
 
-    // Vite outputs the HTML entry as dist/popup.html (named after input file).
-    // Chrome requires it at dist/popup/index.html (per manifest default_popup).
+    // Vite names the HTML output after its input; manifest.json's default_popup is popup/index.html.
     const htmlSrc = resolve(__dirname, 'dist/popup.html')
     const htmlDest = resolve(__dirname, 'dist/popup/index.html')
     mkdirSync(resolve(__dirname, 'dist/popup'), { recursive: true })
@@ -119,14 +102,12 @@ export default defineConfig(({ mode }) => ({
     sourcemap: mode !== 'production',
     rollupOptions: {
       input: {
-        // popup.html is at project root so Vite processes it correctly
-        // and outputs it to dist/popup/index.html via entryFileNames override
         popup: resolve(__dirname, 'popup.html'),
         wallet: resolve(__dirname, 'wallet.html'),
         'background/service-worker': resolve(__dirname, 'src/background/service-worker.ts'),
       },
       output: {
-        // Match the paths that manifest.json references exactly
+        // manifest.json names background/service-worker.js.
         entryFileNames: (chunk) => {
           if (chunk.name === 'popup') return 'popup/index.js'
           if (chunk.name === 'wallet') return 'wallet/index.js'
@@ -134,7 +115,6 @@ export default defineConfig(({ mode }) => ({
         },
         chunkFileNames: 'chunks/[name]-[hash].js',
         assetFileNames: (asset) => {
-          // CSS for the popup → popup/index.css
           if (asset.name === 'popup.css') return 'popup/index.css'
           if (asset.name === 'wallet.css') return 'wallet/index.css'
           return 'assets/[name].[ext]'
@@ -155,8 +135,8 @@ export default defineConfig(({ mode }) => ({
         __dirname,
         'node_modules/@digitalcredentials/open-badges-context/js/index.js',
       ),
-      // The package export points at the Node build. The extension only needs
-      // PublicKey and the browser client while resolving did:hedera.
+      // Its exports point at the Node build (grpc-js over HTTP/2). Vite also reaches lib/browser.js
+      // through the package's browser field; the alias keeps it there.
       '@hashgraph/sdk': resolve(__dirname, 'node_modules/@hashgraph/sdk/lib/browser.js'),
       // HCS checksums call this package, whose sha256 uses Node createHash.
       '@hiero-did-sdk/crypto': resolve(__dirname, 'src/credo/browser-hedera-crypto.ts'),

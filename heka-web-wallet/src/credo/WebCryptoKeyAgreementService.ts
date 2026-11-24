@@ -18,9 +18,8 @@ import {
 
 import { asBuffer, concatBytes } from './bytes'
 
-// Content encryption for ECDH-ES (direct key agreement) and the key length the Concat KDF derives.
-// These are the three Credo 0.7.4's holder can pick for an OpenID4VP response; Heka's verifier lists
-// all three, and the holder takes A128GCM. (Chrome has no 192-bit AES.)
+// The content encryption Credo 0.7.4's holder can pick for an OpenID4VP response, with the key
+// length the Concat KDF derives for it. (Chrome has no 192-bit AES.)
 const CONTENT_ENCRYPTION_KEY_BITS = new Map([
   ['A128GCM', 128],
   ['A256GCM', 256],
@@ -49,16 +48,13 @@ function isP256Jwk(jwk: unknown): jwk is { kty: 'EC'; crv: 'P-256'; x: string; y
 }
 
 /**
- * The wallet's second KMS backend: single-use ECDH P-256 keys for ECDH-ES, which Credo uses to
- * encrypt an OpenID4VP `direct_post.jwt` response to the verifier. WebCrypto fixes a key's
- * algorithm when it creates it, so the signing backend's ECDSA keys cannot do key agreement,
- * and its `createKey` cannot tell an ephemeral key from a holder key; `isOperationSupported`
- * can (isKeyAgreementKeyType), so Credo routes these keys here.
+ * The wallet's second KMS backend: single-use ECDH P-256 keys for the ECDH-ES encryption of an
+ * OpenID4VP `direct_post.jwt` response. WebCrypto fixes a key's algorithm when it creates it, so
+ * the signing backend's ECDSA keys cannot do key agreement; Credo routes these keys here through
+ * `isOperationSupported` (isKeyAgreementKeyType).
  *
- * The keys live in memory only and are deleted when `encrypt` ends, successful or not. Credo's
- * own `deleteKey` afterwards does not reach this backend: in 0.7.4 KeyManagementApi.deleteKey
- * picks the default backend instead of looking the key id up, so it returns false there.
- * Credo 0.8 generates the ephemeral key inside `encrypt`, where one backend would do.
+ * The keys live in memory only and are deleted when `encrypt` ends, successful or not, because
+ * Credo 0.7.4's `deleteKey` goes to the default backend (docs/credo-in-the-browser.md).
  */
 export class WebCryptoKeyAgreementService implements KeyManagementService {
   public readonly backend = 'webcrypto-browser-ecdh'

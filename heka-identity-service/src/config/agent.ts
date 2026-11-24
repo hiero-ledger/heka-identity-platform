@@ -159,14 +159,7 @@ export default registerAs('agent', () => {
     },
   }
 
-  /**
-   * The username of the pre-provisioned demo user that acts as the global
-   * contributor credential issuer.  Reads the same DEMO_USER env variable
-   * used by heka-auth-service so both services share the same account.
-   *
-   * Defaults to `'demo'` when the variable is not set, which matches the
-   * docker-compose default in heka-auth-service.
-   */
+  /** `DEMO_USER`: the OIDC subject whose `User` wallet is the provisional contributor credential issuer. */
   const contributorIssuerDemoUser = process.env.DEMO_USER ?? 'demo'
 
   return {

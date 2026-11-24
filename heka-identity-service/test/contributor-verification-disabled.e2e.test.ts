@@ -11,10 +11,11 @@ import { Role } from 'src/common/auth'
 import { initializeMikroOrm, startTestApp } from './helpers'
 import { createAuthToken } from './helpers/jwt'
 
-// The default: `ConditionalModule` reads the flag when the app module is evaluated, before the imports above run
+// Set before the imports above run, which evaluate the app module and its `ConditionalModule`s. Set, not
+// deleted: `.env` only fills unset variables, so a developer's `CONTRIBUTOR_VERIFICATION_ENABLED=true` can't apply.
 const originalEnv = vi.hoisted(() => {
   const original = { ...process.env }
-  delete process.env.CONTRIBUTOR_VERIFICATION_ENABLED
+  process.env.CONTRIBUTOR_VERIFICATION_ENABLED = 'false'
   return original
 })
 
@@ -54,6 +55,8 @@ describe('E2E contributor verification disabled', () => {
   ] as const)('%s %s is not registered (404)', async (method, path) => {
     const response = await request(app)[method](path).auth(token, { type: 'bearer' })
 
+    // Nest's route-not-found answer, not a 404 from a registered handler
     expect(response.status).toBe(404)
+    expect(response.body).toMatchObject({ message: `Cannot ${method.toUpperCase()} ${path}` })
   })
 })

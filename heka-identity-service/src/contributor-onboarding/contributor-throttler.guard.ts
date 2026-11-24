@@ -8,7 +8,9 @@ const CONTRIBUTOR_RATE_LIMIT_WINDOW_MS = 60_000
 
 /**
  * Rate limit of the contributor routes: 10 requests per minute per route and Heka user (OIDC subject),
- * so one user can't spend the shared GitHub API quota for everyone. The limit is per process.
+ * per process. It caps one user's bursts. It doesn't protect the unauthenticated GitHub API quota (60 requests
+ * per hour per IP, shared by all users): each verification spends one, so one user at this limit uses it up
+ * in six minutes.
  *
  * The `contributor` throttler is defined here instead of in the `ThrottlerModule` options (registered
  * globally by DemoModule), so this guard applies only it, and the demo broker's guard doesn't apply it.

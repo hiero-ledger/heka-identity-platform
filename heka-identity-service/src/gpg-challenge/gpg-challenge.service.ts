@@ -80,7 +80,7 @@ export class GpgChallengeService {
 
   /**
    * Nonce bound to the caller's linked GitHub account.
-   * The caller signs it with `echo "<nonce>" | gpg --clearsign`.
+   * The caller signs it with `echo -n "<nonce>" | gpg --clearsign --armor`.
    */
   public async createChallengeForUser(authInfo: AuthInfo): Promise<GpgChallenge> {
     const binding = await this.contributorOnboardingService.getRequiredBindingForUser(authInfo)
@@ -355,7 +355,7 @@ export class GpgChallengeService {
       signedMessage = await openpgp.readCleartextMessage({ cleartextMessage: armoredMessage })
     } catch {
       throw new BadRequestException(
-        'The submitted signature could not be parsed as a PGP cleartext-signed message. Ensure you ran: echo "<nonce>" | gpg --clearsign and submitted the complete output including the BEGIN/END headers.',
+        'The submitted signature could not be parsed as a PGP cleartext-signed message. Ensure you ran: echo -n "<nonce>" | gpg --clearsign --armor and submitted the complete output including the BEGIN/END headers.',
       )
     }
 

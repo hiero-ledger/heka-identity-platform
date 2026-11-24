@@ -4,7 +4,7 @@ For the optional contributor verification ([Contributor onboarding](contributor-
 
 - **All contributor routes answer `404`.** The feature is off: set `CONTRIBUTOR_VERIFICATION_ENABLED=true` and the GitHub OAuth app settings. The web UI needs its own flag too.
 - **Invalid, expired, or already-consumed OAuth state (`400`).** The link was started more than 5 minutes ago, the callback page was reloaded or opened again, or another Heka user opened it. Start the link again.
-- **GitHub account already linked to another Heka user (`409`).** Unlink it from that user first (`DELETE /v2/contributor-onboarding/github`).
+- **GitHub account already linked to another Heka user (`409`).** Unlink it from that user first. Unlinking is API-only for now: that user calls `DELETE /v2/contributor-onboarding/github`; the web UI has no unlink control yet.
 - **Link a GitHub account first (`409`).** A challenge needs a linked GitHub account.
 - **Expired challenge.** Request a new nonce. The previous one cannot be reused after 5 minutes or after one submission.
 - **Missing GPG key.** Publish a key at `https://github.com/<login>.gpg` and request a new challenge. For a user without GPG keys, GitHub returns a placeholder block, which the service reports as a key that could not be parsed.

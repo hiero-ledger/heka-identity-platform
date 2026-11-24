@@ -1,7 +1,7 @@
 import * as crypto from 'crypto'
 
 import { createMock } from '@golevelup/ts-vitest'
-import { EntityManager } from '@mikro-orm/core'
+import { EntityManager, UniqueConstraintViolationException } from '@mikro-orm/core'
 import { HttpService } from '@nestjs/axios'
 import { BadGatewayException, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
 import { of, throwError } from 'rxjs'
@@ -304,6 +304,41 @@ describe('ContributorOnboardingService', () => {
       github()
 
       await expect(service.completeGithubLink(auth(), 'code', 'state')).rejects.toThrow(ConflictException)
+    })
+
+    describe('a concurrent callback that wrote first (unique constraint)', () => {
+      const uniqueViolation = (constraint: string) =>
+        new UniqueConstraintViolationException(
+          Object.assign(new Error(`duplicate key value violates unique constraint "${constraint}"`), {
+            code: '23505',
+            constraint,
+          }),
+        )
+
+      it.each([
+        ['contributor_binding_github_account_id_unique', /already linked to another Heka user/],
+        ['contributor_binding_user_id_unique', /linked a GitHub account to this Heka user at the same time/],
+      ])('%s answers 409; the state stays consumed and the token revoked', async (constraint, message) => {
+        rows({ attempt: pendingAttempt() })
+        github()
+        em.flush.mockRejectedValue(uniqueViolation(constraint))
+
+        const error = await service.completeGithubLink(auth(), 'code', 'state').catch((e: unknown) => e)
+
+        expect(error).toBeInstanceOf(ConflictException)
+        expect((error as ConflictException).message).toMatch(message)
+        expect(em.nativeUpdate).toHaveBeenCalledOnce()
+        expect(http.delete).toHaveBeenCalledOnce()
+      })
+
+      it('passes other database errors through', async () => {
+        rows({ attempt: pendingAttempt() })
+        github()
+        const other = uniqueViolation('contributor_audit_event_pkey')
+        em.flush.mockRejectedValue(other)
+
+        await expect(service.completeGithubLink(auth(), 'code', 'state')).rejects.toBe(other)
+      })
     })
 
     it('lets the same subject link the same account again after a role change, keeping the verification', async () => {

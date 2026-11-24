@@ -12,9 +12,9 @@ export interface ContributorBinding {
   githubAccountId: string;
   githubUsername: string;
   walletId: string;
-  gpgFingerprint?: string | null;
-  verifiedAt?: string | null;
-  linkedAt?: string;
+  gpgFingerprint?: string;
+  verifiedAt?: string;
+  linkedAt: string;
   updatedAt: string;
 }
 
@@ -24,7 +24,8 @@ export interface ContributorAuditEvent {
     | 'ChallengeRequested'
     | 'ProofAccepted'
     | 'ProofRejected'
-    | 'BindingUpdated';
+    | 'BindingUpdated'
+    | 'BindingRemoved';
   githubAccountId?: string;
   githubUsername?: string;
   walletId?: string;
@@ -36,10 +37,9 @@ export interface ContributorAuditEvent {
 /** `GET /v2/contributor-onboarding/status` */
 export interface ContributorOnboardingStatus {
   github?: ContributorGithubIdentity;
-  binding?: ContributorBinding | null;
+  binding?: ContributorBinding;
   verificationStatus: ContributorVerificationStatus;
   auditEvents: ContributorAuditEvent[];
-  credentialIssued?: boolean;
 }
 
 /** `POST /v2/contributor-onboarding/github/link/start` */
@@ -67,7 +67,6 @@ export interface VerifyContributorGpgChallengeResult {
   verified: boolean;
   message: string;
   gpgFingerprint?: string;
-  binding?: ContributorBinding;
 }
 
 /** `POST /v2/contributor-credential/offer` */
@@ -84,25 +83,16 @@ export interface ContributorCredentialOffer {
 export type OnboardingStep = 0 | 1 | 2 | 3;
 
 export interface ContributorSchema {
-  /** Current wizard step */
   currentStep: OnboardingStep;
-  /** Steps the user has completed */
   completedSteps: OnboardingStep[];
-  /** Whether a GitHub account is linked to this session */
   githubLinked: boolean;
-  /** GitHub username returned after OAuth */
   githubUsername: string | null;
-  /** GitHub account ID returned after OAuth */
   githubAccountId: string | null;
   /** The active GPG challenge, from step 2 (sign) onwards */
   activeChallenge: ContributorGpgChallenge | null;
-  /** The last GPG verification result */
   verificationResult: VerifyContributorGpgChallengeResult | null;
-  /** The contributor wallet binding (populated after verification) */
+  /** The user's binding, as the last status returned it */
   binding: ContributorBinding | null;
-  /** Whether the credential has been issued and received into the wallet */
-  credentialIssued: boolean;
-  /** Global loading flag for async actions */
   isLoading: boolean;
   /** Error of the most recent failed action, until the next user action */
   error: string | null;

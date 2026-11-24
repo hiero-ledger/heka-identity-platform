@@ -2223,7 +2223,8 @@ paths:
             another user.
         "401": *a52
         "409":
-          description: The GitHub account is linked to another Heka user.
+          description: The GitHub account is linked to another Heka user, or a concurrent
+            request linked a GitHub account to this user.
         "429": *a53
         "502":
           description: GitHub rejected the code or returned no usable identity.
@@ -2250,8 +2251,9 @@ paths:
     post:
       description: 'Optional feature: available when
         CONTRIBUTOR_VERIFICATION_ENABLED=true. Returns a single-use nonce that
-        expires after 5 minutes. Sign it with `echo "<nonce>" | gpg --clearsign`
-        and submit the armored output to POST /v2/gpg-challenge/verify.'
+        expires after 5 minutes. Sign it with `echo -n "<nonce>" | gpg
+        --clearsign --armor` and submit the armored output to POST
+        /v2/gpg-challenge/verify.'
       operationId: GpgChallengeController_requestChallenge_v2
       parameters: []
       responses:
@@ -4779,8 +4781,8 @@ components:
           example: d290f1ee-6c54-4b01-90e6-d701748f0851
         signature:
           type: string
-          description: PGP cleartext-signed message produced by `echo "<nonce>" | gpg
-            --clearsign`, including the BEGIN/END headers.
+          description: PGP cleartext-signed message produced by `echo -n "<nonce>" | gpg
+            --clearsign --armor`, including the BEGIN/END headers.
       required:
         - challengeId
         - signature

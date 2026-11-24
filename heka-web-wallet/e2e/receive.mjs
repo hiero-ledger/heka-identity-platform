@@ -106,7 +106,7 @@ try {
   heka.on('pageerror', (error) => pageErrors.push(`heka page: ${error.message}`))
   await heka.goto(`http://127.0.0.1:${HEKA_PAGE_PORT}/`, { waitUntil: 'load' })
 
-  // X3: the content script loads as a classic script and announces itself.
+  // The content script loads as a classic script and announces itself.
   check('bridge: content script loaded (EXTENSION_READY)', Boolean(await bridgeEvent(heka, 'EXTENSION_READY')))
   await heka.evaluate(() => window.sendBridge('PING'))
   const pong = await bridgeEvent(heka, 'PING_RESPONSE')
@@ -152,19 +152,15 @@ try {
     )
     const [summary] = stored.credentialsSummary ?? []
     check('popup summary: one credential', stored.credentialCount === 1, JSON.stringify(summary))
-    check(
-      'popup summary: display name from issuer metadata (X9)',
-      Boolean(summary?.display?.name),
-      summary?.display?.name,
-    )
-    check('popup summary: issued date from iat (X9)', Boolean(summary?.issuedAt), summary?.issuedAt)
+    check('popup summary: display name from issuer metadata', Boolean(summary?.display?.name), summary?.display?.name)
+    check('popup summary: issued date from iat', Boolean(summary?.issuedAt), summary?.issuedAt)
   } else {
     console.log('note: no offer source (HEKA_TOKEN or HEKA_OFFER_URI), so nothing is redeemed; see README.md')
     await bodyIncludes(wallet, 'Allow remote issuer access')
     check('wallet: placeholder offer held for review', true)
   }
 
-  // X6: a later request goes to the open wallet window instead of a new one.
+  // A later request goes to the open wallet window instead of a new one.
   await heka.evaluate((uri) => window.sendBridge('RECEIVE_OFFER', { offerUri: uri }), PLACEHOLDER_OFFER)
   await bodyIncludes(wallet, 'Allow remote issuer access')
   check(

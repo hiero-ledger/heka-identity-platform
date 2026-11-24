@@ -6,14 +6,14 @@ import { getOrCreateAgent } from '../lazy-agent'
 
 /**
  * Pins how Credo 0.7.4's KeyManagementApi routes between the wallet's two KMS backends:
- * `webcrypto-browser` (holder keys) and `webcrypto-browser-ecdh` (the single-use key that
- * encrypts an OpenID4VP `direct_post.jwt` response). If a Credo upgrade breaks this:
- * - createKey: KeyManagementApi.createKey no longer passes the unparsed `type` to
- *   isOperationSupported, so the ephemeral key would become an ECDSA key that cannot do ECDH;
- * - deleteKey: Credo now looks the key id up instead of using the default backend. The
- *   key-agreement backend already deletes its key in `encrypt`, so only this test needs updating;
- * - Credo 0.8 generates the ephemeral key inside `encrypt` (`keyAgreement.recipient`), so the
- *   key-agreement backend is no longer needed: one backend that encrypts with ECDH-ES is enough.
+ * `webcrypto-browser` (holder keys) and `webcrypto-browser-ecdh` (the single-use key of an
+ * encrypted OpenID4VP response). What a Credo upgrade can change here:
+ * - createKey: if the unparsed `type` no longer reaches isOperationSupported, the ephemeral key
+ *   becomes an ECDSA key that cannot do ECDH;
+ * - deleteKey: if Credo looks the key id up, only this test needs updating (`encrypt` already
+ *   deletes the key);
+ * - Credo 0.8 creates the ephemeral key inside `encrypt` (`keyAgreement.recipient`), so one
+ *   backend that does ECDH-ES is enough.
  */
 describe('Credo 0.7.4 KMS routing the two wallet backends rely on (recheck after a Credo upgrade)', () => {
   let agent: Agent

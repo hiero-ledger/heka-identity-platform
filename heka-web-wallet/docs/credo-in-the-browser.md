@@ -6,14 +6,26 @@ Askar is not used. Records go through `IndexedDbStorageService`, registered on `
 
 ## Build workarounds
 
-- `express` is aliased to `src/credo/express-stub.ts`. `@credo-ts/openid4vc` imports it, and the holder path does not call it.
-- `@digitalcredentials/open-badges-context` is aliased to `js/index.js`. The published `module` field points at a file that is not in the tarball.
-- `KeyManagementModule` is imported from `@credo-ts/core/kms`. It is not exported from the package root.
+Aliases (`resolve.alias` in `vite.config.ts`):
+
+- `express` → `src/credo/express-stub.ts`. `@credo-ts/openid4vc` imports it, and the holder path does not call it.
+- `@digitalcredentials/open-badges-context` → its `js/index.js`. The published `module` field points at a file that is not in the tarball.
+- `@hashgraph/sdk` → its `lib/browser.js`, the browser client (gRPC-web). The package's `exports` point at the Node build (grpc-js over HTTP/2). Vite 6 already reaches `lib/browser.js` through the package's `browser` field; the alias keeps it there.
+- `@hiero-did-sdk/crypto` → `src/credo/browser-hedera-crypto.ts`, a synchronous SHA-256 from `@noble/hashes`. The package hashes HCS topic checksums with Node's `createHash`.
+
+Module redirects (the `csp-safe-credo-modules` plugin), for code that calls `Function`, which the extension's CSP blocks:
+
+- `cbor-x` → its `index-no-eval` build (`src/credo/cbor-no-eval.js`, which also re-exports `Tag` for `@owf/cose`). cbor-x catches the blocked call and falls back by itself; the redirect keeps Chrome's CSP violation report and `check:csp` clean.
+- `setimmediate` → a `setTimeout` shim.
+- Presentation Exchange, which compiles Ajv and JSONPath through `Function` → stubs. The holder path uses DCQL only.
+
+Other:
+
 - The `Function` / `eval` global lookup in `reflect-metadata` is rewritten to `globalThis` during the build.
-- `cbor-x` is aliased to its `index-no-eval` build (`src/credo/cbor-no-eval.js`, which also re-exports `Tag` for `@owf/cose`). `setimmediate` is aliased to a `setTimeout` shim. Presentation Exchange, which compiles Ajv and JSONPath through `Function`, is replaced with stubs. The holder path uses DCQL only.
+- `KeyManagementModule` is imported from `@credo-ts/core/kms`. It is not exported from the package root.
 - The content script is built on its own as one IIFE (`vite.content-script.config.ts`): Chrome runs content scripts as classic scripts, which cannot `import` the chunks it would otherwise share with the service worker.
 
-These workarounds match package and file names inside Credo and its dependencies. `yarn build` ends with checks that fail when one stops applying, when a content script is not a classic script, or when the bundle contains `new Function` or `eval(` (`scripts/check-*.mjs`). `e2e/` receives a credential from a local issuer in Chrome for Testing. DCQL presentation against a running verifier is not exercised there yet.
+These workarounds match package and file names inside Credo and its dependencies. `yarn build` ends with checks (`scripts/check-*.mjs`) that fail when one of them stops applying (all but the `express` alias), when a content script is not a classic script, or when the bundle contains `new Function` or `eval(`. `e2e/` receives a credential from a local issuer in Chrome for Testing. DCQL presentation against a running verifier is not exercised there yet.
 
 ## Runtime
 

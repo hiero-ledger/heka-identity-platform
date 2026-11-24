@@ -34,9 +34,10 @@ interface StoredKey {
 }
 
 const GCM_ALGORITHMS = new Set(['A128GCM', 'A192GCM', 'A256GCM'])
-// What webCryptoAlgorithm maps and canCreate makes keys for. No ES256K (WebCrypto has no
-// secp256k1) and no ES512 (no P-521 keys here).
+// The algorithms of the keys canCreate makes. No ES256K: WebCrypto has no secp256k1.
 const SIGNATURE_ALGORITHMS = new Set(['EdDSA', 'Ed25519', 'ES256', 'ES384', 'HS256', 'HS384', 'HS512'])
+// Verification also takes an issuer's or verifier's P-521 key, which WebCrypto imports.
+const VERIFY_ALGORITHMS = new Set([...SIGNATURE_ALGORITHMS, 'ES512'])
 
 /**
  * Browser KMS. Private keys are created non-extractable and stay in IndexedDB.
@@ -62,8 +63,9 @@ export class WebCryptoKeyManagementService implements KeyManagementService {
         // The ephemeral key for an encrypted OpenID4VP response belongs to the key-agreement backend.
         return canCreate(operation.type) && !isKeyAgreementKeyType(operation.type)
       case 'sign':
-      case 'verify':
         return SIGNATURE_ALGORITHMS.has(operation.algorithm)
+      case 'verify':
+        return VERIFY_ALGORITHMS.has(operation.algorithm)
       case 'encrypt':
         return GCM_ALGORITHMS.has(operation.encryption.algorithm) && !operation.keyAgreement
       case 'decrypt':
@@ -222,7 +224,7 @@ function requireKeyId(keyId: string | undefined): string {
 }
 
 function canCreate(type: KmsCreateKeyType): boolean {
-  if (type.kty === 'OKP') return type.crv === 'Ed25519' || type.crv === 'X25519'
+  if (type.kty === 'OKP') return type.crv === 'Ed25519'
   if (type.kty === 'EC') return type.crv === 'P-256' || type.crv === 'P-384'
   if (type.kty === 'oct') return type.algorithm === 'aes' || type.algorithm === 'hmac'
   return false
@@ -231,10 +233,6 @@ function canCreate(type: KmsCreateKeyType): boolean {
 async function generateKey(type: KmsCreateKeyType): Promise<{ privateKey: CryptoKey; publicKey?: CryptoKey }> {
   if (type.kty === 'OKP' && type.crv === 'Ed25519') {
     const pair = (await crypto.subtle.generateKey({ name: 'Ed25519' }, false, ['sign', 'verify'])) as CryptoKeyPair
-    return { privateKey: pair.privateKey, publicKey: pair.publicKey }
-  }
-  if (type.kty === 'OKP' && type.crv === 'X25519') {
-    const pair = (await crypto.subtle.generateKey({ name: 'X25519' }, false, ['deriveBits'])) as CryptoKeyPair
     return { privateKey: pair.privateKey, publicKey: pair.publicKey }
   }
   if (type.kty === 'EC') {
@@ -262,9 +260,13 @@ async function exportPublicJwk(key: CryptoKey, type: KmsCreateKeyType): Promise<
     return { kty: 'oct' }
   }
   const jwk = await crypto.subtle.exportKey('jwk', key)
-  // ext and key_ops describe the WebCrypto key; Credo would pass them on in the proof JWK.
-  const { d: _private, ext: _ext, key_ops: _keyOps, ...publicJwk } = jwk
-  return publicJwk as KmsJwkPublic
+  // Only the key members. An export also carries `ext` and `key_ops`, and newer WebCrypto
+  // implementations add `alg` to Ed25519 keys (Node 22.23, not 22.14); Credo would pass them all on
+  // in the proof JWK.
+  if (jwk.kty === 'EC') {
+    return { kty: 'EC', crv: jwk.crv, x: jwk.x, y: jwk.y } as KmsJwkPublic
+  }
+  return { kty: 'OKP', crv: jwk.crv, x: jwk.x } as KmsJwkPublic
 }
 
 function webCryptoAlgorithm(algorithm: string): AlgorithmIdentifier | EcdsaParams {

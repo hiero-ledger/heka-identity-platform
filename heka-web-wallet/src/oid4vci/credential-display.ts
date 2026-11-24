@@ -71,7 +71,6 @@ export function readCredentialDisplay(configuration: unknown): CredentialDisplay
   return result
 }
 
-/** The issuer's display name from its credential issuer metadata. */
 export function readIssuerName(issuerMetadata: unknown): string | undefined {
   return nonEmptyString(pickDisplay(asRecord(issuerMetadata)?.display)?.name)
 }

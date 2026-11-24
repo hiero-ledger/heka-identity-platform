@@ -86,7 +86,7 @@ const GithubLoginStep: React.FC<Props> = () => {
       </button>
 
       <p className={cls.privacyNote}>
-        By continuing, you agree to Hiera&apos;s{' '}
+        By continuing, you agree to Hiero&apos;s{' '}
         <a
           href="https://hiero.org/privacy"
           target="_blank"

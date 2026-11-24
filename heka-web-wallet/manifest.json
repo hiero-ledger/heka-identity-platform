@@ -7,8 +7,6 @@
 
   "permissions": [
     "storage",
-    "alarms",
-    "notifications",
     "offscreen"
   ],
   "host_permissions": [

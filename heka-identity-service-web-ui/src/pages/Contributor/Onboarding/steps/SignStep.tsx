@@ -80,7 +80,6 @@ const SignStep: React.FC<Props> = ({
         your GPG key. Then paste the full signed output into the field below.
       </p>
 
-      {/* Challenge nonce display */}
       <div className={cls.nonceCard}>
         <div className={cls.nonceHeader}>
           <span className={cls.nonceLabel}>Challenge Nonce</span>
@@ -91,7 +90,6 @@ const SignStep: React.FC<Props> = ({
         <code className={cls.nonceValue}>{challenge.nonce}</code>
       </div>
 
-      {/* GPG command */}
       <div className={cls.commandCard}>
         <div className={cls.commandHeader}>
           <span className={cls.commandLabel}>Run in terminal</span>
@@ -106,7 +104,6 @@ const SignStep: React.FC<Props> = ({
         <pre className={cls.commandCode}>{gpgCommand}</pre>
       </div>
 
-      {/* Help callout */}
       <div className={cls.helpBox}>
         <strong>Don&apos;t have a GPG key on GitHub?</strong>
         <p>
@@ -123,7 +120,6 @@ const SignStep: React.FC<Props> = ({
         </p>
       </div>
 
-      {/* Signature textarea */}
       <div className={cls.signatureGroup}>
         <label
           htmlFor="gpg-signature"
@@ -145,7 +141,6 @@ const SignStep: React.FC<Props> = ({
         />
       </div>
 
-      {/* Error states */}
       <div className={cls.errorHints}>
         <p className={cls.errorHintsTitle}>Common errors:</p>
         <ul>

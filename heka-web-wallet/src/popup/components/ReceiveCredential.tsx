@@ -28,7 +28,6 @@ export const ReceiveCredential: React.FC<Props> = ({ initialOfferUri, onReceived
 
   return (
     <div style={s.container}>
-      {/* Section heading */}
       <div style={s.headingRow}>
         <div style={s.headingIcon}>↓</div>
         <div>
@@ -42,7 +41,6 @@ export const ReceiveCredential: React.FC<Props> = ({ initialOfferUri, onReceived
         This popup never loads the credential agent.
       </p>
 
-      {/* URI input */}
       <div style={s.inputGroup}>
         <label style={s.label} htmlFor="offer-uri">
           Credential Offer URI
@@ -64,7 +62,6 @@ export const ReceiveCredential: React.FC<Props> = ({ initialOfferUri, onReceived
         </div>
       </div>
 
-      {/* Status feedback */}
       {state.status === 'error' && (
         <div style={s.errBox}>
           <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
@@ -79,7 +76,6 @@ export const ReceiveCredential: React.FC<Props> = ({ initialOfferUri, onReceived
         Open in wallet
       </button>
 
-      {/* Privacy note */}
       <div style={s.privacyNote}>
         <span style={{ fontSize: 12 }}>🔒</span>
         <span>Your private key never leaves this browser.</span>
@@ -156,7 +152,6 @@ const s: Record<string, React.CSSProperties> = {
     lineHeight: 1.6,
   },
 
-  // Error
   errBox: {
     display: 'flex',
     gap: 10,
@@ -168,7 +163,6 @@ const s: Record<string, React.CSSProperties> = {
   },
   errTitle: { fontSize: 12, color: '#fca5a5', fontWeight: 700 },
 
-  // Button
   btn: {
     display: 'flex',
     alignItems: 'center',
@@ -193,7 +187,6 @@ const s: Record<string, React.CSSProperties> = {
     background: 'rgba(255,255,255,0.1)',
   },
 
-  // Privacy note
   privacyNote: {
     display: 'flex',
     alignItems: 'center',

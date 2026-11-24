@@ -8,12 +8,7 @@ import { OpenId4VcIssuerModule } from 'openid4vc/issuer/issuer.module'
 import { ContributorCredentialController } from './contributor-credential.controller'
 import { ContributorCredentialService } from './contributor-credential.service'
 
-/**
- * OID4VCI issuance for the GithubContributorCredential SD-JWT VC.
- *
- * Bootstraps the static issuer and exposes POST /v2/contributor-credential/offer.
- * The offer is built from the authenticated user's binding in this service.
- */
+/** The contributor credential (SD-JWT VC over OID4VCI), offered from the caller's verified binding. */
 @Module({
   imports: [AgentModule, ContributorOnboardingModule, OpenId4VcIssuerModule, OpenId4VcIssuanceSessionModule],
   controllers: [ContributorCredentialController],
