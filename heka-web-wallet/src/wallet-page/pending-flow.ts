@@ -7,6 +7,7 @@ import {
   CredentialReceiveError,
   receiveResultMessage,
   resolveIncomingOffer,
+  UnsupportedOfferError,
   type ResolvedCredentialOffer,
 } from '../oid4vci/receive'
 import { handlePresentationRequest, submitPresentation, type ResolvedPresentationRequest } from '../oid4vp/present'
@@ -80,8 +81,17 @@ function errorText(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
 }
 
-function accessDenied(origins: string[], kept: string): string {
-  return `Access to ${origins.join(', ')} was not allowed. ${kept}`
+/**
+ * Asks for host access from the holder's click. Returns why the wallet still cannot contact the
+ * origins, or null when it can. A refusal and a failed request both leave the item as it is.
+ */
+async function askHostAccess(origins: string[], kept: string): Promise<string | null> {
+  try {
+    const denied = await requestHostAccess(origins)
+    return denied.length > 0 ? `Access to ${denied.join(', ')} was not allowed. ${kept}` : null
+  } catch (error: unknown) {
+    return `Could not ask for access to ${origins.join(', ')}: ${errorText(error, 'the request failed')}. ${kept}`
+  }
 }
 
 export function createPendingFlow(view: FlowView, refs: FlowRefs) {
@@ -102,22 +112,23 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
     }
 
     view.setHeldOffer(held)
-    const missing = await missingHostAccess(reviewOrigins(held.offerUri))
-    if (replaced()) return
-    view.setOfferAccess(missing)
-    if (missing.length > 0) {
-      view.setFlow({ state: 'idle' })
-      return
-    }
-
-    view.setFlow({ state: 'working' })
     try {
+      const missing = await missingHostAccess(reviewOrigins(held.offerUri))
+      if (replaced()) return
+      view.setOfferAccess(missing)
+      if (missing.length > 0) {
+        view.setFlow({ state: 'idle' })
+        return
+      }
+
+      view.setFlow({ state: 'working' })
       const resolved = await resolveIncomingOffer(held.offerUri)
       if (replaced()) return
       view.setOfferReview({ ...held, resolved, preview: describeCredentialOffer(resolved) })
       view.setFlow({ state: 'idle' })
     } catch (error: unknown) {
       if (replaced()) return
+      view.setOfferAccess([])
       const message = errorText(error, 'Could not read this offer')
       if (issuerRejectedExpiredOffer(message)) {
         refs.offer.current = null
@@ -134,10 +145,10 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
 
   /** The "Review offer" click: asks for the origins reading the offer contacts. */
   async function allowOfferAccess(held: PendingOffer, origins: string[]): Promise<void> {
-    const denied = await requestHostAccess(origins)
+    const refused = await askHostAccess(origins, 'The offer is still saved.')
     if (refs.offer.current?.offerUri !== held.offerUri) return
-    if (denied.length > 0) {
-      view.setFlow({ state: 'error', message: accessDenied(denied, 'The offer is still saved.') })
+    if (refused) {
+      view.setFlow({ state: 'error', message: refused })
       return
     }
     await openOffer(held)
@@ -152,10 +163,10 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
       view.setFlow({ state: 'error', message: codeError })
       return
     }
-    const denied = await requestHostAccess(offerAcceptOrigins(review.resolved))
+    const refused = await askHostAccess(offerAcceptOrigins(review.resolved), 'The offer is still saved.')
     if (replaced()) return
-    if (denied.length > 0) {
-      view.setFlow({ state: 'error', message: accessDenied(denied, 'The offer is still saved.') })
+    if (refused) {
+      view.setFlow({ state: 'error', message: refused })
       return
     }
     view.setFlow({ state: 'working' })
@@ -190,8 +201,11 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
         view.setFlow({ state: 'error', message: `${message} Request a new credential in Heka.` })
         return
       }
-      if (error instanceof CredentialReceiveError && !error.retryable) {
-        const text = `${message} The issuer has already redeemed this offer, so it cannot be retried. Request a new credential in Heka.`
+      const unsupported = error instanceof UnsupportedOfferError
+      if (unsupported || (error instanceof CredentialReceiveError && !error.retryable)) {
+        const text = unsupported
+          ? `This wallet can't hold this credential. ${message}`
+          : `${message} The issuer has already redeemed this offer, so it cannot be retried. Request a new credential in Heka.`
         await settlePendingOffer(review.offerUri, { state: 'error', message: text })
         if (replaced()) return
         refs.offer.current = null
@@ -223,16 +237,16 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
     const replaced = () => refs.request.current !== handling
     view.setPresentation(null)
     view.setHeldRequest(held)
-    const missing = await missingHostAccess(reviewOrigins(held.requestUri))
-    if (replaced()) return
-    view.setRequestAccess(missing)
-    if (missing.length > 0) {
-      view.setFlow({ state: 'idle' })
-      return
-    }
-
-    view.setFlow({ state: 'working' })
     try {
+      const missing = await missingHostAccess(reviewOrigins(held.requestUri))
+      if (replaced()) return
+      view.setRequestAccess(missing)
+      if (missing.length > 0) {
+        view.setFlow({ state: 'idle' })
+        return
+      }
+
+      view.setFlow({ state: 'working' })
       const resolved = await handlePresentationRequest(held.requestUri)
       if (replaced()) return
       view.setPresentation({
@@ -243,6 +257,7 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
       view.setFlow({ state: 'idle' })
     } catch (error: unknown) {
       if (replaced()) return
+      view.setRequestAccess([])
       const message = presentErrorMessage(error)
       view.setFlow({ state: 'error', message })
       await settlePendingRequest(held.requestUri, { state: 'error', message }, true)
@@ -251,10 +266,10 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
 
   /** The "Review request" click: asks for the origins reading the request contacts. */
   async function allowRequestAccess(held: PendingRequest, origins: string[]): Promise<void> {
-    const denied = await requestHostAccess(origins)
+    const refused = await askHostAccess(origins, 'The request is still saved.')
     if (refs.request.current?.requestUri !== held.requestUri) return
-    if (denied.length > 0) {
-      view.setFlow({ state: 'error', message: accessDenied(denied, 'The request is still saved.') })
+    if (refused) {
+      view.setFlow({ state: 'error', message: refused })
       return
     }
     await openPresentation(held)
@@ -264,10 +279,10 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
     const handling = refs.request.current
     if (handling?.requestUri !== review.requestUri) return
     const replaced = () => refs.request.current !== handling
-    const denied = await requestHostAccess(presentationOrigins(review.resolved))
+    const refused = await askHostAccess(presentationOrigins(review.resolved), 'The request is still saved.')
     if (replaced()) return
-    if (denied.length > 0) {
-      view.setFlow({ state: 'error', message: accessDenied(denied, 'The request is still saved.') })
+    if (refused) {
+      view.setFlow({ state: 'error', message: refused })
       return
     }
     view.setFlow({ state: 'working' })

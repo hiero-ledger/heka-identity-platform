@@ -95,6 +95,8 @@ export const CredentialOfferView = ({
                   <p className={cls.description}>
                     {t('Flow.messages.offerExpires', {
                       time: formatDateTime(expiresAt),
+                      // React escapes the text; i18next's escaping would show a `/` as `&#x2F;`
+                      interpolation: { escapeValue: false },
                     })}
                   </p>
                 )}

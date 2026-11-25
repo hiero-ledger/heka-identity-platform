@@ -16,3 +16,10 @@ export type NotificationDto =
   | ProofStateChangeDto
   | OpenidIssueStateChangeDto
   | OpenidVerifierStateChangeDto
+
+/** What a log line may carry of a notification: its records can hold offer secrets and personal data. */
+export function notificationLogContext(notification: NotificationDto): { type: string; id: string } {
+  if ('issuanceSession' in notification) return { type: notification.type, id: notification.issuanceSession.id }
+  if ('verificationSession' in notification) return { type: notification.type, id: notification.verificationSession.id }
+  return { type: notification.type, id: notification.id }
+}

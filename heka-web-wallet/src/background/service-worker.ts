@@ -9,7 +9,7 @@ import {
   type ItemStatus,
   type TabStatusMessage,
 } from '../bridge/protocol'
-import { isConnectedOrigin, reconcileConnectedSites } from '../wallet/connected-sites'
+import { dropRevokedSites, isConnectedOrigin, reconcileConnectedSites } from '../wallet/connected-sites'
 import { walletPageUrl } from '../wallet/page-url'
 import { loadPendingOffer, loadPendingRequest, type PendingRequest } from '../wallet/pending-items'
 import type { ItemSource, PendingOffer } from '../wallet/pending-offer'
@@ -47,6 +47,11 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 chrome.runtime.onStartup.addListener(() => {
   void reconcileConnectedSites()
+})
+
+// The holder can remove a site's access in Chrome at any time (chrome://extensions, Site access).
+chrome.permissions.onRemoved.addListener(() => {
+  void dropRevokedSites()
 })
 
 chrome.runtime.onMessage.addListener(

@@ -4168,7 +4168,7 @@ components:
             - v1.draft11-15
             - v1.draft15
         offerExpiresInSeconds:
-          type: number
+          type: integer
           description: "How long the offer can be redeemed, in seconds. Default: 180."
           minimum: 30
           maximum: 86400

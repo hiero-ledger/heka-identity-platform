@@ -28,7 +28,7 @@ Other:
 - `KeyManagementModule` is imported from `@credo-ts/core/kms`. It is not exported from the package root.
 - The content script is built on its own as one IIFE (`vite.content-script.config.ts`): Chrome runs content scripts as classic scripts, which cannot `import` the chunks it would otherwise share with the service worker.
 
-These workarounds match package and file names inside Credo and its dependencies. `yarn build` ends with checks (`scripts/check-*.mjs`) that fail when one of them stops applying, when a content script is not a classic script, when the bundle contains `new Function` or `eval(`, or when the manifest is not a production one (see [trust-and-permissions.md](trust-and-permissions.md)). `e2e/` receives a credential from a local issuer in Chrome for Testing. DCQL presentation against a running verifier is not exercised there yet.
+These workarounds match package and file names inside Credo and its dependencies. `yarn build` ends with checks (`scripts/check-*.mjs`) that fail when one of them stops applying, when a content script is not a classic script, when the bundle contains `new Function` or `eval(`, or when the manifest is not a production one (see [permissions-and-consent.md](permissions-and-consent.md)). `e2e/` drives the development build in Chrome for Testing: it receives a credential and presents it to a running verifier's DCQL request, on its own page or through the Heka web UI (see [e2e/README.md](../e2e/README.md)).
 
 ## Runtime
 
@@ -48,9 +48,9 @@ The wallet entry is large because `@credo-ts/core` statically imports the module
 
 ## Holder behaviour
 
-OID4VCI uses `agent.openid4vc.holder`. Each issued SD-JWT record is stored with `agent.sdJwtVc.store`, with the issuer's display metadata in the record's metadata. The holder key is P-256 (ES256) or, for issuers that accept only EdDSA, Ed25519. It is bound as a JWK when the issuer accepts one, otherwise as a `did:jwk` or `did:key`. Issuers that require a key attestation are rejected. That check runs on the offered credential configurations before the token request, so an offer this wallet cannot bind keeps its unredeemed code. A failure after the credentials are stored (rewriting the popup summary) keeps them.
+OID4VCI uses `agent.openid4vc.holder`. Each issued SD-JWT record is stored with `agent.sdJwtVc.store`, with the issuer's display metadata in the record's metadata. The holder key is P-256 (ES256) or, for issuers that accept only EdDSA, Ed25519. It is bound as a JWK when the issuer accepts one, otherwise as a `did:jwk` or `did:key`. Issuers that require a key attestation are rejected. That check runs on the offered credential configurations before the token request, so the code of an offer this wallet cannot bind is never redeemed: the offer is removed with "This wallet can't hold this credential" and the reason. A failure after the credentials are stored (rewriting the popup summary) keeps them.
 
-`SdJwtVcModule` gets a `customTypeMetadataResolver` (`src/credo/type-metadata-policy.ts`); the policy is in [trust-and-permissions.md](trust-and-permissions.md#type-metadata).
+`SdJwtVcModule` gets a `customTypeMetadataResolver` (`src/credo/type-metadata-policy.ts`); the policy is in [permissions-and-consent.md](permissions-and-consent.md#type-metadata).
 
 OID4VP accepts only DCQL. `handlePresentationRequest` throws when the resolved request has no `dcql` property. Presentation Exchange is not used.
 

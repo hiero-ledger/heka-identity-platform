@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { ComponentProps, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CredentialOfferView } from '@/components/Steps/CredentialOffer/states/CredentialOfferView';
@@ -112,10 +112,14 @@ const VerifyStep: React.FC<Props> = ({
     onAccept: handleUnlink,
   });
 
-  const requestOfferButton = (label: string) => (
+  const requestOfferButton = (
+    label: string,
+    look?: Pick<ComponentProps<typeof Button>, 'buttonType' | 'isSmall'>,
+  ) => (
     <Button
       onPress={() => void handleRequestOffer()}
       isLoading={isRequesting}
+      {...look}
     >
       {label}
     </Button>
@@ -161,6 +165,10 @@ const VerifyStep: React.FC<Props> = ({
                 >
                   {t('Contributor.buttons.checkAgain')}
                 </Button>
+                {requestOfferButton(t('Contributor.buttons.requestNewOffer'), {
+                  buttonType: 'outlined',
+                  isSmall: true,
+                })}
               </div>
             )}
             <Column className={cls.offerPanel}>

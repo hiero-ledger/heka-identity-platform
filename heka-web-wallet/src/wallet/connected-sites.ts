@@ -48,9 +48,16 @@ async function unregisterBridge(ids: string[]): Promise<void> {
  */
 export async function connectSite(origin: string, tabId?: number): Promise<{ injected: boolean } | null> {
   if (!(await chrome.permissions.request({ origins: [originPattern(origin)] }))) return null
-  await registerBridge(origin)
-  const sites = await loadConnectedSites()
-  if (!sites.includes(origin)) await chrome.storage.local.set({ [CONNECTED_SITES_KEY]: [...sites, origin] })
+  try {
+    await registerBridge(origin)
+    const sites = await loadConnectedSites()
+    if (!sites.includes(origin)) await chrome.storage.local.set({ [CONNECTED_SITES_KEY]: [...sites, origin] })
+  } catch (error) {
+    // Not connected, so the site keeps neither its bridge nor the access just granted.
+    await unregisterBridge([scriptId(origin)]).catch(() => undefined)
+    await chrome.permissions.remove({ origins: [originPattern(origin)] }).catch(() => false)
+    throw error
+  }
   if (tabId === undefined) return { injected: false }
   const injected = await chrome.scripting
     .executeScript({ target: { tabId }, files: [BRIDGE_SCRIPT] })
@@ -69,16 +76,27 @@ export async function disconnectSite(origin: string): Promise<void> {
 }
 
 /**
- * Registers the bridge for each stored site that still has its permission, and unregisters every
- * other bridge registration. A site whose access the holder removed in Chrome is disconnected.
+ * Disconnects the stored sites whose access the holder removed in Chrome: forgets them and
+ * unregisters their bridge. Returns the sites still connected.
  */
-export async function reconcileConnectedSites(): Promise<void> {
+export async function dropRevokedSites(): Promise<string[]> {
   const sites = await loadConnectedSites()
   const granted = await Promise.all(
     sites.map((origin) => chrome.permissions.contains({ origins: [originPattern(origin)] })),
   )
   const kept = sites.filter((_, index) => granted[index])
-  if (kept.length !== sites.length) await chrome.storage.local.set({ [CONNECTED_SITES_KEY]: kept })
+  if (kept.length === sites.length) return kept
+  await chrome.storage.local.set({ [CONNECTED_SITES_KEY]: kept })
+  await unregisterBridge(sites.filter((_, index) => !granted[index]).map(scriptId))
+  return kept
+}
+
+/**
+ * Registers the bridge for each stored site that still has its permission, and unregisters every
+ * other bridge registration. A site whose access the holder removed in Chrome is disconnected.
+ */
+export async function reconcileConnectedSites(): Promise<void> {
+  const kept = await dropRevokedSites()
 
   const registered = (await chrome.scripting.getRegisteredContentScripts())
     .map(({ id }) => id)

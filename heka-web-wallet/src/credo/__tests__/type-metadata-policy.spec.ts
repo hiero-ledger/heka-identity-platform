@@ -45,4 +45,21 @@ describe('typeMetadataResolver', () => {
     await expect(resolve('urn:types:membership', 'sha256-abc', true)).rejects.toThrow('it is not an https URL.')
     expect(defaultResolver).not.toHaveBeenCalled()
   })
+
+  it('does not check or fetch a vct on a host no permission can name', async () => {
+    // As Chrome does for a pattern such as https://exa*mple.com/*
+    const contains = vi.fn(async ({ origins }: { origins: string[] }) => {
+      throw new Error(`Invalid url pattern '${origins[0]}'`)
+    })
+    vi.stubGlobal('chrome', { permissions: { contains } })
+
+    // The URL parser reads %2A as *: the host is exa*mple.com
+    await expect(resolve('https://exa%2Ample.com/vct', 'sha256-abc')).resolves.toBeUndefined()
+    await expect(resolve('https://*/vct', 'sha256-abc')).resolves.toBeUndefined()
+    await expect(resolve('https://exa%2Ample.com/vct', 'sha256-abc', true)).rejects.toThrow(
+      'Type metadata of https://exa%2Ample.com/vct is not fetched: its host cannot be allowed.',
+    )
+    expect(contains).not.toHaveBeenCalled()
+    expect(defaultResolver).not.toHaveBeenCalled()
+  })
 })

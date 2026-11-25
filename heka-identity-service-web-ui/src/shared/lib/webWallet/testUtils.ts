@@ -23,14 +23,20 @@ export const announceExtension = () =>
 
 /**
  * Stands in for the Heka Web Wallet's content script: answers the page's PING unless
- * `answerPing` is false, answers an offer or a request with `response` (acknowledged by default),
- * and records every message the page posts except PING. Answers arrive asynchronously, as
- * `postMessage` delivers them. jsdom answers nothing otherwise, as a browser without the extension.
+ * `answerPing` is false, answers an offer or a request with `response` (acknowledged by default)
+ * unless `answerSends` is false, and records every message the page posts except PING. Answers
+ * arrive asynchronously, as `postMessage` delivers them. jsdom answers nothing otherwise, as a
+ * browser without the extension.
  */
 export const mockWebWalletExtension = ({
   answerPing = true,
+  answerSends = true,
   response = { type: 'OFFER_ACKNOWLEDGED' },
-}: { answerPing?: boolean; response?: WebWalletResponse } = {}) => {
+}: {
+  answerPing?: boolean;
+  answerSends?: boolean;
+  response?: WebWalletResponse;
+} = {}) => {
   const sent: PageMessage[] = [];
   const postMessage = jest.spyOn(window, 'postMessage').mockImplementation(((
     message: PageMessage,
@@ -46,7 +52,9 @@ export const mockWebWalletExtension = ({
       return;
     }
     sent.push(message);
-    setTimeout(() => postFromExtension(`${message.type}_RESPONSE`, response));
+    if (answerSends) {
+      setTimeout(() => postFromExtension(`${message.type}_RESPONSE`, response));
+    }
   }) as typeof window.postMessage);
   return { sent, postMessage };
 };

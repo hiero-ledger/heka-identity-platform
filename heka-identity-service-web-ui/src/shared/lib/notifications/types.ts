@@ -1,6 +1,6 @@
 /**
  * The part of the identity service's notification DTOs the UI reads. DIDComm events carry the
- * exchange record id as `id`; OpenID4VC events carry the whole session record.
+ * exchange record id as `id`; OpenID4VC events carry the session as the session routes return it.
  */
 export interface NotificationMessage {
   type: string;

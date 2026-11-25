@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { WebCryptoKeyManagementService } from '../../credo/WebCryptoKeyManagementService'
 import { OPENID4VC_CREDENTIAL_METADATA_KEY } from '../credential-display'
-import { acceptCredentialOffer, CredentialReceiveError, receiveResultMessage } from '../receive'
+import { acceptCredentialOffer, CredentialReceiveError, receiveResultMessage, UnsupportedOfferError } from '../receive'
 
 const requestToken = vi.fn()
 const requestCredentials = vi.fn()
@@ -182,18 +182,22 @@ describe('acceptCredentialOffer', () => {
     await expect(acceptCredentialOffer(offerUri, offer)).resolves.toMatchObject({ received: 0, deferred: 1 })
   })
 
-  it('refuses an offer it cannot bind before redeeming its code, so the offer stays retryable', async () => {
-    for (const configuration of [
-      { ...membership, cryptographic_binding_methods_supported: ['did:web'] },
-      { ...membership, proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES384'] } } },
-      { ...membership, proof_types_supported: { jwt: { key_attestations_required: {} } } },
-      { ...membership, proof_types_supported: undefined },
-    ]) {
+  it('refuses an offer it cannot bind as unsupported, before redeeming its code', async () => {
+    for (const [configuration, reason] of [
+      [{ ...membership, cryptographic_binding_methods_supported: ['did:web'] }, /binds credentials to did:web/],
+      [
+        { ...membership, proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES384'] } } },
+        /none of the proof algorithms/,
+      ],
+      [{ ...membership, proof_types_supported: { jwt: { key_attestations_required: {} } } }, /key attestation/],
+      [{ ...membership, proof_types_supported: undefined }, /does not bind this credential to a key/],
+    ] as const) {
       const error = await acceptCredentialOffer(offerUri, offerFor(configuration)).catch((caught: unknown) => caught)
-      expect(error).toBeInstanceOf(CredentialReceiveError)
-      expect((error as CredentialReceiveError).retryable).toBe(true)
+      expect(error).toBeInstanceOf(UnsupportedOfferError)
+      expect((error as Error).message).toMatch(reason)
     }
     expect(requestToken).not.toHaveBeenCalled()
+    expect(sendMessage).not.toHaveBeenCalled()
   })
 
   it('keeps a stored credential when only the summary update fails, and says so', async () => {
@@ -207,6 +211,18 @@ describe('acceptCredentialOffer', () => {
     expect(deleted).toHaveLength(0)
     expect(receiveResultMessage(result.received, result.deferred, result.summaryUpdated)).toBe(
       'The credential was stored, but the wallet summary could not be updated.',
+    )
+  })
+
+  it('does not say a credential was stored when the issuer deferred it and the summary update failed', async () => {
+    requestCredentials.mockResolvedValue({ credentials: [], deferredCredentials: [{ transactionId: 'later' }] })
+    getAll.mockRejectedValue(new Error('IndexedDB closed'))
+
+    const result = await acceptCredentialOffer(offerUri, offer)
+
+    expect(result).toMatchObject({ received: 0, deferred: 1, summaryUpdated: false })
+    expect(receiveResultMessage(result.received, result.deferred, result.summaryUpdated)).toMatch(
+      /^The issuer will issue one credential later\./,
     )
   })
 

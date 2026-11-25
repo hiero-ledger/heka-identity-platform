@@ -9,6 +9,19 @@ function unique(origins: Array<string | null>): string[] {
   return [...new Set(origins.filter((origin): origin is string => origin !== null))]
 }
 
+const HOST_LABEL = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/
+
+/**
+ * Whether a parsed URL's hostname names one host in a match pattern. The URL parser has already
+ * turned an IDN into punycode and an IPv4 address into dotted decimal, both of which pass. It
+ * keeps `*` (also when percent-encoded: `exa%2Ample.com` is `exa*mple.com`), which a pattern reads
+ * as a wildcard or refuses, so only letters, digits and inner hyphens pass. IPv6 literals and a
+ * trailing dot are refused.
+ */
+function isSingleHost(hostname: string): boolean {
+  return hostname.length <= 253 && hostname.split('.').every((label) => HOST_LABEL.test(label))
+}
+
 /** The origin of `url` if the manifest lets the wallet ask for it: https, or http on localhost. */
 export function grantableOrigin(url: unknown): string | null {
   if (typeof url !== 'string') return null
@@ -18,6 +31,7 @@ export function grantableOrigin(url: unknown): string | null {
   } catch {
     return null
   }
+  if (!isSingleHost(parsed.hostname)) return null
   if (parsed.protocol === 'https:') return parsed.origin
   const local = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'
   return parsed.protocol === 'http:' && local ? parsed.origin : null

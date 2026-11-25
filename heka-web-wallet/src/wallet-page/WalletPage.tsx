@@ -18,7 +18,8 @@ import { createPendingFlow, type FlowStatus, type OfferReview, type Presentation
 
 type Status = { state: 'loading' } | { state: 'ready' } | { state: 'error'; message: string }
 
-const requester = (from: ItemSource | undefined) => from?.origin ?? 'Pasted into the wallet'
+/** The page that handed the item over only passes it on; it doesn't vouch for the issuer or verifier. */
+const openedFrom = (from: ItemSource | undefined) => from?.origin ?? 'Pasted into the wallet'
 
 export const WalletPage: React.FC = () => {
   const params = new URLSearchParams(window.location.search)
@@ -141,8 +142,8 @@ export const WalletPage: React.FC = () => {
             Nothing is stored until you accept.
           </p>
           <dl style={page.list}>
-            <dt>Requested by</dt>
-            <dd>{requester(heldOffer.from)}</dd>
+            <dt>Opened from</dt>
+            <dd>{openedFrom(heldOffer.from)}</dd>
           </dl>
           <div style={page.actions}>
             <button
@@ -177,8 +178,8 @@ export const WalletPage: React.FC = () => {
                 <dd>{offerReview.preview.issuerName} (self-declared, not verified)</dd>
               </>
             )}
-            <dt>Requested by</dt>
-            <dd>{requester(offerReview.from)}</dd>
+            <dt>Opened from</dt>
+            <dd>{openedFrom(offerReview.from)}</dd>
             {offerReview.expiresAt && (
               <>
                 <dt>Expires</dt>
@@ -248,8 +249,8 @@ export const WalletPage: React.FC = () => {
             reviewing the request.
           </p>
           <dl style={page.list}>
-            <dt>Requested by</dt>
-            <dd>{requester(heldRequest.from)}</dd>
+            <dt>Opened from</dt>
+            <dd>{openedFrom(heldRequest.from)}</dd>
           </dl>
           <div style={page.actions}>
             <button
@@ -272,7 +273,8 @@ export const WalletPage: React.FC = () => {
             <dt>Verifier</dt>
             <dd style={page.strong}>
               {presentation.preview.verifier}
-              {presentation.preview.clientIdPrefix && ` (${presentation.preview.clientIdPrefix})`}
+              {presentation.preview.clientIdPrefix &&
+                ` (${presentation.preview.clientIdPrefix}${presentation.preview.clientIdVerified ? '' : ', not verified'})`}
             </dd>
             {presentation.preview.responseOrigin && (
               <>
@@ -286,10 +288,14 @@ export const WalletPage: React.FC = () => {
                 <dd>{presentation.preview.selfDeclaredName} (self-declared, not verified)</dd>
               </>
             )}
-            <dt>Origin</dt>
-            <dd>{presentation.preview.origin}</dd>
-            <dt>Requested by</dt>
-            <dd>{requester(presentation.from)}</dd>
+            {presentation.preview.origin && (
+              <>
+                <dt>Origin</dt>
+                <dd>{presentation.preview.origin}</dd>
+              </>
+            )}
+            <dt>Opened from</dt>
+            <dd>{openedFrom(presentation.from)}</dd>
             {presentation.preview.credentials.map((credential) => (
               <React.Fragment key={credential.name}>
                 <dt>Credential</dt>

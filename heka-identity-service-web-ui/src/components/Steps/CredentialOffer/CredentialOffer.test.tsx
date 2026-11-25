@@ -29,6 +29,7 @@ import {
 } from '@/shared/lib/webWallet/testUtils';
 
 import { CredentialOffer, CredentialOfferContext } from './CredentialOffer';
+import { CredentialOfferView } from './states/CredentialOfferView';
 
 jest.mock('react-hot-toast', () => ({
   __esModule: true,
@@ -398,5 +399,27 @@ describe('CredentialOffer step', () => {
       );
       expect(api.post).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('CredentialOfferView', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  test('shows the expiry as the locale writes it, slashes included', () => {
+    // A locale that writes dates with slashes
+    jest
+      .spyOn(Date.prototype, 'toLocaleString')
+      .mockReturnValue('25/11/2026, 14:30');
+
+    renderWithProviders(
+      <CredentialOfferView
+        value="openid-credential-offer://?offer=abc"
+        expiresAt="2026-11-25T14:30:00.000Z"
+      />,
+    );
+
+    expect(
+      screen.getByText('The offer expires 25/11/2026, 14:30.'),
+    ).toBeInTheDocument();
   });
 });

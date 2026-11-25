@@ -28,6 +28,11 @@ const renderPresent = (route: string) =>
 const openWallet = () =>
   screen.findByRole('button', { name: 'Open in Heka Web Wallet' });
 
+const precedes = (element: Element, other: Element) =>
+  Boolean(
+    element.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+
 describe('Present', () => {
   afterEach(() => jest.restoreAllMocks());
 
@@ -54,6 +59,39 @@ describe('Present', () => {
     ).toBeInTheDocument();
     expect(api.get).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
+  });
+
+  test('names the verifier and the host of its request, without vouching for it, before the wallet button', async () => {
+    mockWebWalletExtension();
+    renderPresent(
+      query({
+        client_id: CLIENT_ID,
+        request_uri: 'https://verifier.example:8443/requests/1',
+      }),
+    );
+    const button = await openWallet();
+
+    const verifier = screen.getByText(CLIENT_ID);
+    const host = screen.getByText('verifier.example:8443');
+    const note = screen.getByText(
+      "Heka only passes this request on to your wallet and doesn't vouch for the verifier.",
+    );
+    expect(screen.getByText('Verifier (client_id)').nextElementSibling).toBe(
+      verifier,
+    );
+    expect(screen.getByText('Request hosted at').nextElementSibling).toBe(host);
+    for (const element of [verifier, host, note]) {
+      expect(precedes(element, screen.getByTestId('qr-code'))).toBe(true);
+      expect(precedes(element, button)).toBe(true);
+    }
+  });
+
+  test('shows an internationalized request host in punycode', () => {
+    renderPresent(
+      query({ client_id: CLIENT_ID, request_uri: 'https://exämple.com/r' }),
+    );
+
+    expect(screen.getByText('xn--exmple-cua.com')).toBeInTheDocument();
   });
 
   test('hands the request to the Heka Web Wallet and shows its answer', async () => {

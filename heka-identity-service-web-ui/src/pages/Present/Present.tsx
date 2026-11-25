@@ -27,13 +27,19 @@ const isFetchableRequestUri = (requestUri: string) => {
 
 type RequestProblem = 'missing' | 'requestUri' | 'method';
 
+interface PresentationRequest {
+  uri: string;
+  clientId: string;
+  requestHost: string;
+}
+
 /**
  * The `openid4vp://` URI of an OpenID4VP request passed by reference, rebuilt from this page's
- * query, or what is wrong with that query
+ * query, with who asks and where the request is fetched from; or what is wrong with that query
  */
 const readRequest = (
   params: URLSearchParams,
-): { uri: string } | { problem: RequestProblem } => {
+): PresentationRequest | { problem: RequestProblem } => {
   const clientId = params.get('client_id');
   const requestUri = params.get('request_uri');
   const method = params.get('request_uri_method');
@@ -49,12 +55,18 @@ const readRequest = (
     request_uri: requestUri,
   });
   if (method) query.set('request_uri_method', method);
-  return { uri: `openid4vp://?${query}` };
+  return {
+    uri: `openid4vp://?${query}`,
+    clientId,
+    // Punycode for an internationalized name, so a look-alike host stays visible
+    requestHost: new URL(requestUri).host,
+  };
 };
 
 /**
  * A public page for a verifier's presentation request: a QR code for a mobile wallet and the
  * Heka Web Wallet button. It doesn't follow the verification, which belongs to the verifier.
+ * Any verifier can link here, so the page names who asks without vouching for them.
  */
 const Present = () => {
   const { t } = useTranslation();
@@ -92,6 +104,19 @@ const Present = () => {
         className={cls.header}
       >
         <Row className={cls.title}>{t('Present.titles.main')}</Row>
+        <dl className={cls.request}>
+          <div className={cls.requestField}>
+            <dt className={cls.requestLabel}>{t('Present.titles.verifier')}</dt>
+            <dd className={cls.requestValue}>{request.clientId}</dd>
+          </div>
+          <div className={cls.requestField}>
+            <dt className={cls.requestLabel}>
+              {t('Present.titles.requestHost')}
+            </dt>
+            <dd className={cls.requestValue}>{request.requestHost}</dd>
+          </div>
+        </dl>
+        <p className={cls.description}>{t('Present.messages.notVouched')}</p>
         <Row className={cls.description}>
           <p>
             {t('Common.titles.scanQR')}&nbsp;

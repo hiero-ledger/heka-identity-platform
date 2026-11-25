@@ -152,6 +152,12 @@ try {
     walletPages(browser).length === 1,
     `${walletPages(browser).length} wallet window(s)`,
   )
+  const accessCard = await bodyText(wallet)
+  check(
+    'wallet: the page that handed the offer over is shown as where it was opened from',
+    accessCard.includes(`Opened from\nhttp://127.0.0.1:${HEKA_PAGE_PORT}`),
+    accessCard.split('\n').slice(2, 10).join(' | '),
+  )
 } catch (error) {
   check('harness run', false, error instanceof Error ? error.message : String(error))
   await dumpPages(browser)

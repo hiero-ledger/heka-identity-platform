@@ -60,6 +60,40 @@ describe('the origins each step contacts', () => {
     expect(grantableOrigin('openid-credential-offer://?x=1')).toBeNull()
     expect(reviewOrigins(offerUri({ credential_offer_uri: 'http://issuer.example/offers/42' }))).toEqual([])
   })
+
+  it('never yields a wildcard or a host a match pattern cannot name', () => {
+    // new URL('https://*/token').origin is 'https://*', whose pattern would be every https site
+    expect(grantableOrigin('https://*/token')).toBeNull()
+    expect(grantableOrigin('https://*.example.com/token')).toBeNull()
+    // The URL parser decodes %2A: the host is exa*mple.com, which permissions.request refuses
+    expect(grantableOrigin('https://exa%2Ample.com/token')).toBeNull()
+    for (const url of ['https://ex!ample.com', 'https://a_b.example', 'https://-x.example', 'https://example.com./']) {
+      expect(grantableOrigin(url)).toBeNull()
+    }
+    expect(reviewOrigins(offerUri({ credential_offer_uri: 'https://*/offers/42' }))).toEqual([])
+    expect(
+      offerAcceptOrigins({
+        metadata: {
+          credentialIssuer: {
+            credential_issuer: 'https://issuer.example',
+            credential_endpoint: 'https://*/credential',
+          },
+          authorizationServers: [{ issuer: 'https://exa%2Ample.com', token_endpoint: 'https://*/token' }],
+        },
+      }),
+    ).toEqual(['https://issuer.example'])
+    expect(presentationOrigins({ authorizationRequestPayload: { response_uri: 'https://*/post' } })).toEqual([])
+  })
+
+  it('takes IDNs as punycode and IPv4 addresses, and refuses IPv6 literals', () => {
+    expect(grantableOrigin('https://bücher.example/offers/1')).toBe('https://xn--bcher-kva.example')
+    expect(grantableOrigin('https://Issuer.Example:8443/offers/1')).toBe('https://issuer.example:8443')
+    expect(grantableOrigin('https://192.0.2.10/offers/1')).toBe('https://192.0.2.10')
+    expect(grantableOrigin('http://0x7f.1:3000/offers/1')).toBe('http://127.0.0.1:3000')
+    expect(grantableOrigin('http://localhost:3000/offers/1')).toBe('http://localhost:3000')
+    expect(grantableOrigin('https://[2001:db8::1]/offers/1')).toBeNull()
+    expect(grantableOrigin('http://[::1]:3000/offers/1')).toBeNull()
+  })
 })
 
 describe('asking for host access', () => {

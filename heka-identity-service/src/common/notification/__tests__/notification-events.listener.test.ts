@@ -1,11 +1,19 @@
+import {
+  OpenId4VcIssuanceSessionRecord,
+  OpenId4VcIssuanceSessionState,
+  OpenId4VcIssuanceSessionStateChangedEvent,
+  OpenId4VcIssuerEvents,
+} from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager, MikroORM } from '@mikro-orm/core'
 
 import { Agent } from 'common/agent'
+import { User, Wallet } from 'common/entities'
 import { Logger } from 'common/logger'
 
 import { NotificationEventsListener } from '../notification-events.listener'
 import { NotificationService } from '../notification.service'
+import { NotificationEvent, NotificationEventType } from '../notification.types'
 
 describe('NotificationEventsListener lifecycle', () => {
   let agent: Agent
@@ -78,5 +86,94 @@ describe('NotificationEventsListener lifecycle', () => {
 
     expect(firstDestroyCount).toBe(firstInitCount)
     expect(secondInitCount).toBe(firstInitCount * 2)
+  })
+})
+
+// Every user ever authenticated into the wallet gets its notifications, and the transaction code with the offer's
+// pre-authorized code redeems the offer
+describe('NotificationEventsListener issuance session notifications', () => {
+  const USER_PIN = '493536'
+  const PRE_AUTHORIZED_CODE = 'PRE-AUTH-SNTL'
+
+  const issuanceSession = new OpenId4VcIssuanceSessionRecord({
+    id: 'session-1',
+    createdAt: new Date('2026-11-26T10:00:00Z'),
+    expiresAt: new Date('2026-11-26T10:10:00Z'),
+    state: OpenId4VcIssuanceSessionState.AccessTokenCreated,
+    issuerId: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+    preAuthorizedCode: PRE_AUTHORIZED_CODE,
+    userPin: USER_PIN,
+    credentialOfferId: 'offer-1',
+    credentialOfferPayload: {
+      credential_issuer: 'https://issuer.example',
+      credential_configuration_ids: ['GitHubContributor'],
+    },
+    openId4VciVersion: 'v1.draft15',
+  })
+  const event = {
+    type: OpenId4VcIssuerEvents.IssuanceSessionStateChanged,
+    metadata: { contextCorrelationId: 'tenant-t1' },
+    payload: { issuanceSession, previousState: OpenId4VcIssuanceSessionState.OfferCreated },
+  } as unknown as OpenId4VcIssuanceSessionStateChangedEvent
+
+  // @CreateRequestContext checks `orm instanceof MikroORM` and forks its EntityManager per call
+  const makeOrm = (): MikroORM => {
+    const em = Object.assign(Object.create(EntityManager.prototype) as EntityManager, { name: 'default' })
+    Object.assign(em, { fork: () => em })
+    return Object.assign(Object.create(MikroORM.prototype) as MikroORM, { em })
+  }
+
+  let trySendNotification: ReturnType<typeof vi.fn>
+  let child: ReturnType<typeof vi.fn>
+
+  const emit = async () => {
+    const on = vi.fn<(type: NotificationEventType, handler: (event: NotificationEvent) => Promise<void>) => void>()
+    const agent = { events: { on, off: vi.fn() } } as unknown as Agent
+    const wallet = { users: { getItems: () => [new User({ id: 'u1' }), new User({ id: 'u2' })] } } as unknown as Wallet
+    const em = { findOne: vi.fn().mockResolvedValue(wallet) } as unknown as EntityManager
+    trySendNotification = vi.fn()
+    child = vi.fn(() => createMock<Logger>())
+
+    const listener = new NotificationEventsListener(
+      agent,
+      { trySendNotification } as unknown as NotificationService,
+      makeOrm(),
+      em,
+      createMock<Logger>({ child }),
+    )
+    listener.onModuleInit()
+    const [, handler] = on.mock.calls.find(([type]) => type === OpenId4VcIssuerEvents.IssuanceSessionStateChanged)!
+    await handler(event)
+  }
+
+  test('sends the session view of the GET routes, without the transaction code', async () => {
+    await emit()
+
+    expect(trySendNotification).toHaveBeenCalledTimes(2)
+    for (const [, notification] of trySendNotification.mock.calls) {
+      const sent = JSON.parse(JSON.stringify(notification)) as Record<string, Record<string, unknown>>
+      expect(sent.issuanceSession).not.toHaveProperty('userPin')
+      expect(JSON.stringify(sent)).not.toContain(USER_PIN)
+      expect(sent.type).toBe(OpenId4VcIssuerEvents.IssuanceSessionStateChanged)
+      expect(sent.previousState).toBe(OpenId4VcIssuanceSessionState.OfferCreated)
+      expect(sent.issuanceSession).toMatchObject({
+        id: 'session-1',
+        state: OpenId4VcIssuanceSessionState.AccessTokenCreated,
+        publicIssuerId: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+        expiresAt: '2026-11-26T10:10:00.000Z',
+      })
+    }
+  })
+
+  test('binds the event type and ids to the log context, not the record', async () => {
+    await emit()
+
+    expect(child).toHaveBeenCalledWith('sendEventNotification', {
+      tenantId: 't1',
+      notification: { type: OpenId4VcIssuerEvents.IssuanceSessionStateChanged, id: 'session-1' },
+    })
+    const bindings = JSON.stringify(child.mock.calls)
+    expect(bindings).not.toContain(USER_PIN)
+    expect(bindings).not.toContain(PRE_AUTHORIZED_CODE)
   })
 })

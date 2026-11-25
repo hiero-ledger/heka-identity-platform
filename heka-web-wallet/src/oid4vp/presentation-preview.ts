@@ -2,16 +2,27 @@ import type { DcqlCredentialsForRequest } from '@credo-ts/core'
 
 import type { ResolvedPresentationRequest } from './present'
 
+// Credo checks the request's signature against the DID or the certificate these prefixes name. A
+// redirect_uri request is unsigned: its client id only says where the response goes.
+const VERIFIED_CLIENT_ID_PREFIXES: ReadonlySet<string> = new Set([
+  'decentralized_identifier',
+  'x509_san_dns',
+  'x509_hash',
+])
+
 export interface PresentationPreview {
-  /** The client id Credo resolved and verified for the request's client id prefix. */
+  /** The client id Credo resolved for the request's client id prefix. */
   verifier: string
-  /** How Credo verified `verifier`: the client id prefix, such as `decentralized_identifier` or `x509_san_dns`. */
+  /** The client id prefix, such as `decentralized_identifier`, `x509_san_dns` or `redirect_uri`. */
   clientIdPrefix: string | null
+  /** Whether the prefix binds `verifier` to the request's signature; false for `redirect_uri`. */
+  clientIdVerified: boolean
   /** The origin the presentation is posted to (response_uri). */
   responseOrigin: string | null
   /** client_metadata.client_name: chosen by whoever wrote the request, so never shown as the verifier. */
   selfDeclaredName: string | null
-  origin: string
+  /** The web origin a Digital Credentials API request carries; null for a request opened from a URI. */
+  origin: string | null
   credentials: Array<{ name: string; claims: string[] }>
 }
 
@@ -66,9 +77,10 @@ export function describePresentation(
   return {
     verifier,
     clientIdPrefix: prefix || null,
+    clientIdVerified: VERIFIED_CLIENT_ID_PREFIXES.has(prefix),
     responseOrigin: originOf(payload.response_uri),
     selfDeclaredName: typeof clientName === 'string' && clientName.length > 0 ? clientName : null,
-    origin: resolved.origin && resolved.origin.length > 0 ? resolved.origin : 'Origin not provided',
+    origin: resolved.origin && resolved.origin.length > 0 ? resolved.origin : null,
     credentials,
   }
 }

@@ -50,6 +50,17 @@ export class CredentialReceiveError extends Error {
   }
 }
 
+/**
+ * Thrown by acceptCredentialOffer before the offer's code is redeemed, when this wallet cannot bind
+ * an offered credential to a key. Retrying the offer cannot help.
+ */
+export class UnsupportedOfferError extends Error {
+  public constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : 'This wallet cannot bind the offered credential', { cause })
+    this.name = 'UnsupportedOfferError'
+  }
+}
+
 type BindingOptions = Pick<
   OpenId4VciCredentialBindingOptions,
   'proofTypes' | 'supportsJwk' | 'supportsAllDidMethods' | 'supportedDidMethods'
@@ -155,10 +166,14 @@ function bindingOptionsFor(configuration: unknown, draftVersion: unknown): Bindi
   }
 }
 
-/** Throws the binding error of the first offered credential this wallet cannot bind. */
+/** Throws UnsupportedOfferError for the first offered credential this wallet cannot bind. */
 export function assertHolderCanBind(offer: ResolvedCredentialOffer): void {
   for (const configuration of Object.values(offer.offeredCredentialConfigurations)) {
-    planHolderBinding(bindingOptionsFor(configuration, offer.metadata.originalDraftVersion))
+    try {
+      planHolderBinding(bindingOptionsFor(configuration, offer.metadata.originalDraftVersion))
+    } catch (error) {
+      throw new UnsupportedOfferError(error)
+    }
   }
 }
 
@@ -192,6 +207,7 @@ export async function acceptCredentialOffer(
   resolvedCredentialOffer: ResolvedCredentialOffer,
   txCode?: string,
 ): Promise<ReceiveResult> {
+  assertHolderCanBind(resolvedCredentialOffer)
   await reportOfferProgress(offerUri, 'Requesting the credential… Keep this page open.')
   const agent = await getOrCreateAgent()
   const holder = agent.openid4vc.holder
@@ -201,7 +217,6 @@ export async function acceptCredentialOffer(
   let result: Omit<ReceiveResult, 'summaryUpdated'>
 
   try {
-    assertHolderCanBind(resolvedCredentialOffer)
     const tokenResponse = await holder.requestToken({
       resolvedCredentialOffer,
       ...(txCode ? { txCode } : {}),
@@ -249,7 +264,9 @@ export async function acceptCredentialOffer(
 
 /** The result line for the holder. A deferred credential is not in the wallet yet. */
 export function receiveResultMessage(received: number, deferred: number, summaryUpdated = true): string {
-  if (!summaryUpdated) return 'The credential was stored, but the wallet summary could not be updated.'
+  if (!summaryUpdated && received > 0) {
+    return 'The credential was stored, but the wallet summary could not be updated.'
+  }
   const receivedText = `Received ${received} credential${received === 1 ? '' : 's'}.`
   if (deferred === 0) return receivedText
   const deferredText =

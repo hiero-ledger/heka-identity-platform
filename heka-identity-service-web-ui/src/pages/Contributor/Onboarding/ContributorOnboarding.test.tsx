@@ -333,6 +333,79 @@ describe('ContributorOnboarding', () => {
       ).toBeInTheDocument();
     });
 
+    test('after a failed poll, a new offer can be requested instead', async () => {
+      const { api, requestOffer, user } = setup();
+      api.get
+        .mockRejectedValueOnce(apiError(503, 'Service unavailable'))
+        .mockResolvedValueOnce(offerState('Completed'));
+
+      await requestOffer();
+      await screen.findByTestId('qr-code');
+      await poll();
+      expect(
+        screen.getByText("The offer's state could not be checked."),
+      ).toBeInTheDocument();
+
+      api.post.mockResolvedValueOnce({
+        data: {
+          ...offerAnswer(),
+          credentialOffer: OTHER_OFFER,
+          issuanceSessionId: 'session-2',
+        },
+      });
+      await user.click(
+        screen.getByRole('button', { name: 'Request a new offer' }),
+      );
+
+      await waitFor(() =>
+        expect(screen.getByTestId('qr-code')).toHaveTextContent(OTHER_OFFER),
+      );
+      expect(
+        screen.queryByText("The offer's state could not be checked."),
+      ).not.toBeInTheDocument();
+      await poll();
+      expect(api.get).toHaveBeenLastCalledWith(
+        agencyEndpoints.contributorCredentialOfferState('session-2'),
+      );
+      expect(
+        screen.getByText('Your wallet has received the credential.'),
+      ).toBeInTheDocument();
+    });
+
+    test("a poll answered after the wallet's status doesn't undo the completion", async () => {
+      const { api, requestOffer } = setup();
+      let answerPoll: (answer: unknown) => void = () => {};
+      api.get.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            answerPoll = resolve;
+          }),
+      );
+
+      await requestOffer();
+      await screen.findByTestId('qr-code');
+      await poll();
+      expect(offerStatePolls(api)).toBe(1);
+
+      act(() => {
+        postFromExtension('RECEIVE_STATUS', {
+          offerUri: OFFER,
+          state: 'done',
+          message: 'Stored',
+        });
+      });
+      await act(async () => answerPoll(offerState('Error')));
+
+      expect(
+        screen.getByText('Your wallet has received the credential.'),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText('The wallet could not receive the credential.'),
+      ).not.toBeInTheDocument();
+      await poll();
+      expect(offerStatePolls(api)).toBe(1);
+    });
+
     test('hands the offer to the Heka Web Wallet, whose status completes only its own offer', async () => {
       const { sent } = mockWebWalletExtension();
       const { user, offer, requestOffer } = setup();

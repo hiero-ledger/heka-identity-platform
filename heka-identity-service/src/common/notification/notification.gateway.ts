@@ -8,7 +8,7 @@ import WebSocket from 'ws'
 import { AuthInfo, AuthService, WEBSOCKET_BEARER_PROTOCOL } from 'common/auth'
 import { InjectLogger, Logger, maskSecretsInUrl } from 'common/logger'
 
-import { NotificationDto } from './dto'
+import { NotificationDto, notificationLogContext } from './dto'
 
 export const UNAUTHORIZED_CLOSE_CODE = 3000
 export const TOKEN_EXPIRED_CLOSE_CODE = 4001
@@ -88,7 +88,7 @@ export class NotificationGateway implements OnGatewayConnection {
   }
 
   public send(userId: string, notification: NotificationDto) {
-    const logger = this.logger.child('send', { userId, notification })
+    const logger = this.logger.child('send', { userId, notification: notificationLogContext(notification) })
     logger.trace('>')
 
     const sockets = this.connectedSockets.get(userId)

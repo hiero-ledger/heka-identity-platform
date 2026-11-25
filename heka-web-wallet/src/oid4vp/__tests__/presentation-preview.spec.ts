@@ -42,6 +42,8 @@ describe('describePresentation', () => {
     expect(describePresentation(resolved, selected)).toEqual({
       verifier: 'https://verifier.example/callback',
       clientIdPrefix: 'redirect_uri',
+      // Unsigned: the client id is only where the response goes
+      clientIdVerified: false,
       responseOrigin: 'https://verifier.example',
       selfDeclaredName: 'Hiero PR check',
       origin: 'https://verifier.example',
@@ -67,11 +69,12 @@ describe('describePresentation', () => {
 
     expect(preview.verifier).toBe('did:key:z6Mkverifier')
     expect(preview.clientIdPrefix).toBe('decentralized_identifier')
+    expect(preview.clientIdVerified).toBe(true)
     expect(preview.responseOrigin).toBe('https://elsewhere.example')
     expect(preview.selfDeclaredName).toBe('Heka')
   })
 
-  it('leaves out a missing or malformed response_uri and an empty name', () => {
+  it('leaves out a missing or malformed response_uri, an empty name, and an origin the request does not carry', () => {
     const resolved = {
       verifier: { clientIdPrefix: 'redirect_uri', effectiveClientId: 'https://verifier.example' },
       authorizationRequestPayload: { response_uri: 'not a url', client_metadata: { client_name: '' } },
@@ -81,7 +84,23 @@ describe('describePresentation', () => {
       verifier: 'https://verifier.example',
       responseOrigin: null,
       selfDeclaredName: null,
-      origin: 'Origin not provided',
+      // Only a Digital Credentials API request carries one; a request opened from a URI has none
+      origin: null,
     })
+    expect(describePresentation({ ...resolved, origin: '' }, selected).origin).toBeNull()
+  })
+
+  it('counts the client id as verified only for a prefix that binds it to the request signature', () => {
+    const verified = (clientIdPrefix: string) =>
+      describePresentation(
+        {
+          verifier: { clientIdPrefix, effectiveClientId: `${clientIdPrefix}:verifier.example` },
+          authorizationRequestPayload: {},
+        } as unknown as Resolved,
+        selected,
+      ).clientIdVerified
+
+    expect(['decentralized_identifier', 'x509_san_dns', 'x509_hash'].map(verified)).toEqual([true, true, true])
+    expect(['redirect_uri', 'origin'].map(verified)).toEqual([false, false])
   })
 })

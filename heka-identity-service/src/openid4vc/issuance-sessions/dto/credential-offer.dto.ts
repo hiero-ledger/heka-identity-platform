@@ -313,6 +313,7 @@ export class OpenId4VcIssuanceSessionsCreateOfferDto {
   public version?: CredentialVersion
 
   @ApiPropertyOptional({
+    type: 'integer',
     description: 'How long the offer can be redeemed, in seconds. Default: 180.',
     minimum: 30,
     maximum: 86400,

@@ -1,6 +1,6 @@
 import type { SdJwtVcModule } from '@credo-ts/core'
 
-import { originPattern } from '../wallet/host-access'
+import { grantableOrigin, originPattern } from '../wallet/host-access'
 
 type TypeMetadataResolver = NonNullable<
   NonNullable<ConstructorParameters<typeof SdJwtVcModule>[0]>['customTypeMetadataResolver']
@@ -12,7 +12,10 @@ async function refusalReason(vct: string, integrity: string | undefined): Promis
   try {
     const url = new URL(vct)
     if (url.protocol !== 'https:') return 'it is not an https URL'
-    origin = url.origin
+    // The host rule of every grant: a host no match pattern can name is never checked.
+    const grantable = grantableOrigin(vct)
+    if (!grantable) return 'its host cannot be allowed'
+    origin = grantable
   } catch {
     return 'it is not an https URL'
   }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { UnsupportedOfferError } from '../../oid4vci/receive'
 import type { PendingRequest } from '../../wallet/pending-items'
 import type { PendingOffer } from '../../wallet/pending-offer'
 import { createPendingFlow, type FlowView, type OfferReview, type PresentationReview } from '../pending-flow'
@@ -175,6 +176,114 @@ describe('the wallet page flow', () => {
     expect(requestPermission).toHaveBeenCalledWith({ origins: ['https://auth.example/*'] })
     expect(mocks.acceptCredentialOffer).not.toHaveBeenCalled()
     expect(state.flow).toMatchObject({ message: expect.stringMatching(/^Access to https:\/\/auth\.example was not/) })
+  })
+
+  it('keeps the offer when asking for access fails, and asks again on the next click', async () => {
+    granted.clear()
+    const { state, flow } = recordingView()
+    await flow.openOffer(offerA)
+    requestPermission.mockRejectedValueOnce(new Error('This function must be called during a user gesture'))
+
+    await expect(flow.allowOfferAccess(offerA, state.offerAccess)).resolves.toBeUndefined()
+
+    expect(state.flow).toEqual({
+      state: 'error',
+      message:
+        'Could not ask for access to https://issuer-a.example: This function must be called during a user gesture. The offer is still saved.',
+    })
+    expect(state.heldOffer?.offerUri).toBe(offerA.offerUri)
+    expect(state.offerAccess).toEqual(['https://issuer-a.example'])
+    expect(sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SETTLE_OFFER' }))
+
+    requestPermission.mockImplementationOnce(async ({ origins }: { origins: string[] }) => {
+      for (const origin of origins) granted.add(origin)
+      return true
+    })
+    await flow.allowOfferAccess(offerA, state.offerAccess)
+    expect(state.offerReview?.offerUri).toBe(offerA.offerUri)
+  })
+
+  it('keeps the review when asking for access at accept fails, and accepts nothing', async () => {
+    const { state, flow } = recordingView()
+    await flow.openOffer(offerA)
+    granted.clear()
+    requestPermission.mockRejectedValueOnce(new Error('The permission prompt could not be shown'))
+
+    await expect(flow.acceptOffer(state.offerReview!, '')).resolves.toBeUndefined()
+
+    expect(mocks.acceptCredentialOffer).not.toHaveBeenCalled()
+    expect(state.flow).toEqual({
+      state: 'error',
+      message:
+        'Could not ask for access to https://issuer-a.example: The permission prompt could not be shown. The offer is still saved.',
+    })
+    expect(state.offerReview?.offerUri).toBe(offerA.offerUri)
+    expect(sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SETTLE_OFFER' }))
+  })
+
+  it('keeps a request when asking for access to the verifier fails', async () => {
+    granted.clear()
+    const { state, flow } = recordingView()
+    await flow.openPresentation(request)
+    requestPermission.mockRejectedValueOnce(new Error('permissions.request failed'))
+
+    await expect(flow.allowRequestAccess(request, state.requestAccess)).resolves.toBeUndefined()
+
+    expect(state.flow).toMatchObject({
+      state: 'error',
+      message: expect.stringMatching(/The request is still saved\.$/),
+    })
+    expect(state.heldRequest?.requestUri).toBe(request.requestUri)
+    expect(sendMessage).not.toHaveBeenCalled()
+  })
+
+  it('keeps an offer with a Retry when checking its access fails', async () => {
+    const { state, flow } = recordingView()
+    vi.stubGlobal('chrome', {
+      runtime: { sendMessage },
+      permissions: {
+        contains: async () => {
+          throw new Error('Extension context invalidated.')
+        },
+        request: requestPermission,
+      },
+    })
+
+    await expect(flow.openOffer(offerA)).resolves.toBeUndefined()
+
+    const message = 'Extension context invalidated. The offer is still saved. Open the wallet page to retry.'
+    expect(state.flow).toEqual({ state: 'error', message })
+    // The page shows "Retry offer" for a held offer with no access card and an error
+    expect(state.heldOffer?.offerUri).toBe(offerA.offerUri)
+    expect(state.offerAccess).toEqual([])
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: 'SETTLE_OFFER',
+      offerUri: offerA.offerUri,
+      status: { state: 'error', message },
+      keep: true,
+    })
+  })
+
+  it("settles an offer this wallet can't bind as an error, without offering a retry", async () => {
+    const { state, flow } = recordingView()
+    await flow.openOffer(offerA)
+    mocks.acceptCredentialOffer.mockRejectedValueOnce(
+      new UnsupportedOfferError(new Error('The issuer binds credentials to did:web. This wallet supports JWK.')),
+    )
+
+    await flow.acceptOffer(state.offerReview!, '')
+
+    const message =
+      "This wallet can't hold this credential. The issuer binds credentials to did:web. This wallet supports JWK."
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: 'SETTLE_OFFER',
+      offerUri: offerA.offerUri,
+      status: { state: 'error', message },
+      keep: false,
+    })
+    expect(state.flow).toEqual({ state: 'error', message })
+    expect(state.heldOffer).toBeNull()
+    expect(state.offerReview).toBeNull()
   })
 
   it('settles an accepted offer, and shows who signed the credential', async () => {

@@ -10,7 +10,7 @@ import { WebhookEgressService, WebhookTargetPolicyError } from 'common/webhook'
 import WebhookConfig from 'config/webhook'
 import { throwError } from 'utils/common'
 
-import { NotificationDto } from './dto'
+import { NotificationDto, notificationLogContext } from './dto'
 import { NotificationGateway } from './notification.gateway'
 
 @Injectable()
@@ -31,7 +31,7 @@ export class NotificationService {
     // Bind identifiers only: the entity carries the webhook URL, which can embed secrets.
     const logger = this.logger.child('trySendNotification', {
       user: { id: user.id, messageDeliveryType: user.messageDeliveryType },
-      notification,
+      notification: notificationLogContext(notification),
     })
 
     try {

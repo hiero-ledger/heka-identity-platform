@@ -13,7 +13,7 @@ Holder keys are not hardware-backed. A key attestation, when an issuer requires 
 
 Docs:
 
-- [docs/trust-and-permissions.md](docs/trust-and-permissions.md): connected sites, host access per origin, what consent shows, the type-metadata policy, and the two builds;
+- [docs/permissions-and-consent.md](docs/permissions-and-consent.md): connected sites, host access per origin, what consent shows, the type-metadata policy, and the two builds;
 - [docs/bridge-protocol.md](docs/bridge-protocol.md): the messages between a web page and the wallet;
 - [docs/credo-in-the-browser.md](docs/credo-in-the-browser.md): how Credo runs in the extension page (storage, key management, the build workarounds);
 - [docs/wallet-lifecycle.md](docs/wallet-lifecycle.md): where the data lives and how to recover it.
@@ -53,8 +53,8 @@ yarn build
 - a content script is not a classic script (`check:content-scripts`): Chrome would not run it;
 - a workaround in `vite.config.ts` no longer applies (`check:workarounds`), typically after a Credo upgrade;
 - the bundle contains `new Function` or `eval(` (`check:csp`), which Manifest V3 blocks;
-- the manifest grants http access at install, declares a content script, or keeps a permission the bundle does not use (`check:manifest`).
+- the manifest grants host access at install, allows other optional host access than `https://*/*`, `http://localhost/*` and `http://127.0.0.1/*`, declares a content script, or keeps a permission the bundle does not use (`check:manifest`).
 
 After `yarn build:dev`, the first three checks also pass; `check:manifest` fails by design.
 
-[e2e/](e2e/README.md) drives the extension in Chrome for Testing: the bridge, the wallet window and a credential receive. It is not part of CI.
+[e2e/](e2e/README.md) drives the extension in Chrome for Testing: the bridge, the wallet window, a credential receive and a DCQL presentation, on its own page or through the Heka web UI and a running identity service. It is not part of CI.

@@ -181,9 +181,13 @@ export default {
     titles: {
       main: 'Present a credential',
       invalid: 'This presentation link is not valid',
+      verifier: 'Verifier (client_id)',
+      requestHost: 'Request hosted at',
     },
     messages: {
       done: 'Your wallet has answered the verifier.',
+      notVouched:
+        "Heka only passes this request on to your wallet and doesn't vouch for the verifier.",
     },
     errors: {
       missing:
@@ -198,6 +202,7 @@ export default {
     },
     messages: {
       failed: 'The Heka Web Wallet could not complete the request.',
+      noAnswer: 'No answer from the Heka Web Wallet; reload the page.',
     },
   },
   IssueCredential: {

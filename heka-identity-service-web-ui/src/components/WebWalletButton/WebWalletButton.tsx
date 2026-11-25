@@ -19,6 +19,8 @@ import {
 import { Button } from '@/shared/ui/Button';
 
 const DETECTION_TIMEOUT_MS = 1500;
+// The content script answers a send once the service worker has opened the wallet window
+const ANSWER_TIMEOUT_MS = 5000;
 
 interface WebWalletButtonProps {
   /** An `openid-credential-offer:` or `openid4vp:` URI; the button stays hidden for any other */
@@ -26,8 +28,8 @@ interface WebWalletButtonProps {
   /** The offer's expiry, passed on to the wallet */
   expiresAt?: string;
   /**
-   * Receives the wallet's statuses of this item, and its refusal of the item as an `error`;
-   * without it, an error is shown as a toast
+   * Receives the wallet's statuses of this item, and its refusal of the item or its silence as
+   * an `error`; without it, an error is shown as a toast
    */
   onStatus?: (status: WebWalletStatus) => void;
 }
@@ -77,6 +79,7 @@ export const WebWalletButton = ({
       }
     };
     const handleResponse = (response: WebWalletResponse) => {
+      clearTimeout(noAnswer);
       if (response.type === 'ERROR') {
         handleStatus({ state: 'error', message: response.message });
       }
@@ -90,9 +93,18 @@ export const WebWalletButton = ({
       isOffer ? 'RECEIVE_OFFER' : 'PRESENT_REQUEST',
       handleResponse,
     );
+    // A content script orphaned by an extension update or reload never answers
+    const noAnswer = setTimeout(() => {
+      cancelResponse();
+      handleStatus({
+        state: 'error',
+        message: t('WebWallet.messages.noAnswer'),
+      });
+    }, ANSWER_TIMEOUT_MS);
     unsubscribeRef.current = () => {
       unsubscribeStatus();
       cancelResponse();
+      clearTimeout(noAnswer);
     };
 
     if (isOffer) sendOffer(uri, expiresAt);

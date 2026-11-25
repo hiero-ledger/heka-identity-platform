@@ -8,11 +8,11 @@ Two scripts load the built extension in Chrome for Testing. Neither is part of C
   3. the wallet resolves the offer, enters the transaction code, accepts it, and stores the credential;
   4. the page gets `RECEIVE_STATUS` `done` for that offer, and the popup summary shows the issuer's display name and the issue date;
   5. with `HEKA_REQUEST_URI`, the page hands over that presentation request, the wallet presents the credential, and the page gets `PRESENT_STATUS` `done`;
-  6. a later, different offer goes to the same wallet window and replaces the first one there.
+  6. a later, different offer goes to the same wallet window and replaces the first one there, shown as opened from the page's origin.
 
   It serves its own page (`heka-page.html`) on `http://127.0.0.1:8000`, where the development build injects the bridge without connecting the site, so port 8000 must be free.
 - **`web-ui.mjs`**, the Heka web UI and a running identity service:
-  1. the contributor's credential step: the offer with its QR code, transaction code and expiry; the wallet button; the wallet's review (the issuer's origin, the self-declared name, the requesting site); the transaction code; `RECEIVE_STATUS` `done`; the step completed;
+  1. the contributor's credential step: the offer with its QR code, transaction code and expiry; the wallet button; the wallet's review (the issuer's origin, the self-declared name, the site it was opened from); the transaction code; `RECEIVE_STATUS` `done`; the step completed;
   2. the stored credential: `vct` "GitHub Contributor", `iss` the organization's DID, a `status.status_list` entry, the GitHub claims as disclosures; the offer's state `Completed`;
   3. with `HEKA_VERIFIER_TOKEN`: a DCQL request for that credential from the verifier, the public `/present` page signed out, the wallet button, the wallet's review, `PRESENT_STATUS` `done` on the page, and the verification session `ResponseVerified`.
 

@@ -32,10 +32,10 @@ The application structure is inspired by [Feature-Sliced Design](https://feature
   - In addition to predefined credential schemas, this flow also provides an ability to create custom one tied to the user.
 - **Verification** — Verification of all supported credential types.
   - Currently, verification requests are tightly tied to credential schemes created under the user.
-- **Presentation link** — `/present?client_id=…&request_uri=…` is a public page for a verifier's OpenID4VP request passed by reference: a QR code and a copy link. It doesn't follow the verification; the verifier does.
+  - AnonCreds W3C proof requests ask for a non-revocation proof, so they work only with credentials from revocable credential definitions. Credential definitions created through Heka always are; for a matching credential from another issuer's non-revocable definition, the holder's wallet reports an error instead of "no matching credential".
+- **Presentation link** — `/present?client_id=…&request_uri=…` is a public page for any verifier's OpenID4VP request passed by reference: a QR code and a copy link. It names the verifier's `client_id` and the request's host, and says that Heka only passes the request on and doesn't vouch for the verifier. It doesn't follow the verification; the verifier does.
 
 OpenID4VC offers and requests also show **Open in Heka Web Wallet** when the [Heka Web Wallet](../heka-web-wallet/README.md) extension answers on this site ([bridge protocol](../heka-web-wallet/docs/bridge-protocol.md)).
-  - AnonCreds W3C proof requests ask for a non-revocation proof, so they work only with credentials from revocable credential definitions. Credential definitions created through Heka always are; for a matching credential from another issuer's non-revocable definition, the holder's wallet reports an error instead of "no matching credential".
 
 > **Note:** Issuance and Verification flows work only for **authorized** users, but **Demo** can be run without authorization.
 

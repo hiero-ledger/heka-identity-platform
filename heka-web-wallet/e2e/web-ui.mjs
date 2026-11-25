@@ -184,8 +184,8 @@ try {
   const issuerOrigin = new URL(new URL(offer.credentialOffer).searchParams.get('credential_offer_uri')).origin
   check('wallet: the review names the issuer by its origin', review.includes(`Issuer\n${issuerOrigin}`), issuerOrigin)
   check(
-    'wallet: the review names the requesting site',
-    review.includes(`Requested by\n${new URL(webUiUrl).origin}`),
+    'wallet: the review names the site it was opened from',
+    review.includes(`Opened from\n${new URL(webUiUrl).origin}`),
     review.split('\n').slice(4, 16).join(' | '),
   )
   await wallet.type('input', offer.txCode)
@@ -249,9 +249,9 @@ try {
     await snapshot(wallet, '5-wallet-presentation-review')
     const presentation = await bodyText(wallet)
     check(
-      'wallet: the presentation review names the verifier, its id prefix and the requesting site',
+      'wallet: the presentation review names the verifier, its id prefix and the site it was opened from',
       /Verifier\ndid:key:\S+ \(decentralized_identifier\)/.test(presentation) &&
-        presentation.includes(`Requested by\n${new URL(webUiUrl).origin}`),
+        presentation.includes(`Opened from\n${new URL(webUiUrl).origin}`),
       presentation.split('\n').slice(4, 20).join(' | '),
     )
     await clickButton(wallet, 'Present credential')

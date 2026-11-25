@@ -60,11 +60,14 @@ function fakeChrome(contentScripts: Array<{ matches: string[] }> = []) {
       onRemoved: on('windowRemoved'),
     },
     scripting: {
-      getRegisteredContentScripts: vi.fn(async () => []),
+      getRegisteredContentScripts: vi.fn(async (_filter?: { ids?: string[] }): Promise<Array<{ id: string }>> => []),
       registerContentScripts: vi.fn(async () => undefined),
       unregisterContentScripts: vi.fn(async () => undefined),
     },
-    permissions: { contains: vi.fn(async () => true) },
+    permissions: {
+      contains: vi.fn(async (_permissions: { origins: string[] }) => true),
+      onRemoved: on('permissionsRemoved'),
+    },
     action: { setBadgeText: vi.fn(async () => undefined), setBadgeBackgroundColor: vi.fn(async () => undefined) },
   }
   return { chrome, listeners }
@@ -200,6 +203,33 @@ describe('service worker: connected sites', () => {
       type: 'STATUS',
     })
     await expect(sendFrom(siteTab('http://localhost:3000', 4), { type: 'GET_STATUS' })).resolves.toEqual(notConnected)
+  })
+
+  it('disconnects a site as soon as the holder removes its access in Chrome', async () => {
+    const { chrome, listeners, sendFrom } = await loadServiceWorker()
+    chrome.storage.local.values.set(CONNECTED_SITES_KEY, ['https://heka.example', 'https://revoked.example'])
+    chrome.permissions.contains.mockImplementation(
+      async ({ origins }: { origins: string[] }) => !origins.includes('https://revoked.example/*'),
+    )
+    chrome.scripting.getRegisteredContentScripts.mockImplementation(async (filter?: { ids?: string[] }) =>
+      ['heka-bridge:https://heka.example', 'heka-bridge:https://revoked.example']
+        .filter((id) => !filter?.ids || filter.ids.includes(id))
+        .map((id) => ({ id })),
+    )
+
+    ;(listeners.permissionsRemoved[0] as (removed: chrome.permissions.Permissions) => void)({
+      origins: ['https://revoked.example/*'],
+    })
+
+    await vi.waitFor(() =>
+      expect(chrome.scripting.unregisterContentScripts).toHaveBeenCalledWith({
+        ids: ['heka-bridge:https://revoked.example'],
+      }),
+    )
+    expect(chrome.storage.local.values.get(CONNECTED_SITES_KEY)).toEqual(['https://heka.example'])
+    await expect(
+      sendFrom(siteTab('https://revoked.example', 5), { type: 'RECEIVE_OFFER', offerUri: offer }),
+    ).resolves.toEqual(notConnected)
   })
 
   it('registers the bridge again for the connected sites when the browser starts', async () => {

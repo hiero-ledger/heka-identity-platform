@@ -4,6 +4,7 @@ import {
   builtInBridgeOrigins,
   connectSite,
   disconnectSite,
+  dropRevokedSites,
   isConnectedOrigin,
   loadConnectedSites,
   reconcileConnectedSites,
@@ -108,6 +109,26 @@ describe('connected sites', () => {
     expect(await isConnectedOrigin(heka)).toBe(false)
   })
 
+  it('gives the access back when the site cannot be connected, so it is never half-connected', async () => {
+    const { chrome, granted, registered } = fakeChrome()
+    chrome.scripting.registerContentScripts.mockRejectedValueOnce(new Error('Could not load content script'))
+
+    await expect(connectSite(heka, 42)).rejects.toThrow('Could not load content script')
+
+    expect(granted.size).toBe(0)
+    expect(registered.size).toBe(0)
+    expect(await loadConnectedSites()).toEqual([])
+    expect(chrome.scripting.executeScript).not.toHaveBeenCalled()
+
+    // Registered, but not stored: the registration goes as well.
+    const set = vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('QUOTA_BYTES quota exceeded'))
+    await expect(connectSite(heka, 42)).rejects.toThrow('QUOTA_BYTES')
+    expect(set).toHaveBeenCalled()
+    expect(granted.size).toBe(0)
+    expect(registered.size).toBe(0)
+    expect(await isConnectedOrigin(heka)).toBe(false)
+  })
+
   it('disconnects a site: forgets it, unregisters the bridge and gives up the access', async () => {
     const { chrome, granted, registered } = fakeChrome()
     await connectSite(heka)
@@ -135,6 +156,19 @@ describe('connected sites', () => {
 
     expect(await loadConnectedSites()).toEqual([heka])
     expect([...registered.keys()].sort()).toEqual(['heka-bridge:https://heka.example', 'other-script'])
+  })
+
+  it('drops only the sites whose access was removed, and stops their bridge', async () => {
+    const { granted, registered } = fakeChrome()
+    await connectSite(heka)
+    await connectSite('https://revoked.example')
+    granted.delete('https://revoked.example/*')
+
+    expect(await dropRevokedSites()).toEqual([heka])
+
+    expect(await loadConnectedSites()).toEqual([heka])
+    expect([...registered.keys()]).toEqual(['heka-bridge:https://heka.example'])
+    expect(await dropRevokedSites()).toEqual([heka])
   })
 
   it("treats the development build's static bridge origins as connected", async () => {
