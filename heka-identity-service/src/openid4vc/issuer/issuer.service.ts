@@ -1,4 +1,4 @@
-import { AgentContext, injectable, Kms } from '@credo-ts/core'
+import { AgentContext, injectable, isDid, Kms } from '@credo-ts/core'
 import {
   OpenId4VciCredentialConfigurationsSupportedWithFormats,
   OpenId4VciCredentialIssuerMetadataDisplay,
@@ -6,6 +6,7 @@ import {
 import { BadRequestException, ConflictException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
+import { DidService } from 'did/did.service'
 
 import { toRecord } from '../../utils/array'
 
@@ -24,10 +25,18 @@ import { UpdateIssuerSupportedCredentialsAction } from './dto/update-issuer.dto'
 
 @injectable()
 export class OpenId4VcIssuerService {
+  public constructor(private readonly didService: DidService) {}
+
   public async createIssuer(
     tenantAgent: TenantAgent,
     options: OpenId4VcIssuersCreateDto,
   ): Promise<OpenId4VcIssuerRecordDto> {
+    // Credo routes the public OID4VCI endpoints of an issuer id to the first tenant whose issuer or verifier has that
+    // id, so only the wallet that holds a DID may use it
+    if (isDid(options.publicIssuerId)) {
+      await this.didService.assertOwnActiveDid(tenantAgent, options.publicIssuerId)
+    }
+
     const allIssuers = await tenantAgent.openid4vc.issuer.getAllIssuers()
     const existingIssuers = allIssuers.filter((i) => i.issuerId === options.publicIssuerId)
     if (existingIssuers.length) {

@@ -186,6 +186,21 @@ export class DidService {
     return oldest?.did
   }
 
+  /**
+   * Refuses (422) a DID that cannot stand for the wallet in public, e.g. as the id of an OpenID4VC issuer or verifier:
+   * one the wallet did not create, the Indy endorser DID that every tenant holds, or one the wallet deactivated.
+   */
+  public async assertOwnActiveDid(tenantAgent: TenantAgent, did: string): Promise<void> {
+    const [didRecord] =
+      did === this.agent.agencyConfig.indyEndorserDid ? [] : await tenantAgent.dids.getCreatedDids({ did })
+    if (!didRecord) {
+      throw new UnprocessableEntityException(`${did} is not a DID this wallet created`)
+    }
+    if (isDidRecordDeactivated(didRecord)) {
+      throw new UnprocessableEntityException(`DID is deactivated: ${did}`)
+    }
+  }
+
   private async runExclusiveForWallet<T>(walletId: string, operation: () => Promise<T>): Promise<T> {
     let mutex = this.mainDidMutexes.get(walletId)
     if (!mutex) {

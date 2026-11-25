@@ -77,7 +77,7 @@ Create an Issuer record that advertises an SD-JWT VC credential configuration.
 
 **Field notes:**
 
-- `publicIssuerId` — your chosen identifier for this Issuer record. Used as the `iss` in OID4VCI metadata.
+- `publicIssuerId` — your chosen identifier for this Issuer record. Used as the `iss` in OID4VCI metadata. An identifier that starts with `did:` must be an active DID your wallet created; any other DID is refused with `422`.
 - `credentialsSupported[].id` — referenced later as `credentialSupportedId` when creating an offer. **Save this value.**
 - `credentialsSupported[].format` — must be `vc+sd-jwt` for SD-JWT VC.
 - `credentialsSupported[].vct` — the credential type identifier holders use to recognize the credential. Use a stable URL you control; this becomes the `vct` claim in every issued credential.
