@@ -94,6 +94,16 @@ async function askHostAccess(origins: string[], kept: string): Promise<string | 
   }
 }
 
+/**
+ * Why a step stops before it contacts anything: some URL it would contact is on a host the wallet
+ * can never ask access for, and without access only the server's CORS headers would gate the call.
+ */
+function refusedText(refused: string[], kept: string): string | null {
+  if (refused.length === 0) return null
+  const hosts = refused.length === 1 ? 'its host' : 'their hosts'
+  return `This wallet can't contact ${refused.join(', ')}: ${hosts} can't be allowed. ${kept}`
+}
+
 export function createPendingFlow(view: FlowView, refs: FlowRefs) {
   async function openOffer(held: PendingOffer): Promise<void> {
     const handling = { ...held }
@@ -113,7 +123,16 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
 
     view.setHeldOffer(held)
     try {
-      const missing = await missingHostAccess(reviewOrigins(held.offerUri))
+      const step = reviewOrigins(held.offerUri)
+      const refused = refusedText(step.refused, 'The offer is still saved.')
+      if (refused) {
+        // No grant can fix this, so it is an open failure: the tab hears of it now.
+        view.setOfferAccess([])
+        view.setFlow({ state: 'error', message: refused })
+        await settlePendingOffer(held.offerUri, { state: 'error', message: refused }, true)
+        return
+      }
+      const missing = await missingHostAccess(step.origins)
       if (replaced()) return
       view.setOfferAccess(missing)
       if (missing.length > 0) {
@@ -163,7 +182,10 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
       view.setFlow({ state: 'error', message: codeError })
       return
     }
-    const refused = await askHostAccess(offerAcceptOrigins(review.resolved), 'The offer is still saved.')
+    const step = offerAcceptOrigins(review.resolved)
+    const refused =
+      refusedText(step.refused, 'The offer is still saved.') ??
+      (await askHostAccess(step.origins, 'The offer is still saved.'))
     if (replaced()) return
     if (refused) {
       view.setFlow({ state: 'error', message: refused })
@@ -238,7 +260,15 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
     view.setPresentation(null)
     view.setHeldRequest(held)
     try {
-      const missing = await missingHostAccess(reviewOrigins(held.requestUri))
+      const step = reviewOrigins(held.requestUri)
+      const refused = refusedText(step.refused, 'The request is still saved.')
+      if (refused) {
+        view.setRequestAccess([])
+        view.setFlow({ state: 'error', message: refused })
+        await settlePendingRequest(held.requestUri, { state: 'error', message: refused }, true)
+        return
+      }
+      const missing = await missingHostAccess(step.origins)
       if (replaced()) return
       view.setRequestAccess(missing)
       if (missing.length > 0) {
@@ -279,7 +309,10 @@ export function createPendingFlow(view: FlowView, refs: FlowRefs) {
     const handling = refs.request.current
     if (handling?.requestUri !== review.requestUri) return
     const replaced = () => refs.request.current !== handling
-    const refused = await askHostAccess(presentationOrigins(review.resolved), 'The request is still saved.')
+    const step = presentationOrigins(review.resolved)
+    const refused =
+      refusedText(step.refused, 'The request is still saved.') ??
+      (await askHostAccess(step.origins, 'The request is still saved.'))
     if (replaced()) return
     if (refused) {
       view.setFlow({ state: 'error', message: refused })

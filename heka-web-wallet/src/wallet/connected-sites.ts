@@ -42,20 +42,24 @@ async function unregisterBridge(ids: string[]): Promise<void> {
 }
 
 /**
- * Asks for access to `origin`, then runs the bridge on its pages from their next load, and now in
- * the page open in `tabId`. Returns null when the holder refused, else whether that page has the
- * bridge already. Must run from a click: Chrome rejects permissions.request without a user gesture.
+ * Asks for access to `origin` unless the wallet has it, then runs the bridge on its pages from their
+ * next load, and now in the page open in `tabId`. Returns null when the holder refused, else whether
+ * that page has the bridge already. Must run from a click: Chrome rejects permissions.request
+ * without a user gesture.
  */
 export async function connectSite(origin: string, tabId?: number): Promise<{ injected: boolean } | null> {
-  if (!(await chrome.permissions.request({ origins: [originPattern(origin)] }))) return null
+  const access = { origins: [originPattern(origin)] }
+  // Access granted before (for an issuer or verifier on this origin) is not this connect's to give up.
+  const grantedBefore = await chrome.permissions.contains(access)
+  if (!grantedBefore && !(await chrome.permissions.request(access))) return null
   try {
     await registerBridge(origin)
     const sites = await loadConnectedSites()
     if (!sites.includes(origin)) await chrome.storage.local.set({ [CONNECTED_SITES_KEY]: [...sites, origin] })
   } catch (error) {
-    // Not connected, so the site keeps neither its bridge nor the access just granted.
+    // Not connected, so the site keeps neither its bridge nor the access this connect granted.
     await unregisterBridge([scriptId(origin)]).catch(() => undefined)
-    await chrome.permissions.remove({ origins: [originPattern(origin)] }).catch(() => false)
+    if (!grantedBefore) await chrome.permissions.remove(access).catch(() => false)
     throw error
   }
   if (tabId === undefined) return { injected: false }

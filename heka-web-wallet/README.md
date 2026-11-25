@@ -53,7 +53,7 @@ yarn build
 - a content script is not a classic script (`check:content-scripts`): Chrome would not run it;
 - a workaround in `vite.config.ts` no longer applies (`check:workarounds`), typically after a Credo upgrade;
 - the bundle contains `new Function` or `eval(` (`check:csp`), which Manifest V3 blocks;
-- the manifest grants host access at install, allows other optional host access than `https://*/*`, `http://localhost/*` and `http://127.0.0.1/*`, declares a content script, or keeps a permission the bundle does not use (`check:manifest`).
+- the manifest grants host access at install, has optional host access other than exactly `https://*/*`, `http://localhost/*` and `http://127.0.0.1/*` (one more or one missing fails), declares any `optional_permissions`, declares a content script, or keeps a permission the bundle does not use (`check:manifest`).
 
 After `yarn build:dev`, the first three checks also pass; `check:manifest` fails by design.
 

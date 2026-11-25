@@ -9,7 +9,7 @@ A web page reaches the wallet through the bridge content script ([bridge-protoco
 1. On the site's tab, open the wallet's popup and press **Connect this site**. Chrome asks for access to that origin (`https://site.example/*`).
 2. The wallet registers the bridge for the site's pages (`chrome.scripting.registerContentScripts`, kept across browser restarts), stores the origin in `chrome.storage.local` (`connectedSites`), and injects the bridge into the page already open, which then receives `EXTENSION_READY`.
 
-If the bridge cannot be registered or the site cannot be stored, the wallet gives the access back and the site stays unconnected.
+If the bridge cannot be registered or the site cannot be stored, the site stays unconnected: the wallet removes the bridge and the access this connect granted. Access the wallet had before, for an issuer or verifier on the same origin, stays; Chrome isn't asked again for it.
 
 **Disconnect** in the popup forgets the site, unregisters the bridge and gives up the access to the origin. A page that is already open keeps its bridge until it reloads, but the service worker ignores it.
 
@@ -37,7 +37,7 @@ The extension has no host access at install (in the production build). It asks f
 
 Chrome shows its own prompt only for origins not granted yet. A refused grant, or a request Chrome fails, keeps the offer or request saved; the wallet names the origin, and the same button asks again. Granted origins stay granted until removed in `chrome://extensions`, or until a connected site with the same origin is disconnected.
 
-The wallet asks only for one host at a time. A URL whose host holds a `*` (also percent-encoded, as in `exa%2Ample.com`) or anything but letters, digits, hyphens and dots, an IPv6 literal, or a plain-http host other than `localhost` and `127.0.0.1` is never asked for. An internationalized name is asked for in its punycode form. Such a URL can then not be contacted.
+The wallet asks only for one host at a time. A URL whose host holds a `*` (also percent-encoded, as in `exa%2Ample.com`) or anything but letters, digits, hyphens and dots, an IPv6 literal, or a plain-http host other than `localhost` and `127.0.0.1` is never asked for, nor a URL of another scheme. An internationalized name is asked for in its punycode form. A step that would contact such a URL (one named in the table above, or the offer or request URI itself when it is a web URL) stops before it reads, fetches or submits anything: the wallet shows "This wallet can't contact `<url>`: its host can't be allowed." and keeps the offer or request. When this stops the reading of the item, no grant can help, so the page that handed it over also gets that message as an `error` status, as for any item that can't be read; at accept or present it gets none, as for a refused grant. Otherwise the call would go out without host access, gated only by the server's cross-origin (CORS) headers.
 
 Reading an offer can also contact servers the URI does not name, such as the issuer's metadata when the offer is hosted elsewhere. Those requests go out without host access, so they work only if that server allows cross-origin requests.
 
@@ -88,4 +88,4 @@ Otherwise it fetches nothing. A credential is still received, without type metad
 | `http://` issuers and verifiers | refused by Credo | allowed |
 | Source maps | no | yes |
 
-`manifest.json` is the production manifest; the build's copy plugin (`vite.config.ts`) writes the development one. `yarn build` ends with `check:manifest`, which fails when the built manifest grants any host access at install, allows optional host access other than exactly `https://*/*`, `http://localhost/*` and `http://127.0.0.1/*`, declares a content script, or keeps a permission the bundle does not use. `activeTab` unlocks no API of its own, so an explicit rule keeps it only while the popup reads the active tab. CI runs the production build.
+`manifest.json` is the production manifest; the build's copy plugin (`vite.config.ts`) writes the development one. `yarn build` ends with `check:manifest`, which fails when the built manifest grants any host access at install, allows optional host access other than exactly `https://*/*`, `http://localhost/*` and `http://127.0.0.1/*`, declares any `optional_permissions`, declares a content script, or keeps a permission the bundle does not use. `activeTab` unlocks no API of its own, so an explicit rule keeps it only while the popup reads the active tab. CI runs the production build.

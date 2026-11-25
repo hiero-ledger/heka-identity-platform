@@ -10,26 +10,27 @@ import {
 } from '../host-access'
 
 const offerUri = (query: Record<string, string>) => `openid-credential-offer://?${new URLSearchParams(query)}`
+const allowed = (...origins: string[]) => ({ origins, refused: [] })
 
 describe('the origins each step contacts', () => {
   it('reviews an offer by reference on the origin of its credential_offer_uri', () => {
-    expect(reviewOrigins(offerUri({ credential_offer_uri: 'https://issuer.example/offers/42' }))).toEqual([
-      'https://issuer.example',
-    ])
+    expect(reviewOrigins(offerUri({ credential_offer_uri: 'https://issuer.example/offers/42' }))).toEqual(
+      allowed('https://issuer.example'),
+    )
   })
 
   it('reviews an offer by value on its credential_issuer, and a request on its request_uri', () => {
     const inline = JSON.stringify({ credential_issuer: 'https://issuer.example/oid4vci/1' })
-    expect(reviewOrigins(offerUri({ credential_offer: inline }))).toEqual(['https://issuer.example'])
-    expect(reviewOrigins('openid4vp://?client_id=x&request_uri=https%3A%2F%2Fverifier.example%2Fr%2F7')).toEqual([
-      'https://verifier.example',
-    ])
+    expect(reviewOrigins(offerUri({ credential_offer: inline }))).toEqual(allowed('https://issuer.example'))
+    expect(reviewOrigins('openid4vp://?client_id=x&request_uri=https%3A%2F%2Fverifier.example%2Fr%2F7')).toEqual(
+      allowed('https://verifier.example'),
+    )
   })
 
   it('names an https issuer behind an http offer URI only at accept, with an authorization server elsewhere', () => {
-    expect(reviewOrigins(offerUri({ credential_offer_uri: 'http://localhost:3000/offers/42' }))).toEqual([
-      'http://localhost:3000',
-    ])
+    expect(reviewOrigins(offerUri({ credential_offer_uri: 'http://localhost:3000/offers/42' }))).toEqual(
+      allowed('http://localhost:3000'),
+    )
     const resolved = {
       metadata: {
         credentialIssuer: {
@@ -40,28 +41,43 @@ describe('the origins each step contacts', () => {
         authorizationServers: [{ issuer: 'https://auth.example', token_endpoint: 'https://token.auth.example/token' }],
       },
     }
-    expect(offerAcceptOrigins(resolved)).toEqual([
-      'https://issuer.example',
-      'https://auth.example',
-      'https://token.auth.example',
-    ])
+    expect(offerAcceptOrigins(resolved)).toEqual(
+      allowed('https://issuer.example', 'https://auth.example', 'https://token.auth.example'),
+    )
   })
 
   it('presents to the origin of response_uri', () => {
     expect(
       presentationOrigins({ authorizationRequestPayload: { response_uri: 'https://verifier.example/post' } }),
-    ).toEqual(['https://verifier.example'])
-    expect(presentationOrigins({ authorizationRequestPayload: {} })).toEqual([])
+    ).toEqual(allowed('https://verifier.example'))
   })
 
-  it('leaves out what the manifest cannot grant: plain http hosts and other schemes', () => {
+  it('counts a missing or empty field, and a custom-scheme item URI, as no URL', () => {
+    expect(presentationOrigins({ authorizationRequestPayload: {} })).toEqual(allowed())
+    expect(presentationOrigins({ authorizationRequestPayload: { response_uri: '' } })).toEqual(allowed())
+    expect(offerAcceptOrigins({ metadata: { credentialIssuer: { credential_issuer: null } } })).toEqual(allowed())
+    expect(reviewOrigins('openid4vp://?client_id=x&request=eyJ')).toEqual(allowed())
+    expect(reviewOrigins(offerUri({ credential_offer_uri: '' }))).toEqual(allowed())
+  })
+
+  it('refuses what the manifest cannot grant: plain http hosts and other schemes', () => {
     expect(grantableOrigin('http://issuer.example/offer')).toBeNull()
     expect(grantableOrigin('http://127.0.0.1:3000/offer')).toBe('http://127.0.0.1:3000')
     expect(grantableOrigin('openid-credential-offer://?x=1')).toBeNull()
-    expect(reviewOrigins(offerUri({ credential_offer_uri: 'http://issuer.example/offers/42' }))).toEqual([])
+    expect(reviewOrigins(offerUri({ credential_offer_uri: 'http://issuer.example/offers/42' }))).toEqual({
+      origins: [],
+      refused: ['http://issuer.example/offers/42'],
+    })
+    expect(reviewOrigins('http://wallet.example/?credential_offer_uri=https%3A%2F%2Fissuer.example%2Fo')).toEqual({
+      origins: ['https://issuer.example'],
+      refused: ['http://wallet.example/?credential_offer_uri=https%3A%2F%2Fissuer.example%2Fo'],
+    })
+    expect(
+      presentationOrigins({ authorizationRequestPayload: { response_uri: 'ftp://verifier.example/post' } }),
+    ).toEqual({ origins: [], refused: ['ftp://verifier.example/post'] })
   })
 
-  it('never yields a wildcard or a host a match pattern cannot name', () => {
+  it('never yields a wildcard or a host a match pattern cannot name, and reports such URLs', () => {
     // new URL('https://*/token').origin is 'https://*', whose pattern would be every https site
     expect(grantableOrigin('https://*/token')).toBeNull()
     expect(grantableOrigin('https://*.example.com/token')).toBeNull()
@@ -70,7 +86,10 @@ describe('the origins each step contacts', () => {
     for (const url of ['https://ex!ample.com', 'https://a_b.example', 'https://-x.example', 'https://example.com./']) {
       expect(grantableOrigin(url)).toBeNull()
     }
-    expect(reviewOrigins(offerUri({ credential_offer_uri: 'https://*/offers/42' }))).toEqual([])
+    expect(reviewOrigins(offerUri({ credential_offer_uri: 'https://*/offers/42' }))).toEqual({
+      origins: [],
+      refused: ['https://*/offers/42'],
+    })
     expect(
       offerAcceptOrigins({
         metadata: {
@@ -81,8 +100,14 @@ describe('the origins each step contacts', () => {
           authorizationServers: [{ issuer: 'https://exa%2Ample.com', token_endpoint: 'https://*/token' }],
         },
       }),
-    ).toEqual(['https://issuer.example'])
-    expect(presentationOrigins({ authorizationRequestPayload: { response_uri: 'https://*/post' } })).toEqual([])
+    ).toEqual({
+      origins: ['https://issuer.example'],
+      refused: ['https://*/credential', 'https://exa%2Ample.com', 'https://*/token'],
+    })
+    expect(presentationOrigins({ authorizationRequestPayload: { response_uri: 'https://a_b.example/post' } })).toEqual({
+      origins: [],
+      refused: ['https://a_b.example/post'],
+    })
   })
 
   it('takes IDNs as punycode and IPv4 addresses, and refuses IPv6 literals', () => {

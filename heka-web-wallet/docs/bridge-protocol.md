@@ -34,8 +34,8 @@ Handing an item over doesn't vouch for it. The wallet shows the sending page's o
 | `GET_STATUS_RESPONSE` | `{ type: 'STATUS', initialized, credentialCount }` | Answer to `GET_STATUS`. `initialized` is true once the wallet page has started its agent |
 | `RECEIVE_OFFER_RESPONSE`, `PRESENT_REQUEST_RESPONSE` | `{ type: 'OFFER_ACKNOWLEDGED' }` | The wallet stored the item and opened its window. The holder has not decided anything yet |
 | `<TYPE>_RESPONSE` | `{ type: 'ERROR', message }` | The wallet refused or could not answer |
-| `RECEIVE_STATUS` | `{ offerUri, state: 'done' \| 'error', message }` | The offer was received (`done`: at least one credential stored), declined, expired or failed, or the wallet can't hold the offered credential |
-| `PRESENT_STATUS` | `{ requestUri, state: 'done' \| 'error', message }` | The presentation was submitted, declined, or rejected or failed, or the request could not be opened (for example, no stored credential matches it) |
+| `RECEIVE_STATUS` | `{ offerUri, state: 'done' \| 'error', message }` | The offer was received (`done`: at least one credential stored), declined, expired or failed, or could not be read (for example, it names a URL the wallet can't contact), or the wallet can't hold the offered credential |
+| `PRESENT_STATUS` | `{ requestUri, state: 'done' \| 'error', message }` | The presentation was submitted, declined, or rejected or failed, or the request could not be opened (for example, no stored credential matches it, or it names a URL the wallet can't contact) |
 
 A status goes only to the tab that handed over the item, and only while that tab is still on the same origin. A page ignores a status whose `offerUri` or `requestUri` it did not send. An item pasted into the wallet's popup gets no status. An `error` can be followed by `done` when the holder retries in the wallet.
 

@@ -61,6 +61,10 @@ if (extra.length > 0) {
   )
 }
 
+// An optional API permission is asked for at run time, past the usage check on "permissions" below.
+const optionalApis = manifest.optional_permissions ?? []
+if (optionalApis.length > 0) failures.push(`optional_permissions lets the wallet ask for ${optionalApis.join(', ')}`)
+
 if ((manifest.content_scripts ?? []).length > 0) {
   failures.push('content_scripts injects the bridge without the holder connecting a site')
 }

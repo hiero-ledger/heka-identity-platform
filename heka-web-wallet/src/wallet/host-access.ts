@@ -5,8 +5,23 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
 
-function unique(origins: Array<string | null>): string[] {
-  return [...new Set(origins.filter((origin): origin is string => origin !== null))]
+/** What a step contacts: the origins to ask access for, and the URLs it can never ask access for. */
+export interface StepOrigins {
+  origins: string[]
+  refused: string[]
+}
+
+/** A field that is absent, empty or not a string names no URL; any other is a URL the step would contact. */
+function stepOrigins(urls: unknown[]): StepOrigins {
+  const origins = new Set<string>()
+  const refused = new Set<string>()
+  for (const url of urls) {
+    if (typeof url !== 'string' || url === '') continue
+    const origin = grantableOrigin(url)
+    if (origin) origins.add(origin)
+    else refused.add(url)
+  }
+  return { origins: [...origins], refused: [...refused] }
 }
 
 const HOST_LABEL = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/
@@ -45,46 +60,41 @@ export function originPattern(origin: string): string {
  * What resolving an offer or request URI contacts first: the URI itself when it is a web URL, its
  * `credential_offer_uri` or `request_uri`, and the issuer named in an offer passed by value.
  */
-export function reviewOrigins(uri: string): string[] {
-  let query: URLSearchParams
+export function reviewOrigins(uri: string): StepOrigins {
+  let parsed: URL
   try {
-    query = new URL(uri).searchParams
+    parsed = new URL(uri)
   } catch {
-    return []
+    return { origins: [], refused: [] }
   }
+  const query = parsed.searchParams
   let inlineIssuer: unknown
   try {
     inlineIssuer = asRecord(JSON.parse(query.get('credential_offer') ?? 'null'))?.credential_issuer
   } catch {
     inlineIssuer = undefined
   }
-  return unique([
-    grantableOrigin(uri),
-    grantableOrigin(query.get('credential_offer_uri')),
-    grantableOrigin(query.get('request_uri')),
-    grantableOrigin(inlineIssuer),
-  ])
+  const web = parsed.protocol === 'https:' || parsed.protocol === 'http:'
+  return stepOrigins([web ? uri : null, query.get('credential_offer_uri'), query.get('request_uri'), inlineIssuer])
 }
 
 /** What accepting a resolved offer contacts: the issuer's endpoints and its authorization servers. */
-export function offerAcceptOrigins(resolved: unknown): string[] {
+export function offerAcceptOrigins(resolved: unknown): StepOrigins {
   const metadata = asRecord(asRecord(resolved)?.metadata)
   const issuer = asRecord(metadata?.credentialIssuer)
   const servers = Array.isArray(metadata?.authorizationServers) ? metadata.authorizationServers.map(asRecord) : []
-  return unique(
-    [
-      issuer?.credential_issuer,
-      issuer?.credential_endpoint,
-      issuer?.nonce_endpoint,
-      ...servers.flatMap((server) => [server?.issuer, server?.token_endpoint]),
-    ].map(grantableOrigin),
-  )
+  return stepOrigins([
+    issuer?.credential_issuer,
+    issuer?.credential_endpoint,
+    issuer?.nonce_endpoint,
+    ...servers.flatMap((server) => [server?.issuer, server?.token_endpoint]),
+  ])
 }
 
 /** Where submitting a presentation posts it: the verifier's `response_uri`. */
-export function presentationOrigins(resolved: unknown): string[] {
+export function presentationOrigins(resolved: unknown): StepOrigins {
   const payload = asRecord(asRecord(resolved)?.authorizationRequestPayload)
-  return unique([grantableOrigin(payload?.response_uri)])
+  return stepOrigins([payload?.response_uri])
 }
 
 /** The origins the wallet cannot contact yet. */

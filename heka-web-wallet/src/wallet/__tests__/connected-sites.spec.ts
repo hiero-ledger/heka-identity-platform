@@ -109,7 +109,7 @@ describe('connected sites', () => {
     expect(await isConnectedOrigin(heka)).toBe(false)
   })
 
-  it('gives the access back when the site cannot be connected, so it is never half-connected', async () => {
+  it('gives back the access this connect granted when the site cannot be connected, so it is never half-connected', async () => {
     const { chrome, granted, registered } = fakeChrome()
     chrome.scripting.registerContentScripts.mockRejectedValueOnce(new Error('Could not load content script'))
 
@@ -125,6 +125,26 @@ describe('connected sites', () => {
     await expect(connectSite(heka, 42)).rejects.toThrow('QUOTA_BYTES')
     expect(set).toHaveBeenCalled()
     expect(granted.size).toBe(0)
+    expect(registered.size).toBe(0)
+    expect(await isConnectedOrigin(heka)).toBe(false)
+  })
+
+  it('keeps access granted before the connect when the site cannot be connected', async () => {
+    const { chrome, granted, registered } = fakeChrome()
+    granted.add('https://heka.example/*')
+    chrome.scripting.registerContentScripts.mockRejectedValueOnce(new Error('Could not load content script'))
+
+    await expect(connectSite(heka, 42)).rejects.toThrow('Could not load content script')
+
+    expect(chrome.permissions.request).not.toHaveBeenCalled()
+    expect(chrome.permissions.remove).not.toHaveBeenCalled()
+    expect([...granted]).toEqual(['https://heka.example/*'])
+    expect(registered.size).toBe(0)
+
+    vi.spyOn(chrome.storage.local, 'set').mockRejectedValueOnce(new Error('QUOTA_BYTES quota exceeded'))
+    await expect(connectSite(heka, 42)).rejects.toThrow('QUOTA_BYTES')
+    expect(chrome.permissions.remove).not.toHaveBeenCalled()
+    expect([...granted]).toEqual(['https://heka.example/*'])
     expect(registered.size).toBe(0)
     expect(await isConnectedOrigin(heka)).toBe(false)
   })

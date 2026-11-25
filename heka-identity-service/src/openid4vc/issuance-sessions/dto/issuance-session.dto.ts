@@ -139,6 +139,7 @@ export class OpenId4VcIssuanceSessionRecordDto {
     this.state = params.state
     this.type = params.type
     this.credentialOfferUri = params.credentialOfferUri
+    this.errorMessage = params.errorMessage
     this.id = params.id
     this.issuanceMetadata = params.issuanceMetadata
     this.createdAt = params.createdAt

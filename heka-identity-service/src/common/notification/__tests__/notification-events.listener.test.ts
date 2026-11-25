@@ -126,7 +126,7 @@ describe('NotificationEventsListener issuance session notifications', () => {
   let trySendNotification: ReturnType<typeof vi.fn>
   let child: ReturnType<typeof vi.fn>
 
-  const emit = async () => {
+  const emit = async (stateChange = event) => {
     const on = vi.fn<(type: NotificationEventType, handler: (event: NotificationEvent) => Promise<void>) => void>()
     const agent = { events: { on, off: vi.fn() } } as unknown as Agent
     const wallet = { users: { getItems: () => [new User({ id: 'u1' }), new User({ id: 'u2' })] } } as unknown as Wallet
@@ -143,7 +143,7 @@ describe('NotificationEventsListener issuance session notifications', () => {
     )
     listener.onModuleInit()
     const [, handler] = on.mock.calls.find(([type]) => type === OpenId4VcIssuerEvents.IssuanceSessionStateChanged)!
-    await handler(event)
+    await handler(stateChange)
   }
 
   test('sends the session view of the GET routes, without the transaction code', async () => {
@@ -161,6 +161,37 @@ describe('NotificationEventsListener issuance session notifications', () => {
         state: OpenId4VcIssuanceSessionState.AccessTokenCreated,
         publicIssuerId: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
         expiresAt: '2026-11-26T10:10:00.000Z',
+      })
+    }
+  })
+
+  test('keeps the reason of a failed session', async () => {
+    const failed = new OpenId4VcIssuanceSessionRecord({
+      id: 'session-2',
+      createdAt: new Date('2026-11-26T10:00:00Z'),
+      expiresAt: new Date('2026-11-26T10:10:00Z'),
+      state: OpenId4VcIssuanceSessionState.Error,
+      issuerId: 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK',
+      credentialOfferId: 'offer-2',
+      credentialOfferPayload: issuanceSession.credentialOfferPayload,
+      openId4VciVersion: 'v1.draft15',
+      errorMessage: 'Credential offer has expired',
+    })
+
+    await emit({
+      ...event,
+      payload: { issuanceSession: failed, previousState: OpenId4VcIssuanceSessionState.AccessTokenCreated },
+    })
+
+    expect(trySendNotification).toHaveBeenCalledTimes(2)
+    for (const [, notification] of trySendNotification.mock.calls) {
+      expect(JSON.parse(JSON.stringify(notification))).toMatchObject({
+        previousState: OpenId4VcIssuanceSessionState.AccessTokenCreated,
+        issuanceSession: {
+          id: 'session-2',
+          state: OpenId4VcIssuanceSessionState.Error,
+          errorMessage: 'Credential offer has expired',
+        },
       })
     }
   })

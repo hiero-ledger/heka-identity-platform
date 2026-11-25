@@ -125,7 +125,7 @@ Many API methods initiate asynchronous processes. The Identity Service emits not
 
 Webhook URLs are treated as untrusted egress: they must use `https:` and resolve to a globally routable address, and a URL that violates the policy is rejected with `400 Bad Request` on `PATCH /user`. See [Notification webhooks](setup.md#notification-webhooks) for the full policy and the `WEBHOOK_*` settings that relax it for local development.
 
-Three notification event types are emitted:
+Five notification event types are emitted:
 
 ### 1. Connection State Change
 
@@ -183,6 +183,41 @@ Three notification event types are emitted:
     "errorMessage": "string"
   }
   ```
+
+### 4. OpenID4VC Issuance Session State Change
+
+- `type`: `OpenId4VcIssuer.IssuanceSessionStateChanged` (Credo event type)
+- `previousState`: the state before the change, `null` for a new session
+- `issuanceSession`: the session as `GET /openid4vc/issuance-session/:id` returns it, without `revocable` / `revoked`. Like the GET routes, it never carries `userPin`, the transaction code: only the offer response does. `state` is `OfferCreated` / `OfferUriRetrieved` / `AuthorizationInitiated` / `AuthorizationGranted` / `AccessTokenRequested` / `AccessTokenCreated` / `CredentialRequestReceived` / `CredentialsPartiallyIssued` / `Completed` / `Error`; a session in `Error` carries the reason in `errorMessage`.
+
+  ```json
+  {
+    "type": "OpenId4VcIssuer.IssuanceSessionStateChanged",
+    "previousState": "AccessTokenCreated",
+    "issuanceSession": {
+      "id": "string",
+      "createdAt": "2026-11-26T10:00:00.000Z",
+      "updatedAt": "2026-11-26T10:01:00.000Z",
+      "type": "OpenId4VcIssuanceSessionRecord",
+      "publicIssuerId": "string",
+      "state": "Error",
+      "preAuthorizedCode": "string",
+      "expiresAt": "2026-11-26T10:10:00.000Z",
+      "issuanceMetadata": {},
+      "credentialOfferPayload": {},
+      "credentialOfferUri": "string",
+      "errorMessage": "string"
+    }
+  }
+  ```
+
+  Before #195, `issuanceSession` was Credo's stored `OpenId4VcIssuanceSessionRecord`. Its `issuerId` is now `publicIssuerId`, and record-only fields such as `credentialOfferId`, `issuedCredentials`, `transactions`, `authorization` and `metadata` are no longer sent.
+
+### 5. OpenID4VC Verification Session State Change
+
+- `type`: `OpenId4VcVerifier.VerificationSessionStateChanged` (Credo event type)
+- `previousState`: the state before the change, `null` for a new session
+- `verificationSession`: Credo's stored `OpenId4VcVerificationSessionRecord`, with `id`, `verifierId`, `state` (`RequestCreated` / `RequestUriRetrieved` / `ResponseVerified` / `Error`), `errorMessage`, the authorization request and, once the holder has answered, `authorizationResponsePayload`
 
 ## See Also
 

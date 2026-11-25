@@ -170,6 +170,27 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(result.id).toBe('session-1')
       expect(result.publicIssuerId).toBe('issuer-1')
     })
+
+    test('keeps the error message of a failed session, by id and in the list', async () => {
+      const failed = issuanceSessionRecordStub({
+        id: 'session-1',
+        issuerId: 'issuer-1',
+        state: 'Error',
+        type: 'OpenId4VcIssuanceSessionRecord',
+        createdAt: new Date(),
+        credentialOfferPayload: {},
+        errorMessage: 'Credential offer has expired',
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(failed)
+      mockFindIssuanceSessionsByQuery.mockResolvedValue([failed])
+
+      const byId = await service.getIssuanceSession(tenantAgent, 'session-1')
+      const [listed] = await service.getIssuanceSessionsByQuery(tenantAgent, { publicIssuerId: 'issuer-1' })
+
+      for (const session of [byId, listed]) {
+        expect(session.errorMessage).toBe('Credential offer has expired')
+      }
+    })
   })
 
   describe('deleteIssuanceSession', () => {

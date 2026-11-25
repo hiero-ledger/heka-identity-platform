@@ -237,6 +237,103 @@ describe('the wallet page flow', () => {
     expect(sendMessage).not.toHaveBeenCalled()
   })
 
+  it('reads no offer on a host it can never ask access for, and reports it as kept to the tab', async () => {
+    const { state, flow } = recordingView()
+    const offer = offerFrom('a_b.example')
+
+    await flow.openOffer(offer)
+
+    const message =
+      "This wallet can't contact https://a_b.example/offers/1: its host can't be allowed. The offer is still saved."
+    expect(mocks.resolveIncomingOffer).not.toHaveBeenCalled()
+    expect(state.flow).toEqual({ state: 'error', message })
+    expect(state.heldOffer?.offerUri).toBe(offer.offerUri)
+    expect(state.offerAccess).toEqual([])
+    expect(requestPermission).not.toHaveBeenCalled()
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: 'SETTLE_OFFER',
+      offerUri: offer.offerUri,
+      status: { state: 'error', message },
+      keep: true,
+    })
+  })
+
+  it('reads no request on a host it can never ask access for, and reports it as kept to the tab', async () => {
+    const { state, flow } = recordingView()
+    const refusedRequest = {
+      ...request,
+      requestUri: 'openid4vp://?client_id=x&request_uri=https%3A%2F%2Fa_b.example%2Fr',
+    }
+
+    await flow.openPresentation(refusedRequest)
+
+    const message =
+      "This wallet can't contact https://a_b.example/r: its host can't be allowed. The request is still saved."
+    expect(mocks.handlePresentationRequest).not.toHaveBeenCalled()
+    expect(state.flow).toEqual({ state: 'error', message })
+    expect(state.heldRequest?.requestUri).toBe(refusedRequest.requestUri)
+    expect(state.requestAccess).toEqual([])
+    expect(requestPermission).not.toHaveBeenCalled()
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: 'SETTLE_REQUEST',
+      requestUri: refusedRequest.requestUri,
+      status: { state: 'error', message },
+      keep: true,
+    })
+  })
+
+  it('accepts nothing when the issuer names an endpoint on a host it can never ask access for', async () => {
+    const { state, flow } = recordingView()
+    mocks.resolveIncomingOffer.mockResolvedValueOnce({
+      ...resolvedFor(offerA),
+      metadata: {
+        credentialIssuer: { credential_issuer: 'https://issuer-a.example' },
+        authorizationServers: [{ issuer: 'https://issuer-a.example', token_endpoint: 'https://a_b.example/token' }],
+      },
+    })
+    await flow.openOffer(offerA)
+
+    await flow.acceptOffer(state.offerReview!, '')
+
+    expect(mocks.acceptCredentialOffer).not.toHaveBeenCalled()
+    expect(requestPermission).not.toHaveBeenCalled()
+    expect(state.flow).toEqual({
+      state: 'error',
+      message:
+        "This wallet can't contact https://a_b.example/token: its host can't be allowed. The offer is still saved.",
+    })
+    expect(state.offerReview?.offerUri).toBe(offerA.offerUri)
+    expect(sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'SETTLE_OFFER' }))
+  })
+
+  it('submits no presentation to a response_uri on a host it can never ask access for', async () => {
+    const { state, flow } = recordingView()
+    mocks.handlePresentationRequest.mockResolvedValue({
+      resolved: {
+        verifier: { effectiveClientId: 'verifier' },
+        authorizationRequestPayload: { response_uri: 'https://a_b.example/post' },
+        origin: '',
+      },
+      selectedCredentials: {},
+    })
+    await flow.openPresentation(request)
+
+    await flow.present(state.presentation!)
+
+    expect(mocks.submitPresentation).not.toHaveBeenCalled()
+    expect(requestPermission).not.toHaveBeenCalled()
+    expect(state.flow).toEqual({
+      state: 'error',
+      message:
+        "This wallet can't contact https://a_b.example/post: its host can't be allowed. The request is still saved.",
+    })
+    expect(state.presentation?.requestUri).toBe(request.requestUri)
+    expect(state.heldRequest?.requestUri).toBe(request.requestUri)
+    expect(sendMessage).not.toHaveBeenCalled()
+  })
+
   it('keeps an offer with a Retry when checking its access fails', async () => {
     const { state, flow } = recordingView()
     vi.stubGlobal('chrome', {
