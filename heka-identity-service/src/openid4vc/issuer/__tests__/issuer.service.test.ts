@@ -1,7 +1,8 @@
 import { createMock } from '@golevelup/ts-vitest'
-import { ConflictException, BadRequestException } from '@nestjs/common'
+import { ConflictException, BadRequestException, UnprocessableEntityException } from '@nestjs/common'
 
 import { TenantAgent } from 'common/agent'
+import { DidService } from 'did/did.service'
 
 import { didRecordStub, issuerRecordStub } from '../../../../test/helpers/mock-records'
 import { UpdateIssuerSupportedCredentialsAction } from '../dto/update-issuer.dto'
@@ -9,10 +10,12 @@ import { OpenId4VcIssuerService } from '../issuer.service'
 
 describe('OpenId4VcIssuerService', () => {
   let service: OpenId4VcIssuerService
+  let didService: DidService
   let tenantAgent: TenantAgent
 
   beforeEach(() => {
-    service = new OpenId4VcIssuerService()
+    didService = createMock<DidService>({ assertOwnActiveDid: vi.fn().mockResolvedValue(undefined) })
+    service = new OpenId4VcIssuerService(didService)
     tenantAgent = createMock<TenantAgent>({
       openid4vc: {
         issuer: {
@@ -56,12 +59,38 @@ describe('OpenId4VcIssuerService', () => {
 
       const result = await service.createIssuer(tenantAgent, options)
 
+      expect(didService.assertOwnActiveDid).toHaveBeenCalledWith(tenantAgent, 'did:key:z6Mk1234')
       expect(tenantAgent.openid4vc.issuer.getAllIssuers).toHaveBeenCalledWith()
       expect(tenantAgent.openid4vc.issuer.createIssuer).toHaveBeenCalledWith(
         expect.objectContaining({ issuerId: 'did:key:z6Mk1234' }),
       )
       expect(result).toBeDefined()
       expect(result.publicIssuerId).toBe('did:key:z6Mk1234')
+    })
+
+    test('creates no issuer for a DID the wallet did not create or deactivated', async () => {
+      vi.mocked(didService.assertOwnActiveDid).mockRejectedValue(
+        new UnprocessableEntityException('did:key:z6MkOther is not a DID this wallet created'),
+      )
+
+      await expect(
+        service.createIssuer(tenantAgent, { publicIssuerId: 'did:key:z6MkOther', credentialsSupported: [] }),
+      ).rejects.toThrow(UnprocessableEntityException)
+      expect(tenantAgent.openid4vc.issuer.createIssuer).not.toHaveBeenCalled()
+    })
+
+    test('checks no wallet DID for an issuer id that is not a DID', async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getAllIssuers).mockResolvedValue([])
+      vi.mocked(tenantAgent.openid4vc.issuer.createIssuer).mockResolvedValue(
+        issuerRecordStub({ issuerId: 'example-sd-jwt-issuer', credentialConfigurationsSupported: {} }),
+      )
+
+      await service.createIssuer(tenantAgent, { publicIssuerId: 'example-sd-jwt-issuer', credentialsSupported: [] })
+
+      expect(didService.assertOwnActiveDid).not.toHaveBeenCalled()
+      expect(tenantAgent.openid4vc.issuer.createIssuer).toHaveBeenCalledWith(
+        expect.objectContaining({ issuerId: 'example-sd-jwt-issuer' }),
+      )
     })
 
     test('should throw ConflictException if issuer already exists', async () => {
@@ -140,6 +169,21 @@ describe('OpenId4VcIssuerService', () => {
           display: [{ name: 'Updated' }],
         }),
       )
+    })
+
+    test("changes the metadata of the wallet's own record without a DID check", async () => {
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(mockIssuerRecord)
+
+      await service.updateIssuerMetadata(tenantAgent, 'issuer-1', {
+        action: UpdateIssuerSupportedCredentialsAction.Replace,
+        display: [{ name: 'Updated' }],
+      })
+
+      // Credo looks the record up in the caller's wallet and cannot change its issuer id
+      expect(tenantAgent.openid4vc.issuer.updateIssuerMetadata).toHaveBeenCalledWith(
+        expect.objectContaining({ issuerId: 'issuer-1' }),
+      )
+      expect(didService.assertOwnActiveDid).not.toHaveBeenCalled()
     })
 
     test('should add credentials with Add action', async () => {

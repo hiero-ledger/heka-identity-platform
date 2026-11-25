@@ -716,6 +716,43 @@ describe('DidService', () => {
     })
   })
 
+  describe('assertOwnActiveDid', () => {
+    test('accepts an active DID the wallet created', async () => {
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did: 'did:key:z6Mkown' })])
+
+      await expect(didService.assertOwnActiveDid(tenantAgent, 'did:key:z6Mkown')).resolves.toBeUndefined()
+      expect(tenantAgent.dids.getCreatedDids).toHaveBeenCalledWith({ did: 'did:key:z6Mkown' })
+    })
+
+    test('refuses a DID the wallet did not create (422)', async () => {
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([])
+
+      const check = didService.assertOwnActiveDid(tenantAgent, 'did:key:z6Mkforeign')
+
+      await expect(check).rejects.toThrow(UnprocessableEntityException)
+      await expect(check).rejects.toThrow('did:key:z6Mkforeign is not a DID this wallet created')
+    })
+
+    test('refuses the Indy endorser DID that every tenant holds (422)', async () => {
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([didRecordStub({ did: 'endorser-did' })])
+
+      await expect(didService.assertOwnActiveDid(tenantAgent, 'endorser-did')).rejects.toThrow(
+        UnprocessableEntityException,
+      )
+    })
+
+    test('refuses a DID the wallet deactivated (422)', async () => {
+      vi.mocked(tenantAgent.dids.getCreatedDids).mockResolvedValue([
+        didRecordStub({ did: 'did:hedera:retired', getTag: (name: string) => name === 'hekaDeactivated' }),
+      ])
+
+      const check = didService.assertOwnActiveDid(tenantAgent, 'did:hedera:retired')
+
+      await expect(check).rejects.toThrow(UnprocessableEntityException)
+      await expect(check).rejects.toThrow('DID is deactivated: did:hedera:retired')
+    })
+  })
+
   describe('update and deactivate', () => {
     const did = 'did:hedera:testnet:z6Mkowner_0.0.1'
     const rootKey = `${did}#did-root-key`
