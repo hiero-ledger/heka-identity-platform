@@ -84,7 +84,8 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: 6,
-    minWidth: 64,
+    // Four columns and three 16px connectors fit the 288px a 320px screen leaves
+    minWidth: 56,
   },
   circle: {
     width: 32,
