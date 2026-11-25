@@ -13,7 +13,6 @@ import {
 import { DidCommMessagePickupModule } from '@credo-ts/didcomm'
 import { HederaAnonCredsRegistry, HederaDidRegistrar, HederaDidResolver } from '@credo-ts/hedera'
 import { IndyVdrAnonCredsRegistry, IndyVdrModule } from '@credo-ts/indy-vdr'
-import { OpenId4VcIssuerModule, OpenId4VcVerifierModule } from '@credo-ts/openid4vc'
 import { NativeAnoncreds } from '@hyperledger/anoncreds-nodejs'
 import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
 import { INestApplication } from '@nestjs/common'
@@ -36,7 +35,6 @@ import MikroOrmConfig from 'src/config/mikro-orm'
 import OidcConfig from 'src/config/oidc'
 import PinoConfig from 'src/config/pino'
 import RoleModelConfig from 'src/config/role-model'
-import { createCredentialRequestToCredentialMapper } from 'src/utils/oid4vc'
 import TestAgentConfig from 'test/config/agent'
 import TestFileStorageConfig from 'test/config/file-storage'
 import TestMikroOrmConfig from 'test/config/mikro-orm'
@@ -137,20 +135,6 @@ export async function startTestApp(options: TestAppOptions = {}): Promise<INestA
           ledgerSdk: new IndyVdrModule({
             indyVdr,
             networks: agencyConfig.networks,
-          }),
-          openId4VcIssuer: new OpenId4VcIssuerModule({
-            baseUrl: agencyConfig.oidConfig.issuanceEndpoint,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            app: agencyConfig.oidConfig.app as any,
-            credentialRequestToCredentialMapper: createCredentialRequestToCredentialMapper(
-              agencyConfig.mdlIssuerCertificate,
-              agencyConfig.mdlIssuerPrivateKeyJwk,
-            ),
-          }),
-          openId4VcVerifier: new OpenId4VcVerifierModule({
-            baseUrl: agencyConfig.oidConfig.verificationEndpoint,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            app: agencyConfig.oidConfig.app as any,
           }),
           hedera: new HekaHederaModule({
             networks: [
