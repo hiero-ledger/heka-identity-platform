@@ -448,10 +448,16 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
 
     // The route reports the issuance session's own state, as the organization's list does. Not asserted to be
     // `Completed`: test-app.ts registers two OID4VC routers, and the second answer to the credential request
-    // marks the session `Error`.
-    const { state } = (await offerState(aliceToken, issuanceSessionId)).body as { state: string }
+    // marks the session `Error`, possibly between the two reads, so they are read until they agree.
+    const state = await vi.waitFor(
+      async () => {
+        const { state: routeState } = (await offerState(aliceToken, issuanceSessionId)).body as { state: string }
+        expect((await issuedSession(issuanceSessionId))?.state).toBe(routeState)
+        return routeState
+      },
+      { timeout: 10_000, interval: 250 },
+    )
     expect(state).not.toBe('OfferCreated')
-    expect((await issuedSession(issuanceSessionId))?.state).toBe(state)
     const mallory = await createAuthToken(`mallory-${uuid()}`, Role.User)
     expect((await offerState(mallory, issuanceSessionId)).status).toBe(404)
     expect((await offerState(aliceToken, uuid())).status).toBe(404)
