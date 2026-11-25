@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 
@@ -16,6 +16,7 @@ import {
   MockApi,
   renderWithProviders,
 } from '@/shared/lib/tests/renderWithProviders';
+import { mockWebWalletExtension } from '@/shared/lib/webWallet/testUtils';
 
 import { PresentationRequestContext } from './VerificationRequest';
 import { VerificationRequest } from './VerificationRequest';
@@ -127,6 +128,22 @@ describe('AnoncredsVerificationRequest', () => {
     expect(api.post).toHaveBeenCalledWith('connections/create-invitation', {
       multiUseInvitation: false,
     });
+  });
+
+  test('offers no Heka Web Wallet button', async () => {
+    const { postMessage } = mockWebWalletExtension();
+    const api = createMockApi();
+    stubAgency(api);
+    renderRequest(context, { api });
+    await screen.findByTestId('qr');
+
+    await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+
+    expect(
+      screen.queryByRole('button', { name: 'Open in Heka Web Wallet' }),
+    ).not.toBeInTheDocument();
+    expect(postMessage).not.toHaveBeenCalled();
+    postMessage.mockRestore();
   });
 
   test('uses the demo agency for demo flows', async () => {

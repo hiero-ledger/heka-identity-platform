@@ -16,6 +16,7 @@ import axios from 'axios'
 import { firstValueFrom } from 'rxjs'
 
 import { AuthInfo } from 'common/auth'
+import { User } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
 import GithubConfig from 'config/github'
 import { GpgChallenge } from 'gpg-challenge/gpg-challenge.entity'
@@ -34,6 +35,8 @@ import { LinkAttemptStatus, OAuthLinkAttempt } from './oauth-link-attempt.entity
 const LINK_ATTEMPT_TTL_MS = 5 * 60 * 1000
 
 const ACCOUNT_LINKED_TO_ANOTHER_USER = 'This GitHub account is already linked to another Heka user'
+const CONCURRENT_LINK_FOR_USER =
+  'Another request linked a GitHub account to this Heka user at the same time. Check the status and link again if needed.'
 const GITHUB_ACCOUNT_UNIQUE_CONSTRAINT = 'contributor_binding_github_account_id_unique'
 const USER_UNIQUE_CONSTRAINT = 'contributor_binding_user_id_unique'
 
@@ -115,7 +118,7 @@ export class ContributorOnboardingService {
     const stateToken = crypto.randomBytes(32).toString('hex')
     const codeVerifier = crypto.randomBytes(32).toString('base64url')
     const attempt = new OAuthLinkAttempt()
-    attempt.userId = authInfo.userId
+    attempt.user = this.em.getReference(User, authInfo.userId)
     attempt.walletId = authInfo.walletId
     attempt.tenantId = authInfo.tenantId
     attempt.stateHash = this.sha256(stateToken)
@@ -147,7 +150,7 @@ export class ContributorOnboardingService {
     const stateHash = this.sha256(stateToken)
     const attempt = await this.em.findOne(OAuthLinkAttempt, {
       stateHash,
-      userId: authInfo.userId,
+      user: authInfo.userId,
       tenantId: authInfo.tenantId,
       walletId: authInfo.walletId,
       status: LinkAttemptStatus.Pending,
@@ -175,47 +178,55 @@ export class ContributorOnboardingService {
     }
 
     const taken = await this.em.findOne(ContributorBinding, { githubAccountId: githubUser.id })
-    if (taken && taken.userId !== authInfo.userId) {
+    if (taken && taken.user.id !== authInfo.userId) {
       throw new ConflictException(ACCOUNT_LINKED_TO_ANOTHER_USER)
     }
 
-    let binding = await this.findBinding(authInfo.userId)
-    if (!binding) {
-      binding = new ContributorBinding()
-      binding.userId = authInfo.userId
-      binding.linkedAt = new Date()
-      this.em.persist(binding)
-    } else if (binding.githubAccountId !== githubUser.id) {
-      binding.gpgFingerprint = null
-      binding.verifiedAt = null
-    }
-
-    binding.tenantId = authInfo.tenantId
-    binding.walletId = authInfo.walletId
-    binding.githubAccountId = githubUser.id
-    binding.githubUsername = githubUser.login
-    this.persistAudit({
-      eventType: ContributorAuditEventType.BindingUpdated,
-      userId: authInfo.userId,
+    const fields = {
       tenantId: authInfo.tenantId,
+      walletId: authInfo.walletId,
       githubAccountId: githubUser.id,
       githubUsername: githubUser.login,
-      walletId: authInfo.walletId,
-      metadata: { source: 'github-link' },
-    })
+    }
+    const existing = await this.findBinding(authInfo.userId)
     try {
+      if (existing) {
+        // A concurrent callback can pass the checks above as well: the update applies only to the account read here
+        const accountChanged = existing.githubAccountId !== githubUser.id
+        const updated = await this.em.nativeUpdate(
+          ContributorBinding,
+          { id: existing.id, githubAccountId: existing.githubAccountId },
+          {
+            ...fields,
+            ...(accountChanged ? { gpgFingerprint: null, verifiedAt: null } : {}),
+            updatedAt: new Date(),
+          },
+        )
+        if (updated === 0) throw new ConflictException(CONCURRENT_LINK_FOR_USER)
+      } else {
+        this.em.persist(
+          Object.assign(new ContributorBinding(), fields, { user: this.em.getReference(User, authInfo.userId) }),
+        )
+      }
+      this.persistAudit({
+        eventType: ContributorAuditEventType.BindingUpdated,
+        userId: authInfo.userId,
+        tenantId: authInfo.tenantId,
+        githubAccountId: githubUser.id,
+        githubUsername: githubUser.login,
+        walletId: authInfo.walletId,
+        metadata: { source: 'github-link' },
+      })
       await this.em.flush()
     } catch (error: unknown) {
-      // A concurrent callback can pass the checks above as well; the unique constraints reject the later write
+      // The unique constraints reject a concurrent callback's write that the checks above let through
       const constraint =
         error instanceof UniqueConstraintViolationException ? (error as { constraint?: string }).constraint : undefined
       if (constraint === GITHUB_ACCOUNT_UNIQUE_CONSTRAINT) {
         throw new ConflictException(ACCOUNT_LINKED_TO_ANOTHER_USER)
       }
       if (constraint === USER_UNIQUE_CONSTRAINT) {
-        throw new ConflictException(
-          'Another request linked a GitHub account to this Heka user at the same time. Check the status and link again if needed.',
-        )
+        throw new ConflictException(CONCURRENT_LINK_FOR_USER)
       }
       throw error
     }
@@ -228,8 +239,8 @@ export class ContributorOnboardingService {
    * Idempotent; the audit event is written only when a binding existed.
    */
   public async unlinkGithub(authInfo: AuthInfo): Promise<void> {
-    await this.em.nativeDelete(OAuthLinkAttempt, { userId: authInfo.userId, status: LinkAttemptStatus.Pending })
-    await this.em.nativeDelete(GpgChallenge, { userId: authInfo.userId, consumed: false })
+    await this.em.nativeDelete(OAuthLinkAttempt, { user: authInfo.userId, status: LinkAttemptStatus.Pending })
+    await this.em.nativeDelete(GpgChallenge, { user: authInfo.userId, consumed: false })
 
     const binding = await this.findBinding(authInfo.userId)
     if (!binding) return
@@ -271,7 +282,8 @@ export class ContributorOnboardingService {
 
   /**
    * Stamps the user's binding with the verified key, if it still points at the GitHub account the
-   * challenge was issued for. The wallet and tenant are refreshed to those of the verifying request.
+   * challenge was issued for (checked by the update itself, so a concurrent re-link wins). The wallet
+   * and tenant are refreshed to those of the verifying request.
    */
   public async recordProofAccepted(input: {
     userId: string
@@ -293,29 +305,35 @@ export class ContributorOnboardingService {
       metadata: { verifiedAt: input.verifiedAt.toISOString() },
     })
 
-    const binding = await this.findBinding(input.userId)
-    if (!binding || binding.githubAccountId !== input.githubAccountId) {
+    const updated = await this.em.nativeUpdate(
+      ContributorBinding,
+      { user: input.userId, githubAccountId: input.githubAccountId },
+      {
+        gpgFingerprint: input.gpgFingerprint,
+        verifiedAt: input.verifiedAt,
+        tenantId: input.tenantId,
+        walletId: input.walletId,
+        updatedAt: new Date(),
+      },
+    )
+    if (updated === 0) {
       await this.em.flush()
       return undefined
     }
 
-    binding.gpgFingerprint = input.gpgFingerprint
-    binding.verifiedAt = input.verifiedAt
-    binding.tenantId = input.tenantId
-    binding.walletId = input.walletId
     this.persistAudit({
       eventType: ContributorAuditEventType.BindingUpdated,
       userId: input.userId,
       tenantId: input.tenantId,
-      githubAccountId: binding.githubAccountId,
-      githubUsername: binding.githubUsername,
-      walletId: binding.walletId,
+      githubAccountId: input.githubAccountId,
+      githubUsername: input.githubUsername,
+      walletId: input.walletId,
       gpgFingerprint: input.gpgFingerprint,
       metadata: { source: 'gpg-proof' },
     })
     await this.em.flush()
     this.logger.info(`GPG verification stored for user ${input.userId}`)
-    return binding
+    return (await this.em.findOne(ContributorBinding, { user: input.userId }, { refresh: true })) ?? undefined
   }
 
   public async recordProofRejected(input: {
@@ -340,7 +358,7 @@ export class ContributorOnboardingService {
   }
 
   private async findBinding(userId: string): Promise<ContributorBinding | null> {
-    return this.em.findOne(ContributorBinding, { userId })
+    return this.em.findOne(ContributorBinding, { user: userId })
   }
 
   /**

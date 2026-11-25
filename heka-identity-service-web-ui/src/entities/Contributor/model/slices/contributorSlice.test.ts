@@ -12,8 +12,10 @@ import {
   getContributorStep,
 } from '../selectors/contributorSelectors';
 import { getContributorOnboardingStatus } from '../services/getContributorOnboardingStatus';
+import { requestContributorCredentialOffer } from '../services/requestContributorCredentialOffer';
 import { requestContributorGpgChallenge } from '../services/requestContributorGpgChallenge';
 import { startGithubLink } from '../services/startGithubLink';
+import { unlinkGithub } from '../services/unlinkGithub';
 import { verifyContributorGpgChallenge } from '../services/verifyContributorGpgChallenge';
 import {
   ContributorBinding,
@@ -197,6 +199,11 @@ describe('contributorSlice', () => {
       'verifyContributorGpgChallenge',
       verifyContributorGpgChallenge.rejected(null, 'r', verifyArgs, 'm1'),
     ],
+    [
+      'requestContributorCredentialOffer',
+      requestContributorCredentialOffer.rejected(null, 'r', undefined, 'm1'),
+    ],
+    ['unlinkGithub', unlinkGithub.rejected(null, 'r', undefined, 'm1')],
   ])('a failed %s keeps its message as the error', (_, action) => {
     const state = contributorReducer({ ...initial(), isLoading: true }, action);
 
@@ -218,10 +225,35 @@ describe('contributorSlice', () => {
       'verifyContributorGpgChallenge',
       verifyContributorGpgChallenge.pending('r', verifyArgs),
     ],
+    [
+      'requestContributorCredentialOffer',
+      requestContributorCredentialOffer.pending('r'),
+    ],
+    ['unlinkGithub', unlinkGithub.pending('r')],
   ])('starting %s clears the previous error', (_, action) => {
     const state = contributorReducer({ ...initial(), error: 'old' }, action);
 
     expect(state.error).toBeNull();
+  });
+
+  test.each([
+    [
+      'requestContributorCredentialOffer',
+      requestContributorCredentialOffer.fulfilled(
+        {
+          credentialOffer: 'openid-credential-offer://?x',
+          txCode: '12345678',
+          expiresAt: '2026-01-01T00:10:00.000Z',
+          issuanceSessionId: 'session-1',
+        },
+        'r',
+      ),
+    ],
+    ['unlinkGithub', unlinkGithub.fulfilled(undefined, 'r')],
+  ])('a finished %s stops loading', (_, action) => {
+    const state = contributorReducer({ ...initial(), isLoading: true }, action);
+
+    expect(state.isLoading).toBe(false);
   });
 
   test('clearError and setCurrentStep', () => {
@@ -233,6 +265,38 @@ describe('contributorSlice', () => {
 
     state = contributorReducer(state, contributorActions.setCurrentStep(1));
     expect(state.currentStep).toBe(1);
+  });
+
+  test('a completed step clears the error of an earlier failure', () => {
+    const state = contributorReducer(
+      {
+        ...initial(),
+        currentStep: 3,
+        error: 'Failed to fetch onboarding status',
+      },
+      contributorActions.markStepCompleted(3),
+    );
+
+    expect(state.error).toBeNull();
+  });
+
+  test('resetOnboarding starts over', () => {
+    const state = contributorReducer(
+      {
+        ...initial(),
+        currentStep: 3,
+        completedSteps: [0, 1, 2, 3],
+        githubLinked: true,
+        githubUsername: 'octocat',
+        githubAccountId: '583231',
+        activeChallenge: challenge,
+        binding,
+        error: 'old',
+      },
+      contributorActions.resetOnboarding(),
+    );
+
+    expect(state).toEqual(initial());
   });
 
   test('markStepCompleted adds a step once', () => {

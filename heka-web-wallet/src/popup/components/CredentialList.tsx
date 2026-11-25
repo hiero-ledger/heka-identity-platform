@@ -88,7 +88,9 @@ const CredentialCard: React.FC<{ credential: CredentialSummary }> = ({ credentia
       {expanded && (
         <div style={s.cardBody}>
           <InfoRow label="Type" value={truncate(credential.vct, 22, 10)} mono />
-          {credential.issuerName && <InfoRow label="Issuer" value={credential.issuerName} />}
+          {credential.issuerName && (
+            <InfoRow label="Issuer" value={`${credential.issuerName} (self-declared, not verified)`} />
+          )}
           <InfoRow label="Signed by" value={truncate(credential.issuer, 16, 8)} mono />
         </div>
       )}

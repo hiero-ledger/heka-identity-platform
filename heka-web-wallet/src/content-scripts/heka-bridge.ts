@@ -1,49 +1,64 @@
 /**
- * Content script injected into trusted Heka pages only.
+ * Runs only on the sites the holder connected (and, in the development build, the web UI's dev
+ * server).
  *
- *   Heka page  --window.postMessage-->  content script  --chrome.runtime.sendMessage-->  service worker
+ *   page  --window.postMessage-->  content script  --chrome.runtime.sendMessage-->  service worker
  *
  * The page cannot decide that an offer is accepted. This script only forwards a
  * well-shaped message, and the wallet page asks the holder before redeeming it.
  */
 
-import { RECEIVE_STATUS_KEY } from '../wallet/storage-keys'
-import { readBridgeMessage } from './bridge-message'
-import { isTrustedHekaOrigin } from './trusted-origins'
+import {
+  commandResponseMessage,
+  extensionReadyMessage,
+  pingResponseMessage,
+  readBridgeMessage,
+  type BridgeResponse,
+  type ExtensionToPageMessage,
+  type TabStatusMessage,
+} from '../bridge/protocol'
 
-const EXTENSION_MESSAGE_SOURCE = 'heka-extension-bridge'
+// Connecting a site also injects this script into the page already open, which a second connect
+// does again. The flag lives in the extension's isolated world, which the page cannot reach.
+const bridgeWindow = window as Window & { hekaWebWalletBridge?: true }
 
-function replyToPage(type: string, payload: unknown): void {
-  if (!isTrustedHekaOrigin(window.location.origin)) return
-  window.postMessage({ source: EXTENSION_MESSAGE_SOURCE, type, payload }, window.location.origin)
+if (!bridgeWindow.hekaWebWalletBridge) {
+  bridgeWindow.hekaWebWalletBridge = true
+  startBridge()
 }
 
-window.addEventListener('message', (event: MessageEvent) => {
-  const command = readBridgeMessage(event.data, event.origin, window.location.origin)
-  if (!command) return
+function startBridge(): void {
+  const extensionVersion = chrome.runtime.getManifest().version
 
-  // Answer the install check here. Waiting for the service worker makes the page
-  // time out while that worker is still starting.
-  if (command.type === 'PING') {
-    replyToPage('PING_RESPONSE', { type: 'PONG', version: '0.1.0' })
-    return
-  }
+  const postToPage = (message: ExtensionToPageMessage) => window.postMessage(message, window.location.origin)
 
-  chrome.runtime.sendMessage(command, (response) => {
-    replyToPage(`${command.type}_RESPONSE`, response)
+  window.addEventListener('message', (event: MessageEvent) => {
+    const command = readBridgeMessage(event, window)
+    if (!command) return
+
+    // Answer the install check here. Waiting for the service worker makes the page
+    // time out while that worker is still starting.
+    if (command.type === 'PING') {
+      postToPage(pingResponseMessage(extensionVersion))
+      return
+    }
+
+    chrome.runtime.sendMessage(command, (response?: BridgeResponse) => {
+      const failure = chrome.runtime.lastError?.message
+      postToPage(
+        commandResponseMessage(
+          command.type,
+          response ?? { type: 'ERROR', message: failure ?? 'The wallet did not answer.' },
+        ),
+      )
+    })
   })
-})
 
-if (isTrustedHekaOrigin(window.location.origin)) {
-  window.postMessage(
-    { source: EXTENSION_MESSAGE_SOURCE, type: 'EXTENSION_READY', payload: { version: '0.1.0' } },
-    window.location.origin,
-  )
+  chrome.runtime.onMessage.addListener((message: TabStatusMessage, sender) => {
+    if (sender.id !== chrome.runtime.id || message?.type !== 'BRIDGE_STATUS') return
+    if (message.origin !== window.location.origin) return
+    postToPage(message.message)
+  })
+
+  postToPage(extensionReadyMessage(extensionVersion))
 }
-
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'local') return
-  const next = changes[RECEIVE_STATUS_KEY]?.newValue as { state?: string; message?: string } | undefined
-  if (!next?.state || next.state === 'working') return
-  replyToPage('RECEIVE_STATUS', next)
-})

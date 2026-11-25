@@ -1,0 +1,34 @@
+@import '@/shared/styles/mixins';
+
+.Present {
+  width: 100%;
+  height: 100%;
+  padding: var(--space-xxxxl);
+  background-color: var(--color-primary-hiero-branded-2);
+  border-radius: var(--space-xl);
+  gap: var(--space-xxxxl);
+}
+
+.header {
+  gap: var(--space-xs);
+}
+
+.title {
+  color: var(--color-light-high-emphasis);
+  font: var(--font-headline-m);
+
+  @include desktop {
+    font: var(--font-headline-l);
+  }
+}
+
+.description {
+  color: var(--color-light-high-emphasis);
+  font: var(--font-body-m);
+}
+
+.mainContent {
+  width: 100%;
+  height: 100%;
+  gap: var(--space-xl);
+}

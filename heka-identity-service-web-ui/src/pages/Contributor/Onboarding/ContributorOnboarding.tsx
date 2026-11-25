@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,11 +14,10 @@ import {
   getContributorIsLoading,
   getContributorOnboardingStatus,
   getContributorStep,
-  requestContributorCredentialOffer,
 } from '@/entities/Contributor';
 import { OnboardingStepper } from '@/pages/Contributor/components/OnboardingStepper';
-import { getSessionAccessToken } from '@/shared/auth/sessionBridge';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
+import { Button } from '@/shared/ui/Button';
 
 import ChallengeStep from './steps/ChallengeStep';
 import GithubLoginStep from './steps/GithubLoginStep';
@@ -27,6 +27,7 @@ import VerifyStep from './steps/VerifyStep';
 import * as cls from './ContributorOnboarding.module.scss';
 
 const ContributorOnboarding: React.FC = () => {
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
@@ -37,17 +38,19 @@ const ContributorOnboarding: React.FC = () => {
   const isLoading = useSelector(getContributorIsLoading);
   const error = useSelector(getContributorError);
   const githubUsername = useSelector(getContributorGithubUsername);
-  const [walletTxCode, setWalletTxCode] = useState<string | null>(null);
-  const [walletOfferExpiresAt, setWalletOfferExpiresAt] = useState<
-    string | null
-  >(null);
+  const [isStatusFailed, setIsStatusFailed] = useState(false);
 
-  // The status fast-forwards the wizard past the steps the user has completed
-  useEffect(() => {
-    if (getSessionAccessToken()) {
-      void dispatch(getContributorOnboardingStatus());
-    }
+  const loadStatus = useCallback(async () => {
+    const result = await dispatch(getContributorOnboardingStatus());
+    setIsStatusFailed(getContributorOnboardingStatus.rejected.match(result));
   }, [dispatch]);
+
+  // The status fast-forwards the wizard past the steps the user has completed. No session check:
+  // on a full load the provider registers the session after this effect, and the API client
+  // reads the token only when the request goes out
+  useEffect(() => {
+    void loadStatus();
+  }, [loadStatus]);
 
   const handleChallengeReady = useCallback(() => {
     dispatch(contributorActions.setCurrentStep(2));
@@ -56,8 +59,8 @@ const ContributorOnboarding: React.FC = () => {
   const handleVerified = useCallback(() => {
     dispatch(contributorActions.setCurrentStep(3));
     // The verify response has no binding; the status returns the verified one
-    void dispatch(getContributorOnboardingStatus());
-  }, [dispatch]);
+    void loadStatus();
+  }, [dispatch, loadStatus]);
 
   const handleCredentialStored = useCallback(() => {
     dispatch(contributorActions.markStepCompleted(3));
@@ -70,22 +73,10 @@ const ContributorOnboarding: React.FC = () => {
     dispatch(contributorActions.setCurrentStep(1));
   }, [dispatch]);
 
-  const handleRequestCredential = useCallback(async () => {
-    const { credentialOffer, txCode, expiresAt } = await dispatch(
-      requestContributorCredentialOffer(),
-    ).unwrap();
-
-    setWalletTxCode(txCode);
-    setWalletOfferExpiresAt(expiresAt);
-    window.postMessage(
-      {
-        source: 'heka-web-wallet-bridge',
-        type: 'RECEIVE_OFFER',
-        payload: { offerUri: credentialOffer, expiresAt },
-      },
-      window.location.origin,
-    );
-  }, [dispatch]);
+  const handleUnlinked = useCallback(() => {
+    dispatch(contributorActions.resetOnboarding());
+    void loadStatus();
+  }, [dispatch, loadStatus]);
 
   useEffect(() => {
     if (currentStep === 2 && !activeChallenge) {
@@ -120,10 +111,8 @@ const ContributorOnboarding: React.FC = () => {
         return (
           <VerifyStep
             binding={binding}
-            onRequestCredential={handleRequestCredential}
             onCredentialStored={handleCredentialStored}
-            txCode={walletTxCode}
-            offerExpiresAt={walletOfferExpiresAt}
+            onUnlinked={handleUnlinked}
           />
         );
 
@@ -156,6 +145,22 @@ const ContributorOnboarding: React.FC = () => {
         completedSteps={completedSteps as number[]}
         errorStep={error ? currentStep : undefined}
       />
+
+      {isStatusFailed && (
+        <div
+          className={cls.statusError}
+          role="alert"
+        >
+          <p>{t('Contributor.messages.statusFailed')}</p>
+          <Button
+            buttonType="outlined"
+            isSmall
+            onPress={() => void loadStatus()}
+          >
+            {t('Contributor.buttons.retry')}
+          </Button>
+        </div>
+      )}
 
       {isLoading && (
         <div className={cls.loadingBar}>

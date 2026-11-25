@@ -12,6 +12,7 @@ import Home from '@/pages/Home/Home';
 import CredentialOffer from '@/pages/IssueCredential/CredentialOffer/CredentialOffer';
 import IssueCredential from '@/pages/IssueCredential/IssueCredential';
 import { IssueFromTemplate } from '@/pages/IssueCredential/IssueFromTemplate/IssueFromTemplate';
+import Present from '@/pages/Present/Present';
 import Profile from '@/pages/Profile/Profile';
 import SignInView from '@/pages/SignIn/SignIn';
 import { VerificationFromTemplate } from '@/pages/VerifyCredential/VerificationFromTemplate/VerificationFromTemplate';
@@ -44,6 +45,10 @@ const AuthenticatedRoutes = () => (
       <Route
         path={ROUTES.AGE_DEMO}
         element={<AgeVerificationDemo />}
+      />
+      <Route
+        path={ROUTES.PRESENT}
+        element={<Present />}
       />
       <Route
         path={ROUTES.ISSUE_CREDENTIAL}
@@ -108,6 +113,10 @@ const UnauthenticatedRoutes = () => (
       <Route
         path={ROUTES.AGE_DEMO}
         element={<AgeVerificationDemo />}
+      />
+      <Route
+        path={ROUTES.PRESENT}
+        element={<Present />}
       />
       <Route
         path="*"

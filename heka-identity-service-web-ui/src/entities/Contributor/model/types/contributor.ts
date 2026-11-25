@@ -77,6 +77,27 @@ export interface ContributorCredentialOffer {
   txCode: string;
   /** ISO date-time after which the offer can no longer be redeemed */
   expiresAt: string;
+  /** Identifies the offer to `GET /v2/contributor-credential/offer/:issuanceSessionId` */
+  issuanceSessionId: string;
+}
+
+/** Credo's `OpenId4VcIssuanceSessionState` */
+export type ContributorCredentialOfferSessionState =
+  | 'OfferCreated'
+  | 'OfferUriRetrieved'
+  | 'AuthorizationInitiated'
+  | 'AuthorizationGranted'
+  | 'AccessTokenRequested'
+  | 'AccessTokenCreated'
+  | 'CredentialRequestReceived'
+  | 'CredentialsPartiallyIssued'
+  | 'Completed'
+  | 'Error';
+
+/** `GET /v2/contributor-credential/offer/:issuanceSessionId` */
+export interface ContributorCredentialOfferState {
+  state: ContributorCredentialOfferSessionState;
+  expiresAt: string;
 }
 
 /** Onboarding wizard step, 0-indexed: link GitHub, request a challenge, sign it, receive the credential */

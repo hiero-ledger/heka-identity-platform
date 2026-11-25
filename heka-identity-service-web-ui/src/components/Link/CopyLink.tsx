@@ -6,9 +6,11 @@ import { Link } from './Link';
 
 interface CopyLinkProps {
   value?: string;
+  /** The link's label; "click this link to copy." by default */
+  text?: string;
 }
 
-export const CopyLink = ({ value }: CopyLinkProps) => {
+export const CopyLink = ({ value, text }: CopyLinkProps) => {
   const { t } = useTranslation();
 
   const onCopy = useCallback(() => {
@@ -18,7 +20,7 @@ export const CopyLink = ({ value }: CopyLinkProps) => {
 
   return (
     <Link
-      text={t('Common.titles.copyLink')}
+      text={text ?? t('Common.titles.copyLink')}
       onClick={onCopy}
     />
   );

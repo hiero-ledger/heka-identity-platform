@@ -25,6 +25,10 @@ export interface GithubConfig {
   gpgKeyBaseUrl: string
   /** Deadline for each outbound GitHub request. */
   requestTimeoutMs: number
+  /** The organization whose wallet issues the contributor credential. Required when enabled. */
+  issuerOrgId?: string
+  /** The DID of that wallet that signs the credential. Required when enabled. */
+  issuerDid?: string
 }
 
 export const githubConfigDefaults = {
@@ -66,12 +70,16 @@ export default registerAs('github', (): GithubConfig => {
   const gpgKeyBaseUrl = text(process.env.GITHUB_GPG_KEY_BASE_URL) ?? githubConfigDefaults.gpgKeyBaseUrl
   const timeoutValue = text(process.env.GITHUB_REQUEST_TIMEOUT_MS)
   const requestTimeoutMs = timeoutValue === undefined ? githubConfigDefaults.requestTimeoutMs : Number(timeoutValue)
+  const issuerOrgId = text(process.env.CONTRIBUTOR_ISSUER_ORG_ID)
+  const issuerDid = text(process.env.CONTRIBUTOR_ISSUER_DID)
 
   if (enabled) {
     const required = {
       GITHUB_CLIENT_ID: clientId,
       GITHUB_CLIENT_SECRET: clientSecret,
       GITHUB_CALLBACK_URL: callbackUrl,
+      CONTRIBUTOR_ISSUER_ORG_ID: issuerOrgId,
+      CONTRIBUTOR_ISSUER_DID: issuerDid,
     }
     const missing = Object.entries(required)
       .filter(([, value]) => !value)
@@ -100,6 +108,13 @@ export default registerAs('github', (): GithubConfig => {
     if (!Number.isInteger(requestTimeoutMs) || requestTimeoutMs < 1) {
       problems.push('GITHUB_REQUEST_TIMEOUT_MS must be a positive integer (milliseconds)')
     }
+
+    if (issuerOrgId && /\s/.test(issuerOrgId)) {
+      problems.push('CONTRIBUTOR_ISSUER_ORG_ID must not contain whitespace')
+    }
+    if (issuerDid && !/^did:[a-z0-9]+:.+/.test(issuerDid)) {
+      problems.push('CONTRIBUTOR_ISSUER_DID must be a DID (did:<method>:<id>)')
+    }
   }
 
   if (problems.length > 0) {
@@ -118,5 +133,7 @@ export default registerAs('github', (): GithubConfig => {
     tokenRevocationUrl: clientId ? `${apiRoot}/applications/${encodeURIComponent(clientId)}/token` : undefined,
     gpgKeyBaseUrl,
     requestTimeoutMs,
+    issuerOrgId,
+    issuerDid,
   }
 })

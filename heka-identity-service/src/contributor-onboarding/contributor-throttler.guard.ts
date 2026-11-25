@@ -4,7 +4,7 @@ import { ThrottlerGuard } from '@nestjs/throttler'
 import { AuthInfo } from 'common/auth'
 
 export const CONTRIBUTOR_RATE_LIMIT = 10
-const CONTRIBUTOR_RATE_LIMIT_WINDOW_MS = 60_000
+export const CONTRIBUTOR_RATE_LIMIT_WINDOW_MS = 60_000
 
 /**
  * Rate limit of the contributor routes: 10 requests per minute per route and Heka user (OIDC subject),
@@ -14,7 +14,8 @@ const CONTRIBUTOR_RATE_LIMIT_WINDOW_MS = 60_000
  *
  * The `contributor` throttler is defined here instead of in the `ThrottlerModule` options (registered
  * globally by DemoModule), so this guard applies only it, and the demo broker's guard doesn't apply it.
- * List it after `JwtAuthGuard`, which sets the `AuthInfo` it keys on.
+ * A route sets another limit with `@Throttle({ contributor: … })`. List it after `JwtAuthGuard`, which sets
+ * the `AuthInfo` it keys on.
  */
 @Injectable()
 export class ContributorThrottlerGuard extends ThrottlerGuard {

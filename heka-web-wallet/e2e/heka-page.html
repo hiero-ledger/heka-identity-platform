@@ -6,10 +6,9 @@
   </head>
   <body>
     <h1>Heka page (Web Wallet harness)</h1>
-    <p>Served on a trusted Heka origin, so the extension's content script runs here.</p>
+    <p>Served where the development build injects the extension's content script.</p>
     <script>
-      // The same messages the web UI's contributor onboarding exchanges with the bridge
-      // (heka-identity-service-web-ui/src/pages/Contributor/Onboarding).
+      // The bridge protocol (docs/bridge-protocol.md), as the web UI speaks it.
       window.__events = []
       window.addEventListener('message', (event) => {
         if (event.data && event.data.source === 'heka-extension-bridge') {

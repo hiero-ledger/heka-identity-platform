@@ -1,47 +1,51 @@
-import { readPendingOffer, type PendingOffer } from './pending-offer'
-import { PENDING_OFFER_KEY, PENDING_REQUEST_KEY, RECEIVE_STATUS_KEY } from './storage-keys'
+import type { ExtensionMessage, ExtensionResponse } from '../background/service-worker'
+import type { ItemStatus } from '../bridge/protocol'
+import { readItemSource, readPendingOffer, type ItemSource, type PendingOffer } from './pending-offer'
+import { PENDING_OFFER_KEY, PENDING_REQUEST_KEY } from './storage-keys'
 
-/** A final receive result; the bridge passes it to the Heka page that sent the pending offer. */
-export interface ReceiveStatus {
-  state: 'done' | 'error'
-  message: string
+export interface PendingRequest {
+  requestUri: string
+  from?: ItemSource
 }
-
-// The service worker keeps one pending offer and one pending request, and replaces either when a
-// newer one arrives, possibly while the wallet page is still handling the older one. So the page
-// removes a pending item, or reports its result, only while that item is still the pending one.
-// chrome.storage has no compare-and-set: a replacement that lands between the read and the write
-// below is not detected.
 
 export async function loadPendingOffer(): Promise<PendingOffer | null> {
   const stored = await chrome.storage.local.get(PENDING_OFFER_KEY)
   return readPendingOffer(stored[PENDING_OFFER_KEY])
 }
 
-export async function loadPendingRequest(): Promise<string | null> {
+export async function loadPendingRequest(): Promise<PendingRequest | null> {
   const stored = await chrome.storage.local.get(PENDING_REQUEST_KEY)
   const pending = stored[PENDING_REQUEST_KEY]
-  return typeof pending === 'string' && pending.length > 0 ? pending : null
+  if (typeof pending === 'string' && pending.length > 0) return { requestUri: pending }
+  if (!pending || typeof pending !== 'object') return null
+  const requestUri = (pending as { requestUri?: unknown }).requestUri
+  if (typeof requestUri !== 'string' || requestUri.length === 0) return null
+  const from = readItemSource((pending as { from?: unknown }).from)
+  return from ? { requestUri, from } : { requestUri }
 }
 
-/** Removes the pending offer and reports `status`, if the pending offer is still `offerUri`. */
-export async function settlePendingOffer(offerUri: string, status: ReceiveStatus): Promise<boolean> {
-  if ((await loadPendingOffer())?.offerUri !== offerUri) return false
-  await chrome.storage.local.remove(PENDING_OFFER_KEY)
-  await chrome.storage.local.set({ [RECEIVE_STATUS_KEY]: status })
-  return true
+// The service worker stores new items and settles handled ones in one queue, so the wallet page
+// settles through it: an item stored after the handled one was read is never removed.
+
+async function sendToServiceWorker(message: ExtensionMessage): Promise<boolean> {
+  const response = (await chrome.runtime.sendMessage(message).catch(() => undefined)) as ExtensionResponse | undefined
+  return response?.type === 'SETTLED' && response.settled
 }
 
-/** Reports `status` and keeps the offer for a retry, if the pending offer is still `offerUri`. */
-export async function reportPendingOffer(offerUri: string, status: ReceiveStatus): Promise<boolean> {
-  if ((await loadPendingOffer())?.offerUri !== offerUri) return false
-  await chrome.storage.local.set({ [RECEIVE_STATUS_KEY]: status })
-  return true
+/**
+ * Reports `status` to the site that sent the offer and removes the offer, or keeps it for a retry,
+ * if it is still the pending one.
+ */
+export function settlePendingOffer(offerUri: string, status: ItemStatus, keep = false): Promise<boolean> {
+  return sendToServiceWorker({ type: 'SETTLE_OFFER', offerUri, status, keep })
 }
 
-/** Removes the pending presentation request, if it is still `requestUri`. */
-export async function settlePendingRequest(requestUri: string): Promise<boolean> {
-  if ((await loadPendingRequest()) !== requestUri) return false
-  await chrome.storage.local.remove(PENDING_REQUEST_KEY)
-  return true
+/** Shows `message` as the receive progress in the popup, if `offerUri` is still the pending offer. */
+export async function reportOfferProgress(offerUri: string, message: string): Promise<void> {
+  await sendToServiceWorker({ type: 'OFFER_PROGRESS', offerUri, message })
+}
+
+/** As settlePendingOffer, for the pending presentation request. */
+export function settlePendingRequest(requestUri: string, status: ItemStatus, keep = false): Promise<boolean> {
+  return sendToServiceWorker({ type: 'SETTLE_REQUEST', requestUri, status, keep })
 }

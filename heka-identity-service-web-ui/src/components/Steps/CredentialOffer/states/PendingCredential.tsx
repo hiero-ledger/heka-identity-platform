@@ -1,13 +1,7 @@
 import { useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 
-import {
-  ConnectionChoice,
-  ConnectionChoiceOptions,
-} from '@/components/ExistingConnection';
-import { CopyLink } from '@/components/Link/CopyLink';
-import { QRCode } from '@/components/QRCode';
+import { ConnectionChoiceOptions } from '@/components/ExistingConnection';
 import {
   getCredentialOfferId,
   getIsCredentialSent,
@@ -16,10 +10,8 @@ import { updateCredentialState } from '@/entities/Credential/model/services/upda
 import { ProtocolType } from '@/entities/Schema/model/types/schema';
 import { useRecordUpdates } from '@/shared/hooks/recordUpdates';
 import { useAppDispatch } from '@/shared/lib/hooks/useAppDispatch';
-import { Column, Row } from '@/shared/ui/Grid';
-import { Loader } from '@/shared/ui/Loader/Loader';
 
-import * as cls from '../CredentialOffer.module.scss';
+import { CredentialOfferView } from './CredentialOfferView';
 
 interface PendingCredentialParams {
   value?: string;
@@ -35,7 +27,6 @@ export const PendingCredential = ({
   useDemo,
   connection,
 }: PendingCredentialParams) => {
-  const { t } = useTranslation();
   const dispatch = useAppDispatch();
 
   const credentialOfferId = useSelector(getCredentialOfferId);
@@ -60,43 +51,9 @@ export const PendingCredential = ({
   });
 
   return (
-    <>
-      <Column
-        justifyContent="flex-start"
-        alignItems="flex-start"
-        className={cls.header}
-      >
-        <Row className={cls.title}>{t('Flow.titles.credentialOffer')}</Row>
-        {!connection?.isExistingConnectionSelected && (
-          <Row
-            className={cls.description}
-            alignItems="center"
-          >
-            <p>
-              {t('Common.titles.scanQR')}&nbsp;
-              <CopyLink value={value} />
-            </p>
-          </Row>
-        )}
-      </Column>
-      <Column
-        className={cls.mainContent}
-        justifyContent="center"
-        alignItems="center"
-      >
-        {connection ? (
-          <ConnectionChoice
-            {...connection}
-            qrValue={value}
-            waitingText={t('Connection.titles.waitingOffer')}
-          />
-        ) : (
-          <>
-            {!value && <Loader />}
-            {value && <QRCode content={value} />}
-          </>
-        )}
-      </Column>
-    </>
+    <CredentialOfferView
+      value={value}
+      connection={connection}
+    />
   );
 };

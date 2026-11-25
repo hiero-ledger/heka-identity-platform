@@ -17,6 +17,7 @@ import * as openpgp from 'openpgp'
 import { firstValueFrom } from 'rxjs'
 
 import { AuthInfo } from 'common/auth'
+import { User } from 'common/entities'
 import { InjectLogger, Logger } from 'common/logger'
 import GithubConfig from 'config/github'
 
@@ -112,7 +113,7 @@ export class GpgChallengeService {
     expiresAt.setMinutes(expiresAt.getMinutes() + CHALLENGE_TTL_MINUTES)
 
     const challenge = new GpgChallenge()
-    challenge.userId = input.userId
+    challenge.user = this.em.getReference(User, input.userId)
     challenge.tenantId = input.tenantId
     challenge.walletId = input.walletId
     challenge.githubAccountId = input.githubAccountId
@@ -139,7 +140,7 @@ export class GpgChallengeService {
     armoredMessage: string,
   ): Promise<VerificationResult> {
     const challenge = await this.em.findOne(GpgChallenge, { id: challengeId })
-    if (!challenge || challenge.userId !== authInfo.userId) {
+    if (!challenge || challenge.user.id !== authInfo.userId) {
       throw new NotFoundException(`Challenge session '${challengeId}' not found.`)
     }
 
@@ -281,7 +282,7 @@ export class GpgChallengeService {
 
   private async recordRejectedProof(challenge: GpgChallenge, challengeId: string, reason: string): Promise<void> {
     await this.contributorOnboardingService.recordProofRejected({
-      userId: challenge.userId,
+      userId: challenge.user.id,
       tenantId: challenge.tenantId,
       githubAccountId: challenge.githubAccountId,
       githubUsername: challenge.githubUsername,

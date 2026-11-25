@@ -8,6 +8,7 @@ import {
 } from '@/components/ExistingConnection';
 import { CopyLink } from '@/components/Link/CopyLink';
 import { QRCode } from '@/components/QRCode';
+import { WebWalletButton } from '@/components/WebWalletButton';
 import {
   getIsPresentationFinished,
   getPresentationRequestId,
@@ -91,6 +92,7 @@ export const PendingPresentation = ({
           <>
             {!value && <Loader />}
             {value && <QRCode content={value} />}
+            {value && <WebWalletButton uri={value} />}
           </>
         )}
       </Column>

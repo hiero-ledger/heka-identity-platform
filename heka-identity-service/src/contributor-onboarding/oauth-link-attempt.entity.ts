@@ -1,6 +1,7 @@
-import { Entity, Enum, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Enum, ManyToOne, Property, Unique } from '@mikro-orm/decorators/legacy'
 
 import { Identified } from 'common/entities/identified.entity'
+import { User } from 'common/entities/user.entity'
 
 export enum LinkAttemptStatus {
   Pending = 'pending',
@@ -15,8 +16,9 @@ export enum LinkAttemptStatus {
 @Entity()
 @Unique({ properties: ['stateHash'] })
 export class OAuthLinkAttempt extends Identified {
-  @Property({ type: 'string' })
-  public userId!: string
+  /** Deleted with the user (see `ContributorBinding.user`). */
+  @ManyToOne(() => User, { deleteRule: 'cascade' })
+  public user!: User
 
   @Property({ type: 'string' })
   public walletId!: string

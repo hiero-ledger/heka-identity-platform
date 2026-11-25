@@ -52,6 +52,7 @@ jest.mock('@/pages/Contributor/Onboarding/ContributorOnboarding', () =>
 jest.mock('@/pages/GithubCallback/GithubCallback', () =>
   mockPage('github callback'),
 );
+jest.mock('@/pages/Present/Present', () => mockPage('present'));
 // Router reads the flags when it renders, so a test can switch them on
 jest.mock('@/shared/config/features', () => ({
   features: { revocation: true, contributorVerification: false },
@@ -111,6 +112,7 @@ describe('Router', () => {
     ['/verify-credential/templates', 'verify'],
     ['/verify-credential/from-template', 'verification from template'],
     ['/verify-credential/verification-request', 'verification request'],
+    ['/present', 'present'],
   ])('signed in, %s renders the %s page', (path, page) => {
     renderRouter(path, true);
 
@@ -138,6 +140,7 @@ describe('Router', () => {
     ['/', 'home'],
     ['/demo', 'demo'],
     ['/age-demo', 'age demo'],
+    ['/present', 'present'],
   ])('signed out, %s renders the public %s page', (path, page) => {
     renderRouter(path, false);
 

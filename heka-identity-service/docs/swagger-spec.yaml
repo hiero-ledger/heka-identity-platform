@@ -2236,7 +2236,8 @@ paths:
       description: "Optional feature: available when
         CONTRIBUTOR_VERIFICATION_ENABLED=true. Deletes the binding with its GPG
         verification, pending link attempts and open GPG challenges. Credentials
-        already issued stay valid until they expire."
+        already issued stay valid until they expire, unless an operator of the
+        issuer organization revokes them from its issued credentials."
       operationId: ContributorOnboardingController_unlinkGithub_v2
       parameters: []
       responses:
@@ -2316,32 +2317,67 @@ paths:
       description: "Optional feature: available when
         CONTRIBUTOR_VERIFICATION_ENABLED=true. Generates an OID4VCI SD-JWT VC
         credential offer for the authenticated user after they have linked
-        GitHub and completed GPG verification. Returns an
-        openid-credential-offer:// URI and the transaction code the wallet asks
-        for."
+        GitHub and completed GPG verification. The issuer organization
+        (CONTRIBUTOR_ISSUER_ORG_ID) signs it with CONTRIBUTOR_ISSUER_DID, and
+        the credential appears in that organization's issued credentials, where
+        operators can revoke it. Returns an openid-credential-offer:// URI, the
+        transaction code the wallet asks for, the expiry of the offer and its
+        issuance session id."
       operationId: ContributorCredentialController_createOffer_v2
       parameters: []
       responses:
-        "200":
+        "201":
           description: Credential offer created.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ContributorCredentialOfferResponseDto"
-        "401":
+        "401": &a59
           description: Missing or invalid Heka token.
         "404":
-          description: No contributor binding for this user, or the contributor credential
-            issuer is not set up.
+          description: No contributor binding for this user.
         "409":
           description: GitHub is linked, but GPG verification is not complete.
         "429":
           description: More than 10 requests per minute to this route by this user.
-      security:
+        "503":
+          description: The contributor credential issuer is not set up; the message says
+            what is missing.
+      security: &a60
         - bearer: []
       summary: Issue a GitHub Contributor Credential offer
-      tags:
+      tags: &a61
         - Contributor Credential
+  /v2/contributor-credential/offer/{issuanceSessionId}:
+    get:
+      description: "Optional feature: available when
+        CONTRIBUTOR_VERIFICATION_ENABLED=true. The state of an offer the caller
+        requested: Completed once the wallet has received the credential, Error
+        when issuance failed. After expiresAt the offer can no longer be
+        redeemed."
+      operationId: ContributorCredentialController_getOfferState_v2
+      parameters:
+        - name: issuanceSessionId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContributorCredentialOfferStateDto"
+        "401": *a59
+        "404":
+          description: The caller requested no offer with this id, or its issuance session
+            was deleted.
+        "429":
+          description: More than 60 requests per minute to this route by this user.
+      security: *a60
+      summary: Get the state of a GitHub Contributor Credential offer
+      tags: *a61
 info:
   title: Heka Identity Service
   description: Heka Identity Service API
@@ -4131,6 +4167,12 @@ components:
           enum:
             - v1.draft11-15
             - v1.draft15
+        offerExpiresInSeconds:
+          type: number
+          description: "How long the offer can be redeemed, in seconds. Default: 180."
+          minimum: 30
+          maximum: 86400
+          example: 600
         credentials:
           type: array
           items:
@@ -4163,6 +4205,9 @@ components:
         preAuthorizedCode:
           type: string
         userPin:
+          type: string
+        expiresAt:
+          format: date-time
           type: string
         issuanceMetadata:
           type: object
@@ -4817,9 +4862,41 @@ components:
           type: string
           description: ISO-8601 time when the offer can no longer be redeemed
           example: 2026-10-30T12:10:00.000Z
+        issuanceSessionId:
+          type: string
+          description: The offer's issuance session, for GET
+            /v2/contributor-credential/offer/{issuanceSessionId}
+          example: 6e7dce29-9d6a-4a13-a820-6a19b2ea9945
       required:
         - credentialOffer
         - txCode
+        - expiresAt
+        - issuanceSessionId
+    ContributorCredentialOfferStateDto:
+      type: object
+      properties:
+        state:
+          type: string
+          enum:
+            - OfferCreated
+            - OfferUriRetrieved
+            - AuthorizationInitiated
+            - AuthorizationGranted
+            - AccessTokenRequested
+            - AccessTokenCreated
+            - CredentialRequestReceived
+            - CredentialsPartiallyIssued
+            - Completed
+            - Error
+          description: "State of the issuance session: Completed once the wallet has
+            received the credential"
+          example: OfferCreated
+        expiresAt:
+          type: string
+          description: ISO-8601 time when the offer can no longer be redeemed
+          example: 2026-10-30T12:10:00.000Z
+      required:
+        - state
         - expiresAt
 security:
   - bearer: []

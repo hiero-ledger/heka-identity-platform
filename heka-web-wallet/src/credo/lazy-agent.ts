@@ -12,12 +12,13 @@ export async function getOrCreateAgent(): Promise<Agent> {
 
   initPromise = (async () => {
     try {
-      const { Agent, DidsModule, JwkDidResolver, KeyDidResolver, PeerDidResolver, WebDidResolver } =
+      const { Agent, DidsModule, JwkDidResolver, KeyDidResolver, PeerDidResolver, SdJwtVcModule, WebDidResolver } =
         await import('@credo-ts/core')
       const { KeyManagementModule } = await import('@credo-ts/core/kms')
       const { OpenId4VcModule } = await import('@credo-ts/openid4vc')
       const { BrowserStorageModule } = await import('./BrowserStorageModule')
       const { HederaDidResolver } = await import('./HederaDidResolver')
+      const { typeMetadataResolver } = await import('./type-metadata-policy')
       const { WebCryptoKeyAgreementService } = await import('./WebCryptoKeyAgreementService')
       const { WebCryptoKeyManagementService } = await import('./WebCryptoKeyManagementService')
 
@@ -43,6 +44,7 @@ export async function getOrCreateAgent(): Promise<Agent> {
             ],
           }),
           openid4vc: new OpenId4VcModule({}),
+          sdJwtVc: new SdJwtVcModule({ customTypeMetadataResolver: typeMetadataResolver }),
           kms: new KeyManagementModule({
             // Holder keys, and single-use ECDH keys for encrypted OpenID4VP responses.
             backends: [new WebCryptoKeyManagementService(), new WebCryptoKeyAgreementService()],

@@ -1,37 +1,42 @@
-// Drives the Heka Web Wallet in Chrome for Testing: a Heka page on a trusted origin hands a
-// credential offer to the extension through the content-script bridge, and the wallet page
-// receives it with the transaction code. Not part of CI; see README.md.
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+// Drives the Heka Web Wallet in Chrome for Testing: a page served where the development build
+// injects the bridge hands a credential offer to the extension, the wallet page receives it with
+// the transaction code, and optionally presents it to a verifier's request. Not part of CI; see README.md.
+import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import puppeteer from 'puppeteer'
+import {
+  bodyIncludes,
+  bodyText,
+  bridgeEvent,
+  check,
+  clickButton,
+  dumpPages,
+  finish,
+  identityUrl,
+  launchWithWallet,
+  newPage,
+  walletFlowResult,
+  walletPage,
+  walletPages,
+} from './lib.mjs'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
-const dist = resolve(process.env.HEKA_WALLET_DIST ?? join(here, '../dist'))
-const identityUrl = (process.env.HEKA_IDENTITY_URL ?? 'http://localhost:3000').replace(/\/$/, '')
-// The content script runs only on the origins in manifest.json and trusted-origins.ts.
+// The development build injects the bridge here without connecting the site.
 const HEKA_PAGE_PORT = 8000
-const TIMEOUT_MS = Number(process.env.HEKA_E2E_TIMEOUT_MS ?? 60000)
-// An offer for an issuer that does not exist: it is only handed over, never redeemed.
-const PLACEHOLDER_OFFER =
+// Offers for issuers that do not exist: they are only handed over, never redeemed.
+const placeholderOffer = (issuer) =>
   'openid-credential-offer://?credential_offer=' +
   encodeURIComponent(
     JSON.stringify({
-      credential_issuer: 'https://issuer.invalid',
+      credential_issuer: issuer,
       credential_configuration_ids: ['Placeholder'],
       grants: { 'urn:ietf:params:oauth:grant-type:pre-authorized_code': { 'pre-authorized_code': 'placeholder' } },
     }),
   )
-
-const results = []
-function check(name, ok, detail) {
-  results.push({ name, ok })
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${detail === undefined ? '' : `: ${detail}`}`)
-  return ok
-}
+const PLACEHOLDER_ISSUER = 'https://issuer.invalid'
+const NEXT_PLACEHOLDER_ISSUER = 'https://issuer-2.invalid'
 
 /** The offer to receive: given directly, or created by the identity service for HEKA_TOKEN's user. */
 async function getOffer() {
@@ -64,83 +69,48 @@ function serveHekaPage() {
   })
 }
 
-const waitFor = (page, fn, ...args) => page.waitForFunction(fn, { timeout: TIMEOUT_MS, polling: 100 }, ...args)
-const bodyIncludes = (page, text) => waitFor(page, (t) => document.body.innerText.includes(t), text)
-const bridgeEvent = (page, type) =>
-  waitFor(page, (t) => window.__events.find((event) => event.type === t), type).then((handle) => handle.jsonValue())
-
-async function clickButton(page, label) {
-  await waitFor(
-    page,
-    (text) => [...document.querySelectorAll('button')].some((b) => b.textContent.includes(text)),
-    label,
-  )
-  await page.evaluate((text) => {
-    const button = [...document.querySelectorAll('button')].find((b) => b.textContent.includes(text))
-    button.click()
-  }, label)
-}
-
 const offer = await getOffer()
+const requestUri = process.env.HEKA_REQUEST_URI
 const server = await serveHekaPage()
-const profile = mkdtempSync(join(tmpdir(), 'heka-web-wallet-e2e-'))
-const browser = await puppeteer.launch({
-  headless: process.env.HEKA_E2E_HEADFUL ? false : true,
-  pipe: true,
-  userDataDir: profile,
-  args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`, '--no-first-run'],
-})
-const pageErrors = []
+const { browser, serviceWorker, close } = await launchWithWallet()
 let wallet
-const walletPages = () => browser.targets().filter((target) => target.url().includes('/wallet.html'))
 
 try {
-  const worker = await browser.waitForTarget(
-    (target) => target.type() === 'service_worker' && target.url().startsWith('chrome-extension://'),
-    { timeout: TIMEOUT_MS },
-  )
-  const serviceWorker = await worker.worker()
-  console.log(`extension ${new URL(worker.url()).host} from ${dist}`)
-
-  const heka = await browser.newPage()
-  heka.on('pageerror', (error) => pageErrors.push(`heka page: ${error.message}`))
+  const heka = await newPage(browser, 'heka page')
   await heka.goto(`http://127.0.0.1:${HEKA_PAGE_PORT}/`, { waitUntil: 'load' })
 
   // The content script loads as a classic script and announces itself.
   check('bridge: content script loaded (EXTENSION_READY)', Boolean(await bridgeEvent(heka, 'EXTENSION_READY')))
   await heka.evaluate(() => window.sendBridge('PING'))
   const pong = await bridgeEvent(heka, 'PING_RESPONSE')
-  check('bridge: PING answered', pong.payload?.type === 'PONG', JSON.stringify(pong.payload))
+  check(
+    'bridge: PING answered with protocol version 1',
+    pong.payload?.type === 'PONG' && pong.payload?.protocolVersion === 1,
+    JSON.stringify(pong.payload),
+  )
 
   await heka.evaluate(
     (uri, expiresAt) => window.sendBridge('RECEIVE_OFFER', { offerUri: uri, expiresAt }),
-    offer?.credentialOffer ?? PLACEHOLDER_OFFER,
+    offer?.credentialOffer ?? placeholderOffer(PLACEHOLDER_ISSUER),
     offer?.expiresAt,
   )
   const acknowledged = await bridgeEvent(heka, 'RECEIVE_OFFER_RESPONSE')
   check('bridge: offer handed to the wallet', acknowledged.payload?.type === 'OFFER_ACKNOWLEDGED')
 
-  const walletTarget = await browser.waitForTarget((target) => target.url().includes('/wallet.html'), {
-    timeout: TIMEOUT_MS,
-  })
-  wallet = await walletTarget.page()
-  wallet.on('pageerror', (error) => pageErrors.push(`wallet page: ${error.message}`))
+  wallet = await walletPage(browser)
   await bodyIncludes(wallet, 'Wallet ready')
   check('wallet: agent started', true)
 
   if (offer) {
     await bodyIncludes(wallet, 'Review credential offer')
-    const review = await wallet.evaluate(() => document.body.innerText)
+    const review = await bodyText(wallet)
     check('wallet: offer resolved for review', true, review.split('\n').slice(0, 12).join(' | '))
     if (offer.txCode) await wallet.type('input', offer.txCode)
     await clickButton(wallet, 'Accept credential')
-    await waitFor(wallet, () =>
-      /Received|redeemed|failed|expired/i.test(document.getElementById('wallet-flow')?.textContent ?? ''),
-    )
-    const flow = await wallet.$eval('#wallet-flow', (element) => element.textContent)
+    const flow = await walletFlowResult(wallet, 'Received|redeemed|failed|expired')
     check('wallet: credential received', /^Received 1 credential/.test(flow), flow)
 
-    const status = await bridgeEvent(heka, 'RECEIVE_STATUS')
+    const status = await bridgeEvent(heka, 'RECEIVE_STATUS', offer.credentialOffer)
     check(
       'bridge: Heka page told the credential is stored',
       status.payload?.state === 'done',
@@ -154,31 +124,40 @@ try {
     check('popup summary: one credential', stored.credentialCount === 1, JSON.stringify(summary))
     check('popup summary: display name from issuer metadata', Boolean(summary?.display?.name), summary?.display?.name)
     check('popup summary: issued date from iat', Boolean(summary?.issuedAt), summary?.issuedAt)
+
+    if (requestUri) {
+      await heka.evaluate((uri) => window.sendBridge('PRESENT_REQUEST', { requestUri: uri }), requestUri)
+      await bodyIncludes(wallet, 'Review presentation')
+      check('wallet: request resolved for review', true, (await bodyText(wallet)).split('\n').slice(0, 14).join(' | '))
+      await clickButton(wallet, 'Present credential')
+      const presented = await walletFlowResult(wallet, 'submitted|rejected|failed|saved')
+      check('wallet: presentation submitted', presented === 'Presentation submitted.', presented)
+      const presentStatus = await bridgeEvent(heka, 'PRESENT_STATUS', requestUri)
+      check('bridge: Heka page told the presentation is done', presentStatus.payload?.state === 'done')
+    }
   } else {
     console.log('note: no offer source (HEKA_TOKEN or HEKA_OFFER_URI), so nothing is redeemed; see README.md')
-    await bodyIncludes(wallet, 'Allow remote issuer access')
-    check('wallet: placeholder offer held for review', true)
+    await bodyIncludes(wallet, `Reading this offer contacts ${PLACEHOLDER_ISSUER}.`)
+    check('wallet: placeholder offer held until its issuer is allowed', true)
   }
 
-  // A later request goes to the open wallet window instead of a new one.
-  await heka.evaluate((uri) => window.sendBridge('RECEIVE_OFFER', { offerUri: uri }), PLACEHOLDER_OFFER)
-  await bodyIncludes(wallet, 'Allow remote issuer access')
+  // A later request goes to the open wallet window instead of a new one, and replaces the item there.
+  await heka.evaluate(
+    (uri) => window.sendBridge('RECEIVE_OFFER', { offerUri: uri }),
+    placeholderOffer(NEXT_PLACEHOLDER_ISSUER),
+  )
+  await bodyIncludes(wallet, `Reading this offer contacts ${NEXT_PLACEHOLDER_ISSUER}.`)
   check(
     'wallet: the next offer reuses the open window',
-    walletPages().length === 1,
-    `${walletPages().length} wallet window(s)`,
+    walletPages(browser).length === 1,
+    `${walletPages(browser).length} wallet window(s)`,
   )
 } catch (error) {
   check('harness run', false, error instanceof Error ? error.message : String(error))
-  const text = await wallet?.evaluate(() => document.body.innerText).catch(() => undefined)
-  if (text) console.log(`wallet page at the failure:\n${text}`)
+  await dumpPages(browser)
 } finally {
-  for (const message of pageErrors) console.log(`page error: ${message}`)
-  await browser.close()
+  await close()
   server.close()
-  rmSync(profile, { recursive: true, force: true })
 }
 
-const failed = results.filter((result) => !result.ok).length + pageErrors.length
-console.log(failed === 0 ? `\nAll ${results.length} checks passed.` : `\n${failed} check(s) failed.`)
-process.exit(failed === 0 ? 0 : 1)
+finish()

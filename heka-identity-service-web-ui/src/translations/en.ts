@@ -72,8 +72,10 @@ export default {
       presentationReceived: 'Credential verified',
       presentationFailed: 'Verification failed',
       verify: 'Verify Credential',
+      txCode: 'Enter this transaction code in your wallet:',
     },
     messages: {
+      offerExpires: 'The offer expires {{time}}.',
       presentationRevoked: 'The credential has been revoked.',
       presentationExpired:
         'The verification request expired before the wallet responded.',
@@ -86,6 +88,7 @@ export default {
       request: 'Request',
       verifyMore: 'Verify more credential',
       startAgain: 'Start again',
+      copyTxCode: 'Copy code',
     },
   },
   Connection: {
@@ -172,6 +175,29 @@ export default {
       cancelled: 'Presentation cancelled. No credential was shared.',
       unsupported:
         'This browser cannot present credentials with the Digital Credentials API. Try the QR code option instead.',
+    },
+  },
+  Present: {
+    titles: {
+      main: 'Present a credential',
+      invalid: 'This presentation link is not valid',
+    },
+    messages: {
+      done: 'Your wallet has answered the verifier.',
+    },
+    errors: {
+      missing:
+        'The link must name the verifier (client_id) and the address of its request (request_uri).',
+      requestUri: 'The request must be fetched from an https address.',
+      method: 'request_uri_method must be get or post.',
+    },
+  },
+  WebWallet: {
+    buttons: {
+      open: 'Open in Heka Web Wallet',
+    },
+    messages: {
+      failed: 'The Heka Web Wallet could not complete the request.',
     },
   },
   IssueCredential: {
@@ -328,6 +354,27 @@ export default {
   Contributor: {
     titles: {
       main: 'Contributor Hub',
+      unlink: 'Unlink your GitHub account?',
+    },
+    descriptions: {
+      receiveCredential:
+        'Request an offer, then scan its QR code with your mobile wallet or open it in the Heka Web Wallet.',
+    },
+    buttons: {
+      requestOffer: 'Request credential offer',
+      requestNewOffer: 'Request a new offer',
+      checkAgain: 'Check again',
+      unlink: 'Unlink GitHub account',
+      retry: 'Try again',
+    },
+    messages: {
+      credentialReceived: 'Your wallet has received the credential.',
+      offerExpired: 'This offer has expired.',
+      offerFailed: 'The wallet could not receive the credential.',
+      offerUnchecked: "The offer's state could not be checked.",
+      unlinkDetails:
+        'Credentials already issued to you stay valid until they expire. You can link a GitHub account again afterwards.',
+      statusFailed: 'Your onboarding status could not be loaded.',
     },
   },
   SignIn: {

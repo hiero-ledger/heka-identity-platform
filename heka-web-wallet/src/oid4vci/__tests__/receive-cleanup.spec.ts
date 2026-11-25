@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { WebCryptoKeyManagementService } from '../../credo/WebCryptoKeyManagementService'
 import { OPENID4VC_CREDENTIAL_METADATA_KEY } from '../credential-display'
-import { acceptCredentialOffer, CredentialReceiveError } from '../receive'
+import { acceptCredentialOffer, CredentialReceiveError, receiveResultMessage } from '../receive'
 
 const requestToken = vi.fn()
 const requestCredentials = vi.fn()
@@ -11,6 +11,8 @@ const store = vi.fn()
 const deleteById = vi.fn()
 const createDid = vi.fn()
 const deleteDidRecord = vi.fn()
+const getAll = vi.fn()
+const sendMessage = vi.fn()
 const deleted: string[] = []
 const dbName = 'heka-wallet-kms-cleanup'
 const context = {} as AgentContext
@@ -32,36 +34,56 @@ vi.mock('../../credo/lazy-agent', () => ({
     },
     dependencyManager: { resolve: () => ({ delete: deleteDidRecord }) },
     openid4vc: { holder: { requestToken, requestCredentials } },
-    sdJwtVc: { store, deleteById, getAll: async () => [] },
+    sdJwtVc: { store, deleteById, getAll },
   }),
 }))
 
-const offer = {
-  metadata: {
-    credentialIssuer: {
-      credential_issuer: 'https://issuer.example',
-      display: [{ name: 'Example Issuer' }],
+const offerUri = 'openid-credential-offer://?credential_offer_uri=https%3A%2F%2Fissuer.example%2Foffers%2F1'
+const membership = {
+  format: 'dc+sd-jwt',
+  vct: 'https://issuer.example/vct/Membership',
+  cryptographic_binding_methods_supported: ['jwk'],
+  proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES256'] } },
+}
+const offerFor = (configuration: object) =>
+  ({
+    metadata: {
+      originalDraftVersion: 'V1',
+      credentialIssuer: {
+        credential_issuer: 'https://issuer.example',
+        display: [{ name: 'Example Issuer' }],
+      },
     },
-  },
-} as never
+    offeredCredentialConfigurations: { Membership: configuration },
+  }) as never
+const offer = offerFor(membership)
 
 const jwkBinding = { supportsJwk: true, proofTypes: { jwt: { supportedSignatureAlgorithms: ['ES256'] } } }
 
 type Resolver = (binding: unknown) => Promise<unknown>
 
 function fakeRecord(id: string): SdJwtVcRecord {
-  return Object.assign(Object.create(SdJwtVcRecord.prototype) as SdJwtVcRecord, { id, metadata: new Metadata({}) })
+  const record = Object.assign(Object.create(SdJwtVcRecord.prototype) as SdJwtVcRecord, {
+    id,
+    metadata: new Metadata({}),
+  })
+  return Object.defineProperty(record, 'firstCredential', { value: { payload: { iss: 'did:key:z6Mkissuer' } } })
 }
 
 describe('acceptCredentialOffer', () => {
   beforeEach(() => {
     kms = new WebCryptoKeyManagementService(dbName)
     deleted.length = 0
-    for (const mock of [requestToken, requestCredentials, store, deleteById, createDid, deleteDidRecord])
+    for (const mock of [requestToken, requestCredentials, store, deleteById, createDid, deleteDidRecord, getAll])
       mock.mockReset()
     deleteById.mockResolvedValue(undefined)
+    getAll.mockResolvedValue([])
     requestToken.mockResolvedValue({ accessToken: 'token', cNonce: 'nonce' })
-    vi.stubGlobal('chrome', { storage: { local: { set: vi.fn().mockResolvedValue(undefined) } } })
+    sendMessage.mockReset().mockResolvedValue({ type: 'SETTLED', settled: true })
+    vi.stubGlobal('chrome', {
+      runtime: { sendMessage },
+      storage: { local: { set: vi.fn().mockResolvedValue(undefined) } },
+    })
   })
 
   it('deletes the holder key when the credential request fails', async () => {
@@ -70,7 +92,7 @@ describe('acceptCredentialOffer', () => {
       throw new Error('issuer down')
     })
 
-    await expect(acceptCredentialOffer(offer)).rejects.toThrow(/issuer down/)
+    await expect(acceptCredentialOffer(offerUri, offer)).rejects.toThrow(/issuer down/)
     expect(deleted).toHaveLength(1)
     expect(await kms.getPublicKey(context, deleted[0])).toBeNull()
     expect(store).not.toHaveBeenCalled()
@@ -90,7 +112,7 @@ describe('acceptCredentialOffer', () => {
       if (record.id === 'rec-2') throw new Error('store failed')
     })
 
-    await expect(acceptCredentialOffer(offer)).rejects.toThrow(/store failed/)
+    await expect(acceptCredentialOffer(offerUri, offer)).rejects.toThrow(/store failed/)
     expect(deleteById).toHaveBeenCalledTimes(1)
     expect(deleteById).toHaveBeenCalledWith('rec-1')
     expect(deleted).toHaveLength(2)
@@ -107,7 +129,7 @@ describe('acceptCredentialOffer', () => {
       throw new Error('issuer down')
     })
 
-    await expect(acceptCredentialOffer(offer)).rejects.toThrow(/issuer down/)
+    await expect(acceptCredentialOffer(offerUri, offer)).rejects.toThrow(/issuer down/)
     expect(deleteDidRecord).toHaveBeenCalledWith(context, {
       id: 'record-of-did:jwk:eyJrdHkiOiJFQyIsImNydiI6IlAtMjU2IiwieCI6IngiLCJ5IjoieSJ9',
     })
@@ -116,12 +138,12 @@ describe('acceptCredentialOffer', () => {
 
   it('keeps an offer retryable while its code is not redeemed, and not after', async () => {
     requestToken.mockRejectedValueOnce(new Error('fetch failed'))
-    const beforeToken = await acceptCredentialOffer(offer).catch((error: unknown) => error)
+    const beforeToken = await acceptCredentialOffer(offerUri, offer).catch((error: unknown) => error)
     expect(beforeToken).toBeInstanceOf(CredentialReceiveError)
     expect((beforeToken as CredentialReceiveError).retryable).toBe(true)
 
     requestCredentials.mockRejectedValueOnce(new Error('credential endpoint failed'))
-    const afterToken = await acceptCredentialOffer(offer).catch((error: unknown) => error)
+    const afterToken = await acceptCredentialOffer(offerUri, offer).catch((error: unknown) => error)
     expect((afterToken as CredentialReceiveError).retryable).toBe(false)
     expect((afterToken as CredentialReceiveError).message).toBe('credential endpoint failed')
   })
@@ -141,7 +163,12 @@ describe('acceptCredentialOffer', () => {
       deferredCredentials: [],
     })
 
-    await expect(acceptCredentialOffer(offer)).resolves.toEqual({ received: 1, deferred: 0 })
+    await expect(acceptCredentialOffer(offerUri, offer)).resolves.toEqual({
+      received: 1,
+      deferred: 0,
+      signedBy: ['did:key:z6Mkissuer'],
+      summaryUpdated: true,
+    })
     expect(store).toHaveBeenCalledWith({ record })
     expect(record.metadata.get(OPENID4VC_CREDENTIAL_METADATA_KEY)).toEqual({
       credential: { name: 'Membership', backgroundColor: '#12107c' },
@@ -152,6 +179,45 @@ describe('acceptCredentialOffer', () => {
   it('reports a deferred credential instead of counting it as received', async () => {
     requestCredentials.mockResolvedValue({ credentials: [], deferredCredentials: [{ transactionId: 'later' }] })
 
-    await expect(acceptCredentialOffer(offer)).resolves.toEqual({ received: 0, deferred: 1 })
+    await expect(acceptCredentialOffer(offerUri, offer)).resolves.toMatchObject({ received: 0, deferred: 1 })
+  })
+
+  it('refuses an offer it cannot bind before redeeming its code, so the offer stays retryable', async () => {
+    for (const configuration of [
+      { ...membership, cryptographic_binding_methods_supported: ['did:web'] },
+      { ...membership, proof_types_supported: { jwt: { proof_signing_alg_values_supported: ['ES384'] } } },
+      { ...membership, proof_types_supported: { jwt: { key_attestations_required: {} } } },
+      { ...membership, proof_types_supported: undefined },
+    ]) {
+      const error = await acceptCredentialOffer(offerUri, offerFor(configuration)).catch((caught: unknown) => caught)
+      expect(error).toBeInstanceOf(CredentialReceiveError)
+      expect((error as CredentialReceiveError).retryable).toBe(true)
+    }
+    expect(requestToken).not.toHaveBeenCalled()
+  })
+
+  it('keeps a stored credential when only the summary update fails, and says so', async () => {
+    requestCredentials.mockResolvedValue({ credentials: [{ record: fakeRecord('rec-1') }], deferredCredentials: [] })
+    getAll.mockRejectedValue(new Error('IndexedDB closed'))
+
+    const result = await acceptCredentialOffer(offerUri, offer)
+
+    expect(result).toMatchObject({ received: 1, summaryUpdated: false })
+    expect(deleteById).not.toHaveBeenCalled()
+    expect(deleted).toHaveLength(0)
+    expect(receiveResultMessage(result.received, result.deferred, result.summaryUpdated)).toBe(
+      'The credential was stored, but the wallet summary could not be updated.',
+    )
+  })
+
+  it("reports its progress for this offer only, so a replaced offer's progress shows nowhere", async () => {
+    requestCredentials.mockResolvedValue({ credentials: [{ record: fakeRecord('rec-1') }], deferredCredentials: [] })
+
+    await acceptCredentialOffer(offerUri, offer)
+
+    expect(sendMessage.mock.calls.map(([message]) => message)).toEqual([
+      { type: 'OFFER_PROGRESS', offerUri, message: 'Requesting the credential… Keep this page open.' },
+      { type: 'OFFER_PROGRESS', offerUri, message: 'Saving the credential…' },
+    ])
   })
 })

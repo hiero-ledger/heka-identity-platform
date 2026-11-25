@@ -33,8 +33,9 @@ const resolved = {
 describe('describeCredentialOffer', () => {
   it('shows the issuer and credential before redemption, and the transaction-code rule', () => {
     expect(describeCredentialOffer(resolved)).toEqual({
-      issuerName: 'Hiero Contributor Identity Issuer',
+      issuerOrigin: 'https://issuer.example',
       issuerUrl: 'https://issuer.example',
+      issuerName: 'Hiero Contributor Identity Issuer',
       credentials: [
         {
           name: 'GitHub Contributor Credential',
@@ -113,6 +114,17 @@ describe('describeCredentialOffer', () => {
       },
       { name: 'https://issuer.example/vct/Plain', type: 'https://issuer.example/vct/Plain' },
     ])
+  })
+
+  it('names the issuer by the origin of its URL, and keeps its display name apart as self-declared', () => {
+    const preview = describeCredentialOffer({
+      ...resolved,
+      metadata: { credentialIssuer: { credential_issuer: 'https://heka.example/oid4vci/7f3c', display: [] } },
+    })
+
+    expect(preview.issuerOrigin).toBe('https://heka.example')
+    expect(preview.issuerUrl).toBe('https://heka.example/oid4vci/7f3c')
+    expect(preview.issuerName).toBeNull()
   })
 
   it('rejects a transaction code of the wrong length', () => {

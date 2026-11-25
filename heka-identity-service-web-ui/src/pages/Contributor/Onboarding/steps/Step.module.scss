@@ -143,29 +143,6 @@ $red-tint: #fef2f2;
   @extend %primary-btn;
 }
 
-.walletBtn {
-  @extend %primary-btn;
-  background: $gradient;
-  box-shadow: 0 10px 24px -8px rgba(#ef3e7f, 0.35);
-  font-size: 14px;
-  padding: 12px 24px;
-
-  &:hover:not(:disabled) { box-shadow: 0 14px 28px -8px rgba(#ef3e7f, 0.45); }
-}
-
-.textBtn {
-  background: none;
-  border: none;
-  color: $pink;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: underline;
-  padding: 0;
-
-  &:hover { color: color.adjust($pink, $lightness: -8%); }
-}
-
 .copyBtn {
   display: flex;
   align-items: center;
@@ -445,6 +422,12 @@ $red-tint: #fef2f2;
   text-align: right;
 }
 
+.bindingActions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-xs);
+}
+
 /* ── Wallet section ─────────────────────────────────────────────────────── */
 .walletSection {
   display: flex;
@@ -480,19 +463,18 @@ $red-tint: #fef2f2;
   line-height: 1.6;
 }
 
+.offerPanel {
+  padding: var(--space-xl);
+  background-color: var(--color-primary-hiero-branded-2);
+  border-radius: var(--space-xl);
+  gap: var(--space-xl);
+}
+
 /* ── Status boxes ───────────────────────────────────────────────────────── */
 .successBox {
   display: flex; align-items: flex-start; gap: 10px;
   background: $green-tint; border: 1px solid rgba($green, 0.2);
   border-radius: 10px; padding: 10px 12px; font-size: 13px; color: color.adjust($green, $lightness: -10%);
-}
-
-.txCode {
-  margin-top: 8px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 22px;
-  letter-spacing: 0.2em;
-  font-weight: 700;
 }
 
 .errorBox {
@@ -528,13 +510,4 @@ $red-tint: #fef2f2;
   border-bottom: 1px solid rgba($pink, 0.35);
   transition: border-color 0.15s;
   &:hover { border-color: $pink; }
-}
-
-.inlineCode {
-  font-size: 12px;
-  background: $gray-100;
-  padding: 1px 5px;
-  border-radius: 4px;
-  color: $pink;
-  font-family: monospace;
 }

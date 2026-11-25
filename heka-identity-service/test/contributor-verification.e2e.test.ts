@@ -6,15 +6,24 @@ import { Agent, Kms, SdJwtVcRecord } from '@credo-ts/core'
 import { MikroORM } from '@mikro-orm/core'
 import { PostgreSqlDriver, SchemaGenerator } from '@mikro-orm/postgresql'
 import { INestApplication } from '@nestjs/common'
+import { getListFromStatusListJWT } from '@owf/token-status-list'
 import * as openpgp from 'openpgp'
 import request from 'supertest'
 import { vi } from 'vitest'
 
 import { Role } from 'src/common/auth'
+import { User } from 'src/common/entities'
+import { DidMethod, OpenId4VCCredentialRegistrationFormat, ProtocolType } from 'src/common/types'
+import { ContributorCredentialIssuance } from 'src/contributor-credential/contributor-credential-issuance.entity'
+import { ContributorAuditEvent, ContributorBinding } from 'src/contributor-onboarding'
+import { OAuthLinkAttempt } from 'src/contributor-onboarding/oauth-link-attempt.entity'
+import { GpgChallenge } from 'src/gpg-challenge/gpg-challenge.entity'
+import { TokenStatus } from 'src/revocation'
 import { ADMINISTRATION_WALLET_ID } from 'src/utils/auth'
 import { uuid } from 'src/utils/misc'
+import { sleep } from 'src/utils/timers'
 
-import { initializeMikroOrm, startTestApp, waitUntil } from './helpers'
+import { initializeMikroOrm, SchemaUtilities, startTestApp, UserUtilities, waitUntil } from './helpers'
 import { createAuthToken } from './helpers/jwt'
 import { createAgent, TestAgentModulesMap } from './helpers/test-agent'
 
@@ -28,8 +37,10 @@ const originalEnv = vi.hoisted(() => {
 
 const CLIENT_ID = 'e2e-github-client'
 const CLIENT_SECRET = 'e2e-github-secret'
-/** `DEMO_USER`: the provisional issuer wallet of the contributor credential. */
-const ISSUER_SUB = 'demo'
+/** The issuer organization. Its DID is pinned once an OrgAdmin has created it; until then, one it doesn't hold. */
+const ORG_ID = `contributors-${uuid()}`
+const UNHELD_DID = 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK'
+const SCHEMA_FIELDS = ['githubAccountId', 'githubUsername', 'gpgFingerprint', 'verifiedAt']
 const DAY_MS = 24 * 60 * 60 * 1000
 
 interface GithubStub {
@@ -129,10 +140,19 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
   let app: Server
   let gh: GithubStub
   let holder: Agent<TestAgentModulesMap>
+  // One agent store for every app instance, so a restarted app sees the tenants of the previous one
+  const storeId = `tenant-${uuid()}`
 
   const aliceSub = `alice-${uuid()}`
   let aliceToken: string
   let aliceKey: { privateKey: string; publicKey: string }
+
+  // Set by the issuer setup test
+  let orgAdminToken: string
+  let issuerDid: string
+  let supportedCredentialId: string
+  // Set by the offer test
+  let aliceCredential: { issuanceSessionId: string; statusList: { idx: number; uri: string } }
 
   beforeAll(async () => {
     gh = await startGithubStub()
@@ -143,7 +163,8 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
     process.env.GITHUB_OAUTH_TOKEN_URL = `${gh.url}/login/oauth/access_token`
     process.env.GITHUB_USER_API_URL = `${gh.url}/user`
     process.env.GITHUB_GPG_KEY_BASE_URL = gh.url
-    process.env.DEMO_USER = ISSUER_SUB
+    process.env.CONTRIBUTOR_ISSUER_ORG_ID = ORG_ID
+    process.env.CONTRIBUTOR_ISSUER_DID = UNHELD_DID
 
     orm = await initializeMikroOrm()
     ormSchemaGenerator = orm.schema
@@ -152,7 +173,7 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
     holder = createAgent()
     await holder.initialize()
 
-    nestApp = await startTestApp()
+    nestApp = await startTestApp({ storeId })
     app = nestApp.getHttpServer() as Server
 
     aliceToken = await createAuthToken(aliceSub, Role.User)
@@ -170,6 +191,68 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
     await orm?.close(true)
     process.env = originalEnv
   })
+
+  /** Another app instance on the same database and agent store, which reads the configuration again. */
+  async function restartApp() {
+    await sleep(2000)
+    await nestApp.close()
+    nestApp = await startTestApp({ storeId })
+    app = nestApp.getHttpServer() as Server
+  }
+
+  function offer(token: string) {
+    return request(app).post('/v2/contributor-credential/offer').auth(token, { type: 'bearer' })
+  }
+
+  function offerState(token: string, issuanceSessionId: string) {
+    return request(app).get(`/v2/contributor-credential/offer/${issuanceSessionId}`).auth(token, { type: 'bearer' })
+  }
+
+  /** The organization's view of an issuance session, as its issued-credential list shows it. */
+  async function issuedSession(issuanceSessionId: string) {
+    const issued = await request(app)
+      .get('/openid4vc/issuance-session')
+      .query({ publicIssuerId: issuerDid })
+      .auth(orgAdminToken, { type: 'bearer' })
+    expect(issued.status).toBe(200)
+    return (issued.body as Array<Record<string, unknown>>).find(({ id }) => id === issuanceSessionId)
+  }
+
+  /** Receives an offer with the Credo holder, the stand-in for a wallet; returns the SD-JWT VC. */
+  async function receive(credentialOffer: string, txCode: string) {
+    const resolved = await holder.openid4vc.holder.resolveCredentialOffer(credentialOffer)
+    const tokenResponse = await holder.openid4vc.holder.requestToken({ resolvedCredentialOffer: resolved, txCode })
+    const holderKey = await holder.kms.createKey({ type: { kty: 'EC', crv: 'P-256' } })
+    const result = await holder.openid4vc.holder.requestCredentials({
+      resolvedCredentialOffer: resolved,
+      credentialBindingResolver: () => ({ method: 'jwk', keys: [Kms.PublicJwk.fromPublicJwk(holderKey.publicJwk)] }),
+      accessToken: tokenResponse.accessToken,
+      cNonce: tokenResponse.cNonce,
+    })
+    expect(result.credentials).toHaveLength(1)
+    return (result.credentials[0].record as SdJwtVcRecord).firstCredential
+  }
+
+  async function statusOf(statusList: { idx: number; uri: string }) {
+    const token = await request(app).get(`/token-status-lists/${statusList.uri.split('/').pop()}`)
+    expect(token.status).toBe(200)
+    return getListFromStatusListJWT(token.text).getStatus(statusList.idx)
+  }
+
+  /** Links GitHub and completes the GPG verification for a new user. */
+  async function verifiedContributor(login: string, githubAccountId: number) {
+    const sub = `${login}-${uuid()}`
+    const token = await createAuthToken(sub, Role.User)
+    const key = await openpgp.generateKey({ userIDs: [{ name: login }] })
+    gh.gpg.set(login, key.publicKey)
+    gh.users.set(login, githubAccountId)
+    gh.tokens.set(`tok-${login}`, { id: githubAccountId, login })
+    expect((await link(token, `tok-${login}`)).status).toBe(200)
+    const challenge = await requestChallenge(token)
+    const signature = await clearSign(challenge.nonce, key.privateKey)
+    expect((await verify(token, challenge.challengeId, signature)).status).toBe(200)
+    return { sub, token }
+  }
 
   async function startLink(token: string) {
     const res = await request(app).post('/v2/contributor-onboarding/github/link/start').auth(token, { type: 'bearer' })
@@ -292,42 +375,131 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
     expect((await status(aliceToken)).body.verificationStatus).toBe('GpgVerified')
   })
 
-  test('offer: a Credo holder receives the SD-JWT VC with tx_code, cnf.jwk and exp; no wallet id; the account id only as a disclosure', async () => {
-    const issuerToken = await createAuthToken(ISSUER_SUB, Role.User)
-    const did = await request(app).post('/dids').auth(issuerToken, { type: 'bearer' }).send({ method: 'key' })
-    expect(did.status).toBe(201)
+  test('issuer setup: 503 until an OrgAdmin has set up the wallet, the pinned DID, the schema and its registration', async () => {
+    async function expectNotSetUp(what: RegExp) {
+      const response = await offer(aliceToken)
+      expect(response.status).toBe(503)
+      expect(response.body.message).toMatch(/^The contributor credential issuer is not set up: /)
+      expect(response.body.message).toMatch(what)
+    }
 
-    const offer = await request(app).post('/v2/contributor-credential/offer').auth(aliceToken, { type: 'bearer' })
-    expect(offer.status).toBe(200)
-    const { credentialOffer, txCode } = offer.body as { credentialOffer: string; txCode: string }
+    await expectNotSetUp(/the wallet of organization .+ does not exist yet/)
+
+    orgAdminToken = await createAuthToken(`org-admin-${uuid()}`, Role.OrgAdmin, ORG_ID)
+    issuerDid = (await UserUtilities.prepareWallet(app, orgAdminToken))!
+    expect(issuerDid).toMatch(/^did:key:/)
+    await expectNotSetUp(new RegExp(`${UNHELD_DID} is not an active DID of organization`))
+
+    // The operator pins the organization's DID and restarts the service
+    process.env.CONTRIBUTOR_ISSUER_DID = issuerDid
+    await restartApp()
+    await expectNotSetUp(/has no schema "GitHub Contributor"/)
+
+    const schema = await SchemaUtilities.create(app, orgAdminToken, {
+      name: 'GitHub Contributor',
+      fields: SCHEMA_FIELDS,
+    })
+    expect(schema).toBeDefined()
+    await expectNotSetUp(/is not registered for OpenID4VC vc\+sd-jwt/)
+
+    const registered = await SchemaUtilities.register(app, orgAdminToken, schema!.id, {
+      protocol: ProtocolType.Oid4vc,
+      credentialFormat: OpenId4VCCredentialRegistrationFormat.SdJwtVc,
+      network: DidMethod.Key,
+      did: issuerDid,
+    })
+    expect(registered).toBe(true)
+    const { registrations } = await SchemaUtilities.get(app, orgAdminToken, schema!.id)
+    supportedCredentialId = (registrations[0].credentials as { supportedCredentialId: string }).supportedCredentialId
+  }, 120_000)
+
+  test("offer: a Credo holder receives the SD-JWT VC signed by the pinned DID, with a status list entry; the claims only as disclosures; the offer's state", async () => {
+    const response = await offer(aliceToken)
+    expect(response.status).toBe(201)
+    const { credentialOffer, txCode, expiresAt, issuanceSessionId } = response.body as Record<string, string>
     expect(txCode).toMatch(/^\d{8}$/)
     expect(credentialOffer).not.toContain(txCode)
+    const lifetimeSeconds = (Date.parse(expiresAt) - Date.now()) / 1000
+    expect(lifetimeSeconds).toBeGreaterThan(590)
+    expect(lifetimeSeconds).toBeLessThanOrEqual(600)
+    expect((await offerState(aliceToken, issuanceSessionId)).body).toEqual({ state: 'OfferCreated', expiresAt })
 
     const resolved = await holder.openid4vc.holder.resolveCredentialOffer(credentialOffer)
     await expect(holder.openid4vc.holder.requestToken({ resolvedCredentialOffer: resolved })).rejects.toThrow(/tx_code/)
 
-    const tokenResponse = await holder.openid4vc.holder.requestToken({ resolvedCredentialOffer: resolved, txCode })
-    const holderKey = await holder.kms.createKey({ type: { kty: 'EC', crv: 'P-256' } })
-    const result = await holder.openid4vc.holder.requestCredentials({
-      resolvedCredentialOffer: resolved,
-      credentialBindingResolver: () => ({ method: 'jwk', keys: [Kms.PublicJwk.fromPublicJwk(holderKey.publicJwk)] }),
-      accessToken: tokenResponse.accessToken,
-      cNonce: tokenResponse.cNonce,
-    })
-    expect(result.credentials).toHaveLength(1)
-
-    const credential = (result.credentials[0].record as SdJwtVcRecord).firstCredential
+    const credential = await receive(credentialOffer, txCode)
     const payload = decodeJwtPart(credential.compact.split('~')[0].split('.')[1])
     expect(payload.vct).toBe('GitHub Contributor')
+    expect(payload.iss).toBe(issuerDid)
     expect(typeof payload.exp).toBe('number')
     expect((payload.cnf as { jwk?: unknown }).jwk).toBeDefined()
+    const statusList = (payload.status as { status_list: { idx: number; uri: string } }).status_list
+    expect(statusList).toEqual({
+      idx: expect.any(Number),
+      uri: expect.stringMatching(/\/token-status-lists\/[0-9a-f-]{36}$/),
+    })
     expect(payload).not.toHaveProperty('githubAccountId')
     expect(payload).not.toHaveProperty('githubUsername')
     expect(payload).not.toHaveProperty('gpgFingerprint')
     expect(payload).not.toHaveProperty('walletId')
+    expect(payload.verifiedAt).toEqual(expect.any(String))
     expect(credential.prettyClaims).toMatchObject({ githubAccountId: '1001', githubUsername: 'alice' })
     expect(credential.prettyClaims).not.toHaveProperty('walletId')
+
+    // The route reports the issuance session's own state, as the organization's list does. Not asserted to be
+    // `Completed`: test-app.ts registers two OID4VC routers, and the second answer to the credential request
+    // marks the session `Error`.
+    const { state } = (await offerState(aliceToken, issuanceSessionId)).body as { state: string }
+    expect(state).not.toBe('OfferCreated')
+    expect((await issuedSession(issuanceSessionId))?.state).toBe(state)
+    const mallory = await createAuthToken(`mallory-${uuid()}`, Role.User)
+    expect((await offerState(mallory, issuanceSessionId)).status).toBe(404)
+    expect((await offerState(aliceToken, uuid())).status).toBe(404)
+
+    aliceCredential = { issuanceSessionId, statusList }
   }, 120_000)
+
+  test("the organization issuer's credential configurations are untouched by offers and by a restart", async () => {
+    const other = await SchemaUtilities.create(app, orgAdminToken, { name: `Other ${uuid()}`, fields: ['a', 'b'] })
+    expect(
+      await SchemaUtilities.register(app, orgAdminToken, other!.id, {
+        protocol: ProtocolType.Oid4vc,
+        credentialFormat: OpenId4VCCredentialRegistrationFormat.SdJwtVc,
+        network: DidMethod.Key,
+        did: issuerDid,
+      }),
+    ).toBe(true)
+    const configurations = async () => {
+      const issuers = await request(app)
+        .get('/openid4vc/issuer')
+        .query({ publicIssuerId: issuerDid })
+        .auth(orgAdminToken, { type: 'bearer' })
+      expect(issuers.status).toBe(200)
+      return (issuers.body as Array<{ credentialsSupported: unknown[] }>)[0].credentialsSupported
+    }
+    const before = await configurations()
+    expect(before).toHaveLength(2)
+
+    expect((await offer(aliceToken)).status).toBe(201)
+    await restartApp()
+    expect((await offer(aliceToken)).status).toBe(201)
+
+    expect(await configurations()).toEqual(before)
+  }, 120_000)
+
+  test("revocation: an OrgAdmin finds the credential in the organization's issued list and revokes it", async () => {
+    const session = await issuedSession(aliceCredential.issuanceSessionId)
+    expect(session).toMatchObject({ revocable: true, revoked: false })
+    expect(await statusOf(aliceCredential.statusList)).toBe(TokenStatus.Valid)
+
+    const revoked = await request(app)
+      .post(`/openid4vc/issuance-session/${aliceCredential.issuanceSessionId}/revoke`)
+      .auth(orgAdminToken, { type: 'bearer' })
+    expect(revoked.status).toBe(200)
+
+    expect(await issuedSession(aliceCredential.issuanceSessionId)).toMatchObject({ revocable: true, revoked: true })
+    expect(await statusOf(aliceCredential.statusList)).toBe(TokenStatus.Invalid)
+  })
 
   test('two users linking one GitHub account at once: one gets it, the other 409', async () => {
     gh.tokens.set('tok-shared', { id: 777, login: 'shared' })
@@ -359,6 +531,29 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
     expect((await status(erin)).body).toMatchObject({ github: { username: winner.githubUsername } })
   })
 
+  test('re-linking an existing binding to two GitHub accounts at once: one wins, the other 409', async () => {
+    gh.tokens.set('tok-grace-a', { id: 891, login: 'grace-a' })
+    gh.tokens.set('tok-grace-b', { id: 892, login: 'grace-b' })
+    gh.tokens.set('tok-grace-c', { id: 893, login: 'grace-c' })
+    const grace = await createAuthToken(`grace-${uuid()}`, Role.User)
+    expect((await link(grace, 'tok-grace-a')).status).toBe(200)
+
+    const responses = await withBindingWritesHeld(2, () =>
+      Promise.all([link(grace, 'tok-grace-b'), link(grace, 'tok-grace-c')]),
+    )
+
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 409])
+    const conflict = responses.find((r) => r.status === 409)?.body as { message: string }
+    expect(conflict.message).toMatch(/at the same time/)
+    const winner = responses.find((r) => r.status === 200)?.body as { githubUsername: string }
+    expect((await status(grace)).body).toMatchObject({ github: { username: winner.githubUsername } })
+    const events = (await status(grace)).body.auditEvents as Array<{ eventType: string; githubUsername: string }>
+    expect(events.filter(({ eventType }) => eventType === 'BindingUpdated').map((e) => e.githubUsername)).toEqual([
+      winner.githubUsername,
+      'grace-a',
+    ])
+  })
+
   test('role change: the same OIDC subject as Admin keeps its binding and can link the same account again', async () => {
     const aliceAsAdmin = await createAuthToken(aliceSub, Role.Admin)
 
@@ -373,7 +568,10 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
     expect(after.body.binding.walletId).toBe(ADMINISTRATION_WALLET_ID)
   })
 
-  test('unlink: 204, idempotent; the offer needs a binding again; linking again starts a new verification', async () => {
+  test('unlink: 204, idempotent; issued credentials stay valid; the offer needs a binding again; linking again starts a new verification', async () => {
+    const issued = await offer(aliceToken)
+    expect(issued.status).toBe(201)
+    const { issuanceSessionId } = issued.body as { issuanceSessionId: string }
     const pending = await requestChallenge(aliceToken)
 
     const unlink = await request(app).delete('/v2/contributor-onboarding/github').auth(aliceToken, { type: 'bearer' })
@@ -386,11 +584,80 @@ describe('E2E contributor verification (stubbed GitHub)', () => {
     expect(unlinked.body.auditEvents[0]).toMatchObject({ eventType: 'BindingRemoved', githubAccountId: '1001' })
     const signature = await clearSign(pending.nonce, aliceKey.privateKey)
     expect((await verify(aliceToken, pending.challengeId, signature)).status).toBe(404)
-    expect(
-      (await request(app).post('/v2/contributor-credential/offer').auth(aliceToken, { type: 'bearer' })).status,
-    ).toBe(404)
+    expect((await offer(aliceToken)).status).toBe(404)
+
+    // Not revoked by the unlink; the record of the offer stays too
+    expect(await issuedSession(issuanceSessionId)).toMatchObject({ revocable: true, revoked: false })
+    expect((await offerState(aliceToken, issuanceSessionId)).status).toBe(200)
 
     expect((await link(aliceToken, 'tok-alice')).status).toBe(200)
     expect((await status(aliceToken)).body.verificationStatus).toBe('GitHubConnected')
+  })
+
+  test('deleting a user deletes its binding, challenges, link attempts and offer records; the audit log stays', async () => {
+    const frank = await verifiedContributor('frank', 2001)
+    expect((await offer(frank.token)).status).toBe(201)
+    await startLink(frank.token)
+
+    const em = orm.em.fork()
+    const rowsOf = async () =>
+      Promise.all([
+        em.count(ContributorBinding, { user: frank.sub }),
+        em.count(GpgChallenge, { user: frank.sub }),
+        em.count(OAuthLinkAttempt, { user: frank.sub }),
+        em.count(ContributorCredentialIssuance, { user: frank.sub }),
+      ])
+    expect((await rowsOf()).every((count) => count > 0)).toBe(true)
+    const auditEvents = await em.count(ContributorAuditEvent, { userId: frank.sub })
+
+    await em.nativeDelete(User, { id: frank.sub })
+
+    expect(await rowsOf()).toEqual([0, 0, 0, 0])
+    expect(await em.count(ContributorAuditEvent, { userId: frank.sub })).toBe(auditEvents)
+  }, 120_000)
+
+  test('no one outside the organization can sign as its issuer: a User 4xx, an Issuer of the organization 422', async () => {
+    const forgedOffer = (token: string) =>
+      request(app)
+        .post('/openid4vc/issuance-session/offer')
+        .auth(token, { type: 'bearer' })
+        .send({
+          publicIssuerId: issuerDid,
+          credentials: [
+            {
+              credentialSupportedId: supportedCredentialId,
+              format: 'vc+sd-jwt',
+              issuer: { method: 'did', did: issuerDid },
+              payload: {
+                githubAccountId: '583231',
+                githubUsername: 'octocat',
+                gpgFingerprint: 'FORGED',
+                verifiedAt: 'x',
+              },
+              disclosureFrame: {},
+            },
+          ],
+        })
+
+    const user = await createAuthToken(`user-${uuid()}`, Role.User)
+    const asUser = await forgedOffer(user)
+    expect(asUser.status).toBeGreaterThanOrEqual(400)
+    expect(asUser.status).toBeLessThan(500)
+
+    // An Issuer of the organization has a wallet of its own, without the organization's DID or issuer
+    const orgIssuer = await createAuthToken(`issuer-${uuid()}`, Role.Issuer, ORG_ID)
+    expect((await forgedOffer(orgIssuer)).status).toBe(404)
+    // Last in this file: the lookalike issuer record also claims the DID's public OpenID4VCI path
+    const lookalike = await request(app)
+      .post('/openid4vc/issuer')
+      .auth(orgIssuer, { type: 'bearer' })
+      .send({
+        publicIssuerId: issuerDid,
+        credentialsSupported: [{ id: supportedCredentialId, format: 'vc+sd-jwt', vct: 'GitHub Contributor' }],
+      })
+    expect(lookalike.status).toBe(200)
+    const forged = await forgedOffer(orgIssuer)
+    expect(forged.status).toBe(422)
+    expect(forged.body.message).toMatch(/not created in this wallet/)
   })
 })

@@ -15,7 +15,7 @@ import type {
 } from '@credo-ts/openid4vc'
 
 import { getOrCreateAgent } from '../credo/lazy-agent'
-import { RECEIVE_STATUS_KEY } from '../wallet/storage-keys'
+import { reportOfferProgress } from '../wallet/pending-items'
 import { syncCredentialSummaryCache } from '../wallet/summary-cache'
 import {
   OPENID4VC_CREDENTIAL_METADATA_KEY,
@@ -50,20 +50,16 @@ export class CredentialReceiveError extends Error {
   }
 }
 
-/**
- * Creates a non-extractable holder key for the issuer's proof algorithm and binds the credential
- * to it as heka-wallet does (app/src/credentials/useOpenIdHandlers.ts), except that a plain JWK
- * comes first when the issuer accepts one, so no DID record is created for it. Otherwise
- * did:jwk, then did:key.
- */
-export async function createHolderBinding(
-  agent: Agent,
-  options: Pick<
-    OpenId4VciCredentialBindingOptions,
-    'proofTypes' | 'supportsJwk' | 'supportsAllDidMethods' | 'supportedDidMethods'
-  >,
-  created: ReceiptResources,
-): Promise<OpenId4VcCredentialHolderBinding> {
+type BindingOptions = Pick<
+  OpenId4VciCredentialBindingOptions,
+  'proofTypes' | 'supportsJwk' | 'supportsAllDidMethods' | 'supportedDidMethods'
+>
+
+/** The key algorithm and, unless the credential is bound to a plain JWK, the DID method. Throws when unsupported. */
+function planHolderBinding(options: BindingOptions): {
+  algorithm: Kms.KnownJwaSignatureAlgorithm
+  didMethod?: 'jwk' | 'key'
+} {
   const jwtProof = options.proofTypes.jwt
   if (!jwtProof || jwtProof.keyAttestationsRequired) {
     throw new Error('This issuer requires a key attestation. This browser wallet cannot produce one.')
@@ -86,10 +82,24 @@ export async function createHolderBinding(
       `The issuer binds credentials to ${supported?.join(', ')}. This wallet supports JWK, did:jwk and did:key.`,
     )
   }
+  return options.supportsJwk || !didMethod ? { algorithm } : { algorithm, didMethod }
+}
 
+/**
+ * Creates a non-extractable holder key for the issuer's proof algorithm and binds the credential
+ * to it as heka-wallet does (app/src/credentials/useOpenIdHandlers.ts), except that a plain JWK
+ * comes first when the issuer accepts one, so no DID record is created for it. Otherwise
+ * did:jwk, then did:key.
+ */
+export async function createHolderBinding(
+  agent: Agent,
+  options: BindingOptions,
+  created: ReceiptResources,
+): Promise<OpenId4VcCredentialHolderBinding> {
+  const { algorithm, didMethod } = planHolderBinding(options)
   const key = await agent.kms.createKeyForSignatureAlgorithm({ backend: 'webcrypto-browser', algorithm })
   created.keyIds.push(key.keyId)
-  if (options.supportsJwk || !didMethod) return { method: 'jwk', keys: [Kms.PublicJwk.fromPublicJwk(key.publicJwk)] }
+  if (!didMethod) return { method: 'jwk', keys: [Kms.PublicJwk.fromPublicJwk(key.publicJwk)] }
 
   const result = await agent.dids.create<JwkDidCreateOptions | KeyDidCreateOptions>({
     method: didMethod,
@@ -105,12 +115,55 @@ export async function createHolderBinding(
   return { method: 'did', didUrls: [didUrl] }
 }
 
-async function reportReceive(message: string): Promise<void> {
-  await chrome.storage.local.set({ [RECEIVE_STATUS_KEY]: { state: 'working', message } })
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+/**
+ * The binding options Credo derives from a credential configuration when it requests the
+ * credential (OpenId4VciHolderService.getProofOfPossessionRequirements in 0.7.4), so that an offer
+ * this wallet cannot bind is refused before its code is redeemed.
+ */
+function bindingOptionsFor(configuration: unknown, draftVersion: unknown): BindingOptions {
+  const config = asRecord(configuration)
+  const proofTypesSupported =
+    asRecord(config?.proof_types_supported) ?? (draftVersion === 'Draft11' ? { jwt: {} } : null)
+  if (!proofTypesSupported) {
+    throw new Error(
+      'The issuer does not bind this credential to a key. This wallet receives key-bound credentials only.',
+    )
+  }
+  const jwt = asRecord(proofTypesSupported.jwt)
+  const algorithms = jwt?.proof_signing_alg_values_supported
+  const methods = Array.isArray(config?.cryptographic_binding_methods_supported)
+    ? config.cryptographic_binding_methods_supported.filter((method): method is string => typeof method === 'string')
+    : undefined
+  return {
+    proofTypes: {
+      jwt: jwt
+        ? {
+            supportedSignatureAlgorithms: Array.isArray(algorithms)
+              ? PROOF_SIGNATURE_ALGORITHMS.filter((algorithm) => algorithms.includes(algorithm))
+              : PROOF_SIGNATURE_ALGORITHMS,
+            keyAttestationsRequired: jwt.key_attestations_required ? {} : undefined,
+          }
+        : undefined,
+    } as BindingOptions['proofTypes'],
+    supportsJwk: (methods?.includes('jwk') || methods?.includes('cose_key')) ?? false,
+    supportsAllDidMethods: methods?.includes('did') ?? false,
+    supportedDidMethods: methods?.filter((method) => method.startsWith('did:')),
+  }
+}
+
+/** Throws the binding error of the first offered credential this wallet cannot bind. */
+export function assertHolderCanBind(offer: ResolvedCredentialOffer): void {
+  for (const configuration of Object.values(offer.offeredCredentialConfigurations)) {
+    planHolderBinding(bindingOptionsFor(configuration, offer.metadata.originalDraftVersion))
+  }
 }
 
 export async function resolveIncomingOffer(offerUri: string): Promise<ResolvedCredentialOffer> {
-  await reportReceive('Reading the offer… Nothing is stored until you accept it.')
+  await reportOfferProgress(offerUri, 'Reading the offer… Nothing is stored until you accept it.')
   const agent = await getOrCreateAgent()
   return agent.openid4vc.holder.resolveCredentialOffer(offerUri)
 }
@@ -125,18 +178,30 @@ function credentialMetadata(offer: ResolvedCredentialOffer, configuration: unkno
   }
 }
 
+export interface ReceiveResult {
+  received: number
+  deferred: number
+  /** The `iss` of the stored credentials. */
+  signedBy: string[]
+  /** False when the credentials were stored but the popup summary could not be rewritten. */
+  summaryUpdated: boolean
+}
+
 export async function acceptCredentialOffer(
+  offerUri: string,
   resolvedCredentialOffer: ResolvedCredentialOffer,
   txCode?: string,
-): Promise<{ received: number; deferred: number }> {
-  await reportReceive('Requesting the credential… Keep this page open.')
+): Promise<ReceiveResult> {
+  await reportOfferProgress(offerUri, 'Requesting the credential… Keep this page open.')
   const agent = await getOrCreateAgent()
   const holder = agent.openid4vc.holder
   const created: ReceiptResources = { keyIds: [], dids: [] }
   const storedRecordIds: string[] = []
   let codeRedeemed = false
+  let result: Omit<ReceiveResult, 'summaryUpdated'>
 
   try {
+    assertHolderCanBind(resolvedCredentialOffer)
     const tokenResponse = await holder.requestToken({
       resolvedCredentialOffer,
       ...(txCode ? { txCode } : {}),
@@ -152,6 +217,7 @@ export async function acceptCredentialOffer(
         createHolderBinding(agent, options, created),
     })
 
+    const signedBy = new Set<string>()
     for (const credentialResponse of credentials) {
       if (!(credentialResponse.record instanceof SdJwtVcRecord)) {
         throw new Error(`Unsupported credential record type ${credentialResponse.record.type}`)
@@ -162,22 +228,28 @@ export async function acceptCredentialOffer(
       )
       await agent.sdJwtVc.store({ record: credentialResponse.record })
       storedRecordIds.push(credentialResponse.record.id)
+      const { iss } = credentialResponse.record.firstCredential.payload
+      if (typeof iss === 'string') signedBy.add(iss)
     }
-
-    created.keyIds.length = 0
-    created.dids.length = 0
-    storedRecordIds.length = 0
-    await reportReceive('Saving the credential…')
-    await syncCredentialSummaryCache(agent)
-    return { received: credentials.length, deferred: deferredCredentials.length }
+    result = { received: credentials.length, deferred: deferredCredentials.length, signedBy: [...signedBy] }
   } catch (error) {
     await rollbackReceipt(agent, storedRecordIds, created)
     throw new CredentialReceiveError(error, !codeRedeemed)
   }
+
+  // The credentials are stored: a failure from here on must not remove them.
+  try {
+    await reportOfferProgress(offerUri, 'Saving the credential…')
+    await syncCredentialSummaryCache(agent)
+    return { ...result, summaryUpdated: true }
+  } catch {
+    return { ...result, summaryUpdated: false }
+  }
 }
 
 /** The result line for the holder. A deferred credential is not in the wallet yet. */
-export function receiveResultMessage(received: number, deferred: number): string {
+export function receiveResultMessage(received: number, deferred: number, summaryUpdated = true): string {
+  if (!summaryUpdated) return 'The credential was stored, but the wallet summary could not be updated.'
   const receivedText = `Received ${received} credential${received === 1 ? '' : 's'}.`
   if (deferred === 0) return receivedText
   const deferredText =

@@ -1,29 +1,65 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
+import { RecordNotFoundError } from '@credo-ts/core'
+import { OpenId4VcIssuanceSessionState } from '@credo-ts/openid4vc'
 import { createMock } from '@golevelup/ts-vitest'
 import { EntityManager } from '@mikro-orm/core'
-import { ConflictException, InternalServerErrorException, NotFoundException } from '@nestjs/common'
+import {
+  ConflictException,
+  InternalServerErrorException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { Agent } from 'common/agent'
 import { AuthInfo, Role } from 'common/auth'
-import { User } from 'common/entities'
+import { User, Wallet } from 'common/entities'
 import { Logger } from 'common/logger'
+import { GithubConfig, githubConfigDefaults } from 'config/github'
 import { ContributorOnboardingService, type VerifiedContributor } from 'contributor-onboarding'
-import { OpenId4VcIssuerService } from 'openid4vc/issuer/issuer.service'
+import {
+  OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions,
+  OpenId4VcIssuanceSessionsCreateOfferDto,
+} from 'openid4vc/issuance-sessions/dto'
+import { OpenId4VcIssuanceSessionService } from 'openid4vc/issuance-sessions/issuance-session.service'
 
+import { ContributorCredentialIssuance } from '../contributor-credential-issuance.entity'
 import {
   CONTRIBUTOR_CREDENTIAL_LIFETIME_SECONDS,
   CONTRIBUTOR_CREDENTIAL_OFFER_TTL_SECONDS,
-  CONTRIBUTOR_CREDENTIAL_SELECTIVE_CLAIMS,
-  CONTRIBUTOR_CREDENTIAL_SUPPORTED_ID,
   CONTRIBUTOR_CREDENTIAL_TX_CODE_LENGTH,
-  CONTRIBUTOR_CREDENTIAL_VCT,
 } from '../contributor-credential.constants'
 import { ContributorCredentialService } from '../contributor-credential.service'
+import { ContributorIssuer } from '../contributor-credential.types'
+import { ContributorIssuerService } from '../contributor-issuer.service'
 
-function buildAuthInfo(): AuthInfo {
+const config: GithubConfig = {
+  ...githubConfigDefaults,
+  enabled: true,
+  issuerOrgId: 'hiero-contributors',
+  issuerDid: 'did:key:z6MkIssuer',
+}
+
+const issuer: ContributorIssuer = {
+  walletId: 'Organization_hiero-contributors',
+  tenantId: 'tenant-org',
+  did: 'did:key:z6MkIssuer',
+  supportedCredentialId: 'GitHub Contributor:key:vc+sd-jwt',
+  publicIssuerId: 'did:key:z6MkIssuer',
+}
+
+const contributor: VerifiedContributor = {
+  githubAccountId: '11111111',
+  githubUsername: 'test-contributor',
+  gpgFingerprint: 'AABBCCDDEEFF00112233445566778899AABBCCDD',
+  verifiedAt: '2026-07-13T10:00:00.000Z',
+}
+
+const OFFER_EXPIRES_AT = new Date('2026-10-30T12:10:00.000Z')
+
+function authInfo(): AuthInfo {
   return {
     userId: 'user-1',
-    user: {} as User,
+    user: { id: 'user-1' } as User,
     userName: 'ada',
     role: Role.User,
     walletId: 'User_user-1',
@@ -31,438 +67,233 @@ function buildAuthInfo(): AuthInfo {
   }
 }
 
-function buildContributor(overrides: Partial<VerifiedContributor> = {}): VerifiedContributor {
-  return {
-    githubAccountId: '11111111',
-    githubUsername: 'test-contributor',
-    gpgFingerprint: 'AABBCCDDEEFF00112233445566778899AABBCCDD',
-    verifiedAt: '2026-07-13T10:00:00.000Z',
-    ...overrides,
-  }
-}
-
-const mockAgentConfig = {
-  contributorIssuerDemoUser: 'demo',
-} as any
-
-const FAKE_ISSUER_DID = 'did:hedera:testnet:z6Mk'
-const FAKE_VERIFICATION_METHOD = `${FAKE_ISSUER_DID}#key-1`
-const FAKE_CREDENTIAL_OFFER_URI = 'openid-credential-offer://?credential_offer_uri=https://example.com/offer/abc'
-const FAKE_OFFER_EXPIRES_AT = new Date('2026-10-30T12:10:00.000Z')
-
-/** The tenant agent that `withTenantAgent` hands to the service's callback. */
-function buildFakeTenantAgent(
-  overrides: Partial<{
-    createdDids: Array<{ did: string }>
-    verificationMethods: Array<{ id: string }>
-    assertionMethods: Array<string | { id: string }>
-    credentialOfferUri: string
-  }> = {},
-) {
-  const createdDids = overrides.createdDids ?? [{ did: FAKE_ISSUER_DID }]
-  const verificationMethods = overrides.verificationMethods ?? [{ id: FAKE_VERIFICATION_METHOD }]
-  const assertionMethods = overrides.assertionMethods ?? [FAKE_VERIFICATION_METHOD]
-  const credentialOfferUri = overrides.credentialOfferUri ?? FAKE_CREDENTIAL_OFFER_URI
-
-  return {
-    dids: {
-      getCreatedDids: vi.fn().mockResolvedValue(createdDids),
-      resolve: vi.fn().mockResolvedValue({
-        didDocument: {
-          verificationMethod: verificationMethods,
-          assertionMethod: assertionMethods,
-        },
-      }),
-    },
-    openid4vc: {
-      issuer: {
-        createCredentialOffer: vi.fn().mockResolvedValue({
-          credentialOffer: credentialOfferUri,
-          issuanceSession: { id: 'session-1', userPin: '12345678', expiresAt: FAKE_OFFER_EXPIRES_AT },
-        }),
-      },
-    },
-  }
-}
-
 describe('ContributorCredentialService', () => {
   let service: ContributorCredentialService
-  let agentMock: any
-  let emMock: ReturnType<typeof createMock<EntityManager>>
-  let emForkMock: ReturnType<typeof createMock<EntityManager>>
-  let issuerServiceMock: ReturnType<typeof createMock<OpenId4VcIssuerService>>
-  let onboardingServiceMock: ReturnType<typeof createMock<ContributorOnboardingService>>
+  let tenantAgent: { openid4vc: { issuer: { getIssuanceSessionById: ReturnType<typeof vi.fn> } } }
+  let agent: Agent
+  let em: {
+    findOne: ReturnType<typeof vi.fn>
+    persist: ReturnType<typeof vi.fn>
+    flush: ReturnType<typeof vi.fn>
+    getReference: ReturnType<typeof vi.fn>
+  }
+  let issuanceSessionService: OpenId4VcIssuanceSessionService
+  let issuerService: ContributorIssuerService
+  let onboardingService: ContributorOnboardingService
 
   beforeEach(() => {
-    const fakeTenantAgent = buildFakeTenantAgent()
-
-    agentMock = {
+    tenantAgent = { openid4vc: { issuer: { getIssuanceSessionById: vi.fn() } } }
+    agent = {
       modules: {
         tenants: {
-          withTenantAgent: vi
-            .fn()
-            .mockImplementation(async (_opts: unknown, cb: (ta: typeof fakeTenantAgent) => Promise<void>) => {
-              await cb(fakeTenantAgent)
-            }),
+          withTenantAgent: vi.fn(async (_options: unknown, callback: (t: typeof tenantAgent) => Promise<void>) =>
+            callback(tenantAgent),
+          ),
         },
       },
+    } as unknown as Agent
+    em = {
+      findOne: vi.fn().mockResolvedValue(null),
+      persist: vi.fn(),
+      flush: vi.fn().mockResolvedValue(undefined),
+      getReference: vi.fn((_entity: unknown, id: string) => ({ id })),
     }
-
-    emForkMock = createMock<EntityManager>({
-      findOne: vi.fn(),
+    issuanceSessionService = createMock<OpenId4VcIssuanceSessionService>({
+      offer: vi.fn().mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://?credential_offer_uri=https://example.com/offers/abc',
+        issuanceSession: { id: 'session-1', userPin: '12345678', expiresAt: OFFER_EXPIRES_AT },
+      }),
     })
-    emMock = createMock<EntityManager>({
-      findOne: vi.fn(),
-      fork: vi.fn().mockReturnValue(emForkMock),
-    })
-
-    issuerServiceMock = createMock<OpenId4VcIssuerService>({
-      find: vi.fn().mockResolvedValue([]),
-      createIssuer: vi.fn().mockResolvedValue({ publicIssuerId: FAKE_ISSUER_DID }),
-      updateIssuerMetadata: vi.fn().mockResolvedValue({}),
-    })
-
-    onboardingServiceMock = createMock<ContributorOnboardingService>({
-      getVerifiedBindingByUser: vi.fn().mockResolvedValue(buildContributor()),
+    issuerService = createMock<ContributorIssuerService>({ resolveIssuer: vi.fn().mockResolvedValue(issuer) })
+    onboardingService = createMock<ContributorOnboardingService>({
+      getVerifiedBindingByUser: vi.fn().mockResolvedValue(contributor),
     })
 
     service = new ContributorCredentialService(
-      agentMock,
-      mockAgentConfig,
-      emMock,
-      issuerServiceMock,
-      onboardingServiceMock,
+      agent,
+      config,
+      em as unknown as EntityManager,
+      issuanceSessionService,
+      issuerService,
+      onboardingService,
       createMock<Logger>(),
     )
   })
 
-  describe('onApplicationBootstrap', () => {
-    it('creates an OID4VCI issuer when none exists for the demo tenant DID', async () => {
-      vi.mocked(emForkMock.findOne).mockResolvedValue({ id: 'User_demo', tenantId: 'tenant-abc' } as any)
-      vi.mocked(issuerServiceMock.find).mockResolvedValue([])
+  function offerCall(): [AuthInfo, unknown, OpenId4VcIssuanceSessionsCreateOfferDto] {
+    const [call] = vi.mocked(issuanceSessionService.offer).mock.calls
+    return call as [AuthInfo, unknown, OpenId4VcIssuanceSessionsCreateOfferDto]
+  }
 
-      await service.onApplicationBootstrap()
-
-      expect(emForkMock.findOne).toHaveBeenCalledWith(expect.anything(), { id: 'User_demo' })
-      expect(issuerServiceMock.createIssuer).toHaveBeenCalledOnce()
-      const callArgs = vi.mocked(issuerServiceMock.createIssuer).mock.calls[0][1]
-      expect(callArgs.credentialsSupported).toHaveLength(1)
-      expect(callArgs.credentialsSupported[0].id).toBe(CONTRIBUTOR_CREDENTIAL_SUPPORTED_ID)
-      expect((callArgs.credentialsSupported[0] as any).vct).toBe(CONTRIBUTOR_CREDENTIAL_VCT)
-      expect(Object.keys((callArgs.credentialsSupported[0] as any).claims)).toEqual([
-        'githubAccountId',
-        'githubUsername',
-        'gpgFingerprint',
-        'verifiedAt',
-      ])
-    })
-
-    it('refreshes the credential config when it is already registered', async () => {
-      vi.mocked(emForkMock.findOne).mockResolvedValue({ id: 'User_demo', tenantId: 'tenant-abc' } as any)
-      vi.mocked(issuerServiceMock.find).mockResolvedValue([
-        {
-          publicIssuerId: FAKE_ISSUER_DID,
-          credentialsSupported: [
-            { id: CONTRIBUTOR_CREDENTIAL_SUPPORTED_ID, format: 'vc+sd-jwt', vct: CONTRIBUTOR_CREDENTIAL_VCT },
-          ],
-        } as any,
-      ])
-
-      await service.onApplicationBootstrap()
-
-      expect(issuerServiceMock.createIssuer).not.toHaveBeenCalled()
-      expect(issuerServiceMock.updateIssuerMetadata).toHaveBeenCalledOnce()
-      const updated = vi.mocked(issuerServiceMock.updateIssuerMetadata).mock.calls[0][2]
-      expect(updated.credentialsSupported?.[0]).toMatchObject({
-        id: CONTRIBUTOR_CREDENTIAL_SUPPORTED_ID,
-        cryptographic_binding_methods_supported: ['jwk'],
+  describe('offer', () => {
+    it('returns the offer, its tx code, expiry and issuance session id', async () => {
+      await expect(service.offer(authInfo())).resolves.toEqual({
+        credentialOffer: 'openid-credential-offer://?credential_offer_uri=https://example.com/offers/abc',
+        txCode: '12345678',
+        expiresAt: OFFER_EXPIRES_AT.toISOString(),
+        issuanceSessionId: 'session-1',
       })
+      expect(onboardingService.getVerifiedBindingByUser).toHaveBeenCalledWith('user-1')
     })
 
-    it('logs a warning and does not throw when demo wallet is not found', async () => {
-      vi.mocked(emForkMock.findOne).mockResolvedValue(null)
+    it("offers through the generic offer as the organization wallet, in the organization's tenant", async () => {
+      await service.offer(authInfo())
 
-      await expect(service.onApplicationBootstrap()).resolves.toBeUndefined()
-      expect(issuerServiceMock.createIssuer).not.toHaveBeenCalled()
+      const [issuerAuthInfo, passedTenantAgent] = offerCall()
+      expect(issuerAuthInfo).toMatchObject({
+        userId: 'user-1',
+        role: Role.OrgAdmin,
+        orgId: 'hiero-contributors',
+        walletId: 'Organization_hiero-contributors',
+        tenantId: 'tenant-org',
+      })
+      expect(passedTenantAgent).toBe(tenantAgent)
+      expect(vi.mocked(agent.modules.tenants.withTenantAgent).mock.calls[0][0]).toEqual({ tenantId: 'tenant-org' })
     })
 
-    it('adds credential config to an existing issuer that does not have it yet', async () => {
-      vi.mocked(emForkMock.findOne).mockResolvedValue({ id: 'User_demo', tenantId: 'tenant-abc' } as any)
-      vi.mocked(issuerServiceMock.find).mockResolvedValue([
-        {
-          publicIssuerId: FAKE_ISSUER_DID,
-          credentialConfigurationsSupported: {},
-        } as any,
-      ])
+    it('asks for the pinned DID, its registration, the claims as disclosures, a tx code and a 10 minute lifetime', async () => {
+      const before = Math.floor(Date.now() / 1000)
+      await service.offer(authInfo())
 
-      await service.onApplicationBootstrap()
+      const [, , request] = offerCall()
+      expect(request).toEqual({
+        publicIssuerId: 'did:key:z6MkIssuer',
+        credentials: [
+          {
+            credentialSupportedId: 'GitHub Contributor:key:vc+sd-jwt',
+            format: 'vc+sd-jwt',
+            issuer: { method: 'did', did: 'did:key:z6MkIssuer' },
+            payload: {
+              githubAccountId: '11111111',
+              githubUsername: 'test-contributor',
+              gpgFingerprint: 'AABBCCDDEEFF00112233445566778899AABBCCDD',
+              verifiedAt: '2026-07-13T10:00:00.000Z',
+              exp: expect.any(Number),
+            },
+            disclosureFrame: { _sd: ['githubAccountId', 'githubUsername', 'gpgFingerprint'] },
+          },
+        ],
+        preAuthorizedCodeFlowConfig: {
+          txCode: {
+            input_mode: 'numeric',
+            length: CONTRIBUTOR_CREDENTIAL_TX_CODE_LENGTH,
+            description: 'Enter the code shown on the Heka contributor page.',
+          },
+        },
+        offerExpiresInSeconds: CONTRIBUTOR_CREDENTIAL_OFFER_TTL_SECONDS,
+      })
+      const { exp } = (request.credentials[0] as OpenId4VcIssuanceSessionCreateOfferSdJwtCredentialOptions).payload as {
+        exp: number
+      }
+      expect(exp - before - CONTRIBUTOR_CREDENTIAL_LIFETIME_SECONDS).toBeGreaterThanOrEqual(0)
+      expect(exp - before - CONTRIBUTOR_CREDENTIAL_LIFETIME_SECONDS).toBeLessThan(5)
+    })
 
-      expect(issuerServiceMock.updateIssuerMetadata).toHaveBeenCalledOnce()
-      const updateArgs = vi.mocked(issuerServiceMock.updateIssuerMetadata).mock.calls[0][2]
-      expect(updateArgs.action).toBe('add')
-      expect(updateArgs.credentialsSupported![0].id).toBe(CONTRIBUTOR_CREDENTIAL_SUPPORTED_ID)
+    it('records the offer for the caller with the claims it carries', async () => {
+      await service.offer(authInfo())
+
+      expect(em.persist).toHaveBeenCalledWith(expect.any(ContributorCredentialIssuance))
+      expect(em.persist.mock.calls[0][0]).toMatchObject({
+        user: { id: 'user-1' },
+        issuanceSessionId: 'session-1',
+        githubAccountId: '11111111',
+        githubUsername: 'test-contributor',
+        gpgFingerprint: 'AABBCCDDEEFF00112233445566778899AABBCCDD',
+      })
+      expect(em.flush).toHaveBeenCalled()
+    })
+
+    it('refuses an offer without a binding (404) before the issuer is checked', async () => {
+      vi.mocked(onboardingService.getVerifiedBindingByUser).mockRejectedValue(new NotFoundException('no binding'))
+
+      await expect(service.offer(authInfo())).rejects.toBeInstanceOf(NotFoundException)
+      expect(issuerService.resolveIssuer).not.toHaveBeenCalled()
+      expect(issuanceSessionService.offer).not.toHaveBeenCalled()
+    })
+
+    it('refuses an offer before GPG verification (409)', async () => {
+      vi.mocked(onboardingService.getVerifiedBindingByUser).mockRejectedValue(new ConflictException('not verified'))
+
+      await expect(service.offer(authInfo())).rejects.toBeInstanceOf(ConflictException)
+      expect(issuanceSessionService.offer).not.toHaveBeenCalled()
+    })
+
+    it('answers 503 while the issuer is not set up, and offers nothing', async () => {
+      vi.mocked(issuerService.resolveIssuer).mockRejectedValue(
+        new ServiceUnavailableException('The contributor credential issuer is not set up: …'),
+      )
+
+      await expect(service.offer(authInfo())).rejects.toBeInstanceOf(ServiceUnavailableException)
+      expect(issuanceSessionService.offer).not.toHaveBeenCalled()
+      expect(em.persist).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['transaction code', { id: 'session-1', expiresAt: OFFER_EXPIRES_AT }],
+      ['expiry', { id: 'session-1', userPin: '12345678' }],
+    ])('refuses an offer that has no %s, and records nothing', async (_missing, issuanceSession) => {
+      vi.mocked(issuanceSessionService.offer).mockResolvedValue({
+        credentialOffer: 'openid-credential-offer://x',
+        issuanceSession,
+      } as never)
+
+      await expect(service.offer(authInfo())).rejects.toBeInstanceOf(InternalServerErrorException)
+      expect(em.persist).not.toHaveBeenCalled()
     })
   })
 
-  describe('issueContributorCredential', () => {
-    beforeEach(() => {
-      vi.mocked(onboardingServiceMock.getVerifiedBindingByUser).mockResolvedValue(buildContributor())
-      vi.mocked(emForkMock.findOne).mockResolvedValue({ id: 'User_demo', tenantId: 'tenant-abc' } as any)
-    })
+  describe('getOfferState', () => {
+    const record = { issuanceSessionId: 'session-1' }
+    const orgWallet = { id: 'Organization_hiero-contributors', tenantId: 'tenant-org' }
 
-    it('returns a credential offer URI for a verified contributor', async () => {
-      const result = await service.issueContributorCredential(buildAuthInfo())
-
-      expect(result.credentialOffer).toMatch(/^openid-credential-offer:\/\//)
-      expect(result.txCode).toBe('12345678')
-      expect(result.expiresAt).toBe(FAKE_OFFER_EXPIRES_AT.toISOString())
-      expect(onboardingServiceMock.getVerifiedBindingByUser).toHaveBeenCalledWith('user-1')
-    })
-
-    it('calls createCredentialOffer with the correct credential configuration ID', async () => {
-      await service.issueContributorCredential(buildAuthInfo())
-
-      const withTenantCall = vi.mocked(agentMock.modules.tenants.withTenantAgent)
-      expect(withTenantCall).toHaveBeenCalled()
-    })
-
-    it('passes the correct payload through issuance metadata', async () => {
-      await service.issueContributorCredential(buildAuthInfo())
-
-      const tenantCalls = vi.mocked(agentMock.modules.tenants.withTenantAgent).mock.calls
-      const withTenantCb = tenantCalls[tenantCalls.length - 1][1]
-
-      const spyTenantAgent = buildFakeTenantAgent()
-      await withTenantCb(spyTenantAgent)
-
-      const offerArgs = vi.mocked(spyTenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0][0]
-      const meta = offerArgs.issuanceMetadata.credentials[0]
-
-      expect(meta.format).toBe('vc+sd-jwt')
-      expect(meta.credentialSupportedId).toBe(CONTRIBUTOR_CREDENTIAL_SUPPORTED_ID)
-      expect(meta.type).toBe(CONTRIBUTOR_CREDENTIAL_VCT)
-      expect(meta.payload.githubAccountId).toBe('11111111')
-      expect(meta.payload.githubUsername).toBe('test-contributor')
-      expect(meta.payload.gpgFingerprint).toBe('AABBCCDDEEFF00112233445566778899AABBCCDD')
-      expect(meta.payload.verifiedAt).toBe('2026-07-13T10:00:00.000Z')
-      expect(meta.payload).not.toHaveProperty('walletId')
-      expect(meta.payload.exp).toBeGreaterThan(
-        Math.floor(Date.now() / 1000) + CONTRIBUTOR_CREDENTIAL_LIFETIME_SECONDS - 5,
-      )
-      expect(meta.payload.exp).toBeLessThan(Math.floor(Date.now() / 1000) + CONTRIBUTOR_CREDENTIAL_LIFETIME_SECONDS + 5)
-      expect(offerArgs.preAuthorizedCodeFlowConfig.txCode).toEqual({
-        input_mode: 'numeric',
-        length: CONTRIBUTOR_CREDENTIAL_TX_CODE_LENGTH,
-        description: 'Enter the code shown on the Heka contributor page.',
+    function rows(found: { record?: unknown; wallet?: unknown }) {
+      em.findOne.mockImplementation((entity: unknown) => {
+        if (entity === ContributorCredentialIssuance) return found.record ?? null
+        if (entity === Wallet) return found.wallet ?? null
+        return null
       })
-      expect(offerArgs.expirationInSeconds).toBe(CONTRIBUTOR_CREDENTIAL_OFFER_TTL_SECONDS)
-    })
+    }
 
-    it('makes the GitHub account, login and key fingerprint selectively disclosable', async () => {
-      await service.issueContributorCredential(buildAuthInfo())
-
-      const tenantCalls = vi.mocked(agentMock.modules.tenants.withTenantAgent).mock.calls
-      const withTenantCb = tenantCalls[tenantCalls.length - 1][1]
-      const spyTenantAgent = buildFakeTenantAgent()
-      await withTenantCb(spyTenantAgent)
-
-      const offerArgs = vi.mocked(spyTenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0][0]
-      const { disclosureFrame } = offerArgs.issuanceMetadata.credentials[0]
-
-      expect(disclosureFrame._sd).toEqual(expect.arrayContaining([...CONTRIBUTOR_CREDENTIAL_SELECTIVE_CLAIMS]))
-      expect(disclosureFrame._sd).toHaveLength(CONTRIBUTOR_CREDENTIAL_SELECTIVE_CLAIMS.length)
-      expect([...disclosureFrame._sd].sort()).toEqual(['githubAccountId', 'githubUsername', 'gpgFingerprint'])
-    })
-
-    it('does not include non-selectively-disclosable claims in the disclosure frame', async () => {
-      await service.issueContributorCredential(buildAuthInfo())
-
-      const tenantCalls = vi.mocked(agentMock.modules.tenants.withTenantAgent).mock.calls
-      const withTenantCb = tenantCalls[tenantCalls.length - 1][1]
-      const spyTenantAgent = buildFakeTenantAgent()
-      await withTenantCb(spyTenantAgent)
-
-      const offerArgs = vi.mocked(spyTenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0][0]
-      const { _sd } = offerArgs.issuanceMetadata.credentials[0].disclosureFrame as { _sd: string[] }
-
-      expect(_sd).not.toContain('verifiedAt')
-      expect(_sd).not.toContain('exp')
-    })
-
-    it('uses assertionMethod from the DID document with typeof string check', async () => {
-      await service.issueContributorCredential(buildAuthInfo())
-
-      const tenantCalls = vi.mocked(agentMock.modules.tenants.withTenantAgent).mock.calls
-      const withTenantCb = tenantCalls[tenantCalls.length - 1][1]
-      const spyTenantAgent = buildFakeTenantAgent()
-      await withTenantCb(spyTenantAgent)
-
-      const offerArgs = vi.mocked(spyTenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0][0]
-      const { issuer } = offerArgs.issuanceMetadata.credentials[0]
-
-      expect(issuer.didUrl).toBe(FAKE_VERIFICATION_METHOD)
-      expect(issuer.did).toBe(FAKE_ISSUER_DID)
-    })
-
-    it('supports assertionMethod when it is an embedded object with id', async () => {
-      const embeddedKeyId = `${FAKE_ISSUER_DID}#key-embedded`
-      const spyTenantAgent = buildFakeTenantAgent({
-        assertionMethods: [{ id: embeddedKeyId }],
+    it("reads the state and expiry of the caller's own offer in the organization's tenant", async () => {
+      rows({ record, wallet: orgWallet })
+      tenantAgent.openid4vc.issuer.getIssuanceSessionById.mockResolvedValue({
+        state: OpenId4VcIssuanceSessionState.Completed,
+        expiresAt: OFFER_EXPIRES_AT,
       })
 
-      agentMock.modules.tenants.withTenantAgent = vi
-        .fn()
-        .mockImplementation(async (_opts: unknown, cb: (ta: typeof spyTenantAgent) => Promise<void>) => {
-          await cb(spyTenantAgent)
-        })
-
-      await service.issueContributorCredential(buildAuthInfo())
-
-      const offerArgs = vi.mocked(spyTenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0][0]
-      const { issuer } = offerArgs.issuanceMetadata.credentials[0]
-
-      expect(issuer.didUrl).toBe(embeddedKeyId)
-    })
-
-    it('selects #did-root-key from assertionMethod even when another key is first', async () => {
-      const rootKeyId = `${FAKE_ISSUER_DID}#did-root-key`
-      const otherKeyId = `${FAKE_ISSUER_DID}#key-agreement`
-      const spyTenantAgent = buildFakeTenantAgent({
-        verificationMethods: [{ id: otherKeyId }, { id: rootKeyId }],
-        assertionMethods: [otherKeyId, rootKeyId],
+      await expect(service.getOfferState(authInfo(), 'session-1')).resolves.toEqual({
+        state: 'Completed',
+        expiresAt: OFFER_EXPIRES_AT.toISOString(),
       })
-
-      agentMock.modules.tenants.withTenantAgent = vi
-        .fn()
-        .mockImplementation(async (_opts: unknown, cb: (ta: typeof spyTenantAgent) => Promise<void>) => {
-          await cb(spyTenantAgent)
-        })
-
-      await service.issueContributorCredential(buildAuthInfo())
-
-      const offerArgs = vi.mocked(spyTenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0][0]
-      expect(offerArgs.issuanceMetadata.credentials[0].issuer.didUrl).toBe(rootKeyId)
-    })
-
-    it('prefers the #assertion-key fragment over the Hedera root key', async () => {
-      const assertionKeyId = `${FAKE_ISSUER_DID}#assertion-key`
-      const rootKeyId = `${FAKE_ISSUER_DID}#did-root-key`
-      const spyTenantAgent = buildFakeTenantAgent({
-        verificationMethods: [{ id: rootKeyId }, { id: assertionKeyId }],
-        assertionMethods: [rootKeyId, assertionKeyId],
+      expect(em.findOne).toHaveBeenCalledWith(ContributorCredentialIssuance, {
+        issuanceSessionId: 'session-1',
+        user: 'user-1',
       })
-
-      agentMock.modules.tenants.withTenantAgent = vi
-        .fn()
-        .mockImplementation(async (_opts: unknown, cb: (ta: typeof spyTenantAgent) => Promise<void>) => {
-          await cb(spyTenantAgent)
-        })
-
-      await service.issueContributorCredential(buildAuthInfo())
-
-      const offerArgs = vi.mocked(spyTenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0][0]
-      expect(offerArgs.issuanceMetadata.credentials[0].issuer.didUrl).toBe(assertionKeyId)
+      expect(em.findOne).toHaveBeenCalledWith(Wallet, { id: 'Organization_hiero-contributors' })
+      expect(tenantAgent.openid4vc.issuer.getIssuanceSessionById).toHaveBeenCalledWith('session-1')
     })
 
-    it('throws when assertionMethod is missing instead of using verificationMethod order', async () => {
-      const fallbackKeyId = `${FAKE_ISSUER_DID}#key-fallback`
-      const spyTenantAgent = buildFakeTenantAgent({
-        verificationMethods: [{ id: fallbackKeyId }],
-        assertionMethods: [],
-      })
+    it("answers 404 for another user's offer (no record of the caller's), without reading the session", async () => {
+      rows({ wallet: orgWallet })
 
-      agentMock.modules.tenants.withTenantAgent = vi
-        .fn()
-        .mockImplementation(async (_opts: unknown, cb: (ta: typeof spyTenantAgent) => Promise<void>) => {
-          await cb(spyTenantAgent)
-        })
-
-      await expect(service.issueContributorCredential(buildAuthInfo())).rejects.toThrow(NotFoundException)
+      await expect(service.getOfferState(authInfo(), 'session-1')).rejects.toBeInstanceOf(NotFoundException)
+      expect(agent.modules.tenants.withTenantAgent).not.toHaveBeenCalled()
     })
 
-    it('throws NotFoundException when no verified binding exists for the user', async () => {
-      vi.mocked(onboardingServiceMock.getVerifiedBindingByUser).mockRejectedValueOnce(
-        new NotFoundException('No contributor binding found'),
+    it('answers 404 when the issuance session was deleted', async () => {
+      rows({ record, wallet: orgWallet })
+      tenantAgent.openid4vc.issuer.getIssuanceSessionById.mockRejectedValue(
+        new RecordNotFoundError('gone', { recordType: 'OpenId4VcIssuanceSessionRecord' }),
       )
 
-      await expect(service.issueContributorCredential(buildAuthInfo())).rejects.toThrow(NotFoundException)
+      await expect(service.getOfferState(authInfo(), 'session-1')).rejects.toBeInstanceOf(NotFoundException)
     })
 
-    it('throws ConflictException when GPG verification is incomplete', async () => {
-      vi.mocked(onboardingServiceMock.getVerifiedBindingByUser).mockRejectedValueOnce(
-        new ConflictException('GPG verification incomplete'),
-      )
+    it('passes other errors through', async () => {
+      rows({ record, wallet: orgWallet })
+      tenantAgent.openid4vc.issuer.getIssuanceSessionById.mockRejectedValue(new Error('storage down'))
 
-      await expect(service.issueContributorCredential(buildAuthInfo())).rejects.toThrow(ConflictException)
-    })
-
-    it('throws NotFoundException when demo tenant wallet is not initialised', async () => {
-      vi.mocked(emForkMock.findOne).mockReset()
-      vi.mocked(emForkMock.findOne).mockResolvedValueOnce(null)
-
-      await expect(service.issueContributorCredential(buildAuthInfo())).rejects.toThrow(NotFoundException)
-    })
-
-    it('refuses an offer that has no expiry', async () => {
-      const spyTenantAgent = buildFakeTenantAgent()
-      vi.mocked(spyTenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
-        credentialOffer: FAKE_CREDENTIAL_OFFER_URI,
-        issuanceSession: { id: 'session-1', userPin: '12345678' },
-      })
-      agentMock.modules.tenants.withTenantAgent = vi
-        .fn()
-        .mockImplementation(async (_opts: unknown, cb: (tenantAgent: typeof spyTenantAgent) => Promise<void>) => {
-          await cb(spyTenantAgent)
-        })
-
-      await expect(service.issueContributorCredential(buildAuthInfo())).rejects.toThrow(InternalServerErrorException)
-    })
-
-    it('refuses an offer that has no transaction code', async () => {
-      const spyTenantAgent = buildFakeTenantAgent()
-      vi.mocked(spyTenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
-        credentialOffer: FAKE_CREDENTIAL_OFFER_URI,
-        issuanceSession: { id: 'session-1' },
-      })
-      agentMock.modules.tenants.withTenantAgent = vi
-        .fn()
-        .mockImplementation(async (_opts: unknown, cb: (tenantAgent: typeof spyTenantAgent) => Promise<void>) => {
-          await cb(spyTenantAgent)
-        })
-
-      await expect(service.issueContributorCredential(buildAuthInfo())).rejects.toThrow(InternalServerErrorException)
-    })
-
-    it('registers the issuer on the next offer after startup had no demo wallet', async () => {
-      vi.mocked(emForkMock.findOne).mockResolvedValueOnce(null)
-      await service.onApplicationBootstrap()
-      expect(issuerServiceMock.createIssuer).not.toHaveBeenCalled()
-
-      vi.mocked(emForkMock.findOne).mockResolvedValue({ id: 'User_demo', tenantId: 'tenant-abc' } as any)
-      const result = await service.issueContributorCredential(buildAuthInfo())
-
-      expect(result.txCode).toBe('12345678')
-      expect(issuerServiceMock.createIssuer).toHaveBeenCalledOnce()
-    })
-
-    it('runs one issuer registration when two offers overlap', async () => {
-      let release!: () => void
-      const gate = new Promise<void>((resolve) => {
-        release = resolve
-      })
-      vi.mocked(issuerServiceMock.find).mockImplementation(async () => {
-        await gate
-        return []
-      })
-
-      const first = service.issueContributorCredential(buildAuthInfo())
-      const second = service.issueContributorCredential(buildAuthInfo())
-      release()
-      const [left, right] = await Promise.all([first, second])
-
-      expect(left.txCode).toBe('12345678')
-      expect(right.txCode).toBe('12345678')
-      expect(issuerServiceMock.createIssuer).toHaveBeenCalledOnce()
+      await expect(service.getOfferState(authInfo(), 'session-1')).rejects.toThrow('storage down')
     })
   })
 })

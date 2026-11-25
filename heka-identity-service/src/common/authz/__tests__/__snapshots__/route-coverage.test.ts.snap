@@ -66,6 +66,7 @@ exports[`route coverage of the role model > the role matrix only changes on purp
 | \`GET /user\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`PATCH /user\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`POST /v2/contributor-credential/offer\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /v2/contributor-credential/offer/:issuanceSessionId\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`DELETE /v2/contributor-onboarding/github\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`POST /v2/contributor-onboarding/github/link/callback\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`POST /v2/contributor-onboarding/github/link/start\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |

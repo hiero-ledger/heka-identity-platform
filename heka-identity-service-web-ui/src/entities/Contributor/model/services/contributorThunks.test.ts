@@ -4,13 +4,16 @@ import { agencyEndpoints } from '@/shared/api/config/endpoints';
 import {
   createMockApi,
   createTestStore,
+  MockApi,
 } from '@/shared/lib/tests/renderWithProviders';
 
 import { completeGithubLink } from './completeGithubLink';
+import { getContributorCredentialOfferState } from './getContributorCredentialOfferState';
 import { getContributorOnboardingStatus } from './getContributorOnboardingStatus';
 import { requestContributorCredentialOffer } from './requestContributorCredentialOffer';
 import { requestContributorGpgChallenge } from './requestContributorGpgChallenge';
 import { startGithubLink } from './startGithubLink';
+import { unlinkGithub } from './unlinkGithub';
 import { verifyContributorGpgChallenge } from './verifyContributorGpgChallenge';
 import {
   ContributorCredentialOffer,
@@ -40,6 +43,7 @@ const offer: ContributorCredentialOffer = {
   credentialOffer: 'openid-credential-offer://?credential_offer_uri=x',
   txCode: '123456',
   expiresAt: '2026-01-01T00:10:00.000Z',
+  issuanceSessionId: 'session-1',
 };
 
 type Store = ReturnType<typeof createTestStore>;
@@ -173,6 +177,57 @@ describe('contributor thunks', () => {
     expect(toast.error).toHaveBeenCalledWith('Link GitHub first');
   });
 
+  test('getContributorCredentialOfferState reads the state of an offer', async () => {
+    const { api, store } = setup();
+    api.get.mockResolvedValue({
+      data: { state: 'Completed', expiresAt: offer.expiresAt },
+    });
+
+    const result = await store
+      .dispatch(getContributorCredentialOfferState('session/1'))
+      .unwrap();
+
+    expect(api.get).toHaveBeenCalledWith(
+      '/v2/contributor-credential/offer/session%2F1',
+    );
+    expect(result).toEqual({ state: 'Completed', expiresAt: offer.expiresAt });
+  });
+
+  test('unlinkGithub deletes the binding', async () => {
+    const { api, store } = setup();
+
+    const action = await store.dispatch(unlinkGithub());
+
+    expect(api.delete).toHaveBeenCalledWith(agencyEndpoints.unlinkGithub);
+    expect(action.meta.requestStatus).toBe('fulfilled');
+  });
+
+  test.each<[string, (store: Store, api: MockApi) => Promise<SettledAction>]>([
+    [
+      'getContributorCredentialOfferState',
+      (store, api) => {
+        api.get.mockRejectedValue(apiError(503, 'Service unavailable'));
+        return store.dispatch(getContributorCredentialOfferState('s'));
+      },
+    ],
+    [
+      'unlinkGithub',
+      (store, api) => {
+        api.delete.mockRejectedValue(apiError(503, 'Service unavailable'));
+        return store.dispatch(unlinkGithub());
+      },
+    ],
+  ])('%s shows the server message and rejects with it', async (_, run) => {
+    const { api, store } = setup();
+
+    const action = await run(store, api);
+
+    expect(action.meta.requestStatus).toBe('rejected');
+    expect(action.payload).toBe('Service unavailable');
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith('Service unavailable');
+  });
+
   test('getContributorOnboardingStatus shows the server message and rejects with it', async () => {
     const { api, store } = setup();
     api.get.mockRejectedValue(apiError(502, 'GitHub is unavailable'));
@@ -185,7 +240,7 @@ describe('contributor thunks', () => {
 });
 
 describe('requestContributorCredentialOffer', () => {
-  test('posts to the offer endpoint and returns the offer with its transaction code', async () => {
+  test('posts to the offer endpoint and returns the offer with its transaction code and session', async () => {
     const { api, store } = setup();
     api.post.mockResolvedValue({ data: offer });
 
@@ -207,6 +262,8 @@ describe('requestContributorCredentialOffer', () => {
     ],
     ['without a transaction code', { ...offer, txCode: '' }],
     ['without an expiry', { ...offer, expiresAt: '' }],
+    ['with an unreadable expiry', { ...offer, expiresAt: 'soon' }],
+    ['without an issuance session', { ...offer, issuanceSessionId: '' }],
     ['empty', undefined],
   ])('rejects an answer %s', async (_, data) => {
     const { api, store } = setup();
@@ -215,7 +272,7 @@ describe('requestContributorCredentialOffer', () => {
     const action = await store.dispatch(requestContributorCredentialOffer());
 
     const message =
-      'The issuer did not return a transaction code and expiry for this offer.';
+      'The identity service returned an incomplete credential offer.';
     expect(action.meta.requestStatus).toBe('rejected');
     expect(action.payload).toBe(message);
     expect(toast.error).toHaveBeenCalledWith(message);

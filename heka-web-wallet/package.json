@@ -7,13 +7,15 @@
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build && yarn check:dist",
+    "build:dev": "vite build --mode development",
     "type-check": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "check:dist": "yarn check:content-scripts && yarn check:workarounds && yarn check:csp",
+    "check:dist": "yarn check:content-scripts && yarn check:workarounds && yarn check:csp && yarn check:manifest",
     "check:content-scripts": "node scripts/check-content-scripts.mjs",
     "check:workarounds": "node scripts/check-build-workarounds.mjs",
-    "check:csp": "node scripts/check-csp.mjs"
+    "check:csp": "node scripts/check-csp.mjs",
+    "check:manifest": "node scripts/check-manifest.mjs"
   },
   "engines": {
     "node": "^20.19.2 || ^22.13.0"

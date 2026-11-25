@@ -13,7 +13,7 @@ import { Logger } from 'common/logger'
 import { GithubConfig } from 'config/github'
 import { GpgChallenge } from 'gpg-challenge/gpg-challenge.entity'
 
-import { ContributorAuditEventType } from '../contributor-audit-event.entity'
+import { ContributorAuditEvent, ContributorAuditEventType } from '../contributor-audit-event.entity'
 import { ContributorBinding } from '../contributor-binding.entity'
 import { ContributorOnboardingService } from '../contributor-onboarding.service'
 import { LinkAttemptStatus, OAuthLinkAttempt } from '../oauth-link-attempt.entity'
@@ -50,7 +50,7 @@ const asAdmin = () => auth({ role: Role.Admin, walletId: 'Administration', tenan
 
 function binding(overrides: Partial<ContributorBinding> = {}): ContributorBinding {
   const row = new ContributorBinding()
-  row.userId = 'user-1'
+  row.user = { id: 'user-1' } as User
   row.tenantId = 'tenant-1'
   row.walletId = 'User_user-1'
   row.githubAccountId = '4115704'
@@ -62,7 +62,7 @@ function binding(overrides: Partial<ContributorBinding> = {}): ContributorBindin
 
 function pendingAttempt(overrides: Partial<OAuthLinkAttempt> = {}): OAuthLinkAttempt {
   const attempt = new OAuthLinkAttempt()
-  attempt.userId = 'user-1'
+  attempt.user = { id: 'user-1' } as User
   attempt.tenantId = 'tenant-1'
   attempt.walletId = 'User_user-1'
   attempt.stateHash = crypto.createHash('sha256').update('state').digest('hex')
@@ -82,6 +82,7 @@ describe('ContributorOnboardingService', () => {
     flush: ReturnType<typeof vi.fn>
     nativeUpdate: ReturnType<typeof vi.fn>
     nativeDelete: ReturnType<typeof vi.fn>
+    getReference: ReturnType<typeof vi.fn>
   }
   let http: { post: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> }
 
@@ -117,6 +118,7 @@ describe('ContributorOnboardingService', () => {
       flush: vi.fn().mockResolvedValue(undefined),
       nativeUpdate: vi.fn().mockResolvedValue(1),
       nativeDelete: vi.fn().mockResolvedValue(0),
+      getReference: vi.fn((_entity: unknown, id: string) => ({ id })),
     }
     http = { post: vi.fn(), get: vi.fn(), delete: vi.fn().mockReturnValue(of({ status: 204 })) }
     logger = createMock<Logger>()
@@ -137,7 +139,7 @@ describe('ContributorOnboardingService', () => {
     rows({ bySubject: row })
 
     await expect(service.getRequiredBindingForUser(asAdmin())).resolves.toBe(row)
-    expect(em.findOne).toHaveBeenCalledWith(ContributorBinding, { userId: 'user-1' })
+    expect(em.findOne).toHaveBeenCalledWith(ContributorBinding, { user: 'user-1' })
   })
 
   it('returns not-connected status when the user has no binding', async () => {
@@ -157,6 +159,37 @@ describe('ContributorOnboardingService', () => {
       })
     }
     expect(em.find).toHaveBeenCalledWith(expect.anything(), { userId: 'user-1' }, expect.anything())
+  })
+
+  it("maps the audit log's empty columns to absent fields, as the binding view does", async () => {
+    // MikroORM hydrates empty nullable columns as null
+    const event = Object.assign(new ContributorAuditEvent(), {
+      eventType: ContributorAuditEventType.ProofRejected,
+      userId: 'user-1',
+      tenantId: 'tenant-1',
+      githubAccountId: '4115704',
+      createdAt: new Date('2026-10-01T00:00:00Z'),
+    })
+    Object.assign(event, { githubUsername: null, walletId: null, gpgFingerprint: null, metadata: null })
+    em.find.mockResolvedValue([event])
+
+    const { auditEvents } = await service.getStatus(auth())
+
+    expect(auditEvents).toEqual([
+      {
+        id: event.id,
+        eventType: ContributorAuditEventType.ProofRejected,
+        githubAccountId: '4115704',
+        githubUsername: undefined,
+        walletId: undefined,
+        gpgFingerprint: undefined,
+        metadata: undefined,
+        createdAt: '2026-10-01T00:00:00.000Z',
+      },
+    ])
+    for (const field of ['githubUsername', 'walletId', 'gpgFingerprint', 'metadata'] as const) {
+      expect(auditEvents[0][field]).toBeUndefined()
+    }
   })
 
   it('throws when credential issuance asks for a missing binding', async () => {
@@ -180,12 +213,8 @@ describe('ContributorOnboardingService', () => {
     })
   })
 
-  it('stamps the binding when the proof matches its GitHub account, and refreshes wallet and tenant', async () => {
-    const row = binding()
-    rows({ bySubject: row })
-    const verifiedAt = new Date('2026-10-03T00:00:00Z')
-
-    const updated = await service.recordProofAccepted({
+  describe('recording an accepted proof', () => {
+    const proof = (verifiedAt = new Date('2026-10-03T00:00:00Z')) => ({
       userId: 'user-1',
       tenantId: 'tenant-admin',
       githubAccountId: '4115704',
@@ -195,31 +224,57 @@ describe('ContributorOnboardingService', () => {
       verifiedAt,
     })
 
-    expect(updated).toMatchObject({
-      gpgFingerprint: 'FF00',
-      verifiedAt,
-      walletId: 'Administration',
-      tenantId: 'tenant-admin',
+    /** The database's binding: the conditional update changes it only when its `where` matches. */
+    function storedBinding(row: ContributorBinding) {
+      em.nativeUpdate.mockImplementation((entity: unknown, where: Record<string, unknown>, set: object) => {
+        if (entity !== ContributorBinding) return 1
+        const matches = Object.entries(where).every(([key, value]) =>
+          key === 'user' ? row.user.id === value : row[key as keyof ContributorBinding] === value,
+        )
+        if (matches) Object.assign(row, set)
+        return matches ? 1 : 0
+      })
+    }
+
+    it('stamps the binding while it points at the GitHub account of the challenge, and refreshes wallet and tenant', async () => {
+      const row = binding()
+      storedBinding(row)
+      rows({ bySubject: row })
+      const verifiedAt = new Date('2026-10-03T00:00:00Z')
+
+      const updated = await service.recordProofAccepted(proof(verifiedAt))
+
+      expect(em.nativeUpdate).toHaveBeenCalledWith(
+        ContributorBinding,
+        { user: 'user-1', githubAccountId: '4115704' },
+        {
+          gpgFingerprint: 'FF00',
+          verifiedAt,
+          tenantId: 'tenant-admin',
+          walletId: 'Administration',
+          updatedAt: expect.any(Date),
+        },
+      )
+      expect(updated).toMatchObject({ gpgFingerprint: 'FF00', verifiedAt, walletId: 'Administration' })
+      expect(em.findOne).toHaveBeenCalledWith(ContributorBinding, { user: 'user-1' }, { refresh: true })
+      const events = em.persist.mock.calls.map(([event]) => (event as ContributorAuditEvent).eventType)
+      expect(events).toEqual([ContributorAuditEventType.ProofAccepted, ContributorAuditEventType.BindingUpdated])
     })
-    expect(em.persist).toHaveBeenCalledWith(
-      expect.objectContaining({ eventType: ContributorAuditEventType.ProofAccepted }),
-    )
-  })
 
-  it('does not stamp a binding for a different GitHub account', async () => {
-    rows({ bySubject: binding({ githubAccountId: '999' }) })
+    it('never writes the fingerprint to a binding whose account changed since it was read', async () => {
+      // The request read the binding before a concurrent re-link to another account committed
+      rows({ bySubject: binding() })
+      const current = binding({ githubAccountId: '999' })
+      storedBinding(current)
 
-    const updated = await service.recordProofAccepted({
-      userId: 'user-1',
-      tenantId: 'tenant-1',
-      githubAccountId: '4115704',
-      githubUsername: 'octocat',
-      walletId: 'User_user-1',
-      gpgFingerprint: 'FF00',
-      verifiedAt: new Date(),
+      const updated = await service.recordProofAccepted(proof())
+
+      expect(updated).toBeUndefined()
+      expect(current.gpgFingerprint).toBeUndefined()
+      const events = em.persist.mock.calls.map(([event]) => (event as ContributorAuditEvent).eventType)
+      expect(events).toEqual([ContributorAuditEventType.ProofAccepted])
+      expect(em.flush).toHaveBeenCalled()
     })
-
-    expect(updated).toBeUndefined()
   })
 
   describe('GitHub account linking', () => {
@@ -264,7 +319,7 @@ describe('ContributorOnboardingService', () => {
 
       expect(em.findOne).toHaveBeenCalledWith(OAuthLinkAttempt, {
         stateHash: crypto.createHash('sha256').update('state').digest('hex'),
-        userId: 'user-1',
+        user: 'user-1',
         tenantId: 'tenant-1',
         walletId: 'User_user-1',
         status: LinkAttemptStatus.Pending,
@@ -300,7 +355,7 @@ describe('ContributorOnboardingService', () => {
     })
 
     it('rejects a GitHub account already linked to another OIDC subject', async () => {
-      rows({ attempt: pendingAttempt(), byAccount: binding({ userId: 'user-2', tenantId: 'tenant-2' }) })
+      rows({ attempt: pendingAttempt(), byAccount: binding({ user: { id: 'user-2' } as User, tenantId: 'tenant-2' }) })
       github()
 
       await expect(service.completeGithubLink(auth(), 'code', 'state')).rejects.toThrow(ConflictException)
@@ -339,11 +394,41 @@ describe('ContributorOnboardingService', () => {
 
         await expect(service.completeGithubLink(auth(), 'code', 'state')).rejects.toBe(other)
       })
+
+      it('a re-link to an account another user linked meanwhile answers 409', async () => {
+        rows({ attempt: pendingAttempt(), bySubject: binding() })
+        github({ id: 999, login: 'other' })
+        em.nativeUpdate
+          .mockResolvedValueOnce(1)
+          .mockRejectedValueOnce(uniqueViolation('contributor_binding_github_account_id_unique'))
+
+        const error = await service.completeGithubLink(auth(), 'code', 'state').catch((e: unknown) => e)
+
+        expect(error).toBeInstanceOf(ConflictException)
+        expect((error as ConflictException).message).toMatch(/already linked to another Heka user/)
+        expect(em.persist).not.toHaveBeenCalled()
+      })
+    })
+
+    it('creates the binding for the user on a first link', async () => {
+      rows({ attempt: pendingAttempt() })
+      github()
+
+      await service.completeGithubLink(auth(), 'code', 'state')
+
+      const [created] = em.persist.mock.calls.find(([row]) => row instanceof ContributorBinding)!
+      expect(created).toMatchObject({
+        user: { id: 'user-1' },
+        tenantId: 'tenant-1',
+        walletId: 'User_user-1',
+        githubAccountId: '4115704',
+        githubUsername: 'octocat',
+      })
+      expect(em.getReference).toHaveBeenCalledWith(User, 'user-1')
     })
 
     it('lets the same subject link the same account again after a role change, keeping the verification', async () => {
-      const verifiedAt = new Date('2026-01-01T00:00:00Z')
-      const row = binding({ gpgFingerprint: 'AABB', verifiedAt })
+      const row = binding({ gpgFingerprint: 'AABB', verifiedAt: new Date('2026-01-01T00:00:00Z') })
       rows({
         attempt: pendingAttempt({ walletId: 'Administration', tenantId: 'tenant-admin' }),
         bySubject: row,
@@ -356,12 +441,17 @@ describe('ContributorOnboardingService', () => {
         githubUsername: 'octocat',
       })
 
-      expect(row).toMatchObject({
-        walletId: 'Administration',
-        tenantId: 'tenant-admin',
-        gpgFingerprint: 'AABB',
-        verifiedAt,
-      })
+      expect(em.nativeUpdate).toHaveBeenLastCalledWith(
+        ContributorBinding,
+        { id: row.id, githubAccountId: '4115704' },
+        {
+          tenantId: 'tenant-admin',
+          walletId: 'Administration',
+          githubAccountId: '4115704',
+          githubUsername: 'octocat',
+          updatedAt: expect.any(Date),
+        },
+      )
       expect(em.persist).not.toHaveBeenCalledWith(expect.any(ContributorBinding))
     })
 
@@ -373,10 +463,33 @@ describe('ContributorOnboardingService', () => {
       const result = await service.completeGithubLink(auth(), 'code', 'state')
 
       expect(result).toEqual({ linked: true, githubUsername: 'other' })
-      expect(row.githubAccountId).toBe('999')
-      expect(row.gpgFingerprint).toBeNull()
-      expect(row.verifiedAt).toBeNull()
-      expect(row.walletId).toBe('User_user-1')
+      expect(em.nativeUpdate).toHaveBeenLastCalledWith(
+        ContributorBinding,
+        { id: row.id, githubAccountId: '4115704' },
+        {
+          tenantId: 'tenant-1',
+          walletId: 'User_user-1',
+          githubAccountId: '999',
+          githubUsername: 'other',
+          gpgFingerprint: null,
+          verifiedAt: null,
+          updatedAt: expect.any(Date),
+        },
+      )
+    })
+
+    it('answers 409 when a concurrent re-link changed the account after it was read, and records nothing', async () => {
+      rows({ attempt: pendingAttempt(), bySubject: binding() })
+      github({ id: 999, login: 'other' })
+      // The state is consumed; the binding no longer has the account this request read
+      em.nativeUpdate.mockResolvedValueOnce(1).mockResolvedValueOnce(0)
+
+      const error = await service.completeGithubLink(auth(), 'code', 'state').catch((e: unknown) => e)
+
+      expect(error).toBeInstanceOf(ConflictException)
+      expect((error as ConflictException).message).toMatch(/linked a GitHub account to this Heka user at the same time/)
+      expect(em.persist).not.toHaveBeenCalled()
+      expect(em.flush).not.toHaveBeenCalled()
     })
 
     it('sends the same redirect_uri and the stored verifier to GitHub', async () => {
@@ -453,10 +566,10 @@ describe('ContributorOnboardingService', () => {
       await service.unlinkGithub(asAdmin())
 
       expect(em.nativeDelete).toHaveBeenCalledWith(OAuthLinkAttempt, {
-        userId: 'user-1',
+        user: 'user-1',
         status: LinkAttemptStatus.Pending,
       })
-      expect(em.nativeDelete).toHaveBeenCalledWith(GpgChallenge, { userId: 'user-1', consumed: false })
+      expect(em.nativeDelete).toHaveBeenCalledWith(GpgChallenge, { user: 'user-1', consumed: false })
       expect(em.remove).toHaveBeenCalledWith(row)
       expect(em.persist).toHaveBeenCalledWith(
         expect.objectContaining({

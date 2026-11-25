@@ -3,7 +3,7 @@ import { ContributorBinding } from './contributor-binding.entity'
 import { ContributorAuditEventDto, ContributorBindingDto } from './dto/contributor-onboarding-status.dto'
 
 /**
- * Verified binding used when issuing a GithubContributorCredential.
+ * Verified binding used when issuing the contributor credential.
  * `githubAccountId` always comes from this record, never from the caller.
  */
 export interface VerifiedContributor {
@@ -29,11 +29,11 @@ export function toContributorAuditEventView(event: ContributorAuditEvent): Contr
   return {
     id: event.id,
     eventType: event.eventType,
-    githubAccountId: event.githubAccountId,
-    githubUsername: event.githubUsername,
-    walletId: event.walletId,
-    gpgFingerprint: event.gpgFingerprint,
-    metadata: event.metadata,
+    githubAccountId: event.githubAccountId ?? undefined,
+    githubUsername: event.githubUsername ?? undefined,
+    walletId: event.walletId ?? undefined,
+    gpgFingerprint: event.gpgFingerprint ?? undefined,
+    metadata: event.metadata ?? undefined,
     createdAt: event.createdAt.toISOString(),
   }
 }

@@ -1,9 +1,18 @@
-import { Kms, type Agent } from '@credo-ts/core'
+import { createHash } from 'node:crypto'
+
+import { DidKey, Kms, type Agent, type KeyDidCreateOptions } from '@credo-ts/core'
 import type { OpenId4VciCredentialBindingOptions } from '@credo-ts/openid4vc'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getOrCreateAgent } from '../../credo/lazy-agent'
 import { createHolderBinding, receiveResultMessage } from '../receive'
+
+// The agent's fetch is bound when its dependencies module loads, so the spy goes in first.
+const fetchSpy = vi.hoisted(() => {
+  const spy = vi.fn<typeof fetch>()
+  globalThis.fetch = spy
+  return spy
+})
 
 type BindingOptions = Pick<
   OpenId4VciCredentialBindingOptions,
@@ -82,5 +91,47 @@ describe('receiveResultMessage', () => {
     expect(receiveResultMessage(0, 1)).toMatch(/^The issuer will issue one credential later\./)
     expect(receiveResultMessage(0, 1)).not.toMatch(/Received/)
     expect(receiveResultMessage(1, 2)).toMatch(/^Received 1 credential\. The issuer will issue 2 credentials later\./)
+  })
+})
+
+// The holder verifies each received SD-JWT VC with type metadata (Credo's receive path).
+describe('type metadata at receive', () => {
+  const vct = 'https://types.example/vct/Membership'
+  const metadata = JSON.stringify({ vct, name: 'Membership' })
+  const integrity = `sha256-${createHash('sha256').update(metadata).digest('base64')}`
+  let agent: Agent
+  let issuerDidUrl: string
+
+  beforeAll(async () => {
+    agent = await getOrCreateAgent()
+    const key = await agent.kms.createKeyForSignatureAlgorithm({ backend: 'webcrypto-browser', algorithm: 'ES256' })
+    const { didState } = await agent.dids.create<KeyDidCreateOptions>({ method: 'key', options: { keyId: key.keyId } })
+    if (didState.state !== 'finished') throw new Error('Could not create the issuer DID')
+    issuerDidUrl = `${didState.did}#${DidKey.fromDid(didState.did).publicJwk.fingerprint}`
+  })
+
+  beforeEach(() => {
+    fetchSpy.mockReset().mockImplementation(async () => new Response(metadata, { status: 200 }))
+    vi.stubGlobal('chrome', { permissions: { contains: async () => true } })
+  })
+
+  const receive = async (payload: Record<string, unknown>) => {
+    const { compact } = await agent.sdJwtVc.sign({ issuer: { method: 'did', didUrl: issuerDidUrl }, payload })
+    return agent.sdJwtVc.verify({ compactSdJwtVc: compact, fetchTypeMetadata: true })
+  }
+
+  it('does not fetch the type metadata of an https vct without integrity', async () => {
+    const result = await receive({ vct })
+
+    expect(result.isValid).toBe(true)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('fetches it when the credential pins it with integrity on an allowed origin', async () => {
+    const result = await receive({ vct, 'vct#integrity': integrity })
+
+    expect(result.isValid).toBe(true)
+    expect(fetchSpy).toHaveBeenCalledWith(vct, expect.anything())
+    expect(result.sdJwtVc?.typeMetadata).toMatchObject({ vct, name: 'Membership' })
   })
 })

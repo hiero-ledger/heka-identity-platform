@@ -83,7 +83,7 @@ export class ContributorOnboardingController {
   @ApiOperation({
     summary: 'Unlink the GitHub account of the logged-in Heka user.',
     description:
-      'Optional feature: available when CONTRIBUTOR_VERIFICATION_ENABLED=true. Deletes the binding with its GPG verification, pending link attempts and open GPG challenges. Credentials already issued stay valid until they expire.',
+      'Optional feature: available when CONTRIBUTOR_VERIFICATION_ENABLED=true. Deletes the binding with its GPG verification, pending link attempts and open GPG challenges. Credentials already issued stay valid until they expire, unless an operator of the issuer organization revokes them from its issued credentials.',
   })
   @ApiNoContentResponse({ description: 'Unlinked, or nothing was linked.' })
   public async unlinkGithub(@ReqAuthInfo() authInfo: AuthInfo): Promise<void> {

@@ -1,5 +1,18 @@
-import { isCredentialOfferUri, isPresentationRequestUri } from '../content-scripts/bridge-message'
+import {
+  isCredentialOfferUri,
+  isPresentationRequestUri,
+  presentStatusMessage,
+  receiveStatusMessage,
+  type BridgeCommand,
+  type BridgeResponse,
+  type ExtensionToPageMessage,
+  type ItemStatus,
+  type TabStatusMessage,
+} from '../bridge/protocol'
+import { isConnectedOrigin, reconcileConnectedSites } from '../wallet/connected-sites'
 import { walletPageUrl } from '../wallet/page-url'
+import { loadPendingOffer, loadPendingRequest, type PendingRequest } from '../wallet/pending-items'
+import type { ItemSource, PendingOffer } from '../wallet/pending-offer'
 import {
   CREDENTIAL_COUNT_KEY,
   PENDING_OFFER_KEY,
@@ -9,29 +22,31 @@ import {
   WALLET_WINDOW_KEY,
 } from '../wallet/storage-keys'
 
+/** From the bridge, or from the wallet's own pages (the popup and the wallet page). */
 export type ExtensionMessage =
-  | { type: 'PING' }
-  | { type: 'RECEIVE_OFFER'; offerUri: string; expiresAt?: string }
-  | { type: 'PRESENT_REQUEST'; requestUri: string }
+  | Exclude<BridgeCommand, { type: 'PING' }>
   | { type: 'OPEN_WALLET' }
-  | { type: 'WALLET_TASK_DONE' }
-  | { type: 'REFRESH_BADGE' }
-  | { type: 'GET_STATUS' }
+  | { type: 'SETTLE_OFFER'; offerUri: string; status: ItemStatus; keep: boolean }
+  | { type: 'OFFER_PROGRESS'; offerUri: string; message: string }
+  | { type: 'SETTLE_REQUEST'; requestUri: string; status: ItemStatus; keep: boolean }
 
 /** Sent to the open wallet page: a new offer or presentation request is pending in storage. */
 export type WalletPageMessage = { type: 'PENDING_UPDATED' }
 
-export type ExtensionResponse =
-  | { type: 'PONG'; version: string }
-  | { type: 'OFFER_ACKNOWLEDGED' }
-  | { type: 'STATUS'; initialized: boolean; credentialCount: number }
-  | { type: 'ERROR'; message: string }
+export type ExtensionResponse = BridgeResponse | { type: 'SETTLED'; settled: boolean }
+
+const BRIDGE_COMMANDS: ReadonlySet<string> = new Set(['GET_STATUS', 'RECEIVE_OFFER', 'PRESENT_REQUEST'])
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     void chrome.storage.local.remove([PENDING_OFFER_KEY, PENDING_REQUEST_KEY, RECEIVE_STATUS_KEY])
   }
+  void reconcileConnectedSites()
   void updateBadge()
+})
+
+chrome.runtime.onStartup.addListener(() => {
+  void reconcileConnectedSites()
 })
 
 chrome.runtime.onMessage.addListener(
@@ -44,7 +59,7 @@ chrome.runtime.onMessage.addListener(
       sendResponse({ type: 'ERROR', message: 'Rejected a message from outside this extension.' })
       return false
     }
-    void handleMessage(message)
+    void routeMessage(message, sender)
       .then((response) => sendResponse(response))
       .catch((error: unknown) => {
         const text = error instanceof Error ? error.message : 'Wallet request failed'
@@ -54,20 +69,40 @@ chrome.runtime.onMessage.addListener(
   },
 )
 
-async function handleMessage(message: ExtensionMessage): Promise<ExtensionResponse> {
-  switch (message.type) {
-    case 'PING':
-      return { type: 'PONG', version: chrome.runtime.getManifest().version }
+/**
+ * The wallet's own pages, recognised by their extension URL, may send anything. Anything else is
+ * the bridge on a web page, which may send only the bridge commands, and only from a connected site.
+ */
+async function routeMessage(
+  message: ExtensionMessage,
+  sender: chrome.runtime.MessageSender,
+): Promise<ExtensionResponse> {
+  if (sender.url?.startsWith(chrome.runtime.getURL(''))) return handleMessage(message)
+  const origin = sender.origin ?? (sender.url ? new URL(sender.url).origin : undefined)
+  if (!BRIDGE_COMMANDS.has(message?.type) || !origin || !(await isConnectedOrigin(origin))) {
+    return { type: 'ERROR', message: 'This site is not connected to the wallet.' }
+  }
+  return handleMessage(message, sender.tab?.id === undefined ? { origin } : { origin, tabId: sender.tab.id })
+}
 
+async function handleMessage(message: ExtensionMessage, from?: ItemSource): Promise<ExtensionResponse> {
+  switch (message.type) {
     case 'RECEIVE_OFFER': {
       if (isCredentialOfferUri(message.offerUri)) {
-        await receiveOfferInExtension(message.offerUri, message.expiresAt)
+        const offer: PendingOffer = { offerUri: message.offerUri }
+        if (message.expiresAt) offer.expiresAt = message.expiresAt
+        if (from) offer.from = from
+        await receiveOfferInExtension(offer)
       }
       return { type: 'OFFER_ACKNOWLEDGED' }
     }
 
     case 'PRESENT_REQUEST': {
-      if (isPresentationRequestUri(message.requestUri)) await presentRequestInExtension(message.requestUri)
+      if (isPresentationRequestUri(message.requestUri)) {
+        await presentRequestInExtension(
+          from ? { requestUri: message.requestUri, from } : { requestUri: message.requestUri },
+        )
+      }
       return { type: 'OFFER_ACKNOWLEDGED' }
     }
 
@@ -75,22 +110,21 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
       await openWalletPage()
       return { type: 'OFFER_ACKNOWLEDGED' }
 
-    case 'WALLET_TASK_DONE': {
-      if (await chrome.offscreen.hasDocument()) await chrome.offscreen.closeDocument()
-      return { type: 'OFFER_ACKNOWLEDGED' }
-    }
-
-    case 'REFRESH_BADGE': {
-      await updateBadge()
-      return { type: 'OFFER_ACKNOWLEDGED' }
-    }
-
     case 'GET_STATUS':
       return {
         type: 'STATUS',
         initialized: await readWalletInitialized(),
         credentialCount: await readCredentialCount(),
       }
+
+    case 'SETTLE_OFFER':
+      return { type: 'SETTLED', settled: await settleOffer(message.offerUri, message.status, message.keep) }
+
+    case 'OFFER_PROGRESS':
+      return { type: 'SETTLED', settled: await reportOfferProgress(message.offerUri, message.message) }
+
+    case 'SETTLE_REQUEST':
+      return { type: 'SETTLED', settled: await settleRequest(message.requestUri, message.status, message.keep) }
 
     default:
       return { type: 'ERROR', message: 'Unknown wallet request' }
@@ -102,17 +136,68 @@ chrome.storage.onChanged.addListener((changes, area) => {
   void applyBadge(Number(changes[CREDENTIAL_COUNT_KEY].newValue ?? 0))
 })
 
-async function receiveOfferInExtension(offerUri: string, expiresAt?: string): Promise<void> {
-  await chrome.storage.local.set({
-    [PENDING_OFFER_KEY]: expiresAt ? { offerUri, expiresAt } : { offerUri },
-    [RECEIVE_STATUS_KEY]: { state: 'working', message: 'Opening the wallet so you can review this offer…' },
-  })
+let pendingQueue: Promise<unknown> = Promise.resolve()
+
+/**
+ * Every change to the pending items runs here, one after another: a settle compares and removes
+ * without a new item landing between its read and its write.
+ */
+function changePending<T>(change: () => Promise<T>): Promise<T> {
+  const changed = pendingQueue.then(change)
+  pendingQueue = changed.catch(() => undefined)
+  return changed
+}
+
+/** The item's final status, to the tab that handed it over. A pasted item has none. */
+function sendStatusToTab(from: ItemSource | undefined, message: ExtensionToPageMessage): void {
+  if (from?.tabId === undefined) return
+  const status: TabStatusMessage = { type: 'BRIDGE_STATUS', origin: from.origin, message }
+  // Rejects when the tab is closed or no longer runs the bridge.
+  chrome.tabs.sendMessage(from.tabId, status).catch(() => undefined)
+}
+
+async function receiveOfferInExtension(offer: PendingOffer): Promise<void> {
+  await changePending(() =>
+    chrome.storage.local.set({
+      [PENDING_OFFER_KEY]: offer,
+      [RECEIVE_STATUS_KEY]: { state: 'working', message: 'Opening the wallet so you can review this offer…' },
+    }),
+  )
   await openWalletPage()
 }
 
-async function presentRequestInExtension(requestUri: string): Promise<void> {
-  await chrome.storage.local.set({ [PENDING_REQUEST_KEY]: requestUri })
+async function presentRequestInExtension(request: PendingRequest): Promise<void> {
+  await changePending(() => chrome.storage.local.set({ [PENDING_REQUEST_KEY]: request }))
   await openWalletPage()
+}
+
+function settleOffer(offerUri: string, status: ItemStatus, keep: boolean): Promise<boolean> {
+  return changePending(async () => {
+    const pending = await loadPendingOffer()
+    if (pending?.offerUri !== offerUri) return false
+    if (!keep) await chrome.storage.local.remove(PENDING_OFFER_KEY)
+    await chrome.storage.local.set({ [RECEIVE_STATUS_KEY]: status })
+    sendStatusToTab(pending.from, receiveStatusMessage(offerUri, status))
+    return true
+  })
+}
+
+function reportOfferProgress(offerUri: string, message: string): Promise<boolean> {
+  return changePending(async () => {
+    if ((await loadPendingOffer())?.offerUri !== offerUri) return false
+    await chrome.storage.local.set({ [RECEIVE_STATUS_KEY]: { state: 'working', message } })
+    return true
+  })
+}
+
+function settleRequest(requestUri: string, status: ItemStatus, keep: boolean): Promise<boolean> {
+  return changePending(async () => {
+    const pending = await loadPendingRequest()
+    if (pending?.requestUri !== requestUri) return false
+    if (!keep) await chrome.storage.local.remove(PENDING_REQUEST_KEY)
+    sendStatusToTab(pending.from, presentStatusMessage(requestUri, status))
+    return true
+  })
 }
 
 let walletWindowQueue: Promise<void> = Promise.resolve()

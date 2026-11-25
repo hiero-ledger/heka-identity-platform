@@ -52,6 +52,7 @@ describe('E2E contributor verification disabled', () => {
     ['post', '/v2/gpg-challenge/request'],
     ['post', '/v2/gpg-challenge/verify'],
     ['post', '/v2/contributor-credential/offer'],
+    ['get', '/v2/contributor-credential/offer/6e7dce29-9d6a-4a13-a820-6a19b2ea9945'],
   ] as const)('%s %s is not registered (404)', async (method, path) => {
     const response = await request(app)[method](path).auth(token, { type: 'bearer' })
 

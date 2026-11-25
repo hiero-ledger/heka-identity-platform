@@ -39,9 +39,11 @@ const checks = [
     absent: ['createHash("sha256")', 'No compatible crypto module found'],
   },
   {
-    workaround: '@hashgraph/sdk alias (lib/browser.js)',
-    // The browser client reads the mirror node over gRPC-web. `absent` comes from a build with the
-    // alias pointing at the Node entry: grpc-js's HTTP/2 transport.
+    // Not a workaround: Vite resolves the package's browser field to lib/browser.js by itself. The
+    // check fails if a change brings in its Node entry (grpc-js over HTTP/2) instead.
+    workaround: '@hashgraph/sdk browser build (lib/browser.js)',
+    // The browser client reads the mirror node over gRPC-web. `absent` comes from a build that
+    // resolved the Node entry: grpc-js's HTTP/2 transport.
     present: ['application/grpc-web+proto'],
     absent: ['Http2SubchannelCall'],
   },

@@ -8,10 +8,13 @@ Askar is not used. Records go through `IndexedDbStorageService`, registered on `
 
 Aliases (`resolve.alias` in `vite.config.ts`):
 
-- `express` → `src/credo/express-stub.ts`. `@credo-ts/openid4vc` imports it, and the holder path does not call it.
 - `@digitalcredentials/open-badges-context` → its `js/index.js`. The published `module` field points at a file that is not in the tarball.
-- `@hashgraph/sdk` → its `lib/browser.js`, the browser client (gRPC-web). The package's `exports` point at the Node build (grpc-js over HTTP/2). Vite 6 already reaches `lib/browser.js` through the package's `browser` field; the alias keeps it there.
 - `@hiero-did-sdk/crypto` → `src/credo/browser-hedera-crypto.ts`, a synchronous SHA-256 from `@noble/hashes`. The package hashes HCS topic checksums with Node's `createHash`.
+
+Two packages need no alias, because Vite follows their `browser` field:
+
+- `@credo-ts/openid4vc` maps its `express` import to a stub that throws; only the issuer and verifier modules call it.
+- `@hashgraph/sdk` resolves to `lib/browser.js`, the browser client (gRPC-web), although its `exports` point at the Node build (grpc-js over HTTP/2). `check:workarounds` fails if the Node build comes back.
 
 Module redirects (the `csp-safe-credo-modules` plugin), for code that calls `Function`, which the extension's CSP blocks:
 
@@ -25,7 +28,7 @@ Other:
 - `KeyManagementModule` is imported from `@credo-ts/core/kms`. It is not exported from the package root.
 - The content script is built on its own as one IIFE (`vite.content-script.config.ts`): Chrome runs content scripts as classic scripts, which cannot `import` the chunks it would otherwise share with the service worker.
 
-These workarounds match package and file names inside Credo and its dependencies. `yarn build` ends with checks (`scripts/check-*.mjs`) that fail when one of them stops applying (all but the `express` alias), when a content script is not a classic script, or when the bundle contains `new Function` or `eval(`. `e2e/` receives a credential from a local issuer in Chrome for Testing. DCQL presentation against a running verifier is not exercised there yet.
+These workarounds match package and file names inside Credo and its dependencies. `yarn build` ends with checks (`scripts/check-*.mjs`) that fail when one of them stops applying, when a content script is not a classic script, when the bundle contains `new Function` or `eval(`, or when the manifest is not a production one (see [trust-and-permissions.md](trust-and-permissions.md)). `e2e/` receives a credential from a local issuer in Chrome for Testing. DCQL presentation against a running verifier is not exercised there yet.
 
 ## Runtime
 
@@ -35,17 +38,19 @@ Branded Chrome ignores `--load-extension`; Chrome for Testing accepts it (see `e
 
 | Bundle (Credo 0.7.4) | Size |
 |---|---|
-| `dist/wallet/index.js` | 1,668 kB minified, 423 kB gzip |
-| Hedera resolver chunk | 1,635 kB minified, 319 kB gzip |
-| `dist/popup/index.js` | 19 kB minified, 6 kB gzip |
-| `dist/background/service-worker.js` | 3 kB minified, 1 kB gzip |
+| `dist/wallet/index.js` | 1,673 kB minified, 424 kB gzip |
+| Hedera resolver chunk | 1,636 kB minified, 319 kB gzip |
+| `dist/popup/index.js` | 21 kB minified, 6 kB gzip |
+| `dist/background/service-worker.js` | 5 kB minified, 2 kB gzip |
 | `dist/content-scripts/heka-bridge.js` | 2 kB minified, 1 kB gzip |
 
 The wallet entry is large because `@credo-ts/core` statically imports the modules the holder needs, so the dynamic import in `lazy-agent.ts` does not split them out of `wallet/index.js`. The popup bundle does not contain Credo.
 
 ## Holder behaviour
 
-OID4VCI uses `agent.openid4vc.holder`. Each issued SD-JWT record is stored with `agent.sdJwtVc.store`, with the issuer's display metadata in the record's metadata. The holder key is P-256 (ES256) or, for issuers that accept only EdDSA, Ed25519. It is bound as a JWK when the issuer accepts one, otherwise as a `did:jwk` or `did:key`. Issuers that require a key attestation are rejected.
+OID4VCI uses `agent.openid4vc.holder`. Each issued SD-JWT record is stored with `agent.sdJwtVc.store`, with the issuer's display metadata in the record's metadata. The holder key is P-256 (ES256) or, for issuers that accept only EdDSA, Ed25519. It is bound as a JWK when the issuer accepts one, otherwise as a `did:jwk` or `did:key`. Issuers that require a key attestation are rejected. That check runs on the offered credential configurations before the token request, so an offer this wallet cannot bind keeps its unredeemed code. A failure after the credentials are stored (rewriting the popup summary) keeps them.
+
+`SdJwtVcModule` gets a `customTypeMetadataResolver` (`src/credo/type-metadata-policy.ts`); the policy is in [trust-and-permissions.md](trust-and-permissions.md#type-metadata).
 
 OID4VP accepts only DCQL. `handlePresentationRequest` throws when the resolved request has no `dcql` property. Presentation Exchange is not used.
 

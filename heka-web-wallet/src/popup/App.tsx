@@ -5,6 +5,7 @@ import { loadCredentialSummaries } from '../wallet/summary-cache'
 import type { CredentialSummary } from '../wallet/summary-cache'
 import { CredentialList } from './components/CredentialList'
 import { ReceiveCredential } from './components/ReceiveCredential'
+import { SiteConnection } from './components/SiteConnection'
 import { WalletStatus } from './components/WalletStatus'
 
 export type AppView = 'wallet' | 'receive'
@@ -126,6 +127,7 @@ export const App: React.FC = () => {
           <>
             {view === 'wallet' && (
               <>
+                <SiteConnection />
                 <WalletStatus credentialCount={wallet.credentials.length} />
                 <CredentialList credentials={wallet.credentials} />
               </>

@@ -146,6 +146,20 @@ describe('OidcAuthProvider', () => {
     expect(window.location.search).toBe('?code=github-code&state=link-state');
   });
 
+  test('the public /present page is never taken for the OIDC callback', async () => {
+    await storeSession('heka-token');
+    const signinCallback = jest.spyOn(UserManager.prototype, 'signinCallback');
+    // A code and a state make the query look like a callback
+    const search =
+      '?client_id=verifier&request_uri=https%3A%2F%2Fverifier.example%2Fr&code=c&state=s';
+
+    await renderAt(`/present${search}`);
+
+    expect(signinCallback).not.toHaveBeenCalled();
+    expect(session).toMatchObject({ isAuthenticated: true, error: undefined });
+    expect(window.location.search).toBe(search);
+  });
+
   test('the OIDC callback at the redirect path is still processed', async () => {
     const signinCallback = jest
       .spyOn(UserManager.prototype, 'signinCallback')

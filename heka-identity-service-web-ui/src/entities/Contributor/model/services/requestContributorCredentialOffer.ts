@@ -8,8 +8,8 @@ import { ContributorCredentialOffer } from '../types/contributor';
 
 /**
  * Creates an OID4VCI offer of the contributor credential for the signed-in user. The page shows
- * the transaction code and the expiry beside the offer (the wallet asks for the code), so an
- * answer without them is rejected like a failed request.
+ * the transaction code and the expiry beside the offer (the wallet asks for the code) and follows
+ * the offer by its issuance session, so an answer without them is rejected like a failed request.
  */
 export const requestContributorCredentialOffer = createAsyncThunk<
   ContributorCredentialOffer,
@@ -31,11 +31,12 @@ export const requestContributorCredentialOffer = createAsyncThunk<
   if (
     !offer?.credentialOffer?.startsWith('openid-credential-offer:') ||
     !offer.txCode ||
-    !offer.expiresAt
+    Number.isNaN(Date.parse(offer.expiresAt)) ||
+    !offer.issuanceSessionId
   ) {
     return handleError(
       new Error(
-        'The issuer did not return a transaction code and expiry for this offer.',
+        'The identity service returned an incomplete credential offer.',
       ),
       rejectWithValue,
       dispatch,

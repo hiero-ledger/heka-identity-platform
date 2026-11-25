@@ -7,8 +7,11 @@ export interface TransactionCodeRequirement {
 }
 
 export interface OfferPreview {
-  issuerName: string
+  /** The origin of `credential_issuer`: the part of the issuer the wallet can vouch for. */
+  issuerOrigin: string
   issuerUrl: string
+  /** The issuer's display name from its own metadata: self-declared, so never shown as the issuer. */
+  issuerName: string | null
   credentials: Array<CredentialDisplay & { name: string; type: string }>
   txCode: TransactionCodeRequirement | null
 }
@@ -53,9 +56,17 @@ export function describeCredentialOffer(resolved: unknown): OfferPreview {
       }
     : null
 
+  let issuerOrigin = issuerUrl
+  try {
+    issuerOrigin = new URL(issuerUrl).origin
+  } catch {
+    // Not a URL: show it as it is.
+  }
+
   return {
-    issuerName: readIssuerName(issuer) ?? issuerUrl,
+    issuerOrigin,
     issuerUrl,
+    issuerName: readIssuerName(issuer) ?? null,
     credentials,
     txCode,
   }

@@ -1,4 +1,4 @@
-import { ClaimFormat, type DcqlCredentialsForRequest } from '@credo-ts/core'
+import { ClaimFormat, SdJwtVcRecord, type DcqlCredentialsForRequest } from '@credo-ts/core'
 import { describe, expect, it } from 'vitest'
 
 import type { ResolvedPresentationRequest } from '../present'
@@ -6,11 +6,22 @@ import { describePresentation } from '../presentation-preview'
 
 type Resolved = Pick<ResolvedPresentationRequest, 'origin' | 'verifier' | 'authorizationRequestPayload'>
 
+const part = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
+// A stored record, as DCQL selects it: its tags come from the compact SD-JWT VC (only decoded here).
+const record = new SdJwtVcRecord({
+  credentialInstances: [
+    {
+      compactSdJwtVc: `${part({ alg: 'EdDSA', typ: 'dc+sd-jwt' })}.${part({ vct: 'GitHub Contributor', iss: 'did:key:z6Mkissuer', _sd_alg: 'sha-256' })}.c2ln~`,
+    },
+  ],
+})
+
+// Keyed by the DCQL query id, which names the request's slot, not the credential
 const selected = {
-  github: [
+  contributor: [
     {
       claimFormat: ClaimFormat.SdJwtDc,
-      credentialRecord: { tags: { vct: 'GithubContributorCredential' } },
+      credentialRecord: record,
       disclosedPayload: { githubAccountId: '4115704', githubUsername: 'ada' },
     },
   ],
@@ -30,16 +41,21 @@ describe('describePresentation', () => {
 
     expect(describePresentation(resolved, selected)).toEqual({
       verifier: 'https://verifier.example/callback',
+      clientIdPrefix: 'redirect_uri',
       responseOrigin: 'https://verifier.example',
       selfDeclaredName: 'Hiero PR check',
       origin: 'https://verifier.example',
-      credentials: [{ name: 'GithubContributorCredential', claims: ['githubAccountId', 'githubUsername'] }],
+      credentials: [{ name: 'GitHub Contributor', claims: ['githubAccountId', 'githubUsername'] }],
     })
   })
 
   it('does not let the request-supplied name stand in for the verifier', () => {
     const resolved = {
-      verifier: { clientIdPrefix: 'decentralized_identifier', effectiveClientId: 'did:key:z6Mkverifier' },
+      // Credo 0.7.4's effective client id for an OpenID4VP 1.0 request, prefix included
+      verifier: {
+        clientIdPrefix: 'decentralized_identifier',
+        effectiveClientId: 'decentralized_identifier:did:key:z6Mkverifier',
+      },
       authorizationRequestPayload: {
         client_id: 'decentralized_identifier:did:key:z6Mkverifier',
         response_uri: 'https://elsewhere.example/post',
@@ -50,6 +66,7 @@ describe('describePresentation', () => {
     const preview = describePresentation(resolved, selected)
 
     expect(preview.verifier).toBe('did:key:z6Mkverifier')
+    expect(preview.clientIdPrefix).toBe('decentralized_identifier')
     expect(preview.responseOrigin).toBe('https://elsewhere.example')
     expect(preview.selfDeclaredName).toBe('Heka')
   })

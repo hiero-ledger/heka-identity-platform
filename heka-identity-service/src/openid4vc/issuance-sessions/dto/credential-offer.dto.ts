@@ -4,12 +4,15 @@ import { Type } from 'class-transformer'
 import {
   IsArray,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   Length,
   Matches,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator'
 
@@ -308,6 +311,18 @@ export class OpenId4VcIssuanceSessionsCreateOfferDto {
   @IsOptional()
   @IsEnum(CredentialVersion)
   public version?: CredentialVersion
+
+  @ApiPropertyOptional({
+    description: 'How long the offer can be redeemed, in seconds. Default: 180.',
+    minimum: 30,
+    maximum: 86400,
+    example: 600,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(30)
+  @Max(86400)
+  public offerExpiresInSeconds?: number
 
   @ApiPropertyOptional({ type: [OpenId4VcIssuanceSessionCreateOfferCredentialOptions] })
   @ValidateNested({ each: true })

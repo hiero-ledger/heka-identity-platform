@@ -5,6 +5,8 @@ import type { ResolvedPresentationRequest } from './present'
 export interface PresentationPreview {
   /** The client id Credo resolved and verified for the request's client id prefix. */
   verifier: string
+  /** How Credo verified `verifier`: the client id prefix, such as `decentralized_identifier` or `x509_san_dns`. */
+  clientIdPrefix: string | null
   /** The origin the presentation is posted to (response_uri). */
   responseOrigin: string | null
   /** client_metadata.client_name: chosen by whoever wrote the request, so never shown as the verifier. */
@@ -27,9 +29,9 @@ function originOf(value: unknown): string | null {
   }
 }
 
-function credentialName(record: object, fallback: string): string {
-  const tags = 'tags' in record ? (record as { tags?: { vct?: string } }).tags : undefined
-  return typeof tags?.vct === 'string' && tags.vct.length > 0 ? tags.vct : fallback
+function credentialName(record: { getTags(): object }, fallback: string): string {
+  const { vct } = record.getTags() as { vct?: unknown }
+  return typeof vct === 'string' && vct.length > 0 ? vct : fallback
 }
 
 /**
@@ -45,8 +47,12 @@ export function describePresentation(
     client_metadata?: { client_name?: unknown }
   }
   const clientName = payload.client_metadata?.client_name
+  const prefix = resolved.verifier.clientIdPrefix
+  // OpenID4VP 1.0's effective client id carries its prefix (decentralized_identifier:did:…), which the
+  // preview shows apart.
+  const effective = resolved.verifier.effectiveClientId
   const verifier =
-    resolved.verifier.effectiveClientId ||
+    (prefix && effective?.startsWith(`${prefix}:`) ? effective.slice(prefix.length + 1) : effective) ||
     (typeof payload.client_id === 'string' && payload.client_id) ||
     'Unknown verifier'
 
@@ -59,6 +65,7 @@ export function describePresentation(
 
   return {
     verifier,
+    clientIdPrefix: prefix || null,
     responseOrigin: originOf(payload.response_uri),
     selfDeclaredName: typeof clientName === 'string' && clientName.length > 0 ? clientName : null,
     origin: resolved.origin && resolved.origin.length > 0 ? resolved.origin : 'Origin not provided',

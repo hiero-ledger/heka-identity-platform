@@ -65,6 +65,8 @@ services:
       GITHUB_USER_API_URL: ${IDENTITY_SERVICE_GITHUB_USER_API_URL:-}
       GITHUB_GPG_KEY_BASE_URL: ${IDENTITY_SERVICE_GITHUB_GPG_KEY_BASE_URL:-}
       GITHUB_REQUEST_TIMEOUT_MS: ${IDENTITY_SERVICE_GITHUB_REQUEST_TIMEOUT_MS:-}
+      CONTRIBUTOR_ISSUER_ORG_ID: ${IDENTITY_SERVICE_CONTRIBUTOR_ISSUER_ORG_ID:-}
+      CONTRIBUTOR_ISSUER_DID: ${IDENTITY_SERVICE_CONTRIBUTOR_ISSUER_DID:-}
       # Public base URL of the REST API, embedded into status-list credential URLs and revocation
       # tails URLs; the https tunnel to 3000 when wallets or verifiers resolve them remotely.
       APP_ENDPOINT: ${IDENTITY_SERVICE_APP_ENDPOINT:-http://localhost:3000}

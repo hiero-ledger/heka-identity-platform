@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readdirSync, existsSync, renameSync } from 'fs'
+import { copyFileSync, mkdirSync, readdirSync, existsSync, readFileSync, renameSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 import { join } from 'path'
 
@@ -64,10 +64,40 @@ const buildContentScript = (mode: string): Plugin => ({
   },
 })
 
-const copyExtensionAssets = () => ({
+/**
+ * The development build (`--mode development`) may contact localhost without asking, and injects
+ * the bridge into the web UI's dev server, which the e2e harness also uses, without connecting it.
+ * manifest.json is the production manifest; scripts/check-manifest.mjs checks the built one.
+ */
+const DEVELOPMENT_HOSTS = ['http://localhost/*', 'http://127.0.0.1/*']
+
+function extensionManifest(mode: string): string {
+  const manifest = JSON.parse(readFileSync(resolve(__dirname, 'manifest.json'), 'utf8'))
+  if (mode !== 'development') return JSON.stringify(manifest, null, 2)
+  return JSON.stringify(
+    {
+      ...manifest,
+      host_permissions: DEVELOPMENT_HOSTS,
+      optional_host_permissions: manifest.optional_host_permissions.filter(
+        (pattern: string) => !DEVELOPMENT_HOSTS.includes(pattern),
+      ),
+      content_scripts: [
+        {
+          matches: ['http://localhost:8000/*', 'http://127.0.0.1:8000/*'],
+          js: ['content-scripts/heka-bridge.js'],
+          run_at: 'document_idle',
+        },
+      ],
+    },
+    null,
+    2,
+  )
+}
+
+const copyExtensionAssets = (mode: string) => ({
   name: 'copy-extension-assets',
   writeBundle() {
-    copyFileSync(resolve(__dirname, 'manifest.json'), resolve(__dirname, 'dist/manifest.json'))
+    writeFileSync(resolve(__dirname, 'dist/manifest.json'), extensionManifest(mode))
 
     const iconsDir = resolve(__dirname, 'icons')
     const distIconsDir = resolve(__dirname, 'dist/icons')
@@ -93,7 +123,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     cspSafeCredoModules(),
     stripExtensionUnsafeEval(),
-    copyExtensionAssets(),
+    copyExtensionAssets(mode),
     buildContentScript(mode),
   ],
   build: {
@@ -128,16 +158,11 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
-      // @credo-ts/openid4vc imports express. The holder path never calls it.
-      express: resolve(__dirname, 'src/credo/express-stub.ts'),
       // Published package points "module" at a file that is not in the tarball.
       '@digitalcredentials/open-badges-context': resolve(
         __dirname,
         'node_modules/@digitalcredentials/open-badges-context/js/index.js',
       ),
-      // Its exports point at the Node build (grpc-js over HTTP/2). Vite also reaches lib/browser.js
-      // through the package's browser field; the alias keeps it there.
-      '@hashgraph/sdk': resolve(__dirname, 'node_modules/@hashgraph/sdk/lib/browser.js'),
       // HCS checksums call this package, whose sha256 uses Node createHash.
       '@hiero-did-sdk/crypto': resolve(__dirname, 'src/credo/browser-hedera-crypto.ts'),
     },

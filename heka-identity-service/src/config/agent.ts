@@ -159,9 +159,6 @@ export default registerAs('agent', () => {
     },
   }
 
-  /** `DEMO_USER`: the OIDC subject whose `User` wallet is the provisional contributor credential issuer. */
-  const contributorIssuerDemoUser = process.env.DEMO_USER ?? 'demo'
-
   return {
     httpPort,
     wsPort,
@@ -188,7 +185,6 @@ export default registerAs('agent', () => {
     credentialsConfiguration,
     mdlIssuerCertificate,
     mdlIssuerPrivateKeyJwk,
-    contributorIssuerDemoUser,
   }
 })
 

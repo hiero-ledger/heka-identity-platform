@@ -50,7 +50,7 @@ function auth(overrides: Partial<AuthInfo> = {}): AuthInfo {
 function buildChallenge(overrides: Partial<GpgChallenge> = {}): GpgChallenge {
   const challenge = new GpgChallenge()
   challenge.id = '11111111-1111-4111-8111-111111111111'
-  challenge.userId = 'user-1'
+  challenge.user = { id: 'user-1' } as User
   challenge.tenantId = 'tenant-1'
   challenge.walletId = 'User_user-1'
   challenge.githubAccountId = '4115704'
@@ -119,6 +119,7 @@ describe('GpgChallengeService', () => {
     nativeUpdate: ReturnType<typeof vi.fn>
     nativeDelete: ReturnType<typeof vi.fn>
     refresh: ReturnType<typeof vi.fn>
+    getReference: ReturnType<typeof vi.fn>
   }
   let httpService: { get: ReturnType<typeof vi.fn> }
   let onboarding: {
@@ -136,6 +137,7 @@ describe('GpgChallengeService', () => {
       nativeUpdate: vi.fn().mockResolvedValue(1),
       nativeDelete: vi.fn().mockResolvedValue(0),
       refresh: vi.fn().mockResolvedValue(undefined),
+      getReference: vi.fn((_entity: unknown, id: string) => ({ id })),
     }
     httpService = { get: vi.fn() }
     onboarding = {
@@ -203,7 +205,8 @@ describe('GpgChallengeService', () => {
       const challenge = await service.createChallengeForUser(auth())
 
       expect(challenge.githubAccountId).toBe('4115704')
-      expect(challenge.userId).toBe('user-1')
+      expect(challenge.user.id).toBe('user-1')
+      expect(em.getReference).toHaveBeenCalledWith(User, 'user-1')
       expect(onboarding.recordChallengeRequested).toHaveBeenCalledWith(
         expect.objectContaining({ challengeId: challenge.id, githubAccountId: '4115704' }),
       )
@@ -217,7 +220,7 @@ describe('GpgChallengeService', () => {
     })
 
     it('throws NotFoundException when the challenge belongs to another user and does not burn it', async () => {
-      em.findOne.mockResolvedValue(buildChallenge({ userId: 'user-2' }))
+      em.findOne.mockResolvedValue(buildChallenge({ user: { id: 'user-2' } as User }))
       await expect(service.verifySignature(auth(), '11111111-1111-4111-8111-111111111111', 'sig')).rejects.toThrow(
         NotFoundException,
       )

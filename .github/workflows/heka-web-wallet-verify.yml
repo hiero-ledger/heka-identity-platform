@@ -56,6 +56,7 @@ jobs:
         run: yarn lint
 
       # `yarn build` ends with `yarn check:dist`: the content script parses as a classic script,
-      # the vite.config.ts workarounds still apply, and the bundle has no new Function / eval(.
+      # the vite.config.ts workarounds still apply, the bundle has no new Function / eval(, and
+      # the manifest grants no http access, injects no content script and has no unused permission.
       - name: Production build and dist checks
         run: yarn build

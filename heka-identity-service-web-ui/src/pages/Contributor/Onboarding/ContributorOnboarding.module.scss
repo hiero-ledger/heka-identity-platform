@@ -69,6 +69,15 @@ $gradient: linear-gradient(135deg, #ff8a3d 0%, #ef3e7f 55%, #8b5cf6 100%);
   line-height: 1.5;
 }
 
+.statusError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  color: $gray-900;
+  font: var(--font-body-s);
+}
+
 /* ── Loading bar ────────────────────────────────────────────────────────── */
 .loadingBar {
   height: 3px;

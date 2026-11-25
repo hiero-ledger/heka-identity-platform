@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 
@@ -21,6 +21,10 @@ import {
   MockApi,
   renderWithProviders,
 } from '@/shared/lib/tests/renderWithProviders';
+import {
+  mockWebWalletExtension,
+  postFromExtension,
+} from '@/shared/lib/webWallet/testUtils';
 
 import { PresentationRequestContext } from './VerificationRequest';
 import { VerificationRequest } from './VerificationRequest';
@@ -166,6 +170,59 @@ describe('OpenIdVerificationRequest', () => {
         '/openid4vc/verification-session/vs-1',
       );
       expect(screen.getByText('Alice')).toBeInTheDocument();
+    });
+  });
+
+  describe('Heka Web Wallet', () => {
+    const openWallet = () =>
+      screen.findByRole('button', { name: 'Open in Heka Web Wallet' });
+
+    afterEach(() => jest.restoreAllMocks());
+
+    test('hands the request to the detected wallet and shows its error', async () => {
+      const user = userEvent.setup();
+      const error = jest.spyOn(toast, 'error');
+      const { sent } = mockWebWalletExtension();
+      const api = createMockApi();
+      stubVerifier(api);
+      renderRequest(context, { api });
+
+      await user.click(await openWallet());
+
+      expect(sent).toEqual([
+        {
+          source: 'heka-web-wallet-bridge',
+          type: 'PRESENT_REQUEST',
+          payload: { requestUri: 'openid4vp://request' },
+        },
+      ]);
+
+      act(() => {
+        postFromExtension('PRESENT_STATUS', {
+          requestUri: 'openid4vp://request',
+          state: 'error',
+          message: 'No matching credential',
+        });
+      });
+      expect(error).toHaveBeenCalledWith('No matching credential');
+    });
+
+    test('is not offered without the extension', async () => {
+      const postMessage = jest.spyOn(window, 'postMessage');
+      const api = createMockApi();
+      stubVerifier(api);
+      renderRequest(context, { api });
+      await screen.findByTestId('qr');
+
+      await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+
+      expect(postMessage).toHaveBeenCalledWith(
+        { source: 'heka-web-wallet-bridge', type: 'PING' },
+        window.location.origin,
+      );
+      expect(
+        screen.queryByRole('button', { name: 'Open in Heka Web Wallet' }),
+      ).not.toBeInTheDocument();
     });
   });
 

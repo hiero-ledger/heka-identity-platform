@@ -1,11 +1,12 @@
-import { Entity, Index, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, ManyToOne, Property, Unique } from '@mikro-orm/decorators/legacy'
 
 import { Identified } from 'common/entities/identified.entity'
+import { User } from 'common/entities/user.entity'
 
 /**
  * One Heka user (the OIDC subject) linked to one GitHub account.
  *
- * Both `userId` and `githubAccountId` are unique. The wallet and tenant are
+ * Both `user` and `githubAccountId` are unique. The wallet and tenant are
  * those of the last link or verification: they follow the user's role and
  * organization, so a role change keeps the binding.
  * Pointing an existing binding at a different GitHub account clears
@@ -13,11 +14,14 @@ import { Identified } from 'common/entities/identified.entity'
  */
 @Entity()
 @Unique({ properties: ['githubAccountId'] })
-@Unique({ properties: ['userId'] })
+@Unique({ properties: ['user'] })
 export class ContributorBinding extends Identified {
-  /** OIDC subject (`AuthInfo.userId`) of the user who linked this GitHub account. */
-  @Property({ type: 'string' })
-  public userId!: string
+  /**
+   * The user who linked this GitHub account. The contributor tables cascade on user deletion, so erasing a user
+   * erases this feature's personal data with it; the audit log keeps plain ids.
+   */
+  @ManyToOne(() => User, { deleteRule: 'cascade' })
+  public user!: User
 
   /** Wallet from the user's AuthInfo at the last link or verification. */
   @Property({ type: 'string' })

@@ -3,8 +3,10 @@ import { PayloadAction } from '@reduxjs/toolkit';
 import { buildSlice } from '@/shared/lib/store';
 
 import { getContributorOnboardingStatus } from '../services/getContributorOnboardingStatus';
+import { requestContributorCredentialOffer } from '../services/requestContributorCredentialOffer';
 import { requestContributorGpgChallenge } from '../services/requestContributorGpgChallenge';
 import { startGithubLink } from '../services/startGithubLink';
+import { unlinkGithub } from '../services/unlinkGithub';
 import { verifyContributorGpgChallenge } from '../services/verifyContributorGpgChallenge';
 import { ContributorSchema, OnboardingStep } from '../types/contributor';
 
@@ -32,6 +34,7 @@ export const contributorSlice = buildSlice({
       if (!state.completedSteps.includes(action.payload)) {
         state.completedSteps.push(action.payload);
       }
+      state.error = null;
     },
     setGithubLinked(
       state,
@@ -150,6 +153,32 @@ export const contributorSlice = buildSlice({
       .addCase(verifyContributorGpgChallenge.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload ?? 'GPG challenge verification failed';
+      });
+
+    builder
+      .addCase(requestContributorCredentialOffer.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(requestContributorCredentialOffer.fulfilled, (state) => {
+        state.isLoading = false;
+      })
+      .addCase(requestContributorCredentialOffer.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload ?? 'Failed to request a credential offer';
+      });
+
+    builder
+      .addCase(unlinkGithub.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(unlinkGithub.fulfilled, (state) => {
+        state.isLoading = false;
+      })
+      .addCase(unlinkGithub.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload ?? 'Failed to unlink the GitHub account';
       });
   },
 });

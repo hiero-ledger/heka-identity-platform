@@ -43,6 +43,21 @@ describe('CopyLink', () => {
     expect(success).toHaveBeenCalledWith('Copied');
   });
 
+  test('takes another label', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <CopyLink
+        value="12345678"
+        text="Copy code"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Copy code' }));
+
+    await expect(navigator.clipboard.readText()).resolves.toBe('12345678');
+  });
+
   test('does not notify when there is nothing to copy', async () => {
     const user = userEvent.setup();
     const success = jest.spyOn(toast, 'success');

@@ -77,6 +77,8 @@ services:
       GITHUB_USER_API_URL: ${GITHUB_USER_API_URL:-}
       GITHUB_GPG_KEY_BASE_URL: ${GITHUB_GPG_KEY_BASE_URL:-}
       GITHUB_REQUEST_TIMEOUT_MS: ${GITHUB_REQUEST_TIMEOUT_MS:-}
+      CONTRIBUTOR_ISSUER_ORG_ID: ${CONTRIBUTOR_ISSUER_ORG_ID:-}
+      CONTRIBUTOR_ISSUER_DID: ${CONTRIBUTOR_ISSUER_DID:-}
       # Demo-token broker for the web UI's public demo pages (docs/setup.md#demo-token-broker);
       # the token endpoint is reached through the host gateway like the JWKS. Dev secret of the
       # shipped realm.

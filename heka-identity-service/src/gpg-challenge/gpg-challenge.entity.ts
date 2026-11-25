@@ -1,6 +1,7 @@
-import { Entity, Index, Property } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, ManyToOne, Property } from '@mikro-orm/decorators/legacy'
 
 import { Identified } from 'common/entities/identified.entity'
+import { User } from 'common/entities/user.entity'
 
 /**
  * Single-use GPG ownership challenge.
@@ -13,9 +14,10 @@ import { Identified } from 'common/entities/identified.entity'
  */
 @Entity()
 export class GpgChallenge extends Identified {
+  /** Deleted with the user (see `ContributorBinding.user`). */
   @Index()
-  @Property({ type: 'string' })
-  public userId!: string
+  @ManyToOne(() => User, { deleteRule: 'cascade' })
+  public user!: User
 
   @Property({ type: 'string' })
   public tenantId!: string

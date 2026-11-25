@@ -58,4 +58,7 @@ export const agencyEndpoints = {
   requestGpgChallenge: '/v2/gpg-challenge/request',
   verifyGpgChallenge: '/v2/gpg-challenge/verify',
   contributorCredentialOffer: '/v2/contributor-credential/offer',
+  contributorCredentialOfferState: (issuanceSessionId: string) =>
+    `/v2/contributor-credential/offer/${encodeURIComponent(issuanceSessionId)}`,
+  unlinkGithub: '/v2/contributor-onboarding/github',
 };
