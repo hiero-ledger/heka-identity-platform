@@ -52,4 +52,13 @@ export const agencyEndpoints = {
   getSingleVerificationTemplate: (id: string) =>
     `/verification-templates/${id}`,
   prepareWallet: '/prepare-wallet',
+  startGithubLink: '/v2/contributor-onboarding/github/link/start',
+  completeGithubLink: '/v2/contributor-onboarding/github/link/callback',
+  contributorOnboardingStatus: '/v2/contributor-onboarding/status',
+  requestGpgChallenge: '/v2/gpg-challenge/request',
+  verifyGpgChallenge: '/v2/gpg-challenge/verify',
+  contributorCredentialOffer: '/v2/contributor-credential/offer',
+  contributorCredentialOfferState: (issuanceSessionId: string) =>
+    `/v2/contributor-credential/offer/${encodeURIComponent(issuanceSessionId)}`,
+  unlinkGithub: '/v2/contributor-onboarding/github',
 };

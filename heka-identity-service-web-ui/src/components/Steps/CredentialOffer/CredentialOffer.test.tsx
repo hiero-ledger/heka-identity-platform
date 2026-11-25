@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import toast from 'react-hot-toast';
 
@@ -23,8 +23,13 @@ import {
   MockApi,
   renderWithProviders,
 } from '@/shared/lib/tests/renderWithProviders';
+import {
+  mockWebWalletExtension,
+  postFromExtension,
+} from '@/shared/lib/webWallet/testUtils';
 
 import { CredentialOffer, CredentialOfferContext } from './CredentialOffer';
+import { CredentialOfferView } from './states/CredentialOfferView';
 
 jest.mock('react-hot-toast', () => ({
   __esModule: true,
@@ -120,6 +125,10 @@ const renderOffer = (
   return { ...result, onChangeStep, user: userEvent.setup() };
 };
 
+// Long enough for a detected extension's answer to arrive, which comes after one task
+const waitForWalletDetection = () =>
+  act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+
 const sendToExistingConnection = async (
   user: ReturnType<typeof userEvent.setup>,
 ) => {
@@ -200,6 +209,22 @@ describe('CredentialOffer step', () => {
       expect(await screen.findByText(INVITATION)).toBeInTheDocument();
     });
 
+    test('offers no Heka Web Wallet button', async () => {
+      const { postMessage } = mockWebWalletExtension();
+      renderOffer(
+        ariesContext,
+        ariesAgency(AnoncredsCredentialState.OfferSent),
+      );
+      await screen.findByText(INVITATION);
+
+      await waitForWalletDetection();
+
+      expect(
+        screen.queryByRole('button', { name: 'Open in Heka Web Wallet' }),
+      ).not.toBeInTheDocument();
+      expect(postMessage).not.toHaveBeenCalled();
+    });
+
     test('refuses to offer with an incomplete context', async () => {
       const api = ariesAgency(AnoncredsCredentialState.OfferSent);
       const { user } = renderOffer({ ...ariesContext, did: undefined }, api);
@@ -249,6 +274,78 @@ describe('CredentialOffer step', () => {
         expect.anything(),
       );
       expect(screen.queryByText('Credential Sent')).toBeNull();
+    });
+
+    describe('Heka Web Wallet', () => {
+      const OFFER = 'openid-credential-offer://?offer=abc';
+      const openWallet = () =>
+        screen.findByRole('button', { name: 'Open in Heka Web Wallet' });
+
+      afterEach(() => jest.restoreAllMocks());
+
+      test('hands the offer to the detected wallet', async () => {
+        const { sent } = mockWebWalletExtension();
+        const api = openIdAgency(OpenIdIssuanceState.OfferCreated);
+        const { user } = renderOffer(openIdContext, api);
+
+        await user.click(await openWallet());
+
+        expect(sent).toEqual([
+          {
+            source: 'heka-web-wallet-bridge',
+            type: 'RECEIVE_OFFER',
+            payload: { offerUri: OFFER },
+          },
+        ]);
+      });
+
+      test("shows the wallet's error; completion stays with the polling", async () => {
+        mockWebWalletExtension();
+        const api = openIdAgency(OpenIdIssuanceState.OfferCreated);
+        const { user } = renderOffer(openIdContext, api);
+        await user.click(await openWallet());
+
+        act(() => {
+          postFromExtension('RECEIVE_STATUS', {
+            offerUri: `${OFFER}-other`,
+            state: 'error',
+            message: 'Not this offer',
+          });
+          postFromExtension('RECEIVE_STATUS', {
+            offerUri: OFFER,
+            state: 'error',
+            message: 'The offer has expired',
+          });
+          postFromExtension('RECEIVE_STATUS', {
+            offerUri: OFFER,
+            state: 'done',
+            message: 'Stored',
+          });
+        });
+
+        expect(toast.error).toHaveBeenCalledTimes(1);
+        expect(toast.error).toHaveBeenCalledWith('The offer has expired');
+        expect(screen.queryByText('Credential Sent')).toBeNull();
+      });
+
+      test('is not offered without the extension', async () => {
+        const postMessage = jest.spyOn(window, 'postMessage');
+        renderOffer(
+          openIdContext,
+          openIdAgency(OpenIdIssuanceState.OfferCreated),
+        );
+        await screen.findByText(OFFER);
+
+        await waitForWalletDetection();
+
+        expect(postMessage).toHaveBeenCalledWith(
+          { source: 'heka-web-wallet-bridge', type: 'PING' },
+          window.location.origin,
+        );
+        expect(
+          screen.queryByRole('button', { name: 'Open in Heka Web Wallet' }),
+        ).not.toBeInTheDocument();
+      });
     });
 
     test('offers from the demo agency and hides template saving', async () => {
@@ -302,5 +399,27 @@ describe('CredentialOffer step', () => {
       );
       expect(api.post).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('CredentialOfferView', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  test('shows the expiry as the locale writes it, slashes included', () => {
+    // A locale that writes dates with slashes
+    jest
+      .spyOn(Date.prototype, 'toLocaleString')
+      .mockReturnValue('25/11/2026, 14:30');
+
+    renderWithProviders(
+      <CredentialOfferView
+        value="openid-credential-offer://?offer=abc"
+        expiresAt="2026-11-25T14:30:00.000Z"
+      />,
+    );
+
+    expect(
+      screen.getByText('The offer expires 25/11/2026, 14:30.'),
+    ).toBeInTheDocument();
   });
 });

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Heka page (Web Wallet harness)</title>
+  </head>
+  <body>
+    <h1>Heka page (Web Wallet harness)</h1>
+    <p>Served where the development build injects the extension's content script.</p>
+    <script>
+      // The bridge protocol (docs/bridge-protocol.md), as the web UI speaks it.
+      window.__events = []
+      window.addEventListener('message', (event) => {
+        if (event.data && event.data.source === 'heka-extension-bridge') {
+          window.__events.push({ origin: event.origin, type: event.data.type, payload: event.data.payload })
+        }
+      })
+      window.sendBridge = (type, payload) =>
+        window.postMessage({ source: 'heka-web-wallet-bridge', type, payload }, window.location.origin)
+    </script>
+  </body>
+</html>

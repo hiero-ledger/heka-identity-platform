@@ -8,6 +8,11 @@ import { renderWithProviders } from '@/shared/lib/tests/renderWithProviders';
 
 import { DesktopNavigationMenu, MobileNavigationMenu } from './NavigationMenu';
 
+// The menus are built when the module loads (NavigationMenu.contributorVerification.test.tsx has the feature on)
+jest.mock('@/shared/config/features', () => ({
+  features: { revocation: true, contributorVerification: false },
+}));
+
 const signedInState: Partial<StateSchema> = {
   user: {
     isLoading: false,
@@ -106,6 +111,13 @@ describe('DesktopNavigationMenu', () => {
     expect(location()).toHaveTextContent(/^\/$/);
   });
 
+  test('has no Contributor Hub item while contributor verification is off', () => {
+    renderMenu(<DesktopNavigationMenu />, signedInState);
+
+    expect(screen.getAllByRole('link')).toHaveLength(3);
+    expect(screen.queryByText('Contributor Hub')).not.toBeInTheDocument();
+  });
+
   test('opens the profile from the user button', async () => {
     const user = userEvent.setup();
 
@@ -146,6 +158,13 @@ describe('MobileNavigationMenu', () => {
 
     await user.click(screen.getByText('Verify'));
     expect(location()).toHaveTextContent('/verify-credential/templates');
+  });
+
+  test('has no Contributor Hub item while contributor verification is off', () => {
+    renderMenu(<MobileNavigationMenu />, signedInState);
+
+    expect(screen.getAllByRole('link')).toHaveLength(3);
+    expect(screen.queryByText('Contributor Hub')).not.toBeInTheDocument();
   });
 
   test('sends signed-out users to sign in', async () => {

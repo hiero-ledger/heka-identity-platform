@@ -7,6 +7,7 @@ import {
 import { AxiosInstance } from 'axios';
 
 import { ConnectionSchema } from '@/entities/Connection';
+import { ContributorSchema } from '@/entities/Contributor';
 import { CredentialSchema } from '@/entities/Credential';
 import { IssuanceTemplateSchema } from '@/entities/IssuanceTemplate';
 import { IssuedCredentialsSchema } from '@/entities/IssuedCredential';
@@ -24,6 +25,7 @@ export interface StateSchema {
   verificationTemplates: VerificationTemplateSchema;
   issuedCredentials: IssuedCredentialsSchema;
   user: UserSchema;
+  contributor: ContributorSchema;
 }
 
 export type StateSchemaKey = keyof StateSchema;

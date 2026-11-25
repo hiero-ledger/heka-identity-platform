@@ -94,6 +94,35 @@ describe('NotificationGateway', () => {
     expect(JSON.stringify(child.mock.calls)).not.toMatch(/PRE-SNTL|NONCE-SNTL/)
   })
 
+  test.each([
+    [
+      'a DIDComm record',
+      { id: 'cred-1', type: 'DidCommCredentialStateChanged', details: { secret: 'SNTL' } },
+      'cred-1',
+    ],
+    [
+      'an issuance session',
+      {
+        type: 'OpenId4VcIssuer.IssuanceSessionStateChanged',
+        issuanceSession: { id: 'is-1', preAuthorizedCode: 'SNTL' },
+      },
+      'is-1',
+    ],
+    [
+      'a verification session',
+      { type: 'OpenId4VcVerifier.VerificationSessionStateChanged', verificationSession: { id: 'vs-1', nonce: 'SNTL' } },
+      'vs-1',
+    ],
+  ])('binds the type and record id of %s on send, not the record', (_, message, id) => {
+    const child = vi.fn(() => createMock<Logger>())
+    gateway = new NotificationGateway(authService, makeOrm(), createMock<Logger>({ child }))
+
+    gateway.send('11', message as unknown as NotificationDto)
+
+    expect(child).toHaveBeenCalledWith('send', { userId: '11', notification: { type: message.type, id } })
+    expect(JSON.stringify(child.mock.calls)).not.toContain('SNTL')
+  })
+
   afterEach(() => {
     vi.useRealTimers()
   })

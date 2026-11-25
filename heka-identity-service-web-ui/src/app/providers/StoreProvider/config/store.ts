@@ -2,6 +2,7 @@ import { configureStore, ReducersMapObject } from '@reduxjs/toolkit';
 import { Reducer } from 'redux';
 
 import { connectionReducer } from '@/entities/Connection';
+import { contributorReducer } from '@/entities/Contributor';
 import { credentialReducer } from '@/entities/Credential';
 import { issuanceTemplatesReducer } from '@/entities/IssuanceTemplate';
 import { issuedCredentialsReducer } from '@/entities/IssuedCredential';
@@ -33,6 +34,7 @@ export function createReduxStore(
     issuanceTemplates: issuanceTemplatesReducer,
     verificationTemplates: verificationTemplatesReducer,
     issuedCredentials: issuedCredentialsReducer,
+    contributor: contributorReducer,
   };
 
   const reducerManager = createReducerManager(rootReducers);

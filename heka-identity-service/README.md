@@ -12,6 +12,7 @@ The service is configured via environment variables. The full reference (~70 var
 
 - `OIDC_ISSUER_URL`, `OIDC_AUDIENCE` (plus `OIDC_CLAIM_*` for providers that namespace custom claims) — the OpenID Connect provider whose bearer tokens the API accepts; see [Authentication (OIDC)](docs/setup.md#authentication-oidc).
 - `DEMO_TOKEN_URL`, `DEMO_CLIENT_ID`, `DEMO_CLIENT_SECRET` (optional) — enable `GET /demo/token`, the short-lived token broker behind the web UI's public demo pages; see [Demo token broker](docs/setup.md#demo-token-broker).
+- `CONTRIBUTOR_VERIFICATION_ENABLED` (optional, default `false`) — GitHub contributor verification: link a GitHub account, prove a GPG key, receive a contributor credential. When `true`, it requires `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `GITHUB_CALLBACK_URL` (the web UI's `/github/callback`), and the issuer organization `CONTRIBUTOR_ISSUER_ORG_ID` with its DID `CONTRIBUTOR_ISSUER_DID`; see [Contributor verification](docs/setup.md#contributor-verification-optional).
 - `HEDERA_OPERATOR_ID`, `HEDERA_OPERATOR_KEY`, `HEDERA_NETWORK` — see [Hedera Integration](docs/hedera.md).
 - `MIKRO_ORM_HOST`, `MIKRO_ORM_PORT`, `MIKRO_ORM_USER`, `MIKRO_ORM_PASSWORD`, `MIKRO_ORM_DATABASE` — application database connection.
 - `DID_METHODS` — comma-separated list of enabled DID methods (default `indy,key,hedera`).
@@ -28,6 +29,7 @@ The service is configured via environment variables. The full reference (~70 var
 
 - [How to Issue an SD-JWT VC](docs/how-to-issue-sd-jwt-vc.md) — Basic example flow for OID4VCI-based issuance with SD-JWT format
 - [Verification via the Digital Credentials API](docs/dc-api.md) — browser-mediated OpenID4VP `dc_api` verification, same-device and cross-device
+- [Contributor onboarding](docs/contributor-onboarding.md) — the optional GitHub contributor verification: flow, credential claims, limitations ([troubleshooting](docs/contributor-troubleshooting.md))
 - [Local Configuration for Heka Wallet Integration](docs/local-config-for-heka-wallet-integration.md) — exposing a local instance to the mobile wallet
 
 **Integration**

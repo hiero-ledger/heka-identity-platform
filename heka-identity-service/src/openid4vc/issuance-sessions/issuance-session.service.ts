@@ -210,6 +210,7 @@ export class OpenId4VcIssuanceSessionService {
       credentialConfigurationIds: req.credentials.map((c) => c.credentialSupportedId),
       issuerId: req.publicIssuerId,
       preAuthorizedCodeFlowConfig: req.preAuthorizedCodeFlowConfig ?? {},
+      expirationInSeconds: req.offerExpiresInSeconds,
       issuanceMetadata: {
         credentials: mappedCredentials,
       },
@@ -221,13 +222,13 @@ export class OpenId4VcIssuanceSessionService {
 
     // Entries were just reserved, so they are all valid: no need to read the lists back
     const revocable = tokenStatusListEntriesOf(mappedCredentials).length > 0
-    return {
-      issuanceSession: OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(
-        issuanceSession,
-        revocable ? { revocable, revoked: false } : { revocable },
-      ),
-      credentialOffer,
-    }
+    const session = OpenId4VcIssuanceSessionRecordDto.fromOpenId4VcIssuanceSessionRecord(
+      issuanceSession,
+      revocable ? { revocable, revoked: false } : { revocable },
+    )
+    // Only the creator of the offer gets its transaction code; the session reads leave it out
+    session.userPin = issuanceSession.userPin
+    return { issuanceSession: session, credentialOffer }
   }
 
   /**

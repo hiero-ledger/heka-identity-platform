@@ -170,6 +170,27 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(result.id).toBe('session-1')
       expect(result.publicIssuerId).toBe('issuer-1')
     })
+
+    test('keeps the error message of a failed session, by id and in the list', async () => {
+      const failed = issuanceSessionRecordStub({
+        id: 'session-1',
+        issuerId: 'issuer-1',
+        state: 'Error',
+        type: 'OpenId4VcIssuanceSessionRecord',
+        createdAt: new Date(),
+        credentialOfferPayload: {},
+        errorMessage: 'Credential offer has expired',
+      })
+      vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(failed)
+      mockFindIssuanceSessionsByQuery.mockResolvedValue([failed])
+
+      const byId = await service.getIssuanceSession(tenantAgent, 'session-1')
+      const [listed] = await service.getIssuanceSessionsByQuery(tenantAgent, { publicIssuerId: 'issuer-1' })
+
+      for (const session of [byId, listed]) {
+        expect(session.errorMessage).toBe('Credential offer has expired')
+      }
+    })
   })
 
   describe('deleteIssuanceSession', () => {
@@ -1216,6 +1237,92 @@ describe('OpenId4VcIssuanceSessionService', () => {
       expect(tokenStatusListService.reserveIndexes).not.toHaveBeenCalled()
       // MsoMdoc uses X.509, so no DID resolution
       expect(tenantAgent.dids.resolve).not.toHaveBeenCalled()
+    })
+
+    describe('offer lifetime, tx code and expiry', () => {
+      const expiresAt = new Date('2026-11-25T12:10:00.000Z')
+
+      async function offerMdoc(extra: Record<string, unknown>) {
+        vi.mocked(tenantAgent.openid4vc.issuer.getIssuerByIssuerId).mockResolvedValue(
+          issuerRecordStub({
+            issuerId: 'issuer-1',
+            credentialConfigurationsSupported: {
+              'cred-mdoc-1': { format: 'mso_mdoc', doctype: 'org.iso.18013.5.1.mDL' },
+            },
+          }),
+        )
+        vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mockResolvedValue({
+          credentialOffer: 'openid-credential-offer://mdoc',
+          issuanceSession: issuanceSessionRecordStub({
+            id: 'session-mdoc',
+            issuerId: 'issuer-1',
+            state: 'OfferCreated',
+            type: 'OpenId4VcIssuanceSessionRecord',
+            createdAt: new Date(),
+            credentialOfferPayload: {},
+            userPin: '12345678',
+            expiresAt,
+          }),
+        })
+        return service.offer(authInfo, tenantAgent, {
+          publicIssuerId: 'issuer-1',
+          credentials: [
+            {
+              credentialSupportedId: 'cred-mdoc-1',
+              format: OpenId4VciCredentialFormatProfile.MsoMdoc,
+              namespaces: { 'org.iso.18013.5.1': { family_name: 'Doe' } },
+            },
+          ],
+          ...extra,
+        } as any)
+      }
+
+      test('passes offerExpiresInSeconds to Credo as the offer expiration', async () => {
+        await offerMdoc({ offerExpiresInSeconds: 600 })
+
+        expect(tenantAgent.openid4vc.issuer.createCredentialOffer).toHaveBeenCalledWith(
+          expect.objectContaining({ expirationInSeconds: 600 }),
+        )
+      })
+
+      test("leaves the expiration to Credo's default when offerExpiresInSeconds is absent", async () => {
+        await offerMdoc({})
+
+        const [options] = vi.mocked(tenantAgent.openid4vc.issuer.createCredentialOffer).mock.calls[0]
+        expect(options.expirationInSeconds).toBeUndefined()
+      })
+
+      test("returns the session's tx code and expiry", async () => {
+        const { issuanceSession } = await offerMdoc({
+          preAuthorizedCodeFlowConfig: { txCode: { input_mode: 'numeric', length: 8 } },
+        })
+
+        expect(issuanceSession.userPin).toBe('12345678')
+        expect(issuanceSession.expiresAt).toEqual(expiresAt)
+      })
+
+      test('leaves the tx code out of the session reads, which everyone in the wallet may make; keeps the expiry', async () => {
+        const pending = issuanceSessionRecordStub({
+          id: 'session-mdoc',
+          issuerId: 'issuer-1',
+          state: 'OfferCreated',
+          type: 'OpenId4VcIssuanceSessionRecord',
+          createdAt: new Date(),
+          credentialOfferPayload: {},
+          userPin: '12345678',
+          expiresAt,
+        })
+        vi.mocked(tenantAgent.openid4vc.issuer.getIssuanceSessionById).mockResolvedValue(pending)
+        mockFindIssuanceSessionsByQuery.mockResolvedValue([pending])
+
+        const byId = await service.getIssuanceSession(tenantAgent, 'session-mdoc')
+        const [listed] = await service.getIssuanceSessionsByQuery(tenantAgent, { publicIssuerId: 'issuer-1' })
+
+        for (const session of [byId, listed]) {
+          expect(session).not.toHaveProperty('userPin')
+          expect(session.expiresAt).toEqual(expiresAt)
+        }
+      })
     })
 
     test('should throw UnprocessableEntityException when credential format is not allowed by agency config', async () => {

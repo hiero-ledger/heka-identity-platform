@@ -65,8 +65,16 @@ exports[`route coverage of the role model > the role matrix only changes on purp
 | \`GET /token-status-lists/:id\` | public | public | public | public | public | public | public |
 | \`GET /user\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`PATCH /user\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /v2/contributor-credential/offer\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /v2/contributor-credential/offer/:issuanceSessionId\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`DELETE /v2/contributor-onboarding/github\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /v2/contributor-onboarding/github/link/callback\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /v2/contributor-onboarding/github/link/start\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`GET /v2/contributor-onboarding/status\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`POST /v2/credentials/offer-by-template\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
 | \`POST /v2/credentials/proof-by-template\` | ✓ | ✓ | ✓ |  | ✓ | ✓ |  |
+| \`POST /v2/gpg-challenge/request\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| \`POST /v2/gpg-challenge/verify\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`GET /v2/schemas\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | \`POST /v2/schemas\` | ✓ | ✓ | ✓ |  | ✓ |  |  |
 | \`GET /v2/schemas/:id\` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |

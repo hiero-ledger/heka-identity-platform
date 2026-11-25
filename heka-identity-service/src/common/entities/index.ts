@@ -1,3 +1,9 @@
+import { ContributorCredentialIssuance } from 'contributor-credential/contributor-credential-issuance.entity'
+import { ContributorAuditEvent } from 'contributor-onboarding/contributor-audit-event.entity'
+import { ContributorBinding } from 'contributor-onboarding/contributor-binding.entity'
+import { OAuthLinkAttempt } from 'contributor-onboarding/oauth-link-attempt.entity'
+import { GpgChallenge } from 'gpg-challenge/gpg-challenge.entity'
+
 import { CredentialStatusList } from './credential-status-list.entity'
 import { Identified } from './identified.entity'
 import { IssuanceTemplateField } from './issuance-template-field.entity'
@@ -36,6 +42,11 @@ export default [
   Identified,
   User,
   Wallet,
+  ContributorBinding,
+  ContributorAuditEvent,
+  OAuthLinkAttempt,
+  GpgChallenge,
+  ContributorCredentialIssuance,
   Schema,
   SchemaField,
   SchemaRegistration,

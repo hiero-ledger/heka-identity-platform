@@ -19,7 +19,12 @@ describe('NotificationService', () => {
   let childLogger: Logger
   let child: ReturnType<typeof vi.fn>
 
-  const notification = { type: 'ConnectionStateChanged' } as unknown as NotificationDto
+  const notification = {
+    id: 'conn-1',
+    type: 'ConnectionStateChanged',
+    state: 'completed',
+    details: { theirLabel: 'Alice' },
+  } as unknown as NotificationDto
 
   beforeEach(() => {
     post = vi.fn().mockResolvedValue({ status: 200 })
@@ -69,9 +74,9 @@ describe('NotificationService', () => {
     expect(post).not.toHaveBeenCalled()
   })
 
-  // The user entity carries the webhook URL, which may embed credentials or tokens; only
-  // identifiers may reach the log context of the failure record.
-  test('logs a rejected delivery without the webhook URL', async () => {
+  // The user entity carries the webhook URL, which may embed credentials or tokens, and the notification's record
+  // can hold offer secrets; only identifiers may reach the log context of the failure record.
+  test('logs a rejected delivery without the webhook URL or the notification record', async () => {
     const webHook = 'https://alice:s3cret@hooks.example.com/notify?token=abc'
     const user = new User({ id: '11', messageDeliveryType: MessageDeliveryType.WebHook, webHook })
     vi.mocked(webhookEgress.assertCallbackUrlAllowed).mockRejectedValue(
@@ -85,7 +90,7 @@ describe('NotificationService', () => {
     const bindings = bindingCall![1] as Record<string, unknown>
     expect(bindings).toEqual({
       user: { id: '11', messageDeliveryType: MessageDeliveryType.WebHook },
-      notification,
+      notification: { type: 'ConnectionStateChanged', id: 'conn-1' },
     })
     const serialized = JSON.stringify(bindings)
     expect(serialized).not.toContain(webHook)

@@ -4,17 +4,22 @@ import ROUTES from '@/app/routes/RoutePaths';
 import AuthenticatedLayout from '@/components/Layout/AuthenticatedLayout';
 import UnauthenticatedLayout from '@/components/Layout/UnauthenticatedLayout';
 import AgeVerificationDemo from '@/pages/AgeVerificationDemo/AgeVerificationDemo';
+import ContributorHub from '@/pages/Contributor/ContributorHub';
+import ContributorOnboarding from '@/pages/Contributor/Onboarding/ContributorOnboarding';
 import Demo from '@/pages/Demo/Demo';
+import GithubCallback from '@/pages/GithubCallback/GithubCallback';
 import Home from '@/pages/Home/Home';
 import CredentialOffer from '@/pages/IssueCredential/CredentialOffer/CredentialOffer';
 import IssueCredential from '@/pages/IssueCredential/IssueCredential';
 import { IssueFromTemplate } from '@/pages/IssueCredential/IssueFromTemplate/IssueFromTemplate';
+import Present from '@/pages/Present/Present';
 import Profile from '@/pages/Profile/Profile';
 import SignInView from '@/pages/SignIn/SignIn';
 import { VerificationFromTemplate } from '@/pages/VerifyCredential/VerificationFromTemplate/VerificationFromTemplate';
 import VerificationRequest from '@/pages/VerifyCredential/VerificationRequest/VerificationRequest';
 import VerifyCredential from '@/pages/VerifyCredential/VerifyCredential';
 import { useAuthSession } from '@/shared/auth/session';
+import { features } from '@/shared/config/features';
 import { routerFuture } from '@/shared/config/router';
 import { LoaderView } from '@/shared/ui/Loader/Loader';
 
@@ -42,6 +47,10 @@ const AuthenticatedRoutes = () => (
         element={<AgeVerificationDemo />}
       />
       <Route
+        path={ROUTES.PRESENT}
+        element={<Present />}
+      />
+      <Route
         path={ROUTES.ISSUE_CREDENTIAL}
         element={<IssueCredential />}
       />
@@ -65,6 +74,22 @@ const AuthenticatedRoutes = () => (
         path={ROUTES.VERIFICATION_REQUEST}
         element={<VerificationRequest />}
       />
+      {features.contributorVerification && (
+        <>
+          <Route
+            path={ROUTES.CONTRIBUTOR}
+            element={<ContributorHub />}
+          />
+          <Route
+            path={ROUTES.CONTRIBUTOR_ONBOARDING}
+            element={<ContributorOnboarding />}
+          />
+          <Route
+            path={ROUTES.GITHUB_CALLBACK}
+            element={<GithubCallback />}
+          />
+        </>
+      )}
       <Route
         path="*"
         element={<Navigate to={ROUTES.MAIN} />}
@@ -88,6 +113,10 @@ const UnauthenticatedRoutes = () => (
       <Route
         path={ROUTES.AGE_DEMO}
         element={<AgeVerificationDemo />}
+      />
+      <Route
+        path={ROUTES.PRESENT}
+        element={<Present />}
       />
       <Route
         path="*"

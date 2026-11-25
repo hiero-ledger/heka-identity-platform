@@ -66,10 +66,17 @@ export class OpenId4VcIssuanceSessionRecordDto {
   public preAuthorizedCode?: string
 
   /**
-   * Optional user pin that needs to be provided by the user in the access token request.
+   * Optional user pin that needs to be provided by the user in the access token request. Only the offer response
+   * carries it: with the offer URI it is enough to redeem the offer.
    */
   @ApiPropertyOptional()
   public userPin?: string
+
+  /**
+   * The time after which the offer can no longer be redeemed.
+   */
+  @ApiPropertyOptional({ type: Date })
+  public expiresAt?: Date
 
   /**
    * User-defined metadata that will be provided to the credential request to credential mapper
@@ -127,10 +134,12 @@ export class OpenId4VcIssuanceSessionRecordDto {
   ) {
     this.credentialOfferPayload = params.credentialOfferPayload
     this.preAuthorizedCode = params.preAuthorizedCode
+    this.expiresAt = params.expiresAt
     this.publicIssuerId = params.publicIssuerId
     this.state = params.state
     this.type = params.type
     this.credentialOfferUri = params.credentialOfferUri
+    this.errorMessage = params.errorMessage
     this.id = params.id
     this.issuanceMetadata = params.issuanceMetadata
     this.createdAt = params.createdAt

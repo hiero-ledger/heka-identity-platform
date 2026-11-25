@@ -11,8 +11,10 @@ import {
   getUserName,
 } from '@/entities/User/model/selectors/userSelector';
 import IssueIcon from '@/shared/assets/icons/dashboard-outline.svg';
+import UserIcon from '@/shared/assets/icons/user.svg';
 import VerifyIcon from '@/shared/assets/icons/verified-outline-rounded.svg';
 import WalletIcon from '@/shared/assets/icons/wallet-outline.svg';
+import { features } from '@/shared/config/features';
 import { clickableProps } from '@/shared/lib/a11y/clickable';
 import { classNames } from '@/shared/lib/classNames';
 import { Button } from '@/shared/ui/Button';
@@ -68,7 +70,18 @@ const desktopMenuItems: Array<DesktopMenuItem> = [
       ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
     ],
   },
+  ...(features.contributorVerification
+    ? [
+        {
+          icon: <UserIcon {...desktopIconProps} />,
+          title: i18next.t('Contributor.titles.main'),
+          route: ROUTES.CONTRIBUTOR,
+          active: [ROUTES.CONTRIBUTOR, ROUTES.CONTRIBUTOR_ONBOARDING],
+        },
+      ]
+    : []),
 ];
+
 export const DesktopNavigationMenu = () => {
   const { t } = useTranslation();
 
@@ -187,6 +200,16 @@ const mobileMenuItems: Array<DesktopMenuItem> = [
       ROUTES.VERIFY_CREDENTIAL_FROM_TEMPLATE,
     ],
   },
+  ...(features.contributorVerification
+    ? [
+        {
+          icon: <UserIcon {...mobileIconProps} />,
+          title: i18next.t('Contributor.titles.main'),
+          route: ROUTES.CONTRIBUTOR,
+          active: [ROUTES.CONTRIBUTOR, ROUTES.CONTRIBUTOR_ONBOARDING],
+        },
+      ]
+    : []),
 ];
 
 export const MobileNavigationMenu = () => {

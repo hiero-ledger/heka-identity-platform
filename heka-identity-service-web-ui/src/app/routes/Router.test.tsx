@@ -3,6 +3,7 @@ import { Provider } from 'react-redux';
 
 import { StateSchema } from '@/app/providers/StoreProvider';
 import { AuthSession, AuthSessionContext } from '@/shared/auth/session';
+import { features } from '@/shared/config/features';
 import {
   createTestSession,
   createTestStore,
@@ -42,6 +43,20 @@ jest.mock(
   '@/pages/VerifyCredential/VerificationFromTemplate/VerificationFromTemplate',
   () => ({ VerificationFromTemplate: mockPage('verification from template') }),
 );
+jest.mock('@/pages/Contributor/ContributorHub', () =>
+  mockPage('contributor hub'),
+);
+jest.mock('@/pages/Contributor/Onboarding/ContributorOnboarding', () =>
+  mockPage('contributor onboarding'),
+);
+jest.mock('@/pages/GithubCallback/GithubCallback', () =>
+  mockPage('github callback'),
+);
+jest.mock('@/pages/Present/Present', () => mockPage('present'));
+// Router reads the flags when it renders, so a test can switch them on
+jest.mock('@/shared/config/features', () => ({
+  features: { revocation: true, contributorVerification: false },
+}));
 
 import Router from './Router';
 
@@ -74,7 +89,10 @@ const renderRouter = (
 };
 
 describe('Router', () => {
-  afterEach(() => window.history.pushState({}, '', '/'));
+  afterEach(() => {
+    window.history.pushState({}, '', '/');
+    features.contributorVerification = false;
+  });
 
   test('renders only a loader while the session is restored', () => {
     renderRouter('/profile', true, { isLoading: true });
@@ -94,6 +112,7 @@ describe('Router', () => {
     ['/verify-credential/templates', 'verify'],
     ['/verify-credential/from-template', 'verification from template'],
     ['/verify-credential/verification-request', 'verification request'],
+    ['/present', 'present'],
   ])('signed in, %s renders the %s page', (path, page) => {
     renderRouter(path, true);
 
@@ -121,6 +140,7 @@ describe('Router', () => {
     ['/', 'home'],
     ['/demo', 'demo'],
     ['/age-demo', 'age demo'],
+    ['/present', 'present'],
   ])('signed out, %s renders the public %s page', (path, page) => {
     renderRouter(path, false);
 
@@ -133,6 +153,30 @@ describe('Router', () => {
     expect(screen.getByText('sign in page')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
   });
+
+  test.each([
+    ['/contributor', 'contributor hub'],
+    ['/contributor/onboarding', 'contributor onboarding'],
+    ['/github/callback', 'github callback'],
+  ])(
+    'signed in with contributor verification on, %s renders the %s page',
+    (path, page) => {
+      features.contributorVerification = true;
+      renderRouter(path, true);
+
+      expect(screen.getByText(`${page} page`)).toBeInTheDocument();
+    },
+  );
+
+  test.each(['/contributor', '/contributor/onboarding', '/github/callback'])(
+    'signed in with contributor verification off, %s redirects home',
+    (path) => {
+      renderRouter(path, true);
+
+      expect(screen.getByText('home page')).toBeInTheDocument();
+      expect(window.location.pathname).toBe('/');
+    },
+  );
 
   test('signed out, private routes redirect home', () => {
     renderRouter('/issue-credential/templates', false);

@@ -146,6 +146,7 @@ describe('E2E issuance session', () => {
         id: expect.any(String),
         publicIssuerId: expect.any(String),
         preAuthorizedCode: expect.any(String),
+        expiresAt: expect.any(String),
         state: 'OfferCreated',
         type: 'OpenId4VcIssuanceSessionRecord',
         updatedAt: expect.any(String),
@@ -307,6 +308,76 @@ describe('E2E issuance session', () => {
     expect(response.statusCode).toBe(404)
     expect(response.body.message).toContain('OpenId4VcIssuerRecord')
   })
+
+  test.skipIf(!didMethods.includes('key'))(
+    'an offer returns its tx code and expiry; offerExpiresInSeconds sets the lifetime (default 180 s)',
+    async () => {
+      // An organization of its own: Admins share one wallet, whose main DID another test creates
+      const token = await createAuthToken(uuid(), Role.OrgAdmin, uuid())
+      const did = await request(app).post('/dids').auth(token, { type: 'bearer' }).send({ method: 'key' })
+      expect(did.statusCode).toBe(201)
+      const issuerId = did.body.id as string
+      const issuer = await request(app)
+        .post('/openid4vc/issuer')
+        .auth(token, { type: 'bearer' })
+        .send({
+          publicIssuerId: issuerId,
+          credentialsSupported: [{ id: 'SdJwtVcExample', format: 'vc+sd-jwt', vct: 'Example' }],
+        })
+      expect(issuer.statusCode).toBe(200)
+
+      const offer = (body: Record<string, unknown>) =>
+        request(app)
+          .post('/openid4vc/issuance-session/offer')
+          .auth(token, { type: 'bearer' })
+          .send({
+            publicIssuerId: issuerId,
+            credentials: [
+              {
+                credentialSupportedId: 'SdJwtVcExample',
+                format: 'vc+sd-jwt',
+                issuer: { method: 'did', did: issuerId },
+                payload: { first_name: 'John' },
+                disclosureFrame: {},
+              },
+            ],
+            ...body,
+          })
+      const lifetimeOf = (session: { createdAt: string; expiresAt: string }) =>
+        (Date.parse(session.expiresAt) - Date.parse(session.createdAt)) / 1000
+
+      const withTxCode = await offer({
+        preAuthorizedCodeFlowConfig: { txCode: { input_mode: 'numeric', length: 8 } },
+        offerExpiresInSeconds: 600,
+      })
+      expect(withTxCode.statusCode).toBe(200)
+      expect(withTxCode.body.issuanceSession.userPin).toMatch(/^\d{8}$/)
+      expect(withTxCode.body.credentialOffer).not.toContain(withTxCode.body.issuanceSession.userPin)
+      expect(lifetimeOf(withTxCode.body.issuanceSession)).toBeCloseTo(600, 0)
+
+      // Only the offer response carries the tx code: the session reads, open to everyone in the wallet, leave it out
+      const sessionId = withTxCode.body.issuanceSession.id as string
+      const byId = await request(app).get(`/openid4vc/issuance-session/${sessionId}`).auth(token, { type: 'bearer' })
+      const listed = await request(app)
+        .get('/openid4vc/issuance-session')
+        .query({ publicIssuerId: issuerId })
+        .auth(token, { type: 'bearer' })
+      const listedSession = (listed.body as Array<{ id: string }>).find(({ id }) => id === sessionId)
+      for (const session of [byId.body, listedSession]) {
+        expect(session).not.toHaveProperty('userPin')
+        expect(session).toHaveProperty('expiresAt', withTxCode.body.issuanceSession.expiresAt)
+      }
+
+      const byDefault = await offer({})
+      expect(byDefault.statusCode).toBe(200)
+      expect(byDefault.body.issuanceSession).not.toHaveProperty('userPin')
+      expect(lifetimeOf(byDefault.body.issuanceSession)).toBeCloseTo(180, 0)
+
+      for (const offerExpiresInSeconds of [29, 86401, 60.5]) {
+        expect((await offer({ offerExpiresInSeconds })).statusCode).toBe(400)
+      }
+    },
+  )
 
   test.skipIf(!didMethods.includes('key'))('create offer with `key` DID method', async () => {
     await testCredentialIssuance('key', 'EdDSA')

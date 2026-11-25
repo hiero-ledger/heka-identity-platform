@@ -12,6 +12,7 @@ import {
   ConnectionStateChangeDto,
   CredentialStateChangeDto,
   NotificationDto,
+  notificationLogContext,
   OpenidIssueStateChangeDto,
   OpenidVerifierStateChangeDto,
   ProofStateChangeDto,
@@ -71,18 +72,20 @@ export class NotificationEventsListener implements OnModuleInit, OnModuleDestroy
 
   @CreateRequestContext()
   private async sendEventNotification(event: NotificationEvent) {
-    const logger = this.logger.child('sendEventNotification', { event })
-    logger.trace('>')
-
     const tenantId = event.metadata.contextCorrelationId.replace('tenant-', '')
+    const notificationDto = this.getEventNotificationDto(event)
+
+    const logger = this.logger.child('sendEventNotification', {
+      tenantId,
+      notification: notificationLogContext(notificationDto),
+    })
+    logger.trace('>')
 
     const wallet = await this.em.findOne(Wallet, { tenantId }, { populate: ['users'] })
     if (!wallet) {
       logger.warn(`Wallet entity not found for tenant id: ${tenantId}`)
       return
     }
-
-    const notificationDto = this.getEventNotificationDto(event)
 
     await Promise.all(
       wallet.users.getItems().map((user) => this.notificationService.trySendNotification(user, notificationDto)),

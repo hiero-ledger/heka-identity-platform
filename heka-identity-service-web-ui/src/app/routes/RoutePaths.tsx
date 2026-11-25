@@ -1,7 +1,9 @@
 export enum ROUTES {
   MAIN = '/',
   PROFILE = '/profile',
+  GITHUB_CALLBACK = '/github/callback',
   SIGN_IN = '/sign-in',
+  PRESENT = '/present',
   DEMO = '/demo',
   AGE_DEMO = '/age-demo',
   ISSUE_CREDENTIAL = '/issue-credential/*',
@@ -20,6 +22,10 @@ export enum ROUTES {
   ISSUE_CREDENTIAL_FROM_TEMPLATE = '/issue-credential/from-template',
   ISSUE_TEMPLATE = '/issue-credential/template',
   VERIFY_TEMPLATE = '/verify-credential/template',
+
+  // ── Contributor onboarding ─────────────────────────────────────────────
+  CONTRIBUTOR = '/contributor',
+  CONTRIBUTOR_ONBOARDING = '/contributor/onboarding',
 }
 
 export default ROUTES;

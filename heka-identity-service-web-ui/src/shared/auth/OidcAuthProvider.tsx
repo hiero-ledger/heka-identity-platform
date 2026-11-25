@@ -11,11 +11,19 @@ import { providerNames, ProviderProfile, resolveProfile } from './profiles';
 import { AuthSession, AuthSessionContext } from './session';
 import { registerSessionBridge } from './sessionBridge';
 
+/**
+ * The OIDC `redirect_uri` path. The provider processes a `code`/`state` callback only here:
+ * other OAuth callbacks to this app (GitHub's at `/github/callback`) carry the same parameters,
+ * and handling them as its own fails on the unknown state before the stored session is loaded,
+ * so the user would appear signed out.
+ */
+const OIDC_REDIRECT_PATH = '/';
+
 const buildUserManager = (config: AuthConfig, profile: ProviderProfile) =>
   new UserManager({
     authority: config.authority as string,
     client_id: config.clientId as string,
-    redirect_uri: `${window.location.origin}/`,
+    redirect_uri: `${window.location.origin}${OIDC_REDIRECT_PATH}`,
     post_logout_redirect_uri: `${window.location.origin}/`,
     response_type: 'code',
     scope: config.scope ?? profile.defaultScope,
@@ -160,6 +168,7 @@ export const OidcAuthProvider = ({ children }: PropsWithChildren) => {
     <AuthProvider
       userManager={userManager}
       onSigninCallback={onSigninCallback}
+      skipSigninCallback={window.location.pathname !== OIDC_REDIRECT_PATH}
     >
       <SessionBridge
         profile={profile}

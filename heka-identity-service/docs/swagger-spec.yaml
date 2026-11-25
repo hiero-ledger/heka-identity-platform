@@ -2158,6 +2158,226 @@ paths:
         demo pages
       tags:
         - Demo
+  /v2/contributor-onboarding/status:
+    get:
+      description: "Optional feature: available when CONTRIBUTOR_VERIFICATION_ENABLED=true."
+      operationId: ContributorOnboardingController_getStatus_v2
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContributorOnboardingStatusDto"
+        "401": &a52
+          description: Missing or invalid Heka token.
+        "429": &a53
+          description: More than 10 requests per minute to this route by this user.
+      security: &a54
+        - bearer: []
+      summary: Get GitHub link and GPG verification status for the logged-in user.
+      tags: &a55
+        - Contributor Onboarding
+  /v2/contributor-onboarding/github/link/start:
+    post:
+      description: "Optional feature: available when
+        CONTRIBUTOR_VERIFICATION_ENABLED=true. Returns the GitHub authorization
+        URL; this does not create a session."
+      operationId: ContributorOnboardingController_startGithubLink_v2
+      parameters: []
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GithubLinkStartResponseDto"
+        "401": *a52
+        "429": *a53
+      security: *a54
+      summary: Start linking a GitHub account to the logged-in Heka user.
+      tags: *a55
+  /v2/contributor-onboarding/github/link/callback:
+    post:
+      description: "Optional feature: available when
+        CONTRIBUTOR_VERIFICATION_ENABLED=true. The existing Heka session is
+        unchanged."
+      operationId: ContributorOnboardingController_githubLinkCallback_v2
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GithubLinkCallbackDto"
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GithubLinkCallbackResponseDto"
+        "400":
+          description: The state is invalid, expired, already used, or was started by
+            another user.
+        "401": *a52
+        "409":
+          description: The GitHub account is linked to another Heka user, or a concurrent
+            request linked a GitHub account to this user.
+        "429": *a53
+        "502":
+          description: GitHub rejected the code or returned no usable identity.
+      security: *a54
+      summary: Finish linking the GitHub account for the logged-in Heka user.
+      tags: *a55
+  /v2/contributor-onboarding/github:
+    delete:
+      description: "Optional feature: available when
+        CONTRIBUTOR_VERIFICATION_ENABLED=true. Deletes the binding with its GPG
+        verification, pending link attempts and open GPG challenges. Credentials
+        already issued stay valid until they expire, unless an operator of the
+        issuer organization revokes them from its issued credentials."
+      operationId: ContributorOnboardingController_unlinkGithub_v2
+      parameters: []
+      responses:
+        "204":
+          description: Unlinked, or nothing was linked.
+        "401": *a52
+        "429": *a53
+      security: *a54
+      summary: Unlink the GitHub account of the logged-in Heka user.
+      tags: *a55
+  /v2/gpg-challenge/request:
+    post:
+      description: 'Optional feature: available when
+        CONTRIBUTOR_VERIFICATION_ENABLED=true. Returns a single-use nonce that
+        expires after 5 minutes. Sign it with `echo -n "<nonce>" | gpg
+        --clearsign --armor` and submit the armored output to POST
+        /v2/gpg-challenge/verify.'
+      operationId: GpgChallengeController_requestChallenge_v2
+      parameters: []
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GpgChallengeResponseDto"
+        "401": &a56
+          description: Missing or invalid Heka token.
+        "409":
+          description: No GitHub account is linked yet.
+        "429":
+          description: More than 10 requests per minute to this route by this user.
+      security: &a57
+        - bearer: []
+      summary: Request a GPG ownership challenge for the linked GitHub account
+      tags: &a58
+        - GPG Challenge
+  /v2/gpg-challenge/verify:
+    post:
+      description: "Optional feature: available when
+        CONTRIBUTOR_VERIFICATION_ENABLED=true. Verifies a cleartext signature
+        against the public key at https://github.com/<username>.gpg. The
+        challenge is burned on first use. The signature must be made within the
+        challenge window, by a key that is valid now."
+      operationId: GpgChallengeController_verifySignature_v2
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifySignatureDto"
+      responses:
+        "200":
+          description: Verification finished. Read the `verified` field.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifySignatureResponseDto"
+        "400":
+          description: Replay, expired nonce, missing key, malformed signature, a
+            signature dated outside the challenge window, or an expired or
+            revoked signing key.
+        "401": *a56
+        "404":
+          description: Challenge id not found for this user.
+        "429":
+          description: More than 10 requests per minute to this route by this user, or the
+            GitHub rate limit was reached.
+        "503":
+          description: GitHub is unreachable.
+      security: *a57
+      summary: Submit a GPG signature for verification
+      tags: *a58
+  /v2/contributor-credential/offer:
+    post:
+      description: "Optional feature: available when
+        CONTRIBUTOR_VERIFICATION_ENABLED=true. Generates an OID4VCI SD-JWT VC
+        credential offer for the authenticated user after they have linked
+        GitHub and completed GPG verification. The issuer organization
+        (CONTRIBUTOR_ISSUER_ORG_ID) signs it with CONTRIBUTOR_ISSUER_DID, and
+        the credential appears in that organization's issued credentials, where
+        operators can revoke it. Returns an openid-credential-offer:// URI, the
+        transaction code the wallet asks for, the expiry of the offer and its
+        issuance session id."
+      operationId: ContributorCredentialController_createOffer_v2
+      parameters: []
+      responses:
+        "201":
+          description: Credential offer created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContributorCredentialOfferResponseDto"
+        "401": &a59
+          description: Missing or invalid Heka token.
+        "404":
+          description: No contributor binding for this user.
+        "409":
+          description: GitHub is linked, but GPG verification is not complete.
+        "429":
+          description: More than 10 requests per minute to this route by this user.
+        "503":
+          description: The contributor credential issuer is not set up; the message says
+            what is missing.
+      security: &a60
+        - bearer: []
+      summary: Issue a GitHub Contributor Credential offer
+      tags: &a61
+        - Contributor Credential
+  /v2/contributor-credential/offer/{issuanceSessionId}:
+    get:
+      description: "Optional feature: available when
+        CONTRIBUTOR_VERIFICATION_ENABLED=true. The state of an offer the caller
+        requested: Completed once the wallet has received the credential, Error
+        when issuance failed. After expiresAt the offer can no longer be
+        redeemed."
+      operationId: ContributorCredentialController_getOfferState_v2
+      parameters:
+        - name: issuanceSessionId
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContributorCredentialOfferStateDto"
+        "401": *a59
+        "404":
+          description: The caller requested no offer with this id, or its issuance session
+            was deleted.
+        "429":
+          description: More than 60 requests per minute to this route by this user.
+      security: *a60
+      summary: Get the state of a GitHub Contributor Credential offer
+      tags: *a61
 info:
   title: Heka Identity Service
   description: Heka Identity Service API
@@ -3947,6 +4167,12 @@ components:
           enum:
             - v1.draft11-15
             - v1.draft15
+        offerExpiresInSeconds:
+          type: integer
+          description: "How long the offer can be redeemed, in seconds. Default: 180."
+          minimum: 30
+          maximum: 86400
+          example: 600
         credentials:
           type: array
           items:
@@ -3979,6 +4205,9 @@ components:
         preAuthorizedCode:
           type: string
         userPin:
+          type: string
+        expiresAt:
+          format: date-time
           type: string
         issuanceMetadata:
           type: object
@@ -4428,5 +4657,246 @@ components:
         - access_token
         - token_type
         - expires_in
+    GithubIdentityDto:
+      type: object
+      properties:
+        accountId:
+          type: string
+          description: GitHub numeric account id, as a string
+          example: "583231"
+        username:
+          type: string
+          description: GitHub login at link time
+          example: octocat
+      required:
+        - accountId
+        - username
+    ContributorBindingDto:
+      type: object
+      properties:
+        githubAccountId:
+          type: string
+          example: "583231"
+        githubUsername:
+          type: string
+          example: octocat
+        walletId:
+          type: string
+          description: Wallet of the last link or verification
+        gpgFingerprint:
+          type: string
+          description: Fingerprint of the verified GPG key (uppercase hex)
+        verifiedAt:
+          type: string
+          description: ISO-8601 time of the GPG verification
+        linkedAt:
+          type: string
+          description: ISO-8601 time of the first link
+        updatedAt:
+          type: string
+          description: ISO-8601 time of the last change
+      required:
+        - githubAccountId
+        - githubUsername
+        - walletId
+        - linkedAt
+        - updatedAt
+    ContributorAuditEventDto:
+      type: object
+      properties:
+        id:
+          type: string
+        eventType:
+          type: string
+          enum:
+            - ChallengeRequested
+            - ProofAccepted
+            - ProofRejected
+            - BindingUpdated
+            - BindingRemoved
+        githubAccountId:
+          type: string
+        githubUsername:
+          type: string
+        walletId:
+          type: string
+        gpgFingerprint:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          description: ISO-8601 time of the event
+      required:
+        - id
+        - eventType
+        - createdAt
+    ContributorOnboardingStatusDto:
+      type: object
+      properties:
+        github:
+          $ref: "#/components/schemas/GithubIdentityDto"
+        binding:
+          $ref: "#/components/schemas/ContributorBindingDto"
+        verificationStatus:
+          type: string
+          enum:
+            - NotConnected
+            - GitHubConnected
+            - GpgVerified
+        auditEvents:
+          description: The 20 most recent events, newest first
+          type: array
+          items:
+            $ref: "#/components/schemas/ContributorAuditEventDto"
+      required:
+        - verificationStatus
+        - auditEvents
+    GithubLinkStartResponseDto:
+      type: object
+      properties:
+        authorizationUrl:
+          type: string
+          description: GitHub authorization URL with a single-use state and a PKCE
+            challenge. The server keeps only the state hash and the verifier.
+      required:
+        - authorizationUrl
+    GithubLinkCallbackDto:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Authorization code returned by GitHub.
+        state:
+          type: string
+          description: State token from the authorization URL. The server stores only its
+            hash.
+      required:
+        - code
+        - state
+    GithubLinkCallbackResponseDto:
+      type: object
+      properties:
+        linked:
+          type: boolean
+          enum:
+            - true
+        githubUsername:
+          type: string
+          description: GitHub login of the linked account
+          example: octocat
+      required:
+        - linked
+        - githubUsername
+    GpgChallengeResponseDto:
+      type: object
+      properties:
+        challengeId:
+          type: string
+          description: Id to submit with the signature
+          example: d290f1ee-6c54-4b01-90e6-d701748f0851
+        nonce:
+          type: string
+          description: 64-character hex nonce to clear-sign
+        expiresAt:
+          format: date-time
+          type: string
+          description: The nonce is single-use and expires 5 minutes after it is issued
+        githubUsername:
+          type: string
+          description: GitHub login whose published key must have made the signature
+          example: octocat
+        githubAccountId:
+          type: string
+          example: "583231"
+      required:
+        - challengeId
+        - nonce
+        - expiresAt
+        - githubUsername
+        - githubAccountId
+    VerifySignatureDto:
+      type: object
+      properties:
+        challengeId:
+          type: string
+          description: Id of the active challenge, as returned by POST
+            /v2/gpg-challenge/request.
+          example: d290f1ee-6c54-4b01-90e6-d701748f0851
+        signature:
+          type: string
+          description: PGP cleartext-signed message produced by `echo -n "<nonce>" | gpg
+            --clearsign --armor`, including the BEGIN/END headers.
+      required:
+        - challengeId
+        - signature
+    VerifySignatureResponseDto:
+      type: object
+      properties:
+        verified:
+          type: boolean
+          description: Whether the signature proved ownership of a key published for the
+            linked account
+        gpgFingerprint:
+          type: string
+          description: Fingerprint of the verified key (uppercase hex), when verified
+        message:
+          type: string
+      required:
+        - verified
+        - message
+    ContributorCredentialOfferResponseDto:
+      type: object
+      properties:
+        credentialOffer:
+          type: string
+          description: Credential offer URI (openid-credential-offer://) for the wallet
+          example: openid-credential-offer://?credential_offer_uri=https://...
+        txCode:
+          type: string
+          description: Transaction code the wallet must present with the pre-authorized
+            offer
+          example: "01234567"
+        expiresAt:
+          type: string
+          description: ISO-8601 time when the offer can no longer be redeemed
+          example: 2026-10-30T12:10:00.000Z
+        issuanceSessionId:
+          type: string
+          description: The offer's issuance session, for GET
+            /v2/contributor-credential/offer/{issuanceSessionId}
+          example: 6e7dce29-9d6a-4a13-a820-6a19b2ea9945
+      required:
+        - credentialOffer
+        - txCode
+        - expiresAt
+        - issuanceSessionId
+    ContributorCredentialOfferStateDto:
+      type: object
+      properties:
+        state:
+          type: string
+          enum:
+            - OfferCreated
+            - OfferUriRetrieved
+            - AuthorizationInitiated
+            - AuthorizationGranted
+            - AccessTokenRequested
+            - AccessTokenCreated
+            - CredentialRequestReceived
+            - CredentialsPartiallyIssued
+            - Completed
+            - Error
+          description: "State of the issuance session: Completed once the wallet has
+            received the credential"
+          example: OfferCreated
+        expiresAt:
+          type: string
+          description: ISO-8601 time when the offer can no longer be redeemed
+          example: 2026-10-30T12:10:00.000Z
+      required:
+        - state
+        - expiresAt
 security:
   - bearer: []
